@@ -8,7 +8,7 @@
 updates:
   - directory: /
     # ignore:
-    #   # Managed by cisagov/skeleton-generic
+    #   # Managed by cisagov/ASM-Dashboard
     #   - dependency-name: actions/cache
     #   - dependency-name: actions/checkout
     #   - dependency-name: actions/setup-go
