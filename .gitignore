@@ -1,14 +1,7 @@
-<<<<<<< HEAD
 # This file specifies intentionally untracked files that Git should ignore.
 # Files already tracked by Git are not affected.
 # See: https://git-scm.com/docs/gitignore
 
-node_modules/
-backend/node_modules
-.env
-tmp/*
-.DS_STORE
-*/.DS_STORE
 
 # terraform
 .terraform
@@ -18,20 +11,25 @@ plan
 
 # dependencies
 node_modules
+backend/node_modules
+docs/node_modules
+frontend/node_modules
 frontend/.pnp
 frontend/.pnp.js
-backend/node_modules
 
 # testing
-frontend/coverage
 backend/coverage
+docs/coverage
+frontend/coverage
 
 # production
 frontend/build
 
 # misc
-.DS_Store
 .env
+tmp/*
+.DS_STORE
+*/.DS_STORE
 .idea
 
 npm-debug.log*
