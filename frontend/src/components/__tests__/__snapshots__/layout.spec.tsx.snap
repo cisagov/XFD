@@ -1,0 +1,108 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Layout component matches snapshot 1`] = `
+<DocumentFragment>
+  <div
+    class="MuiScopedCssBaseline-root Layout-overrides css-iv8i0z-MuiScopedCssBaseline-root"
+  >
+    <div
+      class="Layout-root"
+    >
+      <div>
+        GOV_BANNER
+      </div>
+      <div>
+        HEADER
+      </div>
+      <div
+        class="Layout-content"
+      />
+      <div
+        class="css-1ycjho2"
+      >
+        <div
+          class="Footer-footerBox MuiBox-root css-0"
+        >
+          <div
+            class="MuiGrid-root MuiGrid-container Footer-footerContainer css-11lq3yg-MuiGrid-root"
+          >
+            <div
+              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerLogo css-6vomyv-MuiGrid-root"
+            >
+              <a
+                class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways css-smdm7r-MuiTypography-root-MuiLink-root"
+                href="/"
+              >
+                <img
+                  alt="Crossfeed Icon Navigate Home"
+                  src="crossfeed.svg"
+                />
+              </a>
+            </div>
+            <div
+              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+            >
+              <a
+                class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
+                href="/"
+              >
+                Home
+              </a>
+            </div>
+            <div
+              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+            >
+              <p>
+                <a
+                  class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
+                  href="https://docs.crossfeed.cyber.dhs.gov/"
+                  target="_blank"
+                >
+                  Documentation
+                </a>
+              </p>
+            </div>
+            <div
+              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+            >
+              <p>
+                <a
+                  class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
+                  href="https://www.cisa.gov"
+                  target="_blank"
+                >
+                  CISA Homepage
+                </a>
+              </p>
+            </div>
+            <div
+              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+            >
+              <p>
+                <a
+                  class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
+                  href="mailto:vulnerability@cisa.dhs.gov"
+                >
+                  Contact Us
+                </a>
+              </p>
+            </div>
+            <div
+              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+            >
+              <p>
+                <a
+                  class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
+                  href="/"
+                >
+                  Logout
+                </a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;

@@ -1,0 +1,24 @@
+# This file is built with Docker context in the main directory (not ./docs)
+# so that ./backend is accessible.
+
+FROM node:18-alpine3.17
+USER root
+
+WORKDIR /app/docs
+
+RUN apk update && apk upgrade && apk add --update --no-cache build-base python3 vips-dev autoconf automake libtool make tiff jpeg zlib zlib-dev pkgconf nasm file gcc musl-dev
+
+COPY ./docs/package* ./
+
+RUN npm install -g npm@9
+
+RUN npm ci
+
+# Generate swagger definitions
+COPY ./backend ../backend
+COPY ./docs .
+
+# Configure port used by Gatsby
+ENV INTERNAL_STATUS_PORT=44475
+
+CMD npm run codegen; npm run develop -- -H 0.0.0.0 --port 4000

@@ -1,0 +1,116 @@
+/*
+  These are necessary for the image and font urls referenced in the source
+  files to resolve correctly.
+*/
+/* styles.scss */
+
+// 1. Load USWDS settings
+// @forward "../../node_modules/uswds/dist/scss/uswds.scss";
+
+// 2. Load USWDS source code
+// @forward "../../node_modules/uswds/src";
+
+// 3. Load your project's custom Sass
+//@forward "project-custom.scss";
+
+// @import '~@trussworks/react-uswds/lib/index.css';
+
+$theme-font-path: '~uswds/fonts';
+$theme-image-path: '~uswds/img';
+$theme-show-notifications: false;
+
+// Import required global packages
+@import '~uswds/scss/uswds';
+
+/*
+  The url for the hero image in the source file is not currently prefixed by
+  the $theme-image-path above.
+*/
+
+$theme-hero-image: '../images/crossfeed-search-result.png';
+
+// Your custom SASS/CSS goes here
+@media screen and (min-width: 640px) {
+  .tablet\:width-1\/3 {
+    width: 33%;
+  }
+  .tablet\:float-left {
+    float: left;
+  }
+}
+
+@media screen and (min-width: 640px) {
+  .paginate-link {
+    display: initial;
+  }
+  .paginate-button {
+    display: none;
+  }
+}
+
+@media screen and (max-width: 640px) {
+  .paginate-link {
+    display: none;
+  }
+  .paginate-button {
+    display: block;
+  }
+}
+
+// Icons on front page
+.icon-circle-container {
+  position: relative;
+  
+  svg {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-60%, -60%);
+  }
+}
+
+// Code highlighting
+code {
+  font-size: 75% !important;
+}
+.gatsby-highlight > pre > code {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+code.language-text {
+  word-break: break-all;
+}
+
+// Sidenav for documentation pages
+@media only screen and (min-width: 1024px) {
+  .usa-layout-docs-sidenav {
+    position: sticky;
+    top: 0;
+    width: auto;
+    flex-basis: 25%;
+    align-self: start;
+  }
+}
+
+// API Reference
+.swagger-ui {
+  // Hide title 
+  div.info {
+    display: none;
+  }
+  .wrapper {
+    padding: 0;
+  }
+  h4.opblock-tag {
+    padding: 5px;
+    padding-left: 0;
+    font-size: initial;
+  }
+  .opblock-summary {
+    padding: 0 !important;
+    border: none;
+    .opblock-summary-path {
+      // font-size: initial;
+    }
+  }
+}

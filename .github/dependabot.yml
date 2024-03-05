@@ -1,10 +1,5 @@
----
 
-# Any ignore directives should be uncommented in downstream projects to disable
-# Dependabot updates for the given dependency. Downstream projects will get
-# these updates when the pull request(s) in the appropriate skeleton are merged
-# and Lineage processes these changes.
-
+version: 2
 updates:
   - directory: /
     # ignore:
@@ -22,14 +17,50 @@ updates:
     package-ecosystem: github-actions
     schedule:
       interval: weekly
-
-  - directory: /
-    package-ecosystem: pip
-    schedule:
-      interval: weekly
-
   - directory: /
     package-ecosystem: terraform
     schedule:
       interval: weekly
-version: 2
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch","version-update:semver-minor"]
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch","version-update:semver-minor"]
+  - package-ecosystem: "npm"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch","version-update:semver-minor"]
+  - package-ecosystem: "pip"
+    directory: "/backend/worker"
+    schedule:
+      interval: "weekly"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch","version-update:semver-minor"]
+  - package-ecosystem: 'docker'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch","version-update:semver-minor"]
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch","version-update:semver-minor"]
+
