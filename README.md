@@ -14,18 +14,17 @@ details.
 [![serverless](http://public.serverless.com/badges/v3.svg)](http://www.serverless.com)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://github.com/prettier/prettier)
 
-# Crossfeed
+# XFD
 
-Crossfeed is a tool that continuously enumerates and monitors an organization's public-facing attack surface in order to discover assets and flag potential security flaws. By operating in either passive or active scanning modes, Crossfeed collects data from a variety of open source tools and data feeds to provide actionable information about organization assets. Crossfeed is offered as a self-service portal and allows customers to view reports and customize scans performed.
+XFD is a tool that continuously enumerates and monitors an organization's public-facing attack surface in order to discover assets and flag potential security flaws. By operating in either passive or active scanning modes, XFD collects data from a variety of open source tools and data feeds to provide actionable information about organization assets. XFD is offered as a self-service portal and allows customers to view reports and customize scans performed.
 
-Crossfeed is a collaboration between the [Cybersecurity and Infrastructure Security Agency](https://www.cisa.gov/) and the [Defense Digital Service](https://dds.mil/).
+XFD is a collaboration between the [Cybersecurity and Infrastructure Security Agency](https://www.cisa.gov/) and the [Defense Digital Service](https://dds.mil/).
 
 ## Documentation
 
-See [https://docs.crossfeed.cyber.dhs.gov](https://docs.crossfeed.cyber.dhs.gov) for documentation on both how to use Crossfeed and how to contribute to it.
+See [https://docs.crossfeed.cyber.dhs.gov](https://docs.crossfeed.cyber.dhs.gov) for documentation on both how to use XFD and how to contribute to it.
 
 ## Public domain
->>>>>>> crossfeed/master
 
 This project is in the worldwide [public domain](LICENSE).
 
