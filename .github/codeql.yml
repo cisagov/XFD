@@ -1,3 +1,4 @@
+---
 query-filters:
   - exclude:
       id: js/unused-local-variable
