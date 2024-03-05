@@ -1,4 +1,4 @@
-# Quick ReadMe for PE!!!
+# Quick README for PE
 
 The scripts in this directory are run by the P&E team only.
 

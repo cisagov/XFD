@@ -44,8 +44,8 @@ Once you invite a user, they will receive an invitation email with instructions 
 
 Crossfeed stores a list of **root domains** for each organization. Each root domain and all its subdomains will be scanned by Crossfeed. For example:
 
-- A root domain of **cyber.dhs.gov** will scan cyber.dhs.gov, as well as other subdomains such as www.crossfeed.cyber.dhs.gov and staging.crossfeed.cyber.dhs.gov.
-- A root domain of **cisa.gov** will scan cisa.gov as well as all subdomains, including www.cisa.gov and presidentscup.cisa.gov.
+- A root domain of **cyber.dhs.gov** will scan cyber.dhs.gov, as well as other subdomains such as crossfeed.cyber.dhs.gov and staging.crossfeed.cyber.dhs.gov.
+- A root domain of **cisa.gov** will scan cisa.gov as well as all subdomains, including <span>www.</span>cisa.gov and presidentscup.cisa.gov.
 
 To view which root domains are assigned to your organization, go to My Account -> Manage Organizations and select your organization. Navigate to the "Settings" tab.
 

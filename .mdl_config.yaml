@@ -3,22 +3,26 @@
 # Default state for all rules
 default: true
 
+# MD001/heading-increment - Heading increment
+# Don't enforce that top level headings must increment by 1
+MD001: false
+
 # MD003/heading-style/header-style - Heading style
 MD003:
   # Enforce the ATX-closed style of header
-  style: "atx_closed"
+  style: "atx"
 
 # MD004/ul-style - Unordered list style
 MD004:
   # Enforce dashes for unordered lists
   style: "dash"
 
+# MD010/hard-tabs - Hard tabs
+# Don't enforce that hard tabs are not used
+MD010: false
+
 # MD013/line-length - Line length
-MD013:
-  # Do not enforce for code blocks
-  code_blocks: false
-  # Do not enforce for tables
-  tables: false
+MD013: false
 
 # MD024/no-duplicate-heading/no-duplicate-header - Multiple headings with the
 # same content
@@ -33,16 +37,18 @@ MD029:
   style: "one"
 
 # MD033/no-inline-html - Inline HTML
-MD033:
-  # The h1 and img elements are allowed to permit header images
-  allowed_elements:
-    - h1
-    - img
+MD033: false
+
+# MD034/no-bare-urls - Bare URLs
+MD034: false
 
 # MD035/hr-style - Horizontal rule style
 MD035:
   # Enforce dashes for horizontal rules
   style: "---"
+
+# MD041/first-line-h1 - First line in file should be a top level heading
+MD041: false
 
 # MD046/code-block-style - Code block style
 MD046:

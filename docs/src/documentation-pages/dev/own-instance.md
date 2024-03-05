@@ -25,14 +25,14 @@ You can perform these Cognito setup steps after the user pools have been created
 
 In `backend/env.yml`, set the following variables:
 
-```
+```yml
 USE_COGNITO: 1
 REACT_APP_USER_POOL_ID: us-east-1_uxiY8DOum
 ```
 
 In `frontend/stage.env` / `frontend/prod.env`, make sure the following environment variables are set:
 
-```
+```text
 REACT_APP_USE_COGNITO=1
 REACT_APP_USER_POOL_ID=us-east-1_uxiY8DOum
 REACT_APP_USER_POOL_CLIENT_ID=1qf4cii9v0t9hn1hnr54f2ao0j
@@ -109,7 +109,7 @@ and a `Signature` header to verify that Crossfeed is performing the request.
 
 To do this, you can set the `WORKER_USER_AGENT`, the `WORKER_SIGNATURE_PUBLIC_KEY`, and the `WORKER_SIGNATURE_PRIVATE_KEY` parameters in your env file:
 
-```
+```text
 WORKER_USER_AGENT="Crossfeed (Test request from Crossfeed Staging Environment, for development use only. For more information, see https://github.com/cisagov/crossfeed)"
 WORKER_SIGNATURE_PUBLIC_KEY="public key, can have newlines"
 WORKER_SIGNATURE_PRIVATE_KEY="private key, can have newlines"

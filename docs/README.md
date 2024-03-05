@@ -1,1 +1,1 @@
-Based off of https://github.com/18F/federalist-uswds-gatsby.
+Based off of [cloud-gov/pages-uswds-gatsby](https://github.com/18F/federalist-uswds-gatsby).

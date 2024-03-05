@@ -71,7 +71,7 @@ So that the webpage fields don't conflict with fields in regular parent domain r
 
 The search query is built by the [buildRequest](https://github.com/cisagov/crossfeed/blob/33fcaf4cb730974bf3d5ee61b80d13a2c675bd80/frontend/src/pages/Search/SearchProvider/buildRequest.js#L56) function on the frontend. As of now, the logic there roughly corresponds to:
 
-```
+```text
 (
   (
     (has a domain matching query) OR
