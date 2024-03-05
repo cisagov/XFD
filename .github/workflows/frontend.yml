@@ -3,14 +3,14 @@ name: Frontend Pipeline
 on:
   push:
     branches:
-      - master
+      - develop
       - production
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend.yml'
   pull_request:
     branches:
-      - master
+      - develop
       - production
     paths:
       - 'frontend/**'
@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     concurrency: 1
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3

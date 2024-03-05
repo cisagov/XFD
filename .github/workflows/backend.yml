@@ -3,14 +3,14 @@ name: Backend Pipeline
 on:
   push:
     branches:
-      - master
+      - develop
       - production
     paths:
       - 'backend/**'
       - '.github/workflows/backend.yml'
   pull_request:
     branches:
-      - master
+      - develop
       - production
     paths:
       - 'backend/**'
@@ -146,7 +146,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     concurrency: 1
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
