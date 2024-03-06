@@ -61,6 +61,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   )) {
     // Create a new organization if needed; else, create the same one.
     console.log(orgName);
+    console.log(row);
     const organization =
       (await Organization.findOne({
         name: orgName
