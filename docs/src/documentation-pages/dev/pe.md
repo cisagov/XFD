@@ -69,7 +69,9 @@ Then enter pe database password.
 Follow [this guide](https://www.postgresqltutorial.com/psql-commands/) for psql command basics.
 
 ## Populate the database with pg dump file
+
 Locate the latest postgres dump file and run:
+
 ```bash
 pg_restore -U pe -d pe "[path to sql dump file]"
 ```

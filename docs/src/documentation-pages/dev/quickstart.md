@@ -18,9 +18,9 @@ This quickstart describes the initial setup required to run an instance of Cross
    cd backend && npm run build-worker
    ```
 5. Start the entire environment from the root directory:
-      ```bash
-      npm start
-      ```
+   ```bash
+   npm start
+   ```
 6. Generate the initial DB schema and populate it with sample data:
    ```bash
    cd backend
@@ -65,6 +65,7 @@ This quickstart describes the initial setup required to run an instance of Cross
 ### Running tests
 
 To run tests, first make sure you have already started Crossfeed with `npm start` (or, at bare minimum, that the database container is running). Then run:
+
 ```bash
 cd backend
 npm test
@@ -73,6 +74,7 @@ npm test
 If snapshot tests fail, update snapshots by running `npm test -- -u`.
 
 To run tests for the subset of worker code that is written in Python, you need to run:
+
 ```bash
 pip install -r worker/requirements.txt
 pytest
@@ -83,6 +85,7 @@ To view a code coverage report (a minimum code coverage threshold is checked in 
 ### Monitoring Docker containers
 
 To see which Docker containers are running, you can run:
+
 ```bash{outputLines: 2-10}
 docker ps
 CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                            NAMES
@@ -97,6 +100,7 @@ c3ed457a71d2        postgres:latest                                       "docke
 ```
 
 You can then check the logs of a particular container by specifying a container's name with the `docker logs` command. For example:
+
 ```bash
 docker logs crossfeed_backend_1 --follow
 ```
@@ -105,6 +109,7 @@ docker logs crossfeed_backend_1 --follow
 
 To see more information about the design and development of each component of Crossfeed,
 see the following links:
+
 - [Frontend](frontend.md) for the React frontend.
 - [REST API](rest-api.md) for the REST API.
 - [Database](database.md) for the database models stored in Postgres.
@@ -121,6 +126,7 @@ The docs are based on the [federalist-uswds-gatsby](https://github.com/18F/feder
 ### Common Issues
 
 - Node Error issue occurs due to "npm install"
+
 ```bash
     npm ERR! code EBADENGINE
 	npm ERR! engine Unsupported engine
@@ -137,6 +143,7 @@ In this case install nvm for nodes 16.0.0 to 17.0.0.
 for example `nvm install 16.19.0` then check it by `node -- version` and `npm -- version`
 
 - Sometimes you may get an error in package-lock.json. This error is due to the package downloading the docker build. Remove the package-lock.json file and reinstall it using `npm install`.
+
 ```bash
    rm package-lock.json
    npm install
@@ -145,6 +152,7 @@ for example `nvm install 16.19.0` then check it by `node -- version` and `npm --
 If successful then continue to step 3.
 
 - Permission Issue / Permissions not permitted / Operation not permitted / Module build Failed
+
 ```bash
    Failed to compile.
 	crossfeed-frontend-1  |
