@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`search_sync should update a domain if a domain has changed 1`] = `
+Array [
+  "id",
+  "createdAt",
+  "updatedAt",
+  "syncedAt",
+  "ip",
+  "fromRootDomain",
+  "subdomainSource",
+  "ipOnly",
+  "reverseName",
+  "name",
+  "screenshot",
+  "country",
+  "asn",
+  "cloudHosted",
+  "ssl",
+  "censysCertificatesResults",
+  "trustymailResults",
+  "services",
+  "organization",
+  "vulnerabilities",
+]
+`;

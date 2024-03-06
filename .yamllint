@@ -12,12 +12,12 @@ rules:
   # default. There are many scenarios where the inline mapping may be a key,
   # hash, or other long value that would exceed the line length but cannot
   # reasonably be broken across lines.
-  line-length:
-    # This rule implies the allow-non-breakable-words rule
-    allow-non-breakable-inline-mappings: true
-    # Allows a 10% overage from the default limit of 80
-    max: 88
+  line-length: disable
 
   # yamllint doesn't like when we use yes and no for true and false,
   # but that's pretty standard in Ansible.
   truthy: disable
+
+  # yamlint doesn't like when we use spaces inside braces
+  # but that's pretty standard.
+  braces: disable

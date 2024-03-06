@@ -1,4 +1,4 @@
-# Welcome #
+# Welcome
 
 We're so glad you're thinking about contributing to this open source
 project!  If you're unsure or afraid of anything, just ask or submit
@@ -11,7 +11,7 @@ Before contributing, we encourage you to read our CONTRIBUTING policy
 (you are here), our [LICENSE](LICENSE), and our [README](README.md),
 all of which should be in this repository.
 
-## Issues ##
+## Issues
 
 If you want to report a bug or request a new feature, the most direct
 method is to [create an
@@ -22,7 +22,7 @@ already been reported.  If it has then you might want to add a comment
 to the existing issue.  If it hasn't then feel free to create a new
 one.
 
-## Pull requests ##
+## Pull requests
 
 If you choose to [submit a pull
 request](https://github.com/cisagov/ASM-Dashboard/pulls), you will
@@ -38,7 +38,7 @@ regular contributor, then you will want to set up
 do that, the CI checks will run locally before you even write your
 commit message.  This speeds up your development cycle considerably.
 
-### Setting up pre-commit ###
+### Setting up pre-commit
 
 There are a few ways to do this, but we prefer to use
 [`pyenv`](https://github.com/pyenv/pyenv) and
@@ -57,7 +57,7 @@ entire environment configuration process.
 Otherwise, follow the steps below to manually configure your
 environment.
 
-#### Installing and using `pyenv` and `pyenv-virtualenv` ####
+#### Installing and using `pyenv` and `pyenv-virtualenv`
 
 On the Mac, we recommend installing [brew](https://brew.sh/).  Then
 installation is as simple as `brew install pyenv pyenv-virtualenv` and
@@ -128,7 +128,7 @@ the many things that `pyenv` can do.  See
 additional capabilities that pyenv-virtualenv adds to the `pyenv`
 command.
 
-#### Creating the Python virtual environment ####
+#### Creating the Python virtual environment
 
 Once `pyenv` and `pyenv-virtualenv` are installed on your system, you
 can create and configure the Python virtual environment with these
@@ -141,7 +141,7 @@ pyenv local ASM-Dashboard
 pip install --requirement requirements-dev.txt
 ```
 
-#### Installing the pre-commit hook ####
+#### Installing the pre-commit hook
 
 Now setting up pre-commit is as simple as:
 
@@ -153,7 +153,7 @@ At this point the pre-commit checks will run against any files that
 you attempt to commit.  If you want to run the checks against the
 entire repo, just execute `pre-commit run --all-files`.
 
-## Public domain ##
+## Public domain
 
 This project is in the public domain within the United States, and
 copyright and related rights in the work worldwide are waived through
