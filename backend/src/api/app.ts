@@ -18,6 +18,7 @@ import * as stats from './stats';
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
+import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
 
@@ -56,6 +57,13 @@ const handlerToExpress = (handler) => async (req, res) => {
 };
 
 const app = express();
+
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 5000
+  })
+); // limit 1000 requests per 15 minutes
 
 app.use(express.json({ strict: false }));
 
