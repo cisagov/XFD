@@ -103,9 +103,7 @@ export const handler: Handler = async (event) => {
         `Password reset for user ${user.id} due to 45 days of inactivity.`
       );
     } catch (passwordError) {
-      console.error(
-        `Error resetting password for user ${user.id}: ${passwordError}`
-      );
+      console.error(`Error resetting password.`);
     }
   }
 
