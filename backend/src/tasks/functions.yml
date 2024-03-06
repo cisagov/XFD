@@ -1,3 +1,4 @@
+---
 cloudwatchToS3:
   handler: src/tasks/cloudwatchToS3.handler
   timeout: 900
@@ -33,10 +34,10 @@ checkUserExpiration:
   timeout: 300
   handler: src/tasks/checkUserExpiration.handler
   events:
-    - schedule: cron(0 0 * * ? *) # Runs every day at midnight
+    - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
 scanExecution:
   handler: src/tasks/scanExecution.handler
-  timeout: 300 # 5 minutes
+  timeout: 300  # 5 minutes
   environment:
     SQS_QUEUE_NAME: ${self:provider.stage}-worker-control-queue
   events:

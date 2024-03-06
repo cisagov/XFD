@@ -1,8 +1,9 @@
+---
 name: Check for Vulnerabilities
 
 on:
   schedule:
-    - cron: '0 1 * * *' # every day at 1 AM
+    - cron: '0 1 * * *'  # every day at 1 AM
   workflow_dispatch:
   push:
 

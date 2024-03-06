@@ -1,3 +1,4 @@
+---
 name: Frontend Pipeline
 
 on:
@@ -64,7 +65,7 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     environment: staging
-    concurrency: 1
+    concurrency: '1'
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
     steps:
       - uses: actions/checkout@v3
@@ -94,7 +95,7 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     environment: production
-    concurrency: 1
+    concurrency: '1'
     if: github.event_name == 'push' && github.ref == 'refs/heads/production'
     steps:
       - uses: actions/checkout@v3

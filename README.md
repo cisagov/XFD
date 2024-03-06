@@ -1,8 +1,8 @@
-# XFD #
+# XFD
 
 [![GitHub Build Status](https://github.com/cisagov/ASM-Dashboard/workflows/build/badge.svg)](https://github.com/cisagov/ASM-Dashboard/actions)
 
-## Contributing ##
+## Contributing
 
 We welcome contributions!  Please see [`CONTRIBUTING.md`](CONTRIBUTING.md) for
 details.
