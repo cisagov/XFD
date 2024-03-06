@@ -1,0 +1,7 @@
+node_modules
+.build
+.serverless
+dist
+Dockerfile*
+nvd-dump
+coverage

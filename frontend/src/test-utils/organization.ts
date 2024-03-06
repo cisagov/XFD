@@ -1,0 +1,22 @@
+export const testOrganization = {
+  id: 'd7d6e913-0370-4f43-aebc-6bd727adc70e',
+  name: 'test org',
+  rootDomains: ['example.com'],
+  ipBlocks: [],
+  userRoles: [],
+  scanTasks: [],
+  isPassive: false,
+  granularScans: [],
+  tags: [],
+  parent: null,
+  children: [],
+  pendingDomains: [],
+  country: 'US',
+  state: 'LA',
+  stateFips: 22,
+  stateName: 'Louisiana',
+  county: 'Calcasieu Parish',
+  countyFips: 22019,
+  acronym: 'TEST',
+  type: 'Federal'
+};

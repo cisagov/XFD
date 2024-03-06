@@ -1,0 +1,55 @@
+---
+name: Docs
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+      - 'backend/**'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+      - 'backend/**'
+      - '.github/workflows/docs.yml'
+
+defaults:
+  run:
+    working-directory: ./docs
+
+jobs:
+  deploy:
+    name: Build docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      - name: Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libvips-dev glib2.0-dev
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      # - name: Deploy to GitHub Pages
+      #   if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      #   uses: crazy-max/ghaction-github-pages@v3.0.0
+      #   with:
+      #     keep_history: false
+      #     target_branch: gh-pages
+      #     build_dir: docs/public
+      #     fqdn: docs.crossfeed.cyber.dhs.gov
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
