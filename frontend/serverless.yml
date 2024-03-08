@@ -46,7 +46,8 @@ functions:
           path: /  # this matches the base path
           method: GET
       - http:
-          path: /{any+}  # this matches any path, the token 'any' doesn't mean anything special
+          # this matches any path, the token 'any' doesn't mean anything special
+          path: /{any+}
           method: GET
     # provisionedConcurrency: 1
   docs:

@@ -7,7 +7,8 @@ api:
         method: ANY
         cors: true
     - http:
-        path: /{any+}  # this matches any path, the token 'any' doesn't mean anything special
+        # this matches any path, the token 'any' doesn't mean anything special
+        path: /{any+}
         method: ANY
         cors: true
   # provisionedConcurrency: 1
