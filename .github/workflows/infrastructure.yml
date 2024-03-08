@@ -1,6 +1,9 @@
 ---
 name: Infrastructure Pipeline
 
+env:
+  URL: https://releases.hashicorp.com/terraform/1.0.7/terraform_1.0.7_linux_amd64.zip
+
 on:
   push:
     branches:
@@ -24,8 +27,6 @@ defaults:
 jobs:
   format:
     runs-on: ubuntu-latest
-    env:
-      URL: https://releases.hashicorp.com/terraform/1.0.7/terraform_1.0.7_linux_amd64.zip
     steps:
       - uses: actions/checkout@v3
       - name: Install Terraform
