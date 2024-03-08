@@ -135,12 +135,14 @@ repos:
     hooks:
       - id: pyupgrade
 
-  # Ansible hooks
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v6.19.0
-    hooks:
-      - id: ansible-lint
-      # files: molecule/default/playbook.yml
+#  # Ansible hooks
+# This hook takes several minutes checking .yml files outside our version control and
+# there are no ansible playbooks in this repository
+#  - repo: https://github.com/ansible/ansible-lint
+#    rev: v6.19.0
+#    hooks:
+#      - id: ansible-lint
+#        files: molecule/default/playbook.yml
 
   # Terraform hooks
   - repo: https://github.com/antonbabenko/pre-commit-terraform
@@ -155,9 +157,10 @@ repos:
     hooks:
       - id: docker-compose-check
 
-  # Packer hooks
-  - repo: https://github.com/cisagov/pre-commit-packer
-    rev: v0.0.2
-    hooks:
-      - id: packer_validate
-      - id: packer_fmt
+#  # Packer hooks
+#    This hook fails and there are no packer files in this repository
+#  - repo: https://github.com/cisagov/pre-commit-packer
+#    rev: v0.0.2
+#    hooks:
+#      - id: packer_validate
+#      - id: packer_fmt
