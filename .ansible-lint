@@ -12,6 +12,13 @@ exclude_paths:
   - .cache
   # Seems wise to ignore this too
   - .github
+  # Ignore all dependency directories and functions.yml
+  - node_modules
+  - backend/node_modules
+  - backend/src/tasks
+  - docs/node_modules
+  - frontend/node_modules
+  - frontend/scripts/node_modules
 kinds:
   # This will force our systemd specific molecule configurations to be treated
   # as plain yaml files by ansible-lint. This mirrors the default kind
