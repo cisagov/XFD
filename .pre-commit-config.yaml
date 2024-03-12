@@ -135,13 +135,6 @@ repos:
     hooks:
       - id: pyupgrade
 
-  # Ansible hooks
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v6.19.0
-    hooks:
-      - id: ansible-lint
-#        files: molecule/default/playbook.yml
-
   # Terraform hooks
   - repo: https://github.com/antonbabenko/pre-commit-terraform
     rev: v1.83.2
@@ -154,10 +147,3 @@ repos:
     rev: v3.0.1
     hooks:
       - id: docker-compose-check
-
-  # Packer hooks
-  - repo: https://github.com/cisagov/pre-commit-packer
-    rev: v0.0.2
-    hooks:
-      - id: packer_validate
-      - id: packer_fmt
