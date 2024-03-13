@@ -47,7 +47,7 @@ jobs:
       - id: setup-python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.11
+          python-version: '3.11'
       # We need the Go version and Go cache location for the actions/cache step,
       # so the Go installation must happen before that.
       - id: setup-go
@@ -56,9 +56,7 @@ jobs:
           # There is no expectation for actual Go code so we disable caching as
           # it relies on the existence of a go.sum file.
           cache: false
-          go-version: 1.20
-        env:
-          GOPATH: ${{ runner.workspace }}/go
+          go-version: '1.20'
       - name: Lookup Go cache directory
         id: go-cache
         run: echo "dir=$(go env GOCACHE)" >> $GITHUB_OUTPUT
@@ -78,15 +76,12 @@ jobs:
           path: |
             ${{ env.PIP_CACHE_DIR }}
             ${{ env.PRE_COMMIT_CACHE_DIR }}
-            ${{ env.CURL_CACHE_DIR }}
             ${{ steps.go-cache.outputs.dir }}
           key: "${{ env.BASE_CACHE_KEY }}\
             ${{ hashFiles('**/requirements-test.txt') }}-\
             ${{ hashFiles('**/requirements.txt') }}-\
             ${{ hashFiles('**/.pre-commit-config.yaml') }}"
           restore-keys: ${{ env.BASE_CACHE_KEY }}
-      - name: Setup curl cache
-        run: mkdir -p ${{ env.CURL_CACHE_DIR }}
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ steps.setup-env.outputs.terraform-version }}
