@@ -9,7 +9,7 @@ extends:
   - plugin:@typescript-eslint/eslint-recommended
 plugins: [prettier, '@typescript-eslint']
 parserOptions:
-  ecmaVersion: 2018
+  ecmaVersion: '2018'
   sourceType: module
 rules:
   prettier/prettier: error
