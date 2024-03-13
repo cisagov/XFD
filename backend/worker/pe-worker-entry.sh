@@ -16,22 +16,22 @@ fi
 # Function to retrieve a message from RabbitMQ queue
 get_rabbitmq_message() {
   curl -s -u "guest:guest" \
-       -H "content-type:application/json" \
-       -X POST "http://rabbitmq:15672/api/queues/%2F/$SERVICE_QUEUE_URL/get" \
-       --data '{"count": 1, "requeue": false, "encoding": "auto", "ackmode": "ack_requeue_false"}'
+    -H "content-type:application/json" \
+    -X POST "http://rabbitmq:15672/api/queues/%2F/$SERVICE_QUEUE_URL/get" \
+    --data '{"count": 1, "requeue": false, "encoding": "auto", "ackmode": "ack_requeue_false"}'
 }
-
 
 while true; do
   # Receive message from the Scan specific queue
   if [ "$IS_LOCAL" = true ]; then
     echo "Running local RabbitMQ logic..."
     # Call the function and capture the response
-    RESPONSE=$(get_rabbitmq_message) &&
-    echo "Response from get_rabbitmq_message: $RESPONSE" &&
-    # Extract the JSON payload from the response body
-    MESSAGE=$(echo "$RESPONSE" | jq -r '.[0].payload')
-    MESSAGE=$(echo "$MESSAGE" | sed 's/\\"/"/g')
+    RESPONSE=$(get_rabbitmq_message) \
+      && echo "Response from get_rabbitmq_message: $RESPONSE" \
+      &&
+      # Extract the JSON payload from the response body
+      MESSAGE=$(echo "$RESPONSE" | jq -r '.[0].payload')
+    MESSAGE=${MESSAGE//\\\"/\"}
     echo "MESSAGE: $MESSAGE"
 
   else
@@ -41,7 +41,7 @@ while true; do
   fi
 
   # Check if there are no more messages. If no more, then exit Fargate container
-  if [ -z "$MESSAGE" ] || [ "$MESSAGE" == "null" ];  then
+  if [ -z "$MESSAGE" ] || [ "$MESSAGE" == "null" ]; then
     echo "No more messages in the queue. Exiting."
     break
   fi
@@ -53,15 +53,15 @@ while true; do
     ORG=$(echo "$MESSAGE" | jq -r '.Messages[0].Body | fromjson | .org')
   fi
 
-  if [[ "$SERVICE_TYPE" = *"shodan"*  ]]; then
+  if [[ "$SERVICE_TYPE" = *"shodan"* ]]; then
     COMMAND="pe-source shodan --soc_med_included --org=$ORG"
-  elif [[ "$SERVICE_TYPE" = *"dnstwist"* ]]; then 
+  elif [[ "$SERVICE_TYPE" = *"dnstwist"* ]]; then
     COMMAND="pe-source dnstwist --org=$ORG"
-  elif [[ "$SERVICE_TYPE" = *"hibp"* ]]; then 
+  elif [[ "$SERVICE_TYPE" = *"hibp"* ]]; then
     COMMAND="pe-source hibp --org=$ORG"
-  elif [[ "$SERVICE_TYPE" = *"intelx"* ]]; then 
+  elif [[ "$SERVICE_TYPE" = *"intelx"* ]]; then
     COMMAND="pe-source intelx --org=$ORG --soc_med_included"
-  elif [[ "$SERVICE_TYPE" = *"cybersixgill"* ]]; then 
+  elif [[ "$SERVICE_TYPE" = *"cybersixgill"* ]]; then
     COMMAND="pe-source cybersixgill --org=$ORG --soc_med_included"
   else
     echo "Unsupported SERVICE_TYPE: $SERVICE_TYPE"
@@ -71,9 +71,8 @@ while true; do
   echo "Running $COMMAND"
 
   # Run the pe-source command
-  eval "$COMMAND" &&
-
-  cat /app/pe_reports_logging.log
+  eval "$COMMAND" \
+    && cat /app/pe_reports_logging.log
 
   # Delete the processed message from the queue
   if [ "$IS_LOCAL" = true ]; then

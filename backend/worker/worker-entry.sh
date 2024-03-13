@@ -1,3 +1,4 @@
+#!/bin/bash
 # Sets up an explicit proxy using mitmproxy.
 
 set -e
