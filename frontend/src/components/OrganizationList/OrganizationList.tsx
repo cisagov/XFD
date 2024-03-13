@@ -16,7 +16,14 @@ export const OrganizationList: React.FC<{
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const history = useHistory();
-  const getOrgsURL = `/v2/organizations/`;
+  const regionId = user?.regionId;
+  let getOrgsURL: any;
+
+  if (user?.userType == 'regionalAdmin') {
+    getOrgsURL = `/organizations/regionId/${regionId}`;
+  } else {
+    getOrgsURL = `/v2/organizations/`;
+  }
 
   const orgCols: GridColDef[] = [
     { field: 'name', headerName: 'Organization', minWidth: 100, flex: 2 },
