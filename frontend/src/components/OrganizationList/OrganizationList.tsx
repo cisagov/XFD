@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
 import { Alert, Box, Button, IconButton, Grid } from '@mui/material';
@@ -17,13 +17,16 @@ export const OrganizationList: React.FC<{
   const [dialogOpen, setDialogOpen] = useState(false);
   const history = useHistory();
   const regionId = user?.regionId;
-  let getOrgsURL: any;
 
-  if (user?.userType == 'regionalAdmin') {
-    getOrgsURL = `/organizations/regionId/${regionId}`;
-  } else {
-    getOrgsURL = `/v2/organizations/`;
-  }
+  const getOrgsUrl = () => {
+    if (user?.userType == 'regionalAdmin') {
+      return `/organizations/regionId/${regionId}`;
+    } else {
+      return `/v2/organizations/`;
+    }
+  };
+
+  const orgsUrl = getOrgsUrl() as String;
 
   const orgCols: GridColDef[] = [
     { field: 'name', headerName: 'Organization', minWidth: 100, flex: 2 },
@@ -69,7 +72,7 @@ export const OrganizationList: React.FC<{
 
   const fetchOrganizations = useCallback(async () => {
     try {
-      const rows = await apiGet<Organization[]>(getOrgsURL);
+      const rows = await apiGet<Organization[]>(orgsURL);
       // rows.forEach((obj) => {
       //   // obj.userCount = obj.userRoles.length;
       //   obj.tagNames = obj.tags.map((tag) => tag.name);
@@ -78,9 +81,9 @@ export const OrganizationList: React.FC<{
     } catch (e) {
       console.error(e);
     }
-  }, [apiGet, getOrgsURL]);
+  }, [apiGet, orgsURL]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!parent) fetchOrganizations();
     else {
       setOrganizations(parent.children);
