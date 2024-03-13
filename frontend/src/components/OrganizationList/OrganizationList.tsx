@@ -72,7 +72,7 @@ export const OrganizationList: React.FC<{
 
   const fetchOrganizations = useCallback(async () => {
     try {
-      const rows = await apiGet<Organization[]>(orgsURL);
+      const rows = await apiGet<Organization[]>(orgsUrl);
       // rows.forEach((obj) => {
       //   // obj.userCount = obj.userRoles.length;
       //   obj.tagNames = obj.tags.map((tag) => tag.name);
@@ -81,7 +81,7 @@ export const OrganizationList: React.FC<{
     } catch (e) {
       console.error(e);
     }
-  }, [apiGet, orgsURL]);
+  }, [apiGet, orgsUrl]);
 
   useEffect(() => {
     if (!parent) fetchOrganizations();
