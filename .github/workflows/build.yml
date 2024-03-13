@@ -65,7 +65,6 @@ jobs:
           BASE_CACHE_KEY: "${{ github.job }}-${{ runner.os }}-\
             py${{ steps.setup-python.outputs.python-version }}-\
             go${{ steps.setup-go.outputs.go-version }}-\
-            packer${{ steps.setup-env.outputs.packer-version }}-\
             tf${{ steps.setup-env.outputs.terraform-version }}-"
         with:
           # Note that the .terraform directory IS NOT included in the
@@ -86,41 +85,13 @@ jobs:
           restore-keys: ${{ env.BASE_CACHE_KEY }}
       - name: Setup curl cache
         run: mkdir -p ${{ env.CURL_CACHE_DIR }}
-      - name: Install Packer
-        env:
-          PACKER_VERSION: ${{ steps.setup-env.outputs.packer-version }}
-        run: |
-          PACKER_ZIP="packer_${PACKER_VERSION}_linux_amd64.zip"
-          curl --output ${{ env.CURL_CACHE_DIR }}/"${PACKER_ZIP}" \
-            --time-cond ${{ env.CURL_CACHE_DIR }}/"${PACKER_ZIP}" \
-            --location \
-            "https://releases.hashicorp.com/packer/${PACKER_VERSION}/${PACKER_ZIP}"
-          sudo unzip -d /opt/packer \
-            ${{ env.CURL_CACHE_DIR }}/"${PACKER_ZIP}"
-          sudo mv /usr/local/bin/packer /usr/local/bin/packer-default
-          sudo ln -s /opt/packer/packer /usr/local/bin/packer
       - uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: ${{ steps.setup-env.outputs.terraform-version }}
-      - name: Install go-critic
-        env:
-          PACKAGE_URL: github.com/go-critic/go-critic/cmd/gocritic
-          PACKAGE_VERSION: ${{ steps.setup-env.outputs.go-critic-version }}
-        run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
-      - name: Install gosec
-        env:
-          PACKAGE_URL: github.com/securego/gosec/v2/cmd/gosec
-          PACKAGE_VERSION: ${{ steps.setup-env.outputs.gosec-version }}
-        run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
       - name: Install shfmt
         env:
           PACKAGE_URL: mvdan.cc/sh/v3/cmd/shfmt
           PACKAGE_VERSION: ${{ steps.setup-env.outputs.shfmt-version }}
-        run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
-      - name: Install staticcheck
-        env:
-          PACKAGE_URL: honnef.co/go/tools/cmd/staticcheck
-          PACKAGE_VERSION: ${{ steps.setup-env.outputs.staticcheck-version }}
         run: go install ${PACKAGE_URL}@${PACKAGE_VERSION}
       - name: Install Terraform-docs
         env:
