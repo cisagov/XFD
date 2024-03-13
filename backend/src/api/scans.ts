@@ -49,23 +49,6 @@ interface ScanSchema {
 }
 
 export const SCAN_SCHEMA: ScanSchema = {
-  vulnSync: {
-    type: 'fargate',
-    isPassive: true,
-    global: true,
-    description: 'Pull in vulnerability data from PEs Vulnerability database',
-    cpu: '1024',
-    memory: '8192'
-  },
-  cveSync: {
-    type: 'fargate',
-    isPassive: true,
-    global: true,
-    description:
-      "Matches detected software versions to CVEs from NIST NVD and CISA's Known Exploited Vulnerabilities Catalog.",
-    cpu: '1024',
-    memory: '8192'
-  },
   testProxy: {
     type: 'fargate',
     isPassive: false,
@@ -166,8 +149,8 @@ export const SCAN_SCHEMA: ScanSchema = {
     type: 'fargate',
     isPassive: true,
     global: true,
-    cpu: '1024',
-    memory: '4096',
+    cpu: '2048',
+    memory: '16384',
     description:
       'Syncs records with Elasticsearch so that they appear in search results.'
   },

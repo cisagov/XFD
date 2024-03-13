@@ -1,10 +1,16 @@
-import { connectToDatabase, Domain, Scan } from '../models';
+import {
+  connectToDatabase,
+  Domain,
+  Organization,
+  Scan,
+  Service
+} from '../models';
 import { plainToClass } from 'class-transformer';
 import saveDomainsToDb from './helpers/saveDomainsToDb';
 import { CommandOptions } from './ecs-client';
 import { CensysCertificatesData } from '../models/generated/censysCertificates';
+import saveServicesToDb from './helpers/saveServicesToDb';
 import getAllDomains from './helpers/getAllDomains';
-import sanitizeChunkValues from './helpers/sanitizeChunkValues';
 import * as zlib from 'zlib';
 import * as readline from 'readline';
 import got from 'got';
@@ -12,6 +18,7 @@ import PQueue from 'p-queue';
 import pRetry from 'p-retry';
 import axios from 'axios';
 import getScanOrganizations from './helpers/getScanOrganizations';
+import logger from '../tools/lambda-logger';
 
 interface CommonNameToDomainsMap {
   [commonName: string]: Domain[];
@@ -35,12 +42,10 @@ const downloadPath = async (
   path: string,
   commonNameToDomainsMap: CommonNameToDomainsMap,
   i: number,
-  numFiles: number
+  numFiles: number,
+  commandOptions: CommandOptions
 ): Promise<void> => {
-  if (i >= 100) {
-    throw new Error('Invalid chunk number.');
-  }
-  console.log(`i: ${i} of ${numFiles}: starting download of url ${path}`);
+  logger.info(`i: ${i} of ${numFiles}: starting download of url ${path}`);
 
   const domains: Domain[] = [];
   const gunzip = zlib.createGunzip();
@@ -100,11 +105,11 @@ const downloadPath = async (
     readInterface.on('SIGTSTP', reject);
   });
   if (!domains.length) {
-    console.log(
+    logger.info(
       `censysCertificates - processed file ${i} of ${numFiles}: got no results`
     );
   } else {
-    console.log(
+    logger.info(
       `censysCertificates - processed file ${i} of ${numFiles}: got some results: ${domains.length} domains`
     );
   }
@@ -113,14 +118,16 @@ const downloadPath = async (
 };
 
 export const handler = async (commandOptions: CommandOptions) => {
-  const { organizationId } = commandOptions;
+  const { chunkNumber, numChunks, organizationId } = commandOptions;
 
-  const { chunkNumber, numChunks } = await sanitizeChunkValues(commandOptions);
+  if (chunkNumber === undefined || numChunks === undefined) {
+    throw new Error('Chunks not specified.');
+  }
 
   const {
     data: { results }
   } = await pRetry(() => axios.get(CENSYS_CERTIFICATES_ENDPOINT, { auth }), {
-    // Perform fewer retries on jest to make tests faster
+    // Perform less retries on jest to make tests faster
     retries: typeof jest === 'undefined' ? 5 : 2,
     randomize: true
   });
@@ -128,7 +135,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   const {
     data: { files }
   } = await pRetry(() => axios.get(results.latest.details_url, { auth }), {
-    // Perform fewer retries on jest to make tests faster
+    // Perform less retries on jest to make tests faster
     retries: typeof jest === 'undefined' ? 5 : 2,
     randomize: true
   });
@@ -155,9 +162,9 @@ export const handler = async (commandOptions: CommandOptions) => {
   const fileNames = Object.keys(files).sort();
   const jobs: Promise<void>[] = [];
 
-  let startIndex = Math.floor(((1.0 * chunkNumber!) / numChunks!) * numFiles);
+  let startIndex = Math.floor(((1.0 * chunkNumber) / numChunks) * numFiles);
   let endIndex =
-    Math.floor(((1.0 * (chunkNumber! + 1)) / numChunks!) * numFiles) - 1;
+    Math.floor(((1.0 * (chunkNumber + 1)) / numChunks) * numFiles) - 1;
 
   if (process.env.IS_LOCAL && typeof jest === 'undefined') {
     // For local testing.
@@ -193,10 +200,11 @@ export const handler = async (commandOptions: CommandOptions) => {
               files[fileName].download_path,
               commonNameToDomainsMap,
               idx,
-              numFiles
+              numFiles,
+              commandOptions
             ),
           {
-            // Perform fewer retries on jest to make tests faster
+            // Perform less retries on jest to make tests faster
             retries: typeof jest === 'undefined' ? 5 : 2,
             randomize: true
           }
@@ -204,8 +212,8 @@ export const handler = async (commandOptions: CommandOptions) => {
       )
     );
   }
-  console.log(`censysCertificates: scheduled all tasks`);
+  logger.info(`censysCertificates: scheduled all tasks`);
   await Promise.all(jobs);
 
-  console.log(`censysCertificates done`);
+  logger.info(`censysCertificates done`);
 };

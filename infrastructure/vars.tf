@@ -1,7 +1,13 @@
 variable "aws_region" {
   description = "aws_region"
   type        = string
-  default     = "us-east-1"
+  default     = "us-gov-east-1"
+}
+
+variable "aws_other_region" {
+  description = "aws_other_region"
+  type        = string
+  default     = "us-gov-west-1"
 }
 
 variable "project" {
@@ -64,126 +70,6 @@ variable "frontend_cert_arn" {
   default     = "arn:aws:acm:us-east-1:563873274798:certificate/7c6a5980-80e3-47a4-9f21-cbda44b6f34c"
 }
 
-variable "log_metric_namespace" {
-  description = "log_metric_namespace"
-  type        = string
-  default     = "LogMetrics"
-}
-
-variable "log_metric_api_error_rate" {
-  description = "log_metric_filter_api_error_rate"
-  type        = string
-  default     = "crossfeed-staging-APIErrorRate"
-}
-
-variable "log_metric_root_user" {
-  description = "log_metric_filter_root_user"
-  type        = string
-  default     = "crossfeed-staging-RootUserAccess"
-}
-
-variable "log_metric_unauthorized_api_call" {
-  description = "log_metric_filter_unauthorized_api_call"
-  type        = string
-  default     = "crossfeed-staging-UnauthorizedAPICall"
-}
-
-variable "log_metric_login_without_mfa" {
-  description = "log_metric_filter_login_without_mfa"
-  type        = string
-  default     = "crossfeed-staging-ConsoleLoginWithoutMFA"
-}
-
-variable "log_metric_iam_policy" {
-  description = "log_metric_filter_iam_policy"
-  type        = string
-  default     = "crossfeed-staging-IAMPolicyChange"
-}
-
-variable "log_metric_cloudtrail" {
-  description = "log_metric_filter_cloudtrail"
-  type        = string
-  default     = "crossfeed-staging-CloudTrailConfigurationChange"
-}
-
-variable "log_metric_login_failure" {
-  description = "log_metric_filter_login_failure"
-  type        = string
-  default     = "crossfeed-staging-ConsoleLoginFailure"
-}
-
-variable "log_metric_cmk_delete_disable" {
-  description = "log_metric_filter_cmk_delete_disable"
-  type        = string
-  default     = "crossfeed-staging-DisablingOrScheduledDeletionOfCMK"
-}
-
-variable "log_metric_s3_bucket_policy" {
-  description = "log_metric_filter_s3_bucket_policy"
-  type        = string
-  default     = "crossfeed-staging-S3BucketPolicyChange"
-}
-
-variable "log_metric_aws_config" {
-  description = "log_metric_filter_aws_config"
-  type        = string
-  default     = "crossfeed-staging-AWSConfigConfigurationChange"
-}
-
-variable "log_metric_security_group" {
-  description = "log_metric_filter_security_group"
-  type        = string
-  default     = "crossfeed-staging-SecurityGroupChange"
-}
-
-variable "log_metric_nacl" {
-  description = "log_metric_filter_nacl"
-  type        = string
-  default     = "crossfeed-staging-NACLChange"
-}
-
-variable "log_metric_network_gateway" {
-  description = "log_metric_filter_network_gateway"
-  type        = string
-  default     = "crossfeed-staging-NetworkGatewayChange"
-}
-
-variable "log_metric_route_table" {
-  description = "log_metric_filter_route_table"
-  type        = string
-  default     = "crossfeed-staging-RouteTableChange"
-}
-
-variable "log_metric_vpc" {
-  description = "log_metric_filter_vpc"
-  type        = string
-  default     = "crossfeed-staging-VPCChange"
-}
-
-variable "log_metric_ec2_shutdown" {
-  description = "log_metric_filter_ec2_shutdown"
-  type        = string
-  default     = "crossfeed-staging-EC2Shutdown"
-}
-
-variable "log_metric_db_shutdown" {
-  description = "log_metric_filter_DB_shutdown"
-  type        = string
-  default     = "crossfeed-staging-DBShutdown"
-}
-
-variable "log_metric_db_deletion" {
-  description = "log_metric_filter_db_deletion"
-  type        = string
-  default     = "crossfeed-staging-DBDeletion"
-}
-
-variable "sns_topic_alarms" {
-  description = "sns_alarm_topic_name"
-  type        = string
-  default     = "crossfeed-staging-cis-alarms"
-}
-
 variable "ssm_db_name" {
   description = "ssm_db_name"
   type        = string
@@ -213,6 +99,13 @@ variable "ssm_pe_db_password" {
   type        = string
   default     = "/crossfeed/staging/PE_DB_PASSWORD"
 }
+
+variable "ssm_crossfeed_vpc_name" {
+  description = "ssm_crossfeed_vpc_name"
+  type        = string
+  default     = "/crossfeed/staging/VPC_NAME"
+}
+
 variable "ssm_lambda_sg" {
   description = "ssm_lambda_sg"
   type        = string
@@ -321,29 +214,11 @@ variable "ssm_sixgill_client_secret" {
   default     = "/crossfeed/staging/SIXGILL_CLIENT_SECRET"
 }
 
-variable "ssm_intelx_api_key" {
-  description = "ssm_intelx_api_key"
-  type        = string
-  default     = "/crossfeed/staging/INTELX_API_KEY"
-}
-
 
 variable "ssm_lg_api_key" {
   description = "ssm_lg_api_key"
   type        = string
   default     = "/crossfeed/staging/LG_API_KEY"
-}
-
-variable "ssm_pe_api_key" {
-  description = "ssm_pe_api_key"
-  type        = string
-  default     = "/crossfeed/staging/PE_API_KEY"
-}
-
-variable "ssm_cf_api_key" {
-  description = "ssm_cf_api_key"
-  type        = string
-  default     = "/crossfeed/staging/CF_API_KEY"
 }
 
 variable "ssm_lg_workspace_name" {
@@ -352,34 +227,10 @@ variable "ssm_lg_workspace_name" {
   default     = "/crossfeed/staging/LG_WORKSPACE_NAME"
 }
 
-variable "ssm_shodan_queue_url" {
-  description = "ssm_shodan_queue_url"
+variable "ssm_https_proxy" {
+  description = "ssm_https_proxy"
   type        = string
-  default     = "/crossfeed/staging/SHODAN_QUEUE_URL"
-}
-
-variable "ssm_dnstwist_queue_url" {
-  description = "ssm_dnstwist_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/DNSTWIST_QUEUE_URL"
-}
-
-variable "ssm_hibp_queue_url" {
-  description = "ssm_hibp_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/HIBP_QUEUE_URL"
-}
-
-variable "ssm_intelx_queue_url" {
-  description = "ssm_intelx_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/INTELX_QUEUE_URL"
-}
-
-variable "ssm_cybersixgill_queue_url" {
-  description = "ssm_cybersixgill_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/CYBERSIXGILL_QUEUE_URL"
+  default     = "/crossfeed/staging/HTTPS_PROXY"
 }
 
 variable "db_group_name" {
@@ -422,42 +273,6 @@ variable "logging_bucket_name" {
   description = "logging_bucket_name"
   type        = string
   default     = "cisa-crossfeed-staging-logging"
-}
-
-variable "cloudtrail_name" {
-  description = "cloudtrail_name"
-  type        = string
-  default     = "crossfeed-staging-all-events"
-}
-
-variable "cloudtrail_bucket_name" {
-  description = "cloudtrail_bucket_name"
-  type        = string
-  default     = "cisa-crossfeed-staging-cloudtrail"
-}
-
-variable "cloudtrail_role_name" {
-  description = "cloudtrail_role_name"
-  type        = string
-  default     = "crossfeed-staging-cloudtrail-role"
-}
-
-variable "cloudtrail_log_group_name" {
-  description = "cloudtrail_log_group_name"
-  type        = string
-  default     = "crossfeed-staging-cloudtrail-logs"
-}
-
-variable "cloudwatch_bucket_name" {
-  description = "cloudwatch_bucket_name"
-  type        = string
-  default     = "cisa-crossfeed-staging-cloudwatch"
-}
-
-variable "cloudwatch_log_group_name" {
-  description = "cloudwatch_log_group_name"
-  type        = string
-  default     = "crossfeed-staging-cloudwatch-bucket"
 }
 
 variable "export_bucket_name" {
@@ -592,85 +407,114 @@ variable "create_elk_instance" {
   default     = false
 }
 
-variable "severity_critical" {
-  description = "severity_critical"
+variable "ami_id" {
+  description = "ID of the AMI to use for EC2 instances."
   type        = string
-  default     = "CRITICAL"
+  default     = "ami-0a1445a13e666a557"
 }
 
-variable "severity_high" {
-  description = "severity_high"
+variable "cloudtrail_name" {
+  description = "cloudtrail_name"
   type        = string
-  default     = "HIGH"
+  default     = "crossfeed-staging-all-events"
 }
 
-variable "severity_medium" {
-  description = "severity_medium"
+variable "cloudtrail_bucket_name" {
+  description = "cloudtrail_bucket_name"
   type        = string
-  default     = "MEDIUM"
+  default     = "cisa-crossfeed-staging-cloudtrail"
 }
 
-variable "severity_low" {
-  description = "severity_low"
+variable "cloudtrail_role_name" {
+  description = "cloudtrail_role_name"
   type        = string
-  default     = "LOW"
-}
-variable "pe_worker_ecs_repository_name" {
-  description = "pe_worker_ecs_repository_name"
-  type        = string
-  default     = "pe-staging-worker"
+  default     = "crossfeed-staging-cloudtrail-role"
 }
 
-variable "pe_worker_ecs_cluster_name" {
-  description = "pe_worker_ecs_cluster_name"
+variable "cloudtrail_log_group_name" {
+  description = "cloudtrail_log_group_name"
   type        = string
-  default     = "pe-staging-worker"
+  default     = "crossfeed-staging-cloudtrail-logs"
 }
 
-variable "pe_worker_ecs_task_definition_family" {
-  description = "pe_worker_ecs_task_definition_family"
-  type        = string
-  default     = "pe-staging-worker"
+variable "es_instance_master_count" {
+  description = "es_instance_master_count"
+  type        = number
+  default     = 3
 }
 
-variable "pe_worker_ecs_log_group_name" {
-  description = "pe_worker_ecs_log_group_name"
+variable "ssm_vpc_id" {
+  description = "ssm_vpc_id"
   type        = string
-  default     = "pe-staging-worker"
+  default     = "/LZ/VPC_ID"
 }
 
-variable "pe_worker_ecs_role_name" {
-  description = "pe_worker_ecs_role_name"
+variable "ssm_vpc_cidr_block" {
+  description = "ssm_vpc_cidr_block"
   type        = string
-  default     = "pe-staging-worker"
+  default     = "/LZ/VPC_CIDR_BLOCK"
 }
 
-variable "pe_shodan_ecs_service_name" {
-  description = "pe_shodan_ecs_service_name"
+variable "ssm_route_table_endpoints_id" {
+  description = "ssm_route_table_endpoints_id"
   type        = string
-  default     = "pe-staging-shodan"
+  default     = ""
+}
+variable "ssm_route_table_private_A_id" {
+  description = "ssm_route_table_private_A_id"
+  type        = string
+  default     = ""
+}
+variable "ssm_route_table_private_B_id" {
+  description = "ssm_route_table_private_B_id"
+  type        = string
+  default     = ""
 }
 
-variable "pe_dnstwist_ecs_service_name" {
-  description = "pe_dnstwist_ecs_service_name"
+variable "ssm_route_table_private_C_id" {
+  description = "ssm_route_table_private_C_id"
   type        = string
-  default     = "pe-staging-dnstwist"
+  default     = ""
 }
 
-variable "pe_hibp_ecs_service_name" {
-  description = "pe_hibp_ecs_service_name"
+variable "ssm_subnet_backend_id" {
+  description = "ssm_subnet_backend_id"
   type        = string
-  default     = "pe-staging-hibp"
+  default     = ""
 }
 
-variable "pe_intelx_ecs_service_name" {
-  description = "pe_intelx_ecs_service_name"
+variable "ssm_subnet_worker_id" {
+  description = "ssm_subnet_worker_id"
   type        = string
-  default     = "pe-staging-intelx"
+  default     = ""
 }
 
-variable "pe_cybersixgill_ecs_service_name" {
-  description = "pe_cybersixgill_ecs_service_name"
+variable "ssm_subnet_matomo_id" {
+  description = "ssm_subnet_matomo_id"
   type        = string
-  default     = "pe-staging-cybersixgill"
+  default     = ""
+}
+
+variable "ssm_subnet_db_1_id" {
+  description = "ssm_subnet_db_1_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_db_2_id" {
+  description = "ssm_subnet_db_2_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_es_id" {
+  description = "ssm_subnet_es_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_ses_email_identity_arn" {
+  description = "ssm_ses_email_identity_arn"
+  type        = string
+  default     = "/crossfeed/staging/SES_EMAIL_IDENTITY_ARN"
 }

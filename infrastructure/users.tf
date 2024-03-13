@@ -1,4 +1,7 @@
+data "aws_ssm_parameter" "ses_email_identity_arn" { name = var.ssm_ses_email_identity_arn }
+
 resource "aws_cognito_user_pool" "pool" {
+  provider                 = aws.other
   name                     = var.user_pool_name
   mfa_configuration        = "ON"
   username_attributes      = ["email"]
@@ -7,33 +10,41 @@ resource "aws_cognito_user_pool" "pool" {
   software_token_mfa_configuration {
     enabled = true
   }
-
   email_configuration {
     email_sending_account  = "DEVELOPER"
-    source_arn             = aws_ses_email_identity.default.arn
-    reply_to_email_address = var.ses_support_email_replyto
+    from_email_address     = "noreply@${var.frontend_domain}"
+    reply_to_email_address = "vulnerability@cisa.dhs.gov"
+    source_arn             = data.aws_ssm_parameter.ses_email_identity_arn.value
   }
 
+
+  # Users can recover their accounts by verifying their email address (required mechanism)
   verification_message_template {
     email_subject = "Crossfeed verification code"
     email_message = "Your verification code is {####}. Please enter this code in when logging into Crossfeed to complete your account setup."
   }
 
+  account_recovery_setting {
+    recovery_mechanism {
+      name     = "verified_email"
+      priority = 1
+    }
+  }
+
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }
 
-resource "aws_ses_email_identity" "default" {
-  email = var.ses_support_email_sender
-}
-
 resource "aws_cognito_user_pool_domain" "auth_domain" {
+  provider     = aws.other
   domain       = var.user_pool_domain
   user_pool_id = aws_cognito_user_pool.pool.id
 }
 
 resource "aws_cognito_user_pool_client" "client" {
+  provider                             = aws.other
   name                                 = "crossfeed"
   user_pool_id                         = aws_cognito_user_pool.pool.id
   callback_urls                        = ["http://localhost"]
@@ -53,6 +64,7 @@ resource "aws_ssm_parameter" "user_pool_id" {
 
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -64,5 +76,6 @@ resource "aws_ssm_parameter" "user_pool_client_id" {
 
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }

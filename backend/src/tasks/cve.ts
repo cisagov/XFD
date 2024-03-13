@@ -10,11 +10,19 @@ import { plainToClass } from 'class-transformer';
 import { CommandOptions } from './ecs-client';
 import * as buffer from 'buffer';
 import saveVulnerabilitiesToDb from './helpers/saveVulnerabilitiesToDb';
-import { LessThan, MoreThan, In, MoreThanOrEqual, Not } from 'typeorm';
+import {
+  LessThan,
+  MoreThan,
+  FindOperator,
+  In,
+  MoreThanOrEqual,
+  Not
+} from 'typeorm';
 import * as fs from 'fs';
 import * as zlib from 'zlib';
 import axios, { AxiosResponse } from 'axios';
 import { CISACatalogOfKnownExploitedVulnerabilities } from 'src/models/generated/kev';
+import logger from '../tools/lambda-logger';
 
 /**
  * The CVE scan creates vulnerabilities based on existing
@@ -126,21 +134,21 @@ const identifyPassiveCVEsFromCPEs = async (allDomains: Domain[]) => {
   });
 
   if (hostsToCheck.length === 0) {
-    console.warn('No hosts to check - no domains with CPEs found.');
+    logger.warn('No hosts to check - no domains with CPEs found.');
     return;
   }
 
   const numBatches = hostsToCheck.length / CPE2CVE_BATCH_SIZE;
   for (let batch = 0; batch < numBatches; batch++) {
     let input = '';
-    console.log(`\tcpe2cve: starting batch ${batch} / ${numBatches}`);
+    logger.info(`\tcpe2cve: starting batch ${batch} / ${numBatches}`);
     for (
       let index = CPE2CVE_BATCH_SIZE * batch;
       index < Math.min(CPE2CVE_BATCH_SIZE * (batch + 1), hostsToCheck.length);
       index++
     ) {
       input += `${index} ${hostsToCheck[index].cpes.join(',')}\n`;
-      console.log(`\t${index} ${hostsToCheck[index].cpes.join(',')}`);
+      logger.info(`\t${index} ${hostsToCheck[index].cpes.join(',')}`);
     }
     let res: Buffer;
     try {
@@ -149,7 +157,7 @@ const identifyPassiveCVEsFromCPEs = async (allDomains: Domain[]) => {
         { input: input, maxBuffer: buffer.constants.MAX_LENGTH }
       );
     } catch (e) {
-      console.error(e);
+      logger.error(JSON.stringify(e));
       continue;
     }
     const split = String(res).split('\n');
@@ -299,7 +307,7 @@ const populateVulnerabilitiesFromNVD = async () => {
     for (const item of parsed.CVE_Items) {
       const cve = item.cve.CVE_data_meta.ID;
       if (vulnerabilitiesMap[cve]) {
-        console.log(cve);
+        logger.info(cve);
         const vulns = vulnerabilitiesMap[cve];
         const description = item.cve.description.description_data.find(
           (desc) => desc.lang === 'en'
@@ -339,7 +347,7 @@ const populateVulnerabilitiesFromKEV = async () => {
       }
     );
     if (affected > 0) {
-      console.log(`KEV ${kevVuln.cveID}: updated ${affected} vulns`);
+      logger.info(`KEV ${kevVuln.cveID}: updated ${affected} vulns`);
     }
   }
 };
@@ -380,7 +388,7 @@ const reopenClosedVulnerabilities = async () => {
 };
 
 export const handler = async (commandOptions: CommandOptions) => {
-  console.log('Running cve detection globally');
+  logger.info('Running cve detection globally');
 
   // CVE is a global scan; organizationId is used only for testing.
   const { organizationId } = commandOptions;
@@ -404,7 +412,7 @@ export const handler = async (commandOptions: CommandOptions) => {
       break;
     }
 
-    console.log(`Running batch ${batchNum}`);
+    logger.info(`Running batch ${batchNum}`);
 
     await identifyPassiveCVEsFromCPEs(domains);
 

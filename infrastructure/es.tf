@@ -9,7 +9,9 @@ resource "aws_elasticsearch_domain" "es" {
   cluster_config {
     instance_type            = var.es_instance_type
     instance_count           = var.es_instance_count
-    dedicated_master_enabled = false
+    dedicated_master_enabled = true
+    dedicated_master_count   = var.es_instance_master_count
+    dedicated_master_type    = "r5.large.elasticsearch"
 
     # Enable for prod:
     # zone_awareness_enabled = true
@@ -29,14 +31,14 @@ resource "aws_elasticsearch_domain" "es" {
       "Action": "es:ESHttp*",
       "Principal": "*",
       "Effect": "Allow",
-      "Resource": "arn:aws:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/crossfeed-${var.stage}/*"
+      "Resource": "arn:aws-us-gov:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/crossfeed-${var.stage}/*"
     }
   ]
 }
 POLICY
 
   vpc_options {
-    subnet_ids         = [aws_subnet.es_1.id]
+    subnet_ids         = [data.aws_ssm_parameter.subnet_es_id.value]
     security_group_ids = [aws_security_group.allow_internal.id]
   }
 
@@ -76,10 +78,13 @@ POLICY
   ebs_options {
     ebs_enabled = true
     volume_size = var.es_instance_volume_size
+    volume_type = "gp3"
+    iops        = 3000
   }
 
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -99,7 +104,7 @@ resource "aws_cloudwatch_log_resource_policy" "es" {
         "logs:PutLogEventsBatch",
         "logs:CreateLogStream"
       ],
-      "Resource": "arn:aws:logs:*"
+      "Resource": "arn:aws-us-gov:logs:*"
     }
   ]
 }
@@ -113,6 +118,7 @@ resource "aws_cloudwatch_log_group" "es_application" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -123,6 +129,7 @@ resource "aws_cloudwatch_log_group" "es_index_slow" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -133,6 +140,18 @@ resource "aws_cloudwatch_log_group" "es_search_slow" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "es_audit_logs" {
+  name              = "crossfeed-${var.stage}-es-audit-logs"
+  retention_in_days = 3653
+  kms_key_id        = aws_kms_key.key.arn
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -144,5 +163,6 @@ resource "aws_ssm_parameter" "es_endpoint" {
 
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }

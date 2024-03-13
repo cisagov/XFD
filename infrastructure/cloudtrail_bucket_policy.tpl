@@ -2,24 +2,24 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "AWSCloudTrailAclCheck20121017",
+      "Sid": "AWSCloudTrailAclCheck",
       "Effect": "Allow",
       "Principal": {
         "Service": "cloudtrail.amazonaws.com"
       },
-      "Action": ["s3:GetBucketAcl"],
-      "Resource": ["arn:aws:s3:::${bucketName}"]
+      "Action": "s3:GetBucketAcl",
+      "Resource": "arn:aws-us-gov:s3:::${bucketName}"
     },
     {
-      "Sid": "AWSCloudTrailWrite20121017",
+      "Sid": "AWSCloudTrailWrite",
       "Effect": "Allow",
       "Principal": {
         "Service": "cloudtrail.amazonaws.com"
       },
-      "Action": ["s3:PutObject"],
+      "Action": "s3:PutObject",
       "Resource": [
-        "arn:aws:s3:::${bucketName}/AWSLogs/${accountId}",
-        "arn:aws:s3:::${bucketName}/AWSLogs/${accountId}/*"
+        "arn:aws-us-gov:s3:::${bucketName}/AWSLogs/${accountId}",
+        "arn:aws-us-gov:s3:::${bucketName}/AWSLogs/${accountId}/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -33,14 +33,23 @@
       "Effect": "Deny",
       "Principal": "*",
       "Resource": [
-        "arn:aws:s3:::${bucketName}",
-        "arn:aws:s3:::${bucketName}/*"
+        "arn:aws-us-gov:s3:::${bucketName}",
+        "arn:aws-us-gov:s3:::${bucketName}/*"
       ],
       "Condition": {
         "Bool": {
           "aws:SecureTransport": "false"
         }
       }
+    },
+    {
+      "Action": "s3:PutObject",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "logging.s3.amazonaws.com"
+      },
+      "Resource": "arn:aws-us-gov:s3:::${bucketName}/*",
+      "Sid": "S3PolicyStmt-DO-NOT-MODIFY-1697490065333"
     }
   ]
 }

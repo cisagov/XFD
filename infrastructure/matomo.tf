@@ -9,6 +9,7 @@ resource "aws_ecs_cluster" "matomo" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -38,6 +39,7 @@ resource "aws_iam_role" "matomo_task_execution_role" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -127,45 +129,47 @@ resource "aws_ecs_task_definition" "matomo" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
-resource "aws_service_discovery_private_dns_namespace" "default" {
-  name        = "crossfeed.local"
-  description = "Crossfeed ${var.stage}"
-  vpc         = aws_vpc.crossfeed_vpc.id
-}
+# TODO: Do we need this still?
+# resource "aws_service_discovery_private_dns_namespace" "default" {
+#   name        = "cfs.lz.us-cert.gov"
+#   description = "Crossfeed ${var.stage}"
+#   vpc         = aws_vpc.crossfeed_vpc.id
+# }
 
-resource "aws_service_discovery_service" "matomo" {
-  # ECS service can be accessed through http://matomo.crossfeed.local
-  name = "matomo"
+# resource "aws_service_discovery_service" "matomo" {
+#   # ECS service can be accessed through http://matomo.cfs.lz.us-cert.gov
+#   name = "matomo"
 
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.default.id
+#   dns_config {
+#     namespace_id = aws_service_discovery_private_dns_namespace.default.id
 
-    dns_records {
-      ttl  = 10
-      type = "A"
-    }
+#     dns_records {
+#       ttl  = 10
+#       type = "A"
+#     }
 
-    routing_policy = "MULTIVALUE"
-  }
-}
+#     routing_policy = "MULTIVALUE"
+#   }
+# }
 
-resource "aws_ecs_service" "matomo" {
-  name            = "matomo"
-  launch_type     = "FARGATE"
-  cluster         = aws_ecs_cluster.matomo.id
-  task_definition = aws_ecs_task_definition.matomo.arn
-  desired_count   = 1
-  network_configuration {
-    subnets         = [aws_subnet.matomo_1.id]
-    security_groups = [aws_security_group.allow_internal.id]
-  }
-  service_registries {
-    registry_arn = aws_service_discovery_service.matomo.arn
-  }
-}
+# resource "aws_ecs_service" "matomo" {
+#   name            = "matomo"
+#   launch_type     = "FARGATE"
+#   cluster         = aws_ecs_cluster.matomo.id
+#   task_definition = aws_ecs_task_definition.matomo.arn
+#   desired_count   = 1
+#   network_configuration {
+#     subnets         = [aws_subnet.matomo_1.id]
+#     security_groups = [aws_security_group.allow_internal.id]
+#   }
+#   service_registries {
+#     registry_arn = aws_service_discovery_service.matomo.arn
+#   }
+# }
 
 resource "aws_cloudwatch_log_group" "matomo" {
   name              = var.matomo_ecs_log_group_name
@@ -174,6 +178,7 @@ resource "aws_cloudwatch_log_group" "matomo" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -191,12 +196,15 @@ resource "aws_db_instance" "matomo_db" {
   engine                              = "mariadb"
   engine_version                      = "10.6"
   skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[0]
-  multi_az                            = false
+  availability_zone                   = "us-gov-east-1a"
+  multi_az                            = true
   backup_retention_period             = 35
   storage_encrypted                   = true
-  iam_database_authentication_enabled = false
+  iam_database_authentication_enabled = true
   allow_major_version_upgrade         = true
+  deletion_protection                 = true
+  enabled_cloudwatch_logs_exports     = ["audit", "error", "general", "slowquery"]
+
 
   // database information
   db_name  = "matomo"
@@ -210,6 +218,7 @@ resource "aws_db_instance" "matomo_db" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -221,5 +230,6 @@ resource "aws_ssm_parameter" "matomo_db_password" {
 
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }

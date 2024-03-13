@@ -10,7 +10,13 @@ terraform {
 }
 
 provider "aws" {
-  region                   = "us-east-1"
+  region                   = var.aws_region
+  shared_credentials_files = ["$HOME/.aws/credentials"]
+}
+
+provider "aws" {
+  alias                    = "other"
+  region                   = var.aws_other_region
   shared_credentials_files = ["$HOME/.aws/credentials"]
 }
 

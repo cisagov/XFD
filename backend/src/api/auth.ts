@@ -10,6 +10,7 @@ import * as jwt from 'jsonwebtoken';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as jwksClient from 'jwks-rsa';
 import { createHash } from 'crypto';
+import logger from '../tools/lambda-logger';
 
 export interface UserToken {
   email: string;
@@ -45,7 +46,11 @@ interface UserInfo {
 }
 
 const client = jwksClient({
-  jwksUri: `https://cognito-idp.us-east-1.amazonaws.com/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`
+  jwksUri: `https://cognito-idp.us-gov-west-1.amazonaws.com/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`,
+  getKeysInterceptor: () => {
+    const jwksJson = JSON.parse(process.env.REACT_APP_USER_POOL_KEY!);
+    return jwksJson.keys;
+  }
 });
 
 function getKey(header, callback) {
@@ -117,14 +122,13 @@ export const callback = async (event, context) => {
   } catch (e) {
     return {
       statusCode: 500,
-      body: ''
+      body: e
     };
   }
-
   if (!userInfo.email_verified) {
     return {
       statusCode: 403,
-      body: ''
+      body: 'Email is not verified'
     };
   }
 
@@ -233,7 +237,7 @@ export const authorize = async (event) => {
       const parsed = { id: 'cisa:crossfeed:anonymous' };
       return parsed;
     } else {
-      console.error(e);
+      logger.error(JSON.stringify(e));
       const parsed = { id: 'cisa:crossfeed:anonymous' };
       return parsed;
     }
@@ -252,15 +256,6 @@ export const isGlobalWriteAdmin = (event: APIGatewayProxyEvent) => {
 export const isGlobalViewAdmin = (event: APIGatewayProxyEvent) => {
   return event.requestContext.authorizer &&
     (event.requestContext.authorizer.userType === UserType.GLOBAL_VIEW ||
-      event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
-    ? true
-    : false;
-};
-
-/** Check if a user has regionalAdmin view permissions */
-export const isRegionalAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
-    (event.requestContext.authorizer.userType === UserType.REGIONAL_ADMIN ||
       event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
     ? true
     : false;

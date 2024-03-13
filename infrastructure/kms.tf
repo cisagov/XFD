@@ -14,7 +14,7 @@ resource "aws_kms_key" "key" {
         Effect : "Allow",
 
         Principal : {
-          AWS : "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          AWS : "arn:aws-us-gov:iam::${data.aws_caller_identity.current.account_id}:root"
         },
 
         Action : [
@@ -127,7 +127,7 @@ resource "aws_kms_key" "key" {
 
         Condition : {
           ArnLike : {
-            "kms:EncryptionContext:aws:logs:arn" : "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+            "kms:EncryptionContext:aws:logs:arn" : "arn:aws-us-gov:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
           }
         }
       },
@@ -141,10 +141,10 @@ resource "aws_kms_key" "key" {
         Resource : "*",
         Condition : {
           StringEquals : {
-            "aws:SourceArn" : "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
+            "aws:SourceArn" : "arn:aws-us-gov:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
           },
           StringLike : {
-            "kms:EncryptionContext:aws:cloudtrail:arn" : "arn:aws:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
+            "kms:EncryptionContext:aws:cloudtrail:arn" : "arn:aws-us-gov:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
           }
         }
       },
@@ -164,22 +164,24 @@ resource "aws_kms_key" "key" {
           Service : "cloudtrail.amazonaws.com"
         },
         Action : "kms:DescribeKey",
-        Resource : "arn:aws:kms:region:${data.aws_caller_identity.current.account_id}:key/*}",
+        Resource : "arn:aws-us-gov:kms:region:${data.aws_caller_identity.current.account_id}:key/*}",
         Condition : {
           StringEquals : {
-            "aws:SourceArn" : "arn:aws:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
+            "aws:SourceArn" : "arn:aws-us-gov:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
           }
         }
       }
     ]
   })
   tags = {
-    project = var.project
-    stage   = var.stage
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
 resource "aws_kms_alias" "key" {
   target_key_id = aws_kms_key.key.id
   name          = "alias/${var.stage}-key"
+
 }
