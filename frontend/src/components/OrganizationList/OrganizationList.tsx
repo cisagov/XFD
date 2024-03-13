@@ -19,7 +19,7 @@ export const OrganizationList: React.FC<{
   const regionId = user?.regionId;
 
   const getOrgsUrl = () => {
-    if (user?.userType == 'regionalAdmin') {
+    if (user?.userType === 'regionalAdmin') {
       return `/organizations/regionId/${regionId}`;
     } else {
       return `/v2/organizations/`;
