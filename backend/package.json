@@ -112,7 +112,8 @@
     "deploy-worker-prod": "./tools/deploy-worker.sh crossfeed-prod-worker",
     "syncdb": "docker-compose exec -T backend npx ts-node src/tools/run-syncdb.ts",
     "pesyncdb": "docker-compose exec -T backend npx ts-node src/tools/run-pesyncdb.ts",
-    "control-queue": "docker-compose exec -T backend npx ts-node src/tools/consumeControlQueue.ts"
+    "scan-exec": "docker-compose exec -T backend npx ts-node src/tools/run-scanExecution.ts",
+    "send-message": "node sendMessage.js"
   },
   "author": "",
   "license": "ISC"

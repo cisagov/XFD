@@ -3,9 +3,11 @@ import * as AWS from 'aws-sdk';
 import { integer } from 'aws-sdk/clients/cloudfront';
 
 const ecs = new AWS.ECS();
-let docker;
+let docker: any;
+
 if (process.env.IS_LOCAL) {
-  docker = require('dockerode');
+  const Docker = require('dockerode');
+  docker = new Docker();
 }
 
 const toSnakeCase = (input) => input.replace(/ /g, '-');
@@ -90,7 +92,7 @@ async function startLocalContainers(
           // In order to use the host name "db" to access the database from the
           // crossfeed-worker image, we must launch the Docker container with
           // the Crossfeed backend network.
-          NetworkMode: 'crossfeed_backend',
+          NetworkMode: 'xfd_backend',
           Memory: 4000000000 // Limit memory to 4 GB. We do this locally to better emulate fargate memory conditions. TODO: In the future, we could read the exact memory from SCAN_SCHEMA to better emulate memory requirements for each scan.
         },
         Env: [
@@ -158,28 +160,24 @@ export const handler: Handler = async (event) => {
         process.env.SHODAN_QUEUE_URL!
       );
     } else if (scanType === 'dnstwist') {
-      desiredCount = 30;
       await startDesiredTasks(
         scanType,
         desiredCount,
         process.env.DNSTWIST_QUEUE_URL!
       );
     } else if (scanType === 'hibp') {
-      desiredCount = 20;
       await startDesiredTasks(
         scanType,
         desiredCount,
         process.env.HIBP_QUEUE_URL!
       );
     } else if (scanType === 'intelx') {
-      desiredCount = 10;
       await startDesiredTasks(
         scanType,
         desiredCount,
         process.env.INTELX_QUEUE_URL!
       );
     } else if (scanType === 'cybersixgill') {
-      desiredCount = 10;
       await startDesiredTasks(
         scanType,
         desiredCount,
