@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Generate database.ini
-cat <<EOF > pe-reports/src/pe_reports/data/database.ini
+cat << EOF > pe-reports/src/pe_reports/data/database.ini
 [postgres]
 host=${DB_HOST}
 database=${PE_DB_NAME}
