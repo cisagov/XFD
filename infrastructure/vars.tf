@@ -644,33 +644,3 @@ variable "pe_worker_ecs_role_name" {
   type        = string
   default     = "pe-staging-worker"
 }
-
-variable "pe_shodan_ecs_service_name" {
-  description = "pe_shodan_ecs_service_name"
-  type        = string
-  default     = "pe-staging-shodan"
-}
-
-variable "pe_dnstwist_ecs_service_name" {
-  description = "pe_dnstwist_ecs_service_name"
-  type        = string
-  default     = "pe-staging-dnstwist"
-}
-
-variable "pe_hibp_ecs_service_name" {
-  description = "pe_hibp_ecs_service_name"
-  type        = string
-  default     = "pe-staging-hibp"
-}
-
-variable "pe_intelx_ecs_service_name" {
-  description = "pe_intelx_ecs_service_name"
-  type        = string
-  default     = "pe-staging-intelx"
-}
-
-variable "pe_cybersixgill_ecs_service_name" {
-  description = "pe_cybersixgill_ecs_service_name"
-  type        = string
-  default     = "pe-staging-cybersixgill"
-}
