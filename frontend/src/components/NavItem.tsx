@@ -137,7 +137,7 @@ const Root = styled('div')(({ theme }) => ({
       position: 'absolute',
       bottom: 0,
       left: 6,
-      width: '100%',
+      width: '85%',
       height: 2,
       backgroundColor: 'white'
     }
@@ -152,7 +152,7 @@ const Root = styled('div')(({ theme }) => ({
       bottom: 0,
       left: 0,
       height: '100%',
-      width: 2,
+      width: '85%',
       backgroundColor: theme.palette.primary.main
     }
   },
