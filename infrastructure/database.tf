@@ -166,7 +166,7 @@ resource "aws_iam_role_policy" "db_accessor_s3_policy" {
       "Action": [
         "lambda:InvokeFunction"
       ],
-      "Resource": *
+      "Resource": ["*"]
     }
   ]
 }
