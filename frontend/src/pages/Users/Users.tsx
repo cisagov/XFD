@@ -44,6 +44,21 @@ interface UserType extends User {
   orgs?: string | null | undefined;
 }
 
+type UserFormValues = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  organization?: Organization;
+  userType: string;
+};
+
+const initialUserFormValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  userType: ''
+};
+
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
 export const Users: React.FC = () => {
@@ -65,18 +80,7 @@ export const Users: React.FC = () => {
     getAddUserError: '',
     getDeleteError: ''
   });
-  const [values, setValues] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    organization?: Organization;
-    userType: string;
-  }>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    userType: ''
-  });
+  const [values, setValues] = useState<UserFormValues>(initialUserFormValues);
 
   const fetchUsers = useCallback(async () => {
     try {
@@ -227,12 +231,14 @@ export const Users: React.FC = () => {
       handleCloseAddUserDialog('closeButtonClick');
       setInfoDialogContent('This user has been successfully added.');
       setInfoDialogOpen(true);
+      setValues(initialUserFormValues);
     } catch (e: any) {
       setErrorStates({ ...errorStates, getAddUserError: e.message });
       setInfoDialogContent(
         'This user has been not been added. Check the console log for more details.'
       );
       console.log(e);
+      setValues(initialUserFormValues);
     }
   };
 
@@ -397,6 +403,7 @@ export const Users: React.FC = () => {
                 email: false,
                 userType: false
               });
+              setValues(initialUserFormValues);
             }}
           >
             Cancel
