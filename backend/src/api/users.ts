@@ -36,6 +36,7 @@ import {
 import { Type, plainToClass } from 'class-transformer';
 import { IsNull } from 'typeorm';
 import { create } from './organizations';
+import logger from '../tools/lambda-logger';
 
 class UserSearch {
   @IsInt()

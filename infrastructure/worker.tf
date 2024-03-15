@@ -42,6 +42,8 @@ resource "aws_iam_role" "worker_task_execution_role" {
   }
 }
 
+data "aws_ssm_parameter" "worker_kms_keys" { name = var.ssm_worker_kms_keys }
+
 resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
   role        = aws_iam_role.worker_task_execution_role.id
@@ -95,12 +97,13 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       "Action": [
         "kms:Decrypt"
       ],
-      "Resource": "*"
+      "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
     }
   ]
 }
 EOF
 }
+
 
 resource "aws_iam_role" "worker_task_role" {
   name               = "crossfeed-${var.stage}-worker-task"

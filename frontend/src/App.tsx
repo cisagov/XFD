@@ -16,6 +16,7 @@ import {
 import {
   Domain,
   AuthLogin,
+  AuthLoginCreate,
   AuthCreateAccount,
   Scans,
   Scan,
@@ -31,10 +32,10 @@ import {
   LoginGovCallback,
   Feeds,
   Domains,
-  Reports
+  Reports,
+  RegionUsers
 } from 'pages';
 import { Layout, RouteGuard } from 'components';
-import { CrossfeedFooter } from './components/Footer';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
 
@@ -103,9 +104,14 @@ const App: React.FC = () => (
                     exact
                     path="/signup"
                     render={() => <Redirect to="/inventory" />}
-                    unauth={(props) => (
-                      <AuthLogin {...props} showSignUp={true} />
-                    )}
+                    unauth={AuthLoginCreate}
+                    component={Risk}
+                  />
+                  <RouteGuard
+                    exact
+                    path="/registration"
+                    render={() => <Redirect to="/inventory" />}
+                    unauth={AuthLoginCreate}
                     component={Risk}
                   />
                   <Route
@@ -120,42 +126,89 @@ const App: React.FC = () => (
                   />
                   <Route exact path="/terms" component={TermsOfUse} />
 
-                  <RouteGuard exact path="/inventory" component={SearchPage} />
+                  <RouteGuard
+                    exact
+                    path="/inventory"
+                    component={SearchPage}
+                    permissions={['standard', 'globalView']}
+                  />
                   <RouteGuard
                     path="/inventory/domain/:domainId"
                     component={Domain}
+                    permissions={['standard', 'globalView']}
                   />
                   <RouteGuard path="/inventory/domains" component={Domains} />
                   <RouteGuard
                     path="/inventory/vulnerabilities"
                     exact
                     component={Vulnerabilities}
+                    permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/inventory/vulnerabilities/grouped"
                     component={(props) => (
                       <Vulnerabilities {...props} groupBy="title" />
                     )}
+                    permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/inventory/vulnerability/:vulnerabilityId"
                     component={Vulnerability}
+                    permissions={['standard', 'globalView']}
                   />
-
-                  <RouteGuard path="/feeds" component={Feeds} />
-                  <RouteGuard path="/reports" component={Reports} />
-                  <RouteGuard path="/scans" component={Scans} exact />
-                  <RouteGuard path="/scans/history" component={Scans} exact />
-                  <RouteGuard path="/scans/:scanId" component={Scan} />
+                  <RouteGuard
+                    path="/feeds"
+                    component={Feeds}
+                    permissions={['globalView']}
+                  />
+                  <RouteGuard
+                    path="/reports"
+                    component={Reports}
+                    permissions={['standard', 'globalView']}
+                  />
+                  <RouteGuard
+                    path="/scans"
+                    exact
+                    component={Scans}
+                    permissions={['standard', 'globalView']}
+                  />
+                  <RouteGuard
+                    path="/scans/history"
+                    component={Scans}
+                    exact
+                    permissions={['standard', 'globalView']}
+                  />
+                  <RouteGuard
+                    path="/scans/:scanId"
+                    component={Scan}
+                    permissions={['standard', 'globalView']}
+                  />
                   <RouteGuard
                     path="/organizations/:organizationId"
                     component={Organization}
+                    permissions={['globalView']}
                   />
-                  <RouteGuard path="/organizations" component={Organizations} />
-                  <RouteGuard path="/users" component={Users} />
-                  <RouteGuard path="/settings" component={Settings} />
+                  <RouteGuard
+                    path="/organizations"
+                    component={Organizations}
+                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                  />
+                  <RouteGuard
+                    path="/users"
+                    component={Users}
+                    permissions={['globalView', 'regionalAdmin']}
+                  />
+                  <RouteGuard
+                    path="/settings"
+                    component={Settings}
+                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                  />
+                  <RouteGuard
+                    path="/region-admin-dashboard"
+                    component={RegionUsers}
+                    permissions={['regionalAdmin']}
+                  />
                 </Switch>
-                <CrossfeedFooter />
               </Layout>
             </SearchProvider>
           </Authenticator.Provider>

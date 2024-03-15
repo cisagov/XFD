@@ -51,6 +51,8 @@
     "uuid": "^9.0.1",
     "wappalyzer": "^6.10.63",
     "wappalyzer-core": "^6.10.63",
+    "winston": "^3.11.0",
+    "winston-cloudwatch": "^6.2.0",
     "ws": "^8.13.0"
   },
   "devDependencies": {
@@ -79,6 +81,7 @@
     "prettier": "^3.0.0",
     "sentencer": "^0.2.1",
     "serverless": "^3.30",
+    "serverless-better-credentials": "^1.2.0",
     "serverless-domain-manager": "^7.0",
     "serverless-dotenv-plugin": "^6.0.0",
     "serverless-webpack": "^5.11.0",

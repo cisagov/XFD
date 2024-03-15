@@ -32,7 +32,7 @@ resource "aws_db_instance" "db" {
   max_allocated_storage               = 10000
   storage_type                        = "gp2"
   engine                              = "postgres"
-  engine_version                      = "15.3"
+  engine_version                      = "15.5"
   allow_major_version_upgrade         = true
   skip_final_snapshot                 = true
   availability_zone                   = data.aws_availability_zones.available.names[0]
@@ -148,6 +148,8 @@ resource "aws_instance" "db_accessor" {
     OperationalStatus = "Stage"
     ResourceSavings   = ""
     Security          = ""
+    StrStp            = ""
+    POC               = ""
 
   }
   root_block_device {

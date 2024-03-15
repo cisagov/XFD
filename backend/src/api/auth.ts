@@ -122,13 +122,14 @@ export const callback = async (event, context) => {
   } catch (e) {
     return {
       statusCode: 500,
-      body: e
+      body: ''
     };
   }
+
   if (!userInfo.email_verified) {
     return {
       statusCode: 403,
-      body: 'Email is not verified'
+      body: ''
     };
   }
 
@@ -256,6 +257,15 @@ export const isGlobalWriteAdmin = (event: APIGatewayProxyEvent) => {
 export const isGlobalViewAdmin = (event: APIGatewayProxyEvent) => {
   return event.requestContext.authorizer &&
     (event.requestContext.authorizer.userType === UserType.GLOBAL_VIEW ||
+      event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
+    ? true
+    : false;
+};
+
+/** Check if a user has regionalAdmin view permissions */
+export const isRegionalAdmin = (event: APIGatewayProxyEvent) => {
+  return event.requestContext.authorizer &&
+    (event.requestContext.authorizer.userType === UserType.REGIONAL_ADMIN ||
       event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
     ? true
     : false;

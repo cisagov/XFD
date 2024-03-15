@@ -22,6 +22,8 @@ resource "aws_instance" "elk_stack" {
     ResourceSavings     = ""
     Security            = ""
     Lifecycle_TargetTag = "Sunday-02"
+    POC                 = ""
+    StrStp              = ""
   }
   root_block_device {
     volume_size = 15
@@ -32,6 +34,7 @@ resource "aws_instance" "elk_stack" {
 
   iam_instance_profile = aws_iam_instance_profile.db_accessor.id
   user_data            = file("./ssm-agent-install.sh")
+
 
   lifecycle {
     # prevent_destroy = true
