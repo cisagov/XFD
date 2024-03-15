@@ -26,7 +26,7 @@ export const OrganizationList: React.FC<{
     }
   };
 
-  const orgsUrl = getOrgsUrl() as String;
+  const orgsUrl = getOrgsUrl() as string;
 
   const orgCols: GridColDef[] = [
     { field: 'name', headerName: 'Organization', minWidth: 100, flex: 2 },
