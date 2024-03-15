@@ -1,4 +1,9 @@
-from mitmproxy import exceptions
+"""
+This module contains tests for the SignRequests class in the mitmproxy_sign_requests module.
+
+It includes tests for different scenarios such as when a user agent and signature are set, and when they are not set.
+"""
+
 from mitmproxy.test import tflow
 from mitmproxy.test import taddons
 from .mitmproxy_sign_requests import SignRequests
@@ -29,13 +34,18 @@ oYi+1hqp1fIekaxsyQIDAQAB
 
 
 def test_user_agent_and_signature():
+    """
+    This function tests the SignRequests class with a user agent and signature set.
+
+    It creates an instance of the SignRequests class with a user agent and signature, makes a request, and verifies the signature.
+    """
     sr = SignRequests(
         key_id="crossfeed",
         public_key=public_key,
         private_key=private_key,
         user_agent="custom user agent",
     )
-    with taddons.context() as tctx:
+    with taddons.context():
         f = tflow.tflow()
         f.request.headers["User-Agent"] = "original user agent"
         sr.request(f)
@@ -49,8 +59,13 @@ def test_user_agent_and_signature():
 
 
 def test_no_user_agent_or_signature_set():
+    """
+    This function tests the SignRequests class without a user agent and signature set.
+
+    It creates an instance of the SignRequests class without a user agent and signature, makes a request, and checks that no user agent, date, or signature headers are set.
+    """
     sr = SignRequests(key_id="", public_key="", private_key="", user_agent="")
-    with taddons.context() as tctx:
+    with taddons.context():
         f = tflow.tflow()
         sr.request(f)
         assert "User-Agent" not in f.request.headers

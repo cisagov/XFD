@@ -1,16 +1,35 @@
-"""
-mitmproxy addon that signs requests and adds a Crossfeed-specific user agent.
-"""
-from mitmproxy import http, ctx
+"""mitmproxy addon that signs requests and adds a Crossfeed-specific user agent."""
+from mitmproxy import http
 import os
 import requests
-import json
 import traceback
 from requests_http_signature import HTTPSignatureHeaderAuth
 
 
 class SignRequests:
+    """
+    A class used to sign HTTP requests and add a Crossfeed-specific user agent.
+
+    This class is used as a mitmproxy addon. It signs the HTTP requests using the provided private key and adds a user agent to the request headers.
+
+    Attributes:
+        key_id (str): The key ID used for signing the requests.
+        private_key (str): The private key used for signing the requests.
+        public_key (str): The public key used for verifying the signature.
+        user_agent (str): The user agent to be added to the request headers.
+        signature_auth (HTTPSignatureHeaderAuth): The HTTPSignatureHeaderAuth instance used for signing the requests.
+    """
+
     def __init__(self, key_id="", public_key="", private_key="", user_agent=""):
+        """
+        Initialize the SignRequests instance.
+
+        Args:
+            key_id (str, optional): The key ID used for signing the requests. Defaults to "".
+            public_key (str, optional): The public key used for verifying the signature. Defaults to "".
+            private_key (str, optional): The private key used for signing the requests. Defaults to "".
+            user_agent (str, optional): The user agent to be added to the request headers. Defaults to "".
+        """
         self.key_id = key_id
         self.private_key = private_key
         self.public_key = public_key
@@ -20,9 +39,30 @@ class SignRequests:
         )
 
     def key_resolver(self, key_id, algorithm):
+        """
+        Resolve the key for the given key_id and algorithm.
+
+        Args:
+            key_id (str): The key ID used for signing the requests.
+            algorithm (str): The algorithm used for signing the requests.
+
+        Returns:
+            bytes: The public key encoded in bytes.
+        """
         return self.public_key.encode()
 
     def verify_signature(self, method, url, date, signature):
+        """
+        Verify the signature of the HTTP request.
+
+        Args:
+            method (str): The HTTP method of the request.
+            url (str): The URL of the request.
+            date (str): The date when the request was made.
+            signature (str): The signature of the request.
+
+        This method uses the HTTPSignatureHeaderAuth's verify method to verify the signature of the request.
+        """
         HTTPSignatureHeaderAuth.verify(
             requests.Request(
                 method=url, url=url, headers={"date": date, "Signature": signature}
@@ -32,6 +72,17 @@ class SignRequests:
         )
 
     def request(self, flow):
+        """
+        Process the HTTP request.
+
+        This method adds a user agent to the request headers if one is provided. If a private key is provided, it signs the request using the HTTPSignatureHeaderAuth instance.
+
+        Args:
+            flow (mitmproxy.http.HTTPFlow): The HTTP request/response flow.
+
+        Raises:
+            Exception: If there is an error while processing the request, an exception is raised and a 500 response is returned.
+        """
         try:
             if self.user_agent:
                 flow.request.headers["User-Agent"] = self.user_agent
@@ -57,47 +108,11 @@ class SignRequests:
             )
 
 
-test = os.getenv("WORKER_TEST", None) is not None
-
-if test:
-    # This is a test RSA private key and not used in any deployed environment
-    # file deepcode ignore HardcodedNonCryptoSecret: <please specify a reason of ignoring this>
-    private_key = """-----BEGIN RSA PRIVATE KEY-----
-MIICXgIBAAKBgQDCFENGw33yGihy92pDjZQhl0C36rPJj+CvfSC8+q28hxA161QF
-NUd13wuCTUcq0Qd2qsBe/2hFyc2DCJJg0h1L78+6Z4UMR7EOcpfdUE9Hf3m/hs+F
-UR45uBJeDK1HSFHD8bHKD6kv8FPGfJTotc+2xjJwoYi+1hqp1fIekaxsyQIDAQAB
-AoGBAJR8ZkCUvx5kzv+utdl7T5MnordT1TvoXXJGXK7ZZ+UuvMNUCdN2QPc4sBiA
-QWvLw1cSKt5DsKZ8UETpYPy8pPYnnDEz2dDYiaew9+xEpubyeW2oH4Zx71wqBtOK
-kqwrXa/pzdpiucRRjk6vE6YY7EBBs/g7uanVpGibOVAEsqH1AkEA7DkjVH28WDUg
-f1nqvfn2Kj6CT7nIcE3jGJsZZ7zlZmBmHFDONMLUrXR/Zm3pR5m0tCmBqa5RK95u
-412jt1dPIwJBANJT3v8pnkth48bQo/fKel6uEYyboRtA5/uHuHkZ6FQF7OUkGogc
-mSJluOdc5t6hI1VsLn0QZEjQZMEOWr+wKSMCQQCC4kXJEsHAve77oP6HtG/IiEn7
-kpyUXRNvFsDE0czpJJBvL/aRFUJxuRK91jhjC68sA7NsKMGg5OXb5I5Jj36xAkEA
-gIT7aFOYBFwGgQAQkWNKLvySgKbAZRTeLBacpHMuQdl1DfdntvAyqpAZ0lY0RKmW
-G6aFKaqQfOXKCyWoUiVknQJAXrlgySFci/2ueKlIE1QqIiLSZ8V8OlpFLRnb1pzI
-7U1yQXnTAEFYM560yJlzUpOb1V4cScGd365tiSMvxLOvTA==
------END RSA PRIVATE KEY-----"""
-
-    public_key = """-----BEGIN PUBLIC KEY-----
-MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDCFENGw33yGihy92pDjZQhl0C3
-6rPJj+CvfSC8+q28hxA161QFNUd13wuCTUcq0Qd2qsBe/2hFyc2DCJJg0h1L78+6
-Z4UMR7EOcpfdUE9Hf3m/hs+FUR45uBJeDK1HSFHD8bHKD6kv8FPGfJTotc+2xjJw
-oYi+1hqp1fIekaxsyQIDAQAB
------END PUBLIC KEY-----"""
-    addons = [
-        SignRequests(
-            key_id="crossfeed",
-            public_key=public_key,
-            private_key=private_key,
-            user_agent="Crossfeed test user agent",
-        )
-    ]
-else:
-    addons = [
-        SignRequests(
-            key_id="crossfeed",
-            public_key=os.getenv("WORKER_SIGNATURE_PUBLIC_KEY", ""),
-            private_key=os.getenv("WORKER_SIGNATURE_PRIVATE_KEY", ""),
-            user_agent=os.getenv("WORKER_USER_AGENT", ""),
-        )
-    ]
+addons = [
+    SignRequests(
+        key_id="crossfeed",
+        public_key=os.getenv("WORKER_SIGNATURE_PUBLIC_KEY", ""),
+        private_key=os.getenv("WORKER_SIGNATURE_PRIVATE_KEY", ""),
+        user_agent=os.getenv("WORKER_USER_AGENT", ""),
+    )
+]
