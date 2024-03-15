@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
-import { Alert, Box, Button, IconButton, Grid } from '@mui/material';
+import { Alert, Box, Button, IconButton, Paper } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
 import { Add } from '@mui/icons-material';
@@ -93,12 +93,7 @@ export const OrganizationList: React.FC<{
 
   return (
     <Box mb={3}>
-      <Grid
-        container
-        spacing={2}
-        style={{ margin: '0 auto', marginTop: '1rem', maxWidth: '1000px' }}
-      ></Grid>
-      <Box sx={{ backgroundColor: 'white' }}>
+      <Paper elevation={0}>
         {organizations?.length === 0 ? (
           <Alert severity="warning">No organizations found.</Alert>
         ) : (
@@ -111,7 +106,7 @@ export const OrganizationList: React.FC<{
             }}
           />
         )}
-      </Box>
+      </Paper>
       <OrganizationForm
         onSubmit={onSubmit}
         open={dialogOpen}
