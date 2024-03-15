@@ -4,9 +4,10 @@ This module contains the main script for populating counties and cities data.
 It includes commands for processing cities and counties data separately or both at once.
 """
 
-import typer
+# Third-Party Libraries
 import cities
 import counties
+import typer
 
 app = typer.Typer()
 

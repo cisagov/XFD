@@ -1,8 +1,12 @@
-import pytest
-from .main_spider import MainSpider
-from scrapy.http import Response, Request
-from tempfile import NamedTemporaryFile
+# Standard Python Libraries
 import json
+from tempfile import NamedTemporaryFile
+
+# Third-Party Libraries
+import pytest
+from scrapy.http import Request, Response
+
+from .main_spider import MainSpider
 
 SAMPLE_HEADERS = {
     "Server": "Apache",
@@ -34,7 +38,7 @@ def test_sample_website(spider):
     response = Response(
         url="https://www.cisa.gov",
         request=Request(url="https://www.cisa.gov"),
-        body="<body>Hello world</body>".encode(),
+        body=b"<body>Hello world</body>",
         headers=SAMPLE_HEADERS,
     )
     results = list(spider.parse_item(response))

@@ -1,8 +1,11 @@
 """mitmproxy addon that signs requests and adds a Crossfeed-specific user agent."""
-from mitmproxy import http
+# Standard Python Libraries
 import os
-import requests
 import traceback
+
+# Third-Party Libraries
+from mitmproxy import http
+import requests
 from requests_http_signature import HTTPSignatureHeaderAuth
 
 

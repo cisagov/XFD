@@ -4,8 +4,9 @@ This module contains tests for the SignRequests class in the mitmproxy_sign_requ
 It includes tests for different scenarios such as when a user agent and signature are set, and when they are not set.
 """
 
-from mitmproxy.test import tflow
-from mitmproxy.test import taddons
+# Third-Party Libraries
+from mitmproxy.test import taddons, tflow
+
 from .mitmproxy_sign_requests import SignRequests
 
 # This is a test RSA private key and not used in any deployed environment

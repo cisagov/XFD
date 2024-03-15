@@ -4,8 +4,11 @@ This module contains the pipeline classes for the web scraper.
 The pipelines process the items returned by the spiders.
 """
 
-from scrapy.exceptions import DropItem
+# Standard Python Libraries
 import json
+
+# Third-Party Libraries
+from scrapy.exceptions import DropItem
 
 
 class ExportFilePipeline:

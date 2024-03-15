@@ -6,6 +6,7 @@ See documentation here:
 https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 """
 
+# Third-Party Libraries
 from scrapy import signals
 
 
@@ -54,8 +55,7 @@ class WebscraperSpiderMiddleware:
         # it has processed the response.
 
         # Must return an iterable of Request, or item objects.
-        for i in result:
-            yield i
+        yield from result
 
     def process_spider_exception(self, response, exception, spider):
         """
@@ -80,8 +80,7 @@ class WebscraperSpiderMiddleware:
         # that it doesn’t have a response associated.
 
         # Must return only requests (not items).
-        for r in start_requests:
-            yield r
+        yield from start_requests
 
     def spider_opened(self, spider):
         """Log the name of the spider when opened."""

@@ -9,6 +9,7 @@ https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 """
 
+# Standard Python Libraries
 import logging
 
 BOT_NAME = "webscraper"

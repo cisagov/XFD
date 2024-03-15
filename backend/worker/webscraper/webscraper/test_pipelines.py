@@ -1,7 +1,11 @@
-import pytest
-from .pipelines import ExportFilePipeline
-from scrapy.exceptions import DropItem
+# Standard Python Libraries
 from unittest.mock import MagicMock
+
+# Third-Party Libraries
+import pytest
+from scrapy.exceptions import DropItem
+
+from .pipelines import ExportFilePipeline
 
 
 @pytest.fixture

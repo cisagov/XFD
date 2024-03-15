@@ -4,9 +4,12 @@ This module contains the MainSpider class for the webscraper project.
 The MainSpider class is a Scrapy spider that crawls and scrapes data from the specified start URLs.
 """
 
-from scrapy.spiders import CrawlSpider, Rule
-from scrapy.linkextractors import LinkExtractor
+# Standard Python Libraries
 from urllib.parse import urlparse
+
+# Third-Party Libraries
+from scrapy.linkextractors import LinkExtractor
+from scrapy.spiders import CrawlSpider, Rule
 
 
 class MainSpider(CrawlSpider):
@@ -31,7 +34,7 @@ class MainSpider(CrawlSpider):
             **kwargs: Arbitrary keyword arguments.
         """
         super().__init__(*args, **kwargs)
-        with open(self.domains_file, "r") as f:
+        with open(self.domains_file) as f:
             self.start_urls = f.read().split("\n")
         self.allowed_domains = [urlparse(url).netloc for url in self.start_urls]
 
