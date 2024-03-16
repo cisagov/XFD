@@ -20,7 +20,8 @@ def test_user_agent_and_signature():
     """
     This function tests the SignRequests class with a user agent and signature set.
 
-    It creates an instance of the SignRequests class with a user agent and signature, makes a request, and verifies the signature.
+    It creates an instance of the SignRequests class with a user agent and signature, makes a request, and verifies the
+    signature.
     """
     sr = SignRequests(
         key_id="crossfeed",
@@ -45,7 +46,8 @@ def test_no_user_agent_or_signature_set():
     """
     This function tests the SignRequests class without a user agent and signature set.
 
-    It creates an instance of the SignRequests class without a user agent and signature, makes a request, and checks that no user agent, date, or signature headers are set.
+    It creates an instance of the SignRequests class without a user agent and signature, makes a request, and checks
+    that no user agent, date, or signature headers are set.
     """
     sr = SignRequests(key_id="", public_key="", private_key="", user_agent="")
     with taddons.context():

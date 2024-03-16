@@ -4,9 +4,12 @@ import os
 import traceback
 
 # Third-Party Libraries
+from dotenv import load_dotenv
 from mitmproxy import http
 import requests
 from requests_http_signature import HTTPSignatureHeaderAuth
+
+load_dotenv()
 
 
 class SignRequests:
