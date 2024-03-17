@@ -112,7 +112,7 @@ jobs:
         with:
           python-version: '3.10'
       - name: Copy .env file
-        run: cp dev.env.example .env
+        run: cp ../dev.env.example .env
       - uses: actions/cache@v3
         with:
           path: ~/.cache/pip
