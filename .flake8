@@ -23,7 +23,3 @@ select = C,D,E,F,W,B,B950
 # https://github.com/ambv/black/issues/21. Guido agrees here:
 # https://github.com/python/peps/commit/c59c4376ad233a62ca4b3a6060c81368bd21e85b.
 ignore = E501,W503
-# Ignore D100 and D103, which check for docstrings in modules and functions, in all test files
-per-file-ignores =
-    # Ignore D100 and D103 in all test files
-    */test_*.py: D100, D103
