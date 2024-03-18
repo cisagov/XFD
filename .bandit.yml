@@ -9,6 +9,3 @@ tests:
 
 skips:
   - B101  # skip "assert used" check since assertions are required in pytests
-
-exclude:
-  - '**/test_*.py'
