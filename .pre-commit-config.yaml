@@ -26,6 +26,7 @@ repos:
           - --autofix
       - id: requirements-txt-fixer
       - id: trailing-whitespace
+        exclude: .*.snap
 
   # Text file hooks
   - repo: https://github.com/igorshubovych/markdownlint-cli
