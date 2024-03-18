@@ -101,7 +101,7 @@ const Root = styled('div')(({ theme }) => ({
 
   [`.${classes.mobileNav}`]: {
     padding: `${theme.spacing(2)} ${theme.spacing()}px`
-  },
+  }
 }));
 
 const GLOBAL_ADMIN = 2;
@@ -231,43 +231,43 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     <Root>
       <AppBar position="static" elevation={0}>
         {/* <div className={classes.inner}> */}
-          <Toolbar>
-            <Link to="/">
-              <img
-                src={logo}
-                className={classes.logo}
-                alt="Crossfeed Icon Navigate Home"
-              />
-            </Link>
-            <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
-            <div className={classes.spacing} />
+        <Toolbar>
+          <Link to="/">
+            <img
+              src={logo}
+              className={classes.logo}
+              alt="Crossfeed Icon Navigate Home"
+            />
+          </Link>
+          <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
+          <div className={classes.spacing} />
 
-            {userLevel > 0 && (
-              <>
-                <SearchBar
-                  initialValue={searchTerm}
-                  value={searchTerm}
-                  onChange={(value) => {
-                    if (location.pathname !== '/inventory')
-                      history.push('/inventory?q=' + value);
-                    setSearchTerm(value, {
-                      shouldClearFilters: false,
-                      autocompleteResults: false
-                    });
-                  }}
-                />
-                <IconButton
-                  edge="start"
-                  className={classes.menuButton}
-                  aria-label="toggle mobile menu"
-                  color="inherit"
-                  onClick={() => setNavOpen((open) => !open)}
-                >
-                  <MenuIcon />
-                </IconButton>
-              </>
-            )}
-          </Toolbar>
+          {userLevel > 0 && (
+            <>
+              <SearchBar
+                initialValue={searchTerm}
+                value={searchTerm}
+                onChange={(value) => {
+                  if (location.pathname !== '/inventory')
+                    history.push('/inventory?q=' + value);
+                  setSearchTerm(value, {
+                    shouldClearFilters: false,
+                    autocompleteResults: false
+                  });
+                }}
+              />
+              <IconButton
+                edge="start"
+                className={classes.menuButton}
+                aria-label="toggle mobile menu"
+                color="inherit"
+                onClick={() => setNavOpen((open) => !open)}
+              >
+                <MenuIcon />
+              </IconButton>
+            </>
+          )}
+        </Toolbar>
         {/* </div> */}
       </AppBar>
       <Drawer
