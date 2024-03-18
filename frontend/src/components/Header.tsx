@@ -8,7 +8,6 @@ import {
   Drawer,
   ListItem,
   List,
-  TextField,
   useMediaQuery,
   useTheme
 } from '@mui/material';
@@ -35,10 +34,8 @@ const classes = {
   logo: `${PREFIX}-logo`,
   logoBox: `${PREFIX}-logoBox`,
   spacing: `${PREFIX}-spacing`,
-  activeLink: `${PREFIX}-activeLink`,
   activeMobileLink: `${PREFIX}-activeMobileLink`,
   link: `${PREFIX}-link`,
-  userLink: `${PREFIX}-userLink`,
   lgNav: `${PREFIX}-lgNav`,
   mobileNav: `${PREFIX}-mobileNav`,
   selectOrg: `${PREFIX}-selectOrg`,
@@ -95,23 +92,6 @@ const Root = styled('div')(({ theme }) => ({
     borderBottom: '2px solid transparent',
     fontWeight: 600
   },
-
-  [`.${classes.userLink}`]: {
-    [theme.breakpoints.down('md')]: {
-      display: 'flex'
-    },
-    [theme.breakpoints.up('lg')]: {
-      display: 'flex',
-      alignItems: 'center',
-      marginLeft: '1rem',
-      '& svg': {
-        marginRight: theme.spacing()
-      },
-      border: 'none',
-      textDecoration: 'none'
-    }
-  },
-
   [`.${classes.lgNav}`]: {
     display: 'flex',
     [theme.breakpoints.down('sm')]: {
@@ -122,38 +102,6 @@ const Root = styled('div')(({ theme }) => ({
   [`.${classes.mobileNav}`]: {
     padding: `${theme.spacing(2)} ${theme.spacing()}px`
   },
-
-  [`.${classes.selectOrg}`]: {
-    border: '1px solid #FFFFFF',
-    borderRadius: '5px',
-    width: '200px',
-    padding: '3px',
-    marginLeft: '20px',
-    '& svg': {
-      color: 'white'
-    },
-    '& input': {
-      color: 'white',
-      width: '100%'
-    },
-    '& input:focus': {
-      outlineWidth: 0
-    },
-    '& fieldset': {
-      borderStyle: 'none'
-    },
-    '& div div': {
-      paddingTop: '0 !important'
-    },
-    '& div div div': {
-      marginTop: '-3px !important'
-    },
-    height: '45px'
-  },
-
-  [` .${classes.option}`]: {
-    fontSize: 15
-  }
 }));
 
 const GLOBAL_ADMIN = 2;
@@ -190,7 +138,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   >([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
   const theme = useTheme();
-  const isSmall = useMediaQuery(theme.breakpoints.down('md'));
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -226,7 +173,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       title: 'Overview',
       path: '/',
       users: ALL_USERS,
-      exact: true,
+      exact: true
     },
     {
       title: 'Inventory',
@@ -247,7 +194,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       title: 'My Account',
       path: '#',
       users: ALL_USERS,
-      exact: false,
+      exact: false
     },
     {
       title: 'Manage Organizations',
@@ -283,9 +230,9 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   return (
     <Root>
       <AppBar position="static" elevation={0}>
-        <div className={classes.inner}>
+        {/* <div className={classes.inner}> */}
           <Toolbar>
-            <Link to='/'>
+            <Link to="/">
               <img
                 src={logo}
                 className={classes.logo}
@@ -293,7 +240,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
               />
             </Link>
             <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
-
             <div className={classes.spacing} />
 
             {userLevel > 0 && (
@@ -322,7 +268,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
               </>
             )}
           </Toolbar>
-        </div>
+        {/* </div> */}
       </AppBar>
       <Drawer
         anchor="right"

@@ -170,7 +170,6 @@ const Root = styled('div')(({ theme }) => ({
   [`& .${classesNav.userLink}`]: {
     display: 'flex',
     alignItems: 'center',
-
     '& svg': {
       marginRight: theme.spacing()
     }
