@@ -68,7 +68,7 @@ export class TrustymailScan extends BaseEntity {
   })
   dmarcResultsBaseDomain: string | null;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   domainSupportsSmtp: boolean;
 
   @Column({
@@ -77,7 +77,7 @@ export class TrustymailScan extends BaseEntity {
   })
   domainSupportsSmtpResults: string | null;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   domainSupportsStarttls: boolean;
 
   @Column({

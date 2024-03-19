@@ -81,7 +81,7 @@ export class Host extends BaseEntity {
   })
   currStage: string | null;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   hostLive: boolean;
 
   @Column({

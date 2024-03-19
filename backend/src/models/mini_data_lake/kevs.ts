@@ -23,7 +23,7 @@ export class Kev extends BaseEntity {
   })
   cve: string | null;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   knownRansomware: boolean;
 
   @OneToMany((type) => Ticket, (ticket) => ticket.kev, {

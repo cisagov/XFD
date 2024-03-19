@@ -35,7 +35,7 @@ export class CertScan extends BaseEntity {
   })
   pem: string | null;
 
-  @Column({nullable: true})
+  @Column({ nullable: true })
   sctExists: boolean;
 
   @Column({ nullable: true, type: 'timestamp' })
