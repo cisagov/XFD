@@ -1,35 +1,31 @@
-// The data in this collection is derived from 
+// The data in this collection is derived from
 
 import {
-    Entity,
-    Column,
-    PrimaryColumn,
-    BaseEntity,
-    ManyToMany,
-    JoinTable
-  } from 'typeorm';
+  Entity,
+  Column,
+  PrimaryColumn,
+  BaseEntity,
+  ManyToMany,
+  JoinTable
+} from 'typeorm';
 
 import { Organization } from './organizations';
 @Entity()
 export class Tag extends BaseEntity {
-    @PrimaryColumn()
-    id: string;
+  @PrimaryColumn()
+  id: string;
 
-    @Column({
-        nullable: true,
-        type: 'varchar',
-        unique: true
-      })
-      name: string | null;
-    
-    @ManyToMany(
-        (type) => Organization,
-        (org) => org.tags,
-        {
-          onDelete: 'CASCADE',
-          onUpdate: 'CASCADE'
-        }
-      )
-      @JoinTable()
-      organizations: Organization[];
+  @Column({
+    nullable: true,
+    type: 'varchar',
+    unique: true
+  })
+  name: string | null;
+
+  @ManyToMany((type) => Organization, (org) => org.tags, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
+  @JoinTable()
+  organizations: Organization[];
 }

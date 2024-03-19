@@ -9,7 +9,6 @@ import { handler as syncmdl } from '../tasks/syncmdl';
 process.env.MDL_HOST = 'db';
 process.env.MDL_USERNAME = 'mdl';
 process.env.MDL_PASSWORD = 'password';
-process.env.MDL_DATABASE = 'crossfeed_mini_datalake'
-
+process.env.MDL_DATABASE = 'crossfeed_mini_datalake';
 
 syncmdl(process.argv[2] === '-d' ? process.argv[3] : '', {} as any, () => null);

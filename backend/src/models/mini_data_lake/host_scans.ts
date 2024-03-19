@@ -3,88 +3,87 @@
 
 import { DirectConnect } from 'aws-sdk';
 import { toInteger } from 'lodash';
-import {Snapshot} from './snapshots'
+import { Snapshot } from './snapshots';
 import {
-    Entity,
-    Column,
-    PrimaryColumn,
-    BaseEntity,
-    ManyToMany,
-    ManyToOne
-  } from 'typeorm';
+  Entity,
+  Column,
+  PrimaryColumn,
+  BaseEntity,
+  ManyToMany,
+  ManyToOne
+} from 'typeorm';
 
-  import {Ip } from './ips';  
-  import { Organization } from './organizations';
+import { Ip } from './ips';
+import { Organization } from './organizations';
 
 @Entity()
 export class HostScan extends BaseEntity {
-    @PrimaryColumn()
-    id: string;
+  @PrimaryColumn()
+  id: string;
 
-    @Column({
-        nullable: true,
-        type: 'varchar'
-      })
-      ipString: string | null;
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  ipString: string | null;
 
-    @ManyToOne(type => Ip, ip => ip.hostScans, {
-        onDelete: 'SET NULL',
-        onUpdate: 'CASCADE'
-      }) 
-      ip: Ip;
-    
-    @Column({
-        nullable: true,
-        type: 'integer'
-      })
-      accuracy: number | null;
-    
-    @Column({
-        type: 'jsonb',
-        default: []
-      })
-      classes: Object[];
+  @ManyToOne((type) => Ip, (ip) => ip.hostScans, {
+    onDelete: 'SET NULL',
+    onUpdate: 'CASCADE'
+  })
+  ip: Ip;
 
-    @Column({
-        nullable: true,
-        type: 'varchar'
-      })
-      hostname: string | null;
+  @Column({
+    nullable: true,
+    type: 'integer'
+  })
+  accuracy: number | null;
 
-    @Column()
-      latest: boolean;
+  @Column({
+    type: 'jsonb',
+    default: []
+  })
+  classes: Object[];
 
-    @Column({
-        nullable: true,
-        type: 'integer'
-      })
-      line: number | null;
-    
-    @Column({
-        nullable: true,
-        type: 'varchar'
-      })
-      name: string | null;
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  hostname: string | null;
 
-    @Column({
-        nullable: true,
-        type: 'varchar'
-      })
-      source: string | null;
+  @Column()
+  latest: boolean;
 
-    @Column({ nullable: true, type: 'timestamp' })
-     scanTimestamp : Date | null;
+  @Column({
+    nullable: true,
+    type: 'integer'
+  })
+  line: number | null;
 
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  name: string | null;
 
-     @ManyToMany((type) => Snapshot, (snapshot) => snapshot.hostScans, {
-      onDelete: 'CASCADE',
-      onUpdate: 'CASCADE'
-    })
-    snapshots: Snapshot[];
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  source: string | null;
 
-    @ManyToOne((type) => Organization, (org) => org.hostScans, {
-      onDelete: 'CASCADE',
-      nullable: true
-    })
-    organization: Organization ;
+  @Column({ nullable: true, type: 'timestamp' })
+  scanTimestamp: Date | null;
+
+  @ManyToMany((type) => Snapshot, (snapshot) => snapshot.hostScans, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
+  snapshots: Snapshot[];
+
+  @ManyToOne((type) => Organization, (org) => org.hostScans, {
+    onDelete: 'CASCADE',
+    nullable: true
+  })
+  organization: Organization;
 }

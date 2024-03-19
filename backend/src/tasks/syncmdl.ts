@@ -1,11 +1,7 @@
 import { Handler } from 'aws-lambda';
-import {
-  connectToDatalake,
-  connectToDatabase
-} from '../models';
+import { connectToDatalake, connectToDatabase } from '../models';
 
 export const handler: Handler = async (event) => {
-
   const connection = await connectToDatabase();
   try {
     await connection.query(
@@ -49,11 +45,10 @@ export const handler: Handler = async (event) => {
   const mdl_connection = await connectToDatalake(true);
   const type = event?.type || event;
   const dangerouslyforce = type === 'dangerouslyforce';
-  
+
   if (mdl_connection) {
     await mdl_connection.synchronize(dangerouslyforce);
   } else {
     console.error('Error: could not sync');
   }
-
 };

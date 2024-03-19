@@ -42,14 +42,13 @@ import {
   Ticket,
   TrustymailScan,
   VulnScan
-
 } from '.';
 
 let connection: Connection | null = null;
 
 let dl_connection: Connection | null = null;
 
-const connectDl = async (logging?:boolean) => {
+const connectDl = async (logging?: boolean) => {
   const dl_connection = createConnection({
     type: 'postgres',
     host: process.env.MDL_HOST,
@@ -90,15 +89,14 @@ const connectDl = async (logging?:boolean) => {
     logging: logging ?? false,
     cache: true
   });
-  return dl_connection
-}
+  return dl_connection;
+};
 
 export const connectToDatalake = async (logging?: boolean) => {
   if (!dl_connection?.isConnected) {
     dl_connection = await connectDl(logging);
-  }
-  else {
-    console.log("didn't connect")
+  } else {
+    console.log("didn't connect");
   }
   return dl_connection;
 };
