@@ -45,20 +45,20 @@ export const TermsOfUse: React.FC = () => {
       <h1>Terms of Use</h1>
       <p>You must read and sign the Terms of Use before using Crossfeed.</p>
       <p>
-        Crossfeed is a free, self-service tool offered by the Department of
+        {`Crossfeed is a free, self-service tool offered by the Department of
         Homeland Security's Cybersecurity and Infrastructure Security Agency
         (CISA). Using both passive and active processes, Crossfeed can
         continuously evaluate the cybersecurity posture of your public-facing,
         internet-accessible network assets for vulnerabilities or configuration
-        issues.
+        issues.`}
       </p>
       <p>
-        Crossfeed supports two types of users for your organization:
+        {`Crossfeed supports two types of users for your organization:
         administrative users or view-only users. Administrative users can
         add/delete domains for their organization, schedule and disable scans
         for their organization, and invite others to create Crossfeed accounts
         to have access to the organization's data. View-only users can only view
-        data provided to or collected by Crossfeed.
+        data provided to or collected by Crossfeed.`}
       </p>
       {maximumRole === 'admin' && (
         <p>
@@ -76,10 +76,10 @@ export const TermsOfUse: React.FC = () => {
       )}
       <p>
         By creating a Crossfeed{' '}
-        {maximumRole === 'admin' ? 'administrator' : 'view only'} account and
-        using this service, you request CISA's technical assistance to detect
-        vulnerabilities and configuration issues through Crossfeed and agree to
-        the following:
+        {maximumRole === 'admin' ? 'administrator' : 'view only'}{' '}
+        {`account and using this service, you request CISA's technical
+        assistance to detect vulnerabilities and configuration issues through
+        Crossfeed and agree to the following:`}
       </p>
       <ul>
         {maximumRole === 'admin' && (
@@ -104,11 +104,11 @@ export const TermsOfUse: React.FC = () => {
               resources is later prohibited;
             </li>
             <li>
-              You accept that, while Crossfeed will use its best efforts to
+              {`You accept that, while Crossfeed will use its best efforts to
               conduct scans in a way that minimizes risk to your organization's
               systems and networks, Crossfeed scanning activities create some
               risk of degradation in performance to your organization's systems
-              and networks;
+              and networks;`}
             </li>
             <li>
               You agree that CISA may share data gathered by Crossfeed with
@@ -118,8 +118,8 @@ export const TermsOfUse: React.FC = () => {
               Center;
             </li>
             <li>
-              You are authorized to make the above certifications on your
-              organization's behalf;
+              {`You are authorized to make the above certifications on your
+              organization's behalf;`}
             </li>
           </>
         )}
@@ -153,9 +153,9 @@ export const TermsOfUse: React.FC = () => {
           </ul>
         </li>
         <li>
-          You accept that, at CISA's sole discretion, CISA may terminate or
+          {`You accept that, at CISA's sole discretion, CISA may terminate or
           suspend your access to the Crossfeed service due to violation of these
-          terms or any other reason.
+          terms or any other reason.`}
         </li>
       </ul>
       <p>ToU version {touVersion}</p>
