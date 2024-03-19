@@ -16,6 +16,7 @@ repos:
         args:
           - --allow-missing-credentials
       - id: detect-private-key
+        exclude: dev.env.example
       - id: end-of-file-fixer
         exclude: files/(issue|motd)
       - id: mixed-line-ending
@@ -26,6 +27,7 @@ repos:
           - --autofix
       - id: requirements-txt-fixer
       - id: trailing-whitespace
+        exclude: .*.snap
 
   # Text file hooks
   - repo: https://github.com/igorshubovych/markdownlint-cli

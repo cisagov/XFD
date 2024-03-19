@@ -306,7 +306,7 @@ Crossfeed access instructions:
 5. You will be prompted to enable MFA. Scan the QR code with an authenticator app on your phone, such as Microsoft Authenticator. Enter the MFA code you see after scanning.
 6. After configuring your account, you will be redirected to Crossfeed.
 
-For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/. 
+For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
 
 If you encounter any difficulties, please feel free to reply to this email (or send an email to ${
       process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO
@@ -825,7 +825,7 @@ export const inviteV2 = wrapHandler(async (event) => {
       `Hello,
       Your Crossfeed registration is under review.
       You will receive an email when your registration is approved.
-      
+
       Thank you!`
     );
   };

@@ -27,5 +27,3 @@ resource "aws_instance" "elk_stack" {
     ignore_changes = [ami]
   }
 }
-
-
