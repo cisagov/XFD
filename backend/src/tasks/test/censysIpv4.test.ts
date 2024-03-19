@@ -167,7 +167,7 @@ describe('censys ipv4', () => {
         }
       });
     const firstFileContents = fs.readFileSync(
-      path.join(__dirname, '../helpers/__mocks__/censysIpv4Sample.json')
+      path.join(__dirname, '../helpers/__mocks__/censysIpv4Sample.txt')
     );
     const secondFileContents = JSON.stringify({
       address: '1.1.1.1',
