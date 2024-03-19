@@ -247,16 +247,16 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       exact: false
     },
 
-    /* 
+    /*
     Hiding Feeds page until finished
-    { title: 'Feeds', 
-      path: '/feeds', 
-      users: ALL_USERS, 
-      exact: false 
+    { title: 'Feeds',
+      path: '/feeds',
+      users: ALL_USERS,
+      exact: false
     },*/
 
-    /* 
-    Hiding Reports page until finished 
+    /*
+    Hiding Reports page until finished
     {
       title: 'Reports',
       path: '/reports',
@@ -361,7 +361,22 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     <NavItem key={item.title.toString()} {...item} />
   ));
 
+  const userRegistrationNavItem = {
+    title: 'User Registration',
+    path: '/region-admin-dasboard',
+    users: ALL_USERS,
+    exact: true
+  };
+
+  const getConditionalNavItems = () => {
+    if (user?.userType === 'regionalAdmin') {
+      userMenu.nested?.push(userRegistrationNavItem);
+      userItemsSmall.push(userRegistrationNavItem);
+    }
+  };
+
   const navItemsToUse = () => {
+    getConditionalNavItems();
     if (isSmall) {
       return userItemsSmall;
     } else {
