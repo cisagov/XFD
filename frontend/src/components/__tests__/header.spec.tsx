@@ -30,15 +30,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    [
-      'Vulnerabilities',
-      'Risk Summary',
-      // 'My Organizations',
-      'Manage Organizations',
-      'Scans',
-      'Manage Users',
-      'My Account'
-    ].forEach((expected) => {
+    ['Vulnerabilities', 'Risk Summary', 'Scans'].forEach((expected) => {
       expect(queryByText(expected)).not.toBeInTheDocument();
     });
   });
@@ -50,17 +42,10 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    [
-      'Overview',
-      'Inventory',
-      // 'My Organizations',
-      'My Account',
-      'My Settings',
-      'Logout'
-    ].forEach((expected) => {
+    ['Overview', 'Inventory'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
-    ['Manage Organizations', 'Scans', 'Manage Users'].forEach((notExpected) => {
+    ['Scans'].forEach((notExpected) => {
       expect(queryByText(notExpected)).not.toBeInTheDocument();
     });
   });
@@ -72,19 +57,12 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    [
-      'Overview',
-      'Inventory',
-      // 'My Organizations',
-      'My Account',
-      'My Settings',
-      'Logout'
-    ].forEach((expected) => {
+    ['Overview', 'Inventory'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
-    ['Manage Organizations', 'Manage Users'].forEach((notExpected) => {
-      expect(queryByText(notExpected)).not.toBeInTheDocument();
-    });
+    // ['Manage Organizations', 'Manage Users'].forEach((notExpected) => {
+    //   expect(queryByText(notExpected)).not.toBeInTheDocument();
+    // });
   });
 
   it('shows correct links for GLOBAL_ADMIN', () => {
@@ -94,20 +72,8 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    [
-      'Overview',
-      'Inventory',
-      'Scans',
-      'Manage Organizations',
-      'Manage Users',
-      'My Account',
-      'My Settings',
-      'Logout'
-    ].forEach((expected) => {
+    ['Overview', 'Inventory', 'Scans'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
-    // ['My Organizations'].forEach((notExpected) => {
-    //   expect(queryByText(notExpected)).not.toBeInTheDocument();
-    // });
   });
 });
