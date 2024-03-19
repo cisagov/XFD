@@ -35,7 +35,7 @@ export class PrecertScan extends BaseEntity {
   })
   pem: string | null;
 
-  @Column()
+  @Column({nullable: true})
   sctExists: boolean;
 
   @Column({ nullable: true, type: 'timestamp' })

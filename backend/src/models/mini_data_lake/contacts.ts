@@ -41,7 +41,7 @@ export class Contact extends BaseEntity {
   })
   type: string | null;
 
-  @Column()
+  @Column({nullable: true})
   retired: boolean;
 
   @ManyToMany((type) => Organization, (org) => org.contacts, {

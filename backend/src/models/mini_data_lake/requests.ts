@@ -59,7 +59,7 @@ export class Request extends BaseEntity {
   @Column({ nullable: true })
   retired: boolean;
 
-  @Column('simple-array')
+  @Column("varchar", { array: true, default: []})
   reportTypes: string[];
 
   @Column({

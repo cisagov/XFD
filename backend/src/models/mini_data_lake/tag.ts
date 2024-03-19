@@ -3,7 +3,7 @@
 import {
   Entity,
   Column,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   BaseEntity,
   ManyToMany,
   JoinTable
@@ -12,7 +12,7 @@ import {
 import { Organization } from './organizations';
 @Entity()
 export class Tag extends BaseEntity {
-  @PrimaryColumn()
+  @PrimaryGeneratedColumn()
   id: string;
 
   @Column({

@@ -111,7 +111,7 @@ export class VulnScan extends BaseEntity {
   })
   ip: Ip;
 
-  @Column()
+  @Column({nullable: true})
   latest: boolean;
 
   @Column({

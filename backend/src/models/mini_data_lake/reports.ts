@@ -20,7 +20,7 @@ export class Report extends BaseEntity {
   @Column({ nullable: true, type: 'timestamp' })
   createdTimestamp: Date | null;
 
-  @Column('simple-array')
+  @Column("varchar", { array: true, default: []})
   reportTypes: string[];
 
   @ManyToOne((type) => Snapshot, (snapshot) => snapshot.reports, {

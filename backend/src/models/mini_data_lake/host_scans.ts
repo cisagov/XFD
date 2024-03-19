@@ -51,7 +51,7 @@ export class HostScan extends BaseEntity {
   })
   hostname: string | null;
 
-  @Column()
+  @Column({nullable: true})
   latest: boolean;
 
   @Column({

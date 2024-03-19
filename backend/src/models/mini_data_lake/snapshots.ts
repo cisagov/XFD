@@ -50,10 +50,10 @@ export class Snapshot extends BaseEntity {
   @Column({ nullable: true, type: 'timestamp' })
   updatedTimestamp: Date | null;
 
-  @Column()
+  @Column({nullable: true})
   latest: boolean;
 
-  @Column('simple-array')
+  @Column("varchar", { array: true, default: []})
   networks: string[];
 
   @ManyToOne((type) => Organization, (org) => org.snapshots, {

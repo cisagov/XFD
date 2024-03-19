@@ -77,7 +77,7 @@ export class Ticket extends BaseEntity {
   })
   vprScore: number | null;
 
-  @Column()
+  @Column({nullable: true})
   falsePositive: boolean;
 
   @Column({
