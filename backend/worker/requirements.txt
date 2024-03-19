@@ -3,7 +3,7 @@ certifi==2023.7.22
 charset-normalizer==3.1.0
 click==8.1.3
 dateparser==1.1.8
-dnstwist==20230509
+dnstwist==20240116
 docopt==0.6.2
 git+https://github.com/LeapBeyond/scrubadub.git@d0e12c5d922631af3532d044196b05fb1b7c8c1c
 git+https://github.com/mitmproxy/mitmproxy@e0e46f4
