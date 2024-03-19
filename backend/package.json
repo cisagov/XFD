@@ -111,8 +111,8 @@
     "lint": "eslint '**/*.{ts,tsx,js,jsx}'",
     "lint:fix": "eslint '**/*.{ts,tsx,js,jsx}' --fix",
     "pesyncdb": "docker-compose exec -T backend npx ts-node src/tools/run-pesyncdb.ts",
-    "syncmdl": "docker-compose exec -T backend npx ts-node src/tools/run-syncmdl.ts",
     "syncdb": "docker-compose exec -T backend npx ts-node src/tools/run-syncdb.ts",
+    "syncmdl": "docker-compose exec -T backend npx ts-node src/tools/run-syncmdl.ts",
     "test": "jest --detectOpenHandles",
     "test-python": "pytest"
   },
