@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
@@ -7,24 +7,15 @@ import {
   IconButton,
   Drawer,
   ListItem,
-  List,
-  useMediaQuery,
-  useTheme
+  List
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  AccountCircle as UserIcon,
-  ArrowDropDown
-} from '@mui/icons-material';
+import { Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
-import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import logo from '../assets/crossfeed.svg';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';
-import { Autocomplete } from '@mui/material';
-import { Organization, OrganizationTag } from 'types';
 
 const PREFIX = 'Header';
 
@@ -32,13 +23,11 @@ const classes = {
   inner: `${PREFIX}-inner`,
   menuButton: `${PREFIX}-menuButton`,
   logo: `${PREFIX}-logo`,
-  logoBox: `${PREFIX}-logoBox`,
   spacing: `${PREFIX}-spacing`,
   activeMobileLink: `${PREFIX}-activeMobileLink`,
   link: `${PREFIX}-link`,
   lgNav: `${PREFIX}-lgNav`,
   mobileNav: `${PREFIX}-mobileNav`,
-  selectOrg: `${PREFIX}-selectOrg`,
   option: `${PREFIX}-option`
 };
 
@@ -101,7 +90,7 @@ const Root = styled('div')(({ theme }) => ({
 
   [`.${classes.mobileNav}`]: {
     padding: `${theme.spacing(2)} ${theme.spacing()}px`
-  },
+  }
 }));
 
 const GLOBAL_ADMIN = 2;
@@ -122,22 +111,8 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   const history = useHistory();
   const location = useLocation();
-  const {
-    currentOrganization,
-    setOrganization,
-    showAllOrganizations,
-    setShowAllOrganizations,
-    setShowMaps,
-    user,
-    logout,
-    apiGet
-  } = useAuthContext();
+  const { user, logout } = useAuthContext();
   const [navOpen, setNavOpen] = useState(false);
-  const [organizations, setOrganizations] = useState<
-    (Organization | OrganizationTag)[]
-  >([]);
-  const [tags, setTags] = useState<OrganizationTag[]>([]);
-  const theme = useTheme();
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -147,26 +122,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       userLevel = GLOBAL_ADMIN;
     }
   }
-
-  const fetchOrganizations = useCallback(async () => {
-    try {
-      const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: (OrganizationTag | Organization)[] = [];
-      if (userLevel === GLOBAL_ADMIN) {
-        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-        await setTags(tags as OrganizationTag[]);
-      }
-      await setOrganizations(tags.concat(rows));
-    } catch (e) {
-      console.log(e);
-    }
-  }, [apiGet, setOrganizations, userLevel]);
-
-  React.useEffect(() => {
-    if (userLevel > 0) {
-      fetchOrganizations();
-    }
-  }, [fetchOrganizations, userLevel]);
 
   const navItems: NavItemType[] = [
     {
