@@ -1,0 +1,68 @@
+import {
+    Entity,
+    Index,
+    Column,
+    PrimaryColumn,
+    CreateDateColumn,
+    BaseEntity,
+    ManyToMany,
+    JoinTable
+  } from 'typeorm';
+
+import {Request } from './requests';
+import { Organization } from './organizations';
+@Entity()
+export class Cidr extends BaseEntity {
+  @PrimaryColumn()
+  id: string
+
+  @CreateDateColumn()
+    createdDate: Date;
+
+  @Index()
+  @Column({
+      nullable: true,
+      type: 'cidr',
+      unique: true
+    })
+    network: string | null;
+  
+  @Column({
+      nullable: true,
+      type: 'inet'
+    })
+    startIp: string | null;
+  
+  @Column({
+      nullable: true,
+      type: 'inet'
+    })
+    endIp: string | null;
+
+  @Column({nullable: true})
+    retired: boolean;
+
+  @ManyToMany(
+    (type) => Request,
+    (request) => request.cidrs,
+    {
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    }
+  )
+  @JoinTable()
+  requests: Request[];
+
+  @ManyToMany(
+    (type) => Organization,
+    (org) => org.cidrs,
+    {
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    }
+  )
+  @JoinTable()
+  organizations: Organization[];
+
+    
+}
