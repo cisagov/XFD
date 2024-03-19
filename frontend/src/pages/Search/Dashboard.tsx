@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { classes, Root } from './Styling/dashboardStyle';
-import { DomainDetails, Subnav } from 'components';
+import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
 import {
   Paper,
@@ -208,9 +208,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
               />
             ))}
           </div>
-          {/* <div className={classes.panel}>
-            {selectedDomain && <DomainDetails domainId={selectedDomain} />}
-          </div> */}
         </div>
         <Paper classes={{ root: classes.pagination }}>
           <span>
