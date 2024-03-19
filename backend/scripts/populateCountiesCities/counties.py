@@ -1,16 +1,35 @@
+"""
+This module contains the script for populating counties data.
+
+It includes functions for pulling counties data from Wikipedia,
+and writing the data to a CSV file.
+"""
+
+# Standard Python Libraries
+import re
+import time
+
+# Third-Party Libraries
+from bs4 import BeautifulSoup
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
-import time
-import re
 
 
 def pull_counties():
+    """
+    Process and pull counties data from Wikipedia.
+
+    This function fetches the Wikipedia page for the list of United States counties,
+    parses the page to extract county, state, and URL information,
+    and writes the data to a CSV file.
+    """
     print("Processing Counties...")
     # get the response in the form of html
     wikiurl = "https://en.wikipedia.org/wiki/List_of_United_States_counties_and_county_equivalents"
-    table_class = "wikitable sortable jquery-tablesorter"
-    response = requests.get(wikiurl)
+    try:
+        response = requests.get(wikiurl, timeout=5)
+    except requests.exceptions.Timeout:
+        print("The request timed out")
 
     # parse data from the html into a beautifulsoup object
     soup = BeautifulSoup(response.text, "html.parser")
@@ -24,7 +43,7 @@ def pull_counties():
         try:
             county_pieces = link.get("title").split(", ")
             # OPEN WIKIPEDIA PAGE UP
-            x = requests.get("https://en.wikipedia.org/" + link.get("href"))
+            x = requests.get("https://en.wikipedia.org/" + link.get("href"), timeout=5)
 
             # PULL WEBSITE FROM WIKIPEDIA PAGE
             w = re.findall(
@@ -43,6 +62,7 @@ def pull_counties():
                 }
             )
         except Exception as e:
+            print(f"Error: {e}")
             pass
 
         time.sleep(1)

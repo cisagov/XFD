@@ -1,18 +1,44 @@
+"""
+This module contains the script for populating cities data.
+
+It includes functions for parsing titles, pulling cities data from Wikipedia,
+and writing the data to a CSV file.
+"""
+
+# Standard Python Libraries
+import json
+import re
+import time
+from urllib.parse import unquote
+
+# Third-Party Libraries
+from bs4 import BeautifulSoup
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
-import time
-import re
-import json
-from urllib.parse import unquote
 
 
 def title_parse(title):
+    """
+    Parse the title by unquoting it.
+
+    Args:
+        title (str): The title to be parsed.
+
+    Returns:
+        str: The parsed title.
+    """
     title = unquote(title)
     return title
 
 
 def pull_cities():
+    """
+    Process and pull cities data from Wikipedia.
+
+    This function reads the Wikipedia US cities data from a JSON file, processes each entry,
+    fetches the corresponding Wikipedia page, parses the page to extract city, county, and URL information,
+    and writes the data to a CSV file.
+    """
     print("Processing Cities...")
     with open("wikipedia_US_cities.json") as f:
         wikipedia_us_city_data = json.load(f)
@@ -23,7 +49,10 @@ def pull_cities():
         print(entry["name"])
         # get the response in the form of html
         wikiurl = "https://en.wikipedia.org/wiki/" + entry["url"]
-        response = requests.get(wikiurl)
+        try:
+            response = requests.get(wikiurl, timeout=5)
+        except requests.exceptions.Timeout:
+            print("The request timed out")
 
         # parse data from the html into a beautifulsoup object
         soup = BeautifulSoup(response.text, "html.parser")
@@ -52,7 +81,9 @@ def pull_cities():
                     if "," in link.get("title"):
                         county_pieces = link.get("title").split(",")
                         # OPEN WIKIPEDIA PAGE UP
-                        x = requests.get("https://en.wikipedia.org/" + link.get("href"))
+                        x = requests.get(
+                            "https://en.wikipedia.org/" + link.get("href"), timeout=5
+                        )
 
                         # PULL COUNTY OR PARISH FROM WIKIPEDIA PAGE
                         county_parish_matches = re.findall(
@@ -85,7 +116,8 @@ def pull_cities():
                             }
                         )
                     time.sleep(1)
-                except:
+                except Exception as e:
+                    print(f"Error: {e}")
                     pass
 
         df = pd.DataFrame(holding_pen, columns=["State", "County", "City", "URL"])
