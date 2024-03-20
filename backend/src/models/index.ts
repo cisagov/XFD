@@ -13,19 +13,19 @@ export * from './webpage';
 export * from './api-key';
 export * from './saved-search';
 export * from './organization-tag';
-
+// Mini data lake models
 export * from './mini_data_lake/cert_scans';
 export * from './mini_data_lake/cidrs';
 export * from './mini_data_lake/contacts';
 export { Cpe as DL_Cpe } from './mini_data_lake/cpes';
 export { Cve as DL_Cve } from './mini_data_lake/cves';
 export { Domain as DL_Domain } from './mini_data_lake/domains';
+export { Organization as DL_Organization } from './mini_data_lake/organizations';
 export * from './mini_data_lake/host_scans';
 export * from './mini_data_lake/hosts';
 export * from './mini_data_lake/ips';
 export * from './mini_data_lake/kevs';
 export * from './mini_data_lake/locations';
-export { Organization as DL_Organization } from './mini_data_lake/organizations';
 export * from './mini_data_lake/port_scans';
 export * from './mini_data_lake/precert_scans';
 export * from './mini_data_lake/reports';
