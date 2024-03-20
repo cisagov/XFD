@@ -370,8 +370,8 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   const getConditionalNavItems = () => {
     if (user?.userType === 'regionalAdmin') {
-      userMenu.nested?.push(userRegistrationNavItem);
-      userItemsSmall.push(userRegistrationNavItem);
+      userMenu.nested?.unshift(userRegistrationNavItem);
+      userItemsSmall.unshift(userRegistrationNavItem);
     }
   };
 
