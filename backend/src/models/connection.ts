@@ -51,8 +51,8 @@ let dl_connection: Connection | null = null;
 const connectDl = async (logging?: boolean) => {
   const dl_connection = createConnection({
     type: 'postgres',
-    host: process.env.MDL_HOST,
-    port: parseInt(process.env.MDL_PORT ?? ''),
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT ?? ''),
     username: process.env.MDL_USERNAME,
     password: process.env.MDL_PASSWORD,
     database: process.env.MDL_NAME,

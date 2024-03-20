@@ -6,7 +6,7 @@ import { handler as syncmdl } from '../tasks/syncmdl';
  * recreating the SQL database.
  * */
 
-process.env.MDL_HOST = 'db';
+process.env.DB_HOST = 'db';
 process.env.MDL_USERNAME = 'mdl';
 process.env.MDL_PASSWORD = 'password';
 process.env.MDL_DATABASE = 'crossfeed_mini_datalake';
