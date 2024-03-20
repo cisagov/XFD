@@ -4,8 +4,8 @@ name: sync-labels
 on:
   push:
     paths:
-      - '.github/labels.yml'
-      - '.github/workflows/sync-labels.yml'
+      - .github/labels.yml
+      - .github/workflows/sync-labels.yml
 
 permissions:
   contents: read

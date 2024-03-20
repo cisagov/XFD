@@ -1,7 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
-import { Alert, Box, Button, IconButton, Grid } from '@mui/material';
+import { Alert, Box, Button, IconButton, Paper } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
 import { Add } from '@mui/icons-material';
@@ -16,7 +16,17 @@ export const OrganizationList: React.FC<{
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const history = useHistory();
-  const getOrgsURL = `/v2/organizations/`;
+  const regionId = user?.regionId;
+
+  const getOrgsUrl = () => {
+    if (user?.userType === 'regionalAdmin') {
+      return `/organizations/regionId/${regionId}`;
+    } else {
+      return `/v2/organizations/`;
+    }
+  };
+
+  const orgsUrl = getOrgsUrl() as string;
 
   const orgCols: GridColDef[] = [
     { field: 'name', headerName: 'Organization', minWidth: 100, flex: 2 },
@@ -62,7 +72,7 @@ export const OrganizationList: React.FC<{
 
   const fetchOrganizations = useCallback(async () => {
     try {
-      const rows = await apiGet<Organization[]>(getOrgsURL);
+      const rows = await apiGet<Organization[]>(orgsUrl);
       // rows.forEach((obj) => {
       //   // obj.userCount = obj.userRoles.length;
       //   obj.tagNames = obj.tags.map((tag) => tag.name);
@@ -71,9 +81,9 @@ export const OrganizationList: React.FC<{
     } catch (e) {
       console.error(e);
     }
-  }, [apiGet, getOrgsURL]);
+  }, [apiGet, orgsUrl]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!parent) fetchOrganizations();
     else {
       setOrganizations(parent.children);
@@ -93,12 +103,7 @@ export const OrganizationList: React.FC<{
 
   return (
     <Box mb={3}>
-      <Grid
-        container
-        spacing={2}
-        style={{ margin: '0 auto', marginTop: '1rem', maxWidth: '1000px' }}
-      ></Grid>
-      <Box sx={{ backgroundColor: 'white' }}>
+      <Paper elevation={0}>
         {organizations?.length === 0 ? (
           <Alert severity="warning">No organizations found.</Alert>
         ) : (
@@ -111,7 +116,7 @@ export const OrganizationList: React.FC<{
             }}
           />
         )}
-      </Box>
+      </Paper>
       <OrganizationForm
         onSubmit={onSubmit}
         open={dialogOpen}
