@@ -9,12 +9,15 @@ import {
   DialogTitle,
   FormControlLabel,
   IconButton,
+  MenuItem,
   Paper,
   Radio,
   RadioGroup,
+  Select,
   TextField,
   Typography
 } from '@mui/material';
+import { SelectChangeEvent } from '@mui/material/Select';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Add, CheckCircleOutline, Delete } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
@@ -23,6 +26,7 @@ import InfoDialog from 'components/Dialog/InfoDialog';
 import { ImportExport } from 'components';
 import { initializeUser, Organization, User } from 'types';
 import { useAuthContext } from 'context';
+import { STATE_OPTIONS } from '../../constants/constants';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
@@ -50,13 +54,15 @@ type UserFormValues = {
   email: string;
   organization?: Organization;
   userType: string;
+  state: string;
 };
 
 const initialUserFormValues = {
   firstName: '',
   lastName: '',
   email: '',
-  userType: ''
+  userType: '',
+  state: ''
 };
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
@@ -73,7 +79,8 @@ export const Users: React.FC = () => {
     firstName: false,
     lastName: false,
     email: false,
-    userType: false
+    userType: false,
+    state: false
   });
   const [errorStates, setErrorStates] = useState<ErrorStates>({
     getUsersError: '',
@@ -181,7 +188,8 @@ export const Users: React.FC = () => {
       firstName: false,
       lastName: false,
       email: false,
-      userType: false
+      userType: false,
+      state: false
     });
   };
 
@@ -209,14 +217,16 @@ export const Users: React.FC = () => {
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
-      userType: values.userType
+      userType: values.userType,
+      state: values.state
     };
-    const { firstName, lastName, email, userType } = values;
+    const { firstName, lastName, email, userType, state } = values;
     const newFormErrors = {
       firstName: !firstName,
       lastName: !lastName,
       email: !email,
-      userType: !userType
+      userType: !userType,
+      state: !state
     };
     setFormErrors(newFormErrors);
     if (Object.values(newFormErrors).some((error) => error)) {
@@ -250,6 +260,13 @@ export const Users: React.FC = () => {
     setValues((values) => ({
       ...values,
       [name]: value
+    }));
+  };
+
+  const handleChange = (event: SelectChangeEvent) => {
+    setValues((values) => ({
+      ...values,
+      [event.target.name]: event.target.value
     }));
   };
 
@@ -357,6 +374,33 @@ export const Users: React.FC = () => {
             value={values.email}
             onChange={onTextChange}
           />
+          <Typography mt={1}>State</Typography>
+          <Select
+            displayEmpty
+            size="small"
+            id="state"
+            value={values.state}
+            name="state"
+            error={formErrors.state}
+            onChange={handleChange}
+            fullWidth
+            renderValue={
+              values.state !== ''
+                ? undefined
+                : () => <Typography color="#bdbdbd">Select a State</Typography>
+            }
+          >
+            {STATE_OPTIONS.map((state: string, index: number) => (
+              <MenuItem key={index} value={state}>
+                {state}
+              </MenuItem>
+            ))}
+          </Select>
+          {formErrors.state && (
+            <Typography pl={2} variant="caption" color="error.main">
+              State is required
+            </Typography>
+          )}
           <Typography mt={2}>User Type</Typography>
           <RadioGroup
             aria-label="User Type"
@@ -375,13 +419,18 @@ export const Users: React.FC = () => {
               label="Global View"
             />
             <FormControlLabel
+              value="regionalAdmin"
+              control={<Radio color="primary" />}
+              label="Regional Administrator"
+            />
+            <FormControlLabel
               value="globalAdmin"
               control={<Radio color="primary" />}
               label="Global Administrator"
             />
           </RadioGroup>
           {formErrors.userType && (
-            <Typography variant="caption" color="error.main">
+            <Typography pl={2} variant="caption" color="error.main">
               User Type is required
             </Typography>
           )}
@@ -401,7 +450,8 @@ export const Users: React.FC = () => {
                 firstName: false,
                 lastName: false,
                 email: false,
-                userType: false
+                userType: false,
+                state: false
               });
               setValues(initialUserFormValues);
             }}
