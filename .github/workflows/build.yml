@@ -100,9 +100,9 @@ jobs:
           python -m pip install --upgrade pip setuptools wheel
           pip install --upgrade --requirement requirements-test.txt
       - name: Set up pre-commit hook environments
-        run: |
-          pre-commit install-hooks
-          cp dev.env.example .env
+        run: pre-commit install-hooks
+      - name: Create .env file
+        run: cp dev.env.example .env
       - name: Run pre-commit on all files
         run: pre-commit run --all-files
       - name: Setup tmate debug session
