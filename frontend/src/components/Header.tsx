@@ -361,7 +361,22 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     <NavItem key={item.title.toString()} {...item} />
   ));
 
+  const userRegistrationNavItem = {
+    title: 'User Registration',
+    path: '/region-admin-dasboard',
+    users: ALL_USERS,
+    exact: true
+  };
+
+  const getConditionalNavItems = () => {
+    if (user?.userType === 'regionalAdmin') {
+      userMenu.nested?.unshift(userRegistrationNavItem);
+      userItemsSmall.unshift(userRegistrationNavItem);
+    }
+  };
+
   const navItemsToUse = () => {
+    getConditionalNavItems();
     if (isSmall) {
       return userItemsSmall;
     } else {
