@@ -2,7 +2,7 @@ import {
   Entity,
   Index,
   Column,
-  PrimaryColumn,
+  PrimaryGeneratedColumn,
   CreateDateColumn,
   BaseEntity,
   ManyToMany,
@@ -13,7 +13,7 @@ import { Request } from './requests';
 import { Organization } from './organizations';
 @Entity()
 export class Cidr extends BaseEntity {
-  @PrimaryColumn()
+  @PrimaryGeneratedColumn()
   id: string;
 
   @CreateDateColumn()
