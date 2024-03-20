@@ -1,6 +1,7 @@
-# Define here the models for your scraped items
-#
-# See documentation in:
-# https://docs.scrapy.org/en/latest/topics/items.html
+"""
+This module defines the items that the web scraper will extract from web pages.
 
-import scrapy
+Each item is represented by a class, and the fields of the class represent the data that the scraper will extract.
+See documentation here for information on how to create models for your items:
+https://docs.scrapy.org/en/latest/topics/items.html
+"""

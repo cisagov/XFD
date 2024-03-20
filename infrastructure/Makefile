@@ -5,6 +5,6 @@ init:
 plan:
 	terraform plan -var-file=stage.tfvars -out plan
 apply:
-	terraform apply plan 
+	terraform apply plan
 format:
 	terraform validate && terraform fmt -recursive

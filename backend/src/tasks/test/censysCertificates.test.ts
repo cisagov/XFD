@@ -168,7 +168,7 @@ describe('censys certificates', () => {
         }
       });
     const firstFileContents = fs.readFileSync(
-      path.join(__dirname, '../helpers/__mocks__/censysCertificatesSample.json')
+      path.join(__dirname, '../helpers/__mocks__/censysCertificatesSample.txt')
     );
     const secondFileContents = JSON.stringify({
       parsed: {

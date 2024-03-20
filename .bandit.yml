@@ -6,8 +6,6 @@
 # If `tests` is empty, all tests are considered included.
 
 tests:
-# - B101
-# - B102
 
 skips:
-# - B101 # skip "assert used" check since assertions are required in pytests
+  - B101  # skip "assert used" check since assertions are required in pytests
