@@ -38,7 +38,6 @@ export class VulnScan extends BaseEntity {
   })
   cpe: string | null;
 
-  //TODO link cve
   @Column({
     nullable: true,
     type: 'varchar'

@@ -16,7 +16,6 @@ export class TicketEvent extends BaseEntity {
   @PrimaryGeneratedColumn()
   id: string;
 
-  // TODO verify this is unique
   @Column({
     nullable: true,
     type: 'varchar',
