@@ -12,7 +12,7 @@ import {
 import { Organization } from './organizations';
 @Entity()
 export class Tag extends BaseEntity {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({

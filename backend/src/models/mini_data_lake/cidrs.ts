@@ -13,7 +13,7 @@ import { Request } from './requests';
 import { Organization } from './organizations';
 @Entity()
 export class Cidr extends BaseEntity {
-  @PrimaryGeneratedColumn()
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @CreateDateColumn()
