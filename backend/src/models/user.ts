@@ -10,14 +10,16 @@ import {
   PrimaryGeneratedColumn,
   BeforeUpdate
 } from 'typeorm';
-import { Organization, Role } from './';
+import { Role } from './';
 import { ApiKey } from './api-key';
+import { RscAssessment } from './rsc_assessment';
 
 export enum UserType {
-  STANDARD = 'standard',
   GLOBAL_VIEW = 'globalView',
   GLOBAL_ADMIN = 'globalAdmin',
-  REGIONAL_ADMIN = 'regionalAdmin'
+  REGIONAL_ADMIN = 'regionalAdmin',
+  READY_SET_CYBER = 'readySetCyber',
+  STANDARD = 'standard'
 }
 @Entity()
 export class User extends BaseEntity {
@@ -116,15 +118,6 @@ export class User extends BaseEntity {
   })
   state: string;
 
-  // @Column({
-  //   nullable: true,
-  //   default: 0
-  // })
-  // numberOfOrganizations: number;
-
-  // @Column({
-  //   nullable: true,
-  //   default: []
-  // })
-  // organizationIds: Array<Organization>;
+  @OneToMany(() => RscAssessment, (assessment) => assessment.user)
+  assessments: RscAssessment[];
 }
