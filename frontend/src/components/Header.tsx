@@ -1,21 +1,25 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
   AppBar,
+  Autocomplete,
   Toolbar,
   IconButton,
   Drawer,
   ListItem,
-  List
+  List,
+  TextField
 } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
+import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import logo from '../assets/crossfeed.svg';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';
+import { Organization, OrganizationTag } from 'types';
 
 const PREFIX = 'Header';
 
@@ -28,6 +32,7 @@ const classes = {
   link: `${PREFIX}-link`,
   lgNav: `${PREFIX}-lgNav`,
   mobileNav: `${PREFIX}-mobileNav`,
+  selectOrg: `${PREFIX}-selectOrg`,
   option: `${PREFIX}-option`
 };
 
@@ -87,6 +92,33 @@ const Root = styled('div')(({ theme }) => ({
 
   [`.${classes.mobileNav}`]: {
     padding: `${theme.spacing(2)} ${theme.spacing()}px`
+  },
+  [`.${classes.selectOrg}`]: {
+    border: '1px solid #FFFFFF',
+    borderRadius: '5px',
+    width: '200px',
+    padding: '3px',
+    marginLeft: '20px',
+    '& svg': {
+      color: 'white'
+    },
+    '& input': {
+      color: 'white',
+      width: '100%'
+    },
+    '& input:focus': {
+      outlineWidth: 0
+    },
+    '& fieldset': {
+      borderStyle: 'none'
+    },
+    '& div div': {
+      paddingTop: '0 !important'
+    },
+    '& div div div': {
+      marginTop: '-3px !important'
+    },
+    height: '45px'
   }
 }));
 
@@ -108,8 +140,22 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   const history = useHistory();
   const location = useLocation();
-  const { user, logout } = useAuthContext();
+  const {
+    currentOrganization,
+    setOrganization,
+    showAllOrganizations,
+    setShowAllOrganizations,
+    setShowMaps,
+    user,
+    logout,
+    apiGet
+  } = useAuthContext();
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const [organizations, setOrganizations] = useState<
+    (Organization | OrganizationTag)[]
+  >([]);
+  const [tags, setTags] = useState<OrganizationTag[]>([]);
 
   const toggleDrawer = (newOpen: boolean) => () => {
     setDrawerOpen(newOpen);
@@ -123,6 +169,26 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       userLevel = GLOBAL_ADMIN;
     }
   }
+
+  const fetchOrganizations = useCallback(async () => {
+    try {
+      const rows = await apiGet<Organization[]>('/v2/organizations/');
+      let tags: (OrganizationTag | Organization)[] = [];
+      if (userLevel === GLOBAL_ADMIN) {
+        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
+        await setTags(tags as OrganizationTag[]);
+      }
+      await setOrganizations(tags.concat(rows));
+    } catch (e) {
+      console.log(e);
+    }
+  }, [apiGet, setOrganizations, userLevel]);
+
+  React.useEffect(() => {
+    if (userLevel > 0) {
+      fetchOrganizations();
+    }
+  }, [fetchOrganizations, userLevel]);
 
   const navItems: NavItemType[] = [
     {
@@ -180,6 +246,8 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     <NavItem key={item.title.toString()} {...item} />
   ));
 
+  const orgPageMatch = useRouteMatch('/organizations/:id');
+
   return (
     <Root>
       <AppBar position="static" elevation={0}>
@@ -209,6 +277,89 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     });
                   }}
                 />
+                {organizations.length > 1 && (
+                  <>
+                    <div className={classes.spacing} />
+                    <Autocomplete
+                      isOptionEqualToValue={(option, value) =>
+                        option?.name === value?.name
+                      }
+                      options={[{ name: 'All Organizations' }].concat(
+                        organizations
+                      )}
+                      autoComplete={false}
+                      className={classes.selectOrg}
+                      classes={{
+                        option: classes.option
+                      }}
+                      value={
+                        showAllOrganizations
+                          ? { name: 'All Organizations' }
+                          : currentOrganization ?? undefined
+                      }
+                      filterOptions={(options, state) => {
+                        // If already selected, show all
+                        if (
+                          options.find(
+                            (option) =>
+                              option?.name.toLowerCase() ===
+                              state.inputValue.toLowerCase()
+                          )
+                        ) {
+                          return options;
+                        }
+                        return options.filter(
+                          (option) =>
+                            option?.name
+                              .toLowerCase()
+                              .includes(state.inputValue.toLowerCase())
+                        );
+                      }}
+                      disableClearable
+                      blurOnSelect
+                      selectOnFocus
+                      getOptionLabel={(option) => option!.name}
+                      renderOption={(props, option) => (
+                        <li {...props}>{option!.name}</li>
+                      )}
+                      onChange={(
+                        event: any,
+                        value: Organization | { name: string } | undefined
+                      ) => {
+                        if (value && 'id' in value) {
+                          setOrganization(value);
+                          setShowAllOrganizations(false);
+                          if (value.name === 'Election') {
+                            setShowMaps(true);
+                          } else {
+                            setShowMaps(false);
+                          }
+
+                          // Check if we're on an organization page and, if so, update it to the new organization
+                          if (orgPageMatch !== null) {
+                            if (!tags.find((e) => e.id === value.id)) {
+                              history.push(`/organizations/${value.id}`);
+                            }
+                          }
+                        } else {
+                          setShowAllOrganizations(true);
+                          setShowMaps(false);
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          inputProps={{
+                            ...params.inputProps,
+                            id: 'autocomplete-input',
+                            autoComplete: 'new-password' // disable autocomplete and autofill
+                          }}
+                        />
+                      )}
+                    />
+                  </>
+                )}
                 <IconButton
                   edge="start"
                   className={classes.menuButton}
