@@ -40,10 +40,7 @@ const Root = styled('div')(({ theme }) => ({
 
   [`.${classes.menuButton}`]: {
     marginLeft: theme.spacing(2),
-    display: 'flex',
-    [theme.breakpoints.up('xl')]: {
-      display: 'none'
-    }
+    display: 'flex'
   },
 
   [`.${classes.logo}`]: {
@@ -112,7 +109,11 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   const history = useHistory();
   const location = useLocation();
   const { user, logout } = useAuthContext();
-  const [navOpen, setNavOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  const toggleDrawer = (newOpen: boolean) => () => {
+    setDrawerOpen(newOpen);
+  };
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -146,28 +147,25 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   const userItems: NavItemType[] = [
     {
-      title: 'My Account',
-      path: '#',
-      users: ALL_USERS,
-      exact: false
-    },
-    {
       title: 'Manage Organizations',
       path: '/organizations',
       users: GLOBAL_ADMIN,
-      exact: true
+      exact: true,
+      onClick: toggleDrawer(false)
     },
     {
       title: 'Manage Users',
       path: '/users',
       users: GLOBAL_ADMIN,
-      exact: true
+      exact: true,
+      onClick: toggleDrawer(false)
     },
     {
       title: 'My Settings',
       path: '/settings',
       users: ALL_USERS,
-      exact: true
+      exact: true,
+      onClick: toggleDrawer(false)
     },
     {
       title: 'Logout',
@@ -216,7 +214,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                   className={classes.menuButton}
                   aria-label="toggle mobile menu"
                   color="inherit"
-                  onClick={() => setNavOpen((open) => !open)}
+                  onClick={toggleDrawer(true)}
                 >
                   <MenuIcon />
                 </IconButton>
@@ -227,8 +225,8 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       </AppBar>
       <Drawer
         anchor="right"
-        open={navOpen}
-        onClose={() => setNavOpen(false)}
+        open={drawerOpen}
+        onClose={toggleDrawer(false)}
         data-testid="mobilenav"
       >
         <List className={classes.mobileNav}>
