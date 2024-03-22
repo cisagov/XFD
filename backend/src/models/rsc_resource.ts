@@ -13,10 +13,13 @@ export class RscResource extends BaseEntity {
   id: string;
 
   @Column()
-  title: string;
+  description: string;
 
   @Column()
-  text: string;
+  name: string;
+
+  @Column()
+  type: string;
 
   @Column()
   url: string;

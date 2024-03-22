@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Role } from './';
 import { ApiKey } from './api-key';
+import { RscAssessment } from './rsc_assessment';
 
 export enum UserType {
   GLOBAL_VIEW = 'globalView',
@@ -116,4 +117,7 @@ export class User extends BaseEntity {
     nullable: true
   })
   state: string;
+
+  @OneToMany(() => RscAssessment, (assessment) => assessment.user)
+  assessments: RscAssessment[];
 }
