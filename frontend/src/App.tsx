@@ -212,7 +212,8 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/readysetcyber"
                     component={RSCDashboard}
-                    permissions={['regionalAdmin']}
+                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    unauth={RSCDashboard}
                   />
                 </Switch>
               </Layout>
