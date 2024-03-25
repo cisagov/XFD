@@ -101,6 +101,8 @@ jobs:
           pip install --upgrade --requirement requirements-test.txt
       - name: Set up pre-commit hook environments
         run: pre-commit install-hooks
+      - name: Create .env file needed by docker-compose-check pre-commit hook
+        run: cp dev.env.example .env
       - name: Run pre-commit on all files
         run: pre-commit run --all-files
       - name: Setup tmate debug session
