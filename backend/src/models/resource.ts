@@ -5,10 +5,10 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn
 } from 'typeorm';
-import { RscQuestion } from './rsc_question';
+import { Question } from './question';
 
 @Entity()
-export class RscResource extends BaseEntity {
+export class Resource extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -24,6 +24,6 @@ export class RscResource extends BaseEntity {
   @Column()
   url: string;
 
-  @ManyToOne(() => RscQuestion, (question) => question.resources)
-  question: RscQuestion;
+  @ManyToOne(() => Question, (question) => question.resources)
+  question: Question;
 }

@@ -1,22 +1,22 @@
 import {
+  BaseEntity,
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
   Entity,
   Index,
-  Column,
-  UpdateDateColumn,
-  CreateDateColumn,
-  BaseEntity,
   OneToMany,
-  BeforeInsert,
   PrimaryGeneratedColumn,
-  BeforeUpdate
+  UpdateDateColumn
 } from 'typeorm';
-import { Role } from './';
 import { ApiKey } from './api-key';
-import { RscAssessment } from './rsc_assessment';
+import { Assessment } from './assessment';
+import { Role } from './';
 
 export enum UserType {
-  GLOBAL_VIEW = 'globalView',
   GLOBAL_ADMIN = 'globalAdmin',
+  GLOBAL_VIEW = 'globalView',
   REGIONAL_ADMIN = 'regionalAdmin',
   READY_SET_CYBER = 'readySetCyber',
   STANDARD = 'standard'
@@ -118,6 +118,6 @@ export class User extends BaseEntity {
   })
   state: string;
 
-  @OneToMany(() => RscAssessment, (assessment) => assessment.user)
-  assessments: RscAssessment[];
+  @OneToMany(() => Assessment, (assessment) => assessment.user)
+  assessments: Assessment[];
 }

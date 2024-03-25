@@ -5,16 +5,16 @@ import {
   OneToMany,
   PrimaryGeneratedColumn
 } from 'typeorm';
-import { RscQuestion } from './rsc_question';
+import { Question } from './question';
 
 @Entity()
-export class RscCategory extends BaseEntity {
+export class Category extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
   name: string;
 
-  @OneToMany(() => RscQuestion, (question) => question.category)
-  questions: RscQuestion[];
+  @OneToMany(() => Question, (question) => question.category)
+  questions: Question[];
 }

@@ -7,11 +7,11 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn
 } from 'typeorm';
+import { Response } from './response';
 import { User } from './user';
-import { RscQuestion } from './rsc_question';
 
 @Entity()
-export class RscAssessment extends BaseEntity {
+export class Assessment extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -24,6 +24,6 @@ export class RscAssessment extends BaseEntity {
   @ManyToOne(() => User, (user) => user.assessments)
   user: User;
 
-  @OneToMany(() => RscQuestion, (question) => question.assessment)
-  questions: RscQuestion[];
+  @OneToMany(() => Response, (response) => response.assessment)
+  responses: Response[];
 }
