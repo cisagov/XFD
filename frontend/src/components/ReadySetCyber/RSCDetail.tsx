@@ -19,7 +19,6 @@ export const RSCDetail: React.FC = () => {
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
         <Grid item xs={4}>
-          <h2>Ready Set Cyber Side Nav</h2>
           <RSCSideNav />
         </Grid>
         <Grid item xs={8}>
