@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
@@ -151,7 +151,8 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     apiGet
   } = useAuthContext();
   const [drawerOpen, setDrawerOpen] = useState(false);
-
+  let drawerItems = [];
+  const [isMobile, setIsMobile] = useState(false);
   const [organizations, setOrganizations] = useState<
     (Organization | OrganizationTag)[]
   >([]);
@@ -184,7 +185,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     }
   }, [apiGet, setOrganizations, userLevel]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (userLevel > 0) {
       fetchOrganizations();
     }
@@ -248,6 +249,23 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
+  const handleResize = () => {
+    if (window.innerWidth < 1110) {
+      setIsMobile(true);
+    } else {
+      setIsMobile(false);
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+  });
+
+  if (isMobile) {
+    drawerItems = [...navItems, ...userItems];
+  } else {
+    drawerItems = userItems;
+  }
   return (
     <Root>
       <AppBar position="static" elevation={0}>
@@ -260,9 +278,10 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                 alt="Crossfeed Icon Navigate Home"
               />
             </Link>
-            <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
+            {!isMobile && (
+              <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
+            )}
             <div className={classes.spacing} />
-
             {userLevel > 0 && (
               <>
                 <SearchBar
@@ -278,87 +297,84 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                   }}
                 />
                 {organizations.length > 1 && (
-                  <>
-                    <div className={classes.spacing} />
-                    <Autocomplete
-                      isOptionEqualToValue={(option, value) =>
-                        option?.name === value?.name
-                      }
-                      options={[{ name: 'All Organizations' }].concat(
-                        organizations
-                      )}
-                      autoComplete={false}
-                      className={classes.selectOrg}
-                      classes={{
-                        option: classes.option
-                      }}
-                      value={
-                        showAllOrganizations
-                          ? { name: 'All Organizations' }
-                          : currentOrganization ?? undefined
-                      }
-                      filterOptions={(options, state) => {
-                        // If already selected, show all
-                        if (
-                          options.find(
-                            (option) =>
-                              option?.name.toLowerCase() ===
-                              state.inputValue.toLowerCase()
-                          )
-                        ) {
-                          return options;
-                        }
-                        return options.filter(
+                  <Autocomplete
+                    isOptionEqualToValue={(option, value) =>
+                      option?.name === value?.name
+                    }
+                    options={[{ name: 'All Organizations' }].concat(
+                      organizations
+                    )}
+                    autoComplete={false}
+                    className={classes.selectOrg}
+                    classes={{
+                      option: classes.option
+                    }}
+                    value={
+                      showAllOrganizations
+                        ? { name: 'All Organizations' }
+                        : currentOrganization ?? undefined
+                    }
+                    filterOptions={(options, state) => {
+                      // If already selected, show all
+                      if (
+                        options.find(
                           (option) =>
-                            option?.name
-                              .toLowerCase()
-                              .includes(state.inputValue.toLowerCase())
-                        );
-                      }}
-                      disableClearable
-                      blurOnSelect
-                      selectOnFocus
-                      getOptionLabel={(option) => option!.name}
-                      renderOption={(props, option) => (
-                        <li {...props}>{option!.name}</li>
-                      )}
-                      onChange={(
-                        event: any,
-                        value: Organization | { name: string } | undefined
-                      ) => {
-                        if (value && 'id' in value) {
-                          setOrganization(value);
-                          setShowAllOrganizations(false);
-                          if (value.name === 'Election') {
-                            setShowMaps(true);
-                          } else {
-                            setShowMaps(false);
-                          }
-
-                          // Check if we're on an organization page and, if so, update it to the new organization
-                          if (orgPageMatch !== null) {
-                            if (!tags.find((e) => e.id === value.id)) {
-                              history.push(`/organizations/${value.id}`);
-                            }
-                          }
+                            option?.name.toLowerCase() ===
+                            state.inputValue.toLowerCase()
+                        )
+                      ) {
+                        return options;
+                      }
+                      return options.filter(
+                        (option) =>
+                          option?.name
+                            .toLowerCase()
+                            .includes(state.inputValue.toLowerCase())
+                      );
+                    }}
+                    disableClearable
+                    blurOnSelect
+                    selectOnFocus
+                    getOptionLabel={(option) => option!.name}
+                    renderOption={(props, option) => (
+                      <li {...props}>{option!.name}</li>
+                    )}
+                    onChange={(
+                      event: any,
+                      value: Organization | { name: string } | undefined
+                    ) => {
+                      if (value && 'id' in value) {
+                        setOrganization(value);
+                        setShowAllOrganizations(false);
+                        if (value.name === 'Election') {
+                          setShowMaps(true);
                         } else {
-                          setShowAllOrganizations(true);
                           setShowMaps(false);
                         }
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          variant="outlined"
-                          inputProps={{
-                            ...params.inputProps,
-                            id: 'autocomplete-input',
-                            autoComplete: 'new-password' // disable autocomplete and autofill
-                          }}
-                        />
-                      )}
-                    />
-                  </>
+
+                        // Check if we're on an organization page and, if so, update it to the new organization
+                        if (orgPageMatch !== null) {
+                          if (!tags.find((e) => e.id === value.id)) {
+                            history.push(`/organizations/${value.id}`);
+                          }
+                        }
+                      } else {
+                        setShowAllOrganizations(true);
+                        setShowMaps(false);
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        inputProps={{
+                          ...params.inputProps,
+                          id: 'autocomplete-input',
+                          autoComplete: 'new-password' // disable autocomplete and autofill
+                        }}
+                      />
+                    )}
+                  />
                 )}
                 <IconButton
                   edge="start"
@@ -379,9 +395,15 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
         open={drawerOpen}
         onClose={toggleDrawer(false)}
         data-testid="mobilenav"
+        PaperProps={{
+          sx: {
+            backgroundColor: 'primary.main',
+            color: 'white'
+          }
+        }}
       >
         <List className={classes.mobileNav}>
-          {userItems.map(({ title, path, nested, onClick }) => (
+          {drawerItems.map(({ title, path, nested, onClick }) => (
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem

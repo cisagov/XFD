@@ -3,7 +3,7 @@
 exports[`Header component matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="css-ckkwiw"
+    class="css-1octzoq"
   >
     <header
       class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionStatic css-1twrj82-MuiPaper-root-MuiAppBar-root"
@@ -54,7 +54,7 @@ exports[`Header component matches snapshot 1`] = `
             class="Header-spacing"
           />
           <div
-            class="SearchBar-wrapper css-6woq0m"
+            class="SearchBar-wrapper css-yro7sz"
           >
             <div
               class="SearchBar-inner"
@@ -73,7 +73,7 @@ exports[`Header component matches snapshot 1`] = `
               <form>
                 <input
                   class="SearchBar-inp"
-                  placeholder="Search for a domain, vuln type, port, service, IP"
+                  placeholder="Search a domain, vuln, port, service, IP"
                   value=""
                 />
               </form>
