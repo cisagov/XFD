@@ -39,6 +39,7 @@ import { Layout, RouteGuard } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { RSCDashboard } from 'components/ReadySetCyber/RSCDashboard';
+import { RSCDetail } from 'components/ReadySetCyber/RSCDetail';
 
 API.configure({
   endpoints: [
@@ -210,10 +211,17 @@ const App: React.FC = () => (
                     permissions={['regionalAdmin']}
                   />
                   <RouteGuard
+                    exact
                     path="/readysetcyber"
                     component={RSCDashboard}
                     permissions={['standard', 'globalView', 'regionalAdmin']}
                     unauth={RSCDashboard}
+                  />
+                  <RouteGuard
+                    path="/readysetcyber/result/:id"
+                    component={RSCDetail}
+                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    unauth={RSCDetail}
                   />
                 </Switch>
               </Layout>

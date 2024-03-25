@@ -49,7 +49,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           countdown={60} // 60 second timer for user inactivity timeout
         />
         <GovBanner />
-        {pathname !== '/readysetcyber' ? (
+        {!pathname.includes('/readysetcyber') ? (
           <>
             <Header />
             {pathname === '/inventory' ? (
