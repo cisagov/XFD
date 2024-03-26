@@ -3,7 +3,6 @@ import { styled } from '@mui/material/styles';
 import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
   AppBar,
-  Autocomplete,
   Toolbar,
   IconButton,
   Drawer,
@@ -11,7 +10,11 @@ import {
   List,
   TextField
 } from '@mui/material';
-import { Menu as MenuIcon } from '@mui/icons-material';
+import {
+  Menu as MenuIcon,
+  AccountCircle as UserIcon,
+  ArrowDropDown
+} from '@mui/icons-material';
 import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
@@ -19,6 +22,7 @@ import logo from '../assets/crossfeed.svg';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';
+import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
 
 const PREFIX = 'Header';
@@ -30,6 +34,7 @@ const classes = {
   spacing: `${PREFIX}-spacing`,
   activeMobileLink: `${PREFIX}-activeMobileLink`,
   link: `${PREFIX}-link`,
+  userLink: `${PREFIX}-userLink`,
   lgNav: `${PREFIX}-lgNav`,
   mobileNav: `${PREFIX}-mobileNav`,
   selectOrg: `${PREFIX}-selectOrg`,
@@ -83,6 +88,21 @@ const Root = styled('div')(({ theme }) => ({
     borderBottom: '2px solid transparent',
     fontWeight: 600
   },
+  [`.${classes.userLink}`]: {
+    [theme.breakpoints.down('md')]: {
+      display: 'flex'
+    },
+    [theme.breakpoints.up('lg')]: {
+      display: 'flex',
+      alignItems: 'center',
+      marginLeft: '1rem',
+      '& svg': {
+        marginRight: theme.spacing()
+      },
+      border: 'none',
+      textDecoration: 'none'
+    }
+  },
   [`.${classes.lgNav}`]: {
     display: 'flex',
     [theme.breakpoints.down('sm')]: {
@@ -122,9 +142,9 @@ const Root = styled('div')(({ theme }) => ({
   }
 }));
 
-const GLOBAL_ADMIN = 2;
+const GLOBAL_ADMIN = 3;
+const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
-const ALL_USERS = GLOBAL_ADMIN | STANDARD_USER;
 
 interface NavItemType {
   title: string | JSX.Element;
@@ -151,23 +171,25 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     apiGet
   } = useAuthContext();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  let drawerItems = [];
   const [isMobile, setIsMobile] = useState(false);
   const [organizations, setOrganizations] = useState<
     (Organization | OrganizationTag)[]
   >([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
 
+  let drawerItems: NavItemType[] = [];
   const toggleDrawer = (newOpen: boolean) => () => {
     setDrawerOpen(newOpen);
   };
 
   let userLevel = 0;
   if (user && user.isRegistered) {
-    if (user.userType === 'standard') {
+    if (user.userType === 'standard' || user.userType === 'globalView') {
       userLevel = STANDARD_USER;
-    } else {
+    } else if (user.userType === 'globalAdmin') {
       userLevel = GLOBAL_ADMIN;
+    } else if (user.userType === 'regionalAdmin') {
+      userLevel = REGIONAL_ADMIN;
     }
   }
 
@@ -195,62 +217,77 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     {
       title: 'Overview',
       path: '/',
-      users: ALL_USERS,
-      exact: true
+      users: STANDARD_USER,
+      exact: true,
+      onClick: toggleDrawer(false)
     },
     {
       title: 'Inventory',
       path: '/inventory',
-      users: ALL_USERS,
-      exact: false
+      users: STANDARD_USER,
+      exact: false,
+      onClick: toggleDrawer(false)
     },
     {
       title: 'Scans',
       path: '/scans',
       users: GLOBAL_ADMIN,
-      exact: true
+      exact: true,
+      onClick: toggleDrawer(false)
     }
-  ].filter(({ users }) => (users & userLevel) > 0);
+  ].filter(({ users }) => users <= userLevel);
 
-  const userItems: NavItemType[] = [
-    {
-      title: 'Manage Organizations',
-      path: '/organizations',
-      users: GLOBAL_ADMIN,
-      exact: true,
-      onClick: toggleDrawer(false)
-    },
-    {
-      title: 'Manage Users',
-      path: '/users',
-      users: GLOBAL_ADMIN,
-      exact: true,
-      onClick: toggleDrawer(false)
-    },
-    {
-      title: 'My Settings',
-      path: '/settings',
-      users: ALL_USERS,
-      exact: true,
-      onClick: toggleDrawer(false)
-    },
-    {
-      title: 'Logout',
-      path: '/',
-      users: ALL_USERS,
-      onClick: logout,
-      exact: true
-    }
-  ].filter(({ users }) => (users & userLevel) > 0);
+  const userMenu: NavItemType = {
+    title: (
+      <div className={classes.userLink}>
+        <UserIcon /> My Account <ArrowDropDown />
+      </div>
+    ),
+    path: '#',
+    exact: false,
+    nested: [
+      {
+        title: 'User Registration',
+        path: '/region-admin-dashboard',
+        users: REGIONAL_ADMIN,
+        exact: true
+      },
+      {
+        title: 'Manage Organizations',
+        path: '/organizations',
+        users: GLOBAL_ADMIN,
+        exact: true
+      },
+      {
+        title: 'Manage Users',
+        path: '/users',
+        users: GLOBAL_ADMIN,
+        exact: true
+      },
+      {
+        title: 'My Settings',
+        path: '/settings',
+        users: STANDARD_USER,
+        exact: true
+      },
+      {
+        title: 'Logout',
+        path: '/settings',
+        users: STANDARD_USER,
+        onClick: logout,
+        exact: true
+      }
+    ].filter(({ users }) => users <= userLevel)
+  };
+
+  const orgPageMatch = useRouteMatch('/organizations/:id');
 
   const desktopNavItems: JSX.Element[] = navItems.map((item) => (
     <NavItem key={item.title.toString()} {...item} />
   ));
 
-  const orgPageMatch = useRouteMatch('/organizations/:id');
-
   const handleResize = () => {
-    if (window.innerWidth < 1110) {
+    if (window.innerWidth < 1330) {
       setIsMobile(true);
     } else {
       setIsMobile(false);
@@ -261,11 +298,15 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     window.addEventListener('resize', handleResize);
   });
 
-  if (isMobile) {
-    drawerItems = [...navItems, ...userItems];
-  } else {
-    drawerItems = userItems;
+  if (isMobile && userMenu.nested) {
+    userMenu.nested.forEach((item) => {
+      if (item.title !== 'Logout') {
+        item.onClick = toggleDrawer(false);
+      }
+    });
+    drawerItems = [...navItems, ...userMenu.nested];
   }
+
   return (
     <Root>
       <AppBar position="static" elevation={0}>
@@ -376,16 +417,19 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     )}
                   />
                 )}
-                <IconButton
-                  edge="start"
-                  className={classes.menuButton}
-                  aria-label="toggle mobile menu"
-                  color="inherit"
-                  onClick={toggleDrawer(true)}
-                >
-                  <MenuIcon />
-                </IconButton>
+                {!isMobile && <NavItem {...userMenu} />}
               </>
+            )}
+            {isMobile && (
+              <IconButton
+                edge="start"
+                className={classes.menuButton}
+                aria-label="toggle mobile menu"
+                color="inherit"
+                onClick={toggleDrawer(true)}
+              >
+                <MenuIcon />
+              </IconButton>
             )}
           </Toolbar>
         </div>
