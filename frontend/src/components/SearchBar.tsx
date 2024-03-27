@@ -19,7 +19,7 @@ const Root = styled('div')(({ theme }) => ({
   [`&.${classes.wrapper}`]: {
     zIndex: 101,
     width: '100%',
-    maxWidth: 400,
+    maxWidth: 320,
     backgroundColor: theme.palette.background.paper,
     display: 'flex',
     flexFlow: 'row nowrap',
@@ -87,7 +87,7 @@ interface Props
   initialValue: string;
 }
 
-const defaultPlaceholder = 'Search for a domain, vuln type, port, service, IP';
+const defaultPlaceholder = 'Search a domain, vuln, port, service, IP';
 
 type Timer = ReturnType<typeof setTimeout>;
 

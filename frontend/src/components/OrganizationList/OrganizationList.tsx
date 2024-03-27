@@ -105,7 +105,7 @@ export const OrganizationList: React.FC<{
     <Box mb={3}>
       <Paper elevation={0}>
         {organizations?.length === 0 ? (
-          <Alert severity="warning">No organizations found.</Alert>
+          <Alert severity="warning">Unable to load organizations.</Alert>
         ) : (
           <DataGrid
             rows={organizations}
