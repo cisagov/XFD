@@ -20,7 +20,7 @@ import { CISACatalogOfKnownExploitedVulnerabilities } from 'src/models/generated
  * The CVE scan creates vulnerabilities based on existing
  * data (such as product version numbers / CPEs, webpages)
  * that have already been collected from other scans.
- * 
+ *
  * To manually test the CVE tools from your command line, run:
 
 nvdsync -cve_feed cve-1.1.json.gz nvd-dump

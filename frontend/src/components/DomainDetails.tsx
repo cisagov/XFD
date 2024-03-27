@@ -367,7 +367,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
                   Title
                 </Typography>
                 <Typography className={classes.vulnDescription}>
-                  Serverity
+                  Severity
                 </Typography>
                 <Typography className={classes.vulnDescription}>
                   State
