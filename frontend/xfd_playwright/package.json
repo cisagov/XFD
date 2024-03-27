@@ -1,0 +1,18 @@
+{
+  "author": "",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "otpauth": "^9.2.2"
+  },
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.41.2",
+    "@types/node": "^20.11.20"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "main": "index.js",
+  "name": "xfd_playwright",
+  "scripts": {},
+  "version": "1.0.0"
+}
