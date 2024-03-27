@@ -184,9 +184,12 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   let userLevel = 0;
   if (user && user.isRegistered) {
-    if (user.userType === 'standard' || user.userType === 'globalView') {
+    if (user.userType === 'standard') {
       userLevel = STANDARD_USER;
-    } else if (user.userType === 'globalAdmin') {
+    } else if (
+      user.userType === 'globalAdmin' ||
+      user.userType === 'globalView'
+    ) {
       userLevel = GLOBAL_ADMIN;
     } else if (user.userType === 'regionalAdmin') {
       userLevel = REGIONAL_ADMIN;
