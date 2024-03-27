@@ -1,5 +1,6 @@
 import {
   BaseEntity,
+  Column,
   CreateDateColumn,
   Entity,
   ManyToOne,
@@ -20,6 +21,9 @@ export class Assessment extends BaseEntity {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @Column()
+  type: string;
 
   @ManyToOne(() => User, (user) => user.assessments)
   user: User;
