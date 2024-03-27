@@ -1,7 +1,6 @@
 import React from 'react';
-import { render, fireEvent, testUser, testOrganization } from 'test-utils';
+import { render, testUser, testOrganization } from 'test-utils';
 import { Header } from '../Header';
-import { waitFor } from '@testing-library/react';
 
 jest.mock('@elastic/react-search-ui', () => ({
   withSearch: () => (comp: any) => comp
@@ -46,7 +45,7 @@ describe('Header component', () => {
   });
 
   it('shows correct links for ORG_ADMIN', () => {
-    const { getByText, queryByText } = render(<Header />, {
+    const { getByText } = render(<Header />, {
       authContext: {
         user: { ...testUser, userType: 'standard', isRegistered: true },
         currentOrganization: { ...testOrganization }
