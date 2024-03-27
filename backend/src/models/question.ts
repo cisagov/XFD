@@ -3,6 +3,8 @@ import {
   Column,
   Entity,
   Index,
+  JoinTable,
+  ManyToMany,
   ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn
@@ -26,11 +28,12 @@ export class Question extends BaseEntity {
   @Column()
   number: number;
 
+  @ManyToMany(() => Resource, (resource) => resource.questions)
+  @JoinTable()
+  resources: Resource[];
+
   @ManyToOne(() => Category, (category) => category.questions)
   category: Category;
-
-  @OneToMany(() => Resource, (resource) => resource.question)
-  resources: Resource[];
 
   @OneToMany(() => Response, (response) => response.question)
   responses: Response[];

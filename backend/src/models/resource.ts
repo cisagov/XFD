@@ -2,6 +2,7 @@ import {
   BaseEntity,
   Column,
   Entity,
+  ManyToMany,
   ManyToOne,
   PrimaryGeneratedColumn
 } from 'typeorm';
@@ -27,6 +28,6 @@ export class Resource extends BaseEntity {
   @Column()
   url: string;
 
-  @ManyToOne(() => Question, (question) => question.resources)
-  question: Question;
+  @ManyToMany(() => Question, (question) => question.resources)
+  questions: Question[];
 }
