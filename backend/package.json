@@ -118,7 +118,5 @@
     "test": "jest --detectOpenHandles",
     "test-python": "pytest"
   },
-  "version": "1.0.0",
-  "author": "",
-  "license": "ISC"
+  "version": "1.0.0"
 }
