@@ -6,12 +6,18 @@ import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
 import { RSCSideNav } from './RSCSideNav';
+import { RSCResult } from './RSCResult';
 import { RSCQuestion } from './RSCQuestion';
 import { dummyResults } from './dummyData';
 import { Typography } from '@mui/material';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const result = dummyResults.find((result) => result.id === parseInt(id)) || {
+    id: 0,
+    type: '',
+    date: ''
+  };
   const { questions } = dummyResults.find(
     (result) => result.id === parseInt(id)
   ) || { questions: [] };
@@ -50,8 +56,21 @@ export const RSCDetail: React.FC = () => {
                 vulnerability scanning services to kickstart or enhance your
                 cybersecurity measures.
               </p>
+              <Box>
+                <RSCResult
+                  id={result.id}
+                  type={result.type}
+                  date={result.date}
+                  categories={[]}
+                  questions={[]}
+                />
+              </Box>
+              <br />
               {questions.map((question) => (
-                <RSCQuestion key={question.id} question={question} />
+                <>
+                  <RSCQuestion key={question.id} question={question} />
+                  <br />
+                </>
               ))}
             </Stack>
           </Box>
