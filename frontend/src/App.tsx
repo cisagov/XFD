@@ -214,20 +214,23 @@ const App: React.FC = () => (
                   <RouteGuard
                     exact
                     path="/readysetcyber"
-                    component={RSCLogin}
+                    unauth={RSCLogin}
+                    render={() => <Redirect to="/readysetcyber/dashboard" />}
+                    component={RSCDashboard}
                   />
                   <RouteGuard
                     exact
                     path="/readysetcyber/dashboard"
                     component={RSCDashboard}
+                    render={() => <Redirect to="/readysetcyber/dashboard" />}
                     permissions={['standard', 'globalView', 'regionalAdmin']}
-                    unauth={RSCDashboard}
+                    unauth={RSCLogin}
                   />
                   <RouteGuard
                     path="/readysetcyber/result/:id"
                     component={RSCDetail}
                     permissions={['standard', 'globalView', 'regionalAdmin']}
-                    unauth={RSCDetail}
+                    unauth={RSCLogin}
                   />
                 </Switch>
               </Layout>
