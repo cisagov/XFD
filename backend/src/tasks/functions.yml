@@ -39,17 +39,10 @@ checkUserExpiration:
   handler: src/tasks/checkUserExpiration.handler
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
+
 scanExecution:
+  timeout: 900  # 15 minutes
   handler: src/tasks/scanExecution.handler
-  timeout: 300  # 5 minutes
-  environment:
-    SQS_QUEUE_NAME: ${self:provider.stage}-worker-control-queue
-  events:
-    - sqs:
-        arn:
-          Fn::GetAtt:
-            - WorkerControlQueue
-            - Arn
   memorySize: 4096
 
 updateScanTaskStatus:

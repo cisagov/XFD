@@ -85,8 +85,8 @@ const StyledScopedCssBaseline = styled(ScopedCssBaseline)(({ theme }) => ({
     position: 'relative',
     height: '100vh',
     display: 'flex',
-    flexFlow: 'column nowrap',
-    overflow: 'auto'
+    flexFlow: 'column nowrap'
+    // overflow: 'auto'
   },
 
   [`& .${classes.overrides}`]: {

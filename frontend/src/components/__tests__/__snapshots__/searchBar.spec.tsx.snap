@@ -3,7 +3,7 @@
 exports[`matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="SearchBar-wrapper css-6woq0m"
+    class="SearchBar-wrapper css-yro7sz"
   >
     <div
       class="SearchBar-inner"
@@ -22,7 +22,7 @@ exports[`matches snapshot 1`] = `
       <form>
         <input
           class="SearchBar-inp"
-          placeholder="Search for a domain, vuln type, port, service, IP"
+          placeholder="Search a domain, vuln, port, service, IP"
           value=""
         />
       </form>

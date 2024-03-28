@@ -92,21 +92,28 @@ export const Users: React.FC = () => {
   const fetchUsers = useCallback(async () => {
     try {
       const rows = await apiGet<UserType[]>(`/users/`);
-      rows.forEach((obj) => {
-        obj.lastLoggedInString = obj.lastLoggedIn
-          ? `${formatDistanceToNow(parseISO(obj.lastLoggedIn))} ago`
+      rows.forEach((row) => {
+        row.lastLoggedInString = row.lastLoggedIn
+          ? `${formatDistanceToNow(parseISO(row.lastLoggedIn))} ago`
           : 'None';
-        obj.dateToUSigned = obj.dateAcceptedTerms
-          ? `${formatDistanceToNow(parseISO(obj.dateAcceptedTerms))} ago`
+        row.dateToUSigned = row.dateAcceptedTerms
+          ? `${formatDistanceToNow(parseISO(row.dateAcceptedTerms))} ago`
           : 'None';
-        obj.orgs = obj.roles
-          ? obj.roles
+        row.orgs = row.roles
+          ? row.roles
               .filter((role) => role.approved)
               .map((role) => role.organization.name)
               .join(', ')
           : 'None';
       });
-      setUsers(rows);
+      if (user?.userType === 'globalAdmin') {
+        setUsers(rows);
+      } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
+        rows.filter((row) => row.regionId === user.regionId);
+        setUsers(rows);
+      } else if (user) {
+        setUsers([user]);
+      }
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
       setErrorStates({ ...errorStates, getUsersError: e.message });
