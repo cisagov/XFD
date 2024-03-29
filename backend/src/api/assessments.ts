@@ -1,10 +1,6 @@
 import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
-import { connectToDatabase } from '../models';
-import { Assessment } from '../models/assessment';
+import { Assessment, connectToDatabase } from '../models';
 import { isUUID } from 'class-validator';
-import { Response } from '../models/response';
-import { Question } from '../models/question';
-import { Category } from '../models/category';
 
 /**
  * @swagger
@@ -20,7 +16,7 @@ export const createAssessment = wrapHandler(async (event) => {
 
   await connectToDatabase();
 
-  const assessment = await Assessment.create(body);
+  const assessment = Assessment.create(body);
   await Assessment.save(assessment);
 
   return {
@@ -34,11 +30,11 @@ export const createAssessment = wrapHandler(async (event) => {
  *
  * /assessments:
  *  get:
- *    description: Lists all assessments for the logged in user.
+ *    description: Lists all assessments for the logged-in user.
  *    tags:
  *    - Assessments
  */
-export const listAssessments = wrapHandler(async (event) => {
+export const list = wrapHandler(async (event) => {
   const userId = event.requestContext.authorizer!.id;
 
   if (!userId) {
@@ -70,7 +66,7 @@ export const listAssessments = wrapHandler(async (event) => {
  *    tags:
  *    - Assessments
  */
-export const getAssessment = wrapHandler(async (event) => {
+export const get = wrapHandler(async (event) => {
   const assessmentId = event.pathParameters?.id;
 
   if (!assessmentId || !isUUID(assessmentId)) {

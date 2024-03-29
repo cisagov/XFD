@@ -16,6 +16,9 @@ export class Category extends BaseEntity {
   name: string;
 
   @Column({ nullable: true })
+  number: number;
+
+  @Column({ nullable: true })
   shortName: string;
 
   @OneToMany(() => Question, (question) => question.category)
