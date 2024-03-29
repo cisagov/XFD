@@ -177,7 +177,7 @@ export const RSCLogin: React.FC <{ showSignUp?: boolean }> = ({
               )}
               {RegistrationSuccessDialog}
               <Box pt={3} display="flex" justifyContent="center">
-                <Typography display="inline">New to Crossfeed?&nbsp;</Typography>
+                <Typography display="inline">New to RSC Dashboard?&nbsp;</Typography>
                 <Link
                   underline="hover"
                   style={{ cursor: 'pointer' }}

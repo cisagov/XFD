@@ -40,8 +40,7 @@ export const RegisterForm: React.FC<{
   const defaultValues = () => ({
     firstName: '',
     lastName: '',
-    email: '',
-    state: ''
+    email: ''
   });
 
   const registerUserPost = async (body: Object) => {
@@ -106,7 +105,8 @@ export const RegisterForm: React.FC<{
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
-      state: values.state
+      userType: 'readySetCyber'
+      // state: values.state
     };
     const registeredUser = await registerUserPost(body);
     if (registeredUser !== undefined) {
@@ -152,7 +152,7 @@ export const RegisterForm: React.FC<{
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle id="form-dialog-title">Register with Crossfeed</DialogTitle>
+      <DialogTitle id="form-dialog-title">Register with RSC Dashboard</DialogTitle>
       <DialogContent>
         {errorRequestMessage && (
           <p className="text-error">{errorRequestMessage}</p>
@@ -220,7 +220,7 @@ export const RegisterForm: React.FC<{
           value={values.lastName}
           onChange={onTextChange}
         />
-        <Typography my={1}>State</Typography>
+        {/* <Typography my={1}>State</Typography>
         <Select
           displayEmpty
           size="small"
@@ -240,7 +240,7 @@ export const RegisterForm: React.FC<{
               {state}
             </MenuItem>
           ))}
-        </Select>
+        </Select> */}
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>
