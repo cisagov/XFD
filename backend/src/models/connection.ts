@@ -1,5 +1,6 @@
 import { createConnection, Connection } from 'typeorm';
 import {
+  // Models for the Crossfeed database
   ApiKey,
   Assessment,
   Category,
@@ -18,10 +19,92 @@ import {
   Service,
   User,
   Vulnerability,
-  Webpage
+  Webpage,
+
+  //  Models for the Mini Data Lake database
+  CertScan,
+  Cidr,
+  Contact,
+  DL_Cpe,
+  DL_Cve,
+  DL_Domain,
+  DL_Organization,
+  HostScan,
+  Host,
+  Ip,
+  Kev,
+  Location,
+  PortScan,
+  PrecertScan,
+  Report,
+  Request,
+  Sector,
+  Snapshot,
+  SslyzeScan,
+  Tag,
+  Tally,
+  TicketEvent,
+  Ticket,
+  TrustymailScan,
+  VulnScan
 } from '.';
 
 let connection: Connection | null = null;
+
+let dl_connection: Connection | null = null;
+
+const connectDl = async (logging?: boolean) => {
+  const dl_connection = createConnection({
+    type: 'postgres',
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT ?? ''),
+    username: process.env.MDL_USERNAME,
+    password: process.env.MDL_PASSWORD,
+    database: process.env.MDL_NAME,
+    entities: [
+      CertScan,
+      Cidr,
+      Contact,
+      DL_Cpe,
+      DL_Cve,
+      DL_Domain,
+      HostScan,
+      Host,
+      Ip,
+      Kev,
+      Location,
+      DL_Organization,
+      PortScan,
+      PrecertScan,
+      Report,
+      Request,
+      Sector,
+      Snapshot,
+      SslyzeScan,
+      Tag,
+      Tally,
+      TicketEvent,
+      Ticket,
+      TrustymailScan,
+      VulnScan
+    ],
+    synchronize: false,
+    name: 'mini_data_lake',
+    dropSchema: false,
+    logging: logging ?? false,
+    cache: true
+  });
+  return dl_connection;
+};
+
+export const connectToDatalake = async (logging?: boolean) => {
+  if (!dl_connection?.isConnected) {
+    dl_connection = await connectDl(logging);
+  } else {
+    console.log("didn't connect");
+  }
+  return dl_connection;
+};
 
 const connectDb = async (logging?: boolean) => {
   const connection = createConnection({

@@ -81,7 +81,7 @@ class ECSClient {
             // In order to use the host name "db" to access the database from the
             // crossfeed-worker image, we must launch the Docker container with
             // the Crossfeed backend network.
-            NetworkMode: 'crossfeed_backend',
+            NetworkMode: 'xfd_backend',
             Memory: 4000000000 // Limit memory to 4 GB. We do this locally to better emulate fargate memory conditions. TODO: In the future, we could read the exact memory from SCAN_SCHEMA to better emulate memory requirements for each scan.
           },
           Env: [
@@ -95,6 +95,9 @@ class ECSClient {
             `DB_NAME=${process.env.DB_NAME}`,
             `DB_USERNAME=${process.env.DB_USERNAME}`,
             `DB_PASSWORD=${process.env.DB_PASSWORD}`,
+            `MDL_NAME=${process.env.DB_NAME}`,
+            `MDL_USERNAMD=${process.env.DB_USERNAME}`,
+            `MDL_PASSWORD=${process.env.DB_PASSWORD}`,
             `PE_DB_NAME=${process.env.PE_DB_NAME}`,
             `PE_DB_USERNAME=${process.env.PE_DB_USERNAME}`,
             `PE_DB_PASSWORD=${process.env.PE_DB_PASSWORD}`,

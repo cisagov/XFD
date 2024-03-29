@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
@@ -8,9 +8,7 @@ import {
   Drawer,
   ListItem,
   List,
-  TextField,
-  useMediaQuery,
-  useTheme
+  TextField
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -34,7 +32,6 @@ const classes = {
   menuButton: `${PREFIX}-menuButton`,
   logo: `${PREFIX}-logo`,
   spacing: `${PREFIX}-spacing`,
-  activeLink: `${PREFIX}-activeLink`,
   activeMobileLink: `${PREFIX}-activeMobileLink`,
   link: `${PREFIX}-link`,
   userLink: `${PREFIX}-userLink`,
@@ -46,44 +43,28 @@ const classes = {
 
 const Root = styled('div')(({ theme }) => ({
   [`.${classes.inner}`]: {
-    maxWidth: 1440,
-    width: '250%',
+    maxWidth: '1440px',
+    width: '100%',
     margin: '0 auto'
   },
 
   [`.${classes.menuButton}`]: {
     marginLeft: theme.spacing(2),
-    display: 'flex',
-    [theme.breakpoints.up('sm')]: {
-      display: 'none'
-    }
+    display: 'flex'
   },
 
   [`.${classes.logo}`]: {
     width: 150,
+    minWidth: 150,
     padding: theme.spacing(),
     paddingLeft: 0,
     [theme.breakpoints.down('xl')]: {
       display: 'flex'
     }
   },
-
   [`.${classes.spacing}`]: {
     flexGrow: 1
   },
-
-  [`.${classes.activeLink}`]: {
-    ':after': {
-      content: "''",
-      position: 'absolute',
-      bottom: 0,
-      left: 0,
-      width: '100%',
-      height: 2,
-      backgroundColor: 'white'
-    }
-  },
-
   [`.${classes.activeMobileLink}`]: {
     fontWeight: 700,
     '&:after': {
@@ -107,7 +88,6 @@ const Root = styled('div')(({ theme }) => ({
     borderBottom: '2px solid transparent',
     fontWeight: 600
   },
-
   [`.${classes.userLink}`]: {
     [theme.breakpoints.down('md')]: {
       display: 'flex'
@@ -123,7 +103,6 @@ const Root = styled('div')(({ theme }) => ({
       textDecoration: 'none'
     }
   },
-
   [`.${classes.lgNav}`]: {
     display: 'flex',
     [theme.breakpoints.down('sm')]: {
@@ -134,7 +113,6 @@ const Root = styled('div')(({ theme }) => ({
   [`.${classes.mobileNav}`]: {
     padding: `${theme.spacing(2)} ${theme.spacing()}px`
   },
-
   [`.${classes.selectOrg}`]: {
     border: '1px solid #FFFFFF',
     borderRadius: '5px',
@@ -161,16 +139,12 @@ const Root = styled('div')(({ theme }) => ({
       marginTop: '-3px !important'
     },
     height: '45px'
-  },
-
-  [` .${classes.option}`]: {
-    fontSize: 15
   }
 }));
 
-const GLOBAL_ADMIN = 2;
+const GLOBAL_ADMIN = 3;
+const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
-const ALL_USERS = GLOBAL_ADMIN | STANDARD_USER;
 
 interface NavItemType {
   title: string | JSX.Element;
@@ -196,20 +170,29 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     logout,
     apiGet
   } = useAuthContext();
-  const [navOpen, setNavOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [organizations, setOrganizations] = useState<
     (Organization | OrganizationTag)[]
   >([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
-  const theme = useTheme();
-  const isSmall = useMediaQuery(theme.breakpoints.down('md'));
+
+  let drawerItems: NavItemType[] = [];
+  const toggleDrawer = (newOpen: boolean) => () => {
+    setDrawerOpen(newOpen);
+  };
 
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
       userLevel = STANDARD_USER;
-    } else {
+    } else if (
+      user.userType === 'globalAdmin' ||
+      user.userType === 'globalView'
+    ) {
       userLevel = GLOBAL_ADMIN;
+    } else if (user.userType === 'regionalAdmin') {
+      userLevel = REGIONAL_ADMIN;
     }
   }
 
@@ -227,7 +210,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     }
   }, [apiGet, setOrganizations, userLevel]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (userLevel > 0) {
       fetchOrganizations();
     }
@@ -237,40 +220,25 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     {
       title: 'Overview',
       path: '/',
-      users: ALL_USERS,
-      exact: true
+      users: STANDARD_USER,
+      exact: true,
+      onClick: toggleDrawer(false)
     },
     {
       title: 'Inventory',
       path: '/inventory',
-      users: ALL_USERS,
-      exact: false
+      users: STANDARD_USER,
+      exact: false,
+      onClick: toggleDrawer(false)
     },
-
-    /*
-    Hiding Feeds page until finished
-    { title: 'Feeds',
-      path: '/feeds',
-      users: ALL_USERS,
-      exact: false
-    },*/
-
-    /*
-    Hiding Reports page until finished
-    {
-      title: 'Reports',
-      path: '/reports',
-      users: ALL_USERS,
-      exact: true
-    },*/
-
     {
       title: 'Scans',
       path: '/scans',
       users: GLOBAL_ADMIN,
-      exact: true
+      exact: true,
+      onClick: toggleDrawer(false)
     }
-  ].filter(({ users }) => (users & userLevel) > 0);
+  ].filter(({ users }) => users <= userLevel);
 
   const userMenu: NavItemType = {
     title: (
@@ -282,17 +250,17 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     exact: false,
     nested: [
       {
+        title: 'User Registration',
+        path: '/region-admin-dashboard',
+        users: REGIONAL_ADMIN,
+        exact: true
+      },
+      {
         title: 'Manage Organizations',
         path: '/organizations',
         users: GLOBAL_ADMIN,
         exact: true
       },
-      // {
-      //   title: 'My Organizations',
-      //   path: '/organizations',
-      //   users: STANDARD_USER,
-      //   exact: true
-      // },
       {
         title: 'Manage Users',
         path: '/users',
@@ -302,58 +270,18 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       {
         title: 'My Settings',
         path: '/settings',
-        users: ALL_USERS,
+        users: STANDARD_USER,
         exact: true
       },
       {
         title: 'Logout',
         path: '/settings',
-        users: ALL_USERS,
+        users: STANDARD_USER,
         onClick: logout,
         exact: true
       }
-    ].filter(({ users }) => (users & userLevel) > 0)
+    ].filter(({ users }) => users <= userLevel)
   };
-
-  const userItemsSmall: NavItemType[] = [
-    {
-      title: 'My Account',
-      path: '#',
-      users: ALL_USERS,
-      exact: true
-    },
-    {
-      title: 'Manage Organizations',
-      path: '/organizations',
-      users: GLOBAL_ADMIN,
-      exact: true
-    },
-    // {
-    //   title: 'My Organizations',
-    //   path: '/organizations',
-    //   users: STANDARD_USER,
-    //   exact: true
-    // },
-    {
-      title: 'Manage Users',
-      path: '/users',
-      users: GLOBAL_ADMIN,
-      exact: true
-    },
-    {
-      title: 'My Settings',
-      path: '/settings',
-      users: ALL_USERS,
-      exact: true
-    },
-    {
-      title: 'Logout',
-      path: '/',
-      users: ALL_USERS,
-      onClick: logout,
-      exact: true
-    }
-  ].filter(({ users }) => (users & userLevel) > 0);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -361,13 +289,26 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     <NavItem key={item.title.toString()} {...item} />
   ));
 
-  const navItemsToUse = () => {
-    if (isSmall) {
-      return userItemsSmall;
+  const handleResize = () => {
+    if (window.innerWidth < 1330) {
+      setIsMobile(true);
     } else {
-      return navItems;
+      setIsMobile(false);
     }
   };
+
+  useEffect(() => {
+    window.addEventListener('resize', handleResize);
+  });
+
+  if (isMobile && userMenu.nested) {
+    userMenu.nested.forEach((item) => {
+      if (item.title !== 'Logout') {
+        item.onClick = toggleDrawer(false);
+      }
+    });
+    drawerItems = [...navItems, ...userMenu.nested];
+  }
 
   return (
     <Root>
@@ -381,10 +322,10 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                 alt="Crossfeed Icon Navigate Home"
               />
             </Link>
-            <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
-
+            {!isMobile && (
+              <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
+            )}
             <div className={classes.spacing} />
-
             {userLevel > 0 && (
               <>
                 <SearchBar
@@ -400,112 +341,116 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                   }}
                 />
                 {organizations.length > 1 && (
-                  <>
-                    <div className={classes.spacing} />
-                    <Autocomplete
-                      isOptionEqualToValue={(option, value) =>
-                        option?.name === value?.name
-                      }
-                      options={[{ name: 'All Organizations' }].concat(
-                        organizations
-                      )}
-                      autoComplete={false}
-                      className={classes.selectOrg}
-                      classes={{
-                        option: classes.option
-                      }}
-                      value={
-                        showAllOrganizations
-                          ? { name: 'All Organizations' }
-                          : currentOrganization ?? undefined
-                      }
-                      filterOptions={(options, state) => {
-                        // If already selected, show all
-                        if (
-                          options.find(
-                            (option) =>
-                              option?.name.toLowerCase() ===
-                              state.inputValue.toLowerCase()
-                          )
-                        ) {
-                          return options;
-                        }
-                        return options.filter(
+                  <Autocomplete
+                    isOptionEqualToValue={(option, value) =>
+                      option?.name === value?.name
+                    }
+                    options={[{ name: 'All Organizations' }].concat(
+                      organizations
+                    )}
+                    autoComplete={false}
+                    className={classes.selectOrg}
+                    classes={{
+                      option: classes.option
+                    }}
+                    value={
+                      showAllOrganizations
+                        ? { name: 'All Organizations' }
+                        : currentOrganization ?? undefined
+                    }
+                    filterOptions={(options, state) => {
+                      // If already selected, show all
+                      if (
+                        options.find(
                           (option) =>
-                            option?.name
-                              .toLowerCase()
-                              .includes(state.inputValue.toLowerCase())
-                        );
-                      }}
-                      disableClearable
-                      blurOnSelect
-                      selectOnFocus
-                      getOptionLabel={(option) => option!.name}
-                      renderOption={(props, option) => (
-                        <li {...props}>{option!.name}</li>
-                      )}
-                      onChange={(
-                        event: any,
-                        value: Organization | { name: string } | undefined
-                      ) => {
-                        if (value && 'id' in value) {
-                          setOrganization(value);
-                          setShowAllOrganizations(false);
-                          if (value.name === 'Election') {
-                            setShowMaps(true);
-                          } else {
-                            setShowMaps(false);
-                          }
-
-                          // Check if we're on an organization page and, if so, update it to the new organization
-                          if (orgPageMatch !== null) {
-                            if (!tags.find((e) => e.id === value.id)) {
-                              history.push(`/organizations/${value.id}`);
-                            }
-                          }
+                            option?.name.toLowerCase() ===
+                            state.inputValue.toLowerCase()
+                        )
+                      ) {
+                        return options;
+                      }
+                      return options.filter(
+                        (option) =>
+                          option?.name
+                            .toLowerCase()
+                            .includes(state.inputValue.toLowerCase())
+                      );
+                    }}
+                    disableClearable
+                    blurOnSelect
+                    selectOnFocus
+                    getOptionLabel={(option) => option!.name}
+                    renderOption={(props, option) => (
+                      <li {...props}>{option!.name}</li>
+                    )}
+                    onChange={(
+                      event: any,
+                      value: Organization | { name: string } | undefined
+                    ) => {
+                      if (value && 'id' in value) {
+                        setOrganization(value);
+                        setShowAllOrganizations(false);
+                        if (value.name === 'Election') {
+                          setShowMaps(true);
                         } else {
-                          setShowAllOrganizations(true);
                           setShowMaps(false);
                         }
-                      }}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          variant="outlined"
-                          inputProps={{
-                            ...params.inputProps,
-                            id: 'autocomplete-input',
-                            autoComplete: 'new-password' // disable autocomplete and autofill
-                          }}
-                        />
-                      )}
-                    />
-                  </>
+
+                        // Check if we're on an organization page and, if so, update it to the new organization
+                        if (orgPageMatch !== null) {
+                          if (!tags.find((e) => e.id === value.id)) {
+                            history.push(`/organizations/${value.id}`);
+                          }
+                        }
+                      } else {
+                        setShowAllOrganizations(true);
+                        setShowMaps(false);
+                      }
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        variant="outlined"
+                        inputProps={{
+                          ...params.inputProps,
+                          id: 'autocomplete-input',
+                          autoComplete: 'new-password' // disable autocomplete and autofill
+                        }}
+                      />
+                    )}
+                  />
                 )}
-                {isSmall ? null : <NavItem {...userMenu} />}
+                {!isMobile && <NavItem {...userMenu} />}
               </>
             )}
-            <IconButton
-              edge="start"
-              className={classes.menuButton}
-              aria-label="toggle mobile menu"
-              color="inherit"
-              onClick={() => setNavOpen((open) => !open)}
-            >
-              <MenuIcon />
-            </IconButton>
+            {isMobile && (
+              <IconButton
+                edge="start"
+                className={classes.menuButton}
+                aria-label="toggle mobile menu"
+                color="inherit"
+                onClick={toggleDrawer(true)}
+              >
+                <MenuIcon />
+              </IconButton>
+            )}
           </Toolbar>
         </div>
       </AppBar>
-
       <Drawer
         anchor="right"
-        open={navOpen}
-        onClose={() => setNavOpen(false)}
+        open={drawerOpen}
+        onClose={toggleDrawer(false)}
         data-testid="mobilenav"
+        PaperProps={{
+          sx: {
+            backgroundColor: 'primary.main',
+            color: 'white'
+          }
+        }}
       >
         <List className={classes.mobileNav}>
-          {navItemsToUse().map(({ title, path, nested, onClick }) => (
+          {drawerItems.map(({ title, path, nested, onClick }) => (
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem

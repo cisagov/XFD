@@ -1,19 +1,18 @@
 // sendMessage.js
 const amqp = require('amqplib');
 
-async function sendMessageToControlQueue(message) {
+async function sendMessageToQueue(message, queue) {
   const connection = await amqp.connect('amqp://localhost');
   const channel = await connection.createChannel();
-  const controlQueue = 'ControlQueue';
 
-  await channel.assertQueue(controlQueue, { durable: true });
+  await channel.assertQueue(queue, { durable: true });
 
-  // Simulate sending a message to the ControlQueue
-  channel.sendToQueue(controlQueue, Buffer.from(JSON.stringify(message)), {
+  // Simulate sending a message to the queue
+  channel.sendToQueue(queue, Buffer.from(JSON.stringify(message)), {
     persistent: true
   });
 
-  console.log('Message sent to ControlQueue:', message);
+  console.log('Message sent:', message);
 
   setTimeout(() => {
     connection.close();
@@ -22,7 +21,12 @@ async function sendMessageToControlQueue(message) {
 
 // Simulate sending a message
 const message = {
-  scriptType: 'shodan',
+  scriptType: 'dnstwist',
   org: 'DHS'
 };
-sendMessageToControlQueue(message);
+const queue = 'dnstwistQueue';
+sendMessageToQueue(message, queue);
+sendMessageToQueue(message, queue);
+sendMessageToQueue(message, queue);
+sendMessageToQueue(message, queue);
+sendMessageToQueue(message, queue);
