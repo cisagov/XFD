@@ -22,7 +22,6 @@ export interface RegisterFormValues {
   firstName: string;
   lastName: string;
   email: string;
-  state: string;
 }
 
 export interface ApiResponse {
