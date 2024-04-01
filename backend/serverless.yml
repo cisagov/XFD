@@ -7,7 +7,7 @@ configValidationMode: error
 
 custom:
   webpack:
-    webpackConfig: 'webpack.backend.config.js'
+    webpackConfig: webpack.backend.config.js
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -26,13 +26,13 @@ provider:
   vpc: ${file(env.yml):${self:provider.stage}-vpc, ''}
   apiGateway:
     binaryMediaTypes:
-      - 'image/*'
-      - 'font/*'
+      - image/*
+      - font/*
     resourcePolicy:
       - Effect: Allow
         Principal: '*'
-        Action: 'execute-api:Invoke'
-        Resource: 'execute-api:/${self:provider.stage}/*/*'
+        Action: execute-api:Invoke
+        Resource: execute-api:/${self:provider.stage}/*/*
   logs:
     restApi: true
   deploymentBucket:
@@ -48,7 +48,7 @@ provider:
             - cognito-idp:AdminDisableUser
             - cognito-idp:ListUsers
             - cognito-idp:AdminSetUserPassword
-          Resource: "*"
+          Resource: '*'
         - Effect: Allow
           Action:
             - ecs:RunTask
@@ -108,13 +108,6 @@ provider:
 
 resources:
   Resources:
-    WorkerControlQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-worker-control-queue
-        VisibilityTimeout: 300  # Should match or exceed function timeout
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
     ShodanQueue:
       Type: AWS::SQS::Queue
       Properties:

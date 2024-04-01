@@ -1,32 +1,40 @@
 import classes from './Users.module.scss';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Button,
-  TextInput,
-  Label,
-  Modal,
-  ModalFooter,
-  ModalHeading,
-  ModalRef
-} from '@trussworks/react-uswds';
-import { ModalToggleButton } from 'components';
-import { Table, ImportExport } from 'components';
-import { Column, SortingRule } from 'react-table';
-import { Organization, Query, User } from 'types';
-import { FaTimes } from 'react-icons/fa';
-import { useAuthContext } from 'context';
-// @ts-ignore:next-line
-import { formatDistanceToNow, parseISO } from 'date-fns';
-import {
+  Alert,
+  Button as MuiButton,
+  Dialog as MuiDialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  IconButton,
+  MenuItem,
+  Paper,
   Radio,
   RadioGroup,
-  FormControlLabel,
-  ButtonGroup
+  Select,
+  TextField,
+  Typography
 } from '@mui/material';
+import { SelectChangeEvent } from '@mui/material/Select';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { Add, CheckCircleOutline, Delete } from '@mui/icons-material';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import InfoDialog from 'components/Dialog/InfoDialog';
+import { ImportExport } from 'components';
+import { initializeUser, Organization, User } from 'types';
+import { useAuthContext } from 'context';
+import { STATE_OPTIONS } from '../../constants/constants';
+// @ts-ignore:next-line
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
-interface Errors extends Partial<User> {
-  global?: string;
-}
+type ErrorStates = {
+  getUsersError: string;
+  getAddUserError: string;
+  getDeleteError: string;
+};
 
 export interface ApiResponse {
   result: User[];
@@ -34,194 +42,225 @@ export interface ApiResponse {
   url?: string;
 }
 
-export const Users: React.FC = () => {
-  const { user, apiPost, apiDelete } = useAuthContext();
-  const modalRef = useRef<ModalRef>(null);
-  const [selectedRow, setSelectedRow] = useState<number>(0);
-  const [users, setUsers] = useState<User[]>([]);
+interface UserType extends User {
+  lastLoggedInString?: string | null | undefined;
+  dateToUSigned?: string | null | undefined;
+  orgs?: string | null | undefined;
+}
 
-  const columns: Column<User>[] = [
+type UserFormValues = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  organization?: Organization;
+  userType: string;
+  state: string;
+};
+
+const initialUserFormValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  userType: '',
+  state: ''
+};
+
+type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
+
+export const Users: React.FC = () => {
+  const { user, apiGet, apiPost, apiDelete } = useAuthContext();
+  const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
+  const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [infoDialogContent, setInfoDialogContent] = useState<String>('');
+  const [formErrors, setFormErrors] = useState({
+    firstName: false,
+    lastName: false,
+    email: false,
+    userType: false,
+    state: false
+  });
+  const [errorStates, setErrorStates] = useState<ErrorStates>({
+    getUsersError: '',
+    getAddUserError: '',
+    getDeleteError: ''
+  });
+  const [values, setValues] = useState<UserFormValues>(initialUserFormValues);
+
+  const fetchUsers = useCallback(async () => {
+    try {
+      const rows = await apiGet<UserType[]>(`/users/`);
+      rows.forEach((row) => {
+        row.lastLoggedInString = row.lastLoggedIn
+          ? `${formatDistanceToNow(parseISO(row.lastLoggedIn))} ago`
+          : 'None';
+        row.dateToUSigned = row.dateAcceptedTerms
+          ? `${formatDistanceToNow(parseISO(row.dateAcceptedTerms))} ago`
+          : 'None';
+        row.orgs = row.roles
+          ? row.roles
+              .filter((role) => role.approved)
+              .map((role) => role.organization.name)
+              .join(', ')
+          : 'None';
+      });
+      if (user?.userType === 'globalAdmin') {
+        setUsers(rows);
+      } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
+        rows.filter((row) => row.regionId === user.regionId);
+        setUsers(rows);
+      } else if (user) {
+        setUsers([user]);
+      }
+      setErrorStates({ ...errorStates, getUsersError: '' });
+    } catch (e: any) {
+      setErrorStates({ ...errorStates, getUsersError: e.message });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiGet]);
+
+  useEffect(() => {
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const userCols: GridColDef[] = [
+    { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
+    { field: 'email', headerName: 'Email', minWidth: 100, flex: 1.75 },
     {
-      Header: 'Name',
-      accessor: 'fullName',
-      width: 200,
-      disableFilters: true,
-      id: 'name'
+      field: 'orgs',
+      headerName: 'Organizations',
+      minWidth: 100,
+      flex: 1
+    },
+    { field: 'userType', headerName: 'User Type', minWidth: 100, flex: 0.75 },
+    {
+      field: 'dateToUSigned',
+      headerName: 'Date ToU Signed',
+      minWidth: 100,
+      flex: 0.75
     },
     {
-      Header: 'Email',
-      accessor: 'email',
-      width: 150,
-      minWidth: 150,
-      id: 'email',
-      disableFilters: true
+      field: 'acceptedTermsVersion',
+      headerName: 'ToU Version',
+      minWidth: 100,
+      flex: 0.5
     },
     {
-      Header: 'Organizations',
-      accessor: ({ roles }) =>
-        roles &&
-        roles
-          .filter((role) => role.approved)
-          .map((role) => role.organization.name)
-          .join(', '),
-      id: 'organizations',
-      width: 200,
-      disableFilters: true,
-      disableSortBy: true
+      field: 'lastLoggedInString',
+      headerName: 'Last Logged In',
+      minWidth: 100,
+      flex: 0.75
     },
     {
-      Header: 'User type',
-      accessor: ({ userType }) =>
-        userType === 'standard'
-          ? 'Standard'
-          : userType === 'globalView'
-          ? 'Global View'
-          : 'Global Admin',
-      width: 50,
-      minWidth: 50,
-      id: 'userType',
-      disableFilters: true
-    },
-    {
-      Header: 'Date ToU Signed',
-      accessor: ({ dateAcceptedTerms }) =>
-        dateAcceptedTerms
-          ? `${formatDistanceToNow(parseISO(dateAcceptedTerms))} ago`
-          : 'None',
-      width: 50,
-      minWidth: 50,
-      id: 'dateAcceptedTerms',
-      disableFilters: true
-    },
-    {
-      Header: 'ToU Version',
-      accessor: 'acceptedTermsVersion',
-      width: 50,
-      minWidth: 50,
-      id: 'acceptedTermsVersion',
-      disableFilters: true
-    },
-    {
-      Header: 'Last Logged In',
-      accessor: ({ lastLoggedIn }) =>
-        lastLoggedIn
-          ? `${formatDistanceToNow(parseISO(lastLoggedIn))} ago`
-          : 'None',
-      width: 50,
-      minWidth: 50,
-      id: 'lastLoggedIn',
-      disableFilters: true
-    },
-    {
-      Header: 'Delete',
-      id: 'delete',
-      Cell: ({ row }: { row: { index: number } }) => (
-        <span
-          onClick={() => {
-            modalRef.current?.toggleModal(undefined, true);
-            setSelectedRow(row.index);
-          }}
-        >
-          <FaTimes />
-        </span>
-      ),
-      disableFilters: true
+      field: 'delete',
+      headerName: 'Delete',
+      minWidth: 100,
+      flex: 0.4,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <IconButton
+            color="primary"
+            onClick={() => {
+              setSelectedRow(cellValues.row);
+              setDeleteUserDialogOpen(true);
+            }}
+          >
+            <Delete />
+          </IconButton>
+        );
+      }
     }
   ];
-  const [errors, setErrors] = useState<Errors>({});
 
-  const [values, setValues] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    organization?: Organization;
-    userType: string;
-  }>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    userType: ''
-  });
-  const userSearch = useCallback(
-    async ({
-      sort,
-      groupBy = undefined
-    }: {
-      sort: SortingRule<User>[];
-      groupBy?: string;
-    }): Promise<ApiResponse | undefined> => {
-      try {
-        const tableFilters: any = {};
-        return await apiPost<ApiResponse>('/users/search', {
-          body: {
-            page: 1,
-            sort: sort[0]?.id ?? 'email',
-            order: sort[0]?.desc ? 'DESC' : 'ASC',
-            filters: tableFilters,
-            pageSize: -1,
-            groupBy
-          }
-        });
-      } catch (e) {
-        console.error(e);
-        return;
-      }
-    },
-    [apiPost]
+  const addUserButton = user?.userType === 'globalAdmin' && (
+    <MuiButton
+      size="small"
+      sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
+      startIcon={<Add />}
+      onClick={() => setNewUserDialogOpen(true)}
+    >
+      Invite New User
+    </MuiButton>
   );
 
-  const fetchUsers = useCallback(
-    async (query: Query<User>) => {
-      const resp = await userSearch({
-        sort: query.sort
-      });
-      if (!resp) return;
-      const { result } = resp;
-      setUsers(result);
-    },
-    [userSearch]
-  );
+  const handleCloseAddUserDialog = (value: CloseReason) => {
+    if (value === 'backdropClick' || value === 'escapeKeyDown') {
+      return;
+    }
+    setNewUserDialogOpen(false);
+    setFormErrors({
+      firstName: false,
+      lastName: false,
+      email: false,
+      userType: false,
+      state: false
+    });
+  };
 
-  const deleteRow = async (index: number) => {
+  const deleteRow = async (row: UserType) => {
     try {
-      const row = users[index];
       await apiDelete(`/users/${row.id}`, { body: {} });
       setUsers(users.filter((user) => user.id !== row.id));
+      setErrorStates({ ...errorStates, getUsersError: '' });
+      setInfoDialogContent('This user has been successfully removed.');
+      setDeleteUserDialogOpen(false);
+      setInfoDialogOpen(true);
     } catch (e: any) {
-      setErrors({
-        global:
-          e.status === 422 ? 'Unable to delete user' : e.message ?? e.toString()
-      });
+      setErrorStates({ ...errorStates, getDeleteError: e.message });
+      setInfoDialogContent(
+        'This user has been not been removed. Check the console log for more details.'
+      );
       console.log(e);
     }
   };
 
-  const onSubmit: React.FormEventHandler = async (e) => {
+  const onSubmit = async (e: any) => {
     e.preventDefault();
+    console.log(e);
+    const body = {
+      firstName: values.firstName,
+      lastName: values.lastName,
+      email: values.email,
+      userType: values.userType,
+      state: values.state
+    };
+    const { firstName, lastName, email, userType, state } = values;
+    const newFormErrors = {
+      firstName: !firstName,
+      lastName: !lastName,
+      email: !email,
+      userType: !userType,
+      state: !state
+    };
+    setFormErrors(newFormErrors);
+    if (Object.values(newFormErrors).some((error) => error)) {
+      return;
+    }
     try {
-      const body = {
-        firstName: values.firstName,
-        lastName: values.lastName,
-        email: values.email,
-        userType: values.userType
-      };
       const user = await apiPost('/users/', {
         body
       });
       setUsers(users.concat(user));
+      setErrorStates({ ...errorStates, getAddUserError: '' });
+      handleCloseAddUserDialog('closeButtonClick');
+      setInfoDialogContent('This user has been successfully added.');
+      setInfoDialogOpen(true);
+      setValues(initialUserFormValues);
     } catch (e: any) {
-      setErrors({
-        global:
-          e.status === 422
-            ? 'Error when submitting user entry.'
-            : e.message ?? e.toString()
-      });
+      setErrorStates({ ...errorStates, getAddUserError: e.message });
+      setInfoDialogContent(
+        'This user has been not been added. Check the console log for more details.'
+      );
       console.log(e);
+      setValues(initialUserFormValues);
     }
   };
 
   const onTextChange: React.ChangeEventHandler<
-    HTMLInputElement | HTMLSelectElement
+    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
   > = (e) => onChange(e.target.name, e.target.value);
 
   const onChange = (name: string, value: any) => {
@@ -231,72 +270,206 @@ export const Users: React.FC = () => {
     }));
   };
 
+  const handleChange = (event: SelectChangeEvent) => {
+    setValues((values) => ({
+      ...values,
+      [event.target.name]: event.target.value
+    }));
+  };
+
+  const textFieldStyling = {
+    '& .MuiOutlinedInput-root': {
+      '&.Mui-focused fieldset': {
+        borderRadius: '0px'
+      }
+    }
+  };
+
+  const confirmDeleteUserDialog = (
+    <ConfirmDialog
+      isOpen={deleteUserDialogOpen}
+      onConfirm={() => {
+        deleteRow(selectedRow);
+      }}
+      onCancel={() => setDeleteUserDialogOpen(false)}
+      title={'Are you sure you want to delete this user?'}
+      content={
+        <>
+          <Typography mb={3}>
+            This request will permanently remove <b>{selectedRow?.fullName}</b>{' '}
+            from Crossfeed and cannot be undone.
+          </Typography>
+          {errorStates.getDeleteError && (
+            <Alert severity="error">
+              Error removing user: {errorStates.getDeleteError}. See the network
+              tab for more details.
+            </Alert>
+          )}
+        </>
+      }
+      screenWidth="xs"
+    />
+  );
+
   return (
     <div className={classes.root}>
       <h1>Users</h1>
-      <Table<User> columns={columns} data={users} fetchData={fetchUsers} />
-      <h2>Invite a user</h2>
-      <form onSubmit={onSubmit} className={classes.form}>
-        {errors.global && <p className={classes.error}>{errors.global}</p>}
-        <Label htmlFor="firstName">First Name</Label>
-        <TextInput
-          required
-          maxLength={250}
-          id="firstName"
-          name="firstName"
-          className={classes.textField}
-          type="text"
-          value={values.firstName}
-          onChange={onTextChange}
+      <Paper elevation={0}>
+        <DataGrid
+          rows={users}
+          columns={userCols}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: { children: addUserButton }
+          }}
         />
-        <Label htmlFor="lastName">Last Name</Label>
-        <TextInput
-          required
-          id="lastName"
-          name="lastName"
-          maxLength={250}
-          className={classes.textField}
-          type="text"
-          value={values.lastName}
-          onChange={onTextChange}
-        />
-        <Label htmlFor="email">Email</Label>
-        <TextInput
-          required
-          id="email"
-          name="email"
-          maxLength={250}
-          className={classes.textField}
-          type="text"
-          value={values.email}
-          onChange={onTextChange}
-        />
-        <Label htmlFor="userType">User Type</Label>
-        <RadioGroup
-          aria-label="User Type"
-          name="userType"
-          value={values.userType}
-          onChange={onTextChange}
-        >
-          <FormControlLabel
-            value="standard"
-            control={<Radio color="primary" />}
-            label="Standard"
+      </Paper>
+      {confirmDeleteUserDialog}
+      <MuiDialog
+        open={newUserDialogOpen}
+        onClose={(_, reason) => handleCloseAddUserDialog(reason)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Invite a User</DialogTitle>
+        <DialogContent>
+          <Typography mt={1}>First Name</Typography>
+          <TextField
+            sx={textFieldStyling}
+            placeholder="Enter a First Name"
+            size="small"
+            margin="dense"
+            id="firstName"
+            inputProps={{ maxLength: 250 }}
+            name="firstName"
+            error={formErrors.firstName}
+            helperText={formErrors.firstName && 'First Name is required'}
+            type="text"
+            fullWidth
+            value={values.firstName}
+            onChange={onTextChange}
           />
-          <FormControlLabel
-            value="globalView"
-            control={<Radio color="primary" />}
-            label="Global View"
+          <Typography mt={1}>Last Name</Typography>
+          <TextField
+            sx={textFieldStyling}
+            placeholder="Enter a Last Name"
+            size="small"
+            margin="dense"
+            id="lastName"
+            inputProps={{ maxLength: 250 }}
+            name="lastName"
+            error={formErrors.lastName}
+            helperText={formErrors.lastName && 'Last Name is required'}
+            type="text"
+            fullWidth
+            value={values.lastName}
+            onChange={onTextChange}
           />
-          <FormControlLabel
-            value="globalAdmin"
-            control={<Radio color="primary" />}
-            label="Global Administrator"
+          <Typography mt={1}>Email</Typography>
+          <TextField
+            sx={textFieldStyling}
+            placeholder="Enter an Email"
+            size="small"
+            margin="dense"
+            id="email"
+            inputProps={{ maxLength: 250 }}
+            name="email"
+            error={formErrors.email}
+            helperText={formErrors.email && 'Email is required'}
+            type="text"
+            fullWidth
+            value={values.email}
+            onChange={onTextChange}
           />
-        </RadioGroup>
-        <br></br>
-        <Button type="submit">Invite User</Button>
-      </form>
+          <Typography mt={1}>State</Typography>
+          <Select
+            displayEmpty
+            size="small"
+            id="state"
+            value={values.state}
+            name="state"
+            error={formErrors.state}
+            onChange={handleChange}
+            fullWidth
+            renderValue={
+              values.state !== ''
+                ? undefined
+                : () => <Typography color="#bdbdbd">Select a State</Typography>
+            }
+          >
+            {STATE_OPTIONS.map((state: string, index: number) => (
+              <MenuItem key={index} value={state}>
+                {state}
+              </MenuItem>
+            ))}
+          </Select>
+          {formErrors.state && (
+            <Typography pl={2} variant="caption" color="error.main">
+              State is required
+            </Typography>
+          )}
+          <Typography mt={2}>User Type</Typography>
+          <RadioGroup
+            aria-label="User Type"
+            name="userType"
+            value={values.userType}
+            onChange={onTextChange}
+          >
+            <FormControlLabel
+              value="standard"
+              control={<Radio color="primary" />}
+              label="Standard"
+            />
+            <FormControlLabel
+              value="globalView"
+              control={<Radio color="primary" />}
+              label="Global View"
+            />
+            <FormControlLabel
+              value="regionalAdmin"
+              control={<Radio color="primary" />}
+              label="Regional Administrator"
+            />
+            <FormControlLabel
+              value="globalAdmin"
+              control={<Radio color="primary" />}
+              label="Global Administrator"
+            />
+          </RadioGroup>
+          {formErrors.userType && (
+            <Typography pl={2} variant="caption" color="error.main">
+              User Type is required
+            </Typography>
+          )}
+          {errorStates.getAddUserError && (
+            <Alert severity="error">
+              Error adding user to the database: {errorStates.getAddUserError}.
+              See the network tab for more details.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <MuiButton
+            variant="outlined"
+            onClick={() => {
+              setNewUserDialogOpen(false);
+              setFormErrors({
+                firstName: false,
+                lastName: false,
+                email: false,
+                userType: false,
+                state: false
+              });
+              setValues(initialUserFormValues);
+            }}
+          >
+            Cancel
+          </MuiButton>
+          <MuiButton variant="contained" type="submit" onClick={onSubmit}>
+            Invite User
+          </MuiButton>
+        </DialogActions>
+      </MuiDialog>
       {user?.userType === 'globalAdmin' && (
         <>
           <ImportExport<
@@ -355,35 +528,16 @@ export const Users: React.FC = () => {
           />
         </>
       )}
-
-      <Modal ref={modalRef} id="modal">
-        <ModalHeading>Delete user?</ModalHeading>
-        <p>
-          Are you sure you would like to delete{' '}
-          <code>{users[selectedRow]?.fullName}</code>?
-        </p>
-        <ModalFooter>
-          <ButtonGroup>
-            <ModalToggleButton
-              modalRef={modalRef}
-              closer
-              onClick={() => {
-                deleteRow(selectedRow);
-              }}
-            >
-              Delete
-            </ModalToggleButton>
-            <ModalToggleButton
-              modalRef={modalRef}
-              closer
-              unstyled
-              className="padding-105 text-center"
-            >
-              Cancel
-            </ModalToggleButton>
-          </ButtonGroup>
-        </ModalFooter>
-      </Modal>
+      <InfoDialog
+        isOpen={infoDialogOpen}
+        handleClick={() => {
+          setInfoDialogOpen(false);
+          window.location.reload();
+        }}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">Success </Typography>}
+        content={<Typography variant="body1">{infoDialogContent}</Typography>}
+      />
     </div>
   );
 };

@@ -3,7 +3,7 @@ name: Check for Vulnerabilities
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # every day at 1 AM
+    - cron: "0 1 * * *"  # every day at 1 AM
   workflow_dispatch:
   push:
 
@@ -23,8 +23,7 @@ jobs:
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: npm ci
       - name: Security
@@ -44,8 +43,7 @@ jobs:
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: npm ci
       - name: Security
@@ -65,8 +63,7 @@ jobs:
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: npm ci
       - name: Security
@@ -86,7 +83,8 @@ jobs:
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            pip-
+          restore-keys: pip-
       - run: pip install safety
-      - run: safety check -r worker/requirements.txt --policy-file ./worker/.safety-policy.yml
+      - run: |
+          safety check -r worker/requirements.txt \
+          --policy-file ./worker/.safety-policy.yml

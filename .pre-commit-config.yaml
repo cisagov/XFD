@@ -11,13 +11,12 @@ repos:
       - id: check-executables-have-shebangs
       - id: check-json
       - id: check-merge-conflict
-      - id: check-toml
-      - id: check-xml
       - id: debug-statements
       - id: detect-aws-credentials
         args:
           - --allow-missing-credentials
       - id: detect-private-key
+        exclude: dev.env.example
       - id: end-of-file-fixer
         exclude: files/(issue|motd)
       - id: mixed-line-ending
@@ -28,6 +27,7 @@ repos:
           - --autofix
       - id: requirements-txt-fixer
       - id: trailing-whitespace
+        exclude: .*.snap
 
   # Text file hooks
   - repo: https://github.com/igorshubovych/markdownlint-cli
@@ -59,31 +59,6 @@ repos:
     rev: v3.4.0
     hooks:
       - id: validate_manifest
-
-  # Go hooks
-  - repo: https://github.com/TekWizely/pre-commit-golang
-    rev: v1.0.0-rc.1
-    hooks:
-      # Style Checkers
-      - id: go-critic
-      # StaticCheck
-      - id: go-staticcheck-repo-mod
-      # Go Build
-      - id: go-build-repo-mod
-      # Go Mod Tidy
-      - id: go-mod-tidy-repo
-      # Go Test
-      - id: go-test-repo-mod
-      # Go Vet
-      - id: go-vet-repo-mod
-      # GoSec
-      - id: go-sec-repo-mod
-
-  # Nix hooks
-  - repo: https://github.com/nix-community/nixpkgs-fmt
-    rev: v1.3.0
-    hooks:
-      - id: nixpkgs-fmt
 
   # Shell script hooks
   - repo: https://github.com/cisagov/pre-commit-shfmt
@@ -130,17 +105,12 @@ repos:
     rev: v1.5.1
     hooks:
       - id: mypy
+        additional_dependencies:
+          - types-requests
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.10.1
     hooks:
       - id: pyupgrade
-
-  # Ansible hooks
-  - repo: https://github.com/ansible/ansible-lint
-    rev: v6.19.0
-    hooks:
-      - id: ansible-lint
-      # files: molecule/default/playbook.yml
 
   # Terraform hooks
   - repo: https://github.com/antonbabenko/pre-commit-terraform
@@ -154,10 +124,3 @@ repos:
     rev: v3.0.1
     hooks:
       - id: docker-compose-check
-
-  # Packer hooks
-  - repo: https://github.com/cisagov/pre-commit-packer
-    rev: v0.0.2
-    hooks:
-      - id: packer_validate
-      - id: packer_fmt

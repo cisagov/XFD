@@ -5,16 +5,16 @@ on:
     branches:
       - develop
     paths:
-      - 'docs/**'
-      - 'backend/**'
-      - '.github/workflows/docs.yml'
+      - docs/**
+      - backend/**
+      - .github/workflows/docs.yml
   pull_request:
     branches:
       - develop
     paths:
-      - 'docs/**'
-      - 'backend/**'
-      - '.github/workflows/docs.yml'
+      - docs/**
+      - backend/**
+      - .github/workflows/docs.yml
 
 defaults:
   run:
@@ -34,8 +34,7 @@ jobs:
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
+          restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y libvips-dev glib2.0-dev
       - run: npm ci
@@ -43,13 +42,3 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
-      # - name: Deploy to GitHub Pages
-      #   if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-      #   uses: crazy-max/ghaction-github-pages@v3.0.0
-      #   with:
-      #     keep_history: false
-      #     target_branch: gh-pages
-      #     build_dir: docs/public
-      #     fqdn: docs.crossfeed.cyber.dhs.gov
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -33,9 +33,9 @@ RUN git clone -b AL-staging-SQS https://github.com/cisagov/pe-reports.git && \
 
 RUN python -m spacy download en_core_web_lg
 
-# Create database.ini 
-RUN echo "[database]" > database.ini \ 
-    && echo "user=$(cat db_user.txt)" >> database.ini \ 
+# Create database.ini
+RUN echo "[database]" > database.ini \
+    && echo "user=$(cat db_user.txt)" >> database.ini \
     && echo "password=$(cat db_password.txt)" >> database.ini
 
 COPY worker worker

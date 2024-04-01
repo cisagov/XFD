@@ -1,8 +1,18 @@
-import pytest
-from .main_spider import MainSpider
-from scrapy.http import Response, Request
-from tempfile import NamedTemporaryFile
+"""
+This module contains tests for the MainSpider class in the main_spider module.
+
+It includes tests for different scenarios such as when a response from a sample website is received.
+"""
+
+# Standard Python Libraries
 import json
+from tempfile import NamedTemporaryFile
+
+# Third-Party Libraries
+import pytest
+from scrapy.http import Request, Response
+
+from .main_spider import MainSpider
 
 SAMPLE_HEADERS = {
     "Server": "Apache",
@@ -26,15 +36,27 @@ SAMPLE_HEADERS = {
 
 @pytest.fixture
 def spider():
+    """
+    Create a MainSpider instance with a temporary domains file.
+
+    This fixture creates a NamedTemporaryFile instance and uses its name as the domains_file parameter for the
+    MainSpider instance. The MainSpider instance is then returned for use in the tests.
+    """
     with NamedTemporaryFile() as f:
         return MainSpider(domains_file=f.name)
 
 
 def test_sample_website(spider):
+    """
+    Test the MainSpider class with a sample website response.
+
+    This function creates a sample Response instance with a specific body and headers. It then calls the parse_item
+    method of the MainSpider instance (provided by the spider fixture) with the sample response and checks the results.
+    """
     response = Response(
         url="https://www.cisa.gov",
         request=Request(url="https://www.cisa.gov"),
-        body="<body>Hello world</body>".encode(),
+        body=b"<body>Hello world</body>",
         headers=SAMPLE_HEADERS,
     )
     results = list(spider.parse_item(response))

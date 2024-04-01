@@ -93,7 +93,6 @@ form[data-amplify-authenticator-setup-totp] {
   div[data-amplify-copy] {
     display: none;
   }
-
 }
 .alert_box {
   margin-top: 25px;
@@ -106,20 +105,19 @@ form[data-amplify-authenticator-setup-totp] {
   font-size: 20px;
 }
 .notification_header {
-  position: relative; 
+  position: relative;
   padding-left: 10px;
   padding-top: 10px;
   padding-bottom: 20px;
-  transition: top .2s;
+  transition: top 0.2s;
   background-color: white;
-
 }
-.temp_notification{
-  position: relative; 
+.temp_notification {
+  position: relative;
   padding-left: 10px;
   padding-top: 10px;
   padding-bottom: 20px;
-  transition: top .2s;
+  transition: top 0.2s;
   background-color: white;
 }
 
@@ -133,7 +131,7 @@ form[data-amplify-authenticator-setup-totp] {
   margin-right: 100px;
 }
 .warning_header {
-  margin:auto;
+  margin: auto;
   width: 50%;
   text-align: center;
   padding-top: 10px;
@@ -142,16 +140,15 @@ form[data-amplify-authenticator-setup-totp] {
   font-size: 20px;
 }
 
-.warning_notification  {
-  position: relative; 
+.warning_notification {
+  position: relative;
   padding-left: 10px;
   //padding-top: 10px;
   padding-bottom: 20px;
-  transition: top .2s;
- 
+  transition: top 0.2s;
 }
-.warning_logo{
-  margin:auto;
+.warning_logo {
+  margin: auto;
   width: 50%;
   text-align: center;
 }
@@ -165,7 +162,7 @@ form[data-amplify-authenticator-setup-totp] {
 .banner_header {
   padding-left: 185px;
   padding-top: 10px;
-  transition: top .2s;
+  transition: top 0.2s;
   background-color: white;
   font-weight: bold;
 }
@@ -180,10 +177,10 @@ form[data-amplify-authenticator-setup-totp] {
   transition: 0.3s;
 }
 .banner_login {
-  position: relative; 
+  position: relative;
   padding-left: 10px;
- // padding-top: 10px;
- // padding-bottom: 20px;
-  transition: top .2s;
+  // padding-top: 10px;
+  // padding-bottom: 20px;
+  transition: top 0.2s;
   background-color: white;
 }
