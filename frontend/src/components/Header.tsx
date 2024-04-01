@@ -230,13 +230,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       users: STANDARD_USER,
       exact: false,
       onClick: toggleDrawer(false)
-    },
-    {
-      title: 'Admin Tools',
-      path: '/admin-tools/scans',
-      users: GLOBAL_ADMIN,
-      exact: true,
-      onClick: toggleDrawer(false)
     }
   ].filter(({ users }) => users <= userLevel);
 
@@ -249,6 +242,12 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     path: '#',
     exact: false,
     nested: [
+      {
+        title: 'Admin Tools',
+        path: '/admin-tools/scans',
+        users: GLOBAL_ADMIN,
+        exact: true
+      },
       {
         title: 'User Registration',
         path: '/region-admin-dashboard',
