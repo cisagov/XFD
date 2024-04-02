@@ -41,6 +41,7 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { RSCDashboard } from 'components/ReadySetCyber/RSCDashboard';
 import { RSCDetail } from 'components/ReadySetCyber/RSCDetail';
 import { RSCLogin } from 'components/ReadySetCyber/RSCLogin';
+import { RSCAuthLoginCreate } from 'components/ReadySetCyber/RSCAuthLoginCreate';
 
 API.configure({
   endpoints: [
@@ -214,8 +215,15 @@ const App: React.FC = () => (
                   <RouteGuard
                     exact
                     path="/readysetcyber"
-                    unauth={RSCLogin}
                     render={() => <Redirect to="/readysetcyber/dashboard" />}
+                    unauth={RSCLogin}
+                    component={RSCDashboard}
+                  />
+                  <RouteGuard
+                    exact
+                    path="/readysetcyber/create-account"
+                    render={() => <Redirect to="/readysetcyber/dashboard" />}
+                    unauth={RSCAuthLoginCreate}
                     component={RSCDashboard}
                   />
                   <RouteGuard
@@ -223,13 +231,13 @@ const App: React.FC = () => (
                     path="/readysetcyber/dashboard"
                     component={RSCDashboard}
                     render={() => <Redirect to="/readysetcyber/dashboard" />}
-                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    permissions={['readySetCyber']}
                     unauth={RSCLogin}
                   />
                   <RouteGuard
                     path="/readysetcyber/result/:id"
                     component={RSCDetail}
-                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    permissions={['readySetCyber']}
                     unauth={RSCLogin}
                   />
                 </Switch>

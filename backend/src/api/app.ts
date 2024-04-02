@@ -112,6 +112,7 @@ app.get('/', handlerToExpress(healthcheck));
 app.post('/auth/login', handlerToExpress(auth.login));
 app.post('/auth/callback', handlerToExpress(auth.callback));
 app.post('/users/register', handlerToExpress(users.register));
+app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 
 const checkUserLoggedIn = async (req, res, next) => {
   req.requestContext = {
@@ -276,7 +277,6 @@ app.use(
 const authenticatedNoTermsRoute = express.Router();
 authenticatedNoTermsRoute.use(checkUserLoggedIn);
 authenticatedNoTermsRoute.get('/users/me', handlerToExpress(users.me));
-// authenticatedNoTermsRoute.post('/users/register', handlerToExpress(users.register));
 authenticatedNoTermsRoute.post(
   '/users/me/acceptTerms',
   handlerToExpress(users.acceptTerms)

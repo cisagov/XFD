@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import * as registerFormStyles from './registerFormStyle';
+import * as RSCregisterFormStyles from './RSCregisterFormStyle';
 import {
   Button,
   CircularProgress,
@@ -12,17 +12,16 @@ import {
   Typography
 } from '@mui/material';
 import { Save } from '@mui/icons-material';
-import { SelectChangeEvent } from '@mui/material/Select';
+// import { SelectChangeEvent } from '@mui/material/Select';
 import { User } from 'types';
-import { STATE_OPTIONS } from '../../constants/constants';
+// import { STATE_OPTIONS } from '../../constants/constants';
 
-const StyledDialog = registerFormStyles.StyledDialog;
+const StyledDialog = RSCregisterFormStyles.StyledDialog;
 
 export interface RegisterFormValues {
   firstName: string;
   lastName: string;
   email: string;
-  state: string;
 }
 
 export interface ApiResponse {
@@ -31,7 +30,7 @@ export interface ApiResponse {
   url?: string;
 }
 
-export const RegisterForm: React.FC<{
+export const RSCRegisterForm: React.FC<{
   open: boolean;
   onClose: () => void;
   setRegisterSuccess: Function;
@@ -40,11 +39,10 @@ export const RegisterForm: React.FC<{
   const defaultValues = () => ({
     firstName: '',
     lastName: '',
-    email: '',
-    state: ''
+    email: ''
   });
 
-  const registerUserPost = async (body: Object) => {
+  const registerRSCUserPost = async (body: Object) => {
     try {
       const requestOptions: RequestInit = {
         method: 'POST',
@@ -52,7 +50,7 @@ export const RegisterForm: React.FC<{
         body: JSON.stringify(body)
       };
       const response = await fetch(
-        process.env.REACT_APP_API_URL + '/users/register',
+        process.env.REACT_APP_API_URL + '/readysetcyber/register',
         requestOptions
       );
       const data = await response.json();
@@ -83,12 +81,12 @@ export const RegisterForm: React.FC<{
     }));
   };
 
-  const handleChange = (event: SelectChangeEvent) => {
-    setValues((values) => ({
-      ...values,
-      [event.target.name]: event.target.value
-    }));
-  };
+//   const handleChange = (event: SelectChangeEvent) => {
+//     setValues((values) => ({
+//       ...values,
+//       [event.target.name]: event.target.value
+//     }));
+//   };
 
   const isDisabled = () => {
     if (Object.values(values).every((value) => value) && !errorEmailMessage) {
@@ -106,9 +104,9 @@ export const RegisterForm: React.FC<{
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
-      state: values.state
     };
-    const registeredUser = await registerUserPost(body);
+    const registeredUser = await registerRSCUserPost(body);
+    console.log('registeredUser: ', registeredUser);
     if (registeredUser !== undefined) {
       console.log('User Registered Successfully');
       setIsLoading(false);
@@ -152,7 +150,7 @@ export const RegisterForm: React.FC<{
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle id="form-dialog-title">Register with Crossfeed</DialogTitle>
+      <DialogTitle id="form-dialog-title">Register with RSC Dashboard</DialogTitle>
       <DialogContent>
         {errorRequestMessage && (
           <p className="text-error">{errorRequestMessage}</p>
@@ -220,7 +218,7 @@ export const RegisterForm: React.FC<{
           value={values.lastName}
           onChange={onTextChange}
         />
-         <Typography my={1}>State</Typography>
+         {/* <Typography my={1}>State</Typography>
         <Select
           displayEmpty
           size="small"
@@ -240,7 +238,7 @@ export const RegisterForm: React.FC<{
               {state}
             </MenuItem>
           ))}
-        </Select>
+        </Select> */}
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>

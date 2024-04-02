@@ -11,7 +11,7 @@ import {
   Link,
   Typography
 } from '@mui/material';
-import { RegisterForm } from 'components/Register/RegisterForm';
+import { RSCRegisterForm } from 'components/ReadySetCyber/RSCRegisterForm';
 import { CrossfeedWarning } from 'components/WarningBanner';
 import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import { I18n } from 'aws-amplify';
@@ -141,7 +141,7 @@ export const RSCLogin: React.FC <{ showSignUp?: boolean }> = ({
         >
           <DialogTitle textAlign="center">REQUEST SENT</DialogTitle>
           <DialogContent>
-            Thank you for requesting a Crossfeed account, you will receive
+            Thank you for requesting a ReadySetCyber Dashboard account, you will receive
             notification once this request is approved.
           </DialogContent>
         </Dialog>
@@ -169,7 +169,7 @@ export const RSCLogin: React.FC <{ showSignUp?: boolean }> = ({
             </Grid>
             <Grid item xs={12}>
               {open && (
-                <RegisterForm
+                <RSCRegisterForm
                   open={open}
                   onClose={onClose}
                   setRegisterSuccess={setRegisterSuccess}
@@ -177,7 +177,7 @@ export const RSCLogin: React.FC <{ showSignUp?: boolean }> = ({
               )}
               {RegistrationSuccessDialog}
               <Box pt={3} display="flex" justifyContent="center">
-                <Typography display="inline">New to RSC Dashboard?&nbsp;</Typography>
+                <Typography display="inline">New to ReadySetCyber Dashboard?&nbsp;</Typography>
                 <Link
                   underline="hover"
                   style={{ cursor: 'pointer' }}
@@ -195,16 +195,16 @@ export const RSCLogin: React.FC <{ showSignUp?: boolean }> = ({
       }
       return (
         <AuthForm onSubmit={onSubmit}>
-          <h1>Welcome to Crossfeed</h1>
+          <h1>Welcome to ReadySetCyber Dashboard</h1>
           {errors.global && <p className="text-error">{errors.global}</p>}
           <Button type="submit" size="big">
             Login with Login.gov
           </Button>
           <Typography>
-            <h5>New to Crossfeed? Register with Login.gov</h5>
+            <h5>New to ReadySetCyber Dashboard? Register with Login.gov</h5>
           </Typography>
           {open && (
-            <RegisterForm
+            <RSCRegisterForm
               open={open}
               onClose={onClose}
               setRegisterSuccess={setRegisterSuccess}
