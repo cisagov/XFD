@@ -1,15 +1,13 @@
 ---
 name: Playwright Tests
 on:
-  pull_request:
-    branches:
-      - '*'
+  deployment_status:
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     container:
-      image: mcr.microsoft.com/playwright:v1.42.1-jammy
+      image: mcr.microsoft.com/playwright:v1.41.2-jammy
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3

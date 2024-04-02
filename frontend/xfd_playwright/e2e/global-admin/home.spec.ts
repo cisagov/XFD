@@ -30,7 +30,7 @@ test('home', async () => {
     page.getByRole('heading', { name: 'Severity Levels' })
   ).toBeVisible();
   await expect(
-    page.getByPlaceholder('Search for a domain, vuln')
+    page.getByPlaceholder('Search a domain, vuln, port, service, IP')
   ).toBeVisible();
   await expect(page.getByRole('link', { name: 'Inventory' })).toBeVisible();
   await page.screenshot({ path: 'test-results/img/global-admin/home.png' });
