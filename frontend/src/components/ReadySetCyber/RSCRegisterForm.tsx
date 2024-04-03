@@ -6,15 +6,10 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
-  Select,
-  TextField,
-  Typography
+  TextField
 } from '@mui/material';
 import { Save } from '@mui/icons-material';
-// import { SelectChangeEvent } from '@mui/material/Select';
 import { User } from 'types';
-// import { STATE_OPTIONS } from '../../constants/constants';
 
 const StyledDialog = RSCregisterFormStyles.StyledDialog;
 
@@ -80,13 +75,6 @@ export const RSCRegisterForm: React.FC<{
       [name]: value
     }));
   };
-
-//   const handleChange = (event: SelectChangeEvent) => {
-//     setValues((values) => ({
-//       ...values,
-//       [event.target.name]: event.target.value
-//     }));
-//   };
 
   const isDisabled = () => {
     if (Object.values(values).every((value) => value) && !errorEmailMessage) {
@@ -218,27 +206,7 @@ export const RSCRegisterForm: React.FC<{
           value={values.lastName}
           onChange={onTextChange}
         />
-         {/* <Typography my={1}>State</Typography>
-        <Select
-          displayEmpty
-          size="small"
-          id="state"
-          value={values.state}
-          name="state"
-          onChange={handleChange}
-          fullWidth
-          renderValue={
-            values.state !== ''
-              ? undefined
-              : () => <Typography color="#bdbdbd">Select your State</Typography>
-          }
-        >
-          {STATE_OPTIONS.map((state: string, index: number) => (
-            <MenuItem key={index} value={state}>
-              {state}
-            </MenuItem>
-          ))}
-        </Select> */}
+         
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>

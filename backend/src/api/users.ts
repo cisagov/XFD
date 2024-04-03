@@ -147,20 +147,6 @@ class UpdateUser {
   role: string;
 }
 
-// class NewRSCUser {
-//   @IsString()
-//   firstName: string;
-
-//   @IsString()
-//   lastName: string;
-
-//   @IsEmail()
-//   email: string;
-
-//   @IsEnum(UserType)
-//   userType: UserType;
-// }
-
 /**
  * @swagger
  *
