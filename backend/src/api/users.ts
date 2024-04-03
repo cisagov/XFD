@@ -939,8 +939,7 @@ export const RSCRegister = wrapHandler(async (event) => {
     userType: UserType.READY_SET_CYBER,
     invitePending: true
   };
-  console.log(JSON.stringify(newRSCUser));
-
+  
   await connectToDatabase();
 
 
@@ -962,8 +961,7 @@ export const RSCRegister = wrapHandler(async (event) => {
       newRSCUser
     );
   await User.save(user);
-  console.log(JSON.stringify(user));
-  // Send email notification
+    // Send email notification
   if (process.env.IS_LOCAL!) {
     console.log('Cannot send invite email while running on local.');
   } else {

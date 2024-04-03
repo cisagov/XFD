@@ -94,7 +94,6 @@ export const RSCRegisterForm: React.FC<{
       email: values.email,
     };
     const registeredUser = await registerRSCUserPost(body);
-    console.log('registeredUser: ', registeredUser);
     if (registeredUser !== undefined) {
       console.log('User Registered Successfully');
       setIsLoading(false);
