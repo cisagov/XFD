@@ -948,10 +948,8 @@ export const RSCRegister = wrapHandler(async (event) => {
       statusCode: 422,
       body: 'User email already exists. Registration failed.'
     };
-  }
-
-  // Create if user does not exist
-  if (!user) {
+    // Create if user does not exist
+  } else {
     user = await User.create(newRSCUser);
     await User.save(user);
     // Send email notification
