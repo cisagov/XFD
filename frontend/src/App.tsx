@@ -14,27 +14,29 @@ import {
   useMatomo
 } from '@jonkoops/matomo-tracker-react';
 import {
-  Domain,
   AdminTools,
+  AuthCreateAccount,
   AuthLogin,
   AuthLoginCreate,
-  AuthCreateAccount,
-  Scans,
-  Scan,
-  Risk,
-  Organizations,
-  Organization,
-  Users,
-  Settings,
-  Vulnerabilities,
-  Vulnerability,
-  TermsOfUse,
-  SearchPage,
-  LoginGovCallback,
-  Feeds,
+  Domain,
   Domains,
+  Feeds,
+  LoginGovCallback,
+  Notifications,
+  RegionUsers,
   Reports,
-  RegionUsers
+  Risk,
+  Scan,
+  // ScansView,
+  ScanTasksView,
+  Organization,
+  Organizations,
+  SearchPage,
+  Settings,
+  TermsOfUse,
+  Users,
+  Vulnerabilities,
+  Vulnerability
 } from 'pages';
 import { Layout, RouteGuard } from 'components';
 import './styles.scss';
@@ -126,7 +128,6 @@ const App: React.FC = () => (
                     component={AuthCreateAccount}
                   />
                   <Route exact path="/terms" component={TermsOfUse} />
-
                   <RouteGuard
                     exact
                     path="/inventory"
@@ -168,26 +169,21 @@ const App: React.FC = () => (
                     permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
+                    path="/admin-tools/notifications"
+                    component={Notifications}
+                  />
+                  <RouteGuard
                     path="/admin-tools/scans"
                     component={AdminTools}
-                    // permissions={['standard', 'globalView']}
                   />
-                  {/* <RouteGuard
-                    path="/admin-tools/scans"
-                    exact
-                    component={Scans}
-                    // permissions={['standard', 'globalView']}
-                  /> */}
                   <RouteGuard
                     path="/admin-tools/scans/history"
-                    component={Scans}
+                    component={ScanTasksView}
                     exact
-                    // permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/admin-tools/scans/:scanId"
                     component={Scan}
-                    // permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/organizations/:organizationId"
