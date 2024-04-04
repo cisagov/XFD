@@ -91,7 +91,7 @@ export const RSCRegisterForm: React.FC<{
     const body = {
       firstName: values.firstName,
       lastName: values.lastName,
-      email: values.email,
+      email: values.email
     };
     const registeredUser = await registerRSCUserPost(body);
     if (registeredUser !== undefined) {
@@ -137,7 +137,9 @@ export const RSCRegisterForm: React.FC<{
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle id="form-dialog-title">Register with RSC Dashboard</DialogTitle>
+      <DialogTitle id="form-dialog-title">
+        Register with RSC Dashboard
+      </DialogTitle>
       <DialogContent>
         {errorRequestMessage && (
           <p className="text-error">{errorRequestMessage}</p>
@@ -205,7 +207,6 @@ export const RSCRegisterForm: React.FC<{
           value={values.lastName}
           onChange={onTextChange}
         />
-         
       </DialogContent>
       <DialogActions>
         <Button variant="outlined" onClick={onClose}>

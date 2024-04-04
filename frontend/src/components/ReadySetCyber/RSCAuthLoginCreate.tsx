@@ -17,7 +17,7 @@ import {
 } from '@aws-amplify/ui-react';
 import { I18n } from 'aws-amplify';
 
-import { RSCRegisterForm } from 'components/ReadySetCyber/RSCRegisterForm'; 
+import { RSCRegisterForm } from 'components/ReadySetCyber/RSCRegisterForm';
 
 const TOTP_ISSUER = process.env.REACT_APP_TOTP_ISSUER;
 
@@ -135,8 +135,8 @@ export const RSCAuthLoginCreate: React.FC<{ showSignUp?: boolean }> = ({
     >
       <DialogTitle textAlign="center">REQUEST SENT</DialogTitle>
       <DialogContent>
-        Thank you for requesting a ReadySetCyber Dashboard account, you will receive
-        notification once this request is approved.
+        Thank you for requesting a ReadySetCyber Dashboard account, you will
+        receive notification once this request is approved.
       </DialogContent>
     </Dialog>
   );
@@ -168,7 +168,9 @@ export const RSCAuthLoginCreate: React.FC<{ showSignUp?: boolean }> = ({
           )}
           {RegistrationSuccessDialog}
           <Box pt={3} pb={3} display="flex" justifyContent="center">
-            <Typography display="inline">New to ReadySetCyber Dashboard?&nbsp;</Typography>
+            <Typography display="inline">
+              New to ReadySetCyber Dashboard?&nbsp;
+            </Typography>
             <Link
               underline="hover"
               style={{ cursor: 'pointer' }}

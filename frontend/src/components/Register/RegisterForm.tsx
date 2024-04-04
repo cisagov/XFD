@@ -220,7 +220,7 @@ export const RegisterForm: React.FC<{
           value={values.lastName}
           onChange={onTextChange}
         />
-         <Typography my={1}>State</Typography>
+        <Typography my={1}>State</Typography>
         <Select
           displayEmpty
           size="small"

@@ -262,9 +262,7 @@ const sendRSCInviteEmail = async (email: string) => {
     'ReadySetCyber Dashboard Invitation',
     `Hi there,
 
-You've been invited to join ReadySetCyber Dashboard. To accept the invitation and start using your Dashboard, sign on at ${
-      process.env.FRONTEND_DOMAIN
-    }/readysetcyber/create-account.
+You've been invited to join ReadySetCyber Dashboard. To accept the invitation and start using your Dashboard, sign on at ${process.env.FRONTEND_DOMAIN}/readysetcyber/create-account.
 
 Crossfeed access instructions:
 
@@ -277,9 +275,7 @@ Crossfeed access instructions:
 
 For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
 
-If you encounter any difficulties, please feel free to reply to this email (or send an email to ${
-      process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO
-    }).`
+If you encounter any difficulties, please feel free to reply to this email (or send an email to ${process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO}).`
   );
 };
 /**
@@ -939,9 +935,8 @@ export const RSCRegister = wrapHandler(async (event) => {
     userType: UserType.READY_SET_CYBER,
     invitePending: true
   };
-  
-  await connectToDatabase();
 
+  await connectToDatabase();
 
   // Check if user already exists
   let user = await User.findOne({
@@ -957,16 +952,14 @@ export const RSCRegister = wrapHandler(async (event) => {
 
   // Create if user does not exist
   if (!user) {
-    user = await User.create(
-      newRSCUser
-    );
-  await User.save(user);
+    user = await User.create(newRSCUser);
+    await User.save(user);
     // Send email notification
-  if (process.env.IS_LOCAL!) {
-    console.log('Cannot send invite email while running on local.');
-  } else {
-  await sendRSCInviteEmail(user.email);
-  }
+    if (process.env.IS_LOCAL!) {
+      console.log('Cannot send invite email while running on local.');
+    } else {
+      await sendRSCInviteEmail(user.email);
+    }
   }
 
   const savedUser = await User.findOne(user.id);
@@ -974,4 +967,4 @@ export const RSCRegister = wrapHandler(async (event) => {
     statusCode: 200,
     body: JSON.stringify(savedUser)
   };
-})
+});
