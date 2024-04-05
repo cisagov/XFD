@@ -7,12 +7,12 @@ dotenv.config();
 const authFile = './storageState.json';
 
 let totp = new OTPAuth.TOTP({
-  issuer: process.env.CROSSFEED_2FA_ISSUER,
+  issuer: process.env.PW_XFD_2FA_ISSUER,
   label: 'Crossfeed',
   algorithm: 'SHA1',
   digits: 6,
   period: 30,
-  secret: process.env.CROSSFEED_2FA_SECRET
+  secret: process.env.PW_XFD_2FA_SECRET
 });
 
 async function globalSetup(config: FullConfig) {
@@ -21,13 +21,13 @@ async function globalSetup(config: FullConfig) {
   const page = await browser.newPage();
 
   //Log in with credentials.
-  await page.goto(String(process.env.CROSSFEED_URL));
+  await page.goto(String(process.env.PW_XFD_URL));
   await page
     .getByPlaceholder('Enter your email address')
-    .fill(String(process.env.CROSSFEED_USERNAME));
+    .fill(String(process.env.PW_XFD_USERNAME));
   await page
     .getByPlaceholder('Enter your password')
-    .fill(String(process.env.CROSSFEED_PASSWORD));
+    .fill(String(process.env.PW_XFD_PASSWORD));
   await page.getByRole('button', { name: 'Sign in' }).click();
   await page
     .getByPlaceholder('Enter code from your authenticator app')

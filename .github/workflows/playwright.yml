@@ -1,0 +1,36 @@
+---
+name: Playwright Tests
+on:
+  deployment_status:
+    paths:
+      - 'playwright/**'
+      - '.github/workflows/playwright.yml'
+defaults:
+  run:
+    working-directory: ./playwright
+env:
+  PW_XFD_URL: ${{ vars.PW_XFD_URL }}
+  PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
+  PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
+  PW_XFD_2FA_ISSUER: ${{ secrets._PW_XFD_2FA_ISSUER }}
+  PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
+  PW_XFD_USER_ROLE: ${{ vars.PW_XFD_USER_ROLE }}
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.41.2-jammy
+    if: github.event.deployment_status.state == 'success'
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: cd ../playwright && npm ci
+      - name: Run your tests
+        run: npx playwright test
+        env:
+          HOME: /root
