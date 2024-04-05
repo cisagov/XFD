@@ -43,9 +43,15 @@ import {
     status: string | null;
 
     @Column({
-        type: 'timestamp',
-        nullable: true
+        nullable: true,
+        type: 'varchar'
       })
-    updatedBy: Date | null;
+    updatedBy: string | null;
+
+    @Column({
+        nullable: true,
+        type: 'varchar'
+      })
+      message: string | null;
 
   }
