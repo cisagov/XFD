@@ -13,6 +13,7 @@ export * from './webpage';
 export * from './api-key';
 export * from './saved-search';
 export * from './organization-tag';
+export * from './notification';
 // Mini data lake models
 export * from './mini_data_lake/cert_scans';
 export * from './mini_data_lake/cidrs';

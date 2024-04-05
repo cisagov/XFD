@@ -12,6 +12,7 @@ import {
   Webpage,
   ApiKey,
   SavedSearch,
+  Notification,
   OrganizationTag,
   Cpe,
   Cve,
@@ -123,7 +124,8 @@ const connectDb = async (logging?: boolean) => {
       Webpage,
       ApiKey,
       SavedSearch,
-      OrganizationTag
+      OrganizationTag,
+      Notification
     ],
     synchronize: false,
     name: 'default',
