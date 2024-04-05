@@ -7,11 +7,13 @@ import {
   Link,
   Menu,
   MenuItem,
-  Typography, 
+  Typography,
+  Stack, 
 } from '@mui/material';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle'; // Import the AccountCircle icon
 import cisaFooterLogo from './assets/cisa_footer_logo.png'; // Import the logo
+import { links } from './links';
 
 export const RSCFooter: React.FC = () => {
   const [value, setValue] = React.useState(0);
@@ -49,8 +51,15 @@ export const RSCFooter: React.FC = () => {
         }}
       >
         <Grid container direction="column" alignItems="flex-start">
-          <Box sx={{ display: 'flex', alignItems: 'center', paddingLeft: '4em', paddingTop: '1.5em' }}>
-            <Box sx={{ marginRight: '1em' }}>
+         <Stack>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            paddingLeft: '4em', 
+            paddingTop: '1.5em' 
+            }}
+            >
+            <Box sx={{ marginRight: '0.7em' }}>
               <img src={cisaFooterLogo} 
                 alt="CISA Footer Logo"
                 style={{
@@ -58,31 +67,42 @@ export const RSCFooter: React.FC = () => {
                   height: 55, 
                   flexShrink: 0,
                 }}
-              /> {/* Use the logo */}
+              /> 
             </Box>
-            <Box>
-            <Typography variant="h7" style={{ color: 'white' }}>{`CISA.gov\nAn Official website of the U.S. Department of Homeland Security`}</Typography>
-            {/* <Typography variant="h6" style={{ color: 'white' }}>CISA.gov</Typography> */}
-            </Box>
+            <Box sx={{paddingTop: '0.2em'}}>
+            <Typography style={{ 
+              color: 'white',
+              fontSize: '0.85em', 
+              }}>
+              CISA.gov
+              </Typography>
+            <Typography style={{ 
+              color: 'white',
+              fontSize: '0.85em', 
+              }}>
+              An Official website of the U.S. Department of Homeland Security
+              </Typography>
+             </Box>
           </Box>
-          <Box sx={{ marginTop: '1em' }}>
-            <Grid container spacing={2}>
-              {Array.from({ length: 12 }).map((_, index) => (
-                <Grid item xs={4} key={index}>
-                  <Link 
-                    style={{ 
-                      color: 'white',
-                      textDecoration: 'underline',
-                      fontSize: 10,
-                     }}
-                    href={`#link${index + 1}`} 
+            <Box sx={{ paddingLeft: '4em' }}>
+              <Grid container spacing={2}>
+                {links.map((link, index) => (
+                  <Grid item xs={3} key={index}>
+                    <Link 
+                      style={{ 
+                        color: 'white',
+                        textDecoration: 'underline',
+                        fontSize: '0.9em',
+                      }}
+                      href={link.href}
                     >
-                    Link {index + 1}
-                  </Link>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
+                      {link.text}
+                    </Link>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          </Stack>
         </Grid>
       </BottomNavigation>
     </Box>
