@@ -170,24 +170,15 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/admin-tools/scans"
                     component={AdminTools}
-                    // permissions={['standard', 'globalView']}
                   />
-                  {/* <RouteGuard
-                    path="/admin-tools/scans"
-                    exact
-                    component={Scans}
-                    // permissions={['standard', 'globalView']}
-                  /> */}
                   <RouteGuard
                     path="/admin-tools/scans/history"
                     component={Scans}
                     exact
-                    // permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/admin-tools/scans/:scanId"
                     component={Scan}
-                    // permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/organizations/:organizationId"
