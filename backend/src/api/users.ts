@@ -933,7 +933,6 @@ export const RSCRegister = wrapHandler(async (event) => {
     lastName: body.lastName,
     email: body.email.toLowerCase(),
     userType: UserType.READY_SET_CYBER,
-    invitePending: true
   };
 
   await connectToDatabase();
