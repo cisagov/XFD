@@ -19,13 +19,10 @@ export class Resource extends BaseEntity {
   @Column()
   name: string;
 
-  @Column('varchar', { array: true })
-  possibleResponses: string[];
-
   @Column()
   type: string;
 
-  @Column()
+  @Column({ unique: true })
   url: string;
 
   @ManyToMany(() => Question, (question) => question.resources)

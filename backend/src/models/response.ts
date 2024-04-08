@@ -16,7 +16,7 @@ export class Response extends BaseEntity {
   id: string;
 
   @Column()
-  text: string;
+  selection: string;
 
   @ManyToOne(() => Assessment, (assessment) => assessment.responses)
   assessment: Assessment;

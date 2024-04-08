@@ -22,6 +22,9 @@ export class Question extends BaseEntity {
   @Column()
   name: string;
 
+  @Column({ nullable: true })
+  description: string;
+
   @Column()
   longForm: string;
 
