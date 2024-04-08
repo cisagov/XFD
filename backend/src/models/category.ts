@@ -16,7 +16,7 @@ export class Category extends BaseEntity {
   name: string;
 
   @Column({ nullable: true })
-  number: number;
+  number: string;
 
   @Column({ nullable: true })
   shortName: string;

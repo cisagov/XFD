@@ -22,11 +22,14 @@ export class Question extends BaseEntity {
   @Column()
   name: string;
 
+  @Column({ nullable: true })
+  description: string;
+
   @Column()
   longForm: string;
 
   @Column()
-  number: number;
+  number: string;
 
   @ManyToMany(() => Resource, (resource) => resource.questions)
   @JoinTable()
