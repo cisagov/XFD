@@ -184,6 +184,7 @@ const identifyPassiveCVEsFromCPEs = async (allDomains: Domain[]) => {
 
 /**
  * Identifies unexpected webpages.
+ * TODO: implement or remove
  */
 const identifyUnexpectedWebpages = async (allDomains: Domain[]) => {
   const vulnerabilities: Vulnerability[] = [];
@@ -278,7 +279,7 @@ interface NvdFile {
 
 // Populate CVE details from the NVD.
 const populateVulnerabilitiesFromNVD = async () => {
-  const vulnerabilities = await Vulnerability.find({
+  const vulnerabilities = await Vulnerability.findBy({
     needsPopulation: true
   });
   const vulnerabilitiesMap: { [key: string]: Vulnerability[] } = {};

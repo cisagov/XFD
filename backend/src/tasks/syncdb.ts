@@ -60,10 +60,10 @@ export const handler: Handler = async (event) => {
       }
     });
     const organizationIds: string[] = [];
-    let tag = await OrganizationTag.findOne(
-      { name: SAMPLE_TAG_NAME },
-      { relations: ['organizations'] }
-    );
+    let tag = await OrganizationTag.findOne({
+      where: { name: SAMPLE_TAG_NAME },
+      relations: ['organizations']
+    });
     if (tag) {
       await Organization.delete({
         id: In(tag.organizations.map((e) => e.id))

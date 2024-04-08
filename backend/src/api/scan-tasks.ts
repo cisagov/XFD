@@ -144,7 +144,7 @@ export const kill = wrapHandler(async (event) => {
     return NotFound;
   }
   await connectToDatabase();
-  const scanTask = await ScanTask.findOne(id);
+  const scanTask = await ScanTask.findOneBy({ id });
   if (!scanTask) {
     return NotFound;
   }
@@ -189,7 +189,7 @@ export const logs = wrapHandler(async (event) => {
     return NotFound;
   }
   await connectToDatabase();
-  const scanTask = await ScanTask.findOne(id);
+  const scanTask = await ScanTask.findOneBy({ id });
   if (!scanTask || !scanTask.fargateTaskArn) {
     return NotFound;
   }

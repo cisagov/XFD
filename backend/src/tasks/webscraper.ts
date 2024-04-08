@@ -1,10 +1,4 @@
-import {
-  connectToDatabase,
-  Domain,
-  Organization,
-  Scan,
-  Service
-} from '../models';
+import { connectToDatabase, Domain, Organization, Scan } from '../models';
 import { CommandOptions } from './ecs-client';
 import { getLiveWebsites } from './helpers/getLiveWebsites';
 import { spawn } from 'child_process';
@@ -40,10 +34,10 @@ export const handler = async (commandOptions: CommandOptions) => {
 
   await connectToDatabase();
 
-  const scan = await Scan.findOne(
-    { id: scanId },
-    { relations: ['organizations', 'tags', 'tags.organizations'] }
-  );
+  const scan = await Scan.findOne({
+    where: { id: scanId },
+    relations: ['organizations', 'tags', 'tags.organizations']
+  });
 
   let orgs: string[] | undefined = undefined;
   // webscraper is a global scan, so organizationId is only specified for tests.
@@ -130,7 +124,7 @@ export const handler = async (commandOptions: CommandOptions) => {
       });
       if (scrapedWebpages.length >= WEBPAGE_DB_BATCH_LENGTH) {
         await queue.onIdle();
-        queue.add(async () => {
+        await queue.add(async () => {
           if (scrapedWebpages.length === 0) {
             return;
           }

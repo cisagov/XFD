@@ -6,7 +6,6 @@ import {
   Organization,
   OrganizationTag,
   Scan,
-  Service,
   Vulnerability
 } from '../../models';
 
@@ -400,10 +399,10 @@ describe('lookingGlass', () => {
     ];
     connection = await connectToDatabase();
     global.Date.now = jest.fn(() => new Date('2019-04-22T10:20:30Z').getTime());
-    tag1 = await OrganizationTag.create({
+    tag1 = OrganizationTag.create({
       name: 'P&E'
     }).save;
-    tag2 = await OrganizationTag.create({
+    tag2 = OrganizationTag.create({
       name: 'TestOrgID'
     }).save;
     organization = await Organization.create({
@@ -552,9 +551,10 @@ describe('lookingGlass', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const domain = await Domain.findOne({ id: domains[0].id });
-    const vulns = await Vulnerability.find({
-      domain: domain
+    const domain = (await Domain.findOneBy({ id: domains[0].id }))!;
+
+    const vulns = await Vulnerability.findBy({
+      domain
     });
     expect(vulns).toHaveLength(1);
     expect(vulns[0].title).toEqual('Looking Glass Data');
@@ -562,7 +562,7 @@ describe('lookingGlass', () => {
   });
 
   test('updates existing vulnerability', async () => {
-    const domain = await Domain.findOne({ id: domains[0].id });
+    const domain = (await Domain.findOneBy({ id: domains[0].id }))!;
     const vulnerability = await Vulnerability.create({
       domain,
       cve: null,
@@ -634,8 +634,9 @@ describe('lookingGlass', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const vulns = await Vulnerability.find({
-      where: { domain }
+
+    const vulns = await Vulnerability.findBy({
+      domain
     });
     expect(vulns).toHaveLength(1);
 
@@ -656,8 +657,8 @@ describe('lookingGlass', () => {
   });
 
   test('Merge duplicates successfully', async () => {
-    const domain = await Domain.findOne({ id: domains[1].id });
-    const vulnerability = await Vulnerability.create({
+    const domain = (await Domain.findOneBy({ id: domains[1].id }))!;
+    await Vulnerability.create({
       domain,
       cve: null,
       lastSeen: new Date(Date.now()),
@@ -742,7 +743,7 @@ describe('lookingGlass', () => {
 
   test('Merge duplicate threats successfully', async () => {
     console.log('Running Merge test');
-    const domain = await Domain.findOne({ id: domains[2].id });
+    const domain = (await Domain.findOneBy({ id: domains[2].id }))!;
     nock('https://delta.lookingglasscyber.com', {
       reqheaders: {
         Authorization: 'Bearer ' + process.env.LG_API_KEY

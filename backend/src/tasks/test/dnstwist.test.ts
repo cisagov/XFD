@@ -85,8 +85,8 @@ describe('dnstwist', () => {
       ip: '0.0.0.0',
       organization
     }).save();
-    const vulns = await Vulnerability.find({
-      domain: domain
+    const vulns = await Vulnerability.findBy({
+      domain
     });
     expect(vulns.length).toEqual(0);
   });
@@ -107,8 +107,8 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.find({
-      domain: domain
+    const vuln = await Vulnerability.findBy({
+      domain
     });
 
     expect(vuln[0].title).toEqual('DNS Twist Domains');
@@ -163,10 +163,10 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const root_vuln = await Vulnerability.find({
+    const root_vuln = await Vulnerability.findBy({
       domain: root_domain
     });
-    const sub_vuln = await Vulnerability.find({
+    const sub_vuln = await Vulnerability.findBy({
       domain: sub_domain
     });
     expect(sub_vuln).toHaveLength(0);
@@ -183,11 +183,11 @@ describe('dnstwist', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const root_domain = await Domain.findOne({
+    const root_domain = await Domain.findOneBy({
       name: root_domain_name
     });
-    const root_vuln = await Vulnerability.find({
-      domain: root_domain
+    const root_vuln = await Vulnerability.findBy({
+      domain: root_domain!
     });
     expect(root_vuln).toHaveLength(1);
     expect(root_vuln[0].title).toEqual('DNS Twist Domains');
@@ -224,8 +224,8 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.find({
-      domain: domain
+    const vuln = await Vulnerability.findBy({
+      domain
     });
     expect(vuln[0].title).toEqual('DNS Twist Domains');
     expect(vuln).toHaveLength(1);
@@ -292,8 +292,8 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.find({
-      domain: domain
+    const vuln = await Vulnerability.findBy({
+      domain
     });
     expect(vuln[0].title).toEqual('DNS Twist Domains');
     expect(vuln).toHaveLength(1);

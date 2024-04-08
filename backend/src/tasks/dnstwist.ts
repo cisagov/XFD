@@ -39,13 +39,13 @@ export const handler = async (commandOptions: CommandOptions) => {
       const results = await runDNSTwist(root_domain);
 
       // Fetch existing domain object
-      let domain = await Domain.findOne({
+      let domain = await Domain.findOneBy({
         organization: { id: organizationId },
         name: root_domain
       });
 
       if (!domain) {
-        let ipAddress;
+        let ipAddress: string | null;
         const new_domain: Domain[] = [];
         try {
           ipAddress = (await dns.promises.lookup(root_domain)).address;
@@ -60,14 +60,14 @@ export const handler = async (commandOptions: CommandOptions) => {
           })
         );
         await saveDomainsToDb(new_domain);
-        domain = await Domain.findOne({
+        domain = await Domain.findOneBy({
           organization: { id: organizationId },
           name: root_domain
         });
       }
 
       // Fetch existing dnstwist vulnerability
-      const existingVuln = await Vulnerability.findOne({
+      const existingVuln = await Vulnerability.findOneBy({
         domain: { id: domain?.id },
         source: 'dnstwist'
       });
@@ -100,12 +100,9 @@ export const handler = async (commandOptions: CommandOptions) => {
           })
         );
         await saveVulnerabilitiesToDb(vulns, false);
-      } else {
-        continue;
       }
     } catch (e) {
       console.error(e);
-      continue;
     }
   }
 };

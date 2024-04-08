@@ -1,9 +1,9 @@
 import { Handler } from 'aws-lambda';
 import * as AWS from 'aws-sdk';
-import { connectToDatabase, User, UserType } from '../models';
+import { connectToDatabase, User } from '../models';
 import { subDays, formatISO } from 'date-fns';
 import { sendEmail } from '../api/helpers';
-import { getRepository } from 'typeorm';
+import { getRepository, LessThan, MoreThanOrEqual } from 'typeorm';
 
 const cognito = new AWS.CognitoIdentityServiceProvider();
 const userPoolId = process.env.REACT_APP_USER_POOL_ID!;
@@ -13,29 +13,14 @@ export const handler: Handler = async (event) => {
   await connectToDatabase(true);
 
   const today = new Date();
-  const cutoff30Days = subDays(today, 30);
-  const cutoff45Days = subDays(today, 45);
-  const cutoff90Days = subDays(today, 90);
-
-  // Format dates for database querying
-  const formattedCutoff30Days = formatISO(cutoff30Days, {
-    representation: 'date'
-  });
-  const formattedCutoff45Days = formatISO(cutoff45Days, {
-    representation: 'date'
-  });
-  const formattedCutoff90Days = formatISO(cutoff90Days, {
-    representation: 'date'
-  });
+  const dateCutoff30Days = subDays(today, 30);
+  const dateCutoff45Days = subDays(today, 45);
+  const dateCutoff90Days = subDays(today, 90);
 
   // Users to notify (30 days of inactivity)
-  const usersToNotify = await User.find({
-    where: {
-      lastLoggedIn: {
-        lt: formattedCutoff30Days, // Less than 30 days ago
-        gte: formattedCutoff45Days // Greater than or equal to 45 days ago
-      }
-    }
+  const usersToNotify = await User.findBy({
+    lastLoggedIn:
+      MoreThanOrEqual(dateCutoff45Days) && LessThan(dateCutoff30Days)
   });
 
   // Notify users of inactivity (30 days)
@@ -48,20 +33,14 @@ export const handler: Handler = async (event) => {
   }
 
   // Users to deactivate (45 days of inactivity)
-  const usersToDeactivate = await User.find({
-    where: {
-      lastLoggedIn: {
-        lt: formattedCutoff30Days, // Less than 30 days ago
-        gte: formattedCutoff45Days // Greater than or equal to 45 days ago
-      }
-    }
+  const usersToDeactivate = await User.findBy({
+    lastLoggedIn:
+      MoreThanOrEqual(dateCutoff45Days) && LessThan(dateCutoff30Days)
   });
 
   // Users to remove (90 days of inactivity)
-  const usersToRemove = await User.find({
-    where: {
-      lastLoggedIn: `<${formattedCutoff90Days}`
-    }
+  const usersToRemove = await User.findBy({
+    lastLoggedIn: LessThan(dateCutoff90Days)
   });
 
   // Notify users of inactivity (90 days)

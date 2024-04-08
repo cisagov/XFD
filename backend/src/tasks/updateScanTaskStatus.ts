@@ -29,7 +29,7 @@ export const handler: Handler<EventBridgeEvent> = async (
   await connectToDatabase();
   const scanTask = await pRetry(
     () =>
-      ScanTask.findOne({
+      ScanTask.findOneBy({
         fargateTaskArn: taskArn
       }),
     { retries: 3 }

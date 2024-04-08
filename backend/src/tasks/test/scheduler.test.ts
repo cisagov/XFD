@@ -60,7 +60,7 @@ describe('scheduler', () => {
     expect(scanTask?.status).toEqual('requested');
     expect(scanTask?.fargateTaskArn).toEqual('mock_task_arn');
 
-    scan = (await Scan.findOne(scan.id))!;
+    scan = (await Scan.findOneBy({ id: scan.id }))!;
     expect(scan.lastRun).toBeTruthy();
   });
   describe('scheduling', () => {
@@ -93,7 +93,7 @@ describe('scheduler', () => {
       );
 
       expect(runCommand).toHaveBeenCalledTimes(0);
-      scan = (await Scan.findOne(scan.id))!;
+      scan = (await Scan.findOneBy({ id: scan.id }))!;
       expect(scan.lastRun).toBeFalsy();
     });
     test('should run a scan when a scantask for that scan and another organization is already in progress', async () => {
@@ -319,7 +319,7 @@ describe('scheduler', () => {
       expect(runCommand).toHaveBeenCalledTimes(1);
 
       // Ensure scheduler set manualRunPending back to false
-      scan = (await Scan.findOne({ id: scan.id })) as Scan;
+      scan = (await Scan.findOneBy({ id: scan.id })) as Scan;
       expect(scan.manualRunPending).toEqual(false);
     });
     test('should run a scan when a scantask for that scan and organization finished and sufficient time has passed', async () => {
@@ -904,7 +904,7 @@ describe('scheduler', () => {
       {} as any,
       () => void 0
     );
-    scan2 = (await Scan.findOne(scan2.id))!;
+    scan2 = (await Scan.findOneBy({ id: scan2.id }))!;
     expect(runCommand).toHaveBeenCalledTimes(1);
 
     // Run scheduler on both scans, scan should be run, but scan2 should be skipped
@@ -918,7 +918,7 @@ describe('scheduler', () => {
     );
     expect(runCommand).toHaveBeenCalledTimes(2);
 
-    const newscan2 = (await Scan.findOne(scan2.id))!;
+    const newscan2 = (await Scan.findOneBy({ id: scan2.id }))!;
 
     // Expect scan2's lastRun was not edited during the second call to scheduler
     expect(newscan2.lastRun).toEqual(scan2.lastRun);

@@ -10,7 +10,7 @@ export const del = wrapHandler(async (event) => {
   if (!id || !isUUID(id)) {
     return NotFound;
   }
-  const key = await ApiKey.findOne({
+  const key = await ApiKey.findOneBy({
     id,
     user: { id: getUserId(event) }
   });
@@ -31,7 +31,7 @@ export const generate = wrapHandler(async (event) => {
   await connectToDatabase();
   const key = randomBytes(16).toString('hex');
   // Store a hash of the API key instead of the key itself
-  let apiKey = await ApiKey.create({
+  let apiKey = ApiKey.create({
     hashedKey: createHash('sha256').update(key).digest('hex'),
     lastFour: key.substr(-4),
     user: { id: getUserId(event) }

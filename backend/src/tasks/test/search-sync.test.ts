@@ -8,7 +8,7 @@ import {
 } from '../../models';
 
 jest.mock('../es-client');
-const { updateDomains, updateWebpages } = require('../es-client');
+const { updateDomains } = require('../es-client');
 
 describe('search_sync', () => {
   let organization;
@@ -159,7 +159,7 @@ describe('search_sync', () => {
       updatedAt: new Date('9999-10-11')
     }).save();
 
-    const domain = await Domain.create({
+    await Domain.create({
       name: 'cisa.gov',
       organization,
       syncedAt: new Date('9999-10-10')
@@ -185,7 +185,7 @@ describe('search_sync', () => {
       updatedAt: new Date('9999-9-11')
     }).save();
 
-    const domain = await Domain.create({
+    await Domain.create({
       name: 'cisa.gov',
       organization,
       syncedAt: new Date('9999-10-10')
@@ -244,13 +244,13 @@ describe('search_sync', () => {
       vulnerability.id
     ]);
 
-    const newDomain = await Domain.findOneOrFail(domain.id);
+    const newDomain = await Domain.findOneOrFail({ where: { id: domain.id } });
     expect(newDomain.syncedAt).not.toEqual(domain.syncedAt);
   });
 
   test('should sync domains in chunks', async () => {
     await Promise.all(
-      new Array(DOMAIN_CHUNK_SIZE + 1).fill(null).map((e) =>
+      new Array(DOMAIN_CHUNK_SIZE + 1).fill(null).map(() =>
         Domain.create({
           name: 'cisa-' + Math.random() + '.gov',
           organization,

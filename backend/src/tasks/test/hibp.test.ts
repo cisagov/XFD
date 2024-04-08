@@ -1,4 +1,3 @@
-import { getLiveWebsites, LiveDomain } from '../helpers/getLiveWebsites';
 import {
   connectToDatabase,
   Domain,
@@ -7,13 +6,10 @@ import {
   Service,
   Vulnerability
 } from '../../models';
-import { CommandOptions } from '../ecs-client';
 import { handler as hibp } from '../hibp';
 import * as nock from 'nock';
 
 const RealDate = Date;
-
-const axios = require('axios');
 
 const hibpResponse_1 = {
   testEmail_1: ['Breach_1'],
@@ -322,17 +318,17 @@ describe('hibp', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const domain = await Domain.findOne({ id: domains[0].id });
-    const vulns = await Vulnerability.find({
-      domain: domain
+    const domain = (await Domain.findOneBy({ id: domains[0].id }))!;
+    const vulns = await Vulnerability.findBy({
+      domain
     });
     expect(vulns).toHaveLength(1);
     expect(vulns[0].title).toEqual('Exposed Emails');
     expect(vulns[0].source).toEqual('hibp');
   });
   test('updates existing vulnerability', async () => {
-    const domain = await Domain.findOne({ id: domains[0].id });
-    const service = await Service.create({
+    const domain = (await Domain.findOneBy({ id: domains[0].id }))!;
+    await Service.create({
       domain,
       port: 443
     }).save();
@@ -541,9 +537,9 @@ describe('hibp', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const domain = await Domain.findOne({ id: domains[0].id });
-    const vulns = await Vulnerability.find({
-      domain: domain
+    const domain = (await Domain.findOneBy({ id: domains[0].id }))!;
+    const vulns = await Vulnerability.findBy({
+      domain
     });
     expect(vulns).toHaveLength(1);
     expect(vulns[0].title).toEqual('Exposed Emails');

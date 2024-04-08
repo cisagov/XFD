@@ -8,8 +8,8 @@ import {
   IsOptional
 } from 'class-validator';
 import { connectToDatabase, SavedSearch, Vulnerability } from '../models';
-import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
-import { FindManyOptions } from 'typeorm';
+import { validateBody, wrapHandler, NotFound } from './helpers';
+import { BaseEntity, DeepPartial, FindManyOptions } from 'typeorm';
 
 export const del = wrapHandler(async (event) => {
   const id = event.pathParameters?.searchId;
@@ -21,15 +21,10 @@ export const del = wrapHandler(async (event) => {
   const where = { createdBy: { id: event.requestContext.authorizer!.id } };
 
   await connectToDatabase();
-  const search = await SavedSearch.findOne(
-    {
-      id,
-      ...where
-    },
-    {
-      relations: []
-    }
-  );
+  const search = await SavedSearch.findOneBy({
+    id,
+    ...where
+  });
   if (search) {
     const result = await SavedSearch.delete({ ...where, id });
     return {
@@ -79,17 +74,15 @@ export const update = wrapHandler(async (event) => {
   }
   const where = { createdBy: { id: event.requestContext.authorizer!.id } };
 
-  const body = await validateBody(NewSavedSearch, event.body);
+  const body = (await validateBody(
+    NewSavedSearch,
+    event.body
+  )) as DeepPartial<BaseEntity>;
   await connectToDatabase();
-  const search = await SavedSearch.findOne(
-    {
-      id,
-      ...where
-    },
-    {
-      relations: []
-    }
-  );
+  const search = await SavedSearch.findOneBy({
+    id,
+    ...where
+  });
   if (search) {
     SavedSearch.merge(search, body);
     await SavedSearch.save(search);
@@ -104,7 +97,7 @@ export const update = wrapHandler(async (event) => {
 export const create = wrapHandler(async (event) => {
   const body = await validateBody(NewSavedSearch, event.body);
   await connectToDatabase();
-  const search = await SavedSearch.create({
+  const search = SavedSearch.create({
     ...body,
     createdBy: { id: event.requestContext.authorizer!.id }
   });
@@ -145,12 +138,7 @@ export const get = wrapHandler(async (event) => {
   const where = { createdBy: { id: event.requestContext.authorizer!.id } };
 
   await connectToDatabase();
-  const result = await SavedSearch.findOne(
-    { ...where, id },
-    {
-      relations: []
-    }
-  );
+  const result = await SavedSearch.findOneBy({ id, ...where });
 
   return {
     statusCode: result ? 200 : 404,

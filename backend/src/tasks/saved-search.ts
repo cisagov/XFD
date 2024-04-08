@@ -23,7 +23,7 @@ export const handler = async (commandOptions: CommandOptions) => {
       sortField: search.sortField,
       filters: search.filters
     };
-    const user = await User.findOne(search.createdBy);
+    const user = await User.findOneBy({ id: search.createdBy.id });
     const event = {
       requestContext: { authorizer: userTokenBody(user) }
     } as any;

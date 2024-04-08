@@ -64,7 +64,7 @@ function getKey(header, callback) {
  *    tags:
  *    - Auth
  */
-export const login = async (event, context) => {
+export const login = async () => {
   const { url, state, nonce } = await loginGov.login();
   return {
     statusCode: 200,
@@ -100,7 +100,7 @@ export const userTokenBody = (user): UserToken => ({
  *    tags:
  *    - Auth
  */
-export const callback = async (event, context) => {
+export const callback = async (event) => {
   let userInfo: UserInfo;
   try {
     if (process.env.USE_COGNITO) {
@@ -132,14 +132,12 @@ export const callback = async (event, context) => {
 
   // Look up user by email
   await connectToDatabase();
-  let user = await User.findOne(
-    {
+  let user = await User.findOne({
+    where: {
       email: userInfo.email
     },
-    {
-      relations: ['roles', 'roles.organization']
-    }
-  );
+    relations: ['roles', 'roles.organization']
+  });
 
   const idKey = `${process.env.USE_COGNITO ? 'cognitoId' : 'loginGovId'}`;
 
@@ -192,32 +190,30 @@ export const authorize = async (event) => {
     let parsed: Partial<UserToken>;
     // Test if API key, e.g. a 32 digit hex string
     if (/^[A-Fa-f0-9]{32}$/.test(event.authorizationToken)) {
-      const apiKey = await ApiKey.findOne(
-        {
+      const apiKey = await ApiKey.findOne({
+        where: {
           hashedKey: createHash('sha256')
             .update(event.authorizationToken)
             .digest('hex')
         },
-        { relations: ['user'] }
-      );
+        relations: ['user']
+      });
       if (!apiKey) throw 'Invalid API key';
       parsed = { id: apiKey.user.id };
       apiKey.lastUsed = new Date();
-      apiKey.save();
+      await apiKey.save();
     } else {
       parsed = jwt.verify(
         event.authorizationToken,
         process.env.JWT_SECRET!
       ) as UserToken;
     }
-    const user = await User.findOne(
-      {
+    const user = await User.findOne({
+      where: {
         id: parsed.id
       },
-      {
-        relations: ['roles', 'roles.organization']
-      }
-    );
+      relations: ['roles', 'roles.organization']
+    });
     // For running tests, ignore the database results if user doesn't exist or is the dummy user
     if (
       process.env.NODE_ENV === 'test' &&
@@ -230,40 +226,38 @@ export const authorize = async (event) => {
   } catch (e) {
     if (e.name === 'JsonWebTokenError') {
       // Handle this error without logging or displaying the error message
-      const parsed = { id: 'cisa:crossfeed:anonymous' };
-      return parsed;
+      return { id: 'cisa:crossfeed:anonymous' };
     } else {
       console.error(e);
-      const parsed = { id: 'cisa:crossfeed:anonymous' };
-      return parsed;
+      return { id: 'cisa:crossfeed:anonymous' };
     }
   }
 };
 
 /** Check if a user has global write admin permissions */
 export const isGlobalWriteAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
+  return !!(
+    event.requestContext.authorizer &&
     event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN
-    ? true
-    : false;
+  );
 };
 
 /** Check if a user has global view permissions */
 export const isGlobalViewAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
+  return !!(
+    event.requestContext.authorizer &&
     (event.requestContext.authorizer.userType === UserType.GLOBAL_VIEW ||
       event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
-    ? true
-    : false;
+  );
 };
 
 /** Check if a user has regionalAdmin view permissions */
 export const isRegionalAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
+  return !!(
+    event.requestContext.authorizer &&
     (event.requestContext.authorizer.userType === UserType.REGIONAL_ADMIN ||
       event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
-    ? true
-    : false;
+  );
 };
 
 /** Checks if the current user is allowed to access (modify) a user with id userId */
@@ -295,10 +289,10 @@ export const getTagOrganizations = async (
   id: string
 ): Promise<string[]> => {
   if (!isGlobalViewAdmin(event)) return [];
-  const tag = await OrganizationTag.findOne(
-    { id },
-    { relations: ['organizations'] }
-  );
+  const tag = await OrganizationTag.findOne({
+    where: { id },
+    relations: ['organizations']
+  });
   if (tag) return tag?.organizations.map((org) => org.id);
   return [];
 };

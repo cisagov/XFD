@@ -63,7 +63,7 @@ export const handler = async (commandOptions: CommandOptions) => {
     console.log(orgName);
     console.log(row);
     const organization =
-      (await Organization.findOne({
+      (await Organization.findOneBy({
         name: orgName
       })) ||
       (await Organization.create({

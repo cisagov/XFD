@@ -212,14 +212,12 @@ export const update = wrapHandler(async (event) => {
   );
 
   await connectToDatabase();
-  const org = await Organization.findOne(
-    {
+  const org = await Organization.findOne({
+    where: {
       id
     },
-    {
-      relations: ['userRoles', 'granularScans']
-    }
-  );
+    relations: ['userRoles', 'granularScans']
+  });
   if (org) {
     if ('tags' in body) {
       body.tags = await findOrCreateTags(body.tags);
@@ -359,7 +357,8 @@ export const get = wrapHandler(async (event) => {
   if (!isOrgAdmin(event, id)) return Unauthorized;
 
   await connectToDatabase();
-  const result = await Organization.findOne(id, {
+  const result = await Organization.findOne({
+    where: { id },
     relations: [
       'userRoles',
       'userRoles.user',
@@ -425,19 +424,17 @@ export const updateScan = wrapHandler(async (event) => {
   if (!scanId || !isUUID(scanId)) {
     return NotFound;
   }
-  const scan = await Scan.findOne({
+  const scan = await Scan.findOneBy({
     id: scanId,
     isGranular: true,
     isUserModifiable: true
   });
-  const organization = await Organization.findOne(
-    {
+  const organization = await Organization.findOne({
+    where: {
       id: organizationId
     },
-    {
-      relations: ['granularScans']
-    }
-  );
+    relations: ['granularScans']
+  });
   if (!scan || !organization) {
     return NotFound;
   }
@@ -487,7 +484,7 @@ export const initiateDomainVerification = wrapHandler(async (event) => {
   await connectToDatabase();
   const token = 'crossfeed-verification=' + randomBytes(16).toString('hex');
 
-  const organization = await Organization.findOne({
+  const organization = await Organization.findOneBy({
     id: organizationId
   });
   if (!organization) {
@@ -544,7 +541,7 @@ export const checkDomainVerification = wrapHandler(async (event) => {
 
   await connectToDatabase();
 
-  const organization = await Organization.findOne({
+  const organization = await Organization.findOneBy({
     id: organizationId
   });
   if (!organization) {
@@ -611,7 +608,7 @@ export const approveRole = wrapHandler(async (event) => {
   }
 
   await connectToDatabase();
-  const role = await Role.findOne({
+  const role = await Role.findOneBy({
     organization: { id: organizationId },
     id
   });
@@ -824,7 +821,7 @@ export const updateV2 = wrapHandler(async (event) => {
 
   // Handle response
   if (updateResp) {
-    const updatedOrg = await Organization.findOne(id);
+    const updatedOrg = await Organization.findOneBy({ id });
     return {
       statusCode: 200,
       body: JSON.stringify(updatedOrg)

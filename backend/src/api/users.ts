@@ -7,11 +7,7 @@ import {
   IsEnum,
   IsInt,
   IsIn,
-  IsNumber,
-  IsObject,
-  IsPositive,
-  ValidateNested,
-  IsUUID
+  IsPositive
 } from 'class-validator';
 import { User, connectToDatabase, Role, Organization } from '../models';
 import {
@@ -34,9 +30,7 @@ import {
   isOrgAdmin,
   isGlobalWriteAdmin
 } from './auth';
-import { Type, plainToClass } from 'class-transformer';
-import { IsNull } from 'typeorm';
-import { create } from './organizations';
+import { DeepPartial } from 'typeorm';
 
 class UserSearch {
   @IsInt()
@@ -199,14 +193,12 @@ export const update = wrapHandler(async (event) => {
     // Non-global admins can't set userType
     return Unauthorized;
   }
-  const user = await User.findOne(
-    {
-      id: id
-    },
-    {
-      relations: ['roles', 'roles.organization']
-    }
-  );
+  await connectToDatabase();
+  const user = await User.createQueryBuilder('user')
+    .leftJoinAndSelect('user.roles', 'roles')
+    .leftJoinAndSelect('roles.organization', 'organization')
+    .where('user.id = :id', { id })
+    .getOne();
   if (user) {
     console.log(JSON.stringify({ original_user: user }));
     user.firstName = body.firstName ?? user.firstName;
@@ -223,7 +215,10 @@ export const update = wrapHandler(async (event) => {
   return NotFound;
 });
 
-const sendInviteEmail = async (email: string, organization?: Organization) => {
+const sendInviteEmail = async (
+  email: string,
+  organization?: Organization | null
+) => {
   const staging = process.env.NODE_ENV !== 'production';
 
   await sendEmail(
@@ -285,18 +280,18 @@ export const invite = wrapHandler(async (event) => {
   }
 
   // Check if user already exists
-  let user = await User.findOne({
+  let user = await User.findOneBy({
     email: body.email
   });
 
-  let organization: Organization | undefined;
+  let organization: Organization | null = null;
 
   if (body.organization) {
-    organization = await Organization.findOne(body.organization);
+    organization = await Organization.findOneBy({ id: body.organization });
   }
 
   if (!user) {
-    user = await User.create({
+    user = User.create({
       invitePending: true,
       ...body
     });
@@ -341,14 +336,12 @@ export const invite = wrapHandler(async (event) => {
       .execute();
   }
 
-  const updated = await User.findOne(
-    {
+  const updated = await User.findOne({
+    where: {
       id: user.id
     },
-    {
-      relations: ['roles', 'roles.organization']
-    }
-  );
+    relations: ['roles', 'roles.organization']
+  });
   return {
     statusCode: 200,
     body: JSON.stringify(updated)
@@ -366,7 +359,8 @@ export const invite = wrapHandler(async (event) => {
  */
 export const me = wrapHandler(async (event) => {
   await connectToDatabase();
-  const result = await User.findOne(getUserId(event), {
+  const result = await User.findOne({
+    where: { id: getUserId(event) },
     relations: ['roles', 'roles.organization', 'apiKeys']
   });
   return {
@@ -386,7 +380,8 @@ export const me = wrapHandler(async (event) => {
  */
 export const acceptTerms = wrapHandler(async (event) => {
   await connectToDatabase();
-  const user = await User.findOne(getUserId(event), {
+  const user = await User.findOne({
+    where: { id: getUserId(event) },
     relations: ['roles', 'roles.organization']
   });
   if (!user || !event.body) {
@@ -514,7 +509,7 @@ export const getByState = wrapHandler(async (event) => {
  */
 export const register = wrapHandler(async (event) => {
   const body = await validateBody(NewUser, event.body);
-  const newUser = {
+  const newUser: DeepPartial<User> = {
     firstName: body.firstName,
     lastName: body.lastName,
     email: body.email.toLowerCase(),
@@ -542,10 +537,11 @@ export const register = wrapHandler(async (event) => {
     };
   }
 
-  const createdUser = await User.create(newUser);
+  const createdUser = User.create(newUser as DeepPartial<User>);
   await User.save(createdUser);
   id = createdUser.id;
-  const savedUser = await User.findOne(id, {
+  const savedUser = await User.findOne({
+    where: { id },
     relations: ['roles', 'roles.organization']
   });
   if (!savedUser) {
@@ -591,7 +587,7 @@ export const registrationApproval = wrapHandler(async (event) => {
   // Connect to the database
   await connectToDatabase();
 
-  const user = await User.findOne(userId);
+  const user = await User.findOneBy({ id: userId });
   if (!user) {
     return NotFound;
   }
@@ -637,7 +633,7 @@ export const registrationDenial = wrapHandler(async (event) => {
   // Connect to the database
   await connectToDatabase();
 
-  const user = await User.findOne(userId);
+  const user = await User.findOneBy({ id: userId });
   if (!user) {
     return NotFound;
   }
@@ -771,20 +767,20 @@ export const inviteV2 = wrapHandler(async (event) => {
   };
 
   // Check if user already exists
-  let user = await User.findOne({
+  let user = await User.findOneBy({
     email: body.email
   });
 
   // Handle Organization assignment if provided
-  let organization: Organization | undefined;
+  let organization: Organization | null = null;
   if (body.organization) {
-    organization = await Organization.findOne(body.organization);
+    organization = await Organization.findOneBy({ id: body.organization });
   }
 
   // Create user if not found
   if (!user) {
     // Create User object
-    user = await User.create({
+    user = User.create({
       invitePending: true,
       ...body
     });
@@ -830,14 +826,12 @@ export const inviteV2 = wrapHandler(async (event) => {
       .execute();
   }
 
-  const updated = await User.findOne(
-    {
+  const updated = await User.findOne({
+    where: {
       id: user.id
     },
-    {
-      relations: ['roles', 'roles.organization']
-    }
-  );
+    relations: ['roles', 'roles.organization']
+  });
   return {
     statusCode: 200,
     body: JSON.stringify(updated)
@@ -872,7 +866,7 @@ export const updateV2 = wrapHandler(async (event) => {
   // Connect to the database
   await connectToDatabase();
 
-  const user = await User.findOne(userId);
+  const user = await User.findOneBy({ id: userId });
   if (!user) {
     return NotFound;
   }
@@ -882,7 +876,8 @@ export const updateV2 = wrapHandler(async (event) => {
 
   // Handle response
   if (updatedResp) {
-    const updatedUser = await User.findOne(userId, {
+    const updatedUser = await User.findOne({
+      where: { id: userId },
       relations: ['roles', 'roles.organization']
     });
     return {

@@ -311,8 +311,8 @@ export const update = wrapHandler(async (event) => {
     return NotFound;
   }
   const body = await validateBody(NewScan, event.body);
-  const scan = await Scan.findOne({
-    id: id
+  const scan = await Scan.findOneBy({
+    id
   });
 
   if (scan) {
@@ -376,14 +376,12 @@ export const get = wrapHandler(async (event) => {
   if (!id || !isUUID(id)) {
     return NotFound;
   }
-  const scan = await Scan.findOne(
-    {
-      id: id
+  const scan = await Scan.findOne({
+    where: {
+      id
     },
-    {
-      relations: ['organizations', 'tags']
-    }
-  );
+    relations: ['organizations', 'tags']
+  });
 
   if (scan) {
     const schema = SCAN_SCHEMA[scan.name];
@@ -505,8 +503,8 @@ export const runScan = wrapHandler(async (event) => {
   if (!id || !isUUID(id)) {
     return NotFound;
   }
-  const scan = await Scan.findOne({
-    id: id
+  const scan = await Scan.findOneBy({
+    id
   });
 
   if (scan) {

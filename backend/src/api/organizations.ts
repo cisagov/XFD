@@ -6,8 +6,7 @@ import {
   IsUUID,
   IsOptional,
   IsNotEmpty,
-  IsNumber,
-  IsEnum
+  IsNumber
 } from 'class-validator';
 import {
   Organization,
@@ -33,7 +32,7 @@ import {
   getOrgMemberships,
   isGlobalViewAdmin
 } from './auth';
-import { In } from 'typeorm';
+import { DeepPartial, In } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import { randomBytes } from 'crypto';
 import { promises } from 'dns';
@@ -206,26 +205,6 @@ class NewDomain {
   domain: string;
 }
 
-class NewOrganizationRoleDB {
-  @IsEnum(User)
-  user: User;
-
-  @IsEnum(Organization)
-  organization: Organization;
-
-  @IsBoolean()
-  approved: boolean;
-
-  @IsString()
-  role: string;
-
-  @IsEnum(User)
-  approvedBy: User;
-
-  @IsEnum(User)
-  createdBy: User;
-}
-
 class NewOrganizationRoleBody {
   @IsString()
   userId: string;
@@ -242,8 +221,8 @@ const findOrCreateTags = async (
   for (const tag of tags) {
     if (!tag.id) {
       // If no id is supplied, first check to see if a tag with this name exists
-      const found = await OrganizationTag.findOne({
-        where: { name: tag.name }
+      const found = await OrganizationTag.findOneBy({
+        name: tag.name
       });
       if (found) {
         finalTags.push(found);
@@ -295,14 +274,12 @@ export const update = wrapHandler(async (event) => {
   );
 
   await connectToDatabase();
-  const org = await Organization.findOne(
-    {
+  const org = await Organization.findOne({
+    where: {
       id
     },
-    {
-      relations: ['userRoles', 'granularScans']
-    }
-  );
+    relations: ['userRoles', 'granularScans']
+  });
   if (org) {
     if ('tags' in body) {
       body.tags = await findOrCreateTags(body.tags);
@@ -450,7 +427,8 @@ export const get = wrapHandler(async (event) => {
   if (!isOrgAdmin(event, id)) return Unauthorized;
 
   await connectToDatabase();
-  const result = await Organization.findOne(id, {
+  const result = await Organization.findOne({
+    where: { id },
     relations: [
       'userRoles',
       'userRoles.user',
@@ -516,19 +494,17 @@ export const updateScan = wrapHandler(async (event) => {
   if (!scanId || !isUUID(scanId)) {
     return NotFound;
   }
-  const scan = await Scan.findOne({
+  const scan = await Scan.findOneBy({
     id: scanId,
     isGranular: true,
     isUserModifiable: true
   });
-  const organization = await Organization.findOne(
-    {
+  const organization = await Organization.findOne({
+    where: {
       id: organizationId
     },
-    {
-      relations: ['granularScans']
-    }
-  );
+    relations: ['granularScans']
+  });
   if (!scan || !organization) {
     return NotFound;
   }
@@ -578,7 +554,7 @@ export const initiateDomainVerification = wrapHandler(async (event) => {
   await connectToDatabase();
   const token = 'crossfeed-verification=' + randomBytes(16).toString('hex');
 
-  const organization = await Organization.findOne({
+  const organization = await Organization.findOneBy({
     id: organizationId
   });
   if (!organization) {
@@ -601,7 +577,7 @@ export const initiateDomainVerification = wrapHandler(async (event) => {
     };
     organization.pendingDomains.push(domain);
 
-    const res = await Organization.save(organization);
+    await Organization.save(organization);
   }
   return {
     statusCode: 200,
@@ -635,7 +611,7 @@ export const checkDomainVerification = wrapHandler(async (event) => {
 
   await connectToDatabase();
 
-  const organization = await Organization.findOne({
+  const organization = await Organization.findOneBy({
     id: organizationId
   });
   if (!organization) {
@@ -660,7 +636,7 @@ export const checkDomainVerification = wrapHandler(async (event) => {
           organization.pendingDomains = organization.pendingDomains.filter(
             (domain) => domain.name !== pendingDomain.name
           );
-          organization.save();
+          await organization.save();
           return {
             statusCode: 200,
             body: JSON.stringify({ success: true, organization })
@@ -702,7 +678,7 @@ export const approveRole = wrapHandler(async (event) => {
   }
 
   await connectToDatabase();
-  const role = await Role.findOne({
+  const role = await Role.findOneBy({
     organization: { id: organizationId },
     id
   });
@@ -914,7 +890,7 @@ export const updateV2 = wrapHandler(async (event) => {
 
   // Handle response
   if (updateResp) {
-    const updatedOrg = await Organization.findOne(id);
+    const updatedOrg = await Organization.findOneBy({ id });
     return {
       statusCode: 200,
       body: JSON.stringify(updatedOrg)
@@ -956,7 +932,7 @@ export const addUserV2 = wrapHandler(async (event) => {
     return NotFound;
   }
   // Get Organization from the database
-  const org = await Organization.findOne(orgId);
+  const org = await Organization.findOneBy({ id: orgId });
 
   // Get the user id from the body
   const userId = body.userId;
@@ -965,11 +941,11 @@ export const addUserV2 = wrapHandler(async (event) => {
     return NotFound;
   }
   // Get User from the database
-  const user = await User.findOneOrFail(userId);
+  const user = await User.findOneOrFail({ where: { id: userId } });
 
-  const newRoleData = {
+  const newRoleData: DeepPartial<Role> = {
     user: user,
-    organization: org,
+    organization: org!,
     approved: true,
     role: body.role,
     approvedBy: event.requestContext.authorizer!.id,
@@ -977,13 +953,11 @@ export const addUserV2 = wrapHandler(async (event) => {
   };
 
   // Add a role to make association to user/organization
-  const newRole = Role.create(newRoleData);
+  const newRole = Role.create(newRoleData as DeepPartial<Role>);
   await Role.save(newRole);
-  // const roleId = newRole.id;
 
   // Handle response
   if (newRole) {
-    // const roleResp = await Organization.findOne(roleId);
     return {
       statusCode: 200,
       body: JSON.stringify(newRole)
@@ -1046,7 +1020,7 @@ export const upsert_org = wrapHandler(async (event) => {
 
   current_org.tags = body.tags;
 
-  current_org.save();
+  await current_org.save();
 
   return {
     statusCode: 200,

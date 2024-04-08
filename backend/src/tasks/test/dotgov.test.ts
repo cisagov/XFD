@@ -65,9 +65,7 @@ GOLDWATERSCHOLARSHIP.GOV,Federal Agency - Executive,Barry Goldwater Scholarship 
       scanTaskId: 'scanTaskId'
     });
 
-    const tag = await OrganizationTag.findOne({
-      where: { name: DOTGOV_TAG_NAME }
-    });
+    const tag = await OrganizationTag.findOneBy({ name: DOTGOV_TAG_NAME });
     expect(tag).toBeTruthy();
 
     const organizations = await Organization.createQueryBuilder('organization')

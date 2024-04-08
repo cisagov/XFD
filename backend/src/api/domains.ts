@@ -269,12 +269,10 @@ export const get = wrapHandler(async (event) => {
     return NotFound;
   }
 
-  const result = await Domain.findOne(
-    { id, ...where },
-    {
-      relations: ['services', 'organization', 'vulnerabilities']
-    }
-  );
+  const result = await Domain.findOne({
+    where: { id, ...where },
+    relations: ['services', 'organization', 'vulnerabilities']
+  });
 
   return {
     statusCode: result ? 200 : 404,

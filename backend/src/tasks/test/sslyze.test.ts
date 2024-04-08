@@ -39,7 +39,7 @@ describe('sslyze', () => {
       name: 'www.cisa.gov',
       ip: '0.0.0.0'
     }).save();
-    const service = await Service.create({
+    await Service.create({
       service: 'https',
       port: 443,
       domain
@@ -53,7 +53,7 @@ describe('sslyze', () => {
       chunkNumber: 0,
       numChunks: 1
     });
-    domain = (await Domain.findOne(domain.id)) as Domain;
+    domain = (await Domain.findOneBy({ id: domain.id })) as Domain;
     expect(domain.ssl).toMatchInlineSnapshot(`
       Object {
         "altNames": Array [
@@ -76,7 +76,7 @@ describe('sslyze', () => {
       name: 'www.cisa.gov',
       ip: '0.0.0.0'
     }).save();
-    const service = await Service.create({
+    await Service.create({
       service: 'http',
       port: 80,
       domain
@@ -90,7 +90,7 @@ describe('sslyze', () => {
       chunkNumber: 0,
       numChunks: 1
     });
-    domain = (await Domain.findOne(domain.id)) as Domain;
+    domain = (await Domain.findOneBy({ id: domain.id })) as Domain;
     expect(domain.ssl).toEqual(null);
   });
 });

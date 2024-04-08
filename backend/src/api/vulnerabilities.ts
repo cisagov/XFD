@@ -13,7 +13,7 @@ import {
 import { Type } from 'class-transformer';
 import { Vulnerability, connectToDatabase, User } from '../models';
 import { validateBody, wrapHandler, NotFound } from './helpers';
-import { Column, SelectQueryBuilder } from 'typeorm';
+import { SelectQueryBuilder } from 'typeorm';
 import {
   getOrgMemberships,
   getTagOrganizations,
@@ -230,10 +230,10 @@ export const update = wrapHandler(async (event) => {
   if (!isUUID(id) || !event.body) {
     return NotFound;
   }
-  const vuln = await Vulnerability.findOne(
-    { id },
-    { relations: ['domain', 'domain.organization'] }
-  );
+  const vuln = await Vulnerability.findOne({
+    where: { id },
+    relations: ['domain', 'domain.organization']
+  });
   let isAuthorized = false;
   if (vuln && vuln.domain.organization && vuln.domain.organization.id) {
     isAuthorized =
@@ -242,7 +242,7 @@ export const update = wrapHandler(async (event) => {
   }
   if (vuln && isAuthorized) {
     const body = JSON.parse(event.body);
-    const user = await User.findOne({
+    const user = await User.findOneBy({
       id: event.requestContext.authorizer!.id
     });
     if (body.substate) {
@@ -259,7 +259,7 @@ export const update = wrapHandler(async (event) => {
         value: body.comment
       });
     }
-    vuln.save();
+    await vuln.save();
 
     return {
       statusCode: 200,
@@ -306,7 +306,7 @@ export const list = wrapHandler(async (event) => {
 export const export_ = wrapHandler(async (event) => {
   await connectToDatabase();
   const search = await validateBody(VulnerabilitySearch, event.body);
-  const [result, count] = await search.getResults(event);
+  const [result] = await search.getResults(event);
   const client = new S3Client();
   const url = await client.saveCSV(
     Papa.unparse({

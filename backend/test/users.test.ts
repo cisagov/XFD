@@ -44,11 +44,10 @@ describe('user', () => {
   });
   describe('invite', () => {
     it('invite by a regular user should not work', async () => {
-      const name = 'test-' + Math.random();
       const firstName = 'first name';
       const lastName = 'last name';
       const email = Math.random() + '@crossfeed.cisa.gov';
-      const response = await request(app)
+      await request(app)
         .post('/users')
         .set(
           'Authorization',
@@ -162,7 +161,10 @@ describe('user', () => {
       expect(response.body.roles[0].role).toEqual('user');
       expect(response.body.roles[0].organization.id).toEqual(organization.id);
 
-      const role = (await Role.findOne(response.body.roles[0].id, {
+      const role = (await Role.findOne({
+        where: {
+          id: response.body.roles[0].id
+        },
         relations: ['createdBy', 'approvedBy']
       })) as Role;
       expect(role.createdBy.id).toEqual(DUMMY_USER_ID);
@@ -312,14 +314,15 @@ describe('user', () => {
       expect(response.body.roles[0].approved).toEqual(true);
       expect(response.body.roles[0].role).toEqual('admin');
 
-      const role = (await Role.findOne(response.body.roles[0].id, {
+      const role = (await Role.findOne({
+        where: { id: response.body.roles[0].id },
         relations: ['createdBy', 'approvedBy']
       })) as Role;
       expect(role.createdBy.id).toEqual(adminUser.id);
       expect(role.approvedBy.id).toEqual(DUMMY_USER_ID);
     });
     it('invite existing user by global admin that updates user type should work', async () => {
-      const adminUser = await User.create({
+      await User.create({
         firstName: 'first',
         lastName: 'last',
         email: Math.random() + '@crossfeed.cisa.gov'
@@ -354,13 +357,13 @@ describe('user', () => {
       expect(response.body.userType).toEqual(UserType.GLOBAL_ADMIN);
     });
     it('invite existing user by global view should not work', async () => {
-      const adminUser = await User.create({
+      await User.create({
         firstName: 'first',
         lastName: 'last',
         email: Math.random() + '@crossfeed.cisa.gov'
       }).save();
       const email = Math.random() + '@crossfeed.cisa.gov';
-      const user = await User.create({
+      await User.create({
         firstName: 'first',
         lastName: 'last',
         email
@@ -478,7 +481,7 @@ describe('user', () => {
       ).not.toEqual(-1);
     });
     it('list by regular user should fail', async () => {
-      const user = await User.create({
+      await User.create({
         firstName: '',
         lastName: '',
         email: Math.random() + '@crossfeed.cisa.gov'
@@ -590,7 +593,8 @@ describe('user', () => {
         .expect(200);
       expect(response.body.firstName).toEqual(firstName);
       expect(response.body.lastName).toEqual(lastName);
-      user = await User.findOne(user.id, {
+      user = await User.findOne({
+        where: { id: user.id },
         relations: ['roles', 'roles.organization', 'roles.createdBy']
       });
       expect(user.roles.length).toEqual(0);
@@ -609,7 +613,8 @@ describe('user', () => {
         .expect(200);
       expect(response.body.firstName).toEqual(firstName);
       expect(response.body.lastName).toEqual(lastName);
-      user = await User.findOne(user.id, {
+      user = await User.findOne({
+        where: { id: user.id },
         relations: ['roles', 'roles.organization', 'roles.createdBy']
       });
       expect(user.roles.length).toEqual(0);
@@ -649,7 +654,8 @@ describe('user', () => {
         .expect(200);
       expect(response.body.firstName).toEqual(firstName);
       expect(response.body.lastName).toEqual(lastName);
-      user = await User.findOne(user.id, {
+      user = await User.findOne({
+        where: { id: user.id },
         relations: ['roles', 'roles.organization']
       });
       expect(user.roles.length).toEqual(0);

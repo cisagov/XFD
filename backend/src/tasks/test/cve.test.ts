@@ -406,7 +406,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vulnerabilities = await Vulnerability.find({
+    const vulnerabilities = await Vulnerability.findBy({
       domain
     });
     expect(vulnerabilities.length).toEqual(0);
@@ -439,7 +439,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findOne({
+    const vuln = await Vulnerability.findOneBy({
       id: vulnerability.id
     });
     expect(vuln?.state).toEqual('closed');
@@ -471,7 +471,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findOne({
+    const vuln = await Vulnerability.findOneBy({
       id: vulnerability.id
     });
     expect(vuln?.state).toEqual('open');
@@ -505,7 +505,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findOne({
+    const vuln = await Vulnerability.findOneBy({
       id: vulnerability.id
     });
     expect(vuln?.state).toEqual('open');
@@ -539,7 +539,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findOne({
+    const vuln = await Vulnerability.findOneBy({
       id: vulnerability.id
     });
     expect(vuln?.state).toEqual('closed');
@@ -571,7 +571,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findOne({
+    const vuln = await Vulnerability.findOneBy({
       id: vulnerability.id
     });
     expect(vuln?.description).toEqual('Test description');
@@ -609,7 +609,7 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findOne({
+    const vuln = await Vulnerability.findOneBy({
       id: vulnerability.id
     });
     expect(vuln?.description).toBeFalsy();
@@ -645,7 +645,7 @@ describe('cve', () => {
         scanTaskId: 'scanTaskId'
       });
 
-      const vulns = await Vulnerability.find({
+      const vulns = await Vulnerability.findBy({
         domain: { id: domain.id }
       });
       expect(vulns.length).toEqual(1);
@@ -659,7 +659,7 @@ describe('cve', () => {
         }))
       ).toMatchSnapshot();
 
-      const vulns2 = await Vulnerability.find({
+      const vulns2 = await Vulnerability.findBy({
         domain: { id: domain2.id }
       });
       expect(vulns2.length).toEqual(0);
@@ -693,7 +693,7 @@ describe('cve', () => {
         scanTaskId: 'scanTaskId'
       });
 
-      const vulns = await Vulnerability.find({
+      const vulns = await Vulnerability.findBy({
         domain: { id: domain.id }
       });
       expect(vulns.length).toEqual(1);
@@ -707,7 +707,7 @@ describe('cve', () => {
         }))
       ).toMatchSnapshot();
 
-      const vulns2 = await Vulnerability.find({
+      const vulns2 = await Vulnerability.findBy({
         domain: { id: domain2.id }
       });
       expect(vulns2.length).toEqual(0);
@@ -786,10 +786,10 @@ describe('cve', () => {
         scanTaskId: 'scanTaskId'
       });
 
-      vulnerability = (await Vulnerability.findOne({
+      vulnerability = (await Vulnerability.findOneBy({
         id: vulnerability.id
       })) as Vulnerability;
-      vulnerability2 = (await Vulnerability.findOne({
+      vulnerability2 = (await Vulnerability.findOneBy({
         id: vulnerability2.id
       })) as Vulnerability;
 
@@ -832,7 +832,7 @@ describe('cve', () => {
         scanTaskId: 'scanTaskId'
       });
 
-      vulnerability = (await Vulnerability.findOne({
+      vulnerability = (await Vulnerability.findOneBy({
         id: vulnerability.id
       })) as Vulnerability;
 
@@ -875,7 +875,7 @@ describe('cve', () => {
         scanTaskId: 'scanTaskId'
       });
 
-      vulnerability = (await Vulnerability.findOne({
+      vulnerability = (await Vulnerability.findOneBy({
         id: vulnerability.id
       })) as Vulnerability;
 

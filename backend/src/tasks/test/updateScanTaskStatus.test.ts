@@ -89,7 +89,7 @@ test('starting event', async () => {
     {} as any,
     () => null
   );
-  scanTask = (await ScanTask.findOne(scanTask.id))!;
+  scanTask = (await ScanTask.findOneBy({ id: scanTask.id }))!;
   expect(scanTask.status).toEqual('started');
 });
 
@@ -106,7 +106,7 @@ test('finished event', async () => {
     {} as any,
     () => null
   );
-  scanTask = (await ScanTask.findOne(scanTask.id))!;
+  scanTask = (await ScanTask.findOneBy({ id: scanTask.id }))!;
   expect(scanTask.status).toEqual('finished');
   expect(scanTask.finishedAt).toBeTruthy();
   expect(scanTask.output).toContain('EssentialContainerExited');
@@ -125,6 +125,6 @@ test('failed event', async () => {
     {} as any,
     () => null
   );
-  scanTask = (await ScanTask.findOne(scanTask.id))!;
+  scanTask = (await ScanTask.findOneBy({ id: scanTask.id }))!;
   expect(scanTask.status).toEqual('failed');
 });

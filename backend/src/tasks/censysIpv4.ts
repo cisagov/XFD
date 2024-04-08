@@ -136,10 +136,10 @@ export const handler = async (commandOptions: CommandOptions) => {
   } = await axios.get(results.latest.details_url, { auth });
 
   await connectToDatabase();
-  const scan = await Scan.findOne(
-    { id: commandOptions.scanId },
-    { relations: ['organizations', 'tags', 'tags.organizations'] }
-  );
+  const scan = await Scan.findOne({
+    where: { id: commandOptions.scanId },
+    relations: ['organizations', 'tags', 'tags.organizations']
+  });
 
   let orgs: string[] | undefined = undefined;
   // censysIpv4 is a global scan, so organizationId is only specified for tests.

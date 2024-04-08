@@ -134,10 +134,10 @@ export const handler = async (commandOptions: CommandOptions) => {
   });
 
   await connectToDatabase();
-  const scan = await Scan.findOne(
-    { id: commandOptions.scanId },
-    { relations: ['organizations', 'tags', 'tags.organizations'] }
-  );
+  const scan = await Scan.findOne({
+    where: { id: commandOptions.scanId },
+    relations: ['organizations', 'tags', 'tags.organizations']
+  });
 
   let orgs: string[] | undefined = undefined;
   // censysCertificates is a global scan, so organizationId is only specified for tests.

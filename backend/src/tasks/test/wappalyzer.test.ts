@@ -182,10 +182,10 @@ describe('wappalyzer', () => {
     expect(logSpy).toHaveBeenLastCalledWith(
       'Wappalyzer finished for 2 domains'
     );
-    const service1 = await Service.findOne(testServices[0].id);
+    const service1 = await Service.findOneBy({ id: testServices[0].id });
     expect(service1?.wappalyzerResults).toEqual([]);
 
-    const service2 = await Service.findOne(testServices[1].id);
+    const service2 = await Service.findOneBy({ id: testServices[1].id });
     expect(service2?.wappalyzerResults).toEqual(wappalyzerResponse);
   });
 
@@ -249,10 +249,10 @@ describe('wappalyzer', () => {
     expect(logSpy).toHaveBeenLastCalledWith(
       'Wappalyzer finished for organization organizationName on 2 domains'
     );
-    const service1 = await Service.findOne(testServices[0].id);
+    const service1 = await Service.findOneBy({ id: testServices[0].id });
     expect(service1?.wappalyzerResults).toEqual([]);
 
-    const service2 = await Service.findOne(testServices[1].id);
+    const service2 = await Service.findOneBy({ id: testServices[1].id });
     expect(service2?.wappalyzerResults).toEqual(wappalyzerResponse);
 
     expect(service2?.products).toEqual([

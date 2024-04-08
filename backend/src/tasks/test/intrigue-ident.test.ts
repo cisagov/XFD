@@ -277,7 +277,7 @@ describe('intrigue ident', () => {
       chunkNumber: 0,
       numChunks: 1
     });
-    service = await Service.findOneOrFail(service.id);
+    service = await Service.findOneOrFail({ where: { id: service.id } });
     expect(service.intrigueIdentResults).toMatchSnapshot();
     expect(service.products).toMatchSnapshot();
   });
