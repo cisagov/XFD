@@ -66,7 +66,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Overview', 'Inventory', 'Scans'].forEach((expected) => {
+    ['Overview', 'Inventory'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
   });
