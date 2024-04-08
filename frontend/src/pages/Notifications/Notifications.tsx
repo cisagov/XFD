@@ -124,6 +124,8 @@ export const Notifications: React.FC = () => {
                 py: 1
               }
             }}
+            hideFooterPagination={true}
+            disableRowSelectionOnClick
           />
         </Paper>
       </Grid>
