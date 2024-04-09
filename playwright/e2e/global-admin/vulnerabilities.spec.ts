@@ -34,7 +34,7 @@ test('Vulnerability details NIST', async () => {
   const newTab = await newTabPromise;
   await newTab.waitForLoadState();
   await expect(newTab).toHaveURL(
-    new RegExp('^https://nvd\\.nist.gov/vuln/detail/')
+    new RegExp('^https://nvd\\.nist\\.gov/vuln/detail/')
   );
 });
 
