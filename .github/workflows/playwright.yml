@@ -3,8 +3,8 @@ name: Playwright Tests
 on:
   deployment_status:
     paths:
-      - 'playwright/**'
-      - '.github/workflows/playwright.yml'
+      - playwright/**
+      - .github/workflows/playwright.yml
 defaults:
   run:
     working-directory: ./playwright
