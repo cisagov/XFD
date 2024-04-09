@@ -5,9 +5,8 @@ import {
   Link,
   Typography,
   Stack,
-  BottomNavigation
 } from '@mui/material';
-import cisaFooterLogo from './assets/cisa_footer_logo.png'; // Import the logo
+import cisaFooterLogo from './assets/cisa_footer_logo.png';
 import { links } from './links';
 
 export const RSCFooter: React.FC = () => {
@@ -15,19 +14,17 @@ export const RSCFooter: React.FC = () => {
     <Box
       sx={{
         width: '100%',
+        height: '100vh',
         display: 'flex',
         justifyContent: 'center',
-        zIndex: 1,
-        height: 'auto',
         backgroundColor: '#005285',
-        paddingTop: '2em',
-        paddingBottom: '2em'
+        paddingTop: '1em',
+        paddingBottom: '1em'
       }}
     >
       <Box
         sx={{
-          width: '80%',
-          height: 'auto',
+          maxWidth: '80vw',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center'
@@ -62,9 +59,16 @@ export const RSCFooter: React.FC = () => {
             </Typography>
           </Stack>
         </Stack>
-        <Grid container spacing={2}>
+        <Grid container 
+        spacing={2}
+         sx={{
+          textAlign: {
+            xs: 'center',
+            sm: 'left'
+          }
+         }}>
           {links.map((link, index) => (
-            <Grid item xs={3} key={index}>
+            <Grid item xs={4} sm={3} key={index}>
               <Link
                 style={{
                   color: 'white',
