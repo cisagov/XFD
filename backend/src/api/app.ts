@@ -451,7 +451,7 @@ authenticatedRoute.put(
   handlerToExpress(users.registrationDenial)
 );
 
-authenticatedRoute.get(
+app.get(
   '/notifications',
   handlerToExpress(notifications.list)
 )

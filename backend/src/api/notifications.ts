@@ -105,13 +105,13 @@ export const del = wrapHandler(async (event) => {
 export const list = wrapHandler(async (event) => {
     console.log('list function called with event: ', event);
   
-    if (!isGlobalWriteAdmin(event)) {
-      return {
-        //TODO: Should we return a 403?
-        statusCode: 200,
-        body: JSON.stringify([])
-      };
-    }
+    // if (!isGlobalWriteAdmin(event)) {
+    //   return {
+    //     //TODO: Should we return a 403?
+    //     statusCode: 200,
+    //     body: JSON.stringify([])
+    //   };
+    // }
     await connectToDatabase();
     console.log('Database connected');
   
