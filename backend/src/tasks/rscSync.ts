@@ -73,7 +73,7 @@ interface Questions {
   u_vul_management?: string | null;
 }
 
-const generateAuthorizationHeader = Buffer.from(
+const authorizationHeader = Buffer.from(
   `${process.env.MI_ACCOUNT_NAME}:${process.env.MI_PASSWORD}`,
   'utf8'
 ).toString('base64');
@@ -97,14 +97,13 @@ export const fetchRecentAssessments = async () => {
   const date = new Date();
   date.setHours(date.getHours() - 48);
   const formattedDate = date.toISOString().replace('T', ' ').split('.')[0];
-  const query = `?sysparm_query=sys_created_on>=${formattedDate}`;
 
   try {
     const response = await axios({
-      url: `https://cisadev.servicenowservices.com/api/now/table/x_g_dhs_rsc_rsc_data${query}`,
+      url: `https://cisadev.servicenowservices.com/api/now/table/x_g_dhs_rsc_rsc_data?sysparm_query=sys_created_on>=${formattedDate}`,
       method: 'GET',
       headers: {
-        Authorization: `Basic ${generateAuthorizationHeader}`
+        Authorization: `Basic ${authorizationHeader}`
       }
     });
   } catch (error) {
@@ -120,7 +119,7 @@ export const fetchAssessmentsByUser = async (email: string) => {
       url: `https://cisadev.servicenowservices.com/api/now/table/x_g_dhs_rsc_rsc_data?sysparm_query=u_customer_email=${email}`,
       method: 'GET',
       headers: {
-        Authorization: `Basic ${generateAuthorizationHeader}`
+        Authorization: `Basic ${authorizationHeader}`
       }
     });
   } catch (error) {
@@ -137,11 +136,18 @@ const saveAssessmentsToDb = async (assessments: AssessmentEntry[]) => {
   console.log('Saving assessments to database');
   try {
     for (const assessment of assessments) {
+      const user = await getUserIdByEmail(assessment.metadata.u_customer_email);
+      if (!user) {
+        console.error(
+          'Assessment not saved: the associated user is not registered'
+        );
+        continue;
+      }
       const assessmentToSave = plainToClass(Assessment, {
         createdAt: assessment.metadata.sys_created_on,
         rscId: assessment.metadata.sys_id,
         type: assessment.questions.u_it_org_size,
-        user: getUserIdByEmail(assessment.metadata.u_customer_email)
+        user
       });
       const assessmentRepository = getRepository(Assessment);
       const savedAssessment = await assessmentRepository.save(assessmentToSave);
