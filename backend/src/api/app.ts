@@ -8,6 +8,7 @@ import * as auth from './auth';
 import * as cpes from './cpes';
 import * as cves from './cves';
 import * as domains from './domains';
+import * as notifications from './notifications';
 import * as search from './search';
 import * as vulnerabilities from './vulnerabilities';
 import * as organizations from './organizations';
@@ -449,6 +450,26 @@ authenticatedRoute.put(
   '/users/:userId/register/deny',
   handlerToExpress(users.registrationDenial)
 );
+
+authenticatedRoute.get(
+  '/notifications',
+  handlerToExpress(notifications.list)
+)
+
+authenticatedRoute.delete(
+  '/notifications/:notificationId',
+  handlerToExpress(notifications.del)
+)
+
+authenticatedRoute.put(
+  '/notifications',
+  handlerToExpress(notifications.create)
+)
+
+authenticatedRoute.put(
+  '/notifications/:notificationId',
+  handlerToExpress(notifications.update)
+)
 
 //************* */
 //  V2 Routes   //

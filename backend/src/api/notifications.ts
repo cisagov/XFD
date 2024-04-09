@@ -122,7 +122,7 @@ export const list = wrapHandler(async (event) => {
         },
     })
   
-    console.log('Organization.find result: ', result);
+    console.log('Notification.find result: ', result);
   
     return {
       statusCode: 200,
