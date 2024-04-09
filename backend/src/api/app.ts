@@ -461,7 +461,7 @@ authenticatedRoute.delete(
   handlerToExpress(notifications.del)
 )
 
-authenticatedRoute.put(
+authenticatedRoute.post(
   '/notifications',
   handlerToExpress(notifications.create)
 )
