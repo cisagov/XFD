@@ -186,12 +186,12 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
       userLevel = STANDARD_USER;
+    } else if (user.userType === 'globalAdmin') {
+      userLevel = GLOBAL_ADMIN;
     } else if (
-      user.userType === 'globalAdmin' ||
+      user.userType === 'regionalAdmin' ||
       user.userType === 'globalView'
     ) {
-      userLevel = GLOBAL_ADMIN;
-    } else if (user.userType === 'regionalAdmin') {
       userLevel = REGIONAL_ADMIN;
     }
   }
@@ -230,13 +230,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       users: STANDARD_USER,
       exact: false,
       onClick: toggleDrawer(false)
-    },
-    {
-      title: 'Scans',
-      path: '/scans',
-      users: GLOBAL_ADMIN,
-      exact: true,
-      onClick: toggleDrawer(false)
     }
   ].filter(({ users }) => users <= userLevel);
 
@@ -250,6 +243,12 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     exact: false,
     nested: [
       {
+        title: 'Admin Tools',
+        path: '/admin-tools/scans',
+        users: GLOBAL_ADMIN,
+        exact: true
+      },
+      {
         title: 'User Registration',
         path: '/region-admin-dashboard',
         users: REGIONAL_ADMIN,
@@ -258,7 +257,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       {
         title: 'Manage Organizations',
         path: '/organizations',
-        users: GLOBAL_ADMIN,
+        users: REGIONAL_ADMIN,
         exact: true
       },
       {
