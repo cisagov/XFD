@@ -18,7 +18,7 @@ import RSCLogo from 'components/ReadySetCyber/Assets/ReadySetCyberLogo.png';
 
 export const RSCHeader: React.FC = () => {
   const history = useHistory();
-  const handleClick = () => {
+  const handleNavHome = () => {
     history.push('/readysetcyber');
   };
   const { logout, user } = useAuthContext();
@@ -51,16 +51,17 @@ export const RSCHeader: React.FC = () => {
           <Toolbar disableGutters>
             <Tooltip title="Go to Ready Set Cyber" arrow>
               <IconButton
-                onClick={handleClick}
-                sx={{ display: { xs: 'none', md: 'flex' } }}
+                onClick={handleNavHome}
+                sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }}
+                style={{ backgroundColor: 'white', outline: 'none' }}
+                disableFocusRipple
               >
                 <img
                   src={RSCLogo}
                   alt="Ready Set Cyber Logo"
                   style={{
-                    width: '100px',
-                    height: '50px',
-                    marginRight: '10px'
+                    width: '4em',
+                    height: '2em'
                   }}
                 />
               </IconButton>
@@ -71,66 +72,89 @@ export const RSCHeader: React.FC = () => {
               sx={{
                 flexGrow: 1,
                 color: '#07648D',
-                display: { xs: 'none', md: 'flex' }
+                display: { xs: 'none', md: 'flex' },
+                mr: 2
               }}
             >
               Dashboard
             </Typography>
             <Box sx={{ flexGrow: 1, display: { xs: 'flex', md: 'none' } }}>
-              <IconButton
-                size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                color="primary"
-                onClick={handleOpenNavMenu}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorElNav}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right'
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right'
-                }}
-                open={Boolean(anchorElNav)}
-                onClose={handleCloseNavMenu}
-              >
-                <MenuItem>Dashboard</MenuItem>
-              </Menu>
+              <Tooltip title="Go to Ready Set Cyber" arrow>
+                <IconButton
+                  onClick={handleNavHome}
+                  sx={{ display: { xs: 'flex', md: 'none' }, mr: 0 }}
+                  style={{ backgroundColor: 'white', outline: 'none' }}
+                >
+                  <img
+                    src={RSCLogo}
+                    alt="Ready Set Cyber Logo"
+                    style={{
+                      width: '4em',
+                      height: '2em'
+                    }}
+                  />
+                </IconButton>
+              </Tooltip>
             </Box>
-            <Tooltip title="Go to Ready Set Cyber" arrow>
-              <IconButton
-                onClick={handleClick}
-                sx={{ display: { xs: 'flex', md: 'none' } }}
-              >
-                <img
-                  src={RSCLogo}
-                  alt="Ready Set Cyber Logo"
-                  style={{
-                    width: '100px',
-                    height: '50px',
-                    marginRight: '10px'
-                  }}
-                />
-              </IconButton>
-            </Tooltip>
             {user && (
-              <div>
+              <>
+                <IconButton
+                  size="large"
+                  aria-label="nav menu"
+                  aria-controls="menu-navbar"
+                  aria-haspopup="true"
+                  color="primary"
+                  onClick={handleOpenNavMenu}
+                  style={{ outline: 'none' }}
+                  sx={{ display: { xs: 'block', md: 'none' } }}
+                >
+                  <MenuIcon />
+                </IconButton>
+                <Menu
+                  id="menu-appbar"
+                  anchorEl={anchorElNav}
+                  anchorOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right'
+                  }}
+                  keepMounted
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right'
+                  }}
+                  open={Boolean(anchorElNav)}
+                  onClose={handleCloseNavMenu}
+                  sx={{ display: { xs: 'block', md: 'none' } }}
+                >
+                  <MenuItem style={{ outline: 'none' }}>
+                    {' '}
+                    Welcome, user
+                  </MenuItem>
+                  <MenuItem style={{ outline: 'none' }} onClick={handleNavHome}>
+                    Dashboard
+                  </MenuItem>
+                  <MenuItem style={{ outline: 'none' }}>
+                    {' '}
+                    Take Questionnaire Again{' '}
+                  </MenuItem>
+                  <MenuItem style={{ outline: 'none' }} onClick={logout}>
+                    Logout
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
+            {user && (
+              <Box sx={{ flexGrow: 0, display: { xs: 'none', md: 'flex' } }}>
                 <Tooltip title="Open Menu" arrow>
                   <IconButton
+                    sx={{ p: 0 }}
                     size="large"
                     aria-label="account of current user"
                     aria-controls="menu-appbar"
                     aria-haspopup="true"
                     color="primary"
                     onClick={handleMenu}
+                    style={{ outline: 'none' }}
                   >
                     <AccountCircle />
                   </IconButton>
@@ -151,10 +175,11 @@ export const RSCHeader: React.FC = () => {
                   open={Boolean(anchorEl)}
                   onClose={handleClose}
                 >
-                  <MenuItem onClick={logout}>Logout</MenuItem>
-                  <MenuItem onClick={handleClose}>Profile</MenuItem>
+                  <MenuItem style={{ outline: 'none' }} onClick={logout}>
+                    Logout
+                  </MenuItem>
                 </Menu>
-              </div>
+              </Box>
             )}
           </Toolbar>
         </Container>
