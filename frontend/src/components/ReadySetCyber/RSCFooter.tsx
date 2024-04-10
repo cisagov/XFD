@@ -14,8 +14,9 @@ export const RSCFooter: React.FC = () => {
     <Box
       sx={{
         width: '100%',
-        height: '100vh',
         display: 'flex',
+        position: 'relative',
+        bottom: 0,
         justifyContent: 'center',
         backgroundColor: '#005285',
         paddingTop: '1em',
@@ -60,13 +61,14 @@ export const RSCFooter: React.FC = () => {
           </Stack>
         </Stack>
         <Grid container 
-        spacing={2}
-         sx={{
-          textAlign: {
-            xs: 'center',
-            sm: 'left'
-          }
-         }}>
+          spacing={2}
+          sx={{
+            textAlign: {
+              xs: 'center',
+              sm: 'left'
+            }
+          }}
+         >
           {links.map((link, index) => (
             <Grid item xs={4} sm={3} key={index}>
               <Link
