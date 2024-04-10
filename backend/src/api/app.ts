@@ -114,6 +114,11 @@ app.post('/auth/login', handlerToExpress(auth.login));
 app.post('/auth/callback', handlerToExpress(auth.callback));
 app.post('/users/register', handlerToExpress(users.register));
 
+app.get(
+  '/notifications',
+  handlerToExpress(notifications.list)
+);s
+
 const checkUserLoggedIn = async (req, res, next) => {
   req.requestContext = {
     authorizer: await auth.authorize({
@@ -450,11 +455,6 @@ authenticatedRoute.put(
   '/users/:userId/register/deny',
   handlerToExpress(users.registrationDenial)
 );
-
-app.get(
-  '/notifications',
-  handlerToExpress(notifications.list)
-)
 
 authenticatedRoute.delete(
   '/notifications/:notificationId',
