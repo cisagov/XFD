@@ -61,13 +61,14 @@ export const RSCFooter: React.FC = () => {
           </Stack>
         </Stack>
         <Grid container 
-        spacing={2}
-         sx={{
-          textAlign: {
-            xs: 'center',
-            sm: 'left'
-          }
-         }}>
+          spacing={2}
+          sx={{
+            textAlign: {
+              xs: 'center',
+              sm: 'left'
+            }
+          }}
+         >
           {links.map((link, index) => (
             <Grid item xs={4} sm={3} key={index}>
               <Link
