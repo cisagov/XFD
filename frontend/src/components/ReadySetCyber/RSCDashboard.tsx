@@ -15,7 +15,7 @@ export const RSCDashboard: React.FC = () => {
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item sm={4} sx={{ display: { xs: 'none' } }}>
+        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav />
         </Grid>
         <Grid item xs={12} sm={8}>
