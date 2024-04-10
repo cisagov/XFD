@@ -8,7 +8,6 @@ import {
 } from '@mui/material';
 import cisaFooterLogo from './assets/cisa_footer_logo.png';
 import { links } from './links';
-import { fi } from 'date-fns/locale';
 
 export const RSCFooter: React.FC = () => {
   return (
