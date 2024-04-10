@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Grid,
-  Link,
-  Typography,
-  Stack,
-} from '@mui/material';
+import { Box, Grid, Link, Typography, Stack } from '@mui/material';
 import cisaFooterLogo from './assets/cisa_footer_logo.png';
 import { links } from './links';
 
@@ -60,7 +54,8 @@ export const RSCFooter: React.FC = () => {
             </Typography>
           </Stack>
         </Stack>
-        <Grid container 
+        <Grid
+          container
           spacing={2}
           sx={{
             textAlign: {
@@ -68,7 +63,7 @@ export const RSCFooter: React.FC = () => {
               sm: 'left'
             }
           }}
-         >
+        >
           {links.map((link, index) => (
             <Grid item xs={4} sm={3} key={index}>
               <Link
