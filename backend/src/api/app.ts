@@ -117,7 +117,7 @@ app.post('/users/register', handlerToExpress(users.register));
 app.get(
   '/notifications',
   handlerToExpress(notifications.list)
-);s
+);
 
 const checkUserLoggedIn = async (req, res, next) => {
   req.requestContext = {
