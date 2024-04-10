@@ -24,10 +24,10 @@ export const RSCDetail: React.FC = () => {
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item xs={4}>
+        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <Stack
