@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 import MenuIcon from '@mui/icons-material/Menu';
-import RSCLogo from 'components/ReadySetCyber/Assets/ReadySetCyberLogo.png';
+import RSCLogo from 'components/ReadySetCyber/assets/ReadySetCyberLogo.png';
 
 export const RSCHeader: React.FC = () => {
   const history = useHistory();

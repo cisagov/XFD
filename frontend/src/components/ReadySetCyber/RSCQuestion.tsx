@@ -44,14 +44,14 @@ export const RSCQuestion: React.FC<Props> = (props) => {
           ))}
         </Stack>
         <Grid container spacing={2} alignSelf={'flex-end'}>
-          {answers.map((answer, index) => (
+          {answers.map((answer) => (
             <Grid
               item
-              key={index}
               xs={6}
+              key={answer.id}
               sx={{ display: { xs: 'grid', sm: 'none' } }}
             >
-              <Button key={answer.id} variant="contained" color="primary">
+              <Button variant="contained" color="primary">
                 {answer.name}{' '}
               </Button>
             </Grid>

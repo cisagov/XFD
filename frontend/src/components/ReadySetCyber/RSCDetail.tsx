@@ -86,16 +86,17 @@ export const RSCDetail: React.FC = () => {
                   Categories
                 </AccordionSummary>
                 {categories.map((category) => (
-                  <AccordionDetails>{category.name}</AccordionDetails>
+                  <AccordionDetails key={category.id}>
+                    {category.name}
+                  </AccordionDetails>
                 ))}
               </Accordion>
               <br />
-              {questions.map((question) => (
-                <>
+              <Stack spacing={2}>
+                {questions.map((question) => (
                   <RSCQuestion key={question.id} question={question} />
-                  <br />
-                </>
-              ))}
+                ))}
+              </Stack>
             </Stack>
           </Box>
         </Grid>

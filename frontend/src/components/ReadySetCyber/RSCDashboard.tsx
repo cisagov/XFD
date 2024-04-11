@@ -5,9 +5,7 @@ import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import { RSCSideNav } from './RSCSideNav';
 import { RSCResult } from './RSCResult';
-
 import { dummyResults } from './dummyData';
-import { display } from '@mui/system';
 
 const results = dummyResults;
 
@@ -35,18 +33,19 @@ export const RSCDashboard: React.FC = () => {
                 platform, for free vulnerability scanning services to kickstart
                 or enhance your cybersecurity measures.
               </p>
-              {results.map((result) => (
-                <Stack key={result.id} spacing={2}>
+              <Stack spacing={2}>
+                {results.map((result) => (
                   <RSCResult
+                    key={result.id}
                     id={result.id}
                     type={result.type}
                     date={result.date}
                     categories={result.categories}
                     questions={result.questions}
                   />
-                  <Divider />
-                </Stack>
-              ))}
+                ))}
+              </Stack>
+              <Divider />
             </Stack>
           </Box>
         </Grid>
