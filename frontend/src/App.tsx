@@ -15,6 +15,7 @@ import {
 } from '@jonkoops/matomo-tracker-react';
 import {
   Domain,
+  AdminTools,
   AuthLogin,
   AuthLoginCreate,
   AuthCreateAccount,
@@ -171,21 +172,17 @@ const App: React.FC = () => (
                     permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
-                    path="/scans"
-                    exact
-                    component={Scans}
-                    permissions={['standard', 'globalView']}
+                    path="/admin-tools/scans"
+                    component={AdminTools}
                   />
                   <RouteGuard
-                    path="/scans/history"
+                    path="/admin-tools/scans/history"
                     component={Scans}
                     exact
-                    permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
-                    path="/scans/:scanId"
+                    path="/admin-tools/scans/:scanId"
                     component={Scan}
-                    permissions={['standard', 'globalView']}
                   />
                   <RouteGuard
                     path="/organizations/:organizationId"
