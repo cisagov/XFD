@@ -9,7 +9,13 @@ import { RSCSideNav } from './RSCSideNav';
 import { RSCResult } from './RSCResult';
 import { RSCQuestion } from './RSCQuestion';
 import { dummyResults } from './dummyData';
-import { Typography } from '@mui/material';
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,6 +27,10 @@ export const RSCDetail: React.FC = () => {
   const { questions } = dummyResults.find(
     (result) => result.id === parseInt(id)
   ) || { questions: [] };
+
+  const categories =
+    dummyResults.find((result) => result.id === parseInt(id))?.categories || [];
+
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
@@ -65,6 +75,20 @@ export const RSCDetail: React.FC = () => {
                   questions={[]}
                 />
               </Box>
+              <br />
+              <Accordion sx={{ display: { xs: 'block', sm: 'none' } }}>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  aria-controls="panel1a-content"
+                  id="panel1a-header"
+                >
+                  {' '}
+                  Categories
+                </AccordionSummary>
+                {categories.map((category) => (
+                  <AccordionDetails>{category.name}</AccordionDetails>
+                ))}
+              </Accordion>
               <br />
               {questions.map((question) => (
                 <>
