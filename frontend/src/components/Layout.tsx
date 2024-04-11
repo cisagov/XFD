@@ -7,6 +7,8 @@ import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
 import { CrossfeedFooter } from './Footer';
+import { RSCFooter } from './ReadySetCyber/RSCFooter';
+import { RSCHeader } from './ReadySetCyber/RSCHeader';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -47,14 +49,23 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           countdown={60} // 60 second timer for user inactivity timeout
         />
         <GovBanner />
-        <Header />
-
-        {pathname === '/inventory' ? (
-          children
+        {!pathname.includes('/readysetcyber') ? (
+          <>
+            <Header />
+            {pathname === '/inventory' ? (
+              children
+            ) : (
+              <div className={classes.content}>{children}</div>
+            )}
+            <CrossfeedFooter />
+          </>
         ) : (
-          <div className={classes.content}>{children}</div>
+          <>
+            <RSCHeader />
+            <div className={classes.content}>{children}</div>
+            <RSCFooter />
+          </>
         )}
-        <CrossfeedFooter />
       </div>
     </StyledScopedCssBaseline>
   );
