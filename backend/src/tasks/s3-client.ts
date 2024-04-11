@@ -95,6 +95,38 @@ class S3Client {
     }
   }
 
+  async pull_daily_vs(filename: string) {
+    console.log(process.env.VS_BUCKET_NAME)
+    const params = {
+      Bucket: 'vs-extracts',
+      Key: filename
+    }
+
+    this.s3.headObject(params, (err, data) => {
+      if (err) {
+        if (err.code === 'NotFound') {
+          console.log(`File "${filename}" does not exist in bucket vs-extracts.`);
+        } else {
+          console.error('Error:', err);
+        }
+      } else {
+        console.log(`File "${filename}" exists in bucket vs-extracts.`);
+      }
+    });
+
+    try {
+      const data = await this.s3.getObject(params).promise();
+      if (!data.Body) {
+        throw new Error('Empty response from S3');
+      }
+      return Buffer.from(data.Body as ArrayBuffer); // Convert stream to Buffer
+    } catch (error) {
+      console.error("Error downloading file from S3:", error);
+      throw error;
+    }
+  }
+
+ 
   async getEmailAsset(fileName: string) {
     try {
       const params = {
@@ -102,7 +134,7 @@ class S3Client {
         Key: fileName
       };
 
-      const data = await this.s3
+      const data = await this.s3  
         .getObject(params, function (err, data) {
           if (err) throw err;
         })

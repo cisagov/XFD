@@ -23,6 +23,7 @@ import { handler as rootDomainSync } from './tasks/rootDomainSync';
 import { handler as trustymail } from './tasks/trustymail';
 import { handler as cveSync } from './tasks/cve-sync';
 import { handler as vulnSync } from './tasks/vuln-sync';
+import { handler as vulnScanningSync} from './tasks/vs_sync';
 import { SCAN_SCHEMA } from './api/scans';
 import { connectToDatabase } from './models';
 import fetchPublicSuffixList from './tasks/helpers/fetchPublicSuffixList';
@@ -61,6 +62,7 @@ async function main() {
     testProxy,
     rootDomainSync,
     trustymail,
+    vulnScanningSync,
     vulnSync,
     test: async () => {
       await connectToDatabase();

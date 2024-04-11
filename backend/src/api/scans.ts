@@ -57,6 +57,14 @@ export const SCAN_SCHEMA: ScanSchema = {
     cpu: '1024',
     memory: '8192'
   },
+  vulnScanningSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description: 'Pull in vulnerability data from VSs Vulnerability database',
+    cpu: '1024',
+    memory: '8192'
+  },
   cveSync: {
     type: 'fargate',
     isPassive: true,
