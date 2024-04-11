@@ -22,7 +22,7 @@ export class Assessment extends BaseEntity {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @Column()
+  @Column({ unique: true })
   rscId: string;
 
   @Column()
