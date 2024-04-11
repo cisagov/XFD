@@ -62,7 +62,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         ) : (
           <>
             <RSCHeader />
-            <div>{children}</div>
+            <div className={classes.content}>{children}</div>
             <RSCFooter />
           </>
         )}
