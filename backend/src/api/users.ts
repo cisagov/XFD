@@ -7,13 +7,15 @@ import {
   IsEnum,
   IsInt,
   IsIn,
-  IsNumber,
-  IsObject,
-  IsPositive,
-  ValidateNested,
-  IsUUID
+  IsPositive
 } from 'class-validator';
-import { User, connectToDatabase, Role, Organization } from '../models';
+import {
+  connectToDatabase,
+  Organization,
+  Role,
+  User,
+  UserType
+} from '../models';
 import {
   validateBody,
   wrapHandler,
@@ -25,7 +27,6 @@ import {
   sendRegistrationApprovedEmail,
   sendRegistrationDeniedEmail
 } from './helpers';
-import { UserType } from '../models/user';
 import {
   getUserId,
   canAccessUser,
@@ -34,9 +35,7 @@ import {
   isOrgAdmin,
   isGlobalWriteAdmin
 } from './auth';
-import { Type, plainToClass } from 'class-transformer';
-import { IsNull } from 'typeorm';
-import { create } from './organizations';
+import { fetchAssessmentsByUser } from '../tasks/rscSync';
 
 class UserSearch {
   @IsInt()
@@ -949,8 +948,10 @@ export const RSCRegister = wrapHandler(async (event) => {
     };
     // Create if user does not exist
   } else {
-    user = await User.create(newRSCUser);
+    user = User.create(newRSCUser);
     await User.save(user);
+    // Fetch RSC assessments for user
+    await fetchAssessmentsByUser(user.email);
     // Send email notification
     if (process.env.IS_LOCAL!) {
       console.log('Cannot send invite email while running on local.');
