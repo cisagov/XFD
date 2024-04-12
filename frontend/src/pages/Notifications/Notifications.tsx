@@ -185,6 +185,7 @@ export const Notifications: React.FC = () => {
       }));
     }
   };
+
   const formContents = (
     <>
       <Typography variant="body1" pb={1}>
@@ -289,27 +290,22 @@ export const Notifications: React.FC = () => {
     </Grid>
   );
   const editNotificationDialog = (
-    <React.Fragment>
-      <Button variant="outlined" onClick={() => setDialogToggle(true)}>
-        Open alert dialog
-      </Button>
-      <Dialog open={dialogToggle} onClose={() => setDialogToggle(false)}>
-        <DialogTitle>Update Notification</DialogTitle>
-        <DialogContent>{formContents}</DialogContent>
-        <DialogActions>
-          <Button variant="outlined" onClick={handleResetForm}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => setDialogToggle(false)}
-            autoFocus
-          >
-            Submit
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </React.Fragment>
+    <Dialog open={dialogToggle} onClose={() => setDialogToggle(false)}>
+      <DialogTitle>Update Notification</DialogTitle>
+      <DialogContent>{formContents}</DialogContent>
+      <DialogActions>
+        <Button variant="outlined" onClick={handleResetForm}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => setDialogToggle(false)}
+          autoFocus
+        >
+          Submit
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
   return (
     <Grid container>
@@ -320,7 +316,10 @@ export const Notifications: React.FC = () => {
         <Box display="flex" justifyContent="flex-end">
           <Button
             variant="contained"
-            onClick={() => setAddBtnToggle(!addBtnToggle)}
+            onClick={() => {
+              setAddBtnToggle(!addBtnToggle);
+              setFormValues(initialNotificationValues);
+            }}
             disabled={addBtnToggle === true}
           >
             Add New +
