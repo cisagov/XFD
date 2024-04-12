@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
@@ -8,19 +8,54 @@ import Button from '@mui/material/Button';
 import { RSCSideNav } from './RSCSideNav';
 import { RSCResult } from './RSCResult';
 import { RSCQuestion } from './RSCQuestion';
-import { dummyResults } from './dummyData';
 import { Typography } from '@mui/material';
+import { useAuthContext } from 'context';
 
 export const RSCDetail: React.FC = () => {
+  const { apiGet } = useAuthContext();
   const { id } = useParams<{ id: string }>();
-  const result = dummyResults.find((result) => result.id === parseInt(id)) || {
-    id: 0,
-    type: '',
-    date: ''
-  };
-  const { questions } = dummyResults.find(
-    (result) => result.id === parseInt(id)
-  ) || { questions: [] };
+  const [details, setDetails] = React.useState<any>({});
+
+  const fetchResult = useCallback(async () => {
+    try {
+      const data = await apiGet(`/assessments/${id}`);
+      // console.log(data["Data Security"]);
+      // console.log(data["Data Security"][0]);
+      // console.log(data["Data Security"][0]["question"]);
+      // console.log(data["Data Security"][0]["question"].longForm);
+
+      setDetails(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [apiGet, id]);
+
+  useEffect(() => {
+    fetchResult();
+  }, [fetchResult]);
+
+  const dataSecurity = details['Data Security'];
+
+  // console.log("Key 0: ", Object.keys(data)[0]);
+
+  // console.log("This is Security: ", dataSecurity[0]);
+  // console.log("Details: ", typeof details);
+  // for (const question in data) {
+  //   console.log(question);
+  // }
+
+  // Object.keys(data).forEach((key)=> {
+  //   console.log(key, dataSecurity[key]);
+  // }
+  // );
+
+  // Object.keys(details).forEach((key)=> {
+  //   console.log(key, details[key]);
+  //   // Object.keys(details[key]).forEach((key2)=> {
+  //   //   console.log(key2, details[key][key2]);
+  //   // });
+  // });
+
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
@@ -57,21 +92,29 @@ export const RSCDetail: React.FC = () => {
                 cybersecurity measures.
               </p>
               <Box>
-                <RSCResult
+                {/* <RSCResult
                   id={result.id}
                   type={result.type}
-                  date={result.date}
+                  createdAt={result.date}
                   categories={[]}
                   questions={[]}
-                />
+                /> */}
               </Box>
-              <br />
-              {questions.map((question) => (
-                <>
-                  <RSCQuestion key={question.id} question={question} />
+              {/* {console.log("Details: ", details)} */}
+              {/* {details.forEach((detail) => {
+                  <>
+                  <RSCQuestion key={detail.id} question={detail} />
                   <br />
                 </>
-              ))}
+                }); */}
+              <div>
+                {Object.entries(details).map(([detail]) => (
+                  // <div key={detail}>
+                  //   <strong>{detail}:</strong>
+                  // </div>
+                  <RSCQuestion key={detail} category={details} />
+                ))}
+              </div>
             </Stack>
           </Box>
         </Grid>

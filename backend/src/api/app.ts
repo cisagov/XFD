@@ -454,6 +454,8 @@ authenticatedRoute.put(
 //Authenticated ReadySetCyber Routes
 authenticatedRoute.get('/assessments', handlerToExpress(assessments.list));
 
+authenticatedRoute.get('/assessments/:id', handlerToExpress(assessments.get));
+
 //************* */
 //  V2 Routes   //
 //************* */

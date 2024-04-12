@@ -5,38 +5,44 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 
 interface Props {
-  question: {
-    id: number;
-    title: string;
-    answers: {
-      id: number;
-      name: string;
-      selected: boolean;
-    }[];
-    category: string;
+  category: {
+    question: {
+      id: string;
+      longForm: string;
+      number: string;
+    };
+    selection: string;
   };
 }
 
 export const RSCQuestion: React.FC<Props> = (props) => {
-  const question = props.question;
-  const answers = props.question.answers;
+  const question = props.category.question;
+  const category = props.category;
+  const answers = props.category.selection;
+
+  console.log(
+    'Question: ',
+    Object.entries(category).map(([key, value]) => ({
+      key,
+      value
+    }))
+  );
+
   return (
     <div>
       <Box
         sx={{ width: '100%', bgcolor: '#D3D3D3', padding: 2, borderRadius: 2 }}
       >
+        {/* <Typography variant="h6" gutterBottom component="div">
+          Question {question.number}
+        </Typography> */}
         <Typography variant="h6" gutterBottom component="div">
-          Question {question.id}
-        </Typography>
-        <Typography variant="h6" gutterBottom component="div">
-          {question.title}
+          {question.longForm}
         </Typography>
         <Stack direction="row" spacing={2} padding={2} paddingLeft={0}>
-          {answers.map((answer) => (
-            <Button key={answer.id} variant="contained" color="primary">
-              {answer.name}{' '}
-            </Button>
-          ))}
+          <Button key={answers} variant="contained" color="primary">
+            {answers}{' '}
+          </Button>
         </Stack>
         <Box
           sx={{
