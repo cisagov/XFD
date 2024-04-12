@@ -75,13 +75,12 @@ export const get = wrapHandler(async (event) => {
 
   await connectToDatabase();
 
-  const assessment = await Assessment.findOne(assessmentId, {
-    relations: [
-      'responses',
-      'responses.question',
-      'responses.question.category'
-    ]
-  });
+  const assessment = await Assessment.findOne({ where: { id: assessmentId } });
+  //relations: [
+  //  'responses',
+  //  'responses.question',
+  //  'responses.question.category'
+  //]
 
   if (!assessment) {
     return NotFound;

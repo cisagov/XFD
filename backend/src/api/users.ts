@@ -933,7 +933,7 @@ export const RSCRegister = wrapHandler(async (event) => {
   await connectToDatabase();
 
   // Check if user already exists
-  let user = await User.findOne({
+  let user = await User.findOneBy({
     email: newRSCUser.email
   });
   if (user) {
@@ -944,7 +944,7 @@ export const RSCRegister = wrapHandler(async (event) => {
     };
     // Create if user does not exist
   } else {
-    user = await User.create(newRSCUser);
+    user = User.create({ ...newRSCUser });
     await User.save(user);
     // Send email notification
     if (process.env.IS_LOCAL!) {
@@ -954,7 +954,7 @@ export const RSCRegister = wrapHandler(async (event) => {
     }
   }
 
-  const savedUser = await User.findOne(user.id);
+  const savedUser = await User.findOneBy({ id: user.id });
   return {
     statusCode: 200,
     body: JSON.stringify(savedUser)
