@@ -5,56 +5,42 @@ import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import { RSCSideNav } from './RSCSideNav';
-import { RSCResult } from './RSCResult';
-import { RSCQuestion } from './RSCQuestion';
-import { Typography } from '@mui/material';
+import { Category, Entry, RSCQuestion } from './RSCQuestion';
 import { useAuthContext } from 'context';
 
 export const RSCDetail: React.FC = () => {
   const { apiGet } = useAuthContext();
   const { id } = useParams<{ id: string }>();
-  const [details, setDetails] = React.useState<any>({});
+  const [categories, setCategories] = useState<Category[]>([]);
 
   const fetchResult = useCallback(async () => {
     try {
       const data = await apiGet(`/assessments/${id}`);
-      // console.log(data["Data Security"]);
-      // console.log(data["Data Security"][0]);
-      // console.log(data["Data Security"][0]["question"]);
-      // console.log(data["Data Security"][0]["question"].longForm);
-
-      setDetails(data);
+      console.log('API Response:', data); // Continue to log the data for verification
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const transformedCategories = Object.entries(data).map(
+          ([name, entries]) => ({
+            name,
+            entries: entries as Entry[]
+          })
+        );
+        setCategories(transformedCategories);
+      } else {
+        console.error('Unexpected response format:', data);
+        setCategories([]); // Fallback to an empty array if the format isn't correct
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to fetch categories:', e);
+      setCategories([]); // Ensure categories is reset to an empty array on error
     }
   }, [apiGet, id]);
 
   useEffect(() => {
     fetchResult();
   }, [fetchResult]);
-
-  const dataSecurity = details['Data Security'];
-
-  // console.log("Key 0: ", Object.keys(data)[0]);
-
-  // console.log("This is Security: ", dataSecurity[0]);
-  // console.log("Details: ", typeof details);
-  // for (const question in data) {
-  //   console.log(question);
-  // }
-
-  // Object.keys(data).forEach((key)=> {
-  //   console.log(key, dataSecurity[key]);
-  // }
-  // );
-
-  // Object.keys(details).forEach((key)=> {
-  //   console.log(key, details[key]);
-  //   // Object.keys(details[key]).forEach((key2)=> {
-  //   //   console.log(key2, details[key][key2]);
-  //   // });
-  // });
+  console.log('Transformed categories:', categories);
 
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
@@ -64,10 +50,10 @@ export const RSCDetail: React.FC = () => {
         </Grid>
         <Grid item xs={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
-            <Stack>
+            <Stack spacing={2}>
               <Stack
                 direction="row"
-                justifyContent={'space-between'}
+                justifyContent="space-between"
                 alignItems="center"
                 padding={2}
               >
@@ -79,8 +65,10 @@ export const RSCDetail: React.FC = () => {
                 </Button>
               </Stack>
               <Divider />
-              <h3>Thank you for completing the ReadySetCyber questionnaire!</h3>
-              <p>
+              <Typography variant="h6" component="h3" gutterBottom>
+                Thank you for completing the ReadySetCyber questionnaire!
+              </Typography>
+              <Typography>
                 Below, you’ll find a full summary of your completed
                 ReadySetCyber questionnaire. Please note the areas where you can
                 improve your organization’s cybersecurity posture, along with
@@ -90,31 +78,10 @@ export const RSCDetail: React.FC = () => {
                 Crossfeed, CISA’s Attack Surface Management platform, for free
                 vulnerability scanning services to kickstart or enhance your
                 cybersecurity measures.
-              </p>
-              <Box>
-                {/* <RSCResult
-                  id={result.id}
-                  type={result.type}
-                  createdAt={result.date}
-                  categories={[]}
-                  questions={[]}
-                /> */}
-              </Box>
-              {/* {console.log("Details: ", details)} */}
-              {/* {details.forEach((detail) => {
-                  <>
-                  <RSCQuestion key={detail.id} question={detail} />
-                  <br />
-                </>
-                }); */}
-              <div>
-                {Object.entries(details).map(([detail]) => (
-                  // <div key={detail}>
-                  //   <strong>{detail}:</strong>
-                  // </div>
-                  <RSCQuestion key={detail} category={details} />
-                ))}
-              </div>
+              </Typography>
+              {categories.map((category, index) => (
+                <RSCQuestion key={index} categories={[category]} />
+              ))}
             </Stack>
           </Box>
         </Grid>

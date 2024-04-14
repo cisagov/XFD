@@ -5,59 +5,118 @@ import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 
 interface Props {
-  category: {
-    question: {
-      id: string;
-      longForm: string;
-      number: string;
-    };
-    selection: string;
-  };
+  categories: Category[];
 }
 
-export const RSCQuestion: React.FC<Props> = (props) => {
-  const question = props.category.question;
-  const category = props.category;
-  const answers = props.category.selection;
+export interface Category {
+  entries: Entry[];
+  name: string;
+}
 
-  console.log(
-    'Question: ',
-    Object.entries(category).map(([key, value]) => ({
-      key,
-      value
-    }))
-  );
+export interface Entry {
+  question: Question;
+  selection: string;
+}
 
+interface Question {
+  description: string;
+  longForm: string;
+  name: string;
+  number: string;
+  resources: Resource[];
+}
+
+interface Resource {
+  description: string;
+  name: string;
+  type: string;
+  url: string;
+}
+
+export const RSCQuestion: React.FC<Props> = ({ categories }) => {
   return (
     <div>
-      <Box
-        sx={{ width: '100%', bgcolor: '#D3D3D3', padding: 2, borderRadius: 2 }}
-      >
-        {/* <Typography variant="h6" gutterBottom component="div">
-          Question {question.number}
-        </Typography> */}
-        <Typography variant="h6" gutterBottom component="div">
-          {question.longForm}
-        </Typography>
-        <Stack direction="row" spacing={2} padding={2} paddingLeft={0}>
-          <Button key={answers} variant="contained" color="primary">
-            {answers}{' '}
-          </Button>
-        </Stack>
-        <Box
-          sx={{
-            width: '100%',
-            bgcolor: 'background.paper',
-            padding: 2,
-            borderRadius: 2
-          }}
-        >
-          <h3>Recommended Resources</h3>
-          <h4>Resource Type</h4>
-          <h5>Resource Title</h5>
-          <p>Resource Description</p>
+      {categories.map((category, catIndex) => (
+        <Box key={catIndex} sx={{ marginBottom: 4 }}>
+          <Typography
+            variant="h5"
+            gutterBottom
+            component="div"
+            sx={{ marginTop: 2, color: '#1976d2' }}
+          >
+            {category.name}
+          </Typography>
+          {category.entries.map((entry, entryIndex) => (
+            <Box
+              key={entryIndex}
+              sx={{
+                width: '100%',
+                bgcolor: '#f0f0f0',
+                padding: 2,
+                borderRadius: 2,
+                marginBottom: 2
+              }}
+            >
+              <Typography variant="h6" gutterBottom>
+                Question {entry.question.number}
+              </Typography>
+              <Typography variant="subtitle1" gutterBottom>
+                {entry.question.longForm}
+              </Typography>
+              {entry.question.description && (
+                <Typography variant="body2" sx={{ marginBottom: 2 }}>
+                  {entry.question.description}
+                </Typography>
+              )}
+              <Typography variant="subtitle2" gutterBottom>
+                Response: {entry.selection}
+              </Typography>
+              {entry.question.resources.length > 0 && (
+                <Box
+                  sx={{
+                    bgcolor: 'white',
+                    borderRadius: 1,
+                    padding: 2,
+                    marginTop: 1
+                  }}
+                >
+                  <Typography variant="h6" gutterBottom>
+                    Recommended Resources
+                  </Typography>
+                  {entry.question.resources.map((resource, resIndex) => (
+                    <Box
+                      key={resIndex}
+                      sx={{
+                        borderBottom: '1px solid #ccc',
+                        paddingBottom: 1,
+                        marginBottom: 1
+                      }}
+                    >
+                      <Typography variant="subtitle1">
+                        {resource.type}
+                      </Typography>
+                      <Typography variant="subtitle2">
+                        {resource.name}
+                      </Typography>
+                      <Typography variant="body2">
+                        {resource.description}
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        color="primary"
+                        href={resource.url}
+                        target="_blank"
+                      >
+                        Visit Resource
+                      </Button>
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          ))}
         </Box>
-      </Box>
+      ))}
     </div>
   );
 };
