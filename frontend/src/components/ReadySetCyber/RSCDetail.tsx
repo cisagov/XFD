@@ -48,7 +48,7 @@ export const RSCDetail: React.FC = () => {
         <Grid item xs={4}>
           <RSCSideNav categories={categories} />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack spacing={2}>
               <Stack

@@ -40,7 +40,7 @@ export const RSCDashboard: React.FC = () => {
         <Grid item xs={4}>
           <RSCDefaultSideNav />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <h2>Assessment Results</h2>
@@ -57,18 +57,19 @@ export const RSCDashboard: React.FC = () => {
                 platform, for free vulnerability scanning services to kickstart
                 or enhance your cybersecurity measures.
               </p>
-              {results.map((result) => (
-                <Stack key={result.id} spacing={2}>
+              <Stack spacing={2}>
+                {results.map((result) => (
                   <RSCResult
+                    key={result.id}
                     id={result.id}
                     type={result.type}
                     createdAt={result.createdAt}
                     updatedAt={result.updatedAt}
                     rscID={result.rscID}
                   />
-                  <Divider />
-                </Stack>
-              ))}
+                ))}
+              </Stack>
+              <Divider />
             </Stack>
           </Box>
         </Grid>
