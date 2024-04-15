@@ -5,7 +5,6 @@ import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import { RSCSideNav } from './RSCSideNav';
 import { RSCResult } from './RSCResult';
-
 import { dummyResults } from './dummyData';
 
 const results = dummyResults;
@@ -14,10 +13,10 @@ export const RSCDashboard: React.FC = () => {
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item xs={4}>
+        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <h2>Assessment Results</h2>
@@ -34,18 +33,19 @@ export const RSCDashboard: React.FC = () => {
                 platform, for free vulnerability scanning services to kickstart
                 or enhance your cybersecurity measures.
               </p>
-              {results.map((result) => (
-                <Stack key={result.id} spacing={2}>
+              <Stack spacing={2}>
+                {results.map((result) => (
                   <RSCResult
+                    key={result.id}
                     id={result.id}
                     type={result.type}
                     date={result.date}
                     categories={result.categories}
                     questions={result.questions}
                   />
-                  <Divider />
-                </Stack>
-              ))}
+                ))}
+              </Stack>
+              <Divider />
             </Stack>
           </Box>
         </Grid>
