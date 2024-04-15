@@ -5,17 +5,13 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Divider from '@mui/material/Divider';
 import { RSCNavItem } from './RSCNavItem';
+import { dummyResults } from './dummyData';
 
-interface Props {
-  categories: Categories[];
-}
-
-export interface Categories {
-  name: string;
-}
-
-export const RSCSideNav: React.FC<Props> = ({ categories }) => {
+export const RSCSideNav: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+
+  const categories =
+    dummyResults.find((result) => result.id === parseInt(id))?.categories || [];
 
   return (
     <div>
@@ -23,8 +19,8 @@ export const RSCSideNav: React.FC<Props> = ({ categories }) => {
         <List>
           <ListItem>Welcome User</ListItem>
           <Divider component="li" />
-          {categories.map((category, index) => (
-            <RSCNavItem key={index} name={category.name} />
+          {categories.map((category) => (
+            <RSCNavItem key={category.id} name={category.name} />
           ))}
           <ListItem>Take Questionnaire Again</ListItem>
           <Divider component="li" />
