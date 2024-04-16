@@ -11,7 +11,14 @@ export const RSCDefaultSideNav: React.FC = () => {
 
   return (
     <div>
-      <Box sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 360,
+          bgcolor: 'background.paper',
+          position: 'sticky'
+        }}
+      >
         <List>
           <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
           <Divider component="li" />
