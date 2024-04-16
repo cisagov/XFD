@@ -1,5 +1,6 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
+import { ScrollTop } from './ScrollTop';
 import { useAuthContext } from 'context';
 import {
   AppBar,

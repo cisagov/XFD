@@ -1,10 +1,11 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { useAuthContext } from 'context';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Divider from '@mui/material/Divider';
 import { RSCNavItem } from './RSCNavItem';
+import { ListItemButton } from '@mui/material';
 
 interface Props {
   categories: Category[];
@@ -13,23 +14,29 @@ interface Props {
 export interface Category {
   name: string;
 }
+
 export const RSCSideNav: React.FC<Props> = ({ categories }) => {
-  const { id } = useParams<{ id: string }>();
+  const { user, logout } = useAuthContext();
 
   return (
-    <div>
-      <Box sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
-        <List>
-          <ListItem>Welcome User</ListItem>
-          <Divider component="li" />
-          {categories.map((category, index) => (
-            <RSCNavItem key={index} name={category.name} />
-          ))}
-          <ListItem>Take Questionnaire Again</ListItem>
-          <Divider component="li" />
-          <ListItem>Logout</ListItem>
-        </List>
-      </Box>
-    </div>
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: 360,
+        bgcolor: 'background.paper',
+        position: 'fixed'
+      }}
+    >
+      <List>
+        <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
+        <Divider component="li" />
+        {categories.map((category, index) => (
+          <RSCNavItem key={index} name={category.name} />
+        ))}
+        <ListItemButton>Take Questionnaire Again</ListItemButton>
+        <Divider component="li" />
+        <ListItemButton onClick={logout}>Logout</ListItemButton>
+      </List>
+    </Box>
   );
 };

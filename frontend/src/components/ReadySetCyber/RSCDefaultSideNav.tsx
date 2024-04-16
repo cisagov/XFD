@@ -1,22 +1,30 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Divider from '@mui/material/Divider';
+import { useAuthContext } from 'context';
+import { ListItemButton } from '@mui/material';
 
 export const RSCDefaultSideNav: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { user, logout } = useAuthContext();
 
   return (
     <div>
-      <Box sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 360,
+          bgcolor: 'background.paper',
+          position: 'sticky'
+        }}
+      >
         <List>
-          <ListItem>Welcome User</ListItem>
+          <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
           <Divider component="li" />
-          <ListItem>Take Questionnaire Again</ListItem>
+          <ListItemButton>Take Questionnaire Again</ListItemButton>
           <Divider component="li" />
-          <ListItem>Logout</ListItem>
+          <ListItemButton onClick={logout}>Logout</ListItemButton>
         </List>
       </Box>
     </div>

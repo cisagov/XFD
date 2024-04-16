@@ -1,7 +1,6 @@
 import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
-import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
 
 interface Props {
@@ -43,6 +42,7 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
             gutterBottom
             component="div"
             sx={{ marginTop: 2, color: '#1976d2' }}
+            id={category.name}
           >
             {category.name}
           </Typography>

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
@@ -9,8 +9,7 @@ import { RSCResult } from './RSCResult';
 import { useAuthContext } from 'context';
 
 export const RSCDashboard: React.FC = () => {
-  const { user, apiGet } = useAuthContext();
-
+  const { apiGet } = useAuthContext();
   const [results, setResults] = React.useState<
     {
       id: string;

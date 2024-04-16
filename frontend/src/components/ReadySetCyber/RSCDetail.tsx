@@ -49,7 +49,14 @@ export const RSCDetail: React.FC = () => {
           <RSCSideNav categories={categories} />
         </Grid>
         <Grid item xs={8}>
-          <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
+          <Box
+            sx={{
+              flexGrow: 1,
+              padding: 2,
+              backgroundColor: 'white',
+              position: 'relative'
+            }}
+          >
             <Stack spacing={2}>
               <Stack
                 direction="row"
