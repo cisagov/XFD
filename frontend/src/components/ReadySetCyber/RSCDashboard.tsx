@@ -3,13 +3,12 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
-import { RSCSideNav } from './RSCSideNav';
+import { RSCDefaultSideNav } from './RSCDefaultSideNav';
 import { RSCResult } from './RSCResult';
 import { useAuthContext } from 'context';
 
 export const RSCDashboard: React.FC = () => {
-  const { user, apiGet } = useAuthContext();
-
+  const { apiGet } = useAuthContext();
   const [results, setResults] = React.useState<
     {
       id: string;
@@ -38,7 +37,7 @@ export const RSCDashboard: React.FC = () => {
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
         <Grid item xs={4}>
-          <RSCSideNav />
+          <RSCDefaultSideNav />
         </Grid>
         <Grid item xs={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
@@ -57,18 +56,18 @@ export const RSCDashboard: React.FC = () => {
                 platform, for free vulnerability scanning services to kickstart
                 or enhance your cybersecurity measures.
               </p>
-              {results.map((result) => (
-                <Stack key={result.id} spacing={2}>
+              <Stack spacing={2}>
+                {results.map((result) => (
                   <RSCResult
+                    key={result.id}
                     id={result.id}
                     type={result.type}
                     createdAt={result.createdAt}
                     updatedAt={result.updatedAt}
                     rscID={result.rscID}
                   />
-                  <Divider />
-                </Stack>
-              ))}
+                ))}
+              </Stack>
             </Stack>
           </Box>
         </Grid>

@@ -1,21 +1,12 @@
 import React from 'react';
-import { useAuthContext } from 'context';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Divider from '@mui/material/Divider';
-import { RSCNavItem } from './RSCNavItem';
+import { useAuthContext } from 'context';
 import { ListItemButton } from '@mui/material';
 
-interface Props {
-  categories: Category[];
-}
-
-export interface Category {
-  name: string;
-}
-
-export const RSCSideNav: React.FC<Props> = ({ categories }) => {
+export const RSCDefaultSideNav: React.FC = () => {
   const { user, logout } = useAuthContext();
 
   return (
@@ -24,9 +15,6 @@ export const RSCSideNav: React.FC<Props> = ({ categories }) => {
         <List>
           <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
           <Divider component="li" />
-          {categories.map((category, index) => (
-            <RSCNavItem key={index} name={category.name} />
-          ))}
           <ListItemButton>Take Questionnaire Again</ListItemButton>
           <Divider component="li" />
           <ListItemButton onClick={logout}>Logout</ListItemButton>
