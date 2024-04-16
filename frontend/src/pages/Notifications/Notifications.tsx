@@ -1,5 +1,6 @@
 import React from 'react';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -96,8 +97,12 @@ export const Notifications: React.FC = () => {
       const inactiveRows = rows.filter(
         (row: MaintenanceNotification) => row.status !== 'active'
       );
-      setActiveNotification(activeRow);
-      setInactiveNotifications(inactiveRows);
+      if (activeRow) {
+        setActiveNotification(activeRow);
+      }
+      if (inactiveRows.length !== 0) {
+        setInactiveNotifications(inactiveRows);
+      }
     } catch (e: any) {
       console.log(e);
     }
@@ -378,11 +383,7 @@ export const Notifications: React.FC = () => {
         <Button variant="outlined" onClick={handleResetForm}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          onClick={() => setDialogToggle(false)}
-          autoFocus
-        >
+        <Button variant="contained" onClick={submitForm} autoFocus>
           Submit
         </Button>
       </DialogActions>
@@ -413,14 +414,27 @@ export const Notifications: React.FC = () => {
           <Typography variant="h6" pb={2} fontWeight="500">
             Active Notification
           </Typography>
-          <DataGrid
-            rows={[activeNotification]}
-            columns={columns}
-            getRowHeight={() => 'auto'}
-            sx={tableStyling}
-            hideFooterPagination={true}
-            disableRowSelectionOnClick
-          />
+          {activeNotification.status === 'active' ? (
+            <>
+              <DataGrid
+                rows={[activeNotification]}
+                columns={columns}
+                getRowHeight={() => 'auto'}
+                sx={tableStyling}
+                hideFooterPagination={true}
+                disableRowSelectionOnClick
+              />
+              <Typography variant="body2" mt={1}>
+                * Only an active notification with a time frame in the present
+                will appear on the login screen.
+              </Typography>
+            </>
+          ) : (
+            <Alert severity="info">
+              There is no active maintenance notification at this time. To make
+              a notification active, add a new one or update an inactive one.
+            </Alert>
+          )}
         </Paper>
       </Grid>
       <Grid item xs={12} mb={5}>
@@ -428,13 +442,20 @@ export const Notifications: React.FC = () => {
           <Typography variant="h6" pb={2} fontWeight="500">
             Inactive Notifications
           </Typography>
-          <DataGrid
-            rows={inactiveNotifications}
-            columns={columns}
-            getRowHeight={() => 'auto'}
-            sx={tableStyling}
-            disableRowSelectionOnClick
-          />
+          {inactiveNotifications[0].message === '' ? (
+            <Alert severity="info">
+              There are no inactive maintenance notifications at this time. The
+              unused inactive notifications will be shown here.
+            </Alert>
+          ) : (
+            <DataGrid
+              rows={inactiveNotifications}
+              columns={columns}
+              getRowHeight={() => 'auto'}
+              sx={tableStyling}
+              disableRowSelectionOnClick
+            />
+          )}
         </Paper>
       </Grid>
       {editNotificationDialog}
