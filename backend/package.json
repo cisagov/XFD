@@ -53,7 +53,7 @@
     "@types/aws-lambda": "^8.10.62",
     "@types/cors": "^2.8.17",
     "@types/dockerode": "^3.3.19",
-    "@types/jest": "^27",
+    "@types/jest": "^27.5.2",
     "@types/node": "^20.6",
     "@types/node-fetch": "^2.6.4",
     "@types/nodemailer": "^6.4.0",
@@ -115,7 +115,7 @@
     "send-message": "node sendMessage.js",
     "syncdb": "docker-compose exec -T backend npx ts-node src/tools/run-syncdb.ts",
     "syncmdl": "docker-compose exec -T backend npx ts-node src/tools/run-syncmdl.ts",
-    "test": "jest --detectOpenHandles",
+    "test": "jest --detectOpenHandles --json --outputFile=test-results.json",
     "test-python": "pytest"
   },
   "version": "1.0.0"

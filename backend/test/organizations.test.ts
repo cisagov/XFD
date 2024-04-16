@@ -469,14 +469,12 @@ describe('organizations', () => {
         })
         .expect(200);
       expect(response.body.granularScans.length).toEqual(1);
-      const updated = (await Organization.findOne(
-        {
+      const updated = (await Organization.findOne({
+        where: {
           id: organization.id
         },
-        {
-          relations: ['granularScans']
-        }
-      )) as Organization;
+        relations: ['granularScans']
+      })) as Organization;
       expect(updated.name).toEqual(organization.name);
       expect(updated.granularScans).toEqual(
         expect.arrayContaining([
@@ -515,14 +513,12 @@ describe('organizations', () => {
           enabled: false
         })
         .expect(200);
-      const updated = (await Organization.findOne(
-        {
+      const updated = (await Organization.findOne({
+        where: {
           id: organization.id
         },
-        {
-          relations: ['granularScans']
-        }
-      )) as Organization;
+        relations: ['granularScans']
+      })) as Organization;
       expect(updated.name).toEqual(organization.name);
       expect(updated.granularScans).toEqual([]);
     });
@@ -583,14 +579,12 @@ describe('organizations', () => {
           enabled: true
         })
         .expect(200);
-      const updated = (await Organization.findOne(
-        {
+      const updated = (await Organization.findOne({
+        where: {
           id: organization.id
         },
-        {
-          relations: ['granularScans']
-        }
-      )) as Organization;
+        relations: ['granularScans']
+      })) as Organization;
       expect(updated.name).toEqual(organization.name);
       expect(updated.granularScans).toEqual(
         expect.arrayContaining([
@@ -653,7 +647,10 @@ describe('organizations', () => {
         .expect(200);
       expect(response.body).toEqual({});
 
-      role = (await Role.findOne(role.id, {
+      role = (await Role.findOne({
+        where: {
+          id: role.id
+        },
         relations: ['approvedBy']
       })) as Role;
       expect(role.approved).toEqual(true);
