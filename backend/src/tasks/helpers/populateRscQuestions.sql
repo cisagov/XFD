@@ -197,7 +197,7 @@ with constants as (
         '2024-03-19 02:47:43.000000' as "createdAt",
         '8adc82fb-5d82-4804-ad82-3b82a38fe67c' as "rscId",
         'micro_to_small' as type,
-        'mgrayson@ivaalsolutions.com'  as email -- Change 'user@mail.com' to the email address of the user you want to associate the assessment with
+        'user@mail.com'  as email -- Change 'user@mail.com' to the email address of the user you want to associate the assessment with
 )
    ,data(name, selection) as (
         values
