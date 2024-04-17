@@ -194,7 +194,7 @@ const saveAssessmentsToDb = async (assessments: any[]) => {
     });
 
     let savedAssessment: Assessment;
-    let existingAssessment = await assessmentRepository.findOne({
+    const existingAssessment = await assessmentRepository.findOne({
       where: { rscId: assessmentToSave.rscId }
     });
 
