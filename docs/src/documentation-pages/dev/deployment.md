@@ -5,7 +5,7 @@ sidenav: dev
 
 ### Automatic deployment of CISA Crossfeed
 
-Deployment of CISA Crossfeed is done automatically through GitHub Actions from the [cisagov/crossfeed](https://github.com/cisagov/crossfeed) GitHub repository.
+Deployment of CISA Crossfeed is done automatically through GitHub Actions from the [cisagov/crossfeed](https://github.com/cisagov/XFD) GitHub repository.
 
 Any code pushed to the `master` branch is automatically deployed to the [staging site](https://staging.crossfeed.cyber.dhs.gov/), and any code pushed to the `production` branch is automatically deployed to the [production site](https://crossfeed.cyber.dhs.gov/).
 

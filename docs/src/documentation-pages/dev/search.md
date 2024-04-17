@@ -49,7 +49,7 @@ until they are updated by other scans.
 
 ### Indexes and mapping
 
-We use a single index called "domains"; its name might change due to reindexing, so the current name is stored as the DOMAINS_INDEX constant in [es-client.ts](https://github.com/cisagov/crossfeed/blob/b55f36c0808feede82ffd8ad9473b2768e56a511/backend/src/tasks/es-client.ts#L4).
+We use a single index called "domains"; its name might change due to reindexing, so the current name is stored as the DOMAINS_INDEX constant in [es-client.ts](https://github.com/cisagov/XFD/blob/b27dfa29be4039d63ed41ba7f3142cebaf0480a9/backend/src/tasks/es-client.ts#L4).
 
 The domain index has a mapping. In order to create or update the mapping, you can run `npm run syncdb` from the `backend` directory. This calls
 the `ESClient.syncDomainsIndex()`, which will update the index's mapping if it exists, or create a new index if it doesn't exist.
@@ -65,7 +65,7 @@ reindexing all the webpages for a given domain.
 
 So that the webpage fields don't conflict with fields in regular parent domain records, fields in webpage records are stored with the
 `webpage_` prefix
-([see schema here](https://github.com/cisagov/crossfeed/blob/b55f36c0808feede82ffd8ad9473b2768e56a511/backend/src/tasks/es-client.ts#L11)).
+([see schema here](https://github.com/cisagov/XFD/blob/b27dfa29be4039d63ed41ba7f3142cebaf0480a9/backend/src/tasks/es-client.ts#L4)).
 
 ### Building search queries
 

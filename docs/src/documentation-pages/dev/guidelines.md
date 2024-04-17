@@ -5,8 +5,8 @@ sidenav: dev
 
 If you'd like to contribute a code change or a new feature to Crossfeed, you're welcome to do so! We ask that you follow the following steps to do so:
 
-- Ensure there is an [issue](https://github.com/cisagov/crossfeed/issues) on cisagov/crossfeed summarizing the bug you're fixing or the feature you'd like to contribute.
-- Submit a [pull request](https://github.com/cisagov/crossfeed/pulls) with your changes.
+- Ensure there is an [issue](https://github.com/cisagov/XFD/issues) on cisagov/crossfeed summarizing the bug you're fixing or the feature you'd like to contribute.
+- Submit a [pull request](https://github.com/cisagov/XFD/pulls) with your changes.
 - Ensure the pull request updates automated tests,
   especially if it involves backend or API changes.
 - This project is in the public domain within the United States, and

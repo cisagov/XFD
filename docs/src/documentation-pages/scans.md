@@ -5,7 +5,7 @@ sidenav: none
 
 ### What is Crossfeed?
 
-Crossfeed is an asset discovery tool that can be used to monitor and gather information about vulnerabilities on public-facing websites. Crossfeed is developed as an open-source tool, and its code is available on GitHub [here](https://github.com/cisagov/crossfeed).
+Crossfeed is an asset discovery tool that can be used to monitor and gather information about vulnerabilities on public-facing websites. Crossfeed is developed as an open-source tool, and its code is available on GitHub [here](https://github.com/cisagov/XFD).
 
 ### How can I verify that traffic is coming from CISA's instance of Crossfeed?
 

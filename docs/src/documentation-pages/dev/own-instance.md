@@ -110,7 +110,7 @@ and a `Signature` header to verify that Crossfeed is performing the request.
 To do this, you can set the `WORKER_USER_AGENT`, the `WORKER_SIGNATURE_PUBLIC_KEY`, and the `WORKER_SIGNATURE_PRIVATE_KEY` parameters in your env file:
 
 ```text
-WORKER_USER_AGENT="Crossfeed (Test request from Crossfeed Staging Environment, for development use only. For more information, see https://github.com/cisagov/crossfeed)"
+WORKER_USER_AGENT="Crossfeed (Test request from Crossfeed Staging Environment, for development use only. For more information, see https://github.com/cisagov/XFD)"
 WORKER_SIGNATURE_PUBLIC_KEY="public key, can have newlines"
 WORKER_SIGNATURE_PRIVATE_KEY="private key, can have newlines"
 ```
