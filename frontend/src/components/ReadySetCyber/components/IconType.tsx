@@ -1,5 +1,5 @@
 import React from 'react';
-import { getIconType } from '../helpers';
+import { getIconType } from '../helpers/index';
 
 // Filter the resource type and return the corresponding icon
 const IconFilter = ({ type }: { type: string }) => {
