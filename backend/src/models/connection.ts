@@ -1,4 +1,4 @@
-import { createConnection, Connection } from 'typeorm';
+import { DataSource } from 'typeorm';
 import {
   // Models for the Crossfeed database
   ApiKey,
@@ -49,104 +49,134 @@ import {
   VulnScan
 } from '.';
 
-let connection: Connection | null = null;
+let dbConnection: DataSource | null = null;
 
-let dl_connection: Connection | null = null;
+let dlConnection: DataSource | null = null;
 
-const connectDl = async (logging?: boolean) => {
-  const dl_connection = createConnection({
-    type: 'postgres',
-    host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT ?? ''),
-    username: process.env.MDL_USERNAME,
-    password: process.env.MDL_PASSWORD,
-    database: process.env.MDL_NAME,
-    entities: [
-      CertScan,
-      Cidr,
-      Contact,
-      DL_Cpe,
-      DL_Cve,
-      DL_Domain,
-      HostScan,
-      Host,
-      Ip,
-      Kev,
-      Location,
-      DL_Organization,
-      PortScan,
-      PrecertScan,
-      Report,
-      Request,
-      Sector,
-      Snapshot,
-      SslyzeScan,
-      Tag,
-      Tally,
-      TicketEvent,
-      Ticket,
-      TrustymailScan,
-      VulnScan
-    ],
-    synchronize: false,
-    name: 'mini_data_lake',
-    dropSchema: false,
-    logging: logging ?? false,
-    cache: true
-  });
-  return dl_connection;
+const createDlConnection = async (
+  logging: boolean = false
+): Promise<DataSource> => {
+  try {
+    const dataSource = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      username: process.env.MDL_USERNAME,
+      password: process.env.MDL_PASSWORD,
+      database: process.env.MDL_NAME,
+      entities: [
+        CertScan,
+        Cidr,
+        Contact,
+        DL_Cpe,
+        DL_Cve,
+        DL_Domain,
+        HostScan,
+        Host,
+        Ip,
+        Kev,
+        Location,
+        DL_Organization,
+        PortScan,
+        PrecertScan,
+        Report,
+        Request,
+        Sector,
+        Snapshot,
+        SslyzeScan,
+        Tag,
+        Tally,
+        TicketEvent,
+        Ticket,
+        TrustymailScan,
+        VulnScan
+      ],
+      synchronize: false,
+      dropSchema: false,
+      logging,
+      cache: true
+    });
+    await dataSource.initialize();
+    console.log('Data Lake connection initialized successfully.');
+    return dataSource;
+  } catch (error) {
+    console.error('Failed to initialize the Data Lake connection:', error);
+    throw new Error('Initialization of Data Lake connection failed');
+  }
 };
 
-export const connectToDatalake = async (logging?: boolean) => {
-  if (!dl_connection?.isConnected) {
-    dl_connection = await connectDl(logging);
+export const connectToDatalake = async (
+  logging: boolean = false
+): Promise<DataSource> => {
+  if (!dlConnection?.isInitialized) {
+    try {
+      dlConnection = await createDlConnection(logging);
+    } catch (error) {
+      console.error('Connection to Data Lake failed:', error);
+      throw error;
+    }
   } else {
-    console.log("didn't connect");
+    console.log('Data Lake connection already initialized.');
   }
-  return dl_connection;
+  return dlConnection;
 };
 
-const connectDb = async (logging?: boolean) => {
-  const connection = createConnection({
-    type: 'postgres',
-    host: process.env.DB_HOST,
-    port: parseInt(process.env.DB_PORT ?? ''),
-    username: process.env.DB_USERNAME,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    entities: [
-      ApiKey,
-      Assessment,
-      Category,
-      Cpe,
-      Cve,
-      Domain,
-      Organization,
-      OrganizationTag,
-      Question,
-      Resource,
-      Response,
-      Role,
-      SavedSearch,
-      Scan,
-      ScanTask,
-      Service,
-      User,
-      Vulnerability,
-      Webpage
-    ],
-    synchronize: false,
-    name: 'default',
-    dropSchema: false,
-    logging: logging ?? false,
-    cache: true
-  });
-  return connection;
+const createDbConnection = async (
+  logging: boolean = false
+): Promise<DataSource> => {
+  try {
+    const dataSource = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      entities: [
+        ApiKey,
+        Assessment,
+        Category,
+        Cpe,
+        Cve,
+        Domain,
+        Organization,
+        OrganizationTag,
+        Question,
+        Resource,
+        Response,
+        Role,
+        SavedSearch,
+        Scan,
+        ScanTask,
+        Service,
+        User,
+        Vulnerability,
+        Webpage
+      ],
+      synchronize: false,
+      dropSchema: false,
+      logging,
+      cache: true
+    });
+    await dataSource.initialize();
+    console.log('DB connection initialized successfully.');
+    return dataSource;
+  } catch (error) {
+    console.error('Failed to initialize the DB connection:', error);
+    throw new Error('Initialization of DB connection failed');
+  }
 };
 
-export const connectToDatabase = async (logging?: boolean) => {
-  if (!connection?.isConnected) {
-    connection = await connectDb(logging);
+export const connectToDatabase = async (
+  logging: boolean = false
+): Promise<DataSource> => {
+  if (!dbConnection?.isInitialized) {
+    try {
+      dbConnection = await createDbConnection(logging);
+    } catch (error) {
+      console.error('Connection to database failed:', error);
+      throw error;
+    }
   }
-  return connection;
+  return dbConnection;
 };
