@@ -46,8 +46,8 @@ export const RSCHeader: React.FC = () => {
   };
 
   return (
-    <Box>
-      <AppBar position="static" sx={{ bgcolor: 'white' }}>
+    <>
+      <AppBar position="sticky" sx={{ bgcolor: 'white' }}>
         <Container maxWidth="xl">
           <Toolbar disableGutters>
             <Tooltip title="Go to Ready Set Cyber" arrow>
@@ -129,7 +129,7 @@ export const RSCHeader: React.FC = () => {
                 >
                   <MenuItem style={{ outline: 'none' }}>
                     {' '}
-                    Welcome, user
+                    Welcome, {user.fullName}{' '}
                   </MenuItem>
                   <MenuItem style={{ outline: 'none' }} onClick={handleNavHome}>
                     Dashboard
@@ -185,7 +185,9 @@ export const RSCHeader: React.FC = () => {
           </Toolbar>
         </Container>
       </AppBar>
-    </Box>
+      {/* <Toolbar /> */}
+      <ScrollTop />
+    </>
   );
 };
 

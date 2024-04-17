@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { RSCSideNav } from './RSCSideNav';
 import { Category, Entry, RSCQuestion } from './RSCQuestion';
 import { useAuthContext } from 'context';
+import { RSCAccordionNav } from './RSCAccordionNav';
 
 export const RSCDetail: React.FC = () => {
   const { apiGet } = useAuthContext();
@@ -45,16 +46,18 @@ export const RSCDetail: React.FC = () => {
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item xs={4}>
+        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav categories={categories} />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
+          <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
+            <RSCAccordionNav categories={categories} />
+          </Box>
           <Box
             sx={{
               flexGrow: 1,
               padding: 2,
-              backgroundColor: 'white',
-              position: 'relative'
+              backgroundColor: 'white'
             }}
           >
             <Stack spacing={2}>

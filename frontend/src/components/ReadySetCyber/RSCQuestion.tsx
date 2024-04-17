@@ -34,7 +34,7 @@ interface Resource {
 
 export const RSCQuestion: React.FC<Props> = ({ categories }) => {
   return (
-    <div>
+    <Box>
       {categories.map((category, catIndex) => (
         <Box key={catIndex} sx={{ marginBottom: 4 }}>
           <Typography
@@ -117,6 +117,6 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
           ))}
         </Box>
       ))}
-    </div>
+    </Box>
   );
 };

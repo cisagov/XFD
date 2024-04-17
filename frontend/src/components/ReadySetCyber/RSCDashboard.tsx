@@ -3,7 +3,6 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
-import { RSCSideNav } from './RSCSideNav';
 import { RSCDefaultSideNav } from './RSCDefaultSideNav';
 import { RSCResult } from './RSCResult';
 import { useAuthContext } from 'context';
@@ -37,10 +36,10 @@ export const RSCDashboard: React.FC = () => {
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item xs={4}>
+        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCDefaultSideNav />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <h2>Assessment Results</h2>
