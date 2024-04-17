@@ -3,8 +3,8 @@ import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
 import Button from '@mui/material/Button';
-import { VideoLibrary, Article, LibraryBooks } from '@mui/icons-material';
-import { isResourceVisible } from './helpers/index';
+import { isResourceVisible, getIconType } from './helpers/index';
+import IconFilter from './components/IconType';
 
 interface Props {
   categories: Category[];
@@ -35,10 +35,9 @@ interface Resource {
   url: string;
 }
 
-// const isResourceVisible = (response: string) => {
-//   const r = response.toLowerCase();
-//   return r === "no" || r === "not in scope" || r === "not started" ? true : false;
-// }
+const questionNumber = (n: string) => {
+  return n.charAt(n.length - 2) === '0' ? n.slice(-1) : n.slice(-2);
+};
 
 export const RSCQuestion: React.FC<Props> = ({ categories }) => {
   return (
@@ -65,7 +64,7 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
               }}
             >
               <Typography variant="h6" gutterBottom>
-                Question {entry.question.number}
+                Question {questionNumber(entry.question.number)}
               </Typography>
               <Typography variant="subtitle1" gutterBottom>
                 {entry.question.longForm}
@@ -101,7 +100,7 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                         }}
                       >
                         <Typography variant="subtitle1">
-                          <VideoLibrary />
+                          <IconFilter type={resource.type} />
                           {resource.type.charAt(0).toUpperCase() +
                             resource.type.slice(1)}
                         </Typography>
