@@ -13,27 +13,26 @@ export interface Category {
 
 export const RSCAccordionNav: React.FC<Props> = ({ categories }) => {
   return (
-    <>
-      <Accordion>
-        <AccordionSummary
-          expandIcon={<ExpandMoreIcon />}
-          aria-controls="panel1a-content"
-          id="panel1a-header"
-        >
-          {' '}
-          Categories
-        </AccordionSummary>
-        {categories.map((category, index) => (
-          <AccordionDetails key={index}>
-            <HashLink
-              style={{ textDecoration: 'none', color: 'black' }}
-              to={`#${category.name}`}
-            >
-              {category.name}
-            </HashLink>
-          </AccordionDetails>
-        ))}
-      </Accordion>
-    </>
+    <Accordion>
+      <AccordionSummary
+        expandIcon={<ExpandMoreIcon />}
+        aria-controls="panel1a-content"
+        id="panel1a-header"
+        style={{ outline: 'none' }}
+      >
+        {' '}
+        Categories
+      </AccordionSummary>
+      {categories.map((category, index) => (
+        <AccordionDetails key={index}>
+          <HashLink
+            style={{ textDecoration: 'none', color: 'black' }}
+            to={`#${category.name}`}
+          >
+            {category.name}
+          </HashLink>
+        </AccordionDetails>
+      ))}
+    </Accordion>
   );
 };

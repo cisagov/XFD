@@ -10,23 +10,25 @@ export const RSCDefaultSideNav: React.FC = () => {
   const { user, logout } = useAuthContext();
 
   return (
-    <div>
-      <Box
-        sx={{
-          width: '100%',
-          maxWidth: 360,
-          bgcolor: 'background.paper',
-          position: 'sticky'
-        }}
-      >
-        <List>
-          <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
-          <Divider component="li" />
-          <ListItemButton>Take Questionnaire Again</ListItemButton>
-          <Divider component="li" />
-          <ListItemButton onClick={logout}>Logout</ListItemButton>
-        </List>
-      </Box>
-    </div>
+    <Box
+      sx={{
+        width: '100%',
+        maxWidth: 360,
+        bgcolor: 'background.paper',
+        position: 'fixed'
+      }}
+    >
+      <List>
+        <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
+        <Divider component="li" />
+        <ListItemButton style={{ outline: 'none' }}>
+          Take Questionnaire Again
+        </ListItemButton>
+        <Divider component="li" />
+        <ListItemButton style={{ outline: 'none' }} onClick={logout}>
+          Logout
+        </ListItemButton>
+      </List>
+    </Box>
   );
 };
