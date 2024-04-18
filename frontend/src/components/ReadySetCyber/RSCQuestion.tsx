@@ -1,10 +1,7 @@
 import React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Stack from '@mui/material/Stack';
-import Button from '@mui/material/Button';
-import { isResourceVisible, getIconType } from './helpers/index';
-import IconFilter from './components/IconType';
+import { Box, Button, Grid, Typography } from '@mui/material';
+import { isResourceVisible } from './helpers/index';
+import { IconFilter } from './components/index';
 
 interface Props {
   categories: Category[];
@@ -99,11 +96,18 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                           marginBottom: 1
                         }}
                       >
-                        <Typography variant="subtitle1">
-                          <IconFilter type={resource.type} />
-                          {resource.type.charAt(0).toUpperCase() +
-                            resource.type.slice(1)}
-                        </Typography>
+                        <Grid container>
+                          <Grid item alignItems={'center'}>
+                            <IconFilter type={resource.type} />
+                          </Grid>
+
+                          <Grid item alignItems={'center'}>
+                            <Typography variant="subtitle1">
+                              {resource.type.charAt(0).toUpperCase() +
+                                resource.type.slice(1)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
                         <Typography variant="subtitle2">
                           {resource.name}
                         </Typography>
