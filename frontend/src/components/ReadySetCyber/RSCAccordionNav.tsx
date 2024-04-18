@@ -26,7 +26,7 @@ export const RSCAccordionNav: React.FC<Props> = ({ categories }) => {
       {categories.map((category, index) => (
         <AccordionDetails key={index}>
           <HashLink
-            style={{ textDecoration: 'none', color: 'black' }}
+            style={{ textDecoration: 'none', outline: 'none', color: 'black' }}
             to={`#${category.name}`}
           >
             {category.name}
