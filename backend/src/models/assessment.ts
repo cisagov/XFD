@@ -1,12 +1,10 @@
 import {
   BaseEntity,
   Column,
-  CreateDateColumn,
   Entity,
   ManyToOne,
   OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn
+  PrimaryGeneratedColumn
 } from 'typeorm';
 import { Response } from './response';
 import { User } from './user';
@@ -19,10 +17,10 @@ export class Assessment extends BaseEntity {
   @Column()
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @Column()
   updatedAt: Date;
 
-  @Column()
+  @Column({ unique: true })
   rscId: string;
 
   @Column()
