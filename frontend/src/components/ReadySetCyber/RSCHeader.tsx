@@ -1,6 +1,5 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { ScrollTop } from './ScrollTop';
 import { useAuthContext } from 'context';
 import {
   AppBar,
@@ -47,7 +46,7 @@ export const RSCHeader: React.FC = () => {
 
   return (
     <>
-      <AppBar position="sticky" sx={{ bgcolor: 'white' }}>
+      <AppBar position="relative" sx={{ bgcolor: 'white' }}>
         <Container maxWidth="xl">
           <Toolbar disableGutters>
             <Tooltip title="Go to Ready Set Cyber" arrow>
@@ -185,7 +184,6 @@ export const RSCHeader: React.FC = () => {
           </Toolbar>
         </Container>
       </AppBar>
-      <ScrollTop />
     </>
   );
 };

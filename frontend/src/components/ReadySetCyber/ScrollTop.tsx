@@ -10,7 +10,6 @@ export const ScrollTop: React.FC = () => {
   // Use `window` instead of `body` as `document` will be `undefined` when the
   // hooks first runs. By default, useScrollTrigger will attach itself to `window`.
   const trigger = useScrollTrigger({
-    // Number of pixels needed to scroll to toggle `trigger` to `true`.
     threshold: 100
   });
   const scrollToTop = useCallback(() => {
@@ -20,7 +19,6 @@ export const ScrollTop: React.FC = () => {
     <Zoom in={trigger}>
       <Box
         role="presentation"
-        // Place the button in the bottom right corner.
         sx={{
           position: 'fixed',
           bottom: 32,

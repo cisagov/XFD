@@ -19,28 +19,29 @@ export const RSCSideNav: React.FC<Props> = ({ categories }) => {
   const { user, logout } = useAuthContext();
 
   return (
-    <Box
-      sx={{
-        width: '100%',
-        maxWidth: 360,
-        bgcolor: 'background.paper',
-        position: 'fixed'
-      }}
-    >
-      <List>
-        <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
-        <Divider component="li" />
-        {categories.map((category, index) => (
-          <RSCNavItem key={index} name={category.name} />
-        ))}
-        <ListItemButton style={{ outline: 'none' }}>
-          Take Questionnaire Again
-        </ListItemButton>
-        <Divider component="li" />
-        <ListItemButton style={{ outline: 'none' }} onClick={logout}>
-          Logout
-        </ListItemButton>
-      </List>
+    <Box>
+      <Box
+        sx={{
+          width: '100%',
+          maxWidth: 360,
+          bgcolor: 'background.paper'
+        }}
+      >
+        <List>
+          <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
+          <Divider component="li" />
+          {categories.map((category, index) => (
+            <RSCNavItem key={index} name={category.name} />
+          ))}
+          <ListItemButton style={{ outline: 'none' }}>
+            Take Questionnaire Again
+          </ListItemButton>
+          <Divider component="li" />
+          <ListItemButton style={{ outline: 'none' }} onClick={logout}>
+            Logout
+          </ListItemButton>
+        </List>
+      </Box>
     </Box>
   );
 };
