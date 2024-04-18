@@ -422,7 +422,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                 {!isMobile && <NavItem {...userMenu} />}
               </>
             )}
-            {isMobile && (
+            {user && isMobile && (
               <IconButton
                 edge="start"
                 className={classes.menuButton}
