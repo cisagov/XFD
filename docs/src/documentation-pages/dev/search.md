@@ -63,10 +63,6 @@ that each webpage is stored as a separate document in the "domains" index, but c
 that webpage is a child of another domain document. This makes it more efficient to add or remove single webpages, since it doesn't require
 reindexing all the webpages for a given domain.
 
-So that the webpage fields don't conflict with fields in regular parent domain records, fields in webpage records are stored with the
-`webpage_` prefix
-([see schema here](https://github.com/cisagov/XFD/blob/b27dfa29be4039d63ed41ba7f3142cebaf0480a9/backend/src/tasks/es-client.ts#L4)).
-
 ### Building search queries
 
 The search query is built by the [buildRequest](https://github.com/cisagov/crossfeed/blob/33fcaf4cb730974bf3d5ee61b80d13a2c675bd80/frontend/src/pages/Search/SearchProvider/buildRequest.js#L56) function on the frontend. As of now, the logic there roughly corresponds to:
