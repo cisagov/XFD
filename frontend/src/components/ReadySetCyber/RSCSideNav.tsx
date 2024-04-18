@@ -1,5 +1,4 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -14,8 +13,6 @@ export interface Category {
   name: string;
 }
 export const RSCSideNav: React.FC<Props> = ({ categories }) => {
-  const { id } = useParams<{ id: string }>();
-
   return (
     <div>
       <Box sx={{ width: '100%', maxWidth: 360, bgcolor: 'background.paper' }}>
