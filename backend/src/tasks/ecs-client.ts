@@ -98,6 +98,8 @@ class ECSClient {
             `MDL_NAME=${process.env.DB_NAME}`,
             `MDL_USERNAMD=${process.env.DB_USERNAME}`,
             `MDL_PASSWORD=${process.env.DB_PASSWORD}`,
+            `MI_ACCOUNT_NAME=${process.env.MI_ACCOUNT_NAME}`,
+            `MI_PASSWORD=${process.env.MI_PASSWORD}`,
             `PE_DB_NAME=${process.env.PE_DB_NAME}`,
             `PE_DB_USERNAME=${process.env.PE_DB_USERNAME}`,
             `PE_DB_PASSWORD=${process.env.PE_DB_PASSWORD}`,
