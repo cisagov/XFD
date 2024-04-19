@@ -37,7 +37,9 @@ describe('rootDomainSync', () => {
       scanTaskId: 'scanTaskId'
     });
     const domains = await Domain.find({
-      where: { organization },
+      where: {
+        organization: { id: organization.id }
+      },
       relations: ['organization']
     });
     expect(domains.length).toEqual(1);

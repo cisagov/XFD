@@ -54,7 +54,7 @@ export class Organization extends BaseEntity {
   })
   domains: Domain[];
 
-  @Column('json', { default: '[]' })
+  @Column('jsonb', { default: '[]' })
   pendingDomains: PendingDomain[];
 
   @OneToMany((type) => Role, (role) => role.organization, {
