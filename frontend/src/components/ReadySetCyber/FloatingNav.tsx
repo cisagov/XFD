@@ -1,11 +1,12 @@
 import React from 'react';
-import { useScrollTrigger } from '@mui/material';
+import { Divider, useScrollTrigger } from '@mui/material';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
 import Zoom from '@mui/material/Zoom';
 import NavigationIcon from '@mui/icons-material/Navigation';
 import Menu from '@mui/material/Menu';
-import { RSCNavItem } from './RSCNavItem';
+import { HashLink } from 'react-router-hash-link';
+import MenuItem from '@mui/material/MenuItem';
 
 interface Props {
   categories: Category[];
@@ -25,6 +26,18 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
   };
   const handleClose = () => {
     setAnchorEl(null);
+  };
+
+  const MenuProps = {
+    getContentAnchorEl: null,
+    anchorOrigin: {
+      vertical: 'top',
+      horizontal: 'left'
+    },
+    transformOrigin: {
+      vertical: 'bottom',
+      horizontal: 'right'
+    }
   };
   return (
     <>
@@ -67,7 +80,21 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
         }}
       >
         {categories.map((category, index) => (
-          <RSCNavItem key={index} name={category.name} />
+          <>
+            <MenuItem key={index} onClick={handleClose}>
+              <HashLink
+                style={{
+                  textDecoration: 'none',
+                  color: 'black',
+                  outline: 'none'
+                }}
+                to={`#${category.name}`}
+              >
+                {category.name}
+              </HashLink>
+            </MenuItem>
+            <Divider />
+          </>
         ))}
       </Menu>
     </>
