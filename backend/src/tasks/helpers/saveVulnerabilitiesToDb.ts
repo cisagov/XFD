@@ -26,7 +26,11 @@ export default async (
     await Vulnerability.createQueryBuilder()
       .insert()
       .values(vulnerability)
-      .onConflict(
+      .orUpdate(
+        ['DomainId', 'title'],
+        updatedValues.map((val) => val)
+      )
+      /**.onConflict(
         `
             ("domainId", "title") DO UPDATE
             SET ${updatedValues
@@ -34,7 +38,7 @@ export default async (
               .join('\n')}
                 "updatedAt" = now()
           `
-      )
+      )*/
       .execute();
   }
 };
