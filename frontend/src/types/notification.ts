@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 
 export interface MaintenanceNotification {
-  id?: string;
+  id: string;
   maintenanceType: string;
   status: string;
   updatedBy: string;
@@ -13,7 +13,7 @@ export interface MaintenanceNotification {
 export const initialNotificationValues = {
   id: '1',
   maintenanceType: '',
-  status: '',
+  status: 'inactive',
   updatedBy: '',
   message: '',
   startDatetime: format(new Date(), 'yyyy-MM-dd HH:mm'),
