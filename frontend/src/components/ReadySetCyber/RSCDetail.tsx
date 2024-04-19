@@ -9,7 +9,13 @@ import { RSCSideNav } from './RSCSideNav';
 import { RSCResult } from './RSCResult';
 import { RSCQuestion } from './RSCQuestion';
 import { dummyResults } from './dummyData';
-import { Typography } from '@mui/material';
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Typography
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,13 +27,17 @@ export const RSCDetail: React.FC = () => {
   const { questions } = dummyResults.find(
     (result) => result.id === parseInt(id)
   ) || { questions: [] };
+
+  const categories =
+    dummyResults.find((result) => result.id === parseInt(id))?.categories || [];
+
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item xs={4}>
+        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav />
         </Grid>
-        <Grid item xs={8}>
+        <Grid item xs={12} sm={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <Stack
@@ -66,12 +76,27 @@ export const RSCDetail: React.FC = () => {
                 />
               </Box>
               <br />
-              {questions.map((question) => (
-                <>
+              <Accordion sx={{ display: { xs: 'block', sm: 'none' } }}>
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon />}
+                  aria-controls="panel1a-content"
+                  id="panel1a-header"
+                >
+                  {' '}
+                  Categories
+                </AccordionSummary>
+                {categories.map((category) => (
+                  <AccordionDetails key={category.id}>
+                    {category.name}
+                  </AccordionDetails>
+                ))}
+              </Accordion>
+              <br />
+              <Stack spacing={2}>
+                {questions.map((question) => (
                   <RSCQuestion key={question.id} question={question} />
-                  <br />
-                </>
-              ))}
+                ))}
+              </Stack>
             </Stack>
           </Box>
         </Grid>

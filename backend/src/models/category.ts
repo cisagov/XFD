@@ -15,7 +15,7 @@ export class Category extends BaseEntity {
   @Column()
   name: string;
 
-  @Column({ nullable: true })
+  @Column({ unique: true })
   number: string;
 
   @Column({ nullable: true })

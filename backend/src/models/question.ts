@@ -29,7 +29,7 @@ export class Question extends BaseEntity {
   longForm: string;
 
   @Column()
-  number: number;
+  number: string;
 
   @ManyToMany(() => Resource, (resource) => resource.questions)
   @JoinTable()
