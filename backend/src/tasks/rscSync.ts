@@ -110,7 +110,7 @@ const generateQuestionDictionary = async (): Promise<{
   [key: string]: string;
 }> => {
   await connectToDatabase();
-  const questionRepository = getRepository(Question);
+  const questionRepository = Question.getRepository();
   const questions = await questionRepository.find({ select: ['id', 'name'] });
   return questions.reduce((acc, question) => {
     acc[question.name] = question.id;
@@ -160,7 +160,7 @@ export const fetchAssessmentsByUser = async (email: string) => {
 };
 
 const getUserIdByEmail = async (email: string): Promise<string | null> => {
-  const user = await User.findOne({ where: { email } });
+  const user = await User.findOneBy({ email });
   return user ? user.id : null;
 };
 
@@ -194,8 +194,8 @@ const saveAssessmentsToDb = async (assessments: any[]) => {
     });
 
     let savedAssessment: Assessment;
-    const existingAssessment = await assessmentRepository.findOne({
-      where: { rscId: assessmentToSave.rscId }
+    const existingAssessment = await assessmentRepository.findOneBy({
+      rscId: assessmentToSave.rscId
     });
 
     if (existingAssessment) {

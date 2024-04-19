@@ -43,8 +43,8 @@ export const list = wrapHandler(async (event) => {
 
   await connectToDatabase();
 
-  const assessments = await Assessment.find({
-    where: { user: userId }
+  const assessments = await Assessment.findBy({
+    user: userId
   });
 
   return {
@@ -75,12 +75,14 @@ export const get = wrapHandler(async (event) => {
 
   await connectToDatabase();
 
-  const assessment = await Assessment.findOne({ where: { id: assessmentId } });
-  //relations: [
-  //  'responses',
-  //  'responses.question',
-  //  'responses.question.category'
-  //]
+  const assessment = await Assessment.findOne({
+    where: { id: assessmentId },
+    relations: [
+      'responses',
+      'responses.question',
+      'responses.question.category'
+    ]
+  });
 
   if (!assessment) {
     return NotFound;
