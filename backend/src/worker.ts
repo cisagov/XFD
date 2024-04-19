@@ -4,8 +4,6 @@ import { connectToDatabase } from './models';
 import fetchPublicSuffixList from './tasks/helpers/fetchPublicSuffixList';
 import { handler as amass } from './tasks/amass';
 import { handler as censys } from './tasks/censys';
-import { handler as censysCertificates } from './tasks/censysCertificates';
-import { handler as censysIpv4 } from './tasks/censysIpv4';
 import { handler as cve } from './tasks/cve';
 import { handler as cveSync } from './tasks/cve-sync';
 import { handler as dnstwist } from './tasks/dnstwist';
@@ -40,8 +38,6 @@ async function main() {
   const scanFn: any = {
     amass,
     censys,
-    censysCertificates,
-    censysIpv4,
     cve,
     cveSync,
     dnstwist,

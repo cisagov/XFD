@@ -6,7 +6,7 @@ import saveServicesToDb from './helpers/saveServicesToDb';
 import { chunk } from 'lodash';
 import axios from 'axios';
 import pRetry from 'p-retry';
-import { IpToDomainsMap, sanitizeStringField } from './censysIpv4';
+import { sanitizeStringField } from './helpers/sanitizeStringFields';
 import saveVulnerabilitiesToDb from './helpers/saveVulnerabilitiesToDb';
 
 // Shodan allows searching up to 100 IPs at once
@@ -38,6 +38,10 @@ interface ShodanResponse {
       };
     };
   }[];
+}
+
+interface IpToDomainsMap {
+  [ip: string]: Domain[];
 }
 
 const sleep = (milliseconds) => {

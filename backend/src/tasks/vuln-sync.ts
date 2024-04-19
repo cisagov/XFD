@@ -12,7 +12,7 @@ import axios from 'axios';
 import saveServicesToDb from './helpers/saveServicesToDb';
 import saveVulnerabilitiesToDb from './helpers/saveVulnerabilitiesToDb';
 import saveDomainsReturn from './helpers/saveDomainsReturn';
-import { sanitizeStringField } from './censysIpv4';
+import { sanitizeStringField } from './helpers/sanitizeStringFields';
 
 interface UniversalCrossfeedVuln {
   title: string;
