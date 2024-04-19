@@ -16,6 +16,7 @@ import {
   Typography
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { RSCNextSteps } from './RSCNextSteps';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -38,67 +39,72 @@ export const RSCDetail: React.FC = () => {
           <RSCSideNav />
         </Grid>
         <Grid item xs={12} sm={8}>
-          <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
-            <Stack>
-              <Stack
-                direction="row"
-                justifyContent={'space-between'}
-                alignItems="center"
-                padding={2}
-              >
-                <Typography variant="h5" component="div">
-                  Summary and Resources
-                </Typography>
-                <Button variant="contained" color="success">
-                  Download PDF
-                </Button>
-              </Stack>
-              <Divider />
-              <h3>Thank you for completing the ReadySetCyber questionnaire!</h3>
-              <p>
-                Below, you’ll find a full summary of your completed
-                ReadySetCyber questionnaire. Please note the areas where you can
-                improve your organization’s cybersecurity posture, along with
-                the recommended resources to help you address these areas. To
-                take further action, contact your regional CISA Cybersecurity
-                Advisor (CSA) for personalized support. You can also explore
-                Crossfeed, CISA’s Attack Surface Management platform, for free
-                vulnerability scanning services to kickstart or enhance your
-                cybersecurity measures.
-              </p>
-              <Box>
-                <RSCResult
-                  id={result.id}
-                  type={result.type}
-                  date={result.date}
-                  categories={[]}
-                  questions={[]}
-                />
-              </Box>
-              <br />
-              <Accordion sx={{ display: { xs: 'block', sm: 'none' } }}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="panel1a-content"
-                  id="panel1a-header"
+          <Stack spacing={2}>
+            <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
+              <Stack>
+                <Stack
+                  direction="row"
+                  justifyContent={'space-between'}
+                  alignItems="center"
+                  padding={2}
                 >
-                  {' '}
-                  Categories
-                </AccordionSummary>
-                {categories.map((category) => (
-                  <AccordionDetails key={category.id}>
-                    {category.name}
-                  </AccordionDetails>
-                ))}
-              </Accordion>
-              <br />
-              <Stack spacing={2}>
-                {questions.map((question) => (
-                  <RSCQuestion key={question.id} question={question} />
-                ))}
+                  <Typography variant="h5" component="div">
+                    Summary and Resources
+                  </Typography>
+                  <Button variant="contained" color="success">
+                    Download PDF
+                  </Button>
+                </Stack>
+                <Divider />
+                <h3>
+                  Thank you for completing the ReadySetCyber questionnaire!
+                </h3>
+                <p>
+                  Below, you’ll find a full summary of your completed
+                  ReadySetCyber questionnaire. Please note the areas where you
+                  can improve your organization’s cybersecurity posture, along
+                  with the recommended resources to help you address these
+                  areas. To take further action, contact your regional CISA
+                  Cybersecurity Advisor (CSA) for personalized support. You can
+                  also explore Crossfeed, CISA’s Attack Surface Management
+                  platform, for free vulnerability scanning services to
+                  kickstart or enhance your cybersecurity measures.
+                </p>
+                <Box>
+                  <RSCResult
+                    id={result.id}
+                    type={result.type}
+                    date={result.date}
+                    categories={[]}
+                    questions={[]}
+                  />
+                </Box>
+                <br />
+                <Accordion sx={{ display: { xs: 'block', sm: 'none' } }}>
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon />}
+                    aria-controls="panel1a-content"
+                    id="panel1a-header"
+                  >
+                    {' '}
+                    Categories
+                  </AccordionSummary>
+                  {categories.map((category) => (
+                    <AccordionDetails key={category.id}>
+                      {category.name}
+                    </AccordionDetails>
+                  ))}
+                </Accordion>
+                <br />
+                <Stack spacing={2}>
+                  {questions.map((question) => (
+                    <RSCQuestion key={question.id} question={question} />
+                  ))}
+                </Stack>
               </Stack>
-            </Stack>
-          </Box>
+            </Box>
+            <RSCNextSteps />
+          </Stack>
         </Grid>
       </Grid>
     </Box>
