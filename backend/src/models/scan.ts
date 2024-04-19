@@ -27,7 +27,7 @@ export class Scan extends BaseEntity {
   @Column()
   name: string;
 
-  @Column('json')
+  @Column('jsonb', { default: {} })
   arguments: Object;
 
   /** How often the scan is run, in seconds */
