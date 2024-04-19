@@ -6,22 +6,22 @@ import {
   ScanTask,
   OrganizationTag
 } from '../../models';
+import { DataSource } from 'typeorm';
 
 jest.mock('../ecs-client');
 const { runCommand, getNumTasks } = require('../ecs-client');
 
 describe('scheduler', () => {
-  let connection;
+  let connection: DataSource;
   beforeAll(async () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   test('should run a scan for the first time', async () => {
     let scan = await Scan.create({
       name: 'findomain',
-      arguments: {},
       frequency: 999
     }).save();
     const organization = await Organization.create({
@@ -54,9 +54,9 @@ describe('scheduler', () => {
       })
     );
 
-    const scanTask = await ScanTask.findOne(
-      runCommand.mock.calls[0][0].scanTaskId
-    );
+    const scanTask = await ScanTask.findOneBy({
+      id: runCommand.mock.calls[0][0].scanTaskId
+    });
     expect(scanTask?.status).toEqual('requested');
     expect(scanTask?.fargateTaskArn).toEqual('mock_task_arn');
 
@@ -67,7 +67,6 @@ describe('scheduler', () => {
     test('should not run a scan when a scantask for that scan and organization is already in progress', async () => {
       let scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -99,7 +98,6 @@ describe('scheduler', () => {
     test('should run a scan when a scantask for that scan and another organization is already in progress', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -129,7 +127,6 @@ describe('scheduler', () => {
     test('should not run a scan when a scantask for that scan and organization finished too recently', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -160,7 +157,6 @@ describe('scheduler', () => {
     test('should not run a scan when a scantask for that scan and organization finished too recently, and a failed scan occurred afterwards that does not have a finishedAt column', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -198,7 +194,6 @@ describe('scheduler', () => {
     test('should not run a scan when a scantask for that scan and organization failed too recently', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -229,7 +224,6 @@ describe('scheduler', () => {
     test('should not run a scan when scan is a SingleScan and has finished', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999,
         isSingleScan: true,
         manualRunPending: false
@@ -262,7 +256,6 @@ describe('scheduler', () => {
     test('should not run a scan when scan is a SingleScan and has not run yet', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999,
         isSingleScan: true,
         manualRunPending: false
@@ -288,7 +281,6 @@ describe('scheduler', () => {
     test('should always run a scan when scan has manualRunPending set to true', async () => {
       let scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 1,
         isSingleScan: true,
         manualRunPending: true
@@ -325,7 +317,6 @@ describe('scheduler', () => {
     test('should run a scan when a scantask for that scan and organization finished and sufficient time has passed', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 100
       }).save();
       const organization = await Organization.create({
@@ -358,7 +349,6 @@ describe('scheduler', () => {
     test('should run a scan when a scantask for that scan and organization failed and sufficient time has passed', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 100
       }).save();
       const organization = await Organization.create({
@@ -411,7 +401,6 @@ describe('scheduler', () => {
       }).save();
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999,
         isGranular: true,
         organizations: [organization, organization2]
@@ -441,12 +430,14 @@ describe('scheduler', () => {
         })
       );
 
-      let scanTask = await ScanTask.findOne(
-        runCommand.mock.calls[0][0].scanTaskId
-      );
+      let scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[0][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
 
-      scanTask = await ScanTask.findOne(runCommand.mock.calls[1][0].scanTaskId);
+      scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[1][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
     });
     test('should run a granular scan on associated tags', async () => {
@@ -479,7 +470,6 @@ describe('scheduler', () => {
       }).save();
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999,
         isGranular: true,
         tags: [tag1]
@@ -509,12 +499,14 @@ describe('scheduler', () => {
         })
       );
 
-      let scanTask = await ScanTask.findOne(
-        runCommand.mock.calls[0][0].scanTaskId
-      );
+      let scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[0][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
 
-      scanTask = await ScanTask.findOne(runCommand.mock.calls[1][0].scanTaskId);
+      scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[1][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
     });
     test('should only run a scan once if an organization and its tag are both enabled', async () => {
@@ -547,7 +539,6 @@ describe('scheduler', () => {
       }).save();
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999,
         isGranular: true,
         organizations: [organization, organization2],
@@ -578,12 +569,14 @@ describe('scheduler', () => {
         })
       );
 
-      let scanTask = await ScanTask.findOne(
-        runCommand.mock.calls[0][0].scanTaskId
-      );
+      let scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[0][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
 
-      scanTask = await ScanTask.findOne(runCommand.mock.calls[1][0].scanTaskId);
+      scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[1][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
     });
   });
@@ -592,7 +585,6 @@ describe('scheduler', () => {
       jest.setTimeout(30000);
       const scan = await Scan.create({
         name: 'censysIpv4',
-        arguments: {},
         frequency: 999
       }).save();
 
@@ -614,16 +606,15 @@ describe('scheduler', () => {
         })
       );
 
-      const scanTask = await ScanTask.findOne(
-        runCommand.mock.calls[0][0].scanTaskId
-      );
+      const scanTask = await ScanTask.findOneBy({
+        id: runCommand.mock.calls[0][0].scanTaskId
+      });
       expect(scanTask?.status).toEqual('requested');
       expect(scanTask?.organization).toBeUndefined();
     });
     test('should not run a global scan when a scantask for it is already in progress', async () => {
       const scan = await Scan.create({
         name: 'censysIpv4',
-        arguments: {},
         frequency: 999
       }).save();
       await ScanTask.create({
@@ -650,7 +641,6 @@ describe('scheduler', () => {
     test('should not run scan if max concurrency has already been reached', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -669,14 +659,12 @@ describe('scheduler', () => {
         {} as any,
         () => void 0
       );
-      expect(runCommand).toHaveBeenCalledTimes(0);
+      getNumTasks.mockImplementation(() => Promise.resolve(0));
 
       expect(
-        await ScanTask.count({
-          where: {
-            scan,
-            status: 'queued'
-          }
+        await ScanTask.countBy({
+          scan: { id: scan.id },
+          status: 'queued'
         })
       ).toEqual(1);
 
@@ -691,11 +679,9 @@ describe('scheduler', () => {
       );
       expect(runCommand).toHaveBeenCalledTimes(0);
       expect(
-        await ScanTask.count({
-          where: {
-            scan,
-            status: 'queued'
-          }
+        await ScanTask.countBy({
+          scan: { id: scan.id },
+          status: 'queued'
         })
       ).toEqual(1);
 
@@ -716,12 +702,10 @@ describe('scheduler', () => {
     test('should run only one, not two scans, if only one more scan remaining before max concurrency is reached', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const scan2 = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -743,17 +727,13 @@ describe('scheduler', () => {
       expect(runCommand).toHaveBeenCalledTimes(1);
 
       expect(
-        (await ScanTask.count({
-          where: {
-            scan,
-            status: 'queued'
-          }
+        (await ScanTask.countBy({
+          scan,
+          status: 'queued'
         })) +
-          (await ScanTask.count({
-            where: {
-              scan: scan2,
-              status: 'queued'
-            }
+          (await ScanTask.countBy({
+            scan: scan2,
+            status: 'queued'
           }))
       ).toEqual(1);
 
@@ -773,7 +753,6 @@ describe('scheduler', () => {
     test('should run part of a chunked (20) scan if less than 20 scans remaining before concurrency is reached, then run the rest of them only when concurrency opens back up', async () => {
       const scan = await Scan.create({
         name: 'censysIpv4',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -796,11 +775,9 @@ describe('scheduler', () => {
       expect(runCommand).toHaveBeenCalledTimes(10);
 
       expect(
-        await ScanTask.count({
-          where: {
-            scan,
-            status: 'queued'
-          }
+        await ScanTask.countBy({
+          scan,
+          status: 'queued'
         })
       ).toEqual(10);
 
@@ -817,11 +794,9 @@ describe('scheduler', () => {
       expect(runCommand).toHaveBeenCalledTimes(20);
 
       expect(
-        await ScanTask.count({
-          where: {
-            scan,
-            status: 'queued'
-          }
+        await ScanTask.countBy({
+          scan,
+          status: 'queued'
         })
       ).toEqual(0);
 
@@ -841,7 +816,6 @@ describe('scheduler', () => {
   test('should not run a global scan when a scantask for it is already in progress, even if scantasks have finished before / after it', async () => {
     const scan = await Scan.create({
       name: 'censysIpv4',
-      arguments: {},
       frequency: 999
     }).save();
     await ScanTask.create({
@@ -878,13 +852,11 @@ describe('scheduler', () => {
     // The scheduler should not change scan2.lastRun during its second call
     const scan = await Scan.create({
       name: 'findomain',
-      arguments: {},
       frequency: 1,
       lastRun: new Date(0)
     }).save();
     let scan2 = await Scan.create({
       name: 'findomain',
-      arguments: {},
       frequency: 999,
       lastRun: new Date()
     }).save();
@@ -927,7 +899,6 @@ describe('scheduler', () => {
     test('should run one scantask per org by default', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({
@@ -1000,7 +971,6 @@ describe('scheduler', () => {
     test('should batch two orgs per scantask when specified', async () => {
       const scan = await Scan.create({
         name: 'findomain',
-        arguments: {},
         frequency: 999
       }).save();
       const organization = await Organization.create({

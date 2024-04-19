@@ -2,7 +2,7 @@ import { Handler } from 'aws-lambda';
 import { connectToDatabase, Scan, Organization, ScanTask } from '../models';
 import ECSClient from './ecs-client';
 import { SCAN_SCHEMA } from '../api/scans';
-import { In } from 'typeorm';
+import { In, IsNull, Not } from 'typeorm';
 import getScanOrganizations from './helpers/getScanOrganizations';
 import { chunk } from 'lodash';
 
@@ -320,32 +320,28 @@ interface Event {
 }
 
 export const handler: Handler<Event> = async (event) => {
-  const dataSource = await connectToDatabase();
+  await connectToDatabase();
   console.log('Running scheduler...');
 
   const scanIds = event.scanIds || [];
   if (event.scanId) {
     scanIds.push(event.scanId);
   }
-  const scanRepository = dataSource.getRepository(Scan);
-  const organizationRepository = dataSource.getRepository(Organization);
-  const scanTaskRepository = dataSource.getRepository(ScanTask);
-
   const scanWhere = scanIds.length ? { id: In(scanIds) } : {};
   const orgWhere = event.organizationIds?.length
     ? { id: In(event.organizationIds) }
     : {};
-  const scans = await scanRepository.find({
-    where: { ...scanWhere },
+  const scans = await Scan.find({
+    where: scanWhere,
     relations: ['organizations', 'tags', 'tags.organizations']
   });
-  const organizations = await organizationRepository.findBy({
-    ...orgWhere
+  const organizations = await Organization.find({
+    where: orgWhere
   });
 
-  const queuedScanTasks = await scanTaskRepository.find({
+  const queuedScanTasks = await ScanTask.find({
     where: {
-      ...scanWhere,
+      scan: scanWhere,
       status: 'queued'
     },
     order: {
