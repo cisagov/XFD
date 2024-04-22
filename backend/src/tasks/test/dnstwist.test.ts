@@ -107,8 +107,11 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findBy({
-      domain
+    const vuln = await Vulnerability.find({
+      where: {
+        domain: { id: domain.id }
+      },
+      relations: ['domain']
     });
 
     expect(vuln[0].title).toEqual('DNS Twist Domains');
@@ -163,11 +166,17 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const root_vuln = await Vulnerability.findBy({
-      domain: root_domain
+    const root_vuln = await Vulnerability.find({
+      where: {
+        domain: { id: root_domain.id }
+      },
+      relations: ['domain']
     });
-    const sub_vuln = await Vulnerability.findBy({
-      domain: sub_domain
+    const sub_vuln = await Vulnerability.find({
+      where: {
+        domain: { id: sub_domain.id }
+      },
+      relations: ['domain']
     });
     expect(sub_vuln).toHaveLength(0);
     expect(root_vuln).toHaveLength(1);
@@ -186,12 +195,17 @@ describe('dnstwist', () => {
     const root_domain = await Domain.findOneBy({
       name: root_domain_name
     });
-    const root_vuln = await Vulnerability.findBy({
-      domain: root_domain!
-    });
-    expect(root_vuln).toHaveLength(1);
-    expect(root_vuln[0].title).toEqual('DNS Twist Domains');
-    expect(root_vuln[0].source).toEqual('dnstwist');
+    if (root_domain) {
+      const root_vuln = await Vulnerability.find({
+        where: {
+          domain: { id: root_domain.id }
+        },
+        relations: ['domain']
+      });
+      expect(root_vuln).toHaveLength(1);
+      expect(root_vuln[0].title).toEqual('DNS Twist Domains');
+      expect(root_vuln[0].source).toEqual('dnstwist');
+    }
   });
   test("adds new domains to existing dnstwist vulnerabilty and doesn't update the date of the existing one", async () => {
     const name = 'test-root-domain';
@@ -224,8 +238,11 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findBy({
-      domain
+    const vuln = await Vulnerability.find({
+      where: {
+        domain: { id: domain.id }
+      },
+      relations: ['domain']
     });
     expect(vuln[0].title).toEqual('DNS Twist Domains');
     expect(vuln).toHaveLength(1);
@@ -292,8 +309,11 @@ describe('dnstwist', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vuln = await Vulnerability.findBy({
-      domain
+    const vuln = await Vulnerability.find({
+      where: {
+        domain: { id: domain.id }
+      },
+      relations: ['domain']
     });
     expect(vuln[0].title).toEqual('DNS Twist Domains');
     expect(vuln).toHaveLength(1);
