@@ -17,7 +17,11 @@ export default async (domains: Domain[]) => {
       await Domain.createQueryBuilder()
         .insert()
         .values(domain)
-        .onConflict(
+        .orUpdate(
+          updatedValues.map((val) => val),
+          ['name', 'organization']
+        )
+        /** .onConflict(
           `
             ("name", "organizationId") DO UPDATE
             SET ${updatedValues
@@ -25,7 +29,7 @@ export default async (domains: Domain[]) => {
               .join('\n')}
                 "updatedAt" = now()
           `
-        )
+        ) */
         .returning('id')
         .execute()
     ).identifiers[0].id;

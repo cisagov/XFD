@@ -26,7 +26,11 @@ export default async (scrapedWebpages: ScraperItem[]): Promise<void> => {
           headers: []
         })
       )
-      .onConflict(
+      .orUpdate(
+        ['lastSeen', 'syncedAt', 'status', 'responseSize', 'headers'],
+        ['domainId', 'url']
+      )
+      /**.onConflict(
         `
         ("domainId","url") DO UPDATE
         SET "lastSeen" = excluded."lastSeen",
@@ -36,7 +40,7 @@ export default async (scrapedWebpages: ScraperItem[]): Promise<void> => {
             "headers" = excluded."headers",
             "updatedAt" = now()
       `
-      )
+      )*/
       .returning('*')
       .execute();
     urlToInsertedWebpage[scrapedWebpage.url] = result

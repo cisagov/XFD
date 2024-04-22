@@ -16,14 +16,18 @@ export default async (services: Service[]): Promise<string[]> => {
       await Service.createQueryBuilder()
         .insert()
         .values(service)
-        .onConflict(
+        .orUpdate(
+          updatedValues.map((val) => val),
+          ['domainId', 'port']
+        )
+        /** .onConflict(
           `
       ("domainId","port") DO UPDATE
       SET ${updatedValues
         .map((val) => `"${val}" = excluded."${val}",`)
         .join('\n')}
           "updatedAt" = now()`
-        )
+        )*/
         .returning('id')
         .execute()
     ).identifiers[0].id;

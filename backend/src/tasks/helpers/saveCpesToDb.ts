@@ -11,9 +11,10 @@ export default async (cpes: Cpe[]): Promise<string[]> => {
           .insert()
           .values(cpe)
           .returning('id')
-          .onConflict(
+          .orUpdate(['lastSeenAt'], ['name', 'version', 'vendor']) //Need to see if decorator
+          /** .onConflict(
             `("name", "version", "vendor")DO UPDATE SET "lastSeenAt" = now()`
-          )
+          )*/
           .execute()
       ).identifiers[0].id;
       ids.push(id);

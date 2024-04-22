@@ -27,8 +27,8 @@ export default async (
       .insert()
       .values(vulnerability)
       .orUpdate(
-        ['DomainId', 'title'],
-        updatedValues.map((val) => val)
+        updatedValues.map((val) => val), //This may be flipped around
+        ['domainId', 'title']
       )
       /**.onConflict(
         `

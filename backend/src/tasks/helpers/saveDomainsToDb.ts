@@ -15,7 +15,11 @@ export default async (domains: Domain[]): Promise<void> => {
     const { generatedMaps } = await Domain.createQueryBuilder()
       .insert()
       .values(domain)
-      .onConflict(
+      .orUpdate(
+        updatedValues.map((val) => val),
+        ['name', 'organization']
+      )
+      /**.onConflict(
         `
             ("name", "organizationId") DO UPDATE
             SET ${updatedValues
@@ -23,7 +27,7 @@ export default async (domains: Domain[]): Promise<void> => {
               .join('\n')}
                 "updatedAt" = now()
           `
-      )
+      )*/
       .execute();
     // return generatedMaps[0] as Domain;
   }
