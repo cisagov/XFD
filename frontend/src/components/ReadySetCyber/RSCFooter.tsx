@@ -73,6 +73,8 @@ export const RSCFooter: React.FC = () => {
                   fontSize: '0.9em'
                 }}
                 href={link.href}
+                target="_blank"
+                rel="noopener noreferrer"
               >
                 {link.text}
               </Link>
