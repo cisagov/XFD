@@ -28,17 +28,6 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
     setAnchorEl(null);
   };
 
-  // const MenuProps = {
-  //   getContentAnchorEl: null,
-  //   anchorOrigin: {
-  //     vertical: 'top',
-  //     horizontal: 'left'
-  //   },
-  //   transformOrigin: {
-  //     vertical: 'bottom',
-  //     horizontal: 'right'
-  //   }
-  // };
   return (
     <>
       <Zoom in={trigger}>
