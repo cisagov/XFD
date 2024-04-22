@@ -39,7 +39,7 @@ describe('auth', () => {
       expect(response.body.token).toBeTruthy();
       expect(response.body.user).toBeTruthy();
       expect(response.body.user.email).toEqual('test@crossfeed.cisa.gov');
-      const user = await User.findOne(response.body.user.id);
+      const user = await User.findOneBy({ id: response.body.user.id });
       expect(user?.firstName).toEqual('');
       expect(user?.lastName).toEqual('');
     });
@@ -54,7 +54,7 @@ describe('auth', () => {
       expect(response.body.token).toBeTruthy();
       expect(response.body.user).toBeTruthy();
       expect(response.body.user.email).toEqual('test2@crossfeed.cisa.gov');
-      const user = await User.findOne(response.body.user.id);
+      const user = await User.findOneBy({ id: response.body.user.id });
       expect(user?.firstName).toEqual('');
       expect(user?.lastName).toEqual('');
       process.env.USE_COGNITO = '';
@@ -81,7 +81,9 @@ describe('auth', () => {
           token: 'TOKEN_test3@crossfeed.cisa.gov'
         })
         .expect(200);
-      const user = (await User.findOne(response.body.user.id)) as User;
+      const user = (await User.findOneBy({
+        id: response.body.user.id
+      })) as User;
       expect(user.id).toEqual(id);
       expect(user.cognitoId).not.toEqual(cognitoId);
       process.env.USE_COGNITO = '';
@@ -113,7 +115,9 @@ describe('auth', () => {
         .expect(200);
       expect(response.body.token).toBeTruthy();
 
-      const user = (await User.findOne(response.body.user.id)) as User;
+      const user = (await User.findOneBy({
+        id: response.body.user.id
+      })) as User;
       expect(user.email).toEqual('test@crossfeed.cisa.gov');
       expect(user.id).toEqual(id);
       expect(user.loginGovId).toEqual(loginGovId);
