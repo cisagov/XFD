@@ -9,12 +9,19 @@ export const RSCFooter: React.FC = () => {
       sx={{
         width: '100%',
         display: 'flex',
+        flexDirection: {
+          xs: 'column',
+          sm: 'row'
+        },
         position: 'relative',
         bottom: 0,
         justifyContent: 'center',
+        alignItems: {
+          xs: 'center', // center horizontally on small screens
+          sm: 'initial' // reset to default on larger screens
+        },
         backgroundColor: '#005285',
-        paddingTop: '1em',
-        paddingBottom: '1em'
+        padding: '1em'
       }}
     >
       <Box
@@ -26,15 +33,21 @@ export const RSCFooter: React.FC = () => {
         }}
       >
         <Stack direction={'row'} gap={'1em'} paddingBottom={'2em'}>
-          <img
-            src={cisaFooterLogo}
-            alt="CISA Footer Logo"
-            style={{
-              width: 55,
-              height: 55,
-              flexShrink: 0
-            }}
-          />
+          <Link
+            href="https://www.cisa.gov/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <img
+              src={cisaFooterLogo}
+              alt="CISA Footer Logo"
+              style={{
+                width: 55,
+                height: 55,
+                flexShrink: 0
+              }}
+            />
+          </Link>
           <Stack justifyContent={'center'}>
             <Typography
               style={{
@@ -81,6 +94,29 @@ export const RSCFooter: React.FC = () => {
             </Grid>
           ))}
         </Grid>
+      </Box>
+      <Box
+        sx={{
+          textAlign: {
+            xs: 'center',
+            sm: 'right'
+          },
+          marginTop: {
+            xs: '1em',
+            sm: '0'
+          }
+        }}
+      >
+        <iframe
+          src="https://www.dhs.gov/ntas/"
+          name="National Terrorism Advisory System"
+          title="National Terrorism Advisory System"
+          width="170"
+          height="180"
+          scrolling="no"
+          frameBorder="0"
+          style={{ border: 0 }}
+        />
       </Box>
     </Box>
   );
