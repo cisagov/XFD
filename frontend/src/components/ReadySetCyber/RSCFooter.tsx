@@ -20,7 +20,7 @@ export const RSCFooter: React.FC = () => {
           xs: 'center', // center horizontally on small screens
           sm: 'initial' // reset to default on larger screens
         },
-        backgroundColor: '#005285',
+        backgroundColor: '#005288',
         padding: '1em'
       }}
     >
@@ -32,7 +32,11 @@ export const RSCFooter: React.FC = () => {
           justifyContent: 'center'
         }}
       >
-        <Stack direction={'row'} gap={'1em'} paddingBottom={'2em'}>
+        <Stack
+          direction={{ sm: 'column', md: 'row' }}
+          gap={{ sm: '-2em', md: '1em' }}
+          paddingBottom={'2em'}
+        >
           <Link
             href="https://www.cisa.gov/"
             target="_blank"
