@@ -1,1 +1,1 @@
-export { default } from './IconType';
+export * from './IconType';

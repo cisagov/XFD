@@ -1,5 +1,12 @@
 import React from 'react';
-import { Box, Button, Grid, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Grid,
+  Typography,
+  FormControlLabel,
+  Radio
+} from '@mui/material';
 import { isResourceVisible } from './helpers/index';
 import { IconFilter } from './components/index';
 
@@ -31,7 +38,7 @@ interface Resource {
   type: string;
   url: string;
 }
-
+// Concatenates the last one or two characters of a string
 const questionNumber = (n: string) => {
   return n.charAt(n.length - 2) === '0' ? n.slice(-1) : n.slice(-2);
 };
@@ -72,7 +79,24 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                 </Typography>
               )}
               <Typography variant="subtitle2" gutterBottom>
-                Response: {entry.selection}
+                Response:
+                <Grid
+                  container
+                  sx={{
+                    alignItems: 'center',
+                    backgroundColor: 'white',
+                    width: 'fit-content',
+                    border: '2px solid #ccc',
+                    borderRadius: 0
+                  }}
+                >
+                  <Grid item marginLeft={'-0.25em'}>
+                    <Radio checked={true} disabled={true} />
+                  </Grid>
+                  <Grid item paddingRight={'0.5em'}>
+                    {entry.selection}
+                  </Grid>
+                </Grid>
               </Typography>
               {entry.question.resources.length > 0 &&
                 isResourceVisible(entry.selection) && (
@@ -96,12 +120,12 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                           marginBottom: 1
                         }}
                       >
-                        <Grid container>
-                          <Grid item alignItems={'center'}>
+                        <Grid container alignItems={'center'}>
+                          <Grid item paddingRight={'0.25em'}>
                             <IconFilter type={resource.type} />
                           </Grid>
 
-                          <Grid item alignItems={'center'}>
+                          <Grid item>
                             <Typography variant="subtitle1">
                               {resource.type.charAt(0).toUpperCase() +
                                 resource.type.slice(1)}
