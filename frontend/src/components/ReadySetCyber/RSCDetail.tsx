@@ -16,6 +16,8 @@ import {
   Typography
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,8 +33,20 @@ export const RSCDetail: React.FC = () => {
   const categories =
     dummyResults.find((result) => result.id === parseInt(id))?.categories || [];
 
+  const printRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDownloadPDF = async () => {
+    if (printRef.current) {
+      const canvas = await html2canvas(printRef.current);
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF();
+      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297); // Fix: Use the overload that expects 8 arguments
+      pdf.save('download.pdf');
+    }
+  };
+
   return (
-    <Box sx={{ flexGrow: 1, padding: 2 }}>
+    <Box sx={{ flexGrow: 1, padding: 2 }} ref={printRef}>
       <Grid container spacing={2}>
         <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav />
@@ -49,7 +63,11 @@ export const RSCDetail: React.FC = () => {
                 <Typography variant="h5" component="div">
                   Summary and Resources
                 </Typography>
-                <Button variant="contained" color="success">
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleDownloadPDF}
+                >
                   Download PDF
                 </Button>
               </Stack>
