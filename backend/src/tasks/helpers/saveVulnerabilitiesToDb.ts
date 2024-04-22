@@ -27,10 +27,10 @@ export default async (
       .insert()
       .values(vulnerability)
       .orUpdate(
-        updatedValues.map((val) => val), //This may be flipped around
+        updatedValues.map((val) => val),
         ['domainId', 'title']
       )
-      /**.onConflict(
+      /*.onConflict(
         `
             ("domainId", "title") DO UPDATE
             SET ${updatedValues
