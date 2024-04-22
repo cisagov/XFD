@@ -2,11 +2,11 @@ import React from 'react';
 import { Divider, useScrollTrigger } from '@mui/material';
 import Box from '@mui/material/Box';
 import Fab from '@mui/material/Fab';
-import Zoom from '@mui/material/Zoom';
-import NavigationIcon from '@mui/icons-material/Navigation';
 import Menu from '@mui/material/Menu';
-import { HashLink } from 'react-router-hash-link';
 import MenuItem from '@mui/material/MenuItem';
+import NavigationIcon from '@mui/icons-material/Navigation';
+import Zoom from '@mui/material/Zoom';
+import { HashLink } from 'react-router-hash-link';
 
 interface Props {
   categories: Category[];
@@ -28,17 +28,17 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
     setAnchorEl(null);
   };
 
-  const MenuProps = {
-    getContentAnchorEl: null,
-    anchorOrigin: {
-      vertical: 'top',
-      horizontal: 'left'
-    },
-    transformOrigin: {
-      vertical: 'bottom',
-      horizontal: 'right'
-    }
-  };
+  // const MenuProps = {
+  //   getContentAnchorEl: null,
+  //   anchorOrigin: {
+  //     vertical: 'top',
+  //     horizontal: 'left'
+  //   },
+  //   transformOrigin: {
+  //     vertical: 'bottom',
+  //     horizontal: 'right'
+  //   }
+  // };
   return (
     <>
       <Zoom in={trigger}>

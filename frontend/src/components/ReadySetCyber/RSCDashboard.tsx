@@ -31,7 +31,7 @@ export const RSCDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchResults();
-  }, []);
+  }, [fetchResults]);
 
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
