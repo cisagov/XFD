@@ -29,7 +29,8 @@ export const RSCFooter: React.FC = () => {
           maxWidth: '80vw',
           display: 'flex',
           flexDirection: 'column',
-          justifyContent: 'center'
+          justifyContent: 'center',
+          paddingBottom: '2em'
         }}
       >
         <Stack
@@ -67,7 +68,7 @@ export const RSCFooter: React.FC = () => {
                 fontSize: '0.85em'
               }}
             >
-              An Official website of the U.S. Department of Homeland Security
+              An official website of the U.S. Department of Homeland Security
             </Typography>
           </Stack>
         </Stack>
@@ -107,7 +108,7 @@ export const RSCFooter: React.FC = () => {
           },
           alignContent: {
             xs: 'flex-end',
-            md: 'none'
+            sm: 'center'
           },
           marginTop: {
             xs: '1em',
