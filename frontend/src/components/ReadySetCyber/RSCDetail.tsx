@@ -16,10 +16,7 @@ import {
   Typography
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
-import ReactToPrint, { useReactToPrint } from 'react-to-print';
-import { style } from '@mui/system';
+import { useReactToPrint } from 'react-to-print';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
