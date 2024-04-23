@@ -18,6 +18,8 @@ import {
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import ReactToPrint, { useReactToPrint } from 'react-to-print';
+import { style } from '@mui/system';
 
 export const RSCDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,23 +37,23 @@ export const RSCDetail: React.FC = () => {
 
   const printRef = React.useRef<HTMLDivElement>(null);
 
-  const handleDownloadPDF = async () => {
-    if (printRef.current) {
-      const canvas = await html2canvas(printRef.current);
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF();
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297); // Fix: Use the overload that expects 8 arguments
-      pdf.save('download.pdf');
-    }
-  };
+  const handleDownloadPDF = useReactToPrint({
+    content: () => printRef.current,
+    pageStyle: `
+      @page {
+        size: 8.5in 11in;
+        margin: 1in;
+      }
+    `
+  });
 
   return (
-    <Box sx={{ flexGrow: 1, padding: 2 }} ref={printRef}>
+    <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
         <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
           <RSCSideNav />
         </Grid>
-        <Grid item xs={12} sm={8}>
+        <Grid item xs={12} sm={8} ref={printRef}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <Stack
