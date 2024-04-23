@@ -79,13 +79,28 @@ export const get = wrapHandler(async (event) => {
     relations: [
       'responses',
       'responses.question',
-      'responses.question.category'
+      'responses.question.category',
+      'responses.question.resources'
     ]
   });
 
   if (!assessment) {
     return NotFound;
   }
+
+  // Sort responses by question.number and then by category.number
+  assessment.responses.sort((a, b) => {
+    const questionNumberComparison = a.question.number.localeCompare(
+      b.question.number
+    );
+    if (questionNumberComparison !== 0) {
+      return questionNumberComparison;
+    } else {
+      return a.question.category.number.localeCompare(
+        b.question.category.number
+      );
+    }
+  });
 
   const responsesByCategory = assessment.responses.reduce((acc, response) => {
     const categoryName = response.question.category.name;

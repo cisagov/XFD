@@ -45,7 +45,7 @@ export const RSCHeader: React.FC = () => {
   };
 
   return (
-    <Box sx={{ flexGrow: 1 }}>
+    <Box>
       <AppBar position="static" sx={{ bgcolor: 'white' }}>
         <Container maxWidth="xl">
           <Toolbar disableGutters>
