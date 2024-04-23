@@ -105,9 +105,14 @@ export const RSCFooter: React.FC = () => {
             xs: 'center',
             sm: 'right'
           },
+          alignContent: {
+            xs: 'flex-end',
+            md: 'none'
+          },
           marginTop: {
             xs: '1em',
-            sm: '0'
+            sm: '2em',
+            md: '0em'
           }
         }}
       >
