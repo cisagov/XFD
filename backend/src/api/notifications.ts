@@ -1,46 +1,30 @@
-import {
-    IsString,
-    isUUID,
-    IsOptional,
-    IsDateString,
-  } from 'class-validator';
-  import {
-    Notification,
-    connectToDatabase,
-  } from '../models';
-  import {
-    validateBody,
-    wrapHandler,
-    NotFound,
-    Unauthorized
-  } from './helpers';
-  import {
-    isGlobalWriteAdmin
-  } from './auth';
-  
+import { IsString, isUUID, IsOptional, IsDateString } from 'class-validator';
+import { Notification, connectToDatabase } from '../models';
+import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
+import { isGlobalWriteAdmin } from './auth';
+
 class NewNotification {
-    @IsDateString()
-    startDatetime?: string;
+  @IsDateString()
+  startDatetime?: string;
 
-    @IsDateString()
-    endDatetime?: string;
+  @IsDateString()
+  endDatetime?: string;
 
-    @IsString()
-    maintenanceType?: string;
-  
-    @IsString()
-    @IsOptional()
-    status: string;
+  @IsString()
+  maintenanceType?: string;
 
-    @IsString()
-    @IsOptional()
-    message: string;
+  @IsString()
+  @IsOptional()
+  status: string;
 
-    @IsString()
-    @IsOptional()
-    updatedBy: string;
+  @IsString()
+  @IsOptional()
+  message: string;
 
-  }
+  @IsString()
+  @IsOptional()
+  updatedBy: string;
+}
 /**
  * @swagger
  *
@@ -51,20 +35,20 @@ class NewNotification {
  *    - Notifications
  */
 export const create = wrapHandler(async (event) => {
-    if (!isGlobalWriteAdmin(event)) return Unauthorized;
-    const body = await validateBody(NewNotification, event.body);
-    await connectToDatabase();
+  if (!isGlobalWriteAdmin(event)) return Unauthorized;
+  const body = await validateBody(NewNotification, event.body);
+  await connectToDatabase();
 
-    const notification = await Notification.create({
-      ...body
-    });
-    const res = await notification.save();
-    return {
-      statusCode: 200,
-      body: JSON.stringify(res)
-    };
+  const notification = await Notification.create({
+    ...body
   });
-  
+  const res = await notification.save();
+  return {
+    statusCode: 200,
+    body: JSON.stringify(res)
+  };
+});
+
 /**
  * @swagger
  *
@@ -79,19 +63,18 @@ export const create = wrapHandler(async (event) => {
  *    - Notifications
  */
 export const del = wrapHandler(async (event) => {
-    if (!isGlobalWriteAdmin(event)) return Unauthorized;
-    await connectToDatabase();
-    const id = event.pathParameters?.userId;
-    if (!id || !isUUID(id)) {
-      return NotFound;
-    }
-    const result = await Notification.delete(id);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(result)
-    };
-  });
-
+  if (!isGlobalWriteAdmin(event)) return Unauthorized;
+  await connectToDatabase();
+  const id = event.pathParameters?.notificationId;
+  if (!id || !isUUID(id)) {
+    return NotFound;
+  }
+  const result = await Notification.delete(id);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(result)
+  };
+});
 
 /**
  * @swagger
@@ -103,32 +86,32 @@ export const del = wrapHandler(async (event) => {
  *    - Notifications
  */
 export const list = wrapHandler(async (event) => {
-    console.log('list function called with event: ', event);
-  
-    // if (!isGlobalWriteAdmin(event)) {
-    //   return {
-    //     //TODO: Should we return a 403?
-    //     statusCode: 200,
-    //     body: JSON.stringify([])
-    //   };
-    // }
-    await connectToDatabase();
-    console.log('Database connected');
-  
-    const result = await Notification.find({
-        order: {
-            startDatetime: "DESC",
-            id: "DESC",
-        },
-    })
-  
-    console.log('Notification.find result: ', result);
-  
-    return {
-      statusCode: 200,
-      body: JSON.stringify(result)
-    };
+  console.log('list function called with event: ', event);
+
+  // if (!isGlobalWriteAdmin(event)) {
+  //   return {
+  //     //TODO: Should we return a 403?
+  //     statusCode: 200,
+  //     body: JSON.stringify([])
+  //   };
+  // }
+  await connectToDatabase();
+  console.log('Database connected');
+
+  const result = await Notification.find({
+    order: {
+      startDatetime: 'DESC',
+      id: 'DESC'
+    }
   });
+
+  console.log('Notification.find result: ', result);
+
+  return {
+    statusCode: 200,
+    body: JSON.stringify(result)
+  };
+});
 
 /**
  * @swagger
@@ -145,35 +128,31 @@ export const list = wrapHandler(async (event) => {
  */
 
 export const update = wrapHandler(async (event) => {
-    if (!isGlobalWriteAdmin(event)) return Unauthorized;
-    // Get the notification id from the path
-    const id = event.pathParameters?.notificationId;
-  
-    // confirm that the id is a valid UUID
-    if (!id || !isUUID(id)) {
-      return NotFound;
-    }
-    
-    // Validate the body
-    const validatedBody = await validateBody(
-      NewNotification,
-      event.body
-    );
-  
-    // Connect to the database
-    await connectToDatabase();
-  
-    // Update the organization
-    const updateResp = await Notification.update(id, validatedBody);
-  
-    // Handle response
-    if (updateResp) {
-      const updatedNot = await Notification.findOne(id);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(updatedNot)
-      };
-    }
+  if (!isGlobalWriteAdmin(event)) return Unauthorized;
+  // Get the notification id from the path
+  const id = event.pathParameters?.notificationId;
+
+  // confirm that the id is a valid UUID
+  if (!id || !isUUID(id)) {
     return NotFound;
-  });
-  
+  }
+
+  // Validate the body
+  const validatedBody = await validateBody(NewNotification, event.body);
+
+  // Connect to the database
+  await connectToDatabase();
+
+  // Update the organization
+  const updateResp = await Notification.update(id, validatedBody);
+
+  // Handle response
+  if (updateResp) {
+    const updatedNot = await Notification.findOne(id);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(updatedNot)
+    };
+  }
+  return NotFound;
+});
