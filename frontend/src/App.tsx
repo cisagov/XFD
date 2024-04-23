@@ -34,7 +34,8 @@ import {
   Feeds,
   Domains,
   Reports,
-  RegionUsers
+  RegionUsers,
+  EmailUnsubscribe
 } from 'pages';
 import { Layout, RouteGuard } from 'components';
 import './styles.scss';
@@ -130,6 +131,12 @@ const App: React.FC = () => (
                     component={AuthCreateAccount}
                   />
                   <Route exact path="/terms" component={TermsOfUse} />
+
+                  <Route
+                    exact
+                    path="/unsubscribe"
+                    component={EmailUnsubscribe}
+                  />
 
                   <RouteGuard
                     exact
