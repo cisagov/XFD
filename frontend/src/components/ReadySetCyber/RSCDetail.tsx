@@ -36,6 +36,7 @@ export const RSCDetail: React.FC = () => {
 
   const handleDownloadPDF = useReactToPrint({
     content: () => printRef.current,
+    documentTitle: 'ReadySetCyber Assessment Summary',
     pageStyle: `
       @page {
         size: 8.5in 11in;
