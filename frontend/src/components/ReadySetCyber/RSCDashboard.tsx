@@ -1,15 +1,14 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
-import { RSCSideNav } from './RSCSideNav';
 import { RSCDefaultSideNav } from './RSCDefaultSideNav';
 import { RSCResult } from './RSCResult';
 import { useAuthContext } from 'context';
 
 export const RSCDashboard: React.FC = () => {
-  const { user, apiGet } = useAuthContext();
+  const { apiGet } = useAuthContext();
 
   const [results, setResults] = React.useState<
     {
@@ -33,7 +32,7 @@ export const RSCDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchResults();
-  }, []);
+  }, [fetchResults]);
 
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>

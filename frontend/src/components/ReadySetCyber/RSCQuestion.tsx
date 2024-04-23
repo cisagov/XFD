@@ -1,12 +1,5 @@
 import React from 'react';
-import {
-  Box,
-  Button,
-  Grid,
-  Typography,
-  FormControlLabel,
-  Radio
-} from '@mui/material';
+import { Box, Button, Grid, Typography, Radio } from '@mui/material';
 import { isResourceVisible } from './helpers/index';
 import { IconFilter } from './components/index';
 
