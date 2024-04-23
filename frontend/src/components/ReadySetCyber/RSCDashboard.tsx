@@ -1,22 +1,46 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
-import { RSCSideNav } from './RSCSideNav';
+import { RSCDefaultSideNav } from './RSCDefaultSideNav';
 import { RSCResult } from './RSCResult';
-import { dummyResults } from './dummyData';
-
-const results = dummyResults;
+import { useAuthContext } from 'context';
 
 export const RSCDashboard: React.FC = () => {
+  const { apiGet } = useAuthContext();
+
+  const [results, setResults] = React.useState<
+    {
+      id: string;
+      createdAt: string;
+      updatedAt: string;
+      rscID: string;
+      type: string;
+    }[]
+  >([]);
+
+  const fetchResults = useCallback(async () => {
+    try {
+      const data = await apiGet('/assessments');
+      console.log(data);
+      setResults(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [apiGet]);
+
+  useEffect(() => {
+    fetchResults();
+  }, [fetchResults]);
+
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
-        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
-          <RSCSideNav />
+        <Grid item xs={4}>
+          <RSCDefaultSideNav />
         </Grid>
-        <Grid item xs={12} sm={8}>
+        <Grid item xs={8}>
           <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
             <Stack>
               <h2>Assessment Results</h2>
@@ -39,13 +63,12 @@ export const RSCDashboard: React.FC = () => {
                     key={result.id}
                     id={result.id}
                     type={result.type}
-                    date={result.date}
-                    categories={result.categories}
-                    questions={result.questions}
+                    createdAt={result.createdAt}
+                    updatedAt={result.updatedAt}
+                    rscID={result.rscID}
                   />
                 ))}
               </Stack>
-              <Divider />
             </Stack>
           </Box>
         </Grid>
