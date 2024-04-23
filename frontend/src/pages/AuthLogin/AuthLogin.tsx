@@ -42,12 +42,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
       const rows = await apiGet('/notifications');
       const activeRow = rows.find((row: MaintenanceNotification) => {
         if (row.status === 'active') {
-          const currentDate = new Date();
-          const startDate = new Date(row.startDatetime);
-          const endDate = new Date(row.endDatetime);
-          if (currentDate >= startDate && currentDate <= endDate) {
-            return true;
-          }
+          return true;
         }
         return false;
       });
@@ -169,7 +164,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
   if (process.env.REACT_APP_USE_COGNITO) {
     return (
       <Grid container>
-        {notification?.maintenanceType === 'minor' && platformNotification}
+        {notification?.status === 'active' && platformNotification}
         <Grid item xs={12} py={5}>
           <Typography variant="h3" textAlign="center">
             Welcome to Crossfeed
