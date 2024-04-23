@@ -9,6 +9,7 @@ import { useAuthContext } from 'context';
 
 export const RSCDashboard: React.FC = () => {
   const { apiGet } = useAuthContext();
+
   const [results, setResults] = React.useState<
     {
       id: string;
