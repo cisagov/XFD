@@ -499,7 +499,7 @@ export const Notifications: React.FC = () => {
       </Grid>
       <Grid item xs={12}>
         <Typography variant="body2">
-          * Dates should be entered in the US Eastern Time Zone.
+          * Dates should be entered in US Eastern Time.
         </Typography>
       </Grid>
       <Grid item xs={12}>
@@ -620,11 +620,11 @@ export const Notifications: React.FC = () => {
                 disableRowSelectionOnClick
               />
               <Typography variant="body2" mt={1}>
-                * Only one notification can be active at a time and will take
-                place during the allocated time frame.
+                * Only one notification can be active at a time and be shown on
+                the login screen.
                 <br />* Only admins will be able to login during major
                 maintenance. Login is unaffected for minor maintenance.
-                <br />* Dates are shown in the US Eastern Time Zone.
+                <br />* Dates are shown in US Eastern Time.
               </Typography>
             </>
           ) : (
@@ -655,7 +655,7 @@ export const Notifications: React.FC = () => {
                 disableRowSelectionOnClick
               />
               <Typography variant="body2" mt={1}>
-                * Dates are shown in the US Eastern Time Zone.
+                * Dates are shown in US Eastern Time.
               </Typography>
             </>
           )}
