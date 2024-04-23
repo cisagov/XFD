@@ -244,7 +244,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     nested: [
       {
         title: 'Admin Tools',
-        path: '/admin-tools/scans',
+        path: '/admin-tools',
         users: GLOBAL_ADMIN,
         exact: true
       },

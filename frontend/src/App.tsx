@@ -22,13 +22,9 @@ import {
   Domains,
   Feeds,
   LoginGovCallback,
-  Notifications,
   RegionUsers,
   Reports,
   Risk,
-  Scan,
-  // ScansView,
-  ScanTasksView,
   Organization,
   Organizations,
   SearchPage,
@@ -168,23 +164,7 @@ const App: React.FC = () => (
                     component={Reports}
                     permissions={['standard', 'globalView']}
                   />
-                  <RouteGuard
-                    path="/admin-tools/notifications"
-                    component={Notifications}
-                  />
-                  <RouteGuard
-                    path="/admin-tools/scans"
-                    component={AdminTools}
-                  />
-                  <RouteGuard
-                    path="/admin-tools/scans/history"
-                    component={ScanTasksView}
-                    exact
-                  />
-                  <RouteGuard
-                    path="/admin-tools/scans/:scanId"
-                    component={Scan}
-                  />
+                  <RouteGuard path="/admin-tools" component={AdminTools} />
                   <RouteGuard
                     path="/organizations/:organizationId"
                     component={Organization}
