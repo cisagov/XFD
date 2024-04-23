@@ -21,6 +21,7 @@ import * as savedSearches from './saved-searches';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
+import * as assessments from './assessments';
 
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
@@ -449,6 +450,11 @@ authenticatedRoute.put(
   '/users/:userId/register/deny',
   handlerToExpress(users.registrationDenial)
 );
+
+//Authenticated ReadySetCyber Routes
+authenticatedRoute.get('/assessments', handlerToExpress(assessments.list));
+
+authenticatedRoute.get('/assessments/:id', handlerToExpress(assessments.get));
 
 //************* */
 //  V2 Routes   //

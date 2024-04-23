@@ -6,26 +6,15 @@ import { Typography } from '@mui/material';
 import { useHistory } from 'react-router-dom';
 
 interface Props {
-  id: number;
+  id: string;
   type: string;
-  date: string;
-  categories: {
-    id: number;
-    name: string;
-  }[];
-  questions: {
-    id: number;
-    title: string;
-    answers: {
-      id: number;
-      name: string;
-      selected: boolean;
-    }[];
-  }[];
+  createdAt: string;
+  updatedAt: string;
+  rscID: string;
 }
 
 export const RSCResult: React.FC<Props> = (props) => {
-  const { id, type, date } = props;
+  const { id, type, createdAt: date } = props;
   const history = useHistory();
   const handleClick = () => {
     history.push(`/readysetcyber/result/${id}`);
