@@ -4,7 +4,6 @@ import { readFileSync } from 'fs';
 import { plainToClass } from 'class-transformer';
 import { CommandOptions } from './ecs-client';
 import getRootDomains from './helpers/getRootDomains';
-import saveDomainsToDb from './helpers/saveDomainsToDb';
 import * as path from 'path';
 
 const OUT_PATH = path.join(__dirname, 'out-' + Math.random() + '.txt');
@@ -47,11 +46,10 @@ export const handler = async (commandOptions: CommandOptions) => {
           })
         );
       }
-      await saveDomainsToDb(domains);
+      await Domain.save(domains);
       console.log(`amass created/updated ${domains.length} new domains`);
     } catch (e) {
       console.error(e);
-      continue;
     }
   }
 };
