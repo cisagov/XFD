@@ -71,7 +71,7 @@ const initialInfoDialogValues = {
 };
 
 export const Notifications: React.FC = () => {
-  const { apiGet, apiPost, apiPut, user } = useAuthContext();
+  const { apiDelete, apiGet, apiPost, apiPut, user } = useAuthContext();
   const [formValues, setFormValues] = React.useState<MaintenanceNotification>(
     initialNotificationValues
   );
@@ -83,6 +83,10 @@ export const Notifications: React.FC = () => {
   const [addBtnToggle, setAddBtnToggle] = React.useState(false);
   const [formDialogToggle, setFormDialogToggle] = React.useState(false);
   const [infoDialogToggle, setInfoDialogToggle] = React.useState(false);
+  const [deleteDialogToggle, setDeleteDialogToggle] = React.useState(false);
+  const [rowToDelete, setRowToDelete] = React.useState(
+    initialNotificationValues
+  );
   const [checked, setChecked] = React.useState(false);
   const [formErrors, setFormErrors] = React.useState(initialFormErrorValues);
   const [infoDialogValues, setInfoDialogValues] = React.useState(
@@ -192,7 +196,8 @@ export const Notifications: React.FC = () => {
           <IconButton
             color="primary"
             onClick={() => {
-              console.log(cellValues.row);
+              setDeleteDialogToggle(true);
+              setRowToDelete(cellValues.row);
             }}
           >
             <Delete />
@@ -205,9 +210,11 @@ export const Notifications: React.FC = () => {
   const handleResetForm = () => {
     setInfoDialogToggle(false);
     setFormDialogToggle(false);
+    setDeleteDialogToggle(false);
     setAddBtnToggle(false);
     setFormValues(initialNotificationValues);
     setFormErrors(initialFormErrorValues);
+    setRowToDelete(initialNotificationValues);
     setChecked(false);
     setFormDisabled(true);
     setTimeout(() => {
@@ -257,34 +264,58 @@ export const Notifications: React.FC = () => {
       setInfoDialogValues({
         icon: <ErrorOutline color="error" sx={{ fontSize: '80px' }} />,
         title: 'Error',
-        content: `${errorMessage}. ${e.message}. Check the console log for more details.`
+        content: `${errorMessage} ${e.message}. Check the console log for more details.`
       });
       setInfoDialogToggle(true);
       throw e;
     }
   };
 
-  const createOrUpdateNotification = async (body: MaintenanceNotification) => {
+  const handleNotificationAction = async (
+    body: MaintenanceNotification,
+    apiType: string
+  ) => {
     let notification;
     try {
-      if (body.id !== '1') {
+      if (apiType === 'put') {
         notification = await handleApiCall(
           () => apiPut('/notifications/' + body.id, { body }),
           'The notification was successfully updated.',
           'The notification was not able to be updated.'
         );
-      } else {
+      } else if (apiType === 'post') {
         notification = await handleApiCall(
           () => apiPost('/notifications/', { body }),
           'The creation of the new notification was successful.',
           'The creation of the new notification was unsuccessful.'
         );
+      } else {
+        notification = await handleApiCall(
+          () => apiDelete('/notifications/' + body.id),
+          'The deletion of the notification was successful.',
+          'The deletion of the notification was unsuccessful.'
+        );
       }
     } catch (error) {
-      console.error('Error occurred during createOrUpdateNotification:', error);
+      console.error('Error occurred during handleNotificationAction:', error);
       throw error;
     }
     return notification;
+  };
+
+  const deleteNotification = async () => {
+    try {
+      await handleNotificationAction(rowToDelete, 'delete');
+      if (rowToDelete.status === 'active') {
+        setActiveNotification(initialNotificationValues);
+      } else {
+        setInactiveNotifications(
+          inactiveNotifications.filter((item) => item.id !== rowToDelete.id)
+        );
+      }
+    } catch (error) {
+      console.log('Error occurred during delete request:', error);
+    }
   };
 
   const submitForm = async (apiType: string) => {
@@ -317,7 +348,7 @@ export const Notifications: React.FC = () => {
     }
     if (apiType === 'put') {
       try {
-        const notification = await createOrUpdateNotification(body);
+        const notification = await handleNotificationAction(body, apiType);
         // former active notification
         if (body.id === activeNotification.id) {
           if (notification.status === 'active') {
@@ -334,8 +365,9 @@ export const Notifications: React.FC = () => {
               status: 'inactive'
             };
             if (updatedActiveNotification.id !== '1') {
-              const formerActiveNotification = await createOrUpdateNotification(
-                updatedActiveNotification
+              const formerActiveNotification = await handleNotificationAction(
+                updatedActiveNotification,
+                'put'
               );
               setInactiveNotifications((prevNotifications) => {
                 const updatedNotifications = prevNotifications.filter(
@@ -343,6 +375,10 @@ export const Notifications: React.FC = () => {
                 );
                 return [...updatedNotifications, formerActiveNotification];
               });
+            } else {
+              setInactiveNotifications(
+                inactiveNotifications.filter((item) => item.id !== body.id)
+              );
             }
             setActiveNotification(body);
           } else {
@@ -363,14 +399,14 @@ export const Notifications: React.FC = () => {
     }
     if (apiType === 'post') {
       try {
-        const notification = await createOrUpdateNotification(body);
+        const notification = await handleNotificationAction(body, apiType);
         if (notification.status === 'active') {
           if (activeNotification.status === 'active') {
             const updatedActiveNotification = {
               ...activeNotification,
               status: 'inactive'
             };
-            await createOrUpdateNotification(updatedActiveNotification);
+            await handleNotificationAction(updatedActiveNotification, 'put');
             setInactiveNotifications([
               ...inactiveNotifications,
               updatedActiveNotification
@@ -535,6 +571,19 @@ export const Notifications: React.FC = () => {
     />
   );
 
+  const confirmDeleteNotificationDialog = (
+    <ConfirmDialog
+      isOpen={deleteDialogToggle}
+      onClose={() => setDeleteDialogToggle(false)}
+      onConfirm={deleteNotification}
+      onCancel={handleResetForm}
+      title={'Delete Notification'}
+      content={
+        <>Are you sure you want to permanently remove this notification?</>
+      }
+    />
+  );
+
   return (
     <Grid container>
       <Grid item xs={12} sm={8}>
@@ -613,6 +662,7 @@ export const Notifications: React.FC = () => {
         </Paper>
       </Grid>
       {confirmEditNotificationDialog}
+      {confirmDeleteNotificationDialog}
       <InfoDialog
         isOpen={infoDialogToggle}
         handleClick={() => handleResetForm()}
