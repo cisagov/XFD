@@ -9,6 +9,7 @@ import Typography from '@mui/material/Typography';
 import { RSCSideNav } from './RSCSideNav';
 import { Category, Entry, RSCQuestion } from './RSCQuestion';
 import { useAuthContext } from 'context';
+import { useReactToPrint } from 'react-to-print';
 
 export const RSCDetail: React.FC = () => {
   const { apiGet } = useAuthContext();
@@ -42,6 +43,24 @@ export const RSCDetail: React.FC = () => {
   }, [fetchResult]);
   console.log('Transformed categories:', categories);
 
+  const printRef = React.useRef<HTMLDivElement>(null);
+
+  const handlePrint = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: 'ReadySetCyber Summary',
+    pageStyle: `
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      @media print {
+        body {
+          margin: 1.6cm;
+        }
+      }
+    `
+  });
+
   return (
     <Box sx={{ flexGrow: 1, padding: 2 }}>
       <Grid container spacing={2}>
@@ -49,7 +68,10 @@ export const RSCDetail: React.FC = () => {
           <RSCSideNav categories={categories} />
         </Grid>
         <Grid item xs={8}>
-          <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
+          <Box
+            sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}
+            ref={printRef}
+          >
             <Stack spacing={2}>
               <Stack
                 direction="row"
@@ -60,7 +82,11 @@ export const RSCDetail: React.FC = () => {
                 <Typography variant="h5" component="div">
                   Summary and Resources
                 </Typography>
-                <Button variant="contained" color="success">
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handlePrint}
+                >
                   Download PDF
                 </Button>
               </Stack>

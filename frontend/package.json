@@ -55,6 +55,7 @@
     "react-select": "^5.5.9",
     "react-simple-maps": "^3.0.0",
     "react-table": "^7.8.0",
+    "react-to-print": "^2.15.1",
     "resolve-url-loader": "^5.0.0",
     "universal-cookie": "^4.0.4",
     "uswds": "^2.13.3",
