@@ -47,12 +47,7 @@ export const RSCDetail: React.FC = () => {
 
   const handleDownloadPDF = useReactToPrint({
     content: () => printRef.current,
-    pageStyle: `
-      @page {
-        size: 8.5in 11in;
-        margin: 1in;
-      }
-    `
+    documentTitle: `ReadySetCyber Summary ${new Date().toLocaleDateString()}`
   });
 
   return (
@@ -61,8 +56,11 @@ export const RSCDetail: React.FC = () => {
         <Grid item xs={4}>
           <RSCSideNav categories={categories} />
         </Grid>
-        <Grid item xs={12} sm={8} ref={printRef}>
-          <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
+        <Grid item xs={12} sm={8}>
+          <Box
+            sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}
+            ref={printRef}
+          >
             <Stack spacing={2}>
               <Stack
                 direction="row"
