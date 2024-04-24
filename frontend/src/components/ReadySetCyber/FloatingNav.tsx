@@ -69,8 +69,8 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
         }}
       >
         {categories.map((category, index) => (
-          <>
-            <MenuItem key={index} onClick={handleClose}>
+          <div key={index}>
+            <MenuItem onClick={handleClose}>
               <HashLink
                 style={{
                   textDecoration: 'none',
@@ -83,7 +83,7 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
               </HashLink>
             </MenuItem>
             <Divider />
-          </>
+          </div>
         ))}
       </Menu>
     </>

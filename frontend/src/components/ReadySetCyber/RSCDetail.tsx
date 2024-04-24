@@ -43,7 +43,6 @@ export const RSCDetail: React.FC = () => {
   useEffect(() => {
     fetchResult();
   }, [fetchResult]);
-  console.log('Transformed categories:', categories);
 
   return (
     <>
