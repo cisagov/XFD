@@ -1,7 +1,7 @@
 import React from 'react';
-import Box from '@mui/material/Box';
-import Typography from '@mui/material/Typography';
-import Button from '@mui/material/Button';
+import { Box, Button, Grid, Typography, Radio } from '@mui/material';
+import { isResourceVisible } from './helpers/index';
+import { IconFilter } from './components/index';
 
 interface Props {
   categories: Category[];
@@ -31,6 +31,10 @@ interface Resource {
   type: string;
   url: string;
 }
+// Concatenates the last one or two characters of a string
+const questionNumber = (n: string) => {
+  return n.charAt(n.length - 2) === '0' ? n.slice(-1) : n.slice(-2);
+};
 
 export const RSCQuestion: React.FC<Props> = ({ categories }) => {
   return (
@@ -57,7 +61,7 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
               }}
             >
               <Typography variant="h6" gutterBottom>
-                Question {entry.question.number}
+                Question {questionNumber(entry.question.number)}
               </Typography>
               <Typography variant="subtitle1" gutterBottom>
                 {entry.question.longForm}
@@ -68,50 +72,77 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                 </Typography>
               )}
               <Typography variant="subtitle2" gutterBottom>
-                Response: {entry.selection}
-              </Typography>
-              {entry.question.resources.length > 0 && (
-                <Box
+                Response:
+                <Grid
+                  container
                   sx={{
-                    bgcolor: 'white',
-                    borderRadius: 1,
-                    padding: 2,
-                    marginTop: 1
+                    alignItems: 'center',
+                    backgroundColor: 'white',
+                    width: 'fit-content',
+                    border: '2px solid #ccc',
+                    borderRadius: 0
                   }}
                 >
-                  <Typography variant="h6" gutterBottom>
-                    Recommended Resources
-                  </Typography>
-                  {entry.question.resources.map((resource, resIndex) => (
-                    <Box
-                      key={resIndex}
-                      sx={{
-                        borderBottom: '1px solid #ccc',
-                        paddingBottom: 1,
-                        marginBottom: 1
-                      }}
-                    >
-                      <Typography variant="subtitle1">
-                        {resource.type}
-                      </Typography>
-                      <Typography variant="subtitle2">
-                        {resource.name}
-                      </Typography>
-                      <Typography variant="body2">
-                        {resource.description}
-                      </Typography>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        href={resource.url}
-                        target="_blank"
+                  <Grid item marginLeft={'-0.25em'}>
+                    <Radio checked={true} disabled={true} />
+                  </Grid>
+                  <Grid item paddingRight={'0.5em'}>
+                    {entry.selection}
+                  </Grid>
+                </Grid>
+              </Typography>
+              {entry.question.resources.length > 0 &&
+                isResourceVisible(entry.selection) && (
+                  <Box
+                    sx={{
+                      bgcolor: 'white',
+                      borderRadius: 1,
+                      padding: 2,
+                      marginTop: 1
+                    }}
+                  >
+                    <Typography variant="h6" gutterBottom>
+                      Recommended Resources
+                    </Typography>
+                    {entry.question.resources.map((resource, resIndex) => (
+                      <Box
+                        key={resIndex}
+                        sx={{
+                          borderBottom: '1px solid #ccc',
+                          paddingBottom: 1,
+                          marginBottom: 1
+                        }}
                       >
-                        Visit Resource
-                      </Button>
-                    </Box>
-                  ))}
-                </Box>
-              )}
+                        <Grid container alignItems={'center'}>
+                          <Grid item paddingRight={'0.25em'}>
+                            <IconFilter type={resource.type} />
+                          </Grid>
+
+                          <Grid item>
+                            <Typography variant="subtitle1">
+                              {resource.type.charAt(0).toUpperCase() +
+                                resource.type.slice(1)}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                        <Typography variant="subtitle2">
+                          {resource.name}
+                        </Typography>
+                        <Typography variant="body2">
+                          {resource.description}
+                        </Typography>
+                        <Button
+                          variant="outlined"
+                          color="primary"
+                          href={resource.url}
+                          target="_blank"
+                        >
+                          Visit Resource
+                        </Button>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
             </Box>
           ))}
         </Box>
