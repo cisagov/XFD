@@ -3,11 +3,14 @@
 
 import {
   Entity,
+  Unique,
   Column,
   PrimaryGeneratedColumn,
   BaseEntity,
   OneToMany,
-  ManyToOne
+  ManyToOne,
+  UpdateDateColumn,
+  CreateDateColumn
 } from 'typeorm';
 import { Domain } from './domains';
 import { HostScan } from './host_scans';
@@ -17,6 +20,7 @@ import { Ticket } from './tickets';
 import { VulnScan } from './vuln_scans';
 import { PortScan } from './port_scans';
 @Entity()
+@Unique(['ip','organization'])
 export class Ip extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -28,8 +32,11 @@ export class Ip extends BaseEntity {
   })
   organization: Organization;
 
-  @Column({ nullable: true, type: 'timestamp' })
-  createdTimestamp: Date | null;
+  @CreateDateColumn()
+  createdTimestamp: Date;
+
+  @UpdateDateColumn()
+  updatedTimestamp: Date | null;
 
   @Column({ nullable: true, type: 'timestamp' })
   lastSeenTimestamp: Date | null;

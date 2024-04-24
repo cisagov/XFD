@@ -17,17 +17,20 @@ export class Sector extends BaseEntity {
 
   @Column({
     nullable: true,
-    type: 'varchar',
-    unique: true
+    type: 'varchar'
   })
   name: string | null;
 
   @Column({
     nullable: true,
-    type: 'varchar'
+    type: 'varchar',
+    unique: true
   })
   @Index()
   acronym: string | null;
+
+  @Column({ nullable: true})
+  retired: boolean;
 
   @ManyToMany((type) => Organization, (org) => org.sectors, {
     onDelete: 'CASCADE',

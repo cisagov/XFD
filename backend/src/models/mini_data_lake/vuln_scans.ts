@@ -8,23 +8,25 @@ import {
   BaseEntity,
   ManyToMany,
   ManyToOne,
-  JoinTable
+  JoinTable,
+  OneToMany
 } from 'typeorm';
 import { Snapshot } from './snapshots';
 import { Ip } from './ips';
 import { Organization } from './organizations';
 import { Cve } from './cves';
+import { TicketEvent } from './ticket_events';
 
 @Entity()
 export class VulnScan extends BaseEntity {
   @PrimaryColumn()
   id: string;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  bugtraqId: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // bugtraqId: string | null;
 
   @Column({
     nullable: true,
@@ -92,11 +94,11 @@ export class VulnScan extends BaseEntity {
   })
   exploitabilityEase: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  pluginFilename: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // pluginFilename: string | null;
 
   @Column({
     nullable: true,
@@ -133,6 +135,9 @@ export class VulnScan extends BaseEntity {
 
   @Column({ nullable: true, type: 'timestamp' })
   patchPublicationTimestamp: Date | null;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  cisaKnownExploited: Date | null;
 
   @Column({
     nullable: true,
@@ -212,20 +217,20 @@ export class VulnScan extends BaseEntity {
   })
   cwe: string | null;
 
-  @Column({ nullable: true })
-  exploitFrameworkMetasploit: boolean;
+  // @Column({ nullable: true })
+  // exploitFrameworkMetasploit: boolean;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  metasploitName: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // metasploitName: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  edbId: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // edbId: string | null;
 
   @Column({
     nullable: true,
@@ -236,68 +241,68 @@ export class VulnScan extends BaseEntity {
   @Column({ nullable: true })
   exploitedByMalware: boolean;
 
-  @Column({ nullable: true })
-  exploitFrameworkCore: boolean;
+  // @Column({ nullable: true })
+  // exploitFrameworkCore: boolean;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  stigSeverity: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // stigSeverity: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  iava: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // iava: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  iavb: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // iavb: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  tra: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // tra: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  msft: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // msft: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  canvasPackage: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // canvasPackage: string | null;
 
-  @Column({ nullable: true })
-  exploitFrameworkCanvas: boolean;
+  // @Column({ nullable: true })
+  // exploitFrameworkCanvas: boolean;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  secunia: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // secunia: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  agent: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // agent: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  rhsa: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // rhsa: string | null;
 
-  @Column({ nullable: true })
-  inTheNews: boolean;
+  // @Column({ nullable: true })
+  // inTheNews: boolean;
 
   @Column({ nullable: true })
   thoroughTests: boolean;
@@ -308,59 +313,59 @@ export class VulnScan extends BaseEntity {
   })
   cvssScoreRationale: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  attachment: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // attachment: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'decimal'
-  })
-  vprScore: number | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'decimal'
+  // })
+  // vprScore: number | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  threatSourcesLast28: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // threatSourcesLast28: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  exploitCodeMaturity: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // exploitCodeMaturity: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  threatIntensityLast28: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // threatIntensityLast28: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  ageOfVuln: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // ageOfVuln: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'decimal'
-  })
-  cvssV3ImpactScore: number | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'decimal'
+  // })
+  // cvssV3ImpactScore: number | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  threatRecency: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // threatRecency: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  productCoverage: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // productCoverage: string | null;
 
   @Column({
     nullable: true,
@@ -392,41 +397,41 @@ export class VulnScan extends BaseEntity {
   })
   cvss3TemporalScore: number | null;
 
-  @Column({ nullable: true })
-  exploitedByNessus: boolean;
+  // @Column({ nullable: true })
+  // exploitedByNessus: boolean;
 
-  @Column({ nullable: true })
-  unsupportedByVendor: boolean;
+  // @Column({ nullable: true })
+  // unsupportedByVendor: boolean;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  requiredKey: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // requiredKey: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'integer'
-  })
-  requiredPort: number | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'integer'
+  // })
+  // requiredPort: number | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  scriptCopyright: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // scriptCopyright: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  mskb: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // mskb: string | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  dependency: string | null;
+  // @Column({
+  //   nullable: true,
+  //   type: 'varchar'
+  // })
+  // dependency: string | null;
 
   @Column({ nullable: true })
   assetInventory: boolean;
@@ -465,6 +470,24 @@ export class VulnScan extends BaseEntity {
     nullable: true,
     type: 'varchar'
   })
+  fName: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  ciscoBugId: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  ciscoSa: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
   pluginOutput: string | null;
 
   @ManyToMany((type) => Snapshot, (snapshot) => snapshot.vulnScans, {
@@ -473,4 +496,19 @@ export class VulnScan extends BaseEntity {
   })
   @JoinTable()
   snapshots: Snapshot[];
+
+  @OneToMany(
+    (type) => TicketEvent, (event) => event.vulnScan,
+    {
+      onDelete: 'CASCADE',
+      onUpdate: 'CASCADE'
+    }
+  )
+  ticketEvents?: TicketEvent[];
+
+  @Column({
+    type: 'jsonb',
+    default: {}
+  })
+  otherFindings: object;
 }
