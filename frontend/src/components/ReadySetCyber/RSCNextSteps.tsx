@@ -2,8 +2,8 @@ import React from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Stack from '@mui/material/Stack';
-import ContactSupportOutlinedIcon from '@mui/icons-material/ContactSupportOutlined';
-import OutboundOutlinedIcon from '@mui/icons-material/OutboundOutlined';
+import ContactIcon from './icons/ContactIcon';
+import EnrollIcon from './icons/EnrollIcon';
 
 export const RSCNextSteps: React.FC = () => {
   return (
@@ -11,23 +11,35 @@ export const RSCNextSteps: React.FC = () => {
       sx={{
         flexGrow: 1,
         padding: 2,
-        backgroundColor: '#dce7fa',
-        borderRadius: 1
+        backgroundColor: '#F5FAFC',
+        borderRadius: 1,
+        border: '.1rem solid #B8D9E8'
       }}
     >
       <Stack spacing={2}>
         <Box sx={{ width: 'auto', padding: 1, borderRadius: 2 }}>
-          <Typography variant="h5" gutterBottom component="div">
+          <Typography variant="h5" gutterBottom component="div" color="#005288">
             Next Steps
           </Typography>
         </Box>
         <Box
-          sx={{ width: 'auto', bgcolor: 'white', padding: 2, borderRadius: 2 }}
+          sx={{
+            width: 'auto',
+            bgcolor: 'white',
+            padding: 2,
+            borderRadius: 2,
+            border: '.1rem solid #0078AE'
+          }}
         >
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <ContactSupportOutlinedIcon fontSize="large" />
+          <Stack direction="row" alignItems="top" spacing={2}>
+            <ContactIcon />
             <Stack>
-              <Typography variant="h6" gutterBottom component="div">
+              <Typography
+                variant="h6"
+                gutterBottom
+                component="div"
+                color="#005288"
+              >
                 Contact your CSA
               </Typography>
               <Typography variant="body1" gutterBottom component="div">
@@ -39,12 +51,23 @@ export const RSCNextSteps: React.FC = () => {
           </Stack>
         </Box>
         <Box
-          sx={{ width: 'auto', bgcolor: 'white', padding: 2, borderRadius: 2 }}
+          sx={{
+            width: 'auto',
+            bgcolor: 'white',
+            padding: 2,
+            borderRadius: 2,
+            border: '.1rem solid #0078AE'
+          }}
         >
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <OutboundOutlinedIcon fontSize="large" />
+          <Stack direction="row" alignItems="top" spacing={2}>
+            <EnrollIcon size={40} />
             <Stack>
-              <Typography variant="h6" gutterBottom component="div">
+              <Typography
+                variant="h6"
+                gutterBottom
+                component="div"
+                color="#005288"
+              >
                 Enroll in Crossfeed
               </Typography>
               <Typography variant="body1" gutterBottom component="div">
