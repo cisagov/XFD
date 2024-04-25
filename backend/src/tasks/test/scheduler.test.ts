@@ -728,11 +728,11 @@ describe('scheduler', () => {
 
       expect(
         (await ScanTask.countBy({
-          scan,
+          scan: { id: scan.id },
           status: 'queued'
         })) +
           (await ScanTask.countBy({
-            scan: scan2,
+            scan: { id: scan2.id },
             status: 'queued'
           }))
       ).toEqual(1);
@@ -776,7 +776,7 @@ describe('scheduler', () => {
 
       expect(
         await ScanTask.countBy({
-          scan,
+          scan: { id: scan.id },
           status: 'queued'
         })
       ).toEqual(10);
