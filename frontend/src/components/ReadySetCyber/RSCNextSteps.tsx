@@ -5,6 +5,14 @@ import Stack from '@mui/material/Stack';
 import ContactIcon from './icons/ContactIcon';
 import EnrollIcon from './icons/EnrollIcon';
 
+const handleRedirectCSA = () => {
+  window.open('https://www.cisa.gov/about/regions', '_blank');
+};
+
+const handleRedirectCrossfeed = () => {
+  window.open('https://www.cisa.gov/cyber-hygiene-service', '_blank');
+};
+
 export const RSCNextSteps: React.FC = () => {
   return (
     <Box
@@ -31,7 +39,12 @@ export const RSCNextSteps: React.FC = () => {
             border: '.1rem solid #0078AE'
           }}
         >
-          <Stack direction="row" alignItems="top" spacing={2}>
+          <Stack
+            direction="row"
+            spacing={2}
+            onClick={handleRedirectCSA}
+            style={{ cursor: 'pointer' }}
+          >
             <ContactIcon />
             <Stack>
               <Typography
@@ -59,7 +72,12 @@ export const RSCNextSteps: React.FC = () => {
             border: '.1rem solid #0078AE'
           }}
         >
-          <Stack direction="row" alignItems="top" spacing={2}>
+          <Stack
+            direction="row"
+            spacing={2}
+            onClick={handleRedirectCrossfeed}
+            style={{ cursor: 'pointer' }}
+          >
             <EnrollIcon size={40} />
             <Stack>
               <Typography
