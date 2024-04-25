@@ -8,7 +8,6 @@ import {
   Vulnerability
 } from '../../models';
 import { handler as shodan } from '../shodan';
-import InfoDialog from 'components/Dialog/InfoDialog';
 
 const RealDate = Date;
 
@@ -245,9 +244,15 @@ describe('shodan', () => {
     });
     const domain = await Domain.findOneBy({ id: domains[2].id });
     await connectToDatabase();
-    const vulns = await Vulnerability.createQueryBuilder('vulnerability')
-      .where('vulnerability.domain = :domain', { domain })
-      .getMany();
+    const vulns = await Vulnerability.find({
+      where: {
+        domain: {
+          id: domains[2].id
+        }
+      },
+      relations: { service: true }
+    });
+    console.log(vulns);
     expect(vulns).toHaveLength(1);
     expect(vulns[0].title).toEqual('CVE-1234-1234');
   });
@@ -322,7 +327,17 @@ describe('shodan', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const service = await Service.findOneBy({ domain: domains[0], port: 993 });
+    console.log(domains[0]);
+    const service = await Service.findOne({
+      relations: ['domain'],
+      where: {
+        domain: {
+          id: domains[0].id
+        },
+        port: 993
+      }
+    });
+    console.log(service);
     expect(service).not.toBeUndefined();
     expect(service!.shodanResults).toEqual({
       product: 'Test',
