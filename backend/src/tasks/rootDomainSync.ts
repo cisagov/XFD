@@ -29,6 +29,6 @@ export const handler = async (commandOptions: CommandOptions) => {
       })
     );
   }
-  await saveDomainsToDb(domains);
+  await Domain.save(domains);
   console.log(`Scan created/updated ${domains.length} new domains`);
 };
