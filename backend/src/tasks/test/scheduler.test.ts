@@ -659,7 +659,7 @@ describe('scheduler', () => {
         {} as any,
         () => void 0
       );
-      getNumTasks.mockImplementation(() => Promise.resolve(0));
+      expect(runCommand).toHaveBeenCalledTimes(0);
 
       expect(
         await ScanTask.countBy({
