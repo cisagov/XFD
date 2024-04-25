@@ -60,6 +60,7 @@ const LOCAL_DIRECTORY = './extracted_files/';
 //   }
 // }
 
+/** Removes a value for a given key from the dictionary and then returns it. */
 function getValueAndDelete<T>(obj: { [key: string]: T }, key: string): T | undefined {
   if (obj.hasOwnProperty(key)) {
       const value = obj[key];
@@ -71,9 +72,12 @@ function getValueAndDelete<T>(obj: { [key: string]: T }, key: string): T | undef
 }
 
 export const handler = async (commandOptions: CommandOptions) => {
+  // A dictionary to associated the organizationId with the the acronym
   const org_id_dict:{[key: string]: string} = {}
       try{
+        // Dictionary linking parents to children acronym:[list of chilren]
         const parent_child_dict:{[key: string]: string[]} = {}
+        // Dictionary linking sectors to orgs
         const sector_child_dict:{[key: string]: string[]} = {}
         const requestsFilePath = '/app/worker/requests_sample.json'
         const requestJsonString = fs.readFileSync(requestsFilePath, 'utf-8')
@@ -88,19 +92,23 @@ export const handler = async (commandOptions: CommandOptions) => {
             request.scan_types = JSON.parse(request.scan_types)
             request.children = JSON.parse(request.children)
             
+            //Sectors don't have types can use the type property to determine if its a sector
             if (!request.agency.hasOwnProperty('type')){
               console.log('In sector section')
               // Do Sector Category and Tag logic here
+              //If the sector is in the non_sector_list skip it, it doesn't link to any orgs just other sectors
               if (non_sector_list.includes(request._id)){
                   continue
                 }
               
+              // if a sector has children create a sector object
               if (request.hasOwnProperty("children") && Array.isArray(request.children) && request.children.length > 0){
                 const sector: Sector = plainToClass(Sector,{
                   name: request.agency.name,
                   acronym: request._id,
                   retired: request?.retired ?? null,
                 })
+                //Remove null fields so if we update, we don't remove valid data
                 const sectorUpdatedValues = Object.keys(sector)
                   .map((key) => {
                     if (['acronym'].indexOf(key) > -1)
@@ -108,6 +116,7 @@ export const handler = async (commandOptions: CommandOptions) => {
                     return sector[key] !== null ? key : '';
                   })
                   .filter((key) => key !== '');
+                  // Save the sector to the database, update sector if it already exists
                   let sectorId: string = (
                     await Sector.createQueryBuilder()
                       .insert()
@@ -120,8 +129,10 @@ export const handler = async (commandOptions: CommandOptions) => {
                       .returning('id')
                       .execute()
                   ).identifiers[0].id;
+                  // Add sector and orgs to the sector_child_dict so we can link them after creating the orgs
                   sector_child_dict[sectorId] = request.children 
               }
+              // go to the next request record
               continue
             }
             // If the org has children add them to the dictionary which will be used to link them after the initial save
@@ -129,7 +140,7 @@ export const handler = async (commandOptions: CommandOptions) => {
               console.log('in parentChild link section')
               parent_child_dict[request._id] = request.children 
             }
-            
+            // Loop through the networks and create network objects
             const networkList: Cidr[] = [];
             for (const cidr of request.networks ?? []){
               try {
@@ -165,9 +176,9 @@ export const handler = async (commandOptions: CommandOptions) => {
             //     continue;
             //   }
             // }
-            let location:Location | null  = null;
 
-            
+            //Create a Location object
+            let location:Location | null  = null;
             if (request.agency.location){
               location = plainToClass(Location,{
                 name: request.agency.location.name,
@@ -183,7 +194,7 @@ export const handler = async (commandOptions: CommandOptions) => {
             }
             
             
-            
+            // Create organization object
             const orgObj: DL_Organization = plainToClass(DL_Organization, {
               name: request.agency.name ,
               acronym: request._id,
@@ -196,39 +207,40 @@ export const handler = async (commandOptions: CommandOptions) => {
               scanTypes: request?.scan_types ?? null,
             })
             
+            //Save and link Orgs Location and Networks
             const org_id = await saveOrganizationToMdl(orgObj, networkList, location)
+            // add the acronym: org_id pair to the dictionary so we can reference it later
             org_id_dict[request._id] = org_id
           }
-          // console.log(org_id_dict)
-          console.log('parent_child')
-          console.log(parent_child_dict)
-          console.log("sector_child")
-          console.log(sector_child_dict)
+          
+          // For any org that has child organnizations, link them here.
           for (const [key, value] of Object.entries(parent_child_dict)) {
-            
+            // Query the org using its id and bring along the children already associated with it
             const parent_promise = await DL_Organization.findOne(org_id_dict[key],{relations: ['children']})
             
             if(parent_promise){
               const parent: DL_Organization = parent_promise
+              // Take the list of child acronyms and convert them to org_ids
               const children_ids: string[] = value.map(acronym => org_id_dict[acronym])
+              // Filter the list of children so there aren't duplicates with what is already linked to the org
               const new_children = children_ids.filter(child => !parent.children?.some(item => item.id === child))
+              // Add the new children to the list already associated with the org
               parent.children?.push(...new_children.map(childId => (plainToClass(DL_Organization,{ id: childId }))))
               await parent.save()
             }
           }
           
+          // Do the same thing to link Sectors and Orgs
           for(const [key, value] of Object.entries(sector_child_dict)) {
             console.log(`Key: ${key}, Value: ${value}`);
             const sector_promise = await Sector.findOne(key,{relations: ['organizations']})
             if(sector_promise){
               const sector: Sector = sector_promise
               const organization_ids: string[] = value.map(acronym => org_id_dict[acronym])
-              console.log(organization_ids)
+              // Remove orgs that did't have an id in our dictionary
               organization_ids.filter(item => item !== null && item !== undefined)
               const new_orgs = organization_ids.filter(org_child => !sector.organizations?.some(item => item.id === org_child))
-              console.log(new_orgs)
               sector.organizations?.push(...new_orgs.map(org_childId => (plainToClass(DL_Organization,{ id: org_childId }))))
-              console.log(sector)
               await sector.save()
             }
           }
