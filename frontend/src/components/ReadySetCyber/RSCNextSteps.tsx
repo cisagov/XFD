@@ -56,7 +56,7 @@ export const RSCNextSteps: React.FC = () => {
                 Contact your CSA
               </Typography>
               <Typography variant="body1" gutterBottom component="div">
-                CISA's program of work is carried out across the nation by
+                CISA&apos;s program of work is carried out across the nation by
                 personnel assigned to its 10 regional offices. Your regional
                 Cybersecurity Advisor (CSA) is here to support you.
               </Typography>
