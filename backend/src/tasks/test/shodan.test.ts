@@ -8,6 +8,7 @@ import {
   Vulnerability
 } from '../../models';
 import { handler as shodan } from '../shodan';
+import InfoDialog from 'components/Dialog/InfoDialog';
 
 const RealDate = Date;
 
@@ -188,7 +189,9 @@ describe('shodan', () => {
   });
   const checkDomains = async (organization) => {
     const domains = await Domain.find({
-      where: { organization },
+      where: {
+        organization: { id: organization.id }
+      },
       relations: ['organization', 'services']
     });
     expect(
