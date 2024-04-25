@@ -54,9 +54,9 @@ export const RSCDashboard: React.FC = () => {
               </p>
               <p>
                 If you have not completed the questionnaire, please look to the
-                menu to your left and click on "Take Questionnaire Again". This
-                will redirect you to ReadySetCyber where you can complete a
-                questionnaire.
+                menu to your left and click on &quot;Take Questionnaire
+                Again&quot;. This will redirect you to ReadySetCyber where you
+                can complete a questionnaire.
               </p>
               <p>
                 If you have already completed the questionnaire, please check
