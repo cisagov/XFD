@@ -22,9 +22,9 @@ export const RSCDashboard: React.FC = () => {
 
   const fetchResults = useCallback(async () => {
     try {
-      // const data = await apiGet('/assessments');
-      // console.log(data);
-      // setResults(data);
+      const data = await apiGet('/assessments');
+      console.log(data);
+      setResults(data);
     } catch (e) {
       console.error(e);
     }
@@ -43,7 +43,27 @@ export const RSCDashboard: React.FC = () => {
           <RSCDefaultSideNav />
         </Grid>
         <Grid item xs={8}>
-          {results.length < 0 ? (
+          {results.length === 0 ? (
+            <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
+              <h2>Welcome to ReadySetCyber Dashboard</h2>
+              <Divider />
+              <h3>Thank you for registering with RSC Dashboard!</h3>
+              <p>
+                It appears you have not completed the ReadySetCyber
+                questionnaire yet or your assessment is still processing.
+              </p>
+              <p>
+                If you have not completed the questionnaire, please look to the
+                menu to your left and click on "Take Questionnaire Again". This
+                will redirect you to ReadySetCyber where you can complete a
+                questionnaire.
+              </p>
+              <p>
+                If you have already completed the questionnaire, please check
+                back later to view your assessment.
+              </p>
+            </Box>
+          ) : (
             <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
               <Stack>
                 <h2>Assessment Results</h2>
@@ -75,26 +95,6 @@ export const RSCDashboard: React.FC = () => {
                   ))}
                 </Stack>
               </Stack>
-            </Box>
-          ) : (
-            <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
-              <h2>Welcome to ReadySetCyber Dashboard</h2>
-              <Divider />
-              <h3>Thank you for registering with RSC Dashboard!</h3>
-              <p>
-                It appears you have not completed the ReadySetCyber
-                questionnaire yet or your assessment is still processing.
-              </p>
-              <p>
-                If you have not completed the questionnaire, please look to the
-                menu to your left and click on "Take Questionnaire Again". This
-                will redirect you to ReadySetCyber where you can complete a
-                questionnaire.
-              </p>
-              <p>
-                If you have already completed the questionnaire, please check
-                back later to view your assessment.
-              </p>
             </Box>
           )}
         </Grid>
