@@ -1,11 +1,5 @@
 import React from 'react';
-import {
-  RouteProps,
-  Route,
-  Redirect,
-  useHistory,
-  useLocation
-} from 'react-router-dom';
+import { RouteProps, Route, Redirect, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 
 interface AuthRedirectRouteProps extends RouteProps {
@@ -21,6 +15,7 @@ possible states:
 - user has authenticated but needs to create account
 - user has authenticated but needs to sign terms
 - user is not authenticated
+- user is a readySetCyber user and not on readySetCyber route
 - user is not authenticated, this is oauth callback (should not be protected)
 - user is authenticated, but does not have tha correct permissions for route
 */
