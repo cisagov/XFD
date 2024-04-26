@@ -60,7 +60,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   ) {
     // user is readySetCyber user and not on RSC page
     console.log('ReadySetCyber user: Redirect to RSC Dashboard');
-    return <Redirect to="/readysetcyber/dashboard" />;
+    history.push('/readysetcyber/dashboard');
   }
 
   if (user && permissions && permissions.length > 0) {
