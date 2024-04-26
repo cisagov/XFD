@@ -1,5 +1,11 @@
 import React from 'react';
-import { RouteProps, Route, Redirect, useHistory } from 'react-router-dom';
+import {
+  RouteProps,
+  Route,
+  Redirect,
+  useHistory,
+  useLocation
+} from 'react-router-dom';
 import { useAuthContext } from 'context';
 
 interface AuthRedirectRouteProps extends RouteProps {
@@ -28,6 +34,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
 }) => {
   const { token, user, userMustSign, logout } = useAuthContext();
   const history = useHistory();
+  const pathname = useLocation().pathname;
 
   if (token && !user) {
     // waiting on user profile
@@ -56,11 +63,11 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
 
   if (
     user?.userType === 'readySetCyber' &&
-    !location.pathname.includes('readysetcyber')
+    !pathname.includes('readysetcyber')
   ) {
     // user is readySetCyber user and not on RSC page
     console.log('ReadySetCyber user: Redirect to RSC Dashboard');
-    history.push('/readysetcyber/dashboard');
+    return <Redirect to="/readysetcyber/dashboard" />;
   }
 
   if (user && permissions && permissions.length > 0) {
