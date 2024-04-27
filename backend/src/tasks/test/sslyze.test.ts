@@ -31,7 +31,7 @@ describe('sslyze', () => {
     }).save();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   test('basic test', async () => {
     let domain = await Domain.create({

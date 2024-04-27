@@ -21,7 +21,7 @@ describe('scan', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('list', () => {
     it('list by globalAdmin should return all scans', async () => {

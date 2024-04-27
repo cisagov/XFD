@@ -9,7 +9,7 @@ describe('pe-proxy', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   it('standard user is not authorized to access P&E proxy', async () => {
     const response = await request(app)

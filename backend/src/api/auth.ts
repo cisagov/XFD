@@ -10,6 +10,7 @@ import * as jwt from 'jsonwebtoken';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as jwksClient from 'jwks-rsa';
 import { createHash } from 'crypto';
+import { DUMMY_USER_ID } from '../../test/util';
 
 export interface UserToken {
   email: string;
@@ -184,6 +185,7 @@ export const callback = async (event) => {
 };
 
 /** Confirms that a user is authorized */
+/** Confirms that a user is authorized */
 export const authorize = async (event) => {
   try {
     await connectToDatabase();
@@ -200,13 +202,24 @@ export const authorize = async (event) => {
       });
       if (!apiKey) throw 'Invalid API key';
       parsed = { id: apiKey.user.id };
+      console.log('apiKey', apiKey);
       apiKey.lastUsed = new Date();
+      console.log('updatedApiKey', apiKey);
       await apiKey.save();
     } else {
-      parsed = jwt.verify(
-        event.authorizationToken,
-        process.env.JWT_SECRET!
-      ) as UserToken;
+      try {
+        console.log('event.authorizationToken', event.authorizationToken);
+        parsed = jwt.verify(
+          event.authorizationToken,
+          process.env.JWT_SECRET!
+        ) as UserToken;
+      } catch (e) {
+        if (e instanceof jwt.JsonWebTokenError) {
+          // Handle the error here. You can return a response or throw an error.
+          throw new Error('Invalid token format');
+        }
+        throw e; // Re-throw other errors
+      }
     }
     const user = await User.findOne({
       where: {
@@ -217,7 +230,7 @@ export const authorize = async (event) => {
     // For running tests, ignore the database results if user doesn't exist or is the dummy user
     if (
       process.env.NODE_ENV === 'test' &&
-      (!user || user.id === 'c1afb49c-2216-4e3c-ac52-aa9480956ce9')
+      (!user || user.id === DUMMY_USER_ID)
     ) {
       return parsed;
     }
@@ -226,9 +239,10 @@ export const authorize = async (event) => {
   } catch (e) {
     if (e.name === 'JsonWebTokenError') {
       // Handle this error without logging or displaying the error message
+      console.error('error', e);
       return { id: 'cisa:crossfeed:anonymous' };
     } else {
-      console.error(e);
+      console.error('error', e);
       return { id: 'cisa:crossfeed:anonymous' };
     }
   }

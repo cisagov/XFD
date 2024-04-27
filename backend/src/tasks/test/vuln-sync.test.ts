@@ -82,7 +82,7 @@ describe('vuln-sync', () => {
     }).save();
   });
   afterEach(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   afterAll(async () => {
     nock.cleanAll();

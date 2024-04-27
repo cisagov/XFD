@@ -17,7 +17,7 @@ describe('search_sync', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   beforeEach(async () => {
     organization = await Organization.create({

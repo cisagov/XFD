@@ -70,7 +70,7 @@ describe('search', () => {
     }).save();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   beforeEach(async () => {
     searchDomains

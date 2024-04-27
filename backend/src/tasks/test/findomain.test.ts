@@ -29,7 +29,7 @@ describe('findomain', () => {
     }).save();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   test('should add new domains', async () => {
     const organization = await Organization.create({

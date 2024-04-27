@@ -72,7 +72,7 @@ describe('wappalyzer', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
 
   beforeEach(() => {

@@ -181,7 +181,7 @@ describe('shodan', () => {
   afterEach(async () => {
     global.Date = RealDate;
     jest.unmock('../helpers/getIps');
-    await connection.close();
+    await connection.destroy();
   });
   afterAll(async () => {
     nock.cleanAll();

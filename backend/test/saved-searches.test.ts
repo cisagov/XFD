@@ -18,7 +18,7 @@ describe('saved-search', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('create', () => {
     it('create by user should succeed', async () => {

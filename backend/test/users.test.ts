@@ -40,7 +40,7 @@ describe('user', () => {
     }).save();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('invite', () => {
     it('invite by a regular user should not work', async () => {

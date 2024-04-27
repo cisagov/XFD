@@ -78,7 +78,7 @@ describe('cve', () => {
   });
   afterAll(async () => {
     unzipSyncSpy.mockRestore();
-    await connection.close();
+    await connection.destroy();
     nock.cleanAll();
   });
   test('simple test', async () => {

@@ -19,7 +19,7 @@ describe('vulnerabilities', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('export', () => {
     it('export by org user should only return vulnerabilities from that org', async () => {

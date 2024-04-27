@@ -15,7 +15,7 @@ beforeAll(async () => {
   }).save();
 });
 afterAll(async () => {
-  await connection.close();
+  await connection.destroy();
 });
 
 const createSampleEvent = ({

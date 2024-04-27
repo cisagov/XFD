@@ -26,7 +26,7 @@ describe('cves', () => {
   afterAll(async () => {
     await Cve.delete(cve.id);
     await Organization.delete(organization.id);
-    await connection.close();
+    await connection.destroy();
   });
   describe('CVE API', () => {
     it('should return a single CVE by name', async () => {

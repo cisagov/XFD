@@ -7,7 +7,7 @@ describe('service', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   test('set products', async () => {
     const service = await Service.create({

@@ -31,12 +31,11 @@ export const generate = wrapHandler(async (event) => {
   await connectToDatabase();
   const key = randomBytes(16).toString('hex');
   // Store a hash of the API key instead of the key itself
-  let apiKey = ApiKey.create({
+  let apiKey = await ApiKey.create({
     hashedKey: createHash('sha256').update(key).digest('hex'),
     lastFour: key.substr(-4),
     user: { id: getUserId(event) }
-  });
-  apiKey = await apiKey.save();
+  }).save();
   return {
     statusCode: 200,
     body: JSON.stringify({ ...apiKey, key: key })

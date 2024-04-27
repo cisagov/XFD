@@ -7,7 +7,7 @@ describe('getAllDomains', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   test('basic test', async () => {
     const organization = await Organization.create({

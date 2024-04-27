@@ -19,7 +19,7 @@ describe('organizations', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('create', () => {
     it('create by globalAdmin should succeed', async () => {

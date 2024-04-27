@@ -28,7 +28,7 @@ describe('parse command options', () => {
   });
   afterEach(async () => {
     global.Date = RealDate;
-    await connection.close();
+    await connection.destroy();
   });
   afterAll(async () => {
     nock.cleanAll();

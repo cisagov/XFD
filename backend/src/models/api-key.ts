@@ -1,11 +1,12 @@
 import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-  CreateDateColumn,
   BaseEntity,
-  ManyToOne
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn
 } from 'typeorm';
 import { User } from './';
 
@@ -30,7 +31,14 @@ export class ApiKey extends BaseEntity {
     type: 'timestamp',
     nullable: true
   })
-  lastUsed: Date | null;
+  lastUsed: Date;
+
+  @BeforeUpdate()
+  updateLastUsed() {
+    if (this.updatedAt > this.createdAt) {
+      this.lastUsed = this.updatedAt;
+    }
+  }
 
   @Column({
     type: 'text'

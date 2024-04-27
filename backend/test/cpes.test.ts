@@ -27,7 +27,7 @@ describe('cpes', () => {
 
   afterAll(async () => {
     await Cpe.delete(cpe.id);
-    await connection.close();
+    await connection.destroy();
   });
 
   describe('CPE API', () => {

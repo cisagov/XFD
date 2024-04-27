@@ -28,7 +28,7 @@ describe('reports', () => {
     }).save();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   it('calling reports list should not work for a user outside of the org', async () => {
     const firstName = 'first name';

@@ -28,7 +28,7 @@ describe('intrigue ident', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   let organization;
   beforeEach(async () => {

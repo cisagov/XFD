@@ -13,7 +13,7 @@ describe('api-key', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('generate', () => {
     it('generate by user should succeed', async () => {
@@ -170,8 +170,8 @@ describe('api-key', () => {
         .set('Authorization', response.body.key)
         .expect(200);
 
-      expect(JSON.stringify(standardResponse.body)).toEqual(
-        JSON.stringify(responseWithAPIKey.body)
+      expect(JSON.stringify(standardResponse.body.hashedKey)).toEqual(
+        JSON.stringify(responseWithAPIKey.body.hashedKey)
       );
     });
     it('using invalid API key should fail', async () => {

@@ -50,7 +50,7 @@ describe('stats', () => {
     connection = await connectToDatabase();
   });
   afterAll(async () => {
-    await connection.close();
+    await connection.destroy();
   });
   describe('get', () => {
     it('get by org user should return only domains from that org', async () => {
