@@ -10,7 +10,6 @@ import * as jwt from 'jsonwebtoken';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as jwksClient from 'jwks-rsa';
 import { createHash } from 'crypto';
-import { DUMMY_USER_ID } from '../../test/util';
 
 export interface UserToken {
   email: string;
@@ -227,10 +226,12 @@ export const authorize = async (event) => {
       },
       relations: ['roles', 'roles.organization']
     });
+
+    // TODO: handle this logic in auth.test.ts and replace the hardcoded id with DUMMY_USER_ID
     // For running tests, ignore the database results if user doesn't exist or is the dummy user
     if (
       process.env.NODE_ENV === 'test' &&
-      (!user || user.id === DUMMY_USER_ID)
+      (!user || user.id === 'c1afb49c-2216-4e3c-ac52-aa9480956ce9')
     ) {
       return parsed;
     }
@@ -239,7 +240,6 @@ export const authorize = async (event) => {
   } catch (e) {
     if (e.name === 'JsonWebTokenError') {
       // Handle this error without logging or displaying the error message
-      console.error('error', e);
       return { id: 'cisa:crossfeed:anonymous' };
     } else {
       console.error('error', e);
