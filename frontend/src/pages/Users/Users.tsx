@@ -19,7 +19,7 @@ import {
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { Add, CheckCircleOutline, Delete } from '@mui/icons-material';
+import { Add, CheckCircleOutline, Edit, Delete } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
@@ -34,6 +34,7 @@ type ErrorStates = {
   getUsersError: string;
   getAddUserError: string;
   getDeleteError: string;
+  getUpdateUserError: string;
 };
 
 export interface ApiResponse {
@@ -49,6 +50,7 @@ interface UserType extends User {
 }
 
 type UserFormValues = {
+  id?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -68,13 +70,15 @@ const initialUserFormValues = {
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
 export const Users: React.FC = () => {
-  const { user, apiGet, apiPost, apiDelete } = useAuthContext();
+  const { user, apiDelete, apiGet, apiPost, apiPut } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
   const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
+  const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
+  const [formDisabled, setFormDisabled] = React.useState(true);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
@@ -85,7 +89,8 @@ export const Users: React.FC = () => {
   const [errorStates, setErrorStates] = useState<ErrorStates>({
     getUsersError: '',
     getAddUserError: '',
-    getDeleteError: ''
+    getDeleteError: '',
+    getUpdateUserError: ''
   });
   const [values, setValues] = useState<UserFormValues>(initialUserFormValues);
 
@@ -153,11 +158,14 @@ export const Users: React.FC = () => {
       headerName: 'Last Logged In',
       minWidth: 100,
       flex: 0.75
-    },
-    {
-      field: 'delete',
-      headerName: 'Delete',
-      minWidth: 100,
+    }
+  ];
+
+  if (user?.userType === 'globalAdmin') {
+    userCols.push({
+      field: 'edit',
+      headerName: 'Edit',
+      minWidth: 50,
       flex: 0.4,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
@@ -165,15 +173,35 @@ export const Users: React.FC = () => {
             color="primary"
             onClick={() => {
               setSelectedRow(cellValues.row);
-              setDeleteUserDialogOpen(true);
+              setValues(cellValues.row);
+              setEditUserDialogOpen(true);
             }}
           >
-            <Delete />
+            <Edit />
           </IconButton>
         );
       }
+    });
+  }
+  userCols.push({
+    field: 'delete',
+    headerName: 'Delete',
+    minWidth: 50,
+    flex: 0.4,
+    renderCell: (cellValues: GridRenderCellParams) => {
+      return (
+        <IconButton
+          color="primary"
+          onClick={() => {
+            setSelectedRow(cellValues.row);
+            setDeleteUserDialogOpen(true);
+          }}
+        >
+          <Delete />
+        </IconButton>
+      );
     }
-  ];
+  });
 
   const addUserButton = user?.userType === 'globalAdmin' && (
     <MuiButton
@@ -186,11 +214,13 @@ export const Users: React.FC = () => {
     </MuiButton>
   );
 
-  const handleCloseAddUserDialog = (value: CloseReason) => {
-    if (value === 'backdropClick' || value === 'escapeKeyDown') {
-      return;
-    }
+  const onResetForm = () => {
+    setFormDisabled(false);
+    setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
+    setDeleteUserDialogOpen(false);
+    setInfoDialogOpen(false);
+    setValues(initialUserFormValues);
     setFormErrors({
       firstName: false,
       lastName: false,
@@ -200,13 +230,19 @@ export const Users: React.FC = () => {
     });
   };
 
+  const handleCloseAddUserDialog = (value: CloseReason) => {
+    if (value === 'backdropClick' || value === 'escapeKeyDown') {
+      return;
+    }
+    onResetForm();
+  };
+
   const deleteRow = async (row: UserType) => {
     try {
       await apiDelete(`/users/${row.id}`, { body: {} });
       setUsers(users.filter((user) => user.id !== row.id));
-      setErrorStates({ ...errorStates, getUsersError: '' });
+      setErrorStates({ ...errorStates, getDeleteError: '' });
       setInfoDialogContent('This user has been successfully removed.');
-      setDeleteUserDialogOpen(false);
       setInfoDialogOpen(true);
     } catch (e: any) {
       setErrorStates({ ...errorStates, getDeleteError: e.message });
@@ -217,7 +253,7 @@ export const Users: React.FC = () => {
     }
   };
 
-  const onSubmit = async (e: any) => {
+  const onCreateUserSubmit = async (e: any) => {
     e.preventDefault();
     console.log(e);
     const body = {
@@ -248,7 +284,6 @@ export const Users: React.FC = () => {
       handleCloseAddUserDialog('closeButtonClick');
       setInfoDialogContent('This user has been successfully added.');
       setInfoDialogOpen(true);
-      setValues(initialUserFormValues);
     } catch (e: any) {
       setErrorStates({ ...errorStates, getAddUserError: e.message });
       setInfoDialogContent(
@@ -268,6 +303,7 @@ export const Users: React.FC = () => {
       ...values,
       [name]: value
     }));
+    setFormDisabled(false);
   };
 
   const handleChange = (event: SelectChangeEvent) => {
@@ -285,13 +321,36 @@ export const Users: React.FC = () => {
     }
   };
 
+  const updateRow = async (row: UserFormValues) => {
+    try {
+      await apiPut(`/v2/users/${row.id}`, { body: { userType: row.userType } });
+      const updateUsers = (prevUsers: any[]) =>
+        prevUsers.map((user) => {
+          if (user.id === row.id) {
+            return { ...user, userType: row.userType };
+          }
+          return user;
+        });
+      setUsers(updateUsers(users));
+      setErrorStates({ ...errorStates, getUpdateUserError: '' });
+      setInfoDialogContent('This user has been successfully updated.');
+      setInfoDialogOpen(true);
+    } catch (e: any) {
+      setErrorStates({ ...errorStates, getUpdateUserError: e.message });
+      setInfoDialogContent(
+        'This user has been not been updated. Check the console log for more details.'
+      );
+      console.log(e);
+    }
+  };
+
   const confirmDeleteUserDialog = (
     <ConfirmDialog
       isOpen={deleteUserDialogOpen}
       onConfirm={() => {
         deleteRow(selectedRow);
       }}
-      onCancel={() => setDeleteUserDialogOpen(false)}
+      onCancel={onResetForm}
       title={'Are you sure you want to delete this user?'}
       content={
         <>
@@ -308,6 +367,140 @@ export const Users: React.FC = () => {
         </>
       }
       screenWidth="xs"
+    />
+  );
+
+  const formContents = (
+    <DialogContent>
+      <Typography mt={1}>First Name</Typography>
+      <TextField
+        sx={textFieldStyling}
+        placeholder="Enter a First Name"
+        size="small"
+        margin="dense"
+        id="firstName"
+        inputProps={{ maxLength: 250 }}
+        name="firstName"
+        error={formErrors.firstName}
+        helperText={formErrors.firstName && 'First Name is required'}
+        type="text"
+        fullWidth
+        value={values.firstName}
+        onChange={onTextChange}
+        disabled={editUserDialogOpen}
+      />
+      <Typography mt={1}>Last Name</Typography>
+      <TextField
+        sx={textFieldStyling}
+        placeholder="Enter a Last Name"
+        size="small"
+        margin="dense"
+        id="lastName"
+        inputProps={{ maxLength: 250 }}
+        name="lastName"
+        error={formErrors.lastName}
+        helperText={formErrors.lastName && 'Last Name is required'}
+        type="text"
+        fullWidth
+        value={values.lastName}
+        onChange={onTextChange}
+        disabled={editUserDialogOpen}
+      />
+      <Typography mt={1}>Email</Typography>
+      <TextField
+        sx={textFieldStyling}
+        placeholder="Enter an Email"
+        size="small"
+        margin="dense"
+        id="email"
+        inputProps={{ maxLength: 250 }}
+        name="email"
+        error={formErrors.email}
+        helperText={formErrors.email && 'Email is required'}
+        type="text"
+        fullWidth
+        value={values.email}
+        onChange={onTextChange}
+        disabled={editUserDialogOpen}
+      />
+      <Typography mt={1}>State</Typography>
+      <Select
+        displayEmpty
+        size="small"
+        id="state"
+        value={values.state === null ? '' : values.state}
+        name="state"
+        error={formErrors.state}
+        onChange={handleChange}
+        fullWidth
+        renderValue={
+          values.state !== ''
+            ? undefined
+            : () => <Typography color="#bdbdbd">Select a State</Typography>
+        }
+        disabled={editUserDialogOpen}
+      >
+        {STATE_OPTIONS.map((state: string, index: number) => (
+          <MenuItem key={index} value={state}>
+            {state}
+          </MenuItem>
+        ))}
+      </Select>
+      {formErrors.state && (
+        <Typography pl={2} variant="caption" color="error.main">
+          State is required
+        </Typography>
+      )}
+      <Typography mt={2}>User Type</Typography>
+      <RadioGroup
+        aria-label="User Type"
+        name="userType"
+        value={values.userType}
+        onChange={onTextChange}
+      >
+        <FormControlLabel
+          value="standard"
+          control={<Radio color="primary" />}
+          label="Standard"
+        />
+        <FormControlLabel
+          value="globalView"
+          control={<Radio color="primary" />}
+          label="Global View"
+        />
+        <FormControlLabel
+          value="regionalAdmin"
+          control={<Radio color="primary" />}
+          label="Regional Administrator"
+        />
+        <FormControlLabel
+          value="globalAdmin"
+          control={<Radio color="primary" />}
+          label="Global Administrator"
+        />
+      </RadioGroup>
+      {formErrors.userType && (
+        <Typography pl={2} variant="caption" color="error.main">
+          User Type is required
+        </Typography>
+      )}
+      {errorStates.getAddUserError && (
+        <Alert severity="error">
+          Error adding user to the database: {errorStates.getAddUserError}. See
+          the network tab for more details.
+        </Alert>
+      )}
+    </DialogContent>
+  );
+
+  const confirmEditNotificationDialog = (
+    <ConfirmDialog
+      isOpen={editUserDialogOpen}
+      onConfirm={() => updateRow(values)}
+      onCancel={onResetForm}
+      title={'Update User'}
+      content={formContents}
+      disabled={formDisabled}
     />
   );
 
@@ -332,122 +525,7 @@ export const Users: React.FC = () => {
         maxWidth="xs"
       >
         <DialogTitle>Invite a User</DialogTitle>
-        <DialogContent>
-          <Typography mt={1}>First Name</Typography>
-          <TextField
-            sx={textFieldStyling}
-            placeholder="Enter a First Name"
-            size="small"
-            margin="dense"
-            id="firstName"
-            inputProps={{ maxLength: 250 }}
-            name="firstName"
-            error={formErrors.firstName}
-            helperText={formErrors.firstName && 'First Name is required'}
-            type="text"
-            fullWidth
-            value={values.firstName}
-            onChange={onTextChange}
-          />
-          <Typography mt={1}>Last Name</Typography>
-          <TextField
-            sx={textFieldStyling}
-            placeholder="Enter a Last Name"
-            size="small"
-            margin="dense"
-            id="lastName"
-            inputProps={{ maxLength: 250 }}
-            name="lastName"
-            error={formErrors.lastName}
-            helperText={formErrors.lastName && 'Last Name is required'}
-            type="text"
-            fullWidth
-            value={values.lastName}
-            onChange={onTextChange}
-          />
-          <Typography mt={1}>Email</Typography>
-          <TextField
-            sx={textFieldStyling}
-            placeholder="Enter an Email"
-            size="small"
-            margin="dense"
-            id="email"
-            inputProps={{ maxLength: 250 }}
-            name="email"
-            error={formErrors.email}
-            helperText={formErrors.email && 'Email is required'}
-            type="text"
-            fullWidth
-            value={values.email}
-            onChange={onTextChange}
-          />
-          <Typography mt={1}>State</Typography>
-          <Select
-            displayEmpty
-            size="small"
-            id="state"
-            value={values.state}
-            name="state"
-            error={formErrors.state}
-            onChange={handleChange}
-            fullWidth
-            renderValue={
-              values.state !== ''
-                ? undefined
-                : () => <Typography color="#bdbdbd">Select a State</Typography>
-            }
-          >
-            {STATE_OPTIONS.map((state: string, index: number) => (
-              <MenuItem key={index} value={state}>
-                {state}
-              </MenuItem>
-            ))}
-          </Select>
-          {formErrors.state && (
-            <Typography pl={2} variant="caption" color="error.main">
-              State is required
-            </Typography>
-          )}
-          <Typography mt={2}>User Type</Typography>
-          <RadioGroup
-            aria-label="User Type"
-            name="userType"
-            value={values.userType}
-            onChange={onTextChange}
-          >
-            <FormControlLabel
-              value="standard"
-              control={<Radio color="primary" />}
-              label="Standard"
-            />
-            <FormControlLabel
-              value="globalView"
-              control={<Radio color="primary" />}
-              label="Global View"
-            />
-            <FormControlLabel
-              value="regionalAdmin"
-              control={<Radio color="primary" />}
-              label="Regional Administrator"
-            />
-            <FormControlLabel
-              value="globalAdmin"
-              control={<Radio color="primary" />}
-              label="Global Administrator"
-            />
-          </RadioGroup>
-          {formErrors.userType && (
-            <Typography pl={2} variant="caption" color="error.main">
-              User Type is required
-            </Typography>
-          )}
-          {errorStates.getAddUserError && (
-            <Alert severity="error">
-              Error adding user to the database: {errorStates.getAddUserError}.
-              See the network tab for more details.
-            </Alert>
-          )}
-        </DialogContent>
+        {formContents}
         <DialogActions>
           <MuiButton
             variant="outlined"
@@ -465,7 +543,11 @@ export const Users: React.FC = () => {
           >
             Cancel
           </MuiButton>
-          <MuiButton variant="contained" type="submit" onClick={onSubmit}>
+          <MuiButton
+            variant="contained"
+            type="submit"
+            onClick={onCreateUserSubmit}
+          >
             Invite User
           </MuiButton>
         </DialogActions>
@@ -528,10 +610,11 @@ export const Users: React.FC = () => {
           />
         </>
       )}
+      {confirmEditNotificationDialog}
       <InfoDialog
         isOpen={infoDialogOpen}
         handleClick={() => {
-          setInfoDialogOpen(false);
+          onResetForm();
           window.location.reload();
         }}
         icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
