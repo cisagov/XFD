@@ -3,7 +3,8 @@
     "url": "https://github.com/cisagov/crossfeed/issues"
   },
   "dependencies": {
-    "ip": "^2.0.1"
+    "ip": "^2.0.1",
+    "react-router-hash-link": "^2.4.3"
   },
   "devDependencies": {
     "@types/node": "^20.4.5",

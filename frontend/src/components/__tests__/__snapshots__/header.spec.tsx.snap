@@ -3,7 +3,7 @@
 exports[`Header component matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="css-1ww9ebi"
+    class="css-2vyz2w"
   >
     <header
       class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionStatic css-1twrj82-MuiPaper-root-MuiAppBar-root"
@@ -27,7 +27,7 @@ exports[`Header component matches snapshot 1`] = `
             class="Header-lgNav"
           >
             <div
-              class="css-g2ra7n"
+              class="css-1ssxti9"
             >
               <a
                 aria-current="page"
@@ -39,7 +39,7 @@ exports[`Header component matches snapshot 1`] = `
               </a>
             </div>
             <div
-              class="css-g2ra7n"
+              class="css-1ssxti9"
             >
               <a
                 class="NavItem-link"
@@ -54,7 +54,7 @@ exports[`Header component matches snapshot 1`] = `
             class="Header-spacing"
           />
           <div
-            class="SearchBar-wrapper css-6woq0m"
+            class="SearchBar-wrapper css-yro7sz"
           >
             <div
               class="SearchBar-inner"
@@ -73,14 +73,14 @@ exports[`Header component matches snapshot 1`] = `
               <form>
                 <input
                   class="SearchBar-inp"
-                  placeholder="Search for a domain, vuln type, port, service, IP"
+                  placeholder="Search a domain, vuln, port, service, IP"
                   value=""
                 />
               </form>
             </div>
           </div>
           <div
-            class="css-g2ra7n"
+            class="css-1ssxti9"
           >
             <a
               aria-current="page"
@@ -117,27 +117,6 @@ exports[`Header component matches snapshot 1`] = `
               </div>
             </a>
           </div>
-          <button
-            aria-label="toggle mobile menu"
-            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-edgeStart MuiIconButton-sizeMedium Header-menuButton css-1d6w9lk-MuiButtonBase-root-MuiIconButton-root"
-            tabindex="0"
-            type="button"
-          >
-            <svg
-              aria-hidden="true"
-              class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-i4bv87-MuiSvgIcon-root"
-              data-testid="MenuIcon"
-              focusable="false"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"
-              />
-            </svg>
-            <span
-              class="MuiTouchRipple-root css-8je8zh-MuiTouchRipple-root"
-            />
-          </button>
         </div>
       </div>
     </header>
