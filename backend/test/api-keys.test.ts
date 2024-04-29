@@ -2,13 +2,14 @@ import * as request from 'supertest';
 import app from '../src/api/app';
 import { User, connectToDatabase, ApiKey, UserType } from '../src/models';
 import { createUserToken } from './util';
+import { DataSource } from 'typeorm';
 
 jest.mock('../src/tasks/scheduler', () => ({
   handler: jest.fn()
 }));
 
 describe('api-key', () => {
-  let connection;
+  let connection: DataSource;
   beforeAll(async () => {
     connection = await connectToDatabase();
   });
@@ -48,7 +49,7 @@ describe('api-key', () => {
       expect(response.body.hashedKey).toEqual(
         response2.body.apiKeys[0].hashedKey
       );
-      expect(response.body.key.substr(-4)).toEqual(
+      expect(response.body.key.substring(response.body.key.length - 4)).toEqual(
         response2.body.apiKeys[0].lastFour
       );
       expect(response2.body.apiKeys).toHaveLength(1);
@@ -67,7 +68,7 @@ describe('api-key', () => {
         lastFour: '1234',
         user: user
       }).save();
-      const response = await request(app)
+      await request(app)
         .delete('/api-keys/' + apiKey.id)
         .set(
           'Authorization',
@@ -110,7 +111,7 @@ describe('api-key', () => {
         lastFour: '1234',
         user: user
       }).save();
-      const response = await request(app)
+      await request(app)
         .delete('/api-keys/' + apiKey.id)
         .set(
           'Authorization',
@@ -181,7 +182,7 @@ describe('api-key', () => {
         email: Math.random() + '@crossfeed.cisa.gov',
         userType: UserType.STANDARD
       }).save();
-      const response = await request(app)
+      await request(app)
         .post('/api-keys')
         .set(
           'Authorization',
@@ -193,7 +194,7 @@ describe('api-key', () => {
         .send({})
         .expect(200);
 
-      const responseWithAPIKey = await request(app)
+      await request(app)
         .get('/users/me')
         .set('Authorization', '1234')
         .expect(401);
@@ -217,7 +218,7 @@ describe('api-key', () => {
         .send({})
         .expect(200);
 
-      const response2 = await request(app)
+      await request(app)
         .delete('/api-keys/' + response.body.id)
         .set(
           'Authorization',
@@ -229,7 +230,7 @@ describe('api-key', () => {
         .send({})
         .expect(200);
 
-      const responseWithAPIKey = await request(app)
+      await request(app)
         .get('/users/me')
         .set('Authorization', response.body.key)
         .expect(401);
