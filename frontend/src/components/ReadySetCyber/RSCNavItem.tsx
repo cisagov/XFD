@@ -9,13 +9,17 @@ export const RSCNavItem: React.FC<Props> = (props) => {
   const { name } = props;
 
   return (
-    <ListItemButton divider style={{ outline: 'none' }}>
-      <HashLink
-        style={{ textDecoration: 'none', color: 'black', outline: 'none' }}
-        to={`#${name}`}
-      >
+    <HashLink
+      style={{
+        textDecoration: 'none',
+        color: 'black',
+        outline: 'none'
+      }}
+      to={`#${name}`}
+    >
+      <ListItemButton divider style={{ outline: 'none' }}>
         {name}
-      </HashLink>
-    </ListItemButton>
+      </ListItemButton>
+    </HashLink>
   );
 };

@@ -70,18 +70,16 @@ export const FloatingNav: React.FC<Props> = ({ categories }) => {
       >
         {categories.map((category, index) => (
           <div key={index}>
-            <MenuItem onClick={handleClose}>
-              <HashLink
-                style={{
-                  textDecoration: 'none',
-                  color: 'black',
-                  outline: 'none'
-                }}
-                to={`#${category.name}`}
-              >
-                {category.name}
-              </HashLink>
-            </MenuItem>
+            <HashLink
+              style={{
+                textDecoration: 'none',
+                color: 'black',
+                outline: 'none'
+              }}
+              to={`#${category.name}`}
+            >
+              <MenuItem onClick={handleClose}>{category.name}</MenuItem>
+            </HashLink>
             <Divider />
           </div>
         ))}
