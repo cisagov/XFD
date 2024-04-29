@@ -122,6 +122,18 @@ class NewUser {
 class UpdateUser {
   @IsString()
   @IsOptional()
+  firstName: string;
+
+  @IsString()
+  @IsOptional()
+  lastName: string;
+
+  @IsString()
+  @IsOptional()
+  fullName: string;
+
+  @IsString()
+  @IsOptional()
   state: string;
 
   @IsString()
