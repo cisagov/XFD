@@ -201,23 +201,19 @@ export const authorize = async (event) => {
       });
       if (!apiKey) throw 'Invalid API key';
       parsed = { id: apiKey.user.id };
-      console.log('apiKey', apiKey);
       apiKey.lastUsed = new Date();
-      console.log('updatedApiKey', apiKey);
       await apiKey.save();
     } else {
       try {
-        console.log('event.authorizationToken', event.authorizationToken);
         parsed = jwt.verify(
           event.authorizationToken,
           process.env.JWT_SECRET!
         ) as UserToken;
       } catch (e) {
         if (e instanceof jwt.JsonWebTokenError) {
-          // Handle the error here. You can return a response or throw an error.
           throw new Error('Invalid token format');
         }
-        throw e; // Re-throw other errors
+        throw e;
       }
     }
     const user = await User.findOne({
