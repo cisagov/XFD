@@ -28,9 +28,12 @@ export const RSCDefaultSideNav: React.FC = () => {
         <List>
           <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
           <Divider component="li" />
-          <ListItem onClick={handleRSCredirect} style={{ cursor: 'pointer' }}>
+          <ListItemButton
+            onClick={handleRSCredirect}
+            style={{ cursor: 'pointer' }}
+          >
             Take Questionnaire Again
-          </ListItem>
+          </ListItemButton>
           <Divider component="li" />
           <ListItemButton style={{ outline: 'none' }} onClick={logout}>
             Logout
