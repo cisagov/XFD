@@ -38,7 +38,7 @@ const questionNumber = (n: string) => {
 
 export const RSCQuestion: React.FC<Props> = ({ categories }) => {
   return (
-    <div>
+    <Box>
       {categories.map((category, catIndex) => (
         <Box key={catIndex} sx={{ marginBottom: 4 }}>
           <Typography
@@ -46,6 +46,7 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
             gutterBottom
             component="div"
             sx={{ marginTop: 2, color: '#1976d2' }}
+            id={category.name}
           >
             {category.name}
           </Typography>
@@ -147,6 +148,6 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
           ))}
         </Box>
       ))}
-    </div>
+    </Box>
   );
 };
