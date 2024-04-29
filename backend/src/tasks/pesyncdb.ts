@@ -6577,6 +6577,9 @@ INSERT INTO public.data_source(name, description, last_run)
 VALUES ('findomain', 'Domain enumerator', '2022-03-14');
 
 INSERT INTO public.data_source(name, description, last_run)
+VALUES ('IntelX', 'Credentials', '2022-03-14');
+
+INSERT INTO public.data_source(name, description, last_run)
 VALUES ('Sublist3r', 'Domain Permutations', '2022-03-14');
 
 INSERT INTO public.data_source(name, description, last_run)

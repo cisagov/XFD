@@ -33,12 +33,12 @@ while true; do
       MESSAGE=$(echo "$RESPONSE" | jq -r '.[0].payload')
     MESSAGE=${MESSAGE//\\\"/\"}
     echo "MESSAGE: $MESSAGE"
-
   else
     echo "Running live SQS logic..."
     MESSAGE=$(aws sqs receive-message --queue-url "$SERVICE_QUEUE_URL" --output json --max-number-of-messages 1)
     echo "MESSAGE: $MESSAGE"
   fi
+
 
   # Check if there are no more messages. If no more, then exit Fargate container
   if [ -z "$MESSAGE" ] || [ "$MESSAGE" == "null" ]; then
@@ -72,7 +72,8 @@ while true; do
 
   # Run the pe-source command
   eval "$COMMAND" \
-    && cat /app/pe_reports_logging.log
+    && cat /app/pe_reports_logging.log \
+    && > /app/pe_reports_logging.log
 
   # Delete the processed message from the queue
   if [ "$IS_LOCAL" = true ]; then
