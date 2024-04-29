@@ -72,8 +72,7 @@ while true; do
 
   # Run the pe-source command
   eval "$COMMAND" \
-    && cat /app/pe_reports_logging.log \
-    && > /app/pe_reports_logging.log
+    && cat /app/pe_reports_logging.log > /app/pe_reports_logging.log
 
   # Delete the processed message from the queue
   if [ "$IS_LOCAL" = true ]; then
