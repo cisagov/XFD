@@ -19,7 +19,7 @@ async function startDesiredTasks(
   desiredCount: integer,
   shodanApiKeyList: string[] = []
 ) {
-  let queueUrl = QUEUE_URL + `${scanType}-queue`;
+  const queueUrl = QUEUE_URL + `${scanType}-queue`;
   try {
     // ECS can only start 10 tasks at a time. Split up into batches
     let batchSize = 10;

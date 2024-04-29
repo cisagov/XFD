@@ -37,7 +37,7 @@ const ORG_LIST = ['DHS', 'DOI'];
 const QUEUE = `staging-${SCAN_TYPE}-queue`;
 const API_KEY_LIST = '';
 
-for (let org of ORG_LIST) {
+for (const org of ORG_LIST) {
   const message = {
     scriptType: SCAN_TYPE,
     org: org
