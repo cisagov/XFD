@@ -61,10 +61,10 @@ export const RSCDetail: React.FC = () => {
             <RSCSideNav categories={categories} />
           </Grid>
           <Grid item xs={12} sm={8}>
+            <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
+              <RSCAccordionNav categories={categories} />
+            </Box>
             <Stack spacing={2}>
-              <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
-                <RSCAccordionNav categories={categories} />
-              </Box>
               <Box
                 sx={{
                   flexGrow: 1,
