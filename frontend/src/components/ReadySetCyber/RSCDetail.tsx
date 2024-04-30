@@ -71,6 +71,7 @@ export const RSCDetail: React.FC = () => {
                   padding: 2,
                   backgroundColor: 'white'
                 }}
+                ref={printRef}
               >
                 <Stack spacing={2}>
                   <Stack
@@ -82,7 +83,11 @@ export const RSCDetail: React.FC = () => {
                     <Typography variant="h5" component="div">
                       Summary and Resources
                     </Typography>
-                    <Button variant="contained" color="success">
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={handleDownloadPDF}
+                    >
                       Download PDF
                     </Button>
                   </Stack>
