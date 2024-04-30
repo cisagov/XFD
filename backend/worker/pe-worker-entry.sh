@@ -39,7 +39,6 @@ while true; do
     echo "MESSAGE: $MESSAGE"
   fi
 
-
   # Check if there are no more messages. If no more, then exit Fargate container
   if [ -z "$MESSAGE" ] || [ "$MESSAGE" == "null" ]; then
     echo "No more messages in the queue. Exiting."
@@ -72,7 +71,7 @@ while true; do
 
   # Run the pe-source command
   eval "$COMMAND" \
-    && cat /app/pe_reports_logging.log > /app/pe_reports_logging.log
+    && cat /app/pe_reports_logging.log && rm /app/pe_reports_logging.log
 
   # Delete the processed message from the queue
   if [ "$IS_LOCAL" = true ]; then
