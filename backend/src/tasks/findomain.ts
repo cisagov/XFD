@@ -1,19 +1,18 @@
-import { Domain } from '../models';
+import { connectToDatabase, Domain } from '../models';
 import { spawnSync } from 'child_process';
 import { readFileSync } from 'fs';
-import { plainToClass } from 'class-transformer';
 import { CommandOptions } from './ecs-client';
 import getRootDomains from './helpers/getRootDomains';
-import saveDomainsToDb from './helpers/saveDomainsToDb';
 import * as path from 'path';
+import { DataSource, DeepPartial } from 'typeorm';
 
 const OUT_PATH = path.join(__dirname, 'out-' + Math.random() + '.txt');
-
+let connection: DataSource;
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, organizationName, scanId } = commandOptions;
 
   console.log('Running findomain on organization', organizationName);
-
+  connection = await connectToDatabase();
   const rootDomains = await getRootDomains(organizationId!);
 
   for (const rootDomain of rootDomains) {
@@ -35,7 +34,7 @@ export const handler = async (commandOptions: CommandOptions) => {
         if (line == '') continue;
         const split = line.split(',');
         domains.push(
-          plainToClass(Domain, {
+          Domain.create({
             name: split[0],
             ip: split[1],
             organization: { id: organizationId },
@@ -45,11 +44,36 @@ export const handler = async (commandOptions: CommandOptions) => {
           })
         );
       }
-      await saveDomainsToDb(domains);
+      await saveOrUpdateDomains(domains);
       console.log(`Findomain created/updated ${domains.length} new domains`);
     } catch (e) {
       console.error(e);
-      continue;
     }
   }
 };
+
+async function saveOrUpdateDomains(domains: Domain[]) {
+  console.log('Saving or updating domains', domains);
+  await connection.transaction(async (entityManager) => {
+    for (const domain of domains) {
+      let existingDomain = await entityManager.findOneBy(Domain, {
+        name: domain.name,
+        organization: { id: domain.organization.id }
+      });
+      if (existingDomain) {
+        // If domain exists, retrieve its values for 'fromRootDomain' and 'discoveredBy'
+        const preservedData: DeepPartial<Domain> = {
+          fromRootDomain: existingDomain.fromRootDomain,
+          discoveredBy: existingDomain.discoveredBy
+        };
+        // Modify domain object to use values from existingDomain for 'discoveredBy' and 'fromRootDomain'
+        const { fromRootDomain, discoveredBy, ...updateData } = domain;
+        entityManager.merge(Domain, existingDomain, updateData, preservedData);
+      } else {
+        // Else create new domain
+        existingDomain = entityManager.create(Domain, domain);
+      }
+      await entityManager.save(existingDomain);
+    }
+  });
+}

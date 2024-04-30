@@ -1,27 +1,24 @@
-import { handler as findomain } from '../findomain';
 import { connectToDatabase, Organization, Domain, Scan } from '../../models';
-import { readFileSync } from 'fs';
+import { Console } from 'console';
+import { DataSource } from 'typeorm';
+import { handler as findomain } from '../findomain';
+import * as fs from 'fs';
 
-jest.mock('child_process', () => ({
-  spawnSync: () => null
-}));
-
-jest.mock('fs', () => ({
-  readFileSync: jest.fn(),
-  unlinkSync: () => null
-}));
+console = new Console(process.stdout, process.stderr);
+jest
+  .spyOn(fs, 'readFileSync')
+  .mockImplementation(() =>
+    [
+      'filedrop.cisa.gov,104.84.119.215',
+      'www.filedrop.cisa.gov,104.84.119.215'
+    ].join('\n')
+  );
 
 describe('findomain', () => {
-  let scan;
-  let connection;
+  let scan: Scan;
+  let connection: DataSource;
   beforeAll(async () => {
     connection = await connectToDatabase();
-    (readFileSync as jest.Mock).mockImplementation(() =>
-      [
-        'filedrop.cisa.gov,104.84.119.215',
-        'www.filedrop.cisa.gov,104.84.119.215'
-      ].join('\n')
-    );
     scan = await Scan.create({
       name: 'findomain',
       arguments: {},
@@ -48,7 +45,7 @@ describe('findomain', () => {
 
     const domains = (
       await Domain.find({
-        where: { organization },
+        where: { organization: { id: organization.id } },
         relations: ['organization', 'discoveredBy']
       })
     ).sort((a, b) => a.name.localeCompare(b.name));
@@ -73,7 +70,7 @@ describe('findomain', () => {
       frequency: 999
     }).save();
     const domain = await Domain.create({
-      organization,
+      organization: { id: organization.id },
       name: 'filedrop.cisa.gov',
       discoveredBy: scanOld,
       fromRootDomain: 'oldrootdomain.cisa.gov'
@@ -88,7 +85,7 @@ describe('findomain', () => {
 
     const domains = (
       await Domain.find({
-        where: { organization },
+        where: { organization: { id: organization.id } },
         relations: ['discoveredBy']
       })
     ).sort((a, b) => a.name.localeCompare(b.name));
