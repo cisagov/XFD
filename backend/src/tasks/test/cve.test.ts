@@ -8,26 +8,35 @@ import {
 } from '../../models';
 import * as nock from 'nock';
 import * as zlib from 'zlib';
+import * as d from 'wappalyzer/technologies/d.json';
 
 const unzipSyncSpy = jest.spyOn(zlib, 'unzipSync');
 
-jest.mock('child_process', () => ({
-  spawnSync: () => null,
-  execSync: (cmd, { input }) => {
-    expect(input).toMatchSnapshot('execSync.input');
-    return [
-      '0 CVE-2019-10866 cpe:/a:10web:form_maker:1.0.0 9.8 CWE-89',
-      '0 CVE-2019-11590 cpe:/a:10web:form_maker:1.0.0 8.8 CWE-352'
-    ].join('\n');
-  }
-}));
+jest.mock('child_process', () => {
+  const originalModule = jest.requireActual('child_process');
+  return {
+    ...originalModule,
+    spawnSync: () => null,
+    execSync: (cmd, { input }) => {
+      expect(input).toMatchSnapshot('execSync.input');
+      return [
+        '0 CVE-2019-10866 cpe:/a:10web:form_maker:1.0.0 9.8 CWE-89',
+        '0 CVE-2019-11590 cpe:/a:10web:form_maker:1.0.0 8.8 CWE-352'
+      ].join('\n');
+    }
+  };
+});
 
-jest.mock('fs', () => ({
-  promises: {
-    readdir: (str) => ['nvdcve-1.1-2019.json.gz'],
-    readFile: (str) => ''
-  }
-}));
+jest.mock('fs', () => {
+  const originalModule = jest.requireActual('fs');
+  return {
+    ...originalModule,
+    promises: {
+      readdir: (str) => ['nvdcve-1.1-2019.json.gz'],
+      readFile: (str) => ''
+    }
+  };
+});
 
 jest.setTimeout(30000);
 
@@ -72,7 +81,6 @@ describe('cve', () => {
   beforeEach(() => {
     global.Date.now = jest.fn(() => new Date('2019-04-22T10:20:30Z').getTime());
   });
-
   afterEach(() => {
     global.Date = RealDate;
   });
@@ -95,12 +103,7 @@ describe('cve', () => {
     }).save();
     const service = await Service.create({
       domain,
-      port: 80,
-      censysMetadata: {
-        manufacturer: '10web',
-        product: 'form_maker',
-        version: '1.0.0'
-      }
+      port: 80
     }).save();
     await cve({
       organizationId: organization.id,
@@ -108,13 +111,11 @@ describe('cve', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-
-    const vulnerabilities = await Vulnerability.find({
-      where: {
-        domain: domain,
-        service: service
-      }
+    const vulnerabilities = await Vulnerability.findBy({
+      domain: { id: domain.id },
+      service: { id: service.id }
     });
+    console.log('PRINTING ALL VULNS', vulnerabilities);
     expect(vulnerabilities.length).toEqual(2);
     for (const vulnerability of vulnerabilities) {
       expect(vulnerability).toMatchSnapshot(
@@ -128,7 +129,6 @@ describe('cve', () => {
       );
     }
   });
-
   test('product with cpe with no version in it should create no vulns', async () => {
     const organization = await Organization.create({
       name: 'test-' + Math.random(),
@@ -159,13 +159,13 @@ describe('cve', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-
     const vulnerabilities = await Vulnerability.find({
       where: {
         domain: domain,
         service: service
       }
     });
+    console.log('VULNERABILITIES', vulnerabilities);
     expect(vulnerabilities.length).toEqual(0);
   });
 
@@ -338,7 +338,6 @@ describe('cve', () => {
       'CVE-2019-11590'
     ]);
   });
-
   const technologies = [
     {
       technology: {
@@ -386,7 +385,6 @@ describe('cve', () => {
       });
     });
   }
-
   test('should exit if no matching domains with cpes', async () => {
     const organization = await Organization.create({
       name: 'test-' + Math.random(),

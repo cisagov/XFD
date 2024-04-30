@@ -178,7 +178,7 @@ const identifyPassiveCVEsFromCPEs = async (allDomains: Domain[]) => {
         })
       );
     }
-    await saveVulnerabilitiesToDb(vulnerabilities, false);
+    const saved = await Vulnerability.save(vulnerabilities);
   }
 };
 
@@ -208,7 +208,7 @@ const identifyUnexpectedWebpages = async (allDomains: Domain[]) => {
       })
     );
   }
-  await saveVulnerabilitiesToDb(vulnerabilities, false);
+  await Vulnerability.save(vulnerabilities);
 };
 
 /**
@@ -250,7 +250,7 @@ const identifyExpiringCerts = async (allDomains: Domain[]) => {
       );
     }
   }
-  await saveVulnerabilitiesToDb(vulnerabilities, false);
+  await Vulnerability.save(vulnerabilities);
 };
 
 interface NvdFile {
@@ -300,7 +300,6 @@ const populateVulnerabilitiesFromNVD = async () => {
     for (const item of parsed.CVE_Items) {
       const cve = item.cve.CVE_data_meta.ID;
       if (vulnerabilitiesMap[cve]) {
-        console.log(cve);
         const vulns = vulnerabilitiesMap[cve];
         const description = item.cve.description.description_data.find(
           (desc) => desc.lang === 'en'
