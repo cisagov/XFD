@@ -13,6 +13,7 @@ import { RSCNextSteps } from './RSCNextSteps';
 import { RSCAccordionNav } from './RSCAccordionNav';
 import { FloatingNav } from './FloatingNav';
 import { ScrollTop } from './ScrollTop';
+import { useReactToPrint } from 'react-to-print';
 
 export const RSCDetail: React.FC = () => {
   const { apiGet } = useAuthContext();
@@ -44,6 +45,13 @@ export const RSCDetail: React.FC = () => {
   useEffect(() => {
     fetchResult();
   }, [fetchResult]);
+
+  const printRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDownloadPDF = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `ReadySetCyber Summary ${new Date().toLocaleDateString()}`
+  });
 
   return (
     <>
