@@ -9,6 +9,7 @@ import {
 import * as nock from 'nock';
 import * as zlib from 'zlib';
 import * as d from 'wappalyzer/technologies/d.json';
+import * as v from 'wappalyzer/technologies/v.json';
 
 const unzipSyncSpy = jest.spyOn(zlib, 'unzipSync');
 
@@ -103,7 +104,15 @@ describe('cve', () => {
     }).save();
     const service = await Service.create({
       domain,
-      port: 80
+      port: 80,
+      wappalyzerResults: [
+        {
+          technology: {
+            cpe: 'cpe:/a:10web:form_maker:1.0.0'
+          },
+          version: '1.0.0'
+        }
+      ]
     }).save();
     await cve({
       organizationId: organization.id,
@@ -115,6 +124,7 @@ describe('cve', () => {
       domain: { id: domain.id },
       service: { id: service.id }
     });
+    //const vulnerabilities = await Vulnerability.find();
     console.log('PRINTING ALL VULNS', vulnerabilities);
     expect(vulnerabilities.length).toEqual(2);
     for (const vulnerability of vulnerabilities) {
@@ -159,11 +169,9 @@ describe('cve', () => {
       scanName: 'scanName',
       scanTaskId: 'scanTaskId'
     });
-    const vulnerabilities = await Vulnerability.find({
-      where: {
-        domain: domain,
-        service: service
-      }
+    const vulnerabilities = await Vulnerability.findBy({
+      domain: { id: domain.id },
+      service: { id: service.id }
     });
     console.log('VULNERABILITIES', vulnerabilities);
     expect(vulnerabilities.length).toEqual(0);
@@ -200,11 +208,9 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vulnerabilities = await Vulnerability.find({
-      where: {
-        domain: domain,
-        service: service
-      }
+    const vulnerabilities = await Vulnerability.findBy({
+      domain: { id: domain.id },
+      service: { id: service.id }
     });
     expect(vulnerabilities.length).toEqual(2);
     expect(vulnerabilities.map((e) => e.cve).sort()).toEqual([
@@ -244,11 +250,9 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vulnerabilities = await Vulnerability.find({
-      where: {
-        domain: domain,
-        service: service
-      }
+    const vulnerabilities = await Vulnerability.findBy({
+      domain: { id: domain.id },
+      service: { id: service.id }
     });
     expect(vulnerabilities.length).toEqual(2);
     expect(vulnerabilities.map((e) => e.cve).sort()).toEqual([
@@ -326,11 +330,9 @@ describe('cve', () => {
       scanTaskId: 'scanTaskId'
     });
 
-    const vulnerabilities = await Vulnerability.find({
-      where: {
-        domain: domain,
-        service: service
-      }
+    const vulnerabilities = await Vulnerability.findBy({
+      domain: { id: domain.id },
+      service: { id: service.id }
     });
     expect(vulnerabilities.length).toEqual(2);
     expect(vulnerabilities.map((e) => e.cve).sort()).toEqual([
