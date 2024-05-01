@@ -112,7 +112,6 @@
     "lint:fix": "eslint '**/*.{ts,tsx,js,jsx}' --fix",
     "pesyncdb": "docker-compose exec -T backend npx ts-node src/tools/run-pesyncdb.ts",
     "scan-exec": "docker-compose exec -T backend npx ts-node src/tools/run-scanExecution.ts",
-    "send-message": "node sendMessage.js",
     "syncdb": "docker-compose exec -T backend npx ts-node src/tools/run-syncdb.ts",
     "syncmdl": "docker-compose exec -T backend npx ts-node src/tools/run-syncmdl.ts",
     "test": "jest --detectOpenHandles --json --outputFile=test-results.json",

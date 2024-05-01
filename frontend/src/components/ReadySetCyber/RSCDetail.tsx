@@ -1,106 +1,123 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import Divider from '@mui/material/Divider';
 import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import { RSCSideNav } from './RSCSideNav';
-import { RSCResult } from './RSCResult';
-import { RSCQuestion } from './RSCQuestion';
-import { dummyResults } from './dummyData';
-import {
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Typography
-} from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Category, Entry, RSCQuestion } from './RSCQuestion';
+import { useAuthContext } from 'context';
+import { RSCNextSteps } from './RSCNextSteps';
+import { RSCAccordionNav } from './RSCAccordionNav';
+import { FloatingNav } from './FloatingNav';
+import { ScrollTop } from './ScrollTop';
+import { useReactToPrint } from 'react-to-print';
 
 export const RSCDetail: React.FC = () => {
+  const { apiGet } = useAuthContext();
   const { id } = useParams<{ id: string }>();
-  const result = dummyResults.find((result) => result.id === parseInt(id)) || {
-    id: 0,
-    type: '',
-    date: ''
-  };
-  const { questions } = dummyResults.find(
-    (result) => result.id === parseInt(id)
-  ) || { questions: [] };
+  const [categories, setCategories] = useState<Category[]>([]);
 
-  const categories =
-    dummyResults.find((result) => result.id === parseInt(id))?.categories || [];
+  const fetchResult = useCallback(async () => {
+    try {
+      const data = await apiGet(`/assessments/${id}`);
+      console.log('API Response:', data); // Continue to log the data for verification
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const transformedCategories = Object.entries(data).map(
+          ([name, entries]) => ({
+            name,
+            entries: entries as Entry[]
+          })
+        );
+        setCategories(transformedCategories);
+      } else {
+        console.error('Unexpected response format:', data);
+        setCategories([]); // Fallback to an empty array if the format isn't correct
+      }
+    } catch (e) {
+      console.error('Failed to fetch categories:', e);
+      setCategories([]); // Ensure categories is reset to an empty array on error
+    }
+  }, [apiGet, id]);
+
+  useEffect(() => {
+    fetchResult();
+  }, [fetchResult]);
+
+  const printRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDownloadPDF = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `ReadySetCyber Summary ${new Date().toLocaleDateString()}`
+  });
 
   return (
-    <Box sx={{ flexGrow: 1, padding: 2 }}>
-      <Grid container spacing={2}>
-        <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
-          <RSCSideNav />
-        </Grid>
-        <Grid item xs={12} sm={8}>
-          <Box sx={{ flexGrow: 1, padding: 2, backgroundColor: 'white' }}>
-            <Stack>
-              <Stack
-                direction="row"
-                justifyContent={'space-between'}
-                alignItems="center"
-                padding={2}
-              >
-                <Typography variant="h5" component="div">
-                  Summary and Resources
-                </Typography>
-                <Button variant="contained" color="success">
-                  Download PDF
-                </Button>
-              </Stack>
-              <Divider />
-              <h3>Thank you for completing the ReadySetCyber questionnaire!</h3>
-              <p>
-                Below, you’ll find a full summary of your completed
-                ReadySetCyber questionnaire. Please note the areas where you can
-                improve your organization’s cybersecurity posture, along with
-                the recommended resources to help you address these areas. To
-                take further action, contact your regional CISA Cybersecurity
-                Advisor (CSA) for personalized support. You can also explore
-                Crossfeed, CISA’s Attack Surface Management platform, for free
-                vulnerability scanning services to kickstart or enhance your
-                cybersecurity measures.
-              </p>
-              <Box>
-                <RSCResult
-                  id={result.id}
-                  type={result.type}
-                  date={result.date}
-                  categories={[]}
-                  questions={[]}
-                />
+    <>
+      <Box sx={{ flexGrow: 1, padding: 2 }}>
+        <Grid container spacing={2}>
+          <Grid item sm={4} sx={{ display: { xs: 'none', sm: 'grid' } }}>
+            <RSCSideNav categories={categories} />
+          </Grid>
+          <Grid item xs={12} sm={8}>
+            <Stack spacing={2}>
+              <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
+                <RSCAccordionNav categories={categories} />
               </Box>
-              <br />
-              <Accordion sx={{ display: { xs: 'block', sm: 'none' } }}>
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon />}
-                  aria-controls="panel1a-content"
-                  id="panel1a-header"
-                >
-                  {' '}
-                  Categories
-                </AccordionSummary>
-                {categories.map((category) => (
-                  <AccordionDetails key={category.id}>
-                    {category.name}
-                  </AccordionDetails>
-                ))}
-              </Accordion>
-              <br />
-              <Stack spacing={2}>
-                {questions.map((question) => (
-                  <RSCQuestion key={question.id} question={question} />
-                ))}
-              </Stack>
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  padding: 2,
+                  backgroundColor: 'white'
+                }}
+                ref={printRef}
+              >
+                <Stack spacing={2}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    padding={2}
+                  >
+                    <Typography variant="h5" component="div">
+                      Summary and Resources
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={handleDownloadPDF}
+                    >
+                      Download PDF
+                    </Button>
+                  </Stack>
+                  <Divider />
+                  <Typography variant="h6" component="h3" gutterBottom>
+                    Thank you for completing the ReadySetCyber questionnaire!
+                  </Typography>
+                  <Typography>
+                    Below, you’ll find a full summary of your completed
+                    ReadySetCyber questionnaire. Please note the areas where you
+                    can improve your organization’s cybersecurity posture, along
+                    with the recommended resources to help you address these
+                    areas. To take further action, contact your regional CISA
+                    Cybersecurity Advisor (CSA) for personalized support. You
+                    can also explore Crossfeed, CISA’s Attack Surface Management
+                    platform, for free vulnerability scanning services to
+                    kickstart or enhance your cybersecurity measures.
+                  </Typography>
+                  {categories.map((category, index) => (
+                    <RSCQuestion key={index} categories={[category]} />
+                  ))}
+                </Stack>
+              </Box>
+              <RSCNextSteps />
             </Stack>
-          </Box>
+          </Grid>
         </Grid>
-      </Grid>
-    </Box>
+      </Box>
+      <FloatingNav categories={categories} />
+      <ScrollTop />
+    </>
   );
 };

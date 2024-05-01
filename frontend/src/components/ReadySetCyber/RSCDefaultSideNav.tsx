@@ -1,21 +1,19 @@
 import React from 'react';
-import { useAuthContext } from 'context';
 import Box from '@mui/material/Box';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import Divider from '@mui/material/Divider';
-import { RSCNavItem } from './RSCNavItem';
+import { useAuthContext } from 'context';
 import { ListItemButton } from '@mui/material';
 
-interface Props {
-  categories: Category[];
-}
+export const RSCDefaultSideNav: React.FC = () => {
+  const handleRSCredirect = () => {
+    window.open(
+      'https://cisaexdev.servicenowservices.com/rsc?id=rsc_welcome',
+      '_blank'
+    );
+  };
 
-export interface Category {
-  name: string;
-}
-
-export const RSCSideNav: React.FC<Props> = ({ categories }) => {
   const { user, logout } = useAuthContext();
 
   return (
@@ -30,10 +28,10 @@ export const RSCSideNav: React.FC<Props> = ({ categories }) => {
         <List>
           <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
           <Divider component="li" />
-          {categories.map((category, index) => (
-            <RSCNavItem key={index} name={category.name} />
-          ))}
-          <ListItemButton style={{ outline: 'none' }}>
+          <ListItemButton
+            onClick={handleRSCredirect}
+            style={{ cursor: 'pointer' }}
+          >
             Take Questionnaire Again
           </ListItemButton>
           <Divider component="li" />
