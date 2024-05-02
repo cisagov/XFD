@@ -9,15 +9,16 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
-
 import { Organization } from './organizations';
 import { Kev } from './kevs';
 import { Ip } from './ips';
 import { Snapshot } from './snapshots';
 import { TicketEvent } from './ticket_events';
 import { Cve } from './cves';
+
 @Entity()
 export class Ticket extends BaseEntity {
   @PrimaryColumn()
@@ -33,7 +34,7 @@ export class Ticket extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  cve: Cve;
+  cve: Relation<Cve>;
 
   @Column({
     nullable: true,
@@ -51,7 +52,7 @@ export class Ticket extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  kev: Kev;
+  kev: Relation<Kev>;
 
   @Column({
     nullable: true,
@@ -90,7 +91,7 @@ export class Ticket extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  ip: Ip;
+  ip: Relation<Ip>;
 
   @Column({ nullable: true, type: 'timestamp' })
   updatedTimestamp: Date | null;
@@ -114,7 +115,7 @@ export class Ticket extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({
     nullable: true,
@@ -154,11 +155,11 @@ export class Ticket extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  snapshots: Snapshot[];
+  snapshots: Relation<Snapshot>[];
 
   @OneToMany((type) => TicketEvent, (ticket_event) => ticket_event.ticket, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  ticketEvents: TicketEvent[];
+  ticketEvents: Relation<TicketEvent>[];
 }

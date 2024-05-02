@@ -6,7 +6,8 @@ import {
   OneToMany,
   BaseEntity,
   JoinTable,
-  Unique
+  Unique,
+  Relation
 } from 'typeorm';
 import { Cpe } from './cpes';
 import { Ticket } from './tickets';
@@ -115,17 +116,17 @@ export class Cve extends BaseEntity {
     cascade: true
   })
   @JoinTable()
-  cpes: Cpe[];
+  cpes: Relation<Cpe>[];
 
   @OneToMany((type) => Ticket, (ticket) => ticket.cve, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tickets: Ticket[];
+  tickets: Relation<Ticket>[];
 
   @OneToMany((type) => VulnScan, (vuln_scan) => vuln_scan.cve, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  vulnScans: VulnScan[];
+  vulnScans: Relation<VulnScan>[];
 }

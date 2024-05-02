@@ -6,7 +6,8 @@ import {
   PrimaryGeneratedColumn,
   BaseEntity,
   ManyToMany,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 
 import { Organization } from './organizations';
@@ -27,5 +28,5 @@ export class Tag extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 }

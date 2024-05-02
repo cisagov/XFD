@@ -9,7 +9,8 @@ import {
   BaseEntity,
   OneToMany,
   ManyToMany,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 import { Domain } from './domains';
 import { Ip } from './ips';
@@ -96,91 +97,91 @@ export class Organization extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  domains: Domain[];
+  domains: Relation<Domain>[];
 
   @OneToMany((type) => Ip, (ip) => ip.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  ips: Ip[];
+  ips: Relation<Ip>[];
 
   @OneToMany((type) => Ticket, (ticket) => ticket.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tickets: Ticket[];
+  tickets: Relation<Ticket>[];
 
   @ManyToMany((type) => Location, (location) => location.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  locations: Location[];
+  locations: Relation<Location>[];
 
   @ManyToMany((type) => Contact, (contact) => contact.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  contacts: Contact[];
+  contacts: Relation<Contact>[];
 
   @ManyToMany((type) => Tag, (tag) => tag.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tags: Tag[];
+  tags: Relation<Tag>[];
 
   @ManyToMany((type) => Sector, (sector) => sector.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  sectors: Sector[];
+  sectors: Relation<Sector>[];
 
   @ManyToMany((type) => Cidr, (cidr) => cidr.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  cidrs: Cidr[];
+  cidrs: Relation<Cidr>[];
 
   @ManyToOne((type) => Organization, (org) => org.children, {
     onDelete: 'CASCADE',
     nullable: true
   })
-  parent: Organization;
+  parent: Relation<Organization>;
 
   @OneToMany((type) => Organization, (org) => org.parent, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  children: Organization[];
+  children: Relation<Organization>[];
 
   @OneToMany((type) => Report, (report) => report.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  reports: Report[];
+  reports: Relation<Report>[];
 
   @OneToMany((type) => Request, (request) => request.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  requests: Request[];
+  requests: Relation<Request>[];
 
   @OneToMany((type) => SslyzeScan, (sslyze) => sslyze.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  sslyzeScans: SslyzeScan[];
+  sslyzeScans: Relation<SslyzeScan>[];
 
   @OneToMany((type) => Snapshot, (snapshot) => snapshot.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  snapshots: Snapshot[];
+  snapshots: Relation<Snapshot>[];
 
   @OneToMany((type) => Tally, (tally) => tally.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tallies: Tally[];
+  tallies: Relation<Tally>[];
 
   @OneToMany(
     (type) => TrustymailScan,
@@ -195,23 +196,23 @@ export class Organization extends BaseEntity {
     type: 'varchar'
   })
   reportPeriod: string | null;
-  trustymailScans: TrustymailScan[];
+  trustymailScans: Relation<TrustymailScan>[];
 
   @OneToMany((type) => VulnScan, (vuln_scan) => vuln_scan.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  vulnScans: VulnScan[];
+  vulnScans: Relation<VulnScan>[];
 
   @OneToMany((type) => HostScan, (host_scan) => host_scan.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  hostScans: HostScan[];
+  hostScans: Relation<HostScan>[];
 
   @OneToMany((type) => Host, (host) => host.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  hosts: Host[];
+  hosts: Relation<Host>[];
 }

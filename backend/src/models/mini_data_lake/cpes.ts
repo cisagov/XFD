@@ -4,7 +4,8 @@ import {
   Column,
   ManyToMany,
   BaseEntity,
-  Unique
+  Unique,
+  Relation
 } from 'typeorm';
 import { Cve } from './cves';
 
@@ -27,5 +28,5 @@ export class Cpe extends BaseEntity {
   lastSeenAt: Date;
 
   @ManyToMany(() => Cve, (cve) => cve.cpes)
-  cves: Cve[];
+  cves: Relation<Cve>[];
 }

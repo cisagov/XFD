@@ -7,7 +7,8 @@ import {
   PrimaryColumn,
   BaseEntity,
   ManyToMany,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 
 import { Snapshot } from './snapshots';
@@ -27,7 +28,7 @@ export class PortScan extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  ip: Ip;
+  ip: Relation<Ip>;
 
   @Column()
   latest: boolean;
@@ -75,5 +76,5 @@ export class PortScan extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  snapshots: Snapshot[];
+  snapshots: Relation<Snapshot>[];
 }

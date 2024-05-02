@@ -6,7 +6,8 @@ import {
   CreateDateColumn,
   BaseEntity,
   ManyToMany,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 
 import { Request } from './requests';
@@ -47,12 +48,12 @@ export class Cidr extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  requests: Request[];
+  requests: Relation<Request>[];
 
   @ManyToMany((type) => Organization, (org) => org.cidrs, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 }

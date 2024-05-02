@@ -9,7 +9,8 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 
 import { HostScan } from './host_scans';
@@ -60,7 +61,7 @@ export class Snapshot extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({
     nullable: true,
@@ -109,43 +110,43 @@ export class Snapshot extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  hostScans: HostScan[];
+  hostScans: Relation<HostScan>[];
 
   @ManyToMany((type) => PortScan, (portscan) => portscan.snapshots, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  portScans: PortScan[];
+  portScans: Relation<PortScan>[];
 
   @OneToMany((type) => Report, (report) => report.snapshot, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  reports: Report[];
+  reports: Relation<Report>[];
 
   @ManyToMany((type) => Ticket, (ticket) => ticket.snapshots, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tickets: Ticket[];
+  tickets: Relation<Ticket>[];
 
   @ManyToMany((type) => VulnScan, (vuln_scan) => vuln_scan.snapshots, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  vulnScans: VulnScan[];
+  vulnScans: Relation<VulnScan>[];
 
   @ManyToMany((type) => Snapshot, (snapshot) => snapshot.parents, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  children: Snapshot[];
+  children: Relation<Snapshot>[];
 
   @ManyToMany((type) => Snapshot, (snapshot) => snapshot.children, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  parents: Snapshot[];
+  parents: Relation<Snapshot>[];
 }

@@ -6,7 +6,8 @@ import {
   Column,
   PrimaryGeneratedColumn,
   BaseEntity,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 
 import { Ticket } from './tickets';
@@ -48,5 +49,5 @@ export class TicketEvent extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  ticket: Ticket;
+  ticket: Relation<Ticket>;
 }

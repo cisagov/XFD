@@ -7,7 +7,8 @@ import {
   Column,
   PrimaryGeneratedColumn,
   BaseEntity,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 import { Organization } from './organizations';
 @Entity()
@@ -27,7 +28,7 @@ export class Tally extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({
     type: 'jsonb',

@@ -10,7 +10,8 @@ import {
   PrimaryColumn,
   BaseEntity,
   ManyToMany,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 
 import { Ip } from './ips';
@@ -31,7 +32,7 @@ export class HostScan extends BaseEntity {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  ip: Ip;
+  ip: Relation<Ip>;
 
   @Column({
     nullable: true,
@@ -79,11 +80,11 @@ export class HostScan extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  snapshots: Snapshot[];
+  snapshots: Relation<Snapshot>[];
 
   @ManyToOne((type) => Organization, (org) => org.hostScans, {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 }

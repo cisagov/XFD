@@ -8,7 +8,8 @@ import {
   BaseEntity,
   ManyToMany,
   Unique,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 import { Organization } from './organizations';
 @Entity()
@@ -49,5 +50,5 @@ export class Contact extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 }

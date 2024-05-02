@@ -5,7 +5,14 @@
 // [README](https://github.com/nabla-c0d3/sslyze/blob/master/README.md)
 // document for [SSLyze](https://github.com/nabla-c0d3/sslyze).
 
-import { Entity, Column, PrimaryColumn, BaseEntity, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BaseEntity,
+  ManyToOne,
+  Relation
+} from 'typeorm';
 
 import { Domain } from './domains';
 import { Organization } from './organizations';
@@ -19,13 +26,13 @@ export class SslyzeScan extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @ManyToOne((type) => Domain, (domain) => domain.sslyzeScans, {
     onDelete: 'CASCADE',
     nullable: true
   })
-  domain: Domain;
+  domain: Relation<Domain>;
 
   @Column({ nullable: true })
   all_forward_secrecy: boolean;

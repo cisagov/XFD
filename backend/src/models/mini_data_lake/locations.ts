@@ -8,7 +8,8 @@ import {
   PrimaryGeneratedColumn,
   BaseEntity,
   ManyToMany,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 
 import { Organization } from './organizations';
@@ -77,5 +78,5 @@ export class Location extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 }

@@ -1,7 +1,14 @@
 // The data in this collection is derived from the Vulnerability Scans Database,
 // the [reports Collection] (https://github.com/cisagov/ncats-data-dictionary/blob/develop/NCATS_Data_Dictionary.md#reports-collection).
 
-import { Entity, Column, PrimaryColumn, BaseEntity, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BaseEntity,
+  ManyToOne,
+  Relation
+} from 'typeorm';
 
 import { Organization } from './organizations';
 import { Snapshot } from './snapshots';
@@ -15,7 +22,7 @@ export class Report extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({ nullable: true, type: 'timestamp' })
   createdTimestamp: Date | null;
@@ -27,5 +34,5 @@ export class Report extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  snapshot: Snapshot;
+  snapshot: Relation<Snapshot>;
 }

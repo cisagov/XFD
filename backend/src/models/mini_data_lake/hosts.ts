@@ -7,7 +7,8 @@ import {
   Column,
   PrimaryColumn,
   BaseEntity,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 import { Organization } from './organizations';
 import { Ip } from './ips';
@@ -28,7 +29,7 @@ export class Host extends BaseEntity {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  ip: Ip;
+  ip: Relation<Ip>;
 
   @Column({ nullable: true, type: 'timestamp' })
   updatedTimestamp: Date | null;
@@ -100,5 +101,5 @@ export class Host extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 }

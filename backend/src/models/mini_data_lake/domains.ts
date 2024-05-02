@@ -15,7 +15,8 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
-  Unique
+  Unique,
+  Relation
 } from 'typeorm';
 
 import { Organization } from './organizations';
@@ -35,13 +36,13 @@ export class Domain extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @ManyToOne((type) => Ip, (ip) => ip.domains, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  ip: Ip;
+  ip: Relation<Ip>;
 
   @Column({
     nullable: true,
@@ -71,31 +72,31 @@ export class Domain extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  rootDomain: Domain;
+  rootDomain: Relation<Domain>;
 
   @OneToMany((type) => Domain, (dom) => dom.rootDomain, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  subDomains: Domain[];
+  subDomains: Relation<Domain>[];
 
   @ManyToMany((type) => CertScan, (cert_scan) => cert_scan.domains, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  certScans: CertScan[];
+  certScans: Relation<CertScan>[];
 
   @ManyToMany((type) => PrecertScan, (precert_scan) => precert_scan.domains, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  precertScans: PrecertScan[];
+  precertScans: Relation<PrecertScan>[];
 
   @OneToMany((type) => SslyzeScan, (sslyze_scan) => sslyze_scan.domain, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  sslyzeScans: SslyzeScan[];
+  sslyzeScans: Relation<SslyzeScan>[];
 
   @OneToMany(
     (type) => TrustymailScan,
@@ -105,5 +106,5 @@ export class Domain extends BaseEntity {
       onUpdate: 'CASCADE'
     }
   )
-  trustymailScans: TrustymailScan[];
+  trustymailScans: Relation<TrustymailScan>[];
 }

@@ -5,7 +5,14 @@
 // [README](https://github.com/cisagov/trustymail/blob/develop/README.md)
 // document for [trustymail](https://github.com/cisagov/trustymail).
 
-import { Entity, Column, PrimaryColumn, BaseEntity, ManyToOne } from 'typeorm';
+import {
+  Entity,
+  Column,
+  PrimaryColumn,
+  BaseEntity,
+  ManyToOne,
+  Relation
+} from 'typeorm';
 import { Organization } from './organizations';
 import { Domain } from './domains';
 
@@ -18,13 +25,13 @@ export class TrustymailScan extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @ManyToOne((type) => Domain, (domain) => domain.trustymailScans, {
     onDelete: 'CASCADE',
     nullable: true
   })
-  domain: Domain;
+  domain: Relation<Domain>;
 
   @Column({
     type: 'jsonb',

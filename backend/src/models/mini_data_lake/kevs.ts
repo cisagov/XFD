@@ -8,7 +8,8 @@ import {
   Column,
   PrimaryGeneratedColumn,
   BaseEntity,
-  OneToMany
+  OneToMany,
+  Relation
 } from 'typeorm';
 import { Ticket } from './tickets';
 @Entity()
@@ -30,5 +31,5 @@ export class Kev extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tickets: Ticket[];
+  tickets: Relation<Ticket>[];
 }

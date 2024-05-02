@@ -8,7 +8,8 @@ import {
   PrimaryGeneratedColumn,
   BaseEntity,
   ManyToMany,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 
 import { Organization } from './organizations';
@@ -22,7 +23,7 @@ export class Request extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({
     nullable: true,
@@ -78,5 +79,5 @@ export class Request extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  cidrs: Cidr[];
+  cidrs: Relation<Cidr>[];
 }

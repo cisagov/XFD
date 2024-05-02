@@ -8,7 +8,8 @@ import {
   BaseEntity,
   ManyToMany,
   ManyToOne,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 import { Snapshot } from './snapshots';
 import { Ip } from './ips';
@@ -48,7 +49,7 @@ export class VulnScan extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  cve: Cve;
+  cve: Relation<Cve>;
 
   @Column({
     nullable: true,
@@ -108,7 +109,7 @@ export class VulnScan extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  ip: Ip;
+  ip: Relation<Ip>;
 
   @Column({ nullable: true })
   latest: boolean;
@@ -129,7 +130,7 @@ export class VulnScan extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({ nullable: true, type: 'timestamp' })
   patchPublicationTimestamp: Date | null;
@@ -472,5 +473,5 @@ export class VulnScan extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  snapshots: Snapshot[];
+  snapshots: Relation<Snapshot>[];
 }

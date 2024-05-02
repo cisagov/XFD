@@ -7,7 +7,8 @@ import {
   PrimaryColumn,
   BaseEntity,
   ManyToMany,
-  JoinTable
+  JoinTable,
+  Relation
 } from 'typeorm';
 
 import { Domain } from './domains';
@@ -52,5 +53,5 @@ export class CertScan extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  domains: Domain[];
+  domains: Relation<Domain>[];
 }

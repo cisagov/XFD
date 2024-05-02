@@ -7,7 +7,8 @@ import {
   PrimaryGeneratedColumn,
   BaseEntity,
   OneToMany,
-  ManyToOne
+  ManyToOne,
+  Relation
 } from 'typeorm';
 import { Domain } from './domains';
 import { HostScan } from './host_scans';
@@ -26,7 +27,7 @@ export class Ip extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({ nullable: true, type: 'timestamp' })
   createdTimestamp: Date | null;
@@ -56,35 +57,35 @@ export class Ip extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  domains: Domain[];
+  domains: Relation<Domain>[];
 
   @OneToMany((type) => HostScan, (host_scan) => host_scan.ip, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  hostScans: HostScan[];
+  hostScans: Relation<HostScan>[];
 
   @OneToMany((type) => Host, (host) => host.ip, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  hosts: Host[];
+  hosts: Relation<Host>[];
 
   @OneToMany((type) => Ticket, (ticket) => ticket.ip, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tickets: Ticket[];
+  tickets: Relation<Ticket>[];
 
   @OneToMany((type) => VulnScan, (vuln_scan) => vuln_scan.ip, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  vulnScans: VulnScan[];
+  vulnScans: Relation<VulnScan>[];
 
   @OneToMany((type) => PortScan, (port_scan) => port_scan.ip, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  portScans: PortScan[];
+  portScans: Relation<PortScan>[];
 }
