@@ -8,7 +8,6 @@ import {
   Response,
   User
 } from '../models';
-import { getRepository } from 'typeorm';
 import * as console from 'console';
 
 interface AssessmentEntry {
@@ -110,8 +109,7 @@ const generateQuestionDictionary = async (): Promise<{
   [key: string]: string;
 }> => {
   await connectToDatabase();
-  const questionRepository = Question.getRepository();
-  const questions = await questionRepository.find({ select: ['id', 'name'] });
+  const questions = await Question.find({ select: ['id', 'name'] });
   return questions.reduce((acc, question) => {
     acc[question.name] = question.id;
     return acc;
@@ -167,7 +165,6 @@ const getUserIdByEmail = async (email: string): Promise<string | null> => {
 const saveAssessmentsToDb = async (assessments: any[]) => {
   console.log('Saving assessments to database');
   await connectToDatabase();
-  const assessmentRepository = getRepository(Assessment);
   questionDictionary = await generateQuestionDictionary();
 
   assessments = castApiResponseToAssessmentInterface(
@@ -194,7 +191,7 @@ const saveAssessmentsToDb = async (assessments: any[]) => {
     });
 
     let savedAssessment: Assessment;
-    const existingAssessment = await assessmentRepository.findOneBy({
+    const existingAssessment = await Assessment.findOneBy({
       rscId: assessmentToSave.rscId
     });
 
@@ -203,7 +200,7 @@ const saveAssessmentsToDb = async (assessments: any[]) => {
         existingAssessment.updatedAt.getTime() !==
         new Date(assessmentToSave.updatedAt).getTime()
       ) {
-        savedAssessment = await assessmentRepository.save({
+        savedAssessment = await Assessment.save({
           ...existingAssessment,
           ...assessmentToSave
         });
@@ -221,7 +218,7 @@ const saveAssessmentsToDb = async (assessments: any[]) => {
         }
       }
     } else {
-      savedAssessment = await assessmentRepository.save(assessmentToSave);
+      savedAssessment = await Assessment.save(assessmentToSave);
     }
 
     await saveResponsesToDb(assessment, savedAssessment.id);
@@ -233,9 +230,7 @@ const saveResponsesToDb = async (
   assessmentId: string
 ) => {
   console.log('assessmentId: ', assessmentId);
-  const responseRepository = getRepository(Response);
-  await responseRepository
-    .createQueryBuilder()
+  await Response.createQueryBuilder()
     .delete()
     .from(Response)
     .where('assessmentId = :assessmentId', { assessmentId })

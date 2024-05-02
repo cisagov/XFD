@@ -1,12 +1,10 @@
-import { getConnection } from 'typeorm';
-import { Category } from '../models';
+import { Category, connectToDatabase } from '../models';
 
 async function populateCategoryTable() {
-  const connection = getConnection();
-  const categoryRepository = connection.getRepository(Category);
+  await connectToDatabase();
 
   // Check if table is empty
-  const count = await categoryRepository.count();
+  const count = await Category.count();
   if (count === 0) {
     // Data to be inserted
     const data = [
@@ -39,7 +37,6 @@ async function populateCategoryTable() {
     ];
 
     // Insert data into the table
-    await categoryRepository.save(data);
   }
 }
 

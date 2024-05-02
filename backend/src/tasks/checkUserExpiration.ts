@@ -1,9 +1,9 @@
 import { Handler } from 'aws-lambda';
 import * as AWS from 'aws-sdk';
 import { connectToDatabase, User } from '../models';
-import { subDays, formatISO } from 'date-fns';
+import { subDays } from 'date-fns';
 import { sendEmail } from '../api/helpers';
-import { getRepository, LessThan, MoreThanOrEqual } from 'typeorm';
+import { LessThan, MoreThanOrEqual } from 'typeorm';
 
 const cognito = new AWS.CognitoIdentityServiceProvider();
 const userPoolId = process.env.REACT_APP_USER_POOL_ID!;
@@ -104,7 +104,7 @@ export const handler: Handler = async (event) => {
         .promise();
 
       // Remove the user from your database
-      await getRepository(User).remove(user); // Correctly placed inside async handler
+      await User.remove(user); // Correctly placed inside async handler
 
       console.log(`Removed user ${user.id} due to 90 days of inactivity.`);
     } catch (error) {
