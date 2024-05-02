@@ -36,13 +36,13 @@ app.use(
       directives: {
         defaultSrc: [
           "'self'",
-          'https://cognito-idp.us-gov-west-1.amazonaws.com',
-          'https://api.crossfeed.cyber.dhs.gov'
+          `'${process.env.COGNITO_URL}'`,
+          `'${process.env.BACKEND_DOMAIN}'`
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'https://api.crossfeed.cyber.dhs.gov'
+          `'${process.env.BACKEND_DOMAIN}'`
           // Add any other allowed script sources here
         ],
         frameAncestors: ["'none'"]
