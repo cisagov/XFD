@@ -6,7 +6,7 @@ configValidationMode: error
 
 custom:
   webpack:
-    webpackConfig: 'webpack.backend.config.js'
+    webpackConfig: webpack.backend.config.js
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -27,8 +27,8 @@ provider:
     - ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
   apiGateway:
     binaryMediaTypes:
-      - 'image/*'
-      - 'font/*'
+      - image/*
+      - font/*
     resourcePolicy:
       - Effect: Deny
         Principal: '*'
@@ -39,8 +39,8 @@ provider:
             'aws:sourceVpce': ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
       - Effect: Allow
         Principal: '*'
-        Action: 'execute-api:Invoke'
-        Resource: 'execute-api:/${self:provider.stage}/*/*'
+        Action: execute-api:Invoke
+        Resource: execute-api:/${self:provider.stage}/*/*
   logs:
     restApi: true
   deploymentBucket:
@@ -53,6 +53,9 @@ provider:
           Action:
             - lambda:InvokeAsync
             - lambda:InvokeFunction
+            - cognito-idp:AdminDisableUser
+            - cognito-idp:ListUsers
+            - cognito-idp:AdminSetUserPassword
           Resource: '*'
         - Effect: Allow
           Action:
@@ -73,6 +76,78 @@ provider:
             - s3:PutObject
             - s3:PutObjectAcl
           Resource: '*'
+        - Effect: Allow
+          Action:
+            - sts:AssumeRole
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - sqs:ReceiveMessage
+            - sqs:DeleteMessage
+            - sqs:SendMessage
+            - sqs:GetQueueAttributes
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - logs:CreateExportTask
+            - logs:CreateLogStream
+            - logs:Describe*
+            - logs:Get*
+            - logs:List*
+            - logs:PutLogEvents
+            - logs:StartQuery
+            - logs:StopQuery
+            - logs:TestMetricFilter
+            - logs:FilterLogEvents
+            - logs:StartLiveTail
+            - logs:StopLiveTail
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - ssm:DescribeParameters
+            - ssm:GetParameter
+            - ssm:GetParameters
+            - ssm:GetParametersByPath
+            - ssm:PutParameter
+          Resource: '*'
+
+resources:
+  Resources:
+    ShodanQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-shodan-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
+    DnstwistQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-dnstwist-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
+    HibpQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-hibp-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
+    IntelxQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-intelx-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
+    CybersixgillQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-cybersixgill-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
 
 functions:
   - ${file(./src/tasks/functions.yml)}

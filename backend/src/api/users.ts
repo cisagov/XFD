@@ -7,24 +7,26 @@ import {
   IsEnum,
   IsInt,
   IsIn,
-  IsNumber,
-  IsObject,
-  IsPositive,
-  ValidateNested,
-  IsUUID
+  IsPositive
 } from 'class-validator';
-import { User, connectToDatabase, Role, Organization } from '../models';
+import {
+  connectToDatabase,
+  Organization,
+  Role,
+  User,
+  UserType
+} from '../models';
 import {
   validateBody,
   wrapHandler,
   NotFound,
   Unauthorized,
+  REGION_STATE_MAP,
   sendEmail,
   sendUserRegistrationEmail,
   sendRegistrationApprovedEmail,
   sendRegistrationDeniedEmail
 } from './helpers';
-import { UserType } from '../models/user';
 import {
   getUserId,
   canAccessUser,
@@ -37,6 +39,7 @@ import { Type, plainToClass } from 'class-transformer';
 import { IsNull } from 'typeorm';
 import { create } from './organizations';
 import logger from '../tools/lambda-logger';
+import { fetchAssessmentsByUser } from '../tasks/rscSync';
 
 class UserSearch {
   @IsInt()
@@ -123,6 +126,18 @@ class NewUser {
 class UpdateUser {
   @IsString()
   @IsOptional()
+  firstName: string;
+
+  @IsString()
+  @IsOptional()
+  lastName: string;
+
+  @IsString()
+  @IsOptional()
+  fullName: string;
+
+  @IsString()
+  @IsOptional()
   state: string;
 
   @IsString()
@@ -146,67 +161,6 @@ class UpdateUser {
   @IsOptional()
   role: string;
 }
-
-const REGION_STATE_MAP = {
-  Connecticut: '1',
-  Maine: '1',
-  Massachusetts: '1',
-  'New Hampshire': '1',
-  'Rhode Island': '1',
-  Vermont: '1',
-  'New Jersey': '2',
-  'New York': '2',
-  'Puerto Rico': '2',
-  'Virgin Islands': '2',
-  Delaware: '3',
-  Maryland: '3',
-  Pennsylvania: '3',
-  Virginia: '3',
-  'District of Columbia': '3',
-  'West Virginia': '3',
-  Alabama: '4',
-  Florida: '4',
-  Georgia: '4',
-  Kentucky: '4',
-  Mississippi: '4',
-  'North Carolina': '4',
-  'South Carolina': '4',
-  Tennessee: '4',
-  Illinois: '5',
-  Indiana: '5',
-  Michigan: '5',
-  Minnesota: '5',
-  Ohio: '5',
-  Wisconsin: '5',
-  Arkansas: '6',
-  Louisiana: '6',
-  'New Mexico': '6',
-  Oklahoma: '6',
-  Texas: '6',
-  Iowa: '7',
-  Kansas: '7',
-  Missouri: '7',
-  Nebraska: '7',
-  Colorado: '8',
-  Montana: '8',
-  'North Dakota': '8',
-  'South Dakota': '8',
-  Utah: '8',
-  Wyoming: '8',
-  Arizona: '9',
-  California: '9',
-  Hawaii: '9',
-  Nevada: '9',
-  Guam: '9',
-  'American Samoa': '9',
-  'Commonwealth Northern Mariana Islands': '9',
-  'Republic of Marshall Islands': '9',
-  'Federal States of Micronesia': '9',
-  Alaska: '10',
-  Idaho: '10',
-  Oregon: '10',
-  Washington: '10'
-};
 
 /**
  * @swagger
@@ -307,7 +261,7 @@ Crossfeed access instructions:
 5. You will be prompted to enable MFA. Scan the QR code with an authenticator app on your phone, such as Microsoft Authenticator. Enter the MFA code you see after scanning.
 6. After configuring your account, you will be redirected to Crossfeed.
 
-For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/. 
+For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
 
 If you encounter any difficulties, please feel free to reply to this email (or send an email to ${
       process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO
@@ -315,6 +269,30 @@ If you encounter any difficulties, please feel free to reply to this email (or s
   );
 };
 
+const sendRSCInviteEmail = async (email: string) => {
+  const staging = process.env.NODE_ENV !== 'production';
+
+  await sendEmail(
+    email,
+    'ReadySetCyber Dashboard Invitation',
+    `Hi there,
+
+You've been invited to join ReadySetCyber Dashboard. To accept the invitation and start using your Dashboard, sign on at ${process.env.FRONTEND_DOMAIN}/readysetcyber/create-account.
+
+Crossfeed access instructions:
+
+1. Visit ${process.env.FRONTEND_DOMAIN}/readysetcyber/create-account.
+2. Select "Create Account."
+3. Enter your email address and a new password for Crossfeed.
+4. A confirmation code will be sent to your email. Enter this code when you receive it.
+5. You will be prompted to enable MFA. Scan the QR code with an authenticator app on your phone, such as Microsoft Authenticator. Enter the MFA code you see after scanning.
+6. After configuring your account, you will be redirected to Crossfeed.
+
+For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
+
+If you encounter any difficulties, please feel free to reply to this email (or send an email to ${process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO}).`
+  );
+};
 /**
  * @swagger
  *
@@ -826,7 +804,7 @@ export const inviteV2 = wrapHandler(async (event) => {
       `Hello,
       Your Crossfeed registration is under review.
       You will receive an email when your registration is approved.
-      
+
       Thank you!`
     );
   };
@@ -952,4 +930,55 @@ export const updateV2 = wrapHandler(async (event) => {
     };
   }
   return NotFound;
+});
+
+/**
+ * @swagger
+ *
+ * /readysetcyber/register:
+ *  post:
+ *    description: New ReadySetCyber user registration.
+ *    tags:
+ *    - RSCUsers
+ */
+export const RSCRegister = wrapHandler(async (event) => {
+  const body = await validateBody(NewUser, event.body);
+  const newRSCUser = {
+    firstName: body.firstName,
+    lastName: body.lastName,
+    email: body.email.toLowerCase(),
+    userType: UserType.READY_SET_CYBER
+  };
+
+  await connectToDatabase();
+
+  // Check if user already exists
+  let user = await User.findOne({
+    email: newRSCUser.email
+  });
+  if (user) {
+    console.log('User already exists.');
+    return {
+      statusCode: 422,
+      body: 'User email already exists. Registration failed.'
+    };
+    // Create if user does not exist
+  } else {
+    user = User.create(newRSCUser);
+    await User.save(user);
+    // Fetch RSC assessments for user
+    await fetchAssessmentsByUser(user.email);
+    // Send email notification
+    if (process.env.IS_LOCAL!) {
+      console.log('Cannot send invite email while running on local.');
+    } else {
+      await sendRSCInviteEmail(user.email);
+    }
+  }
+
+  const savedUser = await User.findOne(user.id);
+  return {
+    statusCode: 200,
+    body: JSON.stringify(savedUser)
+  };
 });

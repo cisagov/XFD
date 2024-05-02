@@ -22,6 +22,7 @@ import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
 import logger from '../tools/lambda-logger';
+import * as assessments from './assessments';
 
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
@@ -141,6 +142,7 @@ app.get('/', handlerToExpress(healthcheck));
 app.post('/auth/login', handlerToExpress(auth.login));
 app.post('/auth/callback', handlerToExpress(auth.callback));
 app.post('/users/register', handlerToExpress(users.register));
+app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 
 const checkUserLoggedIn = async (req, res, next) => {
   req.requestContext = {
@@ -481,6 +483,11 @@ authenticatedRoute.put(
   '/users/:userId/register/deny',
   handlerToExpress(users.registrationDenial)
 );
+
+//Authenticated ReadySetCyber Routes
+authenticatedRoute.get('/assessments', handlerToExpress(assessments.list));
+
+authenticatedRoute.get('/assessments/:id', handlerToExpress(assessments.get));
 
 //************* */
 //  V2 Routes   //

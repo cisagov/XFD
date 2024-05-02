@@ -10,11 +10,10 @@ import {
   IsArray
 } from 'class-validator';
 import {
-  Scan,
   connectToDatabase,
   Organization,
-  ScanTask,
-  OrganizationTag
+  OrganizationTag,
+  Scan
 } from '../models';
 import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
 import { isGlobalWriteAdmin, isGlobalViewAdmin } from './auth';
@@ -62,17 +61,70 @@ export const SCAN_SCHEMA: ScanSchema = {
     description: 'Not a real scan, used to test'
   },
   censys: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    description: 'Passive discovery of subdomains from public certificates'
-  },
   amass: {
     type: 'fargate',
     isPassive: false,
     global: false,
     description:
       'Open source tool that integrates passive APIs and active subdomain enumeration in order to discover target subdomains'
+  },
+  censys: {
+    type: 'fargate',
+    isPassive: true,
+    global: false,
+    description: 'Passive discovery of subdomains from public certificates'
+  },
+  censysCertificates: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    cpu: '2048',
+    memory: '6144',
+    numChunks: 20,
+    description: 'Fetch TLS certificate data from censys certificates dataset'
+  },
+  censysIpv4: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    cpu: '2048',
+    memory: '6144',
+    numChunks: 20,
+    description: 'Fetch passive port and banner data from censys ipv4 dataset'
+  },
+  cve: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    cpu: '1024',
+    memory: '8192',
+    description:
+      "Matches detected software versions to CVEs from NIST NVD and CISA's Known Exploited Vulnerabilities Catalog."
+  },
+  cveSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description:
+      "Matches detected software versions to CVEs from NIST NVD and CISA's Known Exploited Vulnerabilities Catalog.",
+    cpu: '1024',
+    memory: '8192'
+  },
+  dnstwist: {
+    type: 'fargate',
+    isPassive: true,
+    global: false,
+    cpu: '2048',
+    memory: '16384',
+    description:
+      'Domain name permutation engine for detecting similar registered domains.'
+  },
+  dotgov: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description:
+      'Create organizations based on root domains from the dotgov registrar dataset. All organizations are created with the "dotgov" tag and have a " (dotgov)" suffix added to their name.'
   },
   findomain: {
     type: 'fargate',
@@ -81,13 +133,16 @@ export const SCAN_SCHEMA: ScanSchema = {
     description:
       'Open source tool that integrates passive APIs in order to discover target subdomains'
   },
-  portscanner: {
+  hibp: {
     type: 'fargate',
-    isPassive: false,
+    isPassive: true,
     global: false,
-    description: 'Active port scan of common ports'
+    cpu: '2048',
+    memory: '16384',
+    description:
+      'Finds emails that have appeared in breaches related to a given domain'
   },
-  wappalyzer: {
+  intrigueIdent: {
     type: 'fargate',
     isPassive: true,
     global: false,
@@ -95,6 +150,47 @@ export const SCAN_SCHEMA: ScanSchema = {
     memory: '4096',
     description:
       'Open source tool that fingerprints web technologies based on HTTP responses'
+  },
+  lookingGlass: {
+    type: 'fargate',
+    isPassive: true,
+    global: false,
+    description: 'Finds vulnerabilities and malware from the LookingGlass API'
+  },
+  portscanner: {
+    type: 'fargate',
+    isPassive: false,
+    global: false,
+    description: 'Active port scan of common ports'
+  },
+  rootDomainSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: false,
+    description:
+      'Creates domains from root domains by doing a single DNS lookup for each root domain.'
+  },
+  rscSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description:
+      'Retrieves and saves assessments from ReadySetCyber mission instance.'
+  },
+  savedSearch: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description: 'Performs saved searches to update their search results'
+  },
+  searchSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    cpu: '1024',
+    memory: '4096',
+    description:
+      'Syncs records with Elasticsearch so that they appear in search results.'
   },
   shodan: {
     type: 'fargate',
@@ -111,32 +207,32 @@ export const SCAN_SCHEMA: ScanSchema = {
     global: false,
     description: 'SSL certificate inspection'
   },
-  censysIpv4: {
+  test: {
     type: 'fargate',
-    isPassive: true,
+    isPassive: false,
     global: true,
-    cpu: '2048',
-    memory: '6144',
-    numChunks: 20,
-    description: 'Fetch passive port and banner data from censys ipv4 dataset'
+    description: 'Not a real scan, used to test'
   },
-  censysCertificates: {
+  testProxy: {
     type: 'fargate',
-    isPassive: true,
+    isPassive: false,
     global: true,
-    cpu: '2048',
-    memory: '6144',
-    numChunks: 20,
-    description: 'Fetch TLS certificate data from censys certificates dataset'
+    description: 'Not a real scan, used to test proxy'
   },
-  cve: {
+  trustymail: {
     type: 'fargate',
     isPassive: true,
-    global: true,
-    cpu: '1024',
-    memory: '8192',
+    global: false,
     description:
-      "Matches detected software versions to CVEs from NIST NVD and CISA's Known Exploited Vulnerabilities Catalog."
+      'Evaluates SPF/DMARC records and checks MX records for STARTTLS support'
+  },
+  vulnSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description: 'Pull in vulnerability data from PEs Vulnerability database',
+    cpu: '1024',
+    memory: '8192'
   },
   dotgov: {
     type: 'fargate',
@@ -155,6 +251,7 @@ export const SCAN_SCHEMA: ScanSchema = {
       'Syncs records with Elasticsearch so that they appear in search results.'
   },
   intrigueIdent: {
+  wappalyzer: {
     type: 'fargate',
     isPassive: true,
     global: false,
@@ -171,50 +268,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     cpu: '1024',
     memory: '4096',
     description: 'Scrapes all webpages on a given domain, respecting robots.txt'
-  },
-  hibp: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    cpu: '2048',
-    memory: '16384',
-    description:
-      'Finds emails that have appeared in breaches related to a given domain'
-  },
-  lookingGlass: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    description: 'Finds vulnerabilities and malware from the LookingGlass API'
-  },
-  dnstwist: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    cpu: '2048',
-    memory: '16384',
-    description:
-      'Domain name permutation engine for detecting similar registered domains.'
-  },
-  rootDomainSync: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    description:
-      'Creates domains from root domains by doing a single DNS lookup for each root domain.'
-  },
-  savedSearch: {
-    type: 'fargate',
-    isPassive: true,
-    global: true,
-    description: 'Performs saved searches to update their search results'
-  },
-  trustymail: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    description:
-      'Evaluates SPF/DMARC records and checks MX records for STARTTLS support'
   }
 };
 
