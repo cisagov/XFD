@@ -5,6 +5,7 @@ import {
   IsIn,
   ValidateNested,
   isUUID,
+  IsUUID,
   IsOptional,
   IsObject
 } from 'class-validator';
@@ -12,7 +13,11 @@ import { Type } from 'class-transformer';
 import { ScanTask, connectToDatabase } from '../models';
 import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
 import { SelectQueryBuilder } from 'typeorm';
-import { isGlobalViewAdmin, isGlobalWriteAdmin } from './auth';
+import {
+  getTagOrganizations,
+  isGlobalViewAdmin,
+  isGlobalWriteAdmin
+} from './auth';
 import ECSClient from '../tasks/ecs-client';
 
 const PAGE_SIZE = parseInt(process.env.PAGE_SIZE ?? '') || 25;
@@ -25,6 +30,14 @@ class ScanTaskFilters {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsUUID()
+  @IsOptional()
+  organization?: string;
+
+  @IsUUID()
+  @IsOptional()
+  tag?: string;
 }
 
 class ScanTaskSearch {
@@ -46,7 +59,7 @@ class ScanTaskSearch {
   @IsOptional()
   filters?: ScanTaskFilters;
 
-  filterResultQueryset(qs: SelectQueryBuilder<ScanTask>) {
+  async filterResultQueryset(qs: SelectQueryBuilder<ScanTask>, event) {
     if (this.filters?.name) {
       qs.andWhere('scan.name ILIKE :name', {
         name: `${this.filters?.name}`
@@ -55,6 +68,16 @@ class ScanTaskSearch {
     if (this.filters?.status) {
       qs.andWhere('scan_task.status ILIKE :status', {
         status: `${this.filters?.status}`
+      });
+    }
+    if (this.filters?.organization) {
+      qs.andWhere('organization.id = :org', {
+        org: this.filters.organization
+      });
+    }
+    if (this.filters?.tag) {
+      qs.andWhere('organization.id IN (:...orgs)', {
+        orgs: await getTagOrganizations(event, this.filters.tag)
       });
     }
     return qs;
@@ -67,7 +90,7 @@ class ScanTaskSearch {
       .skip(PAGE_SIZE * (this.page - 1))
       .take(PAGE_SIZE);
 
-    this.filterResultQueryset(qs);
+    await this.filterResultQueryset(qs, event);
     return qs.getManyAndCount();
   }
 }

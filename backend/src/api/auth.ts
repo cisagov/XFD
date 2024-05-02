@@ -46,7 +46,7 @@ interface UserInfo {
 }
 
 const client = jwksClient({
-  jwksUri: `https://cognito-idp.us-gov-west-1.amazonaws.com/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`,
+  jwksUri: `${process.env.COGNITO_URL}/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`,
   getKeysInterceptor: () => {
     const jwksJson = JSON.parse(process.env.REACT_APP_USER_POOL_KEY!);
     return jwksJson.keys;

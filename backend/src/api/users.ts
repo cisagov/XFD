@@ -35,10 +35,6 @@ import {
   isOrgAdmin,
   isGlobalWriteAdmin
 } from './auth';
-import { Type, plainToClass } from 'class-transformer';
-import { IsNull } from 'typeorm';
-import { create } from './organizations';
-import logger from '../tools/lambda-logger';
 import { fetchAssessmentsByUser } from '../tasks/rscSync';
 
 class UserSearch {
@@ -327,7 +323,6 @@ export const invite = wrapHandler(async (event) => {
   let user = await User.findOne({
     email: body.email
   });
-  logger.info(user);
   let organization: Organization | undefined;
 
   if (body.organization) {

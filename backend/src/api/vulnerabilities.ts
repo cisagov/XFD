@@ -170,7 +170,8 @@ class VulnerabilitySearch {
         : `vulnerability.${this.sort}`;
     let qs = Vulnerability.createQueryBuilder('vulnerability')
       .leftJoinAndSelect('vulnerability.domain', 'domain')
-      .leftJoinAndSelect('domain.organization', 'organization');
+      .leftJoinAndSelect('domain.organization', 'organization')
+      .leftJoinAndSelect('vulnerability.service', 'service');
 
     if (groupBy) {
       qs = qs
@@ -185,9 +186,7 @@ class VulnerabilitySearch {
         ])
         .orderBy('cnt', 'DESC');
     } else {
-      qs = qs
-        .leftJoinAndSelect('vulnerability.service', 'service')
-        .orderBy(sort, this.order);
+      qs = qs.orderBy(sort, this.order);
     }
 
     if (pageSize !== -1) {
@@ -283,7 +282,7 @@ export const update = wrapHandler(async (event) => {
  *    - Vulnerabilities
  */
 export const list = wrapHandler(async (event) => {
-  await connectToDatabase();
+  await connectToDatabase(true);
   const search = await validateBody(VulnerabilitySearch, event.body);
   const [result, count] = await search.getResults(event);
   return {

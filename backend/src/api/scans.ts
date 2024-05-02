@@ -48,19 +48,6 @@ interface ScanSchema {
 }
 
 export const SCAN_SCHEMA: ScanSchema = {
-  testProxy: {
-    type: 'fargate',
-    isPassive: false,
-    global: true,
-    description: 'Not a real scan, used to test proxy'
-  },
-  test: {
-    type: 'fargate',
-    isPassive: false,
-    global: true,
-    description: 'Not a real scan, used to test'
-  },
-  censys: {
   amass: {
     type: 'fargate',
     isPassive: false,
@@ -234,23 +221,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     cpu: '1024',
     memory: '8192'
   },
-  dotgov: {
-    type: 'fargate',
-    isPassive: true,
-    global: true,
-    description:
-      'Create organizations based on root domains from the dotgov registrar dataset. All organizations are created with the "dotgov" tag and have a " (dotgov)" suffix added to their name.'
-  },
-  searchSync: {
-    type: 'fargate',
-    isPassive: true,
-    global: true,
-    cpu: '2048',
-    memory: '16384',
-    description:
-      'Syncs records with Elasticsearch so that they appear in search results.'
-  },
-  intrigueIdent: {
   wappalyzer: {
     type: 'fargate',
     isPassive: true,
