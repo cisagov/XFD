@@ -3,10 +3,9 @@ import { getLiveWebsites, LiveDomain } from './helpers/getLiveWebsites';
 import PQueue from 'p-queue';
 import * as buffer from 'buffer';
 import { spawnSync } from 'child_process';
-import logger from '../tools/lambda-logger';
 
 const intrigueIdent = async (domain: LiveDomain): Promise<void> => {
-  logger.info(`Domain ${domain.name}`);
+  console.log('Domain', domain.name);
   const { stdout, stderr, status } = spawnSync(
     'intrigue-ident',
     ['--uri', domain.url, '--json'],
@@ -20,10 +19,10 @@ const intrigueIdent = async (domain: LiveDomain): Promise<void> => {
     }
   );
   if (stderr?.toString()) {
-    logger.error(`stderr ${stderr.toString()}`);
+    console.error('stderr', stderr.toString());
   }
   if (status !== 0) {
-    logger.error('IntrigueIdent failed');
+    console.error('IntrigueIdent failed');
     return;
   }
   const output = stdout.toString();
@@ -37,7 +36,7 @@ const intrigueIdent = async (domain: LiveDomain): Promise<void> => {
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, organizationName } = commandOptions;
 
-  logger.info(`Running intrigueIdent on organization ${organizationName}`);
+  console.log('Running intrigueIdent on organization', organizationName);
 
   const liveWebsites = await getLiveWebsites(organizationId!);
   const queue = new PQueue({ concurrency: 5 });
@@ -45,5 +44,5 @@ export const handler = async (commandOptions: CommandOptions) => {
     liveWebsites.map((site) => queue.add(() => intrigueIdent(site)))
   );
 
-  logger.info(`IntrigueIdent finished for ${liveWebsites.length} domains`);
+  console.log(`IntrigueIdent finished for ${liveWebsites.length} domains`);
 };

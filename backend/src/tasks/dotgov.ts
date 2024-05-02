@@ -2,7 +2,6 @@ import { connectToDatabase, Organization, OrganizationTag } from '../models';
 import { CommandOptions } from './ecs-client';
 import axios from 'axios';
 import * as Papa from 'papaparse';
-import logger from '../tools/lambda-logger';
 
 interface ParsedRow {
   'Domain Name': string;
@@ -61,7 +60,8 @@ export const handler = async (commandOptions: CommandOptions) => {
     orgsToRootDomainMap
   )) {
     // Create a new organization if needed; else, create the same one.
-    logger.info(orgName);
+    console.log(orgName);
+    console.log(row);
     const organization =
       (await Organization.findOne({
         name: orgName
@@ -77,8 +77,8 @@ export const handler = async (commandOptions: CommandOptions) => {
     // Replace existing rootDomains with new rootDomains.
     organization.rootDomains = [...rootDomains];
     await organization.save();
-    logger.info(`Finished org ${orgName}`);
+    console.log('Finished org', orgName);
   }
 
-  logger.info(`dotgov done`);
+  console.log(`dotgov done`);
 };

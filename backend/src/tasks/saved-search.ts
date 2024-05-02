@@ -10,10 +10,9 @@ import {
   userTokenBody
 } from '../api/auth';
 import { fetchAllResults } from '../api/search';
-import logger from '../tools/lambda-logger';
 
 export const handler = async (commandOptions: CommandOptions) => {
-  logger.info('Running saved search');
+  console.log('Running saved search');
 
   await connectToDatabase();
   const savedSearches = await SavedSearch.find();
@@ -45,7 +44,7 @@ export const handler = async (commandOptions: CommandOptions) => {
       const client = new ESClient();
       searchResults = await client.searchDomains(request);
     } catch (e) {
-      logger.error(e.meta.body.error);
+      console.error(e.meta.body.error);
       continue;
     }
     const hits: number = searchResults.body.hits.total.value;
@@ -68,5 +67,5 @@ export const handler = async (commandOptions: CommandOptions) => {
     }
   }
 
-  logger.info(`Saved search finished for ${savedSearches.length} searches`);
+  console.log(`Saved search finished for ${savedSearches.length} searches`);
 };

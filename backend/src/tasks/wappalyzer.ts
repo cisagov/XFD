@@ -3,11 +3,10 @@ import { CommandOptions } from './ecs-client';
 import { getLiveWebsites, LiveDomain } from './helpers/getLiveWebsites';
 import PQueue from 'p-queue';
 import { wappalyzer } from './helpers/simple-wappalyzer';
-import logger from '../tools/lambda-logger';
 
 const wappalyze = async (domain: LiveDomain): Promise<void> => {
   try {
-    logger.info(`Executing wapplyzer on ${domain.url}`);
+    console.log(`Executing wapplyzer on ${domain.url}`);
 
     const { data, status, headers } = await axios.get(domain.url, {
       timeout: 10000,
@@ -24,17 +23,17 @@ const wappalyze = async (domain: LiveDomain): Promise<void> => {
         if (filteredResults.length > 0) {
           domain.service.wappalyzerResults = filteredResults;
           await domain.service.save();
-          logger.info(
+          console.log(
             `${domain.url} - ${filteredResults.length} technology matches saved.`
           );
         } else {
-          logger.info(
+          console.log(
             `${domain.url} - there were no technology matches for domain.`
           );
         }
       }
     } else {
-      logger.info(
+      console.log(
         `${domain.url} returned and HTTP error code. HTTPStatusCode: ${status}`
       );
     }
@@ -48,7 +47,7 @@ const wappalyze = async (domain: LiveDomain): Promise<void> => {
           Response: ${error.response}`);
       } else if (error.code === 'ECONNABORTED') {
         // request timed out
-        logger.error(
+        console.error(
           `${domain.url} domain did not respond in a timely manner: ${error.message}`
         );
       } else {
@@ -72,7 +71,7 @@ const wappalyze = async (domain: LiveDomain): Promise<void> => {
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, organizationName } = commandOptions;
 
-  logger.info(`Running wappalyzer on organization ${organizationName}`);
+  console.log(`Running wappalyzer on organization ${organizationName}`);
 
   const liveWebsites = await getLiveWebsites(organizationId!);
   const queue = new PQueue({ concurrency: 5 });
@@ -80,7 +79,7 @@ export const handler = async (commandOptions: CommandOptions) => {
     liveWebsites.map((site) => queue.add(() => wappalyze(site)))
   );
 
-  logger.info(
+  console.log(
     `Wappalyzer finished for organization ${organizationName} on ${liveWebsites.length} domains`
   );
 };

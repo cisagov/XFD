@@ -5,52 +5,53 @@ import {
   Domain,
   Organization,
   OrganizationTag,
-  Scan,
   Vulnerability
 } from '../models';
 import ESClient from './es-client';
 import * as Sentencer from 'sentencer';
 import * as services from './sample_data/services.json';
 import * as cpes from './sample_data/cpes.json';
+import * as cves from './sample_data/cves.json';
 import * as vulnerabilities from './sample_data/vulnerabilities.json';
 import * as nouns from './sample_data/nouns.json';
 import * as adjectives from './sample_data/adjectives.json';
+import { saveToDb } from './cve-sync';
 import { sample } from 'lodash';
 import { handler as searchSync } from './search-sync';
 import { In } from 'typeorm';
-import logger from '../tools/lambda-logger';
 
 const SAMPLE_TAG_NAME = 'Sample Data'; // Tag name for sample data
 const NUM_SAMPLE_ORGS = 10; // Number of sample orgs
 const NUM_SAMPLE_DOMAINS = 10; // Number of sample domains per org
 const PROB_SAMPLE_SERVICES = 0.5; // Higher number means more services per domain
 const PROB_SAMPLE_VULNERABILITIES = 0.5; // Higher number means more vulnerabilities per domain
+const SAMPLE_STATES = ['VA', 'CA', 'CO'];
+const SAMPLE_REGIONIDS = ['1', '2', '3'];
 
-export const handler: Handler = async (event, context) => {
+export const handler: Handler = async (event) => {
   const connection = await connectToDatabase(false);
   const type = event?.type || event;
   const dangerouslyforce = type === 'dangerouslyforce';
   if (connection) {
     await connection.synchronize(dangerouslyforce);
   } else {
-    logger.error('Error: could not sync', { context });
+    console.error('Error: could not sync');
   }
 
   if (process.env.NODE_ENV !== 'test') {
     // Create indices on elasticsearch only when not using tests.
     const client = new ESClient();
     if (dangerouslyforce) {
-      logger.info('Deleting all data in elasticsearch...', { context });
+      console.log('Deleting all data in elasticsearch...');
       await client.deleteAll();
-      logger.info('Done.', { context });
+      console.log('Done.');
     }
     await client.syncDomainsIndex();
   }
 
   if (type === 'populate') {
-    logger.info('Populating the database with some sample data...', {
-      context
-    });
+    console.log('Populating the database with some sample data...');
+    await saveToDb(cves);
     Sentencer.configure({
       nounList: nouns,
       adjectiveList: adjectives,
@@ -74,6 +75,7 @@ export const handler: Handler = async (event, context) => {
     }
     for (let i = 0; i <= NUM_SAMPLE_ORGS; i++) {
       const organization = await Organization.create({
+        acronym: Math.random().toString(36).slice(2, 7),
         name: Sentencer.make('{{ adjective }} {{ entity }}').replace(
           /\b\w/g,
           (l) => l.toUpperCase()
@@ -81,9 +83,12 @@ export const handler: Handler = async (event, context) => {
         rootDomains: ['crossfeed.local'],
         ipBlocks: [],
         isPassive: false,
-        tags: [tag]
+        tags: [tag],
+        state: SAMPLE_STATES[Math.floor(Math.random() * SAMPLE_STATES.length)],
+        regionId:
+          SAMPLE_REGIONIDS[Math.floor(Math.random() * SAMPLE_REGIONIDS.length)]
       }).save();
-      logger.info(organization.name, { context });
+      console.log(organization.name);
       organizationIds.push(organization.id);
       for (let i = 0; i <= NUM_SAMPLE_DOMAINS; i++) {
         const randomNum = () => Math.floor(Math.random() * 256);
@@ -94,7 +99,7 @@ export const handler: Handler = async (event, context) => {
           subdomainSource: 'findomain',
           organization
         }).save();
-        logger.info(`\t${domain.name}`, { context });
+        console.log(`\t${domain.name}`);
         let service;
         for (const serviceData of services) {
           if (service && Math.random() < PROB_SAMPLE_SERVICES) continue;
@@ -131,7 +136,7 @@ export const handler: Handler = async (event, context) => {
       }
     }
 
-    logger.info('Done. Running search sync...', { context });
+    console.log('Done. Running search sync...');
     for (const organizationId of organizationIds) {
       await searchSync({
         organizationId,
@@ -141,6 +146,6 @@ export const handler: Handler = async (event, context) => {
         scanTaskId: 'scanTaskId'
       });
     }
-    logger.info('Done.', { context });
+    console.log('Done.');
   }
 };

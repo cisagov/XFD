@@ -1,6 +1,5 @@
 import { ECS, CloudWatchLogs } from 'aws-sdk';
 import { SCAN_SCHEMA } from '../api/scans';
-import logger from '../tools/lambda-logger';
 
 export interface CommandOptions {
   /** A list of organizations (id and name) that this
@@ -87,6 +86,8 @@ class ECSClient {
           },
           Env: [
             `CROSSFEED_COMMAND_OPTIONS=${JSON.stringify(commandOptions)}`,
+            `CF_API_KEY=${process.env.CF_API_KEY}`,
+            `PE_API_KEY=${process.env.PE_API_KEY}`,
             `DB_DIALECT=${process.env.DB_DIALECT}`,
             `DB_HOST=${process.env.DB_HOST}`,
             `IS_LOCAL=true`,
@@ -129,7 +130,7 @@ class ECSClient {
           failures: []
         };
       } catch (e) {
-        logger.error(e);
+        console.error(e);
         return {
           tasks: [],
           failures: [{}]

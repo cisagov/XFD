@@ -5,7 +5,6 @@ import { SCAN_SCHEMA } from '../api/scans';
 import { In, IsNull, Not } from 'typeorm';
 import getScanOrganizations from './helpers/getScanOrganizations';
 import { chunk } from 'lodash';
-import logger from '../tools/lambda-logger';
 
 class Scheduler {
   ecs: ECSClient;
@@ -39,8 +38,8 @@ class Scheduler {
     this.maxConcurrentTasks = Number(process.env.FARGATE_MAX_CONCURRENCY!);
     this.orgsPerScanTask = orgsPerScanTask;
 
-    logger.info(`Number of running Fargate tasks: ${this.numExistingTasks}`);
-    logger.info(`Number of queued scan tasks: ${this.queuedScanTasks.length}`);
+    console.log('Number of running Fargate tasks: ', this.numExistingTasks);
+    console.log('Number of queued scan tasks: ', this.queuedScanTasks.length);
   }
 
   launchSingleScanTask = async ({
@@ -87,8 +86,9 @@ class Scheduler {
       if (!scanTask.queuedAt) {
         scanTask.queuedAt = new Date();
       }
-      logger.info(
-        `Reached maximum concurrency, queueing scantask ${scanTask.id}`
+      console.log(
+        'Reached maximum concurrency, queueing scantask',
+        scanTask.id
       );
       await scanTask.save();
       return;
@@ -98,7 +98,7 @@ class Scheduler {
       if (type === 'fargate') {
         const result = await ecsClient.runCommand(commandOptions);
         if (result.tasks!.length === 0) {
-          logger.error(result.failures);
+          console.error(result.failures);
           throw new Error(
             `Failed to start fargate task for scan ${scan.name} -- got ${
               result.failures!.length
@@ -108,7 +108,7 @@ class Scheduler {
         const taskArn = result.tasks![0].taskArn;
         scanTask.fargateTaskArn = taskArn;
         if (typeof jest === 'undefined') {
-          logger.info(
+          console.log(
             `Successfully invoked ${scan.name} scan with fargate on ${organizations.length} organizations, with ECS task ARN ${taskArn}` +
               (commandOptions.numChunks
                 ? `, Chunk ${commandOptions.chunkNumber}/${commandOptions.numChunks}`
@@ -122,8 +122,8 @@ class Scheduler {
       scanTask.requestedAt = new Date();
       this.numLaunchedTasks++;
     } catch (error) {
-      logger.error(`Error invoking ${scan.name} scan.`);
-      logger.error(error);
+      console.error(`Error invoking ${scan.name} scan.`);
+      console.error(error);
       scanTask.output = JSON.stringify(error);
       scanTask.status = 'failed';
       scanTask.finishedAt = new Date();
@@ -144,6 +144,8 @@ class Scheduler {
         // For running server on localhost -- doesn't apply in jest tests, though.
         numChunks = 1;
       }
+      // Sanitizes numChunks to protect against arbitrarily large numbers
+      numChunks = numChunks > 100 ? 100 : numChunks;
       for (let chunkNumber = 0; chunkNumber < numChunks; chunkNumber++) {
         await this.launchSingleScanTask({
           organizations,
@@ -168,7 +170,7 @@ class Scheduler {
       const prev_numLaunchedTasks = this.numLaunchedTasks;
 
       if (!SCAN_SCHEMA[scan.name]) {
-        logger.error(`Invalid scan name ${scan.name}`);
+        console.error('Invalid scan name ', scan.name);
         continue;
       }
       const { global } = SCAN_SCHEMA[scan.name];
@@ -195,8 +197,11 @@ class Scheduler {
           await this.launchScanTask({ organizations: orgs, scan });
         }
       }
-      logger.info(
-        `Launched ${this.numLaunchedTasks}scanTasks for scan ${scan.name}`
+      console.log(
+        'Launched',
+        this.numLaunchedTasks,
+        'scanTasks for scan',
+        scan.name
       );
       // If at least 1 new scan task was launched for this scan, update the scan
       if (this.numLaunchedTasks > prev_numLaunchedTasks) {
@@ -314,9 +319,9 @@ interface Event {
   orgsPerScanTask?: number;
 }
 
-export const handler: Handler<Event> = async (event, context) => {
+export const handler: Handler<Event> = async (event) => {
   await connectToDatabase();
-  logger.info('Running scheduler...', { context });
+  console.log('Running scheduler...');
 
   const scanIds = event.scanIds || [];
   if (event.scanId) {
@@ -345,7 +350,6 @@ export const handler: Handler<Event> = async (event, context) => {
     relations: ['scan']
   });
 
-  logger.info('Initializing...', { context });
   const scheduler = new Scheduler();
   await scheduler.initialize({
     scans,
@@ -358,5 +362,5 @@ export const handler: Handler<Event> = async (event, context) => {
   });
   await scheduler.runQueued();
   await scheduler.run();
-  logger.info('Finished running scheduler.', { context });
+  console.log('Finished running scheduler.');
 };

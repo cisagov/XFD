@@ -4,7 +4,6 @@ import { In } from 'typeorm';
 import ESClient from './es-client';
 import { chunk } from 'lodash';
 import pRetry from 'p-retry';
-import logger from '../tools/lambda-logger';
 
 /**
  * Chunk sizes. These values are small during testing to facilitate testing.
@@ -14,7 +13,7 @@ export const DOMAIN_CHUNK_SIZE = typeof jest === 'undefined' ? 50 : 10;
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, domainId } = commandOptions;
 
-  logger.info('Running searchSync');
+  console.log('Running searchSync');
   await connectToDatabase();
 
   const client = new ESClient();
@@ -41,7 +40,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   }
 
   const domainIds = (await qs.getMany()).map((e) => e.id);
-  logger.info(`Got ${domainIds.length} domains.`);
+  console.log(`Got ${domainIds.length} domains.`);
   if (domainIds.length) {
     const domainIdChunks = chunk(domainIds, DOMAIN_CHUNK_SIZE);
     for (const domainIdChunk of domainIdChunks) {
@@ -49,7 +48,7 @@ export const handler = async (commandOptions: CommandOptions) => {
         where: { id: In(domainIdChunk) },
         relations: ['services', 'organization', 'vulnerabilities']
       });
-      logger.info(`Syncing ${domains.length} domains...`);
+      console.log(`Syncing ${domains.length} domains...`);
       await pRetry(() => client.updateDomains(domains), {
         retries: 3,
         randomize: true
@@ -61,8 +60,8 @@ export const handler = async (commandOptions: CommandOptions) => {
         .where({ id: In(domains.map((e) => e.id)) })
         .execute();
     }
-    logger.info('Domain sync complete.');
+    console.log('Domain sync complete.');
   } else {
-    logger.info('Not syncing any domains.');
+    console.log('Not syncing any domains.');
   }
 };

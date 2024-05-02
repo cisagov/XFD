@@ -2,7 +2,6 @@ import { CommandOptions } from './ecs-client';
 import { getLiveWebsites, LiveDomain } from './helpers/getLiveWebsites';
 import PQueue from 'p-queue';
 import * as sslChecker from 'ssl-checker';
-import logger from '../tools/lambda-logger';
 
 interface IResolvedValues {
   valid: boolean;
@@ -22,7 +21,7 @@ const sslyze = async (domain: LiveDomain): Promise<void> => {
       validTo: response.validTo,
       altNames: response.validFor
     };
-    logger.info(
+    console.log(
       domain.name,
       ': valid',
       response.valid,
@@ -33,18 +32,18 @@ const sslyze = async (domain: LiveDomain): Promise<void> => {
     );
     await domain.save();
   } catch (e) {
-    logger.error(domain.name, JSON.stringify(e));
+    console.error(domain.name, e);
   }
 };
 
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, organizationName } = commandOptions;
 
-  logger.info(`Running sslyze on organization ${organizationName}`);
+  console.log('Running sslyze on organization', organizationName);
 
   const liveWebsites = await getLiveWebsites(organizationId!, [], true);
   const queue = new PQueue({ concurrency: 5 });
   await Promise.all(liveWebsites.map((site) => queue.add(() => sslyze(site))));
 
-  logger.info(`sslyze finished for ${liveWebsites.length} domains`);
+  console.log(`sslyze finished for ${liveWebsites.length} domains`);
 };

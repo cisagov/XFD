@@ -3,7 +3,6 @@ import { CommandOptions } from './ecs-client';
 import { plainToClass } from 'class-transformer';
 import saveVulnerabilitiesToDb from './helpers/saveVulnerabilitiesToDb';
 import axios from 'axios';
-import logger from '../tools/lambda-logger';
 
 /**
  * The hibp scan looks up emails from a particular .gov domain
@@ -91,7 +90,7 @@ async function lookupEmails(
     finalResults['Breaches'] = breachResults;
     return finalResults;
   } catch (error) {
-    logger.error(
+    console.error(
       `An error occured when trying to access the HIPB API using the domain: ${domain.name}: ${error} `
     );
     return null;
@@ -101,7 +100,7 @@ async function lookupEmails(
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, organizationName } = commandOptions;
 
-  logger.info(`Running hibp on organization ${organizationName}`);
+  console.log('Running hibp on organization', organizationName);
   const domainsWithIPs = await getIps(organizationId);
   const { data } = await axios.get(
     'https://haveibeenpwned.com/api/v2/breaches',
@@ -122,7 +121,7 @@ export const handler = async (commandOptions: CommandOptions) => {
     const results = await lookupEmails(breachesDict, domain);
 
     if (results) {
-      logger.info(
+      console.log(
         `Got ${Object.keys(results['Emails']).length} emails for domain ${
           domain.name
         }`

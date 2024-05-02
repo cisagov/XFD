@@ -4,17 +4,16 @@ import { Domain } from '../models';
 import { CommandOptions } from './ecs-client';
 import saveDomainsToDb from './helpers/saveDomainsToDb';
 import * as dns from 'dns';
-import logger from '../tools/lambda-logger';
 
 export const handler = async (commandOptions: CommandOptions) => {
   const { organizationId, organizationName } = commandOptions;
-  logger.info(`Syncing domains from ${organizationName}`);
+  console.log('Syncing domains from', organizationName);
 
   const rootDomains = await getRootDomains(organizationId!);
 
   const domains: Domain[] = [];
   for (const rootDomain of rootDomains) {
-    logger.info(rootDomain);
+    console.log(rootDomain);
     let ipAddress;
     try {
       ipAddress = (await dns.promises.lookup(rootDomain)).address;
@@ -31,5 +30,5 @@ export const handler = async (commandOptions: CommandOptions) => {
     );
   }
   await saveDomainsToDb(domains);
-  logger.info(`Scan created/updated ${domains.length} new domains`);
+  console.log(`Scan created/updated ${domains.length} new domains`);
 };
