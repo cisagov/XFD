@@ -1,17 +1,17 @@
 import {
-  Entity,
-  Column,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-  CreateDateColumn,
   BaseEntity,
+  Column,
+  Entity,
+  JoinTable,
+  CreateDateColumn,
   OneToMany,
   ManyToMany,
-  JoinTable,
-  ManyToOne
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+  Relation
 } from 'typeorm';
-import { ScanTask, Organization, OrganizationTag } from '.';
-import { User } from './user';
+import { ScanTask, Organization, OrganizationTag, User } from './index';
 
 @Entity()
 export class Scan extends BaseEntity {
@@ -44,7 +44,7 @@ export class Scan extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  scanTasks: ScanTask[];
+  scanTasks: Relation<ScanTask>[];
 
   /** Whether the scan is granular. Granular scans
    * are only run on specified organizations.
@@ -80,7 +80,7 @@ export class Scan extends BaseEntity {
     }
   )
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 
   /**
    * If the scan is granular, specifies organization tags that the
@@ -91,13 +91,13 @@ export class Scan extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  tags: OrganizationTag[];
+  tags: Relation<OrganizationTag>[];
 
   @ManyToOne((type) => User, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  createdBy: User;
+  createdBy: Relation<User>;
 
   @Column({
     type: 'boolean',

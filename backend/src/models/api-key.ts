@@ -6,9 +6,10 @@ import {
   Entity,
   ManyToOne,
   PrimaryGeneratedColumn,
+  Relation,
   UpdateDateColumn
 } from 'typeorm';
-import { User } from './';
+import { User } from './user';
 
 @Entity()
 export class ApiKey extends BaseEntity {
@@ -25,7 +26,7 @@ export class ApiKey extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  user: User;
+  user: Relation<User>;
 
   @Column({
     type: 'timestamp',

@@ -8,11 +8,10 @@ import {
   Index,
   OneToMany,
   PrimaryGeneratedColumn,
+  Relation,
   UpdateDateColumn
 } from 'typeorm';
-import { ApiKey } from './api-key';
-import { Assessment } from './assessment';
-import { Role } from './';
+import { ApiKey, Assessment, Role } from './index';
 
 export enum UserType {
   GLOBAL_ADMIN = 'globalAdmin',
@@ -93,14 +92,14 @@ export class User extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  apiKeys: ApiKey[];
+  apiKeys: Relation<ApiKey>[];
 
   /** The roles for organizations which the user belongs to */
   @OneToMany((type) => Role, (role) => role.user, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  roles: Role[];
+  roles: Relation<Role>[];
 
   @BeforeInsert()
   @BeforeUpdate()
@@ -119,5 +118,5 @@ export class User extends BaseEntity {
   state: string;
 
   @OneToMany(() => Assessment, (assessment) => assessment.user)
-  assessments: Assessment[];
+  assessments: Relation<Assessment>[];
 }

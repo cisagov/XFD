@@ -1,16 +1,17 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-  CreateDateColumn,
   BaseEntity,
-  ManyToOne,
-  JoinColumn,
   Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  JoinTable,
   ManyToMany,
-  JoinTable
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  Relation,
+  UpdateDateColumn
 } from 'typeorm';
-import { Scan, Organization } from '.';
+import { Scan, Organization } from './index';
 
 @Entity()
 export class ScanTask extends BaseEntity {
@@ -31,7 +32,7 @@ export class ScanTask extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   /**
    * Organizations that this specific ScanTask runs on.
@@ -45,14 +46,14 @@ export class ScanTask extends BaseEntity {
     }
   )
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 
   @ManyToOne((type) => Scan, (scan) => scan.scanTasks, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
   @JoinColumn()
-  scan: Scan;
+  scan: Relation<Scan>;
 
   /**
    * created: model is created

@@ -1,17 +1,17 @@
 import {
+  BaseEntity,
+  Column,
+  CreateDateColumn,
   Entity,
   Index,
-  Column,
+  ManyToMany,
+  ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  CreateDateColumn,
-  BaseEntity,
-  OneToMany,
-  ManyToMany,
-  ManyToOne
+  Relation
 } from 'typeorm';
-import { Domain, Role, Scan, ScanTask, OrganizationTag } from '.';
-import { User } from './user';
+import { Domain, OrganizationTag, Role, Scan, ScanTask, User } from './index';
 
 export interface PendingDomain {
   name: string;
@@ -52,16 +52,16 @@ export class Organization extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  domains: Domain[];
+  domains: Relation<Domain>[];
 
   @Column('jsonb', { default: '[]' })
-  pendingDomains: PendingDomain[];
+  pendingDomains: Relation<PendingDomain>[];
 
   @OneToMany((type) => Role, (role) => role.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  userRoles: Role[];
+  userRoles: Relation<Role>[];
 
   /**
    * Corresponds to "organization" property of ScanTask.
@@ -71,7 +71,7 @@ export class Organization extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  scanTasks: ScanTask[];
+  scanTasks: Relation<ScanTask>[];
 
   /**
    * Corresponds to "organizations" property of ScanTask.
@@ -80,19 +80,19 @@ export class Organization extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  allScanTasks: ScanTask[];
+  allScanTasks: Relation<ScanTask>[];
 
   @ManyToMany((type) => Scan, (scan) => scan.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  granularScans: Scan[];
+  granularScans: Relation<Scan>[];
 
   @ManyToMany((type) => OrganizationTag, (tag) => tag.organizations, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  tags: OrganizationTag[];
+  tags: Relation<OrganizationTag>[];
 
   /**
    * The organization's parent organization, if any.
@@ -104,19 +104,19 @@ export class Organization extends BaseEntity {
     onDelete: 'CASCADE',
     nullable: true
   })
-  parent: Organization;
+  parent: Relation<Organization>;
 
   @OneToMany((type) => Organization, (org) => org.parent, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  children: Organization[];
+  children: Relation<Organization>[];
 
   @ManyToOne((type) => User, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  createdBy: User;
+  createdBy: Relation<User>;
 
   @Column({
     nullable: true

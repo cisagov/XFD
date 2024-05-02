@@ -1,10 +1,11 @@
 import {
-  Entity,
-  PrimaryGeneratedColumn,
-  Column,
-  ManyToMany,
   BaseEntity,
+  Column,
+  Entity,
   JoinTable,
+  PrimaryGeneratedColumn,
+  ManyToMany,
+  Relation,
   Unique
 } from 'typeorm';
 import { Cpe } from './cpe';
@@ -113,5 +114,5 @@ export class Cve extends BaseEntity {
     cascade: true
   })
   @JoinTable()
-  cpes: Cpe[];
+  cpes: Relation<Cpe>[];
 }

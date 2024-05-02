@@ -1,14 +1,14 @@
 import {
-  Entity,
+  BaseEntity,
   Column,
+  CreateDateColumn,
+  Entity,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  CreateDateColumn,
-  BaseEntity,
-  ManyToOne
+  Relation
 } from 'typeorm';
-import { Vulnerability } from './vulnerability';
-import { User } from './user';
+import { User, Vulnerability } from './index';
 
 @Entity()
 export class SavedSearch extends BaseEntity {
@@ -57,5 +57,5 @@ export class SavedSearch extends BaseEntity {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  createdBy: User;
+  createdBy: Relation<User>;
 }

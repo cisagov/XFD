@@ -4,10 +4,10 @@ import {
   Entity,
   Index,
   ManyToOne,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
+  Relation
 } from 'typeorm';
-import { Assessment } from './assessment';
-import { Question } from './question';
+import { Assessment, Question } from './index';
 
 @Entity()
 @Index(['assessment', 'question'], { unique: true })
@@ -19,8 +19,8 @@ export class Response extends BaseEntity {
   selection: string;
 
   @ManyToOne(() => Assessment, (assessment) => assessment.responses)
-  assessment: Assessment;
+  assessment: Relation<Assessment>;
 
   @ManyToOne(() => Question, (question) => question.responses)
-  question: Question;
+  question: Relation<Question>;
 }

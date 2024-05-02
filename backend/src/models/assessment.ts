@@ -4,10 +4,10 @@ import {
   Entity,
   ManyToOne,
   OneToMany,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
+  Relation
 } from 'typeorm';
-import { Response } from './response';
-import { User } from './user';
+import { Response, User } from './index';
 
 @Entity()
 export class Assessment extends BaseEntity {
@@ -27,8 +27,8 @@ export class Assessment extends BaseEntity {
   type: string;
 
   @ManyToOne(() => User, (user) => user.assessments)
-  user: User;
+  user: Relation<User>;
 
   @OneToMany(() => Response, (response) => response.assessment)
-  responses: Response[];
+  responses: Relation<Response>[];
 }

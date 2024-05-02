@@ -47,7 +47,7 @@ import {
   Ticket,
   TrustymailScan,
   VulnScan
-} from '.';
+} from './index';
 
 let dbConnection: DataSource | null = null;
 

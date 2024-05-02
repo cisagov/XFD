@@ -3,7 +3,8 @@ import {
   Column,
   Entity,
   OneToMany,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
+  Relation
 } from 'typeorm';
 import { Question } from './question';
 
@@ -22,5 +23,5 @@ export class Category extends BaseEntity {
   shortName: string;
 
   @OneToMany(() => Question, (question) => question.category)
-  questions: Question[];
+  questions: Relation<Question>[];
 }

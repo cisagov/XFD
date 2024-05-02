@@ -1,15 +1,16 @@
 import {
+  BaseEntity,
+  Column,
   Entity,
   Index,
+  JoinTable,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
   CreateDateColumn,
-  BaseEntity,
   ManyToMany,
-  JoinTable,
-  Column
+  Relation
 } from 'typeorm';
-import { Organization, Scan } from '.';
+import { Organization, Scan } from './index';
 
 @Entity()
 @Index(['name'], { unique: true })
@@ -34,7 +35,7 @@ export class OrganizationTag extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   @JoinTable()
-  organizations: Organization[];
+  organizations: Relation<Organization>[];
 
   /**
    * Scans that have this tag enabled, and will run against all tagged organizations
@@ -43,5 +44,5 @@ export class OrganizationTag extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  scans: Scan[];
+  scans: Relation<Scan>[];
 }

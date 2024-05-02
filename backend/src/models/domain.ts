@@ -1,20 +1,17 @@
 import {
-  Entity,
-  Index,
-  Column,
-  OneToMany,
-  PrimaryGeneratedColumn,
-  UpdateDateColumn,
-  CreateDateColumn,
   BaseEntity,
   BeforeInsert,
-  ManyToOne
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+  Relation,
+  UpdateDateColumn
 } from 'typeorm';
-import { Service } from './service';
-import { Organization } from './organization';
-import { Vulnerability } from './vulnerability';
-import { Scan } from './scan';
-import { Webpage } from './webpage';
+import { Organization, Scan, Service, Vulnerability, Webpage } from './index';
 
 @Entity()
 @Index(['name', 'organization'], { unique: true })
@@ -63,7 +60,7 @@ export class Domain extends BaseEntity {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  discoveredBy: Scan;
+  discoveredBy: Relation<Scan>;
 
   @Column({
     length: 512
@@ -76,16 +73,16 @@ export class Domain extends BaseEntity {
   name: string;
 
   @OneToMany((type) => Service, (service) => service.domain)
-  services: Service[];
+  services: Relation<Service>[];
 
   @OneToMany((type) => Vulnerability, (vulnerability) => vulnerability.domain)
-  vulnerabilities: Vulnerability[];
+  vulnerabilities: Relation<Vulnerability>[];
 
   @OneToMany((type) => Webpage, (webpage) => webpage.domain)
-  webpages: Service[];
+  webpages: Relation<Service>[];
 
   @ManyToOne((type) => Organization, { onDelete: 'CASCADE', nullable: false })
-  organization: Organization;
+  organization: Relation<Organization>;
 
   @Column({
     length: 512,

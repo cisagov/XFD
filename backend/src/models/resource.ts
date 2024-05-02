@@ -3,8 +3,8 @@ import {
   Column,
   Entity,
   ManyToMany,
-  ManyToOne,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
+  Relation
 } from 'typeorm';
 import { Question } from './question';
 
@@ -26,5 +26,5 @@ export class Resource extends BaseEntity {
   url: string;
 
   @ManyToMany(() => Question, (question) => question.resources)
-  questions: Question[];
+  questions: Relation<Question>[];
 }

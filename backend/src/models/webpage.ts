@@ -1,15 +1,14 @@
 import {
-  Entity,
-  Column,
-  Index,
-  PrimaryGeneratedColumn,
-  ManyToOne,
   BaseEntity,
+  Column,
   CreateDateColumn,
+  Entity,
+  Index,
+  ManyToOne,
+  PrimaryGeneratedColumn,
   UpdateDateColumn
 } from 'typeorm';
-import { Domain } from './domain';
-import { Scan } from './scan';
+import { Domain, Scan } from './index';
 
 @Entity()
 @Index(['url', 'domain'], { unique: true })

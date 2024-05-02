@@ -1,17 +1,17 @@
 import {
-  Entity,
-  Column,
-  Index,
-  PrimaryGeneratedColumn,
-  ManyToOne,
   BaseEntity,
-  CreateDateColumn,
   BeforeInsert,
   BeforeUpdate,
+  Column,
+  CreateDateColumn,
+  Entity,
+  Index,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  Relation,
   UpdateDateColumn
 } from 'typeorm';
-import { Domain } from './domain';
-import { Scan } from './scan';
+import { Domain, Scan } from './index';
 import { CpeParser } from '@thefaultvault/tfv-cpe-parser';
 import { EXCHANGE_BUILD_NUMBER_TO_CPE } from '../ref/exchange';
 
@@ -87,13 +87,13 @@ export class Service extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  domain: Domain;
+  domain: Relation<Domain>;
 
   @ManyToOne((type) => Scan, {
     onDelete: 'SET NULL',
     onUpdate: 'CASCADE'
   })
-  discoveredBy: Scan;
+  discoveredBy: Relation<Scan>;
 
   /** Name of scan that discovered this port/service (censysIpv4, shodan). */
   @Column({

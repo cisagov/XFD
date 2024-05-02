@@ -1,14 +1,15 @@
 import {
+  BaseEntity,
+  Column,
+  CreateDateColumn,
   Entity,
   Index,
-  Column,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
-  CreateDateColumn,
-  BaseEntity,
-  ManyToOne
+  Relation
 } from 'typeorm';
-import { Organization, User } from './';
+import { Organization, User } from './index';
 
 @Entity()
 @Index(['user', 'organization'], { unique: true })
@@ -48,17 +49,11 @@ export class Role extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  user: User;
-
-  // @ManyToOne((type) => User, (user) => user.organizations, {
-  //   onDelete: 'CASCADE',
-  //   onUpdate: 'CASCADE'
-  // })
-  // userOrgs: User;
+  user: Relation<User>;
 
   @ManyToOne((type) => Organization, (organization) => organization.userRoles, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  organization: Organization;
+  organization: Relation<Organization>;
 }

@@ -7,11 +7,10 @@ import {
   ManyToMany,
   ManyToOne,
   OneToMany,
-  PrimaryGeneratedColumn
+  PrimaryGeneratedColumn,
+  Relation
 } from 'typeorm';
-import { Category } from './category';
-import { Resource } from './resource';
-import { Response } from './response';
+import { Category, Resource, Response } from './index';
 
 @Entity()
 @Index(['category', 'number'], { unique: true })
@@ -33,11 +32,11 @@ export class Question extends BaseEntity {
 
   @ManyToMany(() => Resource, (resource) => resource.questions)
   @JoinTable()
-  resources: Resource[];
+  resources: Relation<Resource>[];
 
   @ManyToOne(() => Category, (category) => category.questions)
-  category: Category;
+  category: Relation<Category>;
 
   @OneToMany(() => Response, (response) => response.question)
-  responses: Response[];
+  responses: Relation<Response>[];
 }
