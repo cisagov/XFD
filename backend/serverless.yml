@@ -16,8 +16,8 @@ custom:
 
 provider:
   name: aws
-  region: us-gov-east-1
-  endpointType: PRIVATE
+  region: ${file(env.yml):${self:provider.stage}.REGION, ''}
+  endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
   runtime: nodejs16.x
   timeout: 30
   stage: ${opt:stage, 'dev'}
@@ -29,18 +29,7 @@ provider:
     binaryMediaTypes:
       - image/*
       - font/*
-    resourcePolicy:
-      - Effect: Deny
-        Principal: '*'
-        Action: 'execute-api:Invoke'
-        Resource: 'execute-api:/${self:provider.stage}/*/*'
-        Condition:
-          StringNotEquals:
-            'aws:sourceVpce': ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
-      - Effect: Allow
-        Principal: '*'
-        Action: execute-api:Invoke
-        Resource: execute-api:/${self:provider.stage}/*/*
+    resourcePolicy: ${file(env.yml):${self:provider.stage}.RESOURCE_POLICY, ''}
   logs:
     restApi: true
   deploymentBucket:
@@ -48,7 +37,7 @@ provider:
   iam:
     role:
       statements:
-        # TODO: make the resources more specific.
+        # TODO: make the resources more specific. See Resource: '*' was
         - Effect: Allow
           Action:
             - lambda:InvokeAsync
@@ -61,6 +50,9 @@ provider:
           Action:
             - ecs:RunTask
             - ecs:ListTasks
+            - ecs:DescribeTasks
+            - ecs:DescribeServices
+            - ecs:UpdateService
             - iam:PassRole
             - logs:GetLogEvents
           Resource: '*'
@@ -75,6 +67,8 @@ provider:
             - s3:GetObjectAcl
             - s3:PutObject
             - s3:PutObjectAcl
+            - s3:PutBucketAcl
+            - s3:GetBucketAcl
           Resource: '*'
         - Effect: Allow
           Action:
@@ -112,9 +106,19 @@ provider:
           Resource: '*'
 
 resources:
+  Conditions:
+    IsDMZ:
+      Fn::Or:
+        - Fn::Equals:
+            - ${opt:stage}
+            - staging
+        - Fn::Equals:
+            - ${opt:stage}
+            - prod
   Resources:
     ShodanQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-shodan-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -122,6 +126,7 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     DnstwistQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-dnstwist-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -129,6 +134,7 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     HibpQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-hibp-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -136,6 +142,7 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     IntelxQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-intelx-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -143,17 +150,21 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     CybersixgillQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-cybersixgill-queue
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
+    {% endif %}
 
 functions:
   - ${file(./src/tasks/functions.yml)}
   - ${file(./src/api/functions.yml)}
 
+
 plugins:
   - serverless-better-credentials
   - serverless-domain-manager
   - serverless-webpack
+  - serverless-dotenv-plugin
