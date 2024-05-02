@@ -122,6 +122,13 @@ resource "aws_iam_role_policy" "db_accessor_s3_policy" {
         "s3:*"
       ],
       "Resource": ["${aws_s3_bucket.reports_bucket.arn}", "${aws_s3_bucket.reports_bucket.arn}/*", "${aws_s3_bucket.pe_db_backups_bucket.arn}", "${aws_s3_bucket.pe_db_backups_bucket.arn}/*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction"
+      ],
+      "Resource": ["*"]
     }
   ]
 }
@@ -348,4 +355,3 @@ resource "aws_s3_bucket_logging" "pe_db_backups_bucket" {
   target_bucket = aws_s3_bucket.logging_bucket.id
   target_prefix = "pe_db_backups_bucket/"
 }
-

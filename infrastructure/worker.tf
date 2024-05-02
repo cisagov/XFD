@@ -90,6 +90,9 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.lg_workspace_name.arn}",
           "${data.aws_ssm_parameter.https_proxy.arn}",
           "${aws_ssm_parameter.es_endpoint.arn}"
+          "${aws_ssm_parameter.es_endpoint.arn}",
+          "${data.aws_ssm_parameter.pe_api_key.arn}",
+          "${data.aws_ssm_parameter.cf_api_key.arn}"
         ]
     },
     {
@@ -367,6 +370,9 @@ data "aws_ssm_parameter" "worker_signature_public_key" { name = var.ssm_worker_s
 data "aws_ssm_parameter" "worker_signature_private_key" { name = var.ssm_worker_signature_private_key }
 
 data "aws_ssm_parameter" "https_proxy" { name = var.ssm_https_proxy }
+data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
+
+data "aws_ssm_parameter" "cf_api_key" { name = var.ssm_cf_api_key }
 
 resource "aws_s3_bucket" "export_bucket" {
   bucket = var.export_bucket_name
