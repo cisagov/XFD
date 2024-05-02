@@ -14,70 +14,9 @@ import {
 import { Save } from '@mui/icons-material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { User } from 'types';
+import { STATE_OPTIONS } from '../../constants/constants';
 
 const StyledDialog = registerFormStyles.StyledDialog;
-
-// State options (Keep casing as it matches region options in backend)
-const STATE_OPTIONS = [
-  'Connecticut',
-  'Maine',
-  'Massachusetts',
-  'New Hampshire',
-  'Rhode Island',
-  'Vermont',
-  'New Jersey',
-  'New York',
-  'Puerto Rico',
-  'Virgin Islands',
-  'Delaware',
-  'Maryland',
-  'Pennsylvania',
-  'Virginia',
-  'District of Columbia',
-  'West Virginia',
-  'Alabama',
-  'Florida',
-  'Georgia',
-  'Kentucky',
-  'Mississippi',
-  'North Carolina',
-  'South Carolina',
-  'Tennessee',
-  'Illinois',
-  'Indiana',
-  'Michigan',
-  'Minnesota',
-  'Ohio',
-  'Wisconsin',
-  'Arkansas',
-  'Louisiana',
-  'New Mexico',
-  'Oklahoma',
-  'Texas',
-  'Iowa',
-  'Kansas',
-  'Missouri',
-  'Nebraska',
-  'Colorado',
-  'Montana',
-  'North Dakota',
-  'South Dakota',
-  'Utah',
-  'Wyoming',
-  'Arizona',
-  'California',
-  'Hawaii',
-  'Nevada',
-  'Guam',
-  'American Samoa',
-  'Commonwealth Northern Mariana Islands',
-  'Republic of Marshall Islands',
-  'Federal States of Micronesia',
-  'Alaska',
-  'Idaho',
-  'Oregon',
-  'Washington'
-];
 
 export interface RegisterFormValues {
   firstName: string;

@@ -43,8 +43,8 @@ const wappalyze = async (domain: LiveDomain): Promise<void> => {
       const error = e as AxiosError;
       if (error.response) {
         // a response was received but we failed after the response
-        logger.error(`${domain.url} returned error.
-          Code: ${error.code}. 
+        console.error(`${domain.url} returned error.
+          Code: ${error.code}.
           Response: ${error.response}`);
       } else if (error.code === 'ECONNABORTED') {
         // request timed out
@@ -53,16 +53,16 @@ const wappalyze = async (domain: LiveDomain): Promise<void> => {
         );
       } else {
         // other errors
-        logger.error(
-          `${domain.url} - Axios unexpected error. 
-        Code (if any): ${error.code}. 
+        console.error(
+          `${domain.url} - Axios unexpected error.
+        Code (if any): ${error.code}.
         Error: ${JSON.stringify(error, null, 4)}`
         );
       }
     } else {
-      logger.error(
-        `${domain.url} - Unknown unexpected error. 
-        Type: ${e.typeof}. 
+      console.error(
+        `${domain.url} - Unknown unexpected error.
+        Type: ${e.typeof}.
         Error: ${JSON.stringify(e, null, 4)}`
       );
     }

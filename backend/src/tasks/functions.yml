@@ -14,12 +14,27 @@ pesyncdb:
   timeout: 900
   handler: src/tasks/pesyncdb.handler
 
+syncmdl:
+  timeout: 900
+  handler: src/tasks/syncmdl.handler
+
 bastion:
   timeout: 900
   handler: src/tasks/bastion.handler
 
 makeGlobalAdmin:
   handler: src/tasks/makeGlobalAdmin.handler
+
+checkUserExpiration:
+  timeout: 300
+  handler: src/tasks/checkUserExpiration.handler
+  events:
+    - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
+
+scanExecution:
+  timeout: 900  # 15 minutes
+  handler: src/tasks/scanExecution.handler
+  memorySize: 4096
 
 updateScanTaskStatus:
   handler: src/tasks/updateScanTaskStatus.handler

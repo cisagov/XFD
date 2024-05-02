@@ -6,7 +6,7 @@ configValidationMode: error
 
 custom:
   webpack:
-    webpackConfig: 'webpack.lambda.config.js'
+    webpackConfig: webpack.lambda.config.js
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -27,8 +27,8 @@ provider:
     - ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
   apiGateway:
     binaryMediaTypes:
-      - 'image/*'
-      - 'font/*'
+      - image/*
+      - font/*
     resourcePolicy:
       - Effect: Deny
         Principal: '*'
@@ -39,7 +39,7 @@ provider:
             'aws:sourceVpce': ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
       - Effect: Allow
         Principal: '*'
-        Action: 'execute-api:Invoke'
+        Action: execute-api:Invoke
         Resource: 'execute-api:/${self:provider.stage}/*/*'
   logs:
     restApi: true
@@ -54,7 +54,8 @@ functions:
           path: / # this matches the base path
           method: GET
       - http:
-          path: /{any+} # this matches any path, the token 'any' doesn't mean anything special
+          # this matches any path, the token 'any' doesn't mean anything special
+          path: /{any+}
           method: GET
     # provisionedConcurrency: 1
 
