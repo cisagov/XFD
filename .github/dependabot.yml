@@ -1,66 +1,60 @@
 ---
 version: 2
 updates:
-  - directory: /
-    # ignore:
-    #   # Managed by cisagov/ASM-Dashboard
-    #   - dependency-name: actions/cache
-    #   - dependency-name: actions/checkout
-    #   - dependency-name: actions/setup-go
-    #   - dependency-name: actions/setup-python
-    #   - dependency-name: crazy-max/ghaction-dump-context
-    #   - dependency-name: crazy-max/ghaction-github-labeler
-    #   - dependency-name: crazy-max/ghaction-github-status
-    #   - dependency-name: hashicorp/setup-terraform
-    #   - dependency-name: mxschmitt/action-tmate
-    #   - dependency-name: step-security/harden-runner
-    package-ecosystem: github-actions
+  - package-ecosystem: github-actions
+    directory: /
     schedule:
       interval: weekly
-  - directory: /
-    package-ecosystem: terraform
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-patch, version-update:semver-minor]
+      # Managed by cisagov/skeleton-generic
+      - dependency-name: actions/cache
+      - dependency-name: actions/checkout
+      - dependency-name: actions/setup-go
+      - dependency-name: actions/setup-python
+      - dependency-name: crazy-max/ghaction-dump-context
+      - dependency-name: crazy-max/ghaction-github-labeler
+      - dependency-name: crazy-max/ghaction-github-status
+      - dependency-name: hashicorp/setup-terraform
+      - dependency-name: mxschmitt/action-tmate
+      - dependency-name: step-security/harden-runner
+  - package-ecosystem: terraform
+    directory: /infrastructure
     schedule:
       interval: weekly
-  - package-ecosystem: 'npm'
-    directory: '/'
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: 'weekly'
+      interval: weekly
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch","version-update:semver-minor"]
-  - package-ecosystem: "npm"
-    directory: "/frontend"
+      - dependency-name: '*'
+        update-types: [version-update:semver-patch, version-update:semver-minor]
+  - package-ecosystem: npm
+    directory: /frontend
     schedule:
-      interval: "weekly"
+      interval: weekly
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch","version-update:semver-minor"]
-  - package-ecosystem: "npm"
-    directory: "/backend"
+      - dependency-name: '*'
+        update-types: [version-update:semver-patch, version-update:semver-minor]
+  - package-ecosystem: npm
+    directory: /backend
     schedule:
-      interval: "weekly"
+      interval: weekly
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch","version-update:semver-minor"]
-  - package-ecosystem: "pip"
-    directory: "/backend/worker"
+      - dependency-name: '*'
+        update-types: [version-update:semver-patch, version-update:semver-minor]
+  - package-ecosystem: pip
+    directory: /backend/worker
     schedule:
-      interval: "weekly"
+      interval: weekly
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch","version-update:semver-minor"]
-  - package-ecosystem: 'docker'
-    directory: '/'
+      - dependency-name: '*'
+        update-types: [version-update:semver-patch, version-update:semver-minor]
+  - package-ecosystem: docker
+    directory: /
     schedule:
-      interval: 'weekly'
+      interval: weekly
     ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch","version-update:semver-minor"]
-  - package-ecosystem: 'github-actions'
-    directory: '/'
-    schedule:
-      interval: 'weekly'
-    ignore:
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch","version-update:semver-minor"]
-
+      - dependency-name: '*'
+        update-types: [version-update:semver-patch, version-update:semver-minor]
