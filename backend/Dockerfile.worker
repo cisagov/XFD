@@ -26,7 +26,7 @@ WORKDIR /app
 
 RUN apk add --no-cache curl unzip musl-dev
 
-RUN curl -4LO http://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip 
+RUN curl -4LO http://github.com/Findomain/Findomain/releases/latest/download/findomain-linux.zip
 RUN unzip findomain-linux.zip && chmod +x findomain && cp findomain /usr/bin/findomain
 
 RUN go mod init crossfeed-worker
