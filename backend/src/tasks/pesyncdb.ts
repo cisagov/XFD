@@ -6627,7 +6627,7 @@ export const handler: Handler = async (event) => {
     user: process.env.PE_DB_USERNAME,
     host: process.env.DB_HOST,
     database: process.env.PE_DB_NAME,
-    password: process.env.PE_DB_PASSWORD
+    password: 'password'
   });
   client.connect();
 

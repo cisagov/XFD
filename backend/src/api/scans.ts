@@ -206,15 +206,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     cpu: '1024',
     memory: '8192'
   },
-  wappalyzer: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    cpu: '1024',
-    memory: '4096',
-    description:
-      'Open source tool that fingerprints web technologies based on HTTP responses'
-  },
   webscraper: {
     type: 'fargate',
     isPassive: true,

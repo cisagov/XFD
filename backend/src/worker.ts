@@ -20,7 +20,6 @@ import { handler as sslyze } from './tasks/sslyze';
 import { handler as testProxy } from './tasks/test-proxy';
 import { handler as trustymail } from './tasks/trustymail';
 import { handler as vulnSync } from './tasks/vuln-sync';
-import { handler as wappalyzer } from './tasks/wappalyzer';
 import { SCAN_SCHEMA } from './api/scans';
 
 /**
@@ -56,8 +55,7 @@ async function main() {
     },
     testProxy,
     trustymail,
-    vulnSync,
-    wappalyzer
+    vulnSync
   }[scanName];
   if (!scanFn) {
     throw new Error('Invalid scan name ' + scanName);
