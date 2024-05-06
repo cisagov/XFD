@@ -6621,13 +6621,12 @@ export const handler: Handler = async (event) => {
       e
     );
   }
-
   // Connect to the PE database.
   const client = new Client({
     user: process.env.PE_DB_USERNAME,
     host: process.env.DB_HOST,
     database: process.env.PE_DB_NAME,
-    password: 'password'
+    password: process.env.PE_DB_PASSWORD
   });
   client.connect();
 
