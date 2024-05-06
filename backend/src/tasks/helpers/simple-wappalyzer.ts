@@ -149,6 +149,12 @@ for (const technology of Object.values(technologies)) {
   }
 }
 
+// Workaround for type error associated with undefined category.name
+// in Wappalyzer.setCategories() when it calls Wappalyzer.slugify()
+for (const key in categories) {
+  categories[key].name = '';
+}
+
 setTechnologies(technologies);
 setCategories(categories);
 
@@ -157,6 +163,7 @@ export const wappalyzer = ({ data = '', url = '', headers = {} }) => {
     url: url,
     virtualConsole: new VirtualConsole()
   });
+  g;
 
   return analyze({
     url: url,

@@ -36,7 +36,6 @@ export const generate = wrapHandler(async (event) => {
     lastFour: key.substring(key.length - 4),
     user: { id: getUserId(event) }
   }).save();
-  console.log('Generated API key', apiKey);
   return {
     statusCode: 200,
     body: JSON.stringify({ ...apiKey, key: key })
