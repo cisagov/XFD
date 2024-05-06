@@ -16,83 +16,88 @@ sidenav: user-guide
 
 ### Login
 
-ReadySetCyber dashboard users can only access the platform after completing a ReadySetCyber questionnaire and registering with their associated e-mail. You will then be prompted to create a user account.
+ReadySetCyber dashboard users can only access the platform after completing a ReadySetCyber
+questionnaire and registering with their associated e-mail. You will then be prompted to
+create a user account.
 
 ![login](./img/rsc-login.png)
 
-#### Registration
+#### New Users
+
+New users will navigate to the ReadySetCyber Dashboard login and click ”Register Now”.
 
 ![register now](./img/register-now.png)
 
+Enter the e-mail, First and Last name associated with the completed ReadySetCyber assessment.
+
 ![register now](./img/register.png)
+
+Once registration is complete, a new user will receive an e-mail with further registration steps.
 
 ![register now](./img/register-request.png)
 
+Access the e-mail address previously entered and visit the enclosed link to complete registration.
+
 ![register now](./img/register-email.png)
+
+ **Create Account:**
+
+Complete the ”Create Account” fields with the email used for registration.
+
+![create account](./img/rsc-create-account.png)
+
+Once the fields have been completed, a confirmation code will be sent via e-mail to verify
+ownership of the e-mail address.
+
+![confirmation](./img/confirmation-code.png)
+
+Enter the confirmation code received via e-mail and continue to setup Two-Factor Authentication.
+Scan the QR Code on your mobile device to complete your account creation.
+
+![2fa](./img/two-factor.png)
+
+Once Two-Factor Authentication has been completed, you will be directed to review and accept
+the “Terms of Service”. Once the “Terms of Service” have been accepted and submitted, registration
+is complete and you will be redirected to your ReadySetCyber Dashboard.
+
+![terms of service](./img/terms.png)
+
+#### Existing Users
+
+Once a user has completed the registration process and an assessment has been processed and
+received by ReadySetCyber Dashboard, return to the dashboard login. Once successfully logged in,
+a user will be directed to the dashboard view.
+
+![sign-in](./img/sign-in.png)
 
 ### Overview
 
 Once you are logged in, you can view an overview of your past ReadySetCyber assessments.
 
-![dashboard](./img/dashboard.png)
+![dashboard](./img/rsc-dashboard.png)
 
-### Inviting others
+### Viewing assessment details
 
-To invite others to your Crossfeed organization, go to My Account -> Manage Organizations and select your organization. Then go to the "Members" tab.
+If an assessment has been processed and received by ReadySetCyber Dashboard, it will
+be displayed as shown. To access a detailed view of your assessment, click on the
+desired assessment.
 
-You can add additional users to invite to Crossfeed. All users can view your organization's data, including domains and vulnerabilities. You have two options:
+![view details](./img/click-details.png)
 
-- **Standard:**
-- **Administrator:**
+Details within an assessment result are displayed in the same format as the completed
+questionnaire. Displayed answers correspond to answers submitted from a completed
+ReadySetCyber questionnaire. You can save a copy of your completed assessment by clicking
+on **Download PDF**
 
-![org members](./img/org_members.png)
+![assessment](./img/assessment.png)
 
-### Adding root domains
+Responses marked “No”, “Not in Scope” or “Not Started” will display an associated
+resource. Resource types will be displayed with a brief description and a clickable
+link will be provided for all associated resources
 
-Crossfeed stores a list of **root domains** for each organization. Each root domain and all its subdomains will be scanned by Crossfeed. For example:
+![resources](./img/resources.png)
 
-- A root domain of **cyber.dhs.gov** will scan cyber.dhs.gov, as well as other subdomains such as crossfeed.cyber.dhs.gov and staging.crossfeed.cyber.dhs.gov.
-- A root domain of **cisa.gov** will scan cisa.gov as well as all subdomains, including <span>www.</span>cisa.gov and presidentscup.cisa.gov.
+To quickly navigate through your assessment, a clickable side navigation and bottom navigation
+are provided. Click the desired category to be taken there.
 
-To view which root domains are assigned to your organization, go to My Account -> Manage Organizations and select your organization. Navigate to the "Settings" tab.
-
-If you would like to modify the root domains being scanned for your organization, please send an email to vulnerability@cisa.dhs.gov with the requested changes.
-
-![org settings](./img/org_settings.png)
-
-### Viewing assets
-
-You can search for anything, which returns search results, then filter those results. Each search result represents a domain, which can have ports, products, and vulnerabilities associated with it.
-
-![search results](./img/search_results.png)
-
-The "All Domains" list contains a more compact representation of all domains.
-
-![domain list](./img/domain_list.png)
-
-The "All Vulnerabilities" list has a list of all vulnerabilities. Each vulnerability is associated with a specific domain; vulnerabilities include CVEs as well as other issues such as SSL configuration or misconfiguration errors.
-
-![vuln list](./img/vuln_list.png)
-
-You can also view details of an individual domain.
-
-![domain detail](./img/domain_detail.png)
-
-Finally, you can click on a vulnerability to view more information about it, such as references to links with more information about it, as well as its history and any notes that other Crossfeed users may have added to it. You can also mark a vulnerability as a false positive from this page.
-
-![vuln detail](./img/vuln_detail.png)
-
-### Tailoring data sources
-
-Crossfeed has two types of scans: active and passive.
-
-- **Passive:** Querying data in a non-invasive manner. This includes querying an internal data source or third-party API, or light web traffic (e.g. visiting the index web page of a domain).
-- **Active:** Actively making network requests to target assets in order to identify vulnerabilities. All scans, even if used to detect vulnerabilities, are designed to not be disruptive and do not go beyond benign vulnerability payloads. This also includes more heavy traffic operations such as directory brute forcing.
-
-You can turn on / off some scans for your organization. To do so, go to My Account -> Manage Organizations and select your organization. Navigate to the "Scans" tab. Here, you can toggle different scans on or off.
-
-![org scans](./img/org_scans.png)
-
-If you would like only passive scans to run on your organization (and disable active scans), go to My Account -> Manage Organizations and select your organization. Navigate to the "Settings" tab. You can then turn on "Passive Mode" to only enable passive scans on your organization.
-
-![org settings](./img/org_settings.png)
+![side nav](./img/side-nav.png)
