@@ -163,8 +163,6 @@ export const wappalyzer = ({ data = '', url = '', headers = {} }) => {
     url: url,
     virtualConsole: new VirtualConsole()
   });
-  g;
-
   return analyze({
     url: url,
     meta: getMeta(dom.window.document),
