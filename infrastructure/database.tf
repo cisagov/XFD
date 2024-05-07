@@ -61,7 +61,7 @@ resource "aws_db_instance" "db" {
 }
 
 data "aws_ami" "ubuntu" {
-  count                       = var.is_dmz ? 1 : 0
+  count       = var.is_dmz ? 1 : 0
   most_recent = true
 
   filter {
@@ -247,7 +247,7 @@ resource "aws_ssm_parameter" "lambda_subnet_id" {
 resource "aws_ssm_parameter" "worker_sg_id" {
   name      = var.ssm_worker_sg
   type      = "String"
-  value     = var.is_dmz ? aws_security_group.worker[0].id : aws_security_group.worker_lz[0].id 
+  value     = var.is_dmz ? aws_security_group.worker[0].id : aws_security_group.worker_lz[0].id
   overwrite = true
 
   tags = {
