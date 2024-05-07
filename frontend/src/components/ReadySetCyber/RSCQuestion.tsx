@@ -123,7 +123,6 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                       <Box
                         key={resIndex}
                         sx={{
-                          // borderBottom: '1px solid #ccc',
                           paddingBottom: 1,
                           marginBottom: 1
                         }}
