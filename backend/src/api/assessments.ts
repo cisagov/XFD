@@ -44,7 +44,7 @@ export const list = wrapHandler(async (event) => {
   await connectToDatabase();
 
   const assessments = await Assessment.findBy({
-    user: userId
+    user: { id: userId }
   });
 
   return {
