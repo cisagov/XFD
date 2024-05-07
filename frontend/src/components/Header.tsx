@@ -368,10 +368,11 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                       ) {
                         return options;
                       }
-                      return options.filter((option) =>
-                        option?.name
-                          .toLowerCase()
-                          .includes(state.inputValue.toLowerCase())
+                      return options.filter(
+                        (option) =>
+                          option?.name
+                            .toLowerCase()
+                            .includes(state.inputValue.toLowerCase())
                       );
                     }}
                     disableClearable
