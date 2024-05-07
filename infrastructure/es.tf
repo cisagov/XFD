@@ -31,15 +31,15 @@ resource "aws_elasticsearch_domain" "es" {
       "Action": "es:ESHttp*",
       "Principal": "*",
       "Effect": "Allow",
-      "Resource": "arn:aws-us-gov:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/crossfeed-${var.stage}/*"
+      "Resource": "arn:${var.aws_partition}:es:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:domain/crossfeed-${var.stage}/*"
     }
   ]
 }
 POLICY
 
   vpc_options {
-    subnet_ids         = [data.aws_ssm_parameter.subnet_es_id.value]
-    security_group_ids = [aws_security_group.allow_internal.id]
+    subnet_ids         = [var.is_dmz ? aws_subnet.es_1[0].id : data.aws_ssm_parameter.subnet_es_id[0].value]
+    security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
   }
 
   #   Only supported on certain instance types, so let's only enable this on prod: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/aes-supported-instance-types.html
@@ -104,7 +104,7 @@ resource "aws_cloudwatch_log_resource_policy" "es" {
         "logs:PutLogEventsBatch",
         "logs:CreateLogStream"
       ],
-      "Resource": "arn:aws-us-gov:logs:*"
+      "Resource": "arn:${var.aws_partition}:logs:*"
     }
   ]
 }

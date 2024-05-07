@@ -14,7 +14,7 @@ resource "aws_kms_key" "key" {
         Effect : "Allow",
 
         Principal : {
-          AWS : "arn:aws-us-gov:iam::${data.aws_caller_identity.current.account_id}:root"
+          AWS : "arn:${var.aws_partition}:iam::${data.aws_caller_identity.current.account_id}:root"
         },
 
         Action : [
@@ -127,7 +127,7 @@ resource "aws_kms_key" "key" {
 
         Condition : {
           ArnLike : {
-            "kms:EncryptionContext:aws:logs:arn" : "arn:aws-us-gov:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
+            "kms:EncryptionContext:aws:logs:arn" : "arn:${var.aws_partition}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:*"
           }
         }
       },
@@ -141,10 +141,10 @@ resource "aws_kms_key" "key" {
         Resource : "*",
         Condition : {
           StringEquals : {
-            "aws:SourceArn" : "arn:aws-us-gov:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
+            "aws:SourceArn" : "arn:${var.aws_partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
           },
           StringLike : {
-            "kms:EncryptionContext:aws:cloudtrail:arn" : "arn:aws-us-gov:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
+            "kms:EncryptionContext:aws:cloudtrail:arn" : "arn:${var.aws_partition}:cloudtrail:*:${data.aws_caller_identity.current.account_id}:trail/*"
           }
         }
       },
@@ -164,10 +164,10 @@ resource "aws_kms_key" "key" {
           Service : "cloudtrail.amazonaws.com"
         },
         Action : "kms:DescribeKey",
-        Resource : "arn:aws-us-gov:kms:region:${data.aws_caller_identity.current.account_id}:key/*}",
+        Resource : "arn:${var.aws_partition}:kms:region:${data.aws_caller_identity.current.account_id}:key/*}",
         Condition : {
           StringEquals : {
-            "aws:SourceArn" : "arn:aws-us-gov:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
+            "aws:SourceArn" : "arn:${var.aws_partition}:cloudtrail:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:trail/${var.cloudtrail_name}"
           }
         }
       }

@@ -4,7 +4,7 @@ resource "aws_cloudtrail" "all-events" {
   s3_bucket_name             = var.cloudtrail_bucket_name
   kms_key_id                 = aws_kms_key.key.arn
   cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
-  cloud_watch_logs_role_arn  = "arn:aws-us-gov:iam::${data.aws_caller_identity.current.account_id}:role/${var.cloudtrail_role_name}"
+  cloud_watch_logs_role_arn  = "arn:${var.aws_partition}:iam::${data.aws_caller_identity.current.account_id}:role/${var.cloudtrail_role_name}"
   tags = {
     Project = var.project
     Stage   = var.stage
@@ -14,11 +14,11 @@ resource "aws_cloudtrail" "all-events" {
     include_management_events = true
     data_resource {
       type   = "AWS::S3::Object"
-      values = ["arn:aws-us-gov:s3"]
+      values = ["arn:${var.aws_partition}:s3"]
     }
     data_resource {
       type   = "AWS::Lambda::Function"
-      values = ["arn:aws-us-gov:lambda"]
+      values = ["arn:${var.aws_partition}:lambda"]
     }
   }
   enable_log_file_validation = true
@@ -100,8 +100,9 @@ resource "aws_iam_role" "cloudtrail_role" {
 data "template_file" "cloudtrail_bucket_policy" {
   template = file("cloudtrail_bucket_policy.tpl")
   vars = {
-    bucketName = var.cloudtrail_bucket_name
-    accountId  = data.aws_caller_identity.current.account_id
+    bucketName   = var.cloudtrail_bucket_name
+    accountId    = data.aws_caller_identity.current.account_id
+    awsPartition = var.aws_partition
   }
 }
 
@@ -138,7 +139,7 @@ resource "aws_iam_role_policy" "cloudtrail_cloudwatch_policy" {
         "logs:PutLogEvents"
       ],
       Effect   = "Allow",
-      Resource = "arn:aws-us-gov:logs:*"
+      Resource = "arn:${var.aws_partition}:logs:*"
     }]
   })
 }

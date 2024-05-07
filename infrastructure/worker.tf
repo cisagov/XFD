@@ -60,7 +60,11 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
         "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "logs:PutLogEvents",
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ListQueues",
+        "sqs:GetQueueAttributes"
       ],
       "Resource": "*"
     },
@@ -89,7 +93,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.lg_api_key.arn}",
           "${data.aws_ssm_parameter.lg_workspace_name.arn}",
           "${data.aws_ssm_parameter.https_proxy.arn}",
-          "${aws_ssm_parameter.es_endpoint.arn}"
+          "${aws_ssm_parameter.es_endpoint.arn}",
           "${aws_ssm_parameter.es_endpoint.arn}",
           "${data.aws_ssm_parameter.pe_api_key.arn}",
           "${data.aws_ssm_parameter.cf_api_key.arn}"
@@ -161,7 +165,17 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
       "Resource": [
         "${aws_s3_bucket.export_bucket.arn}"
       ]
-    }
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sqs:ReceiveMessage",
+        "sqs:DeleteMessage",
+        "sqs:ListQueues",
+        "sqs:GetQueueAttributes"
+      ],
+      "Resource": "*"
+      }
   ]
 }
 EOF
@@ -307,8 +321,15 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "HTTPS_PROXY",
         "valueFrom": "${data.aws_ssm_parameter.https_proxy.arn}"
+      },
+      {
+        "name": "PE_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
+      },
+      {
+        "name": "CF_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.cf_api_key.arn}"
       }
-
     ]
   }
 ]
@@ -370,6 +391,9 @@ data "aws_ssm_parameter" "worker_signature_public_key" { name = var.ssm_worker_s
 data "aws_ssm_parameter" "worker_signature_private_key" { name = var.ssm_worker_signature_private_key }
 
 data "aws_ssm_parameter" "https_proxy" { name = var.ssm_https_proxy }
+
+data "aws_ssm_parameter" "intelx_api_key" { name = var.ssm_intelx_api_key }
+
 data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
 
 data "aws_ssm_parameter" "cf_api_key" { name = var.ssm_cf_api_key }
@@ -405,6 +429,12 @@ resource "aws_s3_bucket_policy" "export_bucket" {
       }
     ]
   })
+}
+
+resource "aws_s3_bucket_acl" "export_bucket" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = aws_s3_bucket.export_bucket.id
+  acl    = "private"
 }
 
 resource "aws_s3_bucket_server_side_encryption_configuration" "export_bucket" {

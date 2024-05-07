@@ -133,43 +133,45 @@ resource "aws_ecs_task_definition" "matomo" {
   }
 }
 
-# TODO: Do we need this still?
-# resource "aws_service_discovery_private_dns_namespace" "default" {
-#   name        = "cfs.lz.us-cert.gov"
-#   description = "Crossfeed ${var.stage}"
-#   vpc         = aws_vpc.crossfeed_vpc.id
-# }
+resource "aws_service_discovery_private_dns_namespace" "default" {
+  count       = var.is_dmz ? 1 : 0
+  name        = "cfs.lz.us-cert.gov"
+  description = "Crossfeed ${var.stage}"
+  vpc         = aws_vpc.crossfeed_vpc[0].id
+}
 
-# resource "aws_service_discovery_service" "matomo" {
-#   # ECS service can be accessed through http://matomo.cfs.lz.us-cert.gov
-#   name = "matomo"
+resource "aws_service_discovery_service" "matomo" {
+  # ECS service can be accessed through http://matomo.cfs.lz.us-cert.gov
+  count = var.is_dmz ? 1 : 0
+  name  = "matomo"
 
-#   dns_config {
-#     namespace_id = aws_service_discovery_private_dns_namespace.default.id
+  dns_config {
+    namespace_id = aws_service_discovery_private_dns_namespace.default[0].id
 
-#     dns_records {
-#       ttl  = 10
-#       type = "A"
-#     }
+    dns_records {
+      ttl  = 10
+      type = "A"
+    }
 
-#     routing_policy = "MULTIVALUE"
-#   }
-# }
+    routing_policy = "MULTIVALUE"
+  }
+}
 
-# resource "aws_ecs_service" "matomo" {
-#   name            = "matomo"
-#   launch_type     = "FARGATE"
-#   cluster         = aws_ecs_cluster.matomo.id
-#   task_definition = aws_ecs_task_definition.matomo.arn
-#   desired_count   = 1
-#   network_configuration {
-#     subnets         = [aws_subnet.matomo_1.id]
-#     security_groups = [aws_security_group.allow_internal.id]
-#   }
-#   service_registries {
-#     registry_arn = aws_service_discovery_service.matomo.arn
-#   }
-# }
+resource "aws_ecs_service" "matomo" {
+  count           = var.is_dmz ? 1 : 0
+  name            = "matomo"
+  launch_type     = "FARGATE"
+  cluster         = aws_ecs_cluster.matomo.id
+  task_definition = aws_ecs_task_definition.matomo.arn
+  desired_count   = 1
+  network_configuration {
+    subnets         = [aws_subnet.matomo_1[0].id]
+    security_groups = [aws_security_group.allow_internal[0].id]
+  }
+  service_registries {
+    registry_arn = aws_service_discovery_service.matomo[0].arn
+  }
+}
 
 resource "aws_cloudwatch_log_group" "matomo" {
   name              = var.matomo_ecs_log_group_name
@@ -196,7 +198,7 @@ resource "aws_db_instance" "matomo_db" {
   engine                              = "mariadb"
   engine_version                      = "10.6"
   skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[0]
+  availability_zone                   = var.matomo_availability_zone
   multi_az                            = true
   backup_retention_period             = 35
   storage_encrypted                   = true
@@ -213,7 +215,7 @@ resource "aws_db_instance" "matomo_db" {
 
   db_subnet_group_name = aws_db_subnet_group.default.name
 
-  vpc_security_group_ids = [aws_security_group.allow_internal.id]
+  vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
 
   tags = {
     Project = var.project

@@ -10,6 +10,18 @@ variable "aws_other_region" {
   default     = "us-gov-west-1"
 }
 
+variable "aws_partition" {
+  description = "aws_partition"
+  type        = string
+  default     = "aws"
+}
+
+variable "is_dmz" {
+  description = "is_dmz"
+  type        = bool
+  default     = false
+}
+
 variable "project" {
   description = "project"
   type        = string
@@ -667,4 +679,70 @@ variable "ssm_worker_kms_keys" {
   description = "ssm_worker_kms_keys"
   type        = string
   default     = "/crossfeed/staging/WORKER_KMS_KEYS"
+}
+
+variable "ssm_intelx_api_key" {
+  description = "ssm_intelx_api_key"
+  type        = string
+  default     = "/crossfeed/staging/INTELX_API_KEY"
+}
+
+variable "ssm_pe_api_key" {
+  description = "ssm_pe_api_key"
+  type        = string
+  default     = "/crossfeed/staging/PE_API_KEY"
+}
+
+variable "ssm_cf_api_key" {
+  description = "ssm_cf_api_key"
+  type        = string
+  default     = "/crossfeed/staging/CF_API_KEY"
+}
+
+variable "cloudwatch_bucket_name" {
+  description = "cloudwatch_bucket_name"
+  type        = string
+  default     = "cisa-crossfeed-staging-cloudwatch"
+}
+
+variable "cloudwatch_log_group_name" {
+  description = "cloudwatch_log_group_name"
+  type        = string
+  default     = "crossfeed-staging-cloudwatch-bucket"
+}
+
+variable "pe_worker_ecs_repository_name" {
+  description = "pe_worker_ecs_repository_name"
+  type        = string
+  default     = "pe-staging-worker"
+}
+
+variable "pe_worker_ecs_cluster_name" {
+  description = "pe_worker_ecs_cluster_name"
+  type        = string
+  default     = "pe-staging-worker"
+}
+
+variable "pe_worker_ecs_task_definition_family" {
+  description = "pe_worker_ecs_task_definition_family"
+  type        = string
+  default     = "pe-staging-worker"
+}
+
+variable "pe_worker_ecs_log_group_name" {
+  description = "pe_worker_ecs_log_group_name"
+  type        = string
+  default     = "pe-staging-worker"
+}
+
+variable "pe_worker_ecs_role_name" {
+  description = "pe_worker_ecs_role_name"
+  type        = string
+  default     = "pe-staging-worker"
+}
+
+variable "matomo_availability_zone" {
+  description = "matomo_availability_zone"
+  type        = string
+  default     = "us-east-1"
 }

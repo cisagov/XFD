@@ -5,7 +5,7 @@ data "aws_availability_zones" "available" {
 resource "aws_ssm_parameter" "prod_api_domain" {
   name      = "/crossfeed/prod/DOMAIN"
   type      = "String"
-  value     = "api.crossfeed.cyber.dhs.gov"
+  value     = var.api_domain
   overwrite = true
 
   tags = {
@@ -17,7 +17,7 @@ resource "aws_ssm_parameter" "prod_api_domain" {
 resource "aws_ssm_parameter" "stage_api_domain" {
   name      = "/crossfeed/staging/DOMAIN"
   type      = "String"
-  value     = "api.staging.crossfeed.cyber.dhs.gov"
+  value     = var.api_domain
   overwrite = true
 
   tags = {
@@ -73,6 +73,12 @@ resource "aws_s3_bucket_versioning" "logging_bucket" {
   versioning_configuration {
     status = "Enabled"
   }
+}
+
+resource "aws_s3_bucket_acl" "logging_bucket" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = aws_s3_bucket.logging_bucket.id
+  acl    = "private"
 }
 
 resource "aws_s3_bucket_logging" "logging_bucket" {

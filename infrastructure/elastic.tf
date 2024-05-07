@@ -2,7 +2,7 @@
 
 resource "aws_instance" "elk_stack" {
   count                       = var.create_elk_instance ? 1 : 0
-  ami                         = var.ami_id
+  ami                         = var.is_dmz ? data.aws_ami.ubuntu[0].id : var.ami_id
   instance_type               = var.elk_instance_class
   associate_public_ip_address = false
 
@@ -29,10 +29,10 @@ resource "aws_instance" "elk_stack" {
     volume_size = 15
   }
 
-  vpc_security_group_ids = [aws_security_group.allow_internal.id]
-  subnet_id              = data.aws_ssm_parameter.subnet_db_1_id.value
+  vpc_security_group_ids = [aws_security_group.allow_internal[0].id]
+  subnet_id              = var.is_dmz ? aws_subnet.backend[0].id : data.aws_ssm_parameter.subnet_db_1_id[0].value
 
-  iam_instance_profile = aws_iam_instance_profile.db_accessor.id
+  iam_instance_profile = aws_iam_instance_profile.db_accessor[0].id
   user_data            = file("./ssm-agent-install.sh")
 
 
