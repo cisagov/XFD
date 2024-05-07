@@ -87,10 +87,10 @@ const Risk: React.FC = (props) => {
             (!orgId && showAllOrganizations) || !currentOrganization
               ? {}
               : orgId || 'rootDomains' in currentOrganization
-              ? {
-                  organization: orgId ? orgId : currentOrganization?.id
-                }
-              : { tag: currentOrganization.id }
+                ? {
+                    organization: orgId ? orgId : currentOrganization?.id
+                  }
+                : { tag: currentOrganization.id }
         }
       });
       const max = Math.max(...result.vulnerabilities.byOrg.map((p) => p.value));

@@ -1,4 +1,5 @@
 """mitmproxy addon that signs requests and adds a Crossfeed-specific user agent."""
+
 # Standard Python Libraries
 import os
 import traceback

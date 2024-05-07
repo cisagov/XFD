@@ -964,6 +964,7 @@ export const RSCRegister = wrapHandler(async (event) => {
     await User.save(user);
     // Fetch RSC assessments for user
     await fetchAssessmentsByUser(user.email);
+
     // Send email notification
     if (process.env.IS_LOCAL!) {
       console.log('Cannot send invite email while running on local.');

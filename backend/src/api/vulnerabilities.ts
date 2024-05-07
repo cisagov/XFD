@@ -166,8 +166,8 @@ class VulnerabilitySearch {
       this.sort === 'domain'
         ? 'domain.name'
         : this.sort === 'severity'
-        ? 'vulnerability.cvss'
-        : `vulnerability.${this.sort}`;
+          ? 'vulnerability.cvss'
+          : `vulnerability.${this.sort}`;
     let qs = Vulnerability.createQueryBuilder('vulnerability')
       .leftJoinAndSelect('vulnerability.domain', 'domain')
       .leftJoinAndSelect('domain.organization', 'organization')
