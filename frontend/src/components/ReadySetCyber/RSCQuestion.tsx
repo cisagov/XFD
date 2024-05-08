@@ -1,7 +1,8 @@
 import React from 'react';
-import { Box, Button, Grid, Typography, Radio } from '@mui/material';
+import { Box, Button, Grid, Typography, Radio, Divider } from '@mui/material';
 import { isResourceVisible } from './helpers/index';
 import { IconFilter } from './components/index';
+import { Stack } from '@mui/system';
 
 interface Props {
   categories: Category[];
@@ -47,6 +48,7 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
             component="div"
             sx={{ marginTop: 2, color: '#1976d2' }}
             id={category.name}
+            style={{ fontWeight: 'bold', color: '#003E67' }}
           >
             {category.name}
           </Typography>
@@ -55,13 +57,18 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
               key={entryIndex}
               sx={{
                 width: '100%',
-                bgcolor: '#f0f0f0',
+                bgcolor: '#F5FAFC',
                 padding: 2,
                 borderRadius: 2,
-                marginBottom: 2
+                marginBottom: 2,
+                border: '.1rem solid #B8D9E8'
               }}
             >
-              <Typography variant="h6" gutterBottom>
+              <Typography
+                variant="h6"
+                gutterBottom
+                style={{ color: '#003E67' }}
+              >
                 Question {questionNumber(entry.question.number)}
               </Typography>
               <Typography variant="subtitle1" gutterBottom>
@@ -73,21 +80,24 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                 </Typography>
               )}
               <Typography variant="subtitle2" gutterBottom>
-                Response:
                 <Grid
                   container
                   sx={{
                     alignItems: 'center',
                     backgroundColor: 'white',
                     width: 'fit-content',
-                    border: '2px solid #ccc',
-                    borderRadius: 0
+                    border: '.1rem solid #0078AE',
+                    borderRadius: 1
                   }}
                 >
                   <Grid item marginLeft={'-0.25em'}>
                     <Radio checked={true} disabled={true} />
                   </Grid>
-                  <Grid item paddingRight={'0.5em'}>
+                  <Grid
+                    item
+                    paddingRight={'0.5em'}
+                    style={{ color: '#0078AE', fontWeight: 'bold' }}
+                  >
                     {entry.selection}
                   </Grid>
                 </Grid>
@@ -102,44 +112,60 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                       marginTop: 1
                     }}
                   >
-                    <Typography variant="h6" gutterBottom>
+                    <Typography
+                      variant="h6"
+                      gutterBottom
+                      style={{ color: '#003E67' }}
+                    >
                       Recommended Resources
                     </Typography>
                     {entry.question.resources.map((resource, resIndex) => (
                       <Box
                         key={resIndex}
                         sx={{
-                          borderBottom: '1px solid #ccc',
                           paddingBottom: 1,
                           marginBottom: 1
                         }}
                       >
-                        <Grid container alignItems={'center'}>
-                          <Grid item paddingRight={'0.25em'}>
+                        <Stack spacing={2}>
+                          <Stack
+                            direction="row"
+                            spacing={2}
+                            alignItems="center"
+                          >
                             <IconFilter type={resource.type} />
-                          </Grid>
-
-                          <Grid item>
-                            <Typography variant="subtitle1">
+                            <Typography
+                              variant="subtitle1"
+                              style={{ color: '#00528' }}
+                            >
                               {resource.type.charAt(0).toUpperCase() +
                                 resource.type.slice(1)}
                             </Typography>
-                          </Grid>
-                        </Grid>
-                        <Typography variant="subtitle2">
-                          {resource.name}
-                        </Typography>
-                        <Typography variant="body2">
-                          {resource.description}
-                        </Typography>
-                        <Button
-                          variant="outlined"
-                          color="primary"
-                          href={resource.url}
-                          target="_blank"
-                        >
-                          Visit Resource
-                        </Button>
+                          </Stack>
+
+                          <Typography
+                            variant="subtitle2"
+                            style={{ color: '#0078ae' }}
+                          >
+                            {resource.name}
+                          </Typography>
+                          <Typography variant="body2">
+                            {resource.description}
+                          </Typography>
+                          <Button
+                            variant="contained"
+                            href={resource.url}
+                            target="_blank"
+                            style={{
+                              color: 'white',
+                              backgroundColor: '#0078ae'
+                            }}
+                            sx={{ width: 'fit-content' }}
+                          >
+                            Visit Resource
+                          </Button>
+                          <Divider />
+                        </Stack>
                       </Box>
                     ))}
                   </Box>
