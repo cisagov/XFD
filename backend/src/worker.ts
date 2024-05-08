@@ -68,8 +68,6 @@ async function main() {
       console.log('test');
     },
     testProxy,
-    trustymail,
-    vulnSync,
     wappalyzer,
     webscraper
   }[scanName];
