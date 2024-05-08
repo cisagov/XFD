@@ -125,7 +125,7 @@ async function startLocalContainers(
           `DB_USERNAME=${process.env.DB_USERNAME}`,
           `DB_PASSWORD=${process.env.DB_PASSWORD}`,
           `MDL_NAME=${process.env.MDL_NAME}`,
-          `MDL_USERNAMD=${process.env.MDL_USERNAME}`,
+          `MDL_USERNAME=${process.env.MDL_USERNAME}`,
           `MDL_PASSWORD=${process.env.MDL_PASSWORD}`,
           `PE_DB_NAME=${process.env.PE_DB_NAME}`,
           `PE_DB_USERNAME=${process.env.PE_DB_USERNAME}`,
