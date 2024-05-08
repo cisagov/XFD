@@ -352,36 +352,6 @@ variable "ssm_lg_workspace_name" {
   default     = "/crossfeed/staging/LG_WORKSPACE_NAME"
 }
 
-variable "ssm_shodan_queue_url" {
-  description = "ssm_shodan_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/SHODAN_QUEUE_URL"
-}
-
-variable "ssm_dnstwist_queue_url" {
-  description = "ssm_dnstwist_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/DNSTWIST_QUEUE_URL"
-}
-
-variable "ssm_hibp_queue_url" {
-  description = "ssm_hibp_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/HIBP_QUEUE_URL"
-}
-
-variable "ssm_intelx_queue_url" {
-  description = "ssm_intelx_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/INTELX_QUEUE_URL"
-}
-
-variable "ssm_cybersixgill_queue_url" {
-  description = "ssm_cybersixgill_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/CYBERSIXGILL_QUEUE_URL"
-}
-
 variable "db_group_name" {
   description = "db_group_name"
   type        = string

@@ -1,5 +1,11 @@
 import React from 'react';
-import { RouteProps, Route, useHistory } from 'react-router-dom';
+import {
+  RouteProps,
+  Route,
+  Redirect,
+  useHistory,
+  useLocation
+} from 'react-router-dom';
 import { useAuthContext } from 'context';
 
 interface AuthRedirectRouteProps extends RouteProps {
@@ -15,6 +21,7 @@ possible states:
 - user has authenticated but needs to create account
 - user has authenticated but needs to sign terms
 - user is not authenticated
+- user is a readySetCyber user and not on readySetCyber route
 - user is not authenticated, this is oauth callback (should not be protected)
 - user is authenticated, but does not have tha correct permissions for route
 */
@@ -27,6 +34,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
 }) => {
   const { token, user, userMustSign, logout } = useAuthContext();
   const history = useHistory();
+  const pathname = useLocation().pathname;
 
   if (token && !user) {
     // waiting on user profile
@@ -51,6 +59,15 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   if (typeof unauth === 'string' && !user) {
     history.push(unauth);
     return null;
+  }
+
+  if (
+    user?.userType === 'readySetCyber' &&
+    !pathname.includes('readysetcyber')
+  ) {
+    // user is readySetCyber user and not on RSC page
+    console.log('ReadySetCyber user: Redirect to RSC Dashboard');
+    return <Redirect to="/readysetcyber/dashboard" />;
   }
 
   if (user && permissions && permissions.length > 0) {
