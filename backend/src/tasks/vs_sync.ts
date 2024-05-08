@@ -77,7 +77,7 @@ export const handler = async (commandOptions: CommandOptions) => {
       'THIRD_PARTY'
     ];
     if (requestArray && Array.isArray(requestArray)) {
-      for (const request of requestArray ?? []) {
+      for (const request of requestArray) {
         request.agency = JSON.parse(request.agency);
         request.networks = JSON.parse(request.networks);
         request.report_types = JSON.parse(request.report_types);
@@ -284,7 +284,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   try {
     if (vulnScansArray && Array.isArray(vulnScansArray)) {
       const vuln_list: VulnScan[] = [];
-      for (const vuln of vulnScansArray ?? []) {
+      for (const vuln of vulnScansArray) {
         let ip_id: string | null = null;
         if (vuln.ip != null) {
           ip_id = await saveIpToMdl(
