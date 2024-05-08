@@ -1,18 +1,6 @@
 ---
-title: Quickstart
-sidenav: user-guide
+title: ReadySetCyber Dashboard
 ---
-
-<p>
-<div class="usa-alert usa-alert--info">
-  <div class="usa-alert__body">
-  <h4 class="usa-alert__heading">Note</h4>
-    <p class="usa-alert__text">
-      While CISA's instance of Crossfeed is currently not accepting public enrollment, it is developed as an open-source tool available on GitHub. The below instructions describe how users can use Crossfeed if granted access to CISA's instance of Crossfeed. If you are a developer and want to set up your own Crossfeed instance, see <a href="/dev/own-instance/">Creating your own instance of Crossfeed</a>.
-    </p>
-  </div>
-</div>
-</p>
 
 ### Login
 
