@@ -22,7 +22,8 @@ import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
 import * as assessments from './assessments';
-import { sanitize } from 'dompurify';
+
+const sanitizer = require('sanitizer');
 
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
@@ -39,22 +40,22 @@ if (
 const handlerToExpress = (handler) => async (req, res) => {
   const { statusCode, body } = await handler(
     {
-      pathParameters: sanitize(req.params),
-      query: sanitize(req.query),
-      requestContext: sanitize(req.requestContext),
-      body: sanitize(JSON.stringify(req.body || '{}')),
-      headers: sanitize(req.headers),
-      path: sanitize(req.originalUrl)
+      pathParameters: req.params,
+      query: req.query,
+      requestContext: req.requestContext,
+      body: JSON.stringify(req.body || '{}'),
+      headers: req.headers,
+      path: req.originalUrl
     },
     {}
   );
   try {
-    const parsedBody = JSON.parse(body);
+    const parsedBody = JSON.parse(sanitizer.sanitize(body));
     res.status(statusCode).json(parsedBody);
   } catch (e) {
     // Not a JSON body
     res.setHeader('content-type', 'text/plain');
-    res.status(statusCode).send(sanitize(body));
+    res.status(statusCode).send(sanitizer.sanitize(body));
   }
 };
 
