@@ -69,7 +69,7 @@ export class Kev extends BaseEntity {
     type: 'varchar'
   })
   notes: string | null;
-            
+
   @OneToMany((type) => Ticket, (ticket) => ticket.kev, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'

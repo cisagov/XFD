@@ -20,7 +20,7 @@ import { Ticket } from './tickets';
 import { VulnScan } from './vuln_scans';
 import { PortScan } from './port_scans';
 @Entity()
-@Unique(['ip','organization'])
+@Unique(['ip', 'organization'])
 export class Ip extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -497,13 +497,10 @@ export class VulnScan extends BaseEntity {
   @JoinTable()
   snapshots: Snapshot[];
 
-  @OneToMany(
-    (type) => TicketEvent, (event) => event.vulnScan,
-    {
-      onDelete: 'CASCADE',
-      onUpdate: 'CASCADE'
-    }
-  )
+  @OneToMany((type) => TicketEvent, (event) => event.vulnScan, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
   ticketEvents?: TicketEvent[];
 
   @Column({

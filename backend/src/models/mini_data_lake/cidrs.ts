@@ -52,5 +52,3 @@ export class Cidr extends BaseEntity {
   @JoinTable()
   organizations: Organization[];
 }
-
-

@@ -24,7 +24,7 @@ import { handler as sslyze } from './tasks/sslyze';
 import { handler as testProxy } from './tasks/test-proxy';
 import { handler as trustymail } from './tasks/trustymail';
 import { handler as vulnSync } from './tasks/vuln-sync';
-import { handler as vulnScanningSync} from './tasks/vs_sync';
+import { handler as vulnScanningSync } from './tasks/vs_sync';
 import { handler as wappalyzer } from './tasks/wappalyzer';
 import { handler as webscraper } from './tasks/webscraper';
 import { SCAN_SCHEMA } from './api/scans';

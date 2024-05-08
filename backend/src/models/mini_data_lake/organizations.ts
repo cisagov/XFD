@@ -60,7 +60,7 @@ export class Organization extends BaseEntity {
   @UpdateDateColumn()
   updatedDate: Date | null;
 
-  @Column({ nullable: true})
+  @Column({ nullable: true })
   retired: boolean;
 
   @Column({ nullable: true })
@@ -107,7 +107,7 @@ export class Organization extends BaseEntity {
 
   @Column('varchar', { array: true, default: [], nullable: true })
   scanTypes: string[] | null;
-  
+
   @Column({
     nullable: true,
     type: 'jsonb',
@@ -207,7 +207,8 @@ export class Organization extends BaseEntity {
   tallies: Tally[];
 
   @OneToMany(
-    (type) => TrustymailScan, (trustymail_scan) => trustymail_scan.organization,
+    (type) => TrustymailScan,
+    (trustymail_scan) => trustymail_scan.organization,
     {
       onDelete: 'CASCADE',
       onUpdate: 'CASCADE'

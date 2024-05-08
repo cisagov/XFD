@@ -29,7 +29,7 @@ export class Sector extends BaseEntity {
   @Index()
   acronym: string | null;
 
-  @Column({ nullable: true})
+  @Column({ nullable: true })
   retired: boolean;
 
   @ManyToMany((type) => Organization, (org) => org.sectors, {

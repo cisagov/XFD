@@ -57,7 +57,7 @@ const connectDl = async (logging?: boolean) => {
   // process.env.MDL_USERNAME = 'mdl';
   // process.env.MDL_PASSWORD = 'password';
   // process.env.MDL_NAME = 'crossfeed_mini_datalake';
-  
+
   // console.log(process.env.MDL_USERNAME)
   // console.log(process.env.MDL_PASSWORD)
   // console.log(process.env.MDL_NAME)
@@ -105,7 +105,7 @@ const connectDl = async (logging?: boolean) => {
 
 export const connectToDatalake = async (logging?: boolean) => {
   if (!dl_connection?.isConnected) {
-    console.log("Connected to datalake")
+    console.log('Connected to datalake');
     dl_connection = await connectDl(logging);
   } else {
     console.log("didn't connect");
