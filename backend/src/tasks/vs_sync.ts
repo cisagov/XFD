@@ -112,7 +112,7 @@ export const handler = async (commandOptions: CommandOptions) => {
               })
               .filter((key) => key !== '');
             // Save the sector to the database, update sector if it already exists
-            let sectorId: string = (
+            const sectorId: string = (
               await Sector.createQueryBuilder()
                 .insert()
                 .values(sector)
