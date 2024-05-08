@@ -30,17 +30,17 @@ New users will navigate to the ReadySetCyber Dashboard login and click ”Regist
 
 Enter the e-mail, First and Last name associated with the completed ReadySetCyber assessment.
 
-![register now](./img/register.png)
+![register](./img/register.png)
 
 Once registration is complete, a new user will receive an e-mail with further registration steps.
 
-![register now](./img/register-request.png)
+![register request](./img/register-request.png)
 
 Access the e-mail address previously entered and visit the enclosed link to complete registration.
 
-![register now](./img/register-email.png)
+![register email](./img/register-email.png)
 
- **Create Account:**
+**Create Account:**
 
 Complete the ”Create Account” fields with the email used for registration.
 
@@ -52,11 +52,7 @@ ownership of the e-mail address.
 ![confirmation](./img/confirmation-code.png)
 
 Enter the confirmation code received via e-mail and continue to setup Two-Factor Authentication.
-Scan the QR Code on your mobile device to complete your account creation.
-
-![2fa](./img/two-factor.png)
-
-Once Two-Factor Authentication has been completed, you will be directed to review and accept
+Scan the QR Code on your mobile device to complete your account creation. Once Two-Factor Authentication has been completed, you will be directed to review and accept
 the “Terms of Service”. Once the “Terms of Service” have been accepted and submitted, registration
 is complete and you will be redirected to your ReadySetCyber Dashboard.
 
