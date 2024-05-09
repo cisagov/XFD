@@ -1,5 +1,5 @@
 // logger.js
-import { createLogger, transports, format } from 'winston';
+const { createLogger, transports, format } = require('winston');
 
 /**
  * Initializes custom logger for Cloudwatch
