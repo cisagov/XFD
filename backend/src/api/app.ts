@@ -23,6 +23,8 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
 import * as assessments from './assessments';
 
+const sanitizer = require('sanitizer');
+
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
   typeof jest === 'undefined'
@@ -48,12 +50,12 @@ const handlerToExpress = (handler) => async (req, res) => {
     {}
   );
   try {
-    const parsedBody = JSON.parse(body);
+    const parsedBody = JSON.parse(sanitizer.sanitize(body));
     res.status(statusCode).json(parsedBody);
   } catch (e) {
     // Not a JSON body
     res.setHeader('content-type', 'text/plain');
-    res.status(statusCode).send(body);
+    res.status(statusCode).send(sanitizer.sanitize(body));
   }
 };
 
