@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.41.2-jammy
-    if: github.event.deployment_status.state == 'success'
+    # if: github.event.deployment_status.state == 'success'
     steps:
       - name: Create env file
         run: |
