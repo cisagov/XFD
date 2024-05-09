@@ -32,8 +32,8 @@ jobs:
           echo PW_XFD_2FA_ISSUER=${{ secrets._PW_XFD_2FA_ISSUER }} >> .env
           echo PW_XFD_2FA_SECRET=${{ secrets.PW_XFD_2FA_SECRET }} >> .env
           PW_XFD_PASSWORD=${{ secrets.PW_XFD_PASSWORD }} >> .env
-          PW_XFD_URL=${{ env.PW_XFD_URL }} >> .env
-          PW_XFD_USER_ROLE=${{ env.PW_XFD_USER_ROLE }} >> .env
+          PW_XFD_URL='https://staging-cd.crossfeed.cyber.dhs.gov/' >> .env
+          PW_XFD_USER_ROLE='globalAdmin' >> .env
           PW_XFD_USERNAME=${{ secrets.PW_XFD_USERNAME }} >> .env
       - name: Run your tests
         run: npx playwright test
