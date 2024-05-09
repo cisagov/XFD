@@ -4,6 +4,8 @@ import { integer } from 'aws-sdk/clients/cloudfront';
 
 const ecs = new AWS.ECS();
 let docker: any;
+const QUEUE_URL = process.env.QUEUE_URL!;
+const SCAN_LIST = ['dnstwist', 'hibp', 'intelx', 'cybersixgill', 'shodan'];
 
 if (process.env.IS_LOCAL) {
   const Docker = require('dockerode');
@@ -15,19 +17,33 @@ const toSnakeCase = (input) => input.replace(/ /g, '-');
 async function startDesiredTasks(
   scanType: string,
   desiredCount: integer,
-  queueUrl: string
+  shodanApiKeyList: string[] = []
 ) {
+  const queueUrl = QUEUE_URL + `${scanType}-queue`;
   try {
     // ECS can only start 10 tasks at a time. Split up into batches
-    const batchSize = 10;
+    let batchSize = 10;
+    if (scanType == 'shodan') {
+      batchSize = 1;
+    }
     let remainingCount = desiredCount;
     while (remainingCount > 0) {
+      let shodan_api_key = '';
+      if (shodanApiKeyList.length > 0) {
+        shodan_api_key = shodanApiKeyList[remainingCount - 1];
+      }
       const currentBatchCount = Math.min(remainingCount, batchSize);
 
       if (process.env.IS_LOCAL) {
         // If running locally, use RabbitMQ and Docker instead of SQS and ECS
         console.log('Starting local containers');
-        await startLocalContainers(currentBatchCount, scanType, queueUrl);
+        console.log(queueUrl);
+        await startLocalContainers(
+          currentBatchCount,
+          scanType,
+          queueUrl,
+          shodan_api_key
+        );
       } else {
         await ecs
           .runTask({
@@ -55,6 +71,10 @@ async function startDesiredTasks(
                     {
                       name: 'SERVICE_QUEUE_URL',
                       value: queueUrl
+                    },
+                    {
+                      name: 'PE_SHODAN_API_KEYS',
+                      value: shodan_api_key
                     }
                   ]
                 }
@@ -75,7 +95,8 @@ async function startDesiredTasks(
 async function startLocalContainers(
   count: number,
   scanType: string,
-  queueUrl: string
+  queueUrl: string,
+  shodan_api_key: string = ''
 ) {
   // Start 'count' number of local Docker containers
   for (let i = 0; i < count; i++) {
@@ -103,9 +124,9 @@ async function startLocalContainers(
           `DB_NAME=${process.env.DB_NAME}`,
           `DB_USERNAME=${process.env.DB_USERNAME}`,
           `DB_PASSWORD=${process.env.DB_PASSWORD}`,
-          `MDL_NAME=${process.env.DB_NAME}`,
-          `MDL_USERNAMD=${process.env.DB_USERNAME}`,
-          `MDL_PASSWORD=${process.env.DB_PASSWORD}`,
+          `MDL_NAME=${process.env.MDL_NAME}`,
+          `MDL_USERNAME=${process.env.MDL_USERNAME}`,
+          `MDL_PASSWORD=${process.env.MDL_PASSWORD}`,
           `PE_DB_NAME=${process.env.PE_DB_NAME}`,
           `PE_DB_USERNAME=${process.env.PE_DB_USERNAME}`,
           `PE_DB_PASSWORD=${process.env.PE_DB_PASSWORD}`,
@@ -117,7 +138,7 @@ async function startLocalContainers(
           `SIXGILL_CLIENT_ID=${process.env.SIXGILL_CLIENT_ID}`,
           `SIXGILL_CLIENT_SECRET=${process.env.SIXGILL_CLIENT_SECRET}`,
           `INTELX_API_KEY=${process.env.INTELX_API_KEY}`,
-          `PE_SHODAN_API_KEYS=${process.env.PE_SHODAN_API_KEYS}`,
+          `PE_SHODAN_API_KEYS=${shodan_api_key}`,
           `WORKER_SIGNATURE_PUBLIC_KEY=${process.env.WORKER_SIGNATURE_PUBLIC_KEY}`,
           `WORKER_SIGNATURE_PRIVATE_KEY=${process.env.WORKER_SIGNATURE_PRIVATE_KEY}`,
           `ELASTICSEARCH_ENDPOINT=${process.env.ELASTICSEARCH_ENDPOINT}`,
@@ -141,6 +162,8 @@ async function startLocalContainers(
 export const handler: Handler = async (event) => {
   let desiredCount: integer;
   let scanType: string;
+
+  // Check if desired count was passed
   if (event.desiredCount) {
     desiredCount = event.desiredCount;
   } else {
@@ -148,6 +171,7 @@ export const handler: Handler = async (event) => {
     desiredCount = 1;
   }
 
+  // Check if scan type was passed
   if (event.scanType) {
     scanType = event.scanType;
   } else {
@@ -156,39 +180,38 @@ export const handler: Handler = async (event) => {
   }
 
   try {
+    // If scanType is shodan, check if API keys were passed and split up
     if (scanType === 'shodan') {
-      await startDesiredTasks(
-        scanType,
-        desiredCount,
-        process.env.SHODAN_QUEUE_URL!
-      );
-    } else if (scanType === 'dnstwist') {
-      await startDesiredTasks(
-        scanType,
-        desiredCount,
-        process.env.DNSTWIST_QUEUE_URL!
-      );
-    } else if (scanType === 'hibp') {
-      await startDesiredTasks(
-        scanType,
-        desiredCount,
-        process.env.HIBP_QUEUE_URL!
-      );
-    } else if (scanType === 'intelx') {
-      await startDesiredTasks(
-        scanType,
-        desiredCount,
-        process.env.INTELX_QUEUE_URL!
-      );
-    } else if (scanType === 'cybersixgill') {
-      await startDesiredTasks(
-        scanType,
-        desiredCount,
-        process.env.CYBERSIXGILL_QUEUE_URL!
-      );
+      let shodanApiKeyList: string[];
+      if (event.apiKeyList) {
+        shodanApiKeyList = event.apiKeyList
+          .split(',')
+          .map((value) => value.trim());
+      } else {
+        console.error(
+          'apiKeyList must be provided for shodan and be a comma-separated string'
+        );
+        return 'Failed no apiKeyList';
+      }
+      // Check if there are enough keys for the desired number of tasks
+      if (shodanApiKeyList.length >= desiredCount) {
+        console.log(
+          'The number of API keys is greater than or equal to desiredCount.'
+        );
+      } else {
+        console.error(
+          'The number of API keys is less than desired Fargate tasks.'
+        );
+        return 'Failed no apiKeyList';
+      }
+      await startDesiredTasks(scanType, desiredCount, shodanApiKeyList);
+
+      // Run the rest of the scans normally
+    } else if (SCAN_LIST.includes(scanType)) {
+      await startDesiredTasks(scanType, desiredCount);
     } else {
       console.log(
-        'Shodan, DNSTwist, HIBP, and Cybersixgill are the only script types available right now.'
+        'Shodan, DNSTwist, HIBP, IntelX, and Cybersixgill are the only script types available right now. Must be all lowercase.'
       );
     }
   } catch (error) {

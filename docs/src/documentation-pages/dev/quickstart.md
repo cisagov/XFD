@@ -62,22 +62,14 @@ This quickstart describes the initial setup required to run an instance of Cross
    npm run pesyncdb
    ```
 
-4. Send messages to RabbitMQ queue. First, edit backend/nodeMessage.js to run the desired scan and
-   organization. Then run below:"
-
-   ```bash
-   cd backend
-   npm run send-message
-   ```
-
-5. Invoke scans by running below. You can edit the backend/src/tools/run-scanExecution.ts to run the desired scan type."
+4. Invoke scans by running below. You can edit the backend/src/tools/run-scanExecution.ts to run the desired scan type."
 
    ```bash
    cd backend
    npm run scan-exec
    ```
 
-6. Observe logs in docker containers.
+5. Observe logs in docker containers.
 
 ### Running tests
 

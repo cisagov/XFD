@@ -7,6 +7,13 @@ import { useAuthContext } from 'context';
 import { ListItemButton } from '@mui/material';
 
 export const RSCDefaultSideNav: React.FC = () => {
+  const handleRSCredirect = () => {
+    window.open(
+      'https://cisaexdev.servicenowservices.com/rsc?id=rsc_welcome',
+      '_blank'
+    );
+  };
+
   const { user, logout } = useAuthContext();
 
   return (
@@ -21,7 +28,10 @@ export const RSCDefaultSideNav: React.FC = () => {
         <List>
           <ListItem>Welcome, {user?.fullName ?? 'Guest'}</ListItem>
           <Divider component="li" />
-          <ListItemButton style={{ outline: 'none' }}>
+          <ListItemButton
+            onClick={handleRSCredirect}
+            style={{ cursor: 'pointer' }}
+          >
             Take Questionnaire Again
           </ListItemButton>
           <Divider component="li" />

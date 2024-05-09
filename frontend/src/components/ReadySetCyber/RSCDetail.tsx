@@ -9,9 +9,11 @@ import Typography from '@mui/material/Typography';
 import { RSCSideNav } from './RSCSideNav';
 import { Category, Entry, RSCQuestion } from './RSCQuestion';
 import { useAuthContext } from 'context';
+import { RSCNextSteps } from './RSCNextSteps';
 import { RSCAccordionNav } from './RSCAccordionNav';
 import { FloatingNav } from './FloatingNav';
 import { ScrollTop } from './ScrollTop';
+import { useReactToPrint } from 'react-to-print';
 
 export const RSCDetail: React.FC = () => {
   const { apiGet } = useAuthContext();
@@ -44,6 +46,13 @@ export const RSCDetail: React.FC = () => {
     fetchResult();
   }, [fetchResult]);
 
+  const printRef = React.useRef<HTMLDivElement>(null);
+
+  const handleDownloadPDF = useReactToPrint({
+    content: () => printRef.current,
+    documentTitle: `ReadySetCyber Summary ${new Date().toLocaleDateString()}`
+  });
+
   return (
     <>
       <Box sx={{ flexGrow: 1, padding: 2 }}>
@@ -55,47 +64,58 @@ export const RSCDetail: React.FC = () => {
             <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
               <RSCAccordionNav categories={categories} />
             </Box>
-            <Box
-              sx={{
-                flexGrow: 1,
-                padding: 2,
-                backgroundColor: 'white'
-              }}
-            >
-              <Stack spacing={2}>
-                <Stack
-                  direction="row"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  padding={2}
-                >
-                  <Typography variant="h5" component="div">
-                    Summary and Resources
+            <Stack spacing={2}>
+              <Box
+                sx={{
+                  flexGrow: 1,
+                  padding: 2,
+                  backgroundColor: 'white'
+                }}
+                ref={printRef}
+              >
+                <Stack spacing={2}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                  >
+                    <Typography
+                      variant="h3"
+                      component="div"
+                      style={{ color: '#003E67', fontWeight: 'bold' }}
+                    >
+                      Summary and Resources
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={handleDownloadPDF}
+                    >
+                      Download PDF
+                    </Button>
+                  </Stack>
+                  <Divider />
+                  <Typography variant="h6" component="h3" gutterBottom>
+                    Thank you for completing the ReadySetCyber questionnaire!
                   </Typography>
-                  <Button variant="contained" color="success">
-                    Download PDF
-                  </Button>
+                  <Typography>
+                    Below, you’ll find a full summary of your completed
+                    ReadySetCyber questionnaire. Please note the areas where you
+                    can improve your organization’s cybersecurity posture, along
+                    with the recommended resources to help you address these
+                    areas. To take further action, contact your regional CISA
+                    Cybersecurity Advisor (CSA) for personalized support. You
+                    can also explore Crossfeed, CISA’s Attack Surface Management
+                    platform, for free vulnerability scanning services to
+                    kickstart or enhance your cybersecurity measures.
+                  </Typography>
+                  {categories.map((category, index) => (
+                    <RSCQuestion key={index} categories={[category]} />
+                  ))}
                 </Stack>
-                <Divider />
-                <Typography variant="h6" component="h3" gutterBottom>
-                  Thank you for completing the ReadySetCyber questionnaire!
-                </Typography>
-                <Typography>
-                  Below, you’ll find a full summary of your completed
-                  ReadySetCyber questionnaire. Please note the areas where you
-                  can improve your organization’s cybersecurity posture, along
-                  with the recommended resources to help you address these
-                  areas. To take further action, contact your regional CISA
-                  Cybersecurity Advisor (CSA) for personalized support. You can
-                  also explore Crossfeed, CISA’s Attack Surface Management
-                  platform, for free vulnerability scanning services to
-                  kickstart or enhance your cybersecurity measures.
-                </Typography>
-                {categories.map((category, index) => (
-                  <RSCQuestion key={index} categories={[category]} />
-                ))}
-              </Stack>
-            </Box>
+              </Box>
+              <RSCNextSteps />
+            </Stack>
           </Grid>
         </Grid>
       </Box>

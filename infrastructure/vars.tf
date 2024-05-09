@@ -352,36 +352,6 @@ variable "ssm_lg_workspace_name" {
   default     = "/crossfeed/staging/LG_WORKSPACE_NAME"
 }
 
-variable "ssm_shodan_queue_url" {
-  description = "ssm_shodan_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/SHODAN_QUEUE_URL"
-}
-
-variable "ssm_dnstwist_queue_url" {
-  description = "ssm_dnstwist_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/DNSTWIST_QUEUE_URL"
-}
-
-variable "ssm_hibp_queue_url" {
-  description = "ssm_hibp_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/HIBP_QUEUE_URL"
-}
-
-variable "ssm_intelx_queue_url" {
-  description = "ssm_intelx_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/INTELX_QUEUE_URL"
-}
-
-variable "ssm_cybersixgill_queue_url" {
-  description = "ssm_cybersixgill_queue_url"
-  type        = string
-  default     = "/crossfeed/staging/CYBERSIXGILL_QUEUE_URL"
-}
-
 variable "db_group_name" {
   description = "db_group_name"
   type        = string
@@ -643,4 +613,46 @@ variable "pe_worker_ecs_role_name" {
   description = "pe_worker_ecs_role_name"
   type        = string
   default     = "pe-staging-worker"
+}
+
+variable "ssm_mdl_name" {
+  description = "ssm_mdl_name"
+  type        = string
+  default     = "/crossfeed/staging/MDL_NAME"
+}
+
+variable "ssm_mdl_username" {
+  description = "ssm_mdl_username"
+  type        = string
+  default     = "/crossfeed/staging/MDL_USERNAME"
+}
+
+variable "ssm_mdl_password" {
+  description = "ssm_mdl_password"
+  type        = string
+  default     = "/crossfeed/staging/MDL_PASSWORD"
+}
+
+variable "ssm_redshift_host" {
+  description = "ssm_redshift_host"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_HOST"
+}
+
+variable "ssm_redshift_database" {
+  description = "ssm_redshift_database"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_DATABASE"
+}
+
+variable "ssm_redshift_user" {
+  description = "ssm_redshift_user"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_USER"
+}
+
+variable "ssm_redshift_password" {
+  description = "ssm_redshift_password"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_PASSWORD"
 }
