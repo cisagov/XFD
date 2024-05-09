@@ -37,7 +37,7 @@ resource "aws_ecs_cluster" "pe_worker" {
 
 resource "aws_ecs_cluster_capacity_providers" "pe_worker" {
   count              = var.is_dmz ? 1 : 0
-  cluster_name       = aws_ecs_cluster.pe_worker[count.index].name
+  cluster_name       = aws_ecs_cluster.pe_worker[0].name
   capacity_providers = ["FARGATE"]
 }
 
