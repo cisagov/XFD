@@ -37,7 +37,6 @@ import {
   PortScan,
   PrecertScan,
   Report,
-  Request,
   Sector,
   Snapshot,
   SslyzeScan,
@@ -54,6 +53,14 @@ let connection: Connection | null = null;
 let dl_connection: Connection | null = null;
 
 const connectDl = async (logging?: boolean) => {
+  // process.env.DB_HOST = 'db';
+  // process.env.MDL_USERNAME = 'mdl';
+  // process.env.MDL_PASSWORD = 'password';
+  // process.env.MDL_NAME = 'crossfeed_mini_datalake';
+
+  // console.log(process.env.MDL_USERNAME)
+  // console.log(process.env.MDL_PASSWORD)
+  // console.log(process.env.MDL_NAME)
   const dl_connection = createConnection({
     type: 'postgres',
     host: process.env.DB_HOST,
@@ -77,7 +84,6 @@ const connectDl = async (logging?: boolean) => {
       PortScan,
       PrecertScan,
       Report,
-      Request,
       Sector,
       Snapshot,
       SslyzeScan,
@@ -89,7 +95,7 @@ const connectDl = async (logging?: boolean) => {
       VulnScan
     ],
     synchronize: false,
-    name: 'mini_data_lake',
+    name: 'default',
     dropSchema: false,
     logging: logging ?? false,
     cache: true
@@ -99,6 +105,7 @@ const connectDl = async (logging?: boolean) => {
 
 export const connectToDatalake = async (logging?: boolean) => {
   if (!dl_connection?.isConnected) {
+    console.log('Connected to datalake');
     dl_connection = await connectDl(logging);
   } else {
     console.log("didn't connect");
