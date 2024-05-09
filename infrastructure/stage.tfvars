@@ -1,4 +1,5 @@
 aws_region                           = "us-east-1"
+aws_other_region                     = "us-east-1"
 aws_partition                        = "aws"
 is_dmz                               = true
 project                              = "Crossfeed"
@@ -70,7 +71,6 @@ pe_worker_ecs_cluster_name           = "pe-staging-worker"
 pe_worker_ecs_task_definition_family = "pe-staging-worker"
 pe_worker_ecs_log_group_name         = "pe-staging-worker"
 pe_worker_ecs_role_name              = "pe-staging-worker"
-pe_cybersixgill_ecs_service_name     = "pe-staging-cybersixgill"
 logging_bucket_name                  = "cisa-crossfeed-staging-logging"
 cloudtrail_name                      = "crossfeed-staging-all-events"
 cloudtrail_bucket_name               = "cisa-crossfeed-staging-cloudtrail"
