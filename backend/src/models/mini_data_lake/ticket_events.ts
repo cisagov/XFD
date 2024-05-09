@@ -10,6 +10,7 @@ import {
 } from 'typeorm';
 
 import { Ticket } from './tickets';
+import { VulnScan } from './vuln_scans';
 
 @Entity()
 export class TicketEvent extends BaseEntity {
@@ -22,6 +23,12 @@ export class TicketEvent extends BaseEntity {
     unique: true
   })
   reference: string | null;
+
+  @ManyToOne((type) => VulnScan, (vuln_scan) => vuln_scan.ticketEvents, {
+    onDelete: 'CASCADE',
+    nullable: true
+  })
+  vulnScan: VulnScan;
 
   @Column({
     nullable: true,

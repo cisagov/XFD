@@ -739,4 +739,46 @@ variable "matomo_availability_zone" {
   description = "matomo_availability_zone"
   type        = string
   default     = "us-east-1"
+
+}
+variable "ssm_mdl_name" {
+  description = "ssm_mdl_name"
+  type        = string
+  default     = "/crossfeed/staging/MDL_NAME"
+}
+
+variable "ssm_mdl_username" {
+  description = "ssm_mdl_username"
+  type        = string
+  default     = "/crossfeed/staging/MDL_USERNAME"
+}
+
+variable "ssm_mdl_password" {
+  description = "ssm_mdl_password"
+  type        = string
+  default     = "/crossfeed/staging/MDL_PASSWORD"
+}
+
+variable "ssm_redshift_host" {
+  description = "ssm_redshift_host"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_HOST"
+}
+
+variable "ssm_redshift_database" {
+  description = "ssm_redshift_database"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_DATABASE"
+}
+
+variable "ssm_redshift_user" {
+  description = "ssm_redshift_user"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_USER"
+}
+
+variable "ssm_redshift_password" {
+  description = "ssm_redshift_password"
+  type        = string
+  default     = "/crossfeed/staging/REDSHIFT_PASSWORD"
 }

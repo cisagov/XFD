@@ -93,7 +93,14 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${aws_ssm_parameter.es_endpoint.arn}",
           "${aws_ssm_parameter.es_endpoint.arn}",
           "${data.aws_ssm_parameter.pe_api_key.arn}",
-          "${data.aws_ssm_parameter.cf_api_key.arn}"
+          "${data.aws_ssm_parameter.cf_api_key.arn}",
+          "${data.aws_ssm_parameter.ssm_mdl_name.arn}",
+          "${data.aws_ssm_parameter.ssm_mdl_username.arn}",
+          "${data.aws_ssm_parameter.ssm_mdl_password.arn}",
+          "${data.aws_ssm_parameter.ssm_redshift_host.arn}",
+          "${data.aws_ssm_parameter.ssm_redshift_database.arn}",
+          "${data.aws_ssm_parameter.ssm_redshift_user.arn}",
+          "${data.aws_ssm_parameter.ssm_redshift_password.arn}"
         ]
       },
       "${var.is_dmz ? "" : <<EOF
@@ -327,6 +334,34 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "CF_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.cf_api_key.arn}"
+      },
+      {
+        "name": "MDL_NAME",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_name.arn}"
+      },
+      {
+        "name": "MDL_USERNAME",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_username.arn}"
+      },
+      {
+        "name": "MDL_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_password.arn}"
+      },
+      {
+        "name": "REDSHIFT_HOST",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_host.arn}"
+      },
+      {
+        "name": "REDSHIFT_DATABASE",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_database.arn}"
+      },
+      {
+        "name": "REDSHIFT_USER",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_user.arn}"
+      },
+      {
+        "name": "REDSHIFT_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_password.arn}"
       }
     ]
   }
@@ -395,6 +430,21 @@ data "aws_ssm_parameter" "intelx_api_key" { name = var.ssm_intelx_api_key }
 data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
 
 data "aws_ssm_parameter" "cf_api_key" { name = var.ssm_cf_api_key }
+
+data "aws_ssm_parameter" "ssm_mdl_name" { name = var.ssm_mdl_name }
+
+data "aws_ssm_parameter" "ssm_mdl_username" { name = var.ssm_mdl_username }
+
+data "aws_ssm_parameter" "ssm_mdl_password" { name = var.ssm_mdl_password }
+
+data "aws_ssm_parameter" "ssm_redshift_host" { name = var.ssm_redshift_host }
+
+data "aws_ssm_parameter" "ssm_redshift_database" { name = var.ssm_redshift_database }
+
+data "aws_ssm_parameter" "ssm_redshift_user" { name = var.ssm_redshift_user }
+
+data "aws_ssm_parameter" "ssm_redshift_password" { name = var.ssm_redshift_password }
+
 
 resource "aws_s3_bucket" "export_bucket" {
   bucket = var.export_bucket_name
