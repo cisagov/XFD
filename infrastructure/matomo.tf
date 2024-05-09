@@ -135,7 +135,7 @@ resource "aws_ecs_task_definition" "matomo" {
 
 resource "aws_service_discovery_private_dns_namespace" "default" {
   count       = var.is_dmz ? 1 : 0
-  name        = "cfs.lz.us-cert.gov"
+  name        = "crossfeed.local"
   description = "Crossfeed ${var.stage}"
   vpc         = aws_vpc.crossfeed_vpc[0].id
 }
