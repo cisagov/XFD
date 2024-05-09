@@ -48,32 +48,29 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
   role        = aws_iam_role.worker_task_execution_role.id
 
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ecr:GetAuthorizationToken",
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
-        "ecr:BatchGetImage",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:ListQueues",
-        "sqs:GetQueueAttributes"
-      ],
-      "Resource": "*"
-    },
-    {
-        "Effect": "Allow",
-        "Action": [
-            "ssm:GetParameters"
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Action" : [
+          "ecr:GetAuthorizationToken",
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:BatchGetImage",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:ListQueues",
+          "sqs:GetQueueAttributes"
         ],
-        "Resource": [
+        "Resource" : "*"
+      },
+      {
+        "Effect" : "Allow",
+        "Action" : ["ssm:GetParameters"],
+        "Resource" : [
           "${aws_ssm_parameter.crossfeed_send_db_host.arn}",
           "${aws_ssm_parameter.crossfeed_send_db_name.arn}",
           "${data.aws_ssm_parameter.db_username.arn}",
@@ -98,21 +95,19 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.pe_api_key.arn}",
           "${data.aws_ssm_parameter.cf_api_key.arn}"
         ]
-    },
-    ${var.is_dmz ? "" : <<EOF
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt"
-      ],
-      "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
-    }
+      },
+      "${var.is_dmz ? "" : <<EOF
+      {
+        "Effect": "Allow",
+        "Action": ["kms:Decrypt"],
+        "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
+      }
 EOF
+      }"
+    ]
+  })
 }
-  ]
-}
-EOF
-}
+
 
 
 resource "aws_iam_role" "worker_task_role" {
