@@ -10,7 +10,6 @@ import { plainToClass } from 'class-transformer';
 import S3Client from '../tasks/s3-client';
 import { SES } from 'aws-sdk';
 import * as nodemailer from 'nodemailer';
-import logger from '../tools/lambda-logger';
 import * as handlebars from 'handlebars';
 
 export const REGION_STATE_MAP = {
@@ -122,11 +121,11 @@ export const wrapHandler: WrapHandler =
       )) as APIGatewayProxyResult;
       const resp = makeResponse(event, result);
       if (typeof jest === 'undefined') {
-        logger.info(`=> ${resp.statusCode} ${event.path} `);
+        console.log(`=> ${resp.statusCode} ${event.path} `);
       }
       return resp;
     } catch (e) {
-      logger.error(e);
+      console.error(e);
       return makeResponse(event, {
         statusCode: Array.isArray(e) ? 400 : 500
       });
@@ -163,10 +162,10 @@ export const sendEmail = async (
       replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
     });
 
-    logger.info('Email sent successfully');
+    console.log('Email sent successfully');
     return 'Email sent successfully';
   } catch (error) {
-    logger.error(`Error sending email: ${error}`);
+    console.error(`Error sending email: ${error}`);
 
     // Handle the error or re-throw it if needed
     throw error;
