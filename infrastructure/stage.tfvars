@@ -8,7 +8,6 @@ frontend_domain                      = "staging-cd.crossfeed.cyber.dhs.gov"
 frontend_lambda_function             = "crossfeed-security-headers-staging"
 frontend_bucket                      = "staging.crossfeed.cyber.dhs.gov"
 api_domain                           = "api.staging-cd.crossfeed.cyber.dhs.gov"
-frontend_cert_arn                    = "arn:aws:acm:us-east-1:957221700844:certificate/a0f51e21-3b90-43c5-b2e7-b99e1897429d"
 db_name                              = "crossfeed-stage-db"
 db_port                              = 5432
 db_table_name                        = "cfstagingdb"

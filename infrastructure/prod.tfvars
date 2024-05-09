@@ -1,5 +1,5 @@
-aws_region                        = "us-gov-east-1"
-aws_other_region                  = "us-gov-west-1"
+aws_region                        = "us-east-1"
+aws_other_region                  = "us-east-1"
 aws_partition                     = "aws"
 is_dmz                            = true
 project                           = "Crossfeed"

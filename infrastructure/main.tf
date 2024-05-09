@@ -5,7 +5,7 @@ data "aws_availability_zones" "available" {
 resource "aws_ssm_parameter" "prod_api_domain" {
   name      = "/crossfeed/prod/DOMAIN"
   type      = "String"
-  value     = var.api_domain
+  value     = "api.crossfeed.cyber.dhs.gov"
   overwrite = true
 
   tags = {
