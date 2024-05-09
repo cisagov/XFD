@@ -184,7 +184,7 @@ resource "aws_security_group" "allow_internal" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = [aws_vpc.crossfeed_vpc[0].id]
+    cidr_blocks = [aws_vpc.crossfeed_vpc[0].cidr_block]
   }
 
   egress {
@@ -213,7 +213,7 @@ resource "aws_security_group" "backend" {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = [aws_vpc.crossfeed_vpc[0].id]
+    cidr_blocks = [aws_vpc.crossfeed_vpc[0].cidr_block]
   }
 
   tags = {
