@@ -99,6 +99,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.cf_api_key.arn}"
         ]
     },
+    ${var.is_dmz ? "" : <<EOF
     {
       "Effect": "Allow",
       "Action": [
@@ -106,6 +107,8 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       ],
       "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
     }
+    EOF
+}
   ]
 }
 EOF
