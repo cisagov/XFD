@@ -1,9 +1,6 @@
 ---
 name: Playwright Tests
 on:
-  push:
-    branches:
-      - 'fix_playwright_github_actions_workflow'
   deployment_status:
     paths:
       - playwright/**
@@ -18,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.41.2-jammy
-    # if: github.event.deployment_status.state == 'success'
+    if: github.event.deployment_status.state == 'success'
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
