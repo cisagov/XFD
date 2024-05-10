@@ -23,14 +23,14 @@ provider:
   timeout: 30
   stage: ${opt:stage, 'dev'}
   environment: ${file(env.yml):${self:provider.stage}, ''}
-  vpc: ${file(env.yml):${self:provider.stage}-vpc, ''}
+  vpc: ${file(env.yml):${self:provider.stage}, ''}
   vpcEndpointIds:
     - ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
   apiGateway:
     binaryMediaTypes:
       - image/*
       - font/*
-    resourcePolicy: ${file(env.yml):${self:provider.stage}.RESOURCE_POLICY, ''}
+    resourcePolicy: ${file(env.yml):${self:provider.stage}-rp, ''}
   logs:
     restApi: true
   deploymentBucket:
