@@ -13,6 +13,7 @@ import saveServicesToDb from './helpers/saveServicesToDb';
 import saveVulnerabilitiesToDb from './helpers/saveVulnerabilitiesToDb';
 import saveDomainsReturn from './helpers/saveDomainsReturn';
 import { sanitizeStringField } from './helpers/sanitizeStringFields';
+import { Product } from '../models/service';
 
 interface UniversalCrossfeedVuln {
   title: string;
@@ -102,9 +103,8 @@ export const handler = async (commandOptions: CommandOptions) => {
   );
   try {
     // Get all organizations
-    await connectToDatabase();
+    const connection = await connectToDatabase();
     const allOrgs: Organization[] = await Organization.find();
-
     // For each organization, fetch vulnerability data
     for (const org of allOrgs) {
       console.log(
@@ -141,7 +141,8 @@ export const handler = async (commandOptions: CommandOptions) => {
       // For each vulnerability, save assets
       for (const vuln of allVulns ?? []) {
         // Save discovered domains and ips to the Domain table
-        let domainId;
+        const domain: Domain[] = [];
+        const service: Service[] = [];
         let service_domain;
         let service_ip;
         let ipOnly = false;
@@ -167,50 +168,67 @@ export const handler = async (commandOptions: CommandOptions) => {
               service_ip = null;
             }
           }
-          [domainId] = await saveDomainsReturn([
-            plainToClass(Domain, {
-              name: service_domain,
-              ip: service_ip,
-              organization: { id: org.id },
-              fromRootDomain: !ipOnly
-                ? service_domain.split('.').slice(-2).join('.')
-                : null,
-              discoveredBy: { id: commandOptions.scanId },
-              subdomainSource: `P&E - ${vuln.source}`,
-              ipOnly: ipOnly
-            })
-          ]);
-          console.log(`Successfully saved domain with id: ${domainId}`);
+          console.log(`Service domain: ${service_domain}`);
+          const existingDomain = await Domain.findOneBy({
+            name: service_domain,
+            organization: { id: org.id }
+          });
+          if (!existingDomain) {
+            let newDomain = Domain.create(
+              plainToClass(Domain, {
+                name: service_domain,
+                ip: service_ip,
+                fromRootDomain: !ipOnly
+                  ? service_domain.split('.').slice(-2).join('.')
+                  : null,
+                discoveredBy: { id: commandOptions.scanId },
+                subdomainSource: `P&E - ${vuln.source}`,
+                ipOnly: ipOnly
+              })
+            );
+            newDomain.organization = org;
+            newDomain = await Domain.save(newDomain);
+            domain.push(newDomain);
+          } else {
+            domain.push(existingDomain);
+          }
         } catch (e) {
           console.error(`Failed to save domain ${vuln.service_asset}`);
           console.error(e);
           console.error('Continuing to next vulnerability');
           continue;
         }
-
-        let serviceId;
         if (vuln.port != null) {
           try {
-            // Save discovered services to the Service table
-            [serviceId] = await saveServicesToDb([
-              plainToClass(Service, {
-                domain: { id: domainId },
-                discoveredBy: { id: commandOptions.scanId },
-                port: vuln.port,
-                lastSeen: new Date(vuln.last_seen),
-                banner:
-                  vuln.banner == null ? null : sanitizeStringField(vuln.banner),
-                serviceSource: vuln.source,
-                shodanResults:
-                  vuln.source === 'shodan'
-                    ? {
-                        product: vuln.product,
-                        version: vuln.version,
-                        cpe: vuln.cpe
-                      }
-                    : {}
-              })
-            ]);
+            const service: Service[] = [];
+            const existingService = await Service.findOneBy({
+              domain: { id: domain[0].id },
+              port: vuln.port
+            });
+            if (!existingService) {
+              const newService = Service.create(
+                plainToClass(Service, {
+                  domain: domain[0],
+                  discoveredBy: { id: commandOptions.scanId },
+                  port: vuln.port,
+                  lastSeen: new Date(vuln.last_seen),
+                  banner:
+                    vuln.banner == null
+                      ? null
+                      : sanitizeStringField(vuln.banner),
+                  serviceSource: vuln.source,
+                  product: vuln.product,
+                  version: vuln.version,
+                  cpe: vuln.cpe
+                })
+              );
+              const updated = await Service.save(newService);
+              service.push(updated);
+            } else {
+              existingService.lastSeen = new Date(vuln.last_seen);
+              const updated = await Service.save(existingService);
+              service.push(updated);
+            }
             console.log('Saved services.');
           } catch (e) {
             console.error(
@@ -223,30 +241,42 @@ export const handler = async (commandOptions: CommandOptions) => {
 
         try {
           const vulns: Vulnerability[] = [];
-          vulns.push(
-            plainToClass(Vulnerability, {
-              domain: domainId,
-              lastSeen: vuln.last_seen,
-              title: vuln.title,
-              cve: vuln.cve,
-              cwe: vuln.cwe,
-              description: vuln.description,
-              cvss: vuln.cvss,
-              severity: vuln.severity,
-              state: vuln.state,
-              structuredData: vuln.structuredData,
-              source: vuln.source,
-              needsPopulation: vuln.needsPopulation,
-              service: vuln.port == null ? null : { id: serviceId }
-            })
-          );
-          await saveVulnerabilitiesToDb(vulns, false);
+          const existingVuln = await Vulnerability.findOneBy({
+            domain: { id: domain[0].id },
+            title: vuln.title
+          });
+          if (!existingVuln) {
+            const newVuln = Vulnerability.create(
+              plainToClass(Vulnerability, {
+                domain: domain[0],
+                lastSeen: new Date(vuln.last_seen),
+                title: vuln.title,
+                cve: vuln.cve,
+                cwe: vuln.cwe,
+                description: vuln.description,
+                cvss: vuln.cvss,
+                severity: vuln.severity,
+                state: vuln.state,
+                structuredData: vuln.structuredData,
+                source: vuln.source,
+                needsPopulation: vuln.needsPopulation,
+                service: vuln.port == null ? null : service[0]
+              })
+            );
+            newVuln.save();
+            vulns.push(newVuln);
+          } else {
+            existingVuln.lastSeen = new Date(vuln.last_seen);
+            const newVuln = await Vulnerability.save(existingVuln);
+            vulns.push(newVuln);
+          }
         } catch (e) {
           console.error('Could not save vulnerabilities. Continuing.');
           console.error(e);
         }
       }
     }
+    await connection.destroy();
   } catch (e) {
     console.error('Unknown failure.');
     console.error(e);
