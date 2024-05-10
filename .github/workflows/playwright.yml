@@ -25,9 +25,10 @@ jobs:
           node-version: 18
       - name: Check if Secrets are accessible
         env:
-          2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-        if: ${{ env.2FA_SECRET == '' }}
-        run: "GitHub Secrets can be accessed..."
+          super_secret: ${{ secrets.PW_XFD_2FA_SECRET }}
+        if: ${{ env.super_secret == '' }}
+        run: |
+          echo "GitHub Secrets is empty..."
       - name: Install dependencies
         run: npm ci
       - name: Create env file
