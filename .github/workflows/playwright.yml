@@ -11,7 +11,6 @@ on:
 defaults:
   run:
     working-directory: ./playwright
-
 jobs:
   test:
     timeout-minutes: 60
@@ -24,15 +23,15 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18
+      - name: Check if Secrets are accessible
+        env:
+          2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
+        if: ${{ env.2FA_SECRET == '' }}
+        run: "GitHub Secrets can be accessed..."
       - name: Install dependencies
         run: npm ci
       - name: Create env file
         run: |
-          if ["${{ secrets.PW_XFD_2FA_SECRET }}" != '' ]; then
-            echo "Github Secrets pulled down successfully "
-          else
-            echo "Github Secrets not retrieved..."
-          fi
           touch .env
           echo PW_XFD_2FA_ISSUER=${{ secrets.PW_XFD_2FA_ISSUER }} >> .env
           echo PW_XFD_2FA_SECRET=${{ secrets.PW_XFD_2FA_SECRET }} >> .env
