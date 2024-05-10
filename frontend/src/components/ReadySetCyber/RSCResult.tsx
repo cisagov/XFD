@@ -2,7 +2,7 @@ import React from 'react';
 import Card from '@mui/material/Card';
 import Box from '@mui/material/Box';
 import Stack from '@mui/material/Stack';
-import { Typography } from '@mui/material';
+import { ButtonBase, Typography } from '@mui/material';
 import { useHistory } from 'react-router-dom';
 
 interface Props {
@@ -20,19 +20,24 @@ export const RSCResult: React.FC<Props> = (props) => {
     history.push(`/readysetcyber/result/${id}`);
   };
   return (
-    <Card onClick={handleClick}>
-      <Box sx={{ width: '100%', bgcolor: 'background.paper', p: 2 }}>
-        <Stack
-          direction="row"
-          justifyContent={'space-between'}
-          alignItems="center"
-        >
-          <Typography variant="h5" component="div">
-            {type}
-          </Typography>
-          <Typography variant="h5">{date}</Typography>
-        </Stack>
-      </Box>
-    </Card>
+    <ButtonBase onClick={handleClick}>
+      <Card
+        style={{ outline: 'standard', cursor: 'pointer' }}
+        sx={{ width: '100%' }}
+      >
+        <Box sx={{ width: '100%', bgcolor: 'background.paper', p: 2 }}>
+          <Stack
+            direction="row"
+            justifyContent={'space-between'}
+            alignItems="center"
+          >
+            <Typography variant="h5" component="div">
+              {type}
+            </Typography>
+            <Typography variant="h5">{date}</Typography>
+          </Stack>
+        </Box>
+      </Card>
+    </ButtonBase>
   );
 };

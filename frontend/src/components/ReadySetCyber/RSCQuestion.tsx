@@ -61,7 +61,18 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                 marginBottom: 2
               }}
             >
-              <Typography variant="h6" gutterBottom>
+              <Typography
+                variant="h6"
+                gutterBottom
+                sx={{
+                  marginTop: 2,
+                  color: '#1976d2',
+                  '&:focus': {
+                    outline: '2px solid #000' // Change this to the desired outline style
+                  }
+                }}
+                tabIndex={0}
+              >
                 Question {questionNumber(entry.question.number)}
               </Typography>
               <Typography variant="subtitle1" gutterBottom>
