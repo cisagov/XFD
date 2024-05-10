@@ -45,7 +45,10 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
           key={catIndex}
           sx={{
             marginBottom: 4,
-            pageBreakInside: 'avoid' // Prevent page breaks inside categories for PDF
+            pageBreakInside: 'avoid', // Prevent page breaks inside categories for PDF
+            '@media print': {
+              paddingTop: '20mm'
+            }
           }}
         >
           <Typography

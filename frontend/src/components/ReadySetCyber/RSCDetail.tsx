@@ -72,7 +72,8 @@ export const RSCDetail: React.FC = () => {
                   padding: 2,
                   backgroundColor: 'white',
                   '@media print': {
-                    height: '297mm' // A4 height
+                    height: '297mm', // A4 height
+                    paddingTop: '20mm'
                   }
                 }}
                 ref={printRef}
@@ -81,7 +82,8 @@ export const RSCDetail: React.FC = () => {
                   spacing={2}
                   sx={{
                     '@media print': {
-                      width: '210mm' // A4 width
+                      width: '210mm', // A4 width
+                      breakBefore: 'always'
                     }
                   }}
                 >
