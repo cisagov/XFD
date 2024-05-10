@@ -59,6 +59,10 @@ jobs:
         run: npm run build
       - name: Test
         run: npm run test
+      - name: Package
+        run: npx sls package
+        env:
+          SLS_DEBUG: '*'
   deploy_staging:
     needs: [lint, test]
     runs-on: ubuntu-latest
