@@ -1,31 +1,33 @@
 import { bootstrap } from 'global-agent';
 import { CommandOptions } from './tasks/ecs-client';
-import { handler as amass } from './tasks/amass';
-import { handler as censys } from './tasks/censys';
-import { handler as findomain } from './tasks/findomain';
-import { handler as portscanner } from './tasks/portscanner';
-import { handler as wappalyzer } from './tasks/wappalyzer';
-import { handler as censysIpv4 } from './tasks/censysIpv4';
-import { handler as censysCertificates } from './tasks/censysCertificates';
-import { handler as savedSearch } from './tasks/saved-search';
-import { handler as sslyze } from './tasks/sslyze';
-import { handler as searchSync } from './tasks/search-sync';
-import { handler as intrigueIdent } from './tasks/intrigue-ident';
-import { handler as cve } from './tasks/cve';
-import { handler as dotgov } from './tasks/dotgov';
-import { handler as webscraper } from './tasks/webscraper';
-import { handler as shodan } from './tasks/shodan';
-import { handler as testProxy } from './tasks/test-proxy';
-import { handler as hibp } from './tasks/hibp';
-import { handler as lookingGlass } from './tasks/lookingGlass';
-import { handler as dnstwist } from './tasks/dnstwist';
-import { handler as rootDomainSync } from './tasks/rootDomainSync';
-import { handler as trustymail } from './tasks/trustymail';
-import { handler as cveSync } from './tasks/cve-sync';
-import { handler as vulnSync } from './tasks/vuln-sync';
-import { SCAN_SCHEMA } from './api/scans';
 import { connectToDatabase } from './models';
 import fetchPublicSuffixList from './tasks/helpers/fetchPublicSuffixList';
+import { handler as amass } from './tasks/amass';
+import { handler as censys } from './tasks/censys';
+import { handler as censysCertificates } from './tasks/censysCertificates';
+import { handler as censysIpv4 } from './tasks/censysIpv4';
+import { handler as cve } from './tasks/cve';
+import { handler as cveSync } from './tasks/cve-sync';
+import { handler as dnstwist } from './tasks/dnstwist';
+import { handler as dotgov } from './tasks/dotgov';
+import { handler as findomain } from './tasks/findomain';
+import { handler as hibp } from './tasks/hibp';
+import { handler as intrigueIdent } from './tasks/intrigue-ident';
+import { handler as lookingGlass } from './tasks/lookingGlass';
+import { handler as portscanner } from './tasks/portscanner';
+import { handler as rootDomainSync } from './tasks/rootDomainSync';
+import { handler as rscSync } from './tasks/rscSync';
+import { handler as savedSearch } from './tasks/saved-search';
+import { handler as searchSync } from './tasks/search-sync';
+import { handler as shodan } from './tasks/shodan';
+import { handler as sslyze } from './tasks/sslyze';
+import { handler as testProxy } from './tasks/test-proxy';
+import { handler as trustymail } from './tasks/trustymail';
+import { handler as vulnSync } from './tasks/vuln-sync';
+import { handler as vulnScanningSync } from './tasks/vs_sync';
+import { handler as wappalyzer } from './tasks/wappalyzer';
+import { handler as webscraper } from './tasks/webscraper';
+import { SCAN_SCHEMA } from './api/scans';
 
 /**
  * Worker entrypoint.
@@ -41,31 +43,33 @@ async function main() {
   const scanFn: any = {
     amass,
     censys,
-    censysIpv4,
     censysCertificates,
-    cveSync,
-    sslyze,
-    searchSync,
+    censysIpv4,
     cve,
+    cveSync,
+    dnstwist,
     dotgov,
     findomain,
-    portscanner,
-    wappalyzer,
-    intrigueIdent,
-    webscraper,
-    savedSearch,
-    shodan,
     hibp,
+    intrigueIdent,
     lookingGlass,
-    dnstwist,
-    testProxy,
+    portscanner,
     rootDomainSync,
     trustymail,
+    vulnScanningSync,
     vulnSync,
+    rscSync,
+    savedSearch,
+    searchSync,
+    shodan,
+    sslyze,
     test: async () => {
       await connectToDatabase();
       console.log('test');
-    }
+    },
+    testProxy,
+    wappalyzer,
+    webscraper
   }[scanName];
   if (!scanFn) {
     throw new Error('Invalid scan name ' + scanName);

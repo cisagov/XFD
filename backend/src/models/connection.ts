@@ -1,21 +1,28 @@
 import { createConnection, Connection } from 'typeorm';
 import {
   // Models for the Crossfeed database
-  Domain,
-  Service,
-  Vulnerability,
-  Scan,
-  Organization,
-  User,
-  Role,
-  ScanTask,
-  Webpage,
   ApiKey,
   SavedSearch,
   Notification,
   OrganizationTag,
+  Assessment,
+  Category,
   Cpe,
   Cve,
+  Domain,
+  Organization,
+  OrganizationTag,
+  Question,
+  Resource,
+  Response,
+  Role,
+  SavedSearch,
+  Scan,
+  ScanTask,
+  Service,
+  User,
+  Vulnerability,
+  Webpage,
 
   //  Models for the Mini Data Lake database
   CertScan,
@@ -33,7 +40,6 @@ import {
   PortScan,
   PrecertScan,
   Report,
-  Request,
   Sector,
   Snapshot,
   SslyzeScan,
@@ -50,6 +56,14 @@ let connection: Connection | null = null;
 let dl_connection: Connection | null = null;
 
 const connectDl = async (logging?: boolean) => {
+  // process.env.DB_HOST = 'db';
+  // process.env.MDL_USERNAME = 'mdl';
+  // process.env.MDL_PASSWORD = 'password';
+  // process.env.MDL_NAME = 'crossfeed_mini_datalake';
+
+  // console.log(process.env.MDL_USERNAME)
+  // console.log(process.env.MDL_PASSWORD)
+  // console.log(process.env.MDL_NAME)
   const dl_connection = createConnection({
     type: 'postgres',
     host: process.env.DB_HOST,
@@ -73,7 +87,6 @@ const connectDl = async (logging?: boolean) => {
       PortScan,
       PrecertScan,
       Report,
-      Request,
       Sector,
       Snapshot,
       SslyzeScan,
@@ -85,7 +98,7 @@ const connectDl = async (logging?: boolean) => {
       VulnScan
     ],
     synchronize: false,
-    name: 'mini_data_lake',
+    name: 'default',
     dropSchema: false,
     logging: logging ?? false,
     cache: true
@@ -95,6 +108,7 @@ const connectDl = async (logging?: boolean) => {
 
 export const connectToDatalake = async (logging?: boolean) => {
   if (!dl_connection?.isConnected) {
+    console.log('Connected to datalake');
     dl_connection = await connectDl(logging);
   } else {
     console.log("didn't connect");
@@ -111,21 +125,27 @@ const connectDb = async (logging?: boolean) => {
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
     entities: [
+      ApiKey,
+      Assessment,
+      Category,
       Cpe,
       Cve,
       Domain,
-      Service,
-      Vulnerability,
-      Scan,
       Organization,
-      User,
+      OrganizationTag,
+      Question,
+      Resource,
+      Response,
       Role,
-      ScanTask,
-      Webpage,
-      ApiKey,
       SavedSearch,
       OrganizationTag,
-      Notification
+      Notification,
+      Scan,
+      ScanTask,
+      Service,
+      User,
+      Vulnerability,
+      Webpage
     ],
     synchronize: false,
     name: 'default',
