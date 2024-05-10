@@ -276,7 +276,6 @@ export const handler = async (commandOptions: CommandOptions) => {
         }
       }
     }
-    await connection.destroy();
   } catch (e) {
     console.error('Unknown failure.');
     console.error(e);
