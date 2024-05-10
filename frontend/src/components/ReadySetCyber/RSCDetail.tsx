@@ -61,10 +61,10 @@ export const RSCDetail: React.FC = () => {
             <RSCSideNav categories={categories} />
           </Grid>
           <Grid item xs={12} sm={8}>
+            <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
+              <RSCAccordionNav categories={categories} />
+            </Box>
             <Stack spacing={2}>
-              <Box sx={{ marginBottom: 2, display: { sm: 'none' } }}>
-                <RSCAccordionNav categories={categories} />
-              </Box>
               <Box
                 sx={{
                   flexGrow: 1,
@@ -78,9 +78,12 @@ export const RSCDetail: React.FC = () => {
                     direction="row"
                     justifyContent="space-between"
                     alignItems="center"
-                    padding={2}
                   >
-                    <Typography variant="h5" component="div">
+                    <Typography
+                      variant="h3"
+                      component="div"
+                      style={{ color: '#003E67', fontWeight: 'bold' }}
+                    >
                       Summary and Resources
                     </Typography>
                     <Button

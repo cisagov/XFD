@@ -34,7 +34,6 @@ export * from './mini_data_lake/locations';
 export * from './mini_data_lake/port_scans';
 export * from './mini_data_lake/precert_scans';
 export * from './mini_data_lake/reports';
-export * from './mini_data_lake/requests';
 export * from './mini_data_lake/sectors';
 export * from './mini_data_lake/snapshots';
 export * from './mini_data_lake/sslyze_scan';
