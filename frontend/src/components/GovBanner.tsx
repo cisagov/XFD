@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { styled } from '@mui/material/styles';
 import clsx from 'classnames';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
-import flagIcon from '../assets/us_flag_small.png';
+import flagIcon from '../assets/usFlag.svg';
 import govIcon from '../assets/icon-dot-gov.svg';
 import httpsIcon from '../assets/icon-https.svg';
 
@@ -48,7 +48,9 @@ const Root = styled('div')(({ theme }) => ({
   },
 
   [`& .${classes.flag}`]: {
-    padding: `0 ${theme.spacing()}px`
+    padding: `0 ${theme.spacing()}px`,
+    height: `.75rem`,
+    marginRight: `.5rem`
   },
 
   [`& .${classes.textWrap}`]: {

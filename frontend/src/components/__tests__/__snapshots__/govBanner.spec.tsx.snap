@@ -14,7 +14,7 @@ exports[`Gov Banner Component matches snapshot 1`] = `
         <img
           alt="usa flag"
           class="GovBanner-flag"
-          src="us_flag_small.png"
+          src="usFlag.svg"
         />
         <div
           class="GovBanner-textWrap"
