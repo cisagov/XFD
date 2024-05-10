@@ -41,7 +41,13 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
   return (
     <Box>
       {categories.map((category, catIndex) => (
-        <Box key={catIndex} sx={{ marginBottom: 4 }}>
+        <Box
+          key={catIndex}
+          sx={{
+            marginBottom: 4,
+            pageBreakInside: 'avoid' // Prevent page breaks inside categories for PDF
+          }}
+        >
           <Typography
             variant="h5"
             gutterBottom
@@ -61,7 +67,11 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                 padding: 2,
                 borderRadius: 2,
                 marginBottom: 2,
-                border: '.1rem solid #B8D9E8'
+                border: '.1rem solid #B8D9E8',
+                pageBreakInside: 'avoid', // Prevent page breaks inside questions for PDF
+                '@media print': {
+                  marginBottom: 4 // Increase this value to add more space between questions in the PDF only
+                }
               }}
             >
               <Typography
@@ -160,7 +170,12 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                               color: 'white',
                               backgroundColor: '#0078ae'
                             }}
-                            sx={{ width: 'fit-content' }}
+                            sx={{
+                              width: 'fit-content',
+                              '@media print': {
+                                boxShadow: 'none' // Remove shadows when printing
+                              }
+                            }}
                           >
                             Visit Resource
                           </Button>
