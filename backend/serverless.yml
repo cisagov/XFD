@@ -111,10 +111,10 @@ resources:
     IsDMZ:
       Fn::Or:
         - Fn::Equals:
-            - ${opt:stage}
+            - ${self:provider.stage}
             - staging
         - Fn::Equals:
-            - ${opt:stage}
+            - ${self:provider.stage}
             - prod
   Resources:
     ShodanQueue:
