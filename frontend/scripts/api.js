@@ -5,7 +5,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
-import { ALLOW_ORIGIN, ALLOW_METHODS } from './constants.js';
 
 export const app = express();
 
@@ -17,7 +16,15 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: ALLOW_ORIGIN, methods: ALLOW_METHODS }));
+app.use(
+  cors({
+    origin: [
+      /^https:\/\/.*\.crossfeed\.cyber\.dhs\.gov$/,
+      /^https:\/\/.*\.readysetcyber\.cyber\.dhs\.gov$/
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  })
+);
 
 app.use(
   helmet({
@@ -25,17 +32,25 @@ app.use(
       directives: {
         defaultSrc: [
           "'self'",
-          'https://cognito-idp.us-east-1.amazonaws.com',
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
+          'https://cognito-idp.*.amazonaws.com',
+          'https://*.crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov'
+        ],
+        frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
+        imgSrc: [
+          "'self'",
+          'https://*.crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov',
+          'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
-          // Add any other allowed script sources here
+          'https://*.crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov',
+          'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
-        // Add other directives as needed
       }
     },
     hsts: {
