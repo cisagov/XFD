@@ -20,6 +20,7 @@ export interface User {
   state?: string | null;
   organizations?: Array<string>;
   isRegistered?: boolean | null;
+  loginBlockedByMaintenance?: boolean | false;
 }
 
 export const initializeUser: User = {

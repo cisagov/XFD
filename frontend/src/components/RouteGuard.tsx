@@ -48,6 +48,11 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
+  if (user && user.loginBlockedByMaintenance) {
+    logout();
+    return null;
+  }
+
   if (typeof unauth === 'string' && !user) {
     history.push(unauth);
     return null;

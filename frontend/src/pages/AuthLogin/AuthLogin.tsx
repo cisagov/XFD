@@ -140,10 +140,22 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
     setOpen(false);
   };
 
+  const MaintenanceAlert: React.FC<any> = ({ notification }) => {
+    // Determine the conditional title
+    const isLoginUnavailable =
+      notification?.maintenanceType === 'major' &&
+      notification?.status === 'active';
+    const titleText = isLoginUnavailable
+      ? 'Crossfeed Major Maintenance: Login Not Available'
+      : 'Crossfeed Maintenance Notification';
+
+    return <AlertTitle>{titleText}</AlertTitle>;
+  };
+
   const platformNotification = (
     <Grid item xs={12}>
       <Alert severity="warning">
-        <AlertTitle>CROSSFEED MAINTENANCE NOTIFICATION</AlertTitle>
+        <MaintenanceAlert notification={notification} />
         {notification?.message}
       </Alert>
     </Grid>

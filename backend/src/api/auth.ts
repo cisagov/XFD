@@ -10,6 +10,7 @@ import * as jwt from 'jsonwebtoken';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as jwksClient from 'jwks-rsa';
 import { createHash } from 'crypto';
+import { shouldBlockLogin } from './helpers';
 
 export interface UserToken {
   email: string;
@@ -22,6 +23,7 @@ export interface UserToken {
   dateAcceptedTerms: Date | undefined;
   acceptedTermsVersion: string | undefined;
   lastLoggedIn: Date | undefined;
+  loginBlockedByMaintenance: boolean | false;
 }
 
 interface CognitoUserToken {
@@ -83,6 +85,7 @@ export const userTokenBody = (user): UserToken => ({
   dateAcceptedTerms: user.dateAcceptedTerms,
   acceptedTermsVersion: user.acceptedTermsVersion,
   lastLoggedIn: user.lastLoggedIn,
+  loginBlockedByMaintenance: user.loginBlockedByMaintenance,
   roles: user.roles
     .filter((role) => role.approved)
     .map((role) => ({
@@ -142,6 +145,16 @@ export const callback = async (event, context) => {
   );
 
   const idKey = `${process.env.USE_COGNITO ? 'cognitoId' : 'loginGovId'}`;
+
+  // Check shouldBlockLogin due to maintenance
+  if (user) {
+    console.log('Checking if login should be blocked due to Maintenance...');
+    const loginBlocked = await shouldBlockLogin(user);
+    console.log('Login blocked response from callback: ', loginBlocked);
+    user.loginBlockedByMaintenance = loginBlocked;
+    user.save();
+  }
+  console.log(user);
 
   // If user does not exist, create it
   if (!user) {
