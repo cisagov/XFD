@@ -23,8 +23,6 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
 import * as assessments from './assessments';
 
-const sanitizer = require('sanitizer');
-
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
   typeof jest === 'undefined'
@@ -50,12 +48,12 @@ const handlerToExpress = (handler) => async (req, res) => {
     {}
   );
   try {
-    const parsedBody = JSON.parse(sanitizer.sanitize(body));
+    const parsedBody = JSON.parse(body);
     res.status(statusCode).json(parsedBody);
   } catch (e) {
     // Not a JSON body
     res.setHeader('content-type', 'text/plain');
-    res.status(statusCode).send(sanitizer.sanitize(body));
+    res.status(statusCode).send(body);
   }
 };
 
@@ -72,10 +70,7 @@ app.use(express.json({ strict: false }));
 
 app.use(
   cors({
-    origin: [
-      /^https:\/\/.*\.crossfeed\.cyber\.dhs\.gov$/,
-      /^https:\/\/.*\.readysetcyber\.cyber\.dhs\.gov$/
-    ],
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
   })
 );
@@ -86,25 +81,17 @@ app.use(
       directives: {
         defaultSrc: [
           "'self'",
-          'https://cognito-idp.*.amazonaws.com',
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov'
-        ],
-        frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
-        imgSrc: [
-          "'self'",
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://www.dhs.gov'
+          'https://cognito-idp.us-east-1.amazonaws.com',
+          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://www.dhs.gov'
+          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
+          // Add any other allowed script sources here
         ],
         frameAncestors: ["'none'"]
+        // Add other directives as needed
       }
     },
     hsts: {
