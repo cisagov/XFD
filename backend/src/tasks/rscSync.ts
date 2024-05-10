@@ -129,7 +129,7 @@ const fetchRecentAssessments = async () => {
 
   try {
     const response = await axios({
-      url: `https://cisadev.servicenowservices.com/api/now/table/x_g_dhs_rsc_rsc_data?sysparm_query=sys_updated_on>=${formattedDate}`,
+      url: `https://cisadev.servicenowservices.com/api/now/table/x_g_dhs_rsc_rsc_data?sysparm_query=sys_updated_on>=${formattedDate}^u_contact_emailISNOTEMPTY`,
       method: 'GET',
       headers: {
         Authorization: `Basic ${authorizationHeader}`
@@ -232,7 +232,8 @@ const saveResponsesToDb = async (
   assessment: AssessmentEntry,
   assessmentId: string
 ) => {
-  console.log('assessmentId: ', assessmentId);
+  console.log('assessmentId to save: ', assessmentId);
+  console.log('assessment to save: ', assessment);
   const responseRepository = getRepository(Response);
   await responseRepository
     .createQueryBuilder()
