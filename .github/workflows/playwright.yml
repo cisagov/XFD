@@ -28,8 +28,13 @@ jobs:
         run: npm ci
       - name: Create env file
         run: |
+          if ["${{ secrets.PW_XFD_2FA_SECRET }}" != '' ]; then
+            echo "Github Secrets pulled down successfully "
+          else
+            echo "Github Secrets not retrieved..."
+          fi
           touch .env
-          echo PW_XFD_2FA_ISSUER=${{ secrets._PW_XFD_2FA_ISSUER }} >> .env
+          echo PW_XFD_2FA_ISSUER=${{ secrets.PW_XFD_2FA_ISSUER }} >> .env
           echo PW_XFD_2FA_SECRET=${{ secrets.PW_XFD_2FA_SECRET }} >> .env
           echo PW_XFD_PASSWORD=${{ secrets.PW_XFD_PASSWORD }} >> .env
           echo PW_XFD_URL='https://staging-cd.crossfeed.cyber.dhs.gov/' >> .env
