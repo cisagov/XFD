@@ -93,7 +93,7 @@ app.use(
           // Add any other allowed script sources here
         ],
         frameSrc: [
-          'https://www.dhs.gov' // Add the URL for the iframe here
+          'https://www.dhs.gov' // This allows iframes to load content from dhs.gov
         ],
         frameAncestors: ["'none'"]
         // Add other directives as needed
