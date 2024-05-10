@@ -1,5 +1,5 @@
 // logger.js
-const { createLogger, transports, format } = require('winston');
+import { createLogger, transports, format } from 'winston';
 
 /**
  * Initializes custom logger for Cloudwatch
@@ -22,7 +22,7 @@ const addRequestId = format((info) => {
 });
 
 // Configure Winston logger
-const logger = createLogger({
+export const logger = createLogger({
   format: format.combine(
     format.timestamp(),
     uppercaseLevelFormat(),
@@ -36,5 +36,3 @@ const logger = createLogger({
   ),
   transports: [new transports.Console()]
 });
-
-module.exports = logger;
