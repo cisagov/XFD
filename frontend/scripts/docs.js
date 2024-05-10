@@ -19,8 +19,8 @@ app.use(express.static(path.join(__dirname, '../docs/build')));
 app.use(
   cors({
     origin: [
-      /^https:\/\/.*\.crossfeed\.cyber\.dhs\.gov$/,
-      /^https:\/\/.*\.readysetcyber\.cyber\.dhs\.gov$/
+      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
+      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
     ],
     methods: 'GET'
   })

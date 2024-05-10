@@ -19,8 +19,8 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: [
-      /^https:\/\/.*\.crossfeed\.cyber\.dhs\.gov$/,
-      /^https:\/\/.*\.readysetcyber\.cyber\.dhs\.gov$/
+      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
+      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
   })
