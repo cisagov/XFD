@@ -14,7 +14,6 @@ import { RSCAccordionNav } from './RSCAccordionNav';
 import { FloatingNav } from './FloatingNav';
 import { ScrollTop } from './ScrollTop';
 import { useReactToPrint } from 'react-to-print';
-import { styled } from '@mui/material/styles';
 
 export const RSCDetail: React.FC = () => {
   const { apiGet } = useAuthContext();
@@ -70,23 +69,11 @@ export const RSCDetail: React.FC = () => {
                 sx={{
                   flexGrow: 1,
                   padding: 2,
-                  backgroundColor: 'white',
-                  '@media print': {
-                    height: '297mm', // A4 height
-                    paddingTop: '20mm'
-                  }
+                  backgroundColor: 'white'
                 }}
                 ref={printRef}
               >
-                <Stack
-                  spacing={2}
-                  sx={{
-                    '@media print': {
-                      width: '210mm', // A4 width
-                      breakBefore: 'always'
-                    }
-                  }}
-                >
+                <Stack spacing={2}>
                   <Stack
                     direction="row"
                     justifyContent="space-between"
