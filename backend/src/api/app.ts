@@ -92,6 +92,9 @@ app.use(
           'https://api.staging-cd.crossfeed.cyber.dhs.gov'
           // Add any other allowed script sources here
         ],
+        frameSrc: [
+          'https://www.dhs.gov' // Add the URL for the iframe here
+        ],
         frameAncestors: ["'none'"]
         // Add other directives as needed
       }
