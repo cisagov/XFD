@@ -78,6 +78,14 @@ export const RSCQuestion: React.FC<Props> = ({ categories }) => {
                 variant="h6"
                 gutterBottom
                 style={{ color: '#003E67' }}
+                sx={{
+                  marginTop: 2,
+                  color: '#1976d2',
+                  '&:focus': {
+                    outline: '2px solid #000' // Change this to the desired outline style
+                  }
+                }}
+                tabIndex={0}
               >
                 Question {questionNumber(entry.question.number)}
               </Typography>

@@ -12,14 +12,11 @@ export const RSCNavItem: React.FC<Props> = (props) => {
     <HashLink
       style={{
         textDecoration: 'none',
-        color: 'black',
-        outline: 'none'
+        color: 'black'
       }}
       to={`#${name}`}
     >
-      <ListItemButton divider style={{ outline: 'none' }}>
-        {name}
-      </ListItemButton>
+      <ListItemButton divider>{name}</ListItemButton>
     </HashLink>
   );
 };
