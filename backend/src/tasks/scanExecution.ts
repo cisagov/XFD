@@ -98,6 +98,10 @@ async function startLocalContainers(
   queueUrl: string,
   shodan_api_key: string = ''
 ) {
+  // Make sure the user input of count isn't greater than 200
+  if (count >= 200) {
+    count = 200;
+  }
   // Start 'count' number of local Docker containers
   for (let i = 0; i < count; i++) {
     try {
