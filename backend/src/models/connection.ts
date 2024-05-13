@@ -107,8 +107,6 @@ export const connectToDatalake = async (logging?: boolean) => {
   if (!dl_connection?.isConnected) {
     console.log('Connected to datalake');
     dl_connection = await connectDl(logging);
-  } else {
-    console.log("didn't connect");
   }
   return dl_connection;
 };
