@@ -90,6 +90,7 @@ export const RSCDetail: React.FC = () => {
                       variant="contained"
                       color="success"
                       onClick={handleDownloadPDF}
+                      sx={{ '@media print': { display: 'none' } }}
                     >
                       Download PDF
                     </Button>
