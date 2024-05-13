@@ -409,7 +409,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   try {
     if (hostsArray && Array.isArray(hostsArray)) {
       const host_list: Host[] = [];
-      for (const host of hostsArray ?? []) {
+      for (const host of hostsArray) {
         host.latest_scan = JSON.parse(host.latest_scan);
         host.loc = JSON.parse(host.loc);
         host.state = JSON.parse(host.state);
