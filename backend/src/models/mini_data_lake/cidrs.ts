@@ -7,10 +7,10 @@ import {
   BaseEntity,
   ManyToMany,
   JoinTable,
-  Relation
+  Relation,
+  UpdateDateColumn
 } from 'typeorm';
 
-import { Request } from './requests';
 import { Organization } from './organizations';
 @Entity()
 export class Cidr extends BaseEntity {
@@ -23,7 +23,7 @@ export class Cidr extends BaseEntity {
   @Index()
   @Column({
     nullable: true,
-    type: 'cidr',
+    type: 'inet',
     unique: true
   })
   network: string | null;
@@ -43,12 +43,8 @@ export class Cidr extends BaseEntity {
   @Column({ nullable: true })
   retired: boolean;
 
-  @ManyToMany((type) => Request, (request) => request.cidrs, {
-    onDelete: 'CASCADE',
-    onUpdate: 'CASCADE'
-  })
-  @JoinTable()
-  requests: Relation<Request>[];
+  @UpdateDateColumn()
+  updatedAt: Date | null;
 
   @ManyToMany((type) => Organization, (org) => org.cidrs, {
     onDelete: 'CASCADE',

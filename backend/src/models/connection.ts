@@ -37,7 +37,6 @@ import {
   PortScan,
   PrecertScan,
   Report,
-  Request,
   Sector,
   Snapshot,
   SslyzeScan,
@@ -80,7 +79,7 @@ const createDlConnection = async (
         PortScan,
         PrecertScan,
         Report,
-        Request,
+        Report,
         Sector,
         Snapshot,
         SslyzeScan,
@@ -112,7 +111,7 @@ export const connectToDatalake = async (
     try {
       dlConnection = await createDlConnection(logging);
     } catch (error) {
-      console.error('Connection to Data Lake failed:', error);
+      console.error('Connection to data lake failed:', error);
       throw error;
     }
   } else {

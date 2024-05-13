@@ -27,6 +27,50 @@ export class Kev extends BaseEntity {
   @Column({ nullable: true })
   knownRansomware: boolean;
 
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  vendorProject: string | null;
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  product: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  vulnerabilityName: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'timestamp'
+  })
+  dateAdded: Date | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  shortDescription: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  requiredAction: string | null;
+
+  @Column({ nullable: true, type: 'timestamp' })
+  dueDate: Date | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  notes: string | null;
+
   @OneToMany((type) => Ticket, (ticket) => ticket.kev, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'

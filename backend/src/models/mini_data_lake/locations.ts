@@ -7,8 +7,7 @@ import {
   Column,
   PrimaryGeneratedColumn,
   BaseEntity,
-  ManyToMany,
-  JoinTable,
+  OneToMany,
   Relation
 } from 'typeorm';
 
@@ -28,7 +27,7 @@ export class Location extends BaseEntity {
     nullable: true,
     type: 'varchar'
   })
-  countryAbvr: string | null;
+  countryAbrv: string | null;
 
   @Column({
     nullable: true,
@@ -73,10 +72,9 @@ export class Location extends BaseEntity {
   })
   state: string | null;
 
-  @ManyToMany((type) => Organization, (org) => org.locations, {
+  @OneToMany((type) => Organization, (org) => org.location, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  @JoinTable()
-  organizations: Relation<Organization>[];
+  organizations?: Relation<Organization>[];
 }

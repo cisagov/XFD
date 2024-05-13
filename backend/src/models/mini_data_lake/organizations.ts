@@ -10,6 +10,8 @@ import {
   OneToMany,
   ManyToMany,
   ManyToOne,
+  CreateDateColumn,
+  UpdateDateColumn,
   Relation
 } from 'typeorm';
 import { Domain } from './domains';
@@ -19,7 +21,6 @@ import { Contact } from './contacts';
 import { Tag } from './tag';
 import { Sector } from './sectors';
 import { Report } from './reports';
-import { Request } from './requests';
 import { SslyzeScan } from './sslyze_scan';
 import { Snapshot } from './snapshots';
 import { Tally } from './tallies';
@@ -49,25 +50,16 @@ export class Organization extends BaseEntity {
   acronym: string | null;
 
   @Column({ nullable: true, type: 'timestamp' })
-  firstEngageDate: Date | null;
+  enrolledInVsTimestamp: Date | null;
 
   @Column({ nullable: true, type: 'timestamp' })
-  createdDate: Date | null;
+  periodStartVsTimestamp: Date | null;
 
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  createdEmplyeeId: string | null;
+  @CreateDateColumn()
+  createdDate: Date;
 
-  @Column({ nullable: true, type: 'timestamp' })
+  @UpdateDateColumn()
   updatedDate: Date | null;
-
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  updatedEmployeeId: string | null;
 
   @Column({ nullable: true })
   retired: boolean;
@@ -93,6 +85,44 @@ export class Organization extends BaseEntity {
   @Column({ nullable: true })
   stakeholder: boolean;
 
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  reportPeriod: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  initStage: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  scheduler: string | null;
+
+  @Column('varchar', { array: true, default: [], nullable: true })
+  reportTypes: string[] | null;
+
+  @Column('varchar', { array: true, default: [], nullable: true })
+  scanTypes: string[] | null;
+
+  @Column({
+    nullable: true,
+    type: 'jsonb',
+    default: []
+  })
+  scanWindows: Object[] | null;
+
+  @Column({
+    nullable: true,
+    type: 'jsonb',
+    default: []
+  })
+  scanLimits: Object[] | null;
+
   @OneToMany((type) => Domain, (domain) => domain.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
@@ -111,11 +141,11 @@ export class Organization extends BaseEntity {
   })
   tickets: Relation<Ticket>[];
 
-  @ManyToMany((type) => Location, (location) => location.organizations, {
+  @ManyToOne((type) => Location, (location) => location.organizations, {
     onDelete: 'CASCADE',
-    onUpdate: 'CASCADE'
+    nullable: true
   })
-  locations: Relation<Location>[];
+  location: Relation<Location>;
 
   @ManyToMany((type) => Contact, (contact) => contact.organizations, {
     onDelete: 'CASCADE',
@@ -159,12 +189,6 @@ export class Organization extends BaseEntity {
   })
   reports: Relation<Report>[];
 
-  @OneToMany((type) => Request, (request) => request.organization, {
-    onDelete: 'CASCADE',
-    onUpdate: 'CASCADE'
-  })
-  requests: Relation<Request>[];
-
   @OneToMany((type) => SslyzeScan, (sslyze) => sslyze.organization, {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
@@ -191,11 +215,6 @@ export class Organization extends BaseEntity {
       onUpdate: 'CASCADE'
     }
   )
-  @Column({
-    nullable: true,
-    type: 'varchar'
-  })
-  reportPeriod: string | null;
   trustymailScans: Relation<TrustymailScan>[];
 
   @OneToMany((type) => VulnScan, (vuln_scan) => vuln_scan.organization, {
