@@ -5,6 +5,7 @@ export * from './Domains';
 export * from './Domain';
 export * from './Vulnerability';
 export * from './TermsOfUse';
+export * from './EmailUnsubscribe';
 export * from './Search';
 export * from './LoginGovCallback';
 export { default as AdminTools } from './AdminTools';

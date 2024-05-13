@@ -5,6 +5,7 @@ import * as cors from 'cors';
 import * as helmet from 'helmet';
 import { handler as healthcheck } from './healthcheck';
 import * as auth from './auth';
+import * as emailUnsubscribe from './email-unsubscribe';
 import * as cpes from './cpes';
 import * as cves from './cves';
 import * as domains from './domains';
@@ -114,6 +115,8 @@ app.use(cookieParser());
 app.get('/', handlerToExpress(healthcheck));
 app.post('/auth/login', handlerToExpress(auth.login));
 app.post('/auth/callback', handlerToExpress(auth.callback));
+app.post('/email-unsubscribe', handlerToExpress(emailUnsubscribe.unsubscribe));
+app.post('/email-resubscribe', handlerToExpress(emailUnsubscribe.resubscribe));
 app.post('/users/register', handlerToExpress(users.register));
 app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 

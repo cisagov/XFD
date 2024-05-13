@@ -5,6 +5,7 @@ export * from './connection';
 export * from './cpe';
 export * from './cve';
 export * from './domain';
+export * from './email-blocklist';
 export * from './organization';
 export * from './organization-tag';
 export * from './question';
