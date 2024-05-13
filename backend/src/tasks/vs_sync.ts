@@ -49,9 +49,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     const endTime = Date.now();
     const durationMs = endTime - startTime;
     const durationSeconds = Math.round(durationMs / 1000);
-    console.log(
-      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
-    );
     requestArray = result.rows;
   } catch (error) {
     console.error(
@@ -229,7 +226,6 @@ export const handler = async (commandOptions: CommandOptions) => {
 
       // Do the same thing to link Sectors and Orgs
       for (const [key, value] of Object.entries(sector_child_dict)) {
-        console.log(`Key: ${key}, Value: ${value}`);
         const sector_promise = await Sector.findOne(key, {
           relations: ['organizations']
         });
@@ -270,9 +266,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     const endTime = Date.now();
     const durationMs = endTime - startTime;
     const durationSeconds = Math.round(durationMs / 1000);
-    console.log(
-      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
-    );
     vulnScansArray = result.rows;
   } catch (error) {
     console.error(
