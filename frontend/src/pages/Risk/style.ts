@@ -12,6 +12,7 @@ export const classesRisk = {
   chartLarge: `${PREFIX}-chartLarge`,
   chartHeader: `${PREFIX}-chartHeader`,
   cardBig: `${PREFIX}-cardBig`,
+  cardMedium: `${PREFIX}-cardMedium`,
   body: `${PREFIX}-body`,
   header: `${PREFIX}-header`,
   footer: `${PREFIX}-footer`,
@@ -80,6 +81,14 @@ export const RiskRoot = styled('div')(({ theme }) => ({
       margin: '10px 0 0 0',
       fontSize: 14
     }
+  },
+  [`& .${classesRisk.cardMedium}`]: {
+    width: '100%',
+    height: '550px',
+    '& h3': {
+      textAlign: 'center'
+    },
+    overflow: 'hidden'
   },
   [`& .${classesRisk.cardBig}`]: {
     width: '100%',
