@@ -2,9 +2,7 @@ import { createConnection, Connection } from 'typeorm';
 import {
   // Models for the Crossfeed database
   ApiKey,
-  SavedSearch,
   Notification,
-  OrganizationTag,
   Assessment,
   Category,
   Cpe,
