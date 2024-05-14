@@ -524,7 +524,7 @@ export const handler = async (commandOptions: CommandOptions) => {
           updatedTimestamp: ticket.last_change,
           locationLongitude: ticket.loc[1],
           locationLatitude: ticket.loc[0],
-          foundInLatestHostScan: null,
+          foundInLatestHostScan: ticket.open,
           organization: { id: org_id_dict[ticket.owner] },
           vulnPort: ticket.port,
           portProtocol: ticket.protocol,
