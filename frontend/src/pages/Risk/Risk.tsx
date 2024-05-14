@@ -1,12 +1,11 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
-import VulnerabilityCard from './VulnerabilityCard';
-import TopVulnerablePorts from './TopVulnerablePorts';
-import TopVulnerableDomains from './TopVulnerableDomains';
-import VulnerabilityPieChart from './VulnerabilityPieChart';
+import { offsets, severities } from './utils';
 import * as RiskStyles from './style';
-// import { delay, getSeverityColor, offsets, severities } from './utils';
-import { getSeverityColor, offsets, severities } from './utils';
+import TopVulnerablePorts from './TopVulnerablePorts';
+import VSCommonServices from './VSCommonServices';
+import VulnerabilityCard from './VulnerabilityCard';
+import VulnerabilityFindings from './VulnerabilityFindings';
 import { useAuthContext } from 'context';
 import { Paper } from '@mui/material';
 import { geoCentroid } from 'd3-geo';
@@ -20,9 +19,6 @@ import {
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
-// import { jsPDF } from 'jspdf';
-// import html2canvas from 'html2canvas';
-// import { Button as USWDSButton } from '@trussworks/react-uswds';
 
 export interface Point {
   id: string;
@@ -276,53 +272,38 @@ const Risk: React.FC = (props) => {
         {stats && (
           <div className={content}>
             <div className={panel}>
+              <VulnerabilityFindings
+                title={'High Level Findings'}
+                data={latestVulnsGroupedArr}
+                showLatest={true}
+                showCommon={false}
+              ></VulnerabilityFindings>
+              {stats.domains.services.length > 0 && (
+                <VSCommonServices
+                  title={'Most Common Services'}
+                  data={stats.domains.services}
+                  type={'services'}
+                />
+              )}
+            </div>
+            <div className={panel}>
               <VulnerabilityCard
                 title={'Latest Vulnerabilities'}
                 data={latestVulnsGroupedArr}
                 showLatest={true}
                 showCommon={false}
               ></VulnerabilityCard>
-              {stats.domains.services.length > 0 && (
-                <VulnerabilityPieChart
-                  title={'Most Common Services'}
-                  data={stats.domains.services}
-                  colors={allColors}
-                  type={'services'}
-                />
-              )}
-              {stats.domains.ports.length > 0 && (
-                <TopVulnerablePorts
-                  data={stats.domains.ports.slice(0, 5).reverse()}
-                />
-              )}
-              {stats.vulnerabilities.severity.length > 0 && (
-                <VulnerabilityPieChart
-                  title={'Severity Levels'}
-                  data={stats.vulnerabilities.severity}
-                  colors={getSeverityColor}
-                  type={'vulns'}
-                />
-              )}
-            </div>
-
-            <div className={panel}>
-              <Paper elevation={0} className={cardRoot}>
-                <div>
-                  {stats.domains.numVulnerabilities.length > 0 && (
-                    <TopVulnerableDomains
-                      data={stats.domains.numVulnerabilities}
-                    />
-                  )}
-                </div>
-              </Paper>
-
               <VulnerabilityCard
                 title={'Most Common Vulnerabilities'}
                 data={stats.vulnerabilities.mostCommonVulnerabilities}
                 showLatest={false}
                 showCommon={true}
               ></VulnerabilityCard>
-
+              {stats.domains.ports.length > 0 && (
+                <TopVulnerablePorts
+                  data={stats.domains.ports.slice(0, 5).reverse()}
+                />
+              )}
               <div id="mapWrapper">
                 {(user?.userType === 'globalView' ||
                   user?.userType === 'globalAdmin') &&
