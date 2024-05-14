@@ -35,9 +35,7 @@ export const RSCDefaultSideNav: React.FC = () => {
             Take Questionnaire Again
           </ListItemButton>
           <Divider component="li" />
-          <ListItemButton style={{ outline: 'none' }} onClick={logout}>
-            Logout
-          </ListItemButton>
+          <ListItemButton onClick={logout}>Logout</ListItemButton>
         </List>
       </Box>
     </Box>

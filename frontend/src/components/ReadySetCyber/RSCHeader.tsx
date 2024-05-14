@@ -53,7 +53,7 @@ export const RSCHeader: React.FC = () => {
               <IconButton
                 onClick={handleNavHome}
                 sx={{ display: { xs: 'none', md: 'flex' }, mr: 1 }}
-                style={{ backgroundColor: 'white', outline: 'none' }}
+                style={{ backgroundColor: 'white' }}
                 disableFocusRipple
               >
                 <img
@@ -83,7 +83,7 @@ export const RSCHeader: React.FC = () => {
                 <IconButton
                   onClick={handleNavHome}
                   sx={{ display: { xs: 'flex', md: 'none' }, mr: 0 }}
-                  style={{ backgroundColor: 'white', outline: 'none' }}
+                  style={{ backgroundColor: 'white' }}
                 >
                   <img
                     src={RSCLogo}
