@@ -18,4 +18,3 @@ resource "aws_cloudwatch_metric_alarm" "api_error_rate" {
     Severity = var.severity_medium
   }
 }
-

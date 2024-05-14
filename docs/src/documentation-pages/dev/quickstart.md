@@ -62,21 +62,14 @@ This quickstart describes the initial setup required to run an instance of Cross
    npm run pesyncdb
    ```
 
-4. Start the RabbitMQ listener. This will listen for any messages sent to the queue and
-   trigger the scanExecution.ts function. This will stay running with this message: "Waiting for messages from ControlQueue..."
+4. Invoke scans by running below. You can edit the backend/src/tools/run-scanExecution.ts to run the desired scan type."
 
    ```bash
    cd backend
-   npm run control-queue
+   npm run scan-exec
    ```
 
-5. Run sendMessage.js to send a sample message to the queue. Feel free to edit this file
-   while testing.
-
-   ```bash
-   cd backend
-   node sendMessage.js
-   ```
+5. Observe logs in docker containers.
 
 ### Running tests
 

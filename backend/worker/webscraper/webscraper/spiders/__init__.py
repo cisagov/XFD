@@ -1,4 +1,5 @@
-# This package will contain the spiders of your Scrapy project
-#
-# Please refer to the documentation for information on how to create and manage
-# your spiders.
+"""
+This package contains the spiders for the webscraper project.
+
+Each spider is a Python class that defines how a certain site or a group of sites will be scraped.
+"""

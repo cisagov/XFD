@@ -1,23 +1,25 @@
 import {
+  BaseEntity,
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  CreateDateColumn,
   Entity,
   Index,
-  Column,
-  UpdateDateColumn,
-  CreateDateColumn,
-  BaseEntity,
   OneToMany,
-  BeforeInsert,
   PrimaryGeneratedColumn,
-  BeforeUpdate
+  UpdateDateColumn
 } from 'typeorm';
-import { Organization, Role } from './';
 import { ApiKey } from './api-key';
+import { Assessment } from './assessment';
+import { Role } from './';
 
 export enum UserType {
-  STANDARD = 'standard',
-  GLOBAL_VIEW = 'globalView',
   GLOBAL_ADMIN = 'globalAdmin',
-  REGIONAL_ADMIN = 'regionalAdmin'
+  GLOBAL_VIEW = 'globalView',
+  REGIONAL_ADMIN = 'regionalAdmin',
+  READY_SET_CYBER = 'readySetCyber',
+  STANDARD = 'standard'
 }
 @Entity()
 export class User extends BaseEntity {
@@ -116,15 +118,6 @@ export class User extends BaseEntity {
   })
   state: string;
 
-  // @Column({
-  //   nullable: true,
-  //   default: 0
-  // })
-  // numberOfOrganizations: number;
-
-  // @Column({
-  //   nullable: true,
-  //   default: []
-  // })
-  // organizationIds: Array<Organization>;
+  @OneToMany(() => Assessment, (assessment) => assessment.user)
+  assessments: Assessment[];
 }

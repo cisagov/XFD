@@ -1,101 +1,108 @@
-import { Handler, SQSRecord } from 'aws-lambda';
+import { Handler } from 'aws-lambda';
 import * as AWS from 'aws-sdk';
 import { integer } from 'aws-sdk/clients/cloudfront';
-import { connect } from 'amqplib';
 
 const ecs = new AWS.ECS();
-const sqs = new AWS.SQS();
-let docker;
+let docker: any;
+const QUEUE_URL = process.env.QUEUE_URL!;
+const SCAN_LIST = ['dnstwist', 'hibp', 'intelx', 'cybersixgill', 'shodan'];
+
 if (process.env.IS_LOCAL) {
-  docker = require('dockerode');
+  const Docker = require('dockerode');
+  docker = new Docker();
 }
 
 const toSnakeCase = (input) => input.replace(/ /g, '-');
 
-async function updateServiceAndQueue(
-  queueUrl: string,
-  serviceName: string,
+async function startDesiredTasks(
+  scanType: string,
   desiredCount: integer,
-  message_body: any, // Add this parameter
-  clusterName: string // Add this parameter
+  shodanApiKeyList: string[] = []
 ) {
-  // Place message in scan specific queue
-  if (process.env.IS_LOCAL) {
-    // If running locally, use RabbitMQ instead of SQS
-    console.log('Publishing to rabbitMQ');
-    await publishToRabbitMQ(queueUrl, message_body);
-    console.log('Done publishing to rabbitMQ');
-  } else {
-    // Place in AWS SQS queue
-    console.log('Publishing to scan specific queue');
-    await placeMessageInQueue(queueUrl, message_body);
-  }
-
-  // Check if Fargate is running desired count and start if not
-  await updateServiceDesiredCount(
-    clusterName,
-    serviceName,
-    desiredCount,
-    queueUrl
-  );
-  console.log('Done');
-}
-
-export async function updateServiceDesiredCount(
-  clusterName: string,
-  serviceName: string,
-  desiredCountNum: integer,
-  queueUrl: string
-) {
+  const queueUrl = QUEUE_URL + `${scanType}-queue`;
   try {
-    if (process.env.IS_LOCAL) {
-      console.log('starting local containers');
-      await startLocalContainers(desiredCountNum, serviceName, queueUrl);
-    } else {
-      const describeServiceParams = {
-        cluster: clusterName,
-        services: [serviceName]
-      };
-      const serviceDescription = await ecs
-        .describeServices(describeServiceParams)
-        .promise();
-      if (
-        serviceDescription &&
-        serviceDescription.services &&
-        serviceDescription.services.length > 0
-      ) {
-        const service = serviceDescription.services[0];
-
-        // Check if the desired task count is less than # provided
-        if (service.desiredCount !== desiredCountNum) {
-          console.log('Setting desired count.');
-          const updateServiceParams = {
-            cluster: clusterName,
-            service: serviceName,
-            desiredCount: desiredCountNum // Set to desired # of Fargate tasks
-          };
-
-          await ecs.updateService(updateServiceParams).promise();
-        } else {
-          console.log('Desired count already set.');
-        }
+    // ECS can only start 10 tasks at a time. Split up into batches
+    let batchSize = 10;
+    if (scanType == 'shodan') {
+      batchSize = 1;
+    }
+    let remainingCount = desiredCount;
+    while (remainingCount > 0) {
+      let shodan_api_key = '';
+      if (shodanApiKeyList.length > 0) {
+        shodan_api_key = shodanApiKeyList[remainingCount - 1];
       }
+      const currentBatchCount = Math.min(remainingCount, batchSize);
+
+      if (process.env.IS_LOCAL) {
+        // If running locally, use RabbitMQ and Docker instead of SQS and ECS
+        console.log('Starting local containers');
+        console.log(queueUrl);
+        await startLocalContainers(
+          currentBatchCount,
+          scanType,
+          queueUrl,
+          shodan_api_key
+        );
+      } else {
+        await ecs
+          .runTask({
+            cluster: process.env.PE_FARGATE_CLUSTER_NAME!,
+            taskDefinition: process.env.PE_FARGATE_TASK_DEFINITION_NAME!,
+            networkConfiguration: {
+              awsvpcConfiguration: {
+                assignPublicIp: 'ENABLED',
+                securityGroups: [process.env.FARGATE_SG_ID!],
+                subnets: [process.env.FARGATE_SUBNET_ID!]
+              }
+            },
+            platformVersion: '1.4.0',
+            launchType: 'FARGATE',
+            count: currentBatchCount,
+            overrides: {
+              containerOverrides: [
+                {
+                  name: 'main',
+                  environment: [
+                    {
+                      name: 'SERVICE_TYPE',
+                      value: scanType
+                    },
+                    {
+                      name: 'SERVICE_QUEUE_URL',
+                      value: queueUrl
+                    },
+                    {
+                      name: 'PE_SHODAN_API_KEYS',
+                      value: shodan_api_key
+                    }
+                  ]
+                }
+              ]
+            }
+          })
+          .promise();
+      }
+      console.log('Tasks started:', currentBatchCount);
+      remainingCount -= currentBatchCount;
     }
   } catch (error) {
-    console.error('Error: ', error);
+    console.error('Error starting tasks:', error);
+    throw error;
   }
 }
 
 async function startLocalContainers(
   count: number,
-  serviceName: string,
-  queueUrl: string
+  scanType: string,
+  queueUrl: string,
+  shodan_api_key: string = ''
 ) {
   // Start 'count' number of local Docker containers
   for (let i = 0; i < count; i++) {
     try {
       const containerName = toSnakeCase(
-        `crossfeed_worker_${serviceName}_${i}_` +
+        `crossfeed_worker_${scanType}_${i}_` +
           Math.floor(Math.random() * 10000000)
       );
       const container = await docker!.createContainer({
@@ -106,7 +113,7 @@ async function startLocalContainers(
           // In order to use the host name "db" to access the database from the
           // crossfeed-worker image, we must launch the Docker container with
           // the Crossfeed backend network.
-          NetworkMode: 'crossfeed_backend',
+          NetworkMode: 'xfd_backend',
           Memory: 4000000000 // Limit memory to 4 GB. We do this locally to better emulate fargate memory conditions. TODO: In the future, we could read the exact memory from SCAN_SCHEMA to better emulate memory requirements for each scan.
         },
         Env: [
@@ -117,6 +124,9 @@ async function startLocalContainers(
           `DB_NAME=${process.env.DB_NAME}`,
           `DB_USERNAME=${process.env.DB_USERNAME}`,
           `DB_PASSWORD=${process.env.DB_PASSWORD}`,
+          `MDL_NAME=${process.env.MDL_NAME}`,
+          `MDL_USERNAME=${process.env.MDL_USERNAME}`,
+          `MDL_PASSWORD=${process.env.MDL_PASSWORD}`,
           `PE_DB_NAME=${process.env.PE_DB_NAME}`,
           `PE_DB_USERNAME=${process.env.PE_DB_USERNAME}`,
           `PE_DB_PASSWORD=${process.env.PE_DB_PASSWORD}`,
@@ -128,7 +138,7 @@ async function startLocalContainers(
           `SIXGILL_CLIENT_ID=${process.env.SIXGILL_CLIENT_ID}`,
           `SIXGILL_CLIENT_SECRET=${process.env.SIXGILL_CLIENT_SECRET}`,
           `INTELX_API_KEY=${process.env.INTELX_API_KEY}`,
-          `PE_SHODAN_API_KEYS=${process.env.PE_SHODAN_API_KEYS}`,
+          `PE_SHODAN_API_KEYS=${shodan_api_key}`,
           `WORKER_SIGNATURE_PUBLIC_KEY=${process.env.WORKER_SIGNATURE_PUBLIC_KEY}`,
           `WORKER_SIGNATURE_PRIVATE_KEY=${process.env.WORKER_SIGNATURE_PRIVATE_KEY}`,
           `ELASTICSEARCH_ENDPOINT=${process.env.ELASTICSEARCH_ENDPOINT}`,
@@ -138,97 +148,70 @@ async function startLocalContainers(
           `LG_API_KEY=${process.env.LG_API_KEY}`,
           `LG_WORKSPACE_NAME=${process.env.LG_WORKSPACE_NAME}`,
           `SERVICE_QUEUE_URL=${queueUrl}`,
-          `SERVICE_TYPE=${serviceName}`
+          `SERVICE_TYPE=${scanType}`
         ]
       } as any);
       await container.start();
-      console.log(`done starting container ${i}`);
+      console.log(`Done starting container ${i}`);
     } catch (e) {
       console.error(e);
     }
   }
 }
 
-// Place message in AWS SQS Queue
-async function placeMessageInQueue(queueUrl: string, message: any) {
-  const sendMessageParams = {
-    QueueUrl: queueUrl,
-    MessageBody: JSON.stringify(message)
-  };
-
-  await sqs.sendMessage(sendMessageParams).promise();
-}
-
-// Function to connect to RabbitMQ and publish a message
-async function publishToRabbitMQ(queue: string, message: any) {
-  const connection = await connect('amqp://rabbitmq');
-  const channel = await connection.createChannel();
-
-  await channel.assertQueue(queue, { durable: true });
-  await channel.sendToQueue(queue, Buffer.from(JSON.stringify(message)));
-
-  await channel.close();
-  await connection.close();
-}
-
 export const handler: Handler = async (event) => {
+  let desiredCount: integer;
+  let scanType: string;
+
+  // Check if desired count was passed
+  if (event.desiredCount) {
+    desiredCount = event.desiredCount;
+  } else {
+    console.log('Desired count not found. Setting to 1.');
+    desiredCount = 1;
+  }
+
+  // Check if scan type was passed
+  if (event.scanType) {
+    scanType = event.scanType;
+  } else {
+    console.error('scanType must be provided.');
+    return 'Failed no scanType';
+  }
+
   try {
-    let desiredCount;
-    const clusterName = process.env.PE_CLUSTER_NAME!;
+    // If scanType is shodan, check if API keys were passed and split up
+    if (scanType === 'shodan') {
+      let shodanApiKeyList: string[];
+      if (event.apiKeyList) {
+        shodanApiKeyList = event.apiKeyList
+          .split(',')
+          .map((value) => value.trim());
+      } else {
+        console.error(
+          'apiKeyList must be provided for shodan and be a comma-separated string'
+        );
+        return 'Failed no apiKeyList';
+      }
+      // Check if there are enough keys for the desired number of tasks
+      if (shodanApiKeyList.length >= desiredCount) {
+        console.log(
+          'The number of API keys is greater than or equal to desiredCount.'
+        );
+      } else {
+        console.error(
+          'The number of API keys is less than desired Fargate tasks.'
+        );
+        return 'Failed no apiKeyList';
+      }
+      await startDesiredTasks(scanType, desiredCount, shodanApiKeyList);
 
-    // Get the Control SQS record and message body
-    const sqsRecord: SQSRecord = event.Records[0];
-    const message_body = JSON.parse(sqsRecord.body);
-    console.log(message_body);
-
-    if (message_body.scriptType === 'shodan') {
-      desiredCount = 5;
-      await updateServiceAndQueue(
-        process.env.SHODAN_QUEUE_URL!,
-        process.env.SHODAN_SERVICE_NAME!,
-        desiredCount,
-        message_body,
-        clusterName
-      );
-    } else if (message_body.scriptType === 'dnstwist') {
-      desiredCount = 30;
-      await updateServiceAndQueue(
-        process.env.DNSTWIST_QUEUE_URL!,
-        process.env.DNSTWIST_SERVICE_NAME!,
-        desiredCount,
-        message_body,
-        clusterName
-      );
-    } else if (message_body.scriptType === 'hibp') {
-      desiredCount = 20;
-      await updateServiceAndQueue(
-        process.env.HIBP_QUEUE_URL!,
-        process.env.HIBP_SERVICE_NAME!,
-        desiredCount,
-        message_body,
-        clusterName
-      );
-    } else if (message_body.scriptType === 'intelx') {
-      desiredCount = 10;
-      await updateServiceAndQueue(
-        process.env.INTELX_QUEUE_URL!,
-        process.env.INTELX_SERVICE_NAME!,
-        desiredCount,
-        message_body,
-        clusterName
-      );
-    } else if (message_body.scriptType === 'cybersixgill') {
-      desiredCount = 10;
-      await updateServiceAndQueue(
-        process.env.CYBERSIXGILL_QUEUE_URL!,
-        process.env.CYBERSIXGILL_SERVICE_NAME!,
-        desiredCount,
-        message_body,
-        clusterName
-      );
+      // Run the rest of the scans normally
+    } else if (SCAN_LIST.includes(scanType)) {
+      await startDesiredTasks(scanType, desiredCount);
     } else {
       console.log(
-        'Shodan, DNSTwist, HIBP, and Cybersixgill are the only script types available right now.'
+        'Shodan, DNSTwist, HIBP, IntelX, and Cybersixgill are the only script types available right now. Must be all lowercase.'
       );
     }
   } catch (error) {
