@@ -6,7 +6,6 @@ import {
   DialogTitle,
   Grid
 } from '@mui/material';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 
 type DialogComponentProps = {
   isOpen: boolean;
@@ -20,6 +19,7 @@ type DialogComponentProps = {
 const InfoDialog: React.FC<DialogComponentProps> = ({
   isOpen,
   handleClick,
+  icon,
   title,
   content,
   screenWidth = 'sm'
@@ -29,7 +29,7 @@ const InfoDialog: React.FC<DialogComponentProps> = ({
       <Grid sx={{ textAlign: 'center' }}>
         <DialogTitle sx={{ fontSize: 20 }}>
           <Grid item sx={{ mt: 2 }}>
-            <CheckCircleOutlineIcon color="success" sx={{ fontSize: '80px' }} />
+            {icon}
           </Grid>
           <Grid item>{title}</Grid>
         </DialogTitle>
