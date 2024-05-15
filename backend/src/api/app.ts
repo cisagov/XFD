@@ -15,6 +15,7 @@ import * as scans from './scans';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
+import * as tickets from './mini_data_lake/tickets';
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
@@ -459,7 +460,7 @@ authenticatedRoute.get('/assessments', handlerToExpress(assessments.list));
 authenticatedRoute.get('/assessments/:id', handlerToExpress(assessments.get));
 
 //************* */
-//  V2 Routes   //
+//  V2 Routes     //
 //************* */
 
 // Users
@@ -474,6 +475,15 @@ authenticatedRoute.put(
 authenticatedRoute.get(
   '/v2/organizations',
   handlerToExpress(organizations.getAllV2)
+);
+
+//*********************** */
+//  Mini Data Lake Routes   //
+//*********************** */
+
+authenticatedRoute.get(
+  '/mdl/countVulnerabilities/:organizationId',
+  handlerToExpress(tickets.countVulnerabilities)
 );
 
 app.use(authenticatedRoute);
