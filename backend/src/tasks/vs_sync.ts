@@ -5,15 +5,21 @@ import {
   Location,
   Sector,
   VulnScan,
+  Host,
   Ip,
-  DL_Cve
+  DL_Cve,
+  Ticket,
+  TicketEvent
 } from '../models';
 const { Client } = require('pg');
 import { CommandOptions } from './ecs-client';
 import saveVulnScan from './helpers/saveVulnScan';
 import saveOrganizationToMdl from './helpers/saveOrganizationToMdl';
+import saveHost from './helpers/saveHost';
 import saveIpToMdl from './helpers/saveIpToMdl';
 import saveCveToMdl from './helpers/saveCveToMdl';
+import saveTicket from './helpers/saveTicket';
+import saveTicketEvent from './helpers/saveTicketEvent';
 import { plainToClass } from 'class-transformer';
 
 /** Removes a value for a given key from the dictionary and then returns it. */
@@ -86,7 +92,6 @@ export const handler = async (commandOptions: CommandOptions) => {
 
         // Sectors don't have types can use the type property to determine if its a sector
         if (!request.agency.hasOwnProperty('type')) {
-          console.log('In sector section');
           // Do Sector Category and Tag logic here
           // If the sector is in the non_sector_list skip it, it doesn't link to any orgs just other sectors
           if (non_sector_list.includes(request._id)) {
@@ -135,7 +140,6 @@ export const handler = async (commandOptions: CommandOptions) => {
           Array.isArray(request.children) &&
           request.children.length > 0
         ) {
-          console.log('in parentChild link section');
           parent_child_dict[request._id] = request.children;
         }
         // Loop through the networks and create network objects
@@ -229,7 +233,6 @@ export const handler = async (commandOptions: CommandOptions) => {
 
       // Do the same thing to link Sectors and Orgs
       for (const [key, value] of Object.entries(sector_child_dict)) {
-        console.log(`Key: ${key}, Value: ${value}`);
         const sector_promise = await Sector.findOne(key, {
           relations: ['organizations']
         });
@@ -256,7 +259,7 @@ export const handler = async (commandOptions: CommandOptions) => {
       }
     }
   } catch (error) {
-    console.error('Error reading requests file:', error);
+    console.error('Error reading requests:', error);
     throw error;
   }
 
@@ -276,7 +279,7 @@ export const handler = async (commandOptions: CommandOptions) => {
     vulnScansArray = result.rows;
   } catch (error) {
     console.error(
-      'Error connecting to redshift and getting requests data:',
+      'Error connecting to redshift and getting vuln_scan data:',
       error
     );
     return error;
@@ -380,6 +383,187 @@ export const handler = async (commandOptions: CommandOptions) => {
     }
   } catch (error) {
     console.error('Error parsing data', error);
+    throw error;
+  }
+  let hostsArray;
+  try {
+    const startTime = Date.now();
+    const query =
+      'SELECT * FROM vmtableau.hosts WHERE last_change >= DATE_SUB(NOW(), INTERVAL 2 DAY);';
+    const result = await client.query(query);
+    const endTime = Date.now();
+    const durationMs = endTime - startTime;
+    const durationSeconds = Math.round(durationMs / 1000);
+    console.log(
+      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
+    );
+    hostsArray = result.rows;
+  } catch (error) {
+    console.error(
+      'Error connecting to redshift and getting hosts data:',
+      error
+    );
+    return error;
+  }
+
+  try {
+    if (hostsArray && Array.isArray(hostsArray)) {
+      const host_list: Host[] = [];
+      for (const host of hostsArray) {
+        host.latest_scan = JSON.parse(host.latest_scan);
+        host.loc = JSON.parse(host.loc);
+        host.state = JSON.parse(host.state);
+        let ip_id: string | null = null;
+        if (!(host.owner in org_id_dict)) {
+          console.log(
+            `${host.owner} is not a recognized organizations, skipping host.`
+          );
+          continue;
+        }
+        if (host.ip != null) {
+          ip_id = await saveIpToMdl(
+            plainToClass(Ip, {
+              ip: host.ip,
+              organization: { id: org_id_dict[host.owner] }
+            })
+          );
+        }
+        const hostObj: Host = plainToClass(Host, {
+          id: host._id,
+          ipString: host.ip,
+          ip: ip_id == null ? null : { id: ip_id },
+          updatedTimestamp: host.last_change,
+          latestNetscan1Timestamp: host.latest_scan.NETSCAN1,
+          latestNetscan2Timestamp: host.latest_scan.NETSCAN2,
+          latestVulnscanTimestamp: host.latest_scan.VULNSCAN,
+          latestPortscanTimestamp: host.latest_scan.PORTSCAN,
+          latestScanCompletionTimestamp: host.latest_scan.DONE,
+          locationLongitude: host.loc[1],
+          locationLatitude: host.loc[0],
+          priority: host.priority,
+          nextScanTimestamp: host.next_scan,
+          rand: host.r,
+          currStage: host.stage,
+          hostLive: host.state.up,
+          hostLiveReason: host.state.reason,
+          status: host.status,
+          organization: { id: org_id_dict[host.owner] }
+        });
+
+        await saveHost(hostObj);
+      }
+    }
+  } catch (error) {
+    console.error('Error saving hosts:', error);
+    throw error;
+  }
+
+  let ticketsArray;
+  try {
+    const startTime = Date.now();
+    const query =
+      'SELECT * FROM vmtableau.tickets WHERE last_change >= DATE_SUB(NOW(), INTERVAL 2 DAY);';
+    const result = await client.query(query);
+    const endTime = Date.now();
+    const durationMs = endTime - startTime;
+    const durationSeconds = Math.round(durationMs / 1000);
+    console.log(
+      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
+    );
+    ticketsArray = result.rows;
+  } catch (error) {
+    console.error(
+      'Error connecting to redshift and getting tickets data:',
+      error
+    );
+    return error;
+  }
+
+  try {
+    if (ticketsArray && Array.isArray(ticketsArray)) {
+      const ticket_list: Ticket[] = [];
+      for (const ticket of ticketsArray) {
+        ticket.details = JSON.parse(ticket.details);
+        ticket.events = JSON.parse(ticket.events);
+        ticket.loc = JSON.parse(ticket.loc);
+
+        let ip_id: string | null = null;
+        if (ticket.ip != null) {
+          ip_id = await saveIpToMdl(
+            plainToClass(Ip, {
+              ip: ticket.ip,
+              organization: { id: org_id_dict[ticket.owner] }
+            })
+          );
+        }
+
+        let cve_id: string | null = null;
+        if (ticket.details.cve != null) {
+          cve_id = await saveCveToMdl(
+            plainToClass(DL_Cve, {
+              name: ticket.details.cve
+            })
+          );
+        }
+
+        const ticketObj: Ticket = plainToClass(Ticket, {
+          id: ticket._id.replace("ObjectId('", '').replace("')", ''),
+          cveString: ticket.details.cve,
+          cve: cve_id == null ? null : { id: cve_id },
+          cvss_base_score: ticket.details.cvss_base_score,
+          cvss_version: null,
+          // TODO Link Kev once they are added
+          kev: null,
+          vulnName: ticket.details.name,
+          cvssScoreSource: ticket.details.score_source,
+          cvssSeverity: ticket.details.severity,
+          vprScore: null,
+          falsePositive: ticket.false_positive,
+          ipString: ticket.ip,
+          ip: ip_id == null ? null : { id: ip_id },
+          updatedTimestamp: ticket.last_change,
+          locationLongitude: ticket.loc[1],
+          locationLatitude: ticket.loc[0],
+          foundInLatestHostScan: ticket.open,
+          organization: { id: org_id_dict[ticket.owner] },
+          vulnPort: ticket.port,
+          portProtocol: ticket.protocol,
+          snapshotsBool:
+            ticket.snapshots == null || ticket.snapshots.length > 0
+              ? false
+              : true,
+          vulnSource: ticket.source,
+          vulnSourceId: ticket.source_id,
+          closedTimestamp: ticket.time_closed,
+          openedTimestamp: ticket.time_opened
+
+          // TODO link snapshots, once added
+          // snapshots: Snapshot[];
+        });
+
+        const ticket_id = await saveTicket(ticketObj);
+        for (const event of ticket.events ?? []) {
+          try {
+            await saveTicketEvent(
+              plainToClass(TicketEvent, {
+                reference: event.reference,
+                vulnScan: { id: event.reference },
+                action: event.action,
+                reason: event.reason,
+                eventTimestamp: event.time,
+                delta: event.delta,
+                ticket: { id: ticket_id }
+              })
+            );
+          } catch (error) {
+            console.error('Invalid Event Could not save:', error.message);
+            continue;
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error saving tickets:', error);
     throw error;
   }
 };
