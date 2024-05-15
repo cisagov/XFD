@@ -11,7 +11,7 @@ export default async (
   cidrs: Cidr[],
   location: Location | null
 ): Promise<string> => {
-  console.log('Starting to save Org to datalake');
+  console.log(`Saving org ${organization.acronym} to datalake`);
   await connectToDatalake();
 
   const cidr_entities: Cidr[] = [];

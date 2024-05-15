@@ -53,6 +53,59 @@ let connection: Connection | null = null;
 
 let dl_connection: Connection | null = null;
 
+let dl2_connection: Connection | null = null;
+
+const connectDl2 = async (logging?: boolean) => {
+  const dl2_connection = createConnection({
+    type: 'postgres',
+    host: process.env.DB_HOST,
+    port: parseInt(process.env.DB_PORT ?? ''),
+    username: process.env.MDL_USERNAME,
+    password: process.env.MDL_PASSWORD,
+    database: process.env.MDL_NAME,
+    entities: [
+      CertScan,
+      Cidr,
+      Contact,
+      DL_Cpe,
+      DL_Cve,
+      DL_Domain,
+      HostScan,
+      Host,
+      Ip,
+      Kev,
+      Location,
+      DL_Organization,
+      PortScan,
+      PrecertScan,
+      Report,
+      Sector,
+      Snapshot,
+      SslyzeScan,
+      Tag,
+      Tally,
+      TicketEvent,
+      Ticket,
+      TrustymailScan,
+      VulnScan
+    ],
+    synchronize: false,
+    name: 'default2',
+    dropSchema: false,
+    logging: logging ?? false,
+    cache: true
+  });
+  return dl2_connection;
+};
+
+export const connectToDatalake2 = async (logging?: boolean) => {
+  if (!dl2_connection?.isConnected) {
+    console.log('Connected to datalake');
+    dl2_connection = await connectDl2(logging);
+  }
+  return dl2_connection;
+};
+
 const connectDl = async (logging?: boolean) => {
   // process.env.DB_HOST = 'db';
   // process.env.MDL_USERNAME = 'mdl';
@@ -108,8 +161,6 @@ export const connectToDatalake = async (logging?: boolean) => {
   if (!dl_connection?.isConnected) {
     console.log('Connected to datalake');
     dl_connection = await connectDl(logging);
-  } else {
-    console.log("didn't connect");
   }
   return dl_connection;
 };
