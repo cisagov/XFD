@@ -6,10 +6,12 @@ import {
 } from 'aws-lambda';
 import { ValidationOptions, validateOrReject } from 'class-validator';
 import { ClassType } from 'class-transformer/ClassTransformer';
+import { LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import { plainToClass } from 'class-transformer';
 import S3Client from '../tasks/s3-client';
 import { SES } from 'aws-sdk';
 import * as nodemailer from 'nodemailer';
+import { Notification, User, connectToDatabase } from '../models';
 import * as handlebars from 'handlebars';
 
 export const REGION_STATE_MAP = {
@@ -303,3 +305,63 @@ export const sendRegistrationApprovedEmail = async (
     console.log('Email error: ', errorMessage);
   }
 };
+
+/**
+ * Function to find notifications that are currently active based on the current datetime.
+ * @returns A promise containing an array of active `Notification` entities.
+ */
+async function isMajorActiveMaintenance(): Promise<boolean> {
+  const now = new Date();
+  console.log(now);
+  try {
+    // DB connection
+    await connectToDatabase();
+
+    // Query major/active notifications with startDatetime <= now and endDatetime >= now
+    const notifications = await Notification.find({
+      where: [
+        {
+          startDatetime: LessThanOrEqual(now),
+          endDatetime: MoreThanOrEqual(now),
+          status: 'active',
+          maintenanceType: 'major'
+        }
+      ],
+      order: {
+        startDatetime: 'DESC',
+        id: 'DESC'
+      }
+    });
+
+    // Log notifications
+    console.log('Current notifications check Result: ', notifications);
+
+    // Return True if Notifcations exist
+    // if (notifications.length > 0) {
+    if (notifications) {
+      console.log('isMajorActiveMaintenance is returning True.');
+      return true;
+    } else {
+      console.log('isMajorActiveMaintenance is returning False.');
+      return false;
+    }
+  } catch (err) {
+    console.error('Error:', err);
+    // Catch-All return false on error
+    return false;
+  }
+}
+
+export async function shouldBlockLogin(user: User): Promise<boolean> {
+  // Check if there's active maintenance
+  const activeMaintenance = await isMajorActiveMaintenance();
+
+  // Block login for non-globalAdmin users during active maintenance
+  if (activeMaintenance && user.userType !== 'globalAdmin') {
+    console.log('Login should be blocked.');
+    return true; // Return true to indicate that login should be blocked
+  } else {
+    console.log('Login should not be blocked.');
+    return false; // Return false to indicate that login should not be blocked
+  }
+}

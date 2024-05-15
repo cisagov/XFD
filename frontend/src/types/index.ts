@@ -10,6 +10,7 @@ export * from './role';
 export * from './scan-task';
 export * from './saved-search';
 export * from './report';
+export * from './notification';
 
 export interface Query<T extends object> {
   sort: SortingRule<T>[];

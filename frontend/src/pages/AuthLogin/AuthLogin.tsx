@@ -3,6 +3,8 @@ import { AuthForm } from 'components';
 import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
 import {
+  Alert,
+  AlertTitle,
   Box,
   Dialog,
   DialogContent,
@@ -15,6 +17,7 @@ import { RegisterForm } from 'components/Register/RegisterForm';
 import { CrossfeedWarning } from 'components/WarningBanner';
 import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
 import { I18n } from 'aws-amplify';
+import { initialNotificationValues, MaintenanceNotification } from 'types';
 
 const TOTP_ISSUER = process.env.REACT_APP_TOTP_ISSUER;
 I18n.putVocabulariesForLanguage('en-US', {
@@ -28,10 +31,32 @@ interface Errors extends Partial<FormData> {
 export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
   showSignUp = false
 }) => {
-  const { apiPost, refreshUser } = useAuthContext();
+  const { apiGet, apiPost, refreshUser } = useAuthContext();
   const [errors, setErrors] = useState<Errors>({});
   const [open, setOpen] = useState<boolean>(false);
   const [registerSuccess, setRegisterSuccess] = useState<boolean>(false);
+  const [notification, setNotification] =
+    React.useState<MaintenanceNotification>(initialNotificationValues);
+  const fetchNotifications = React.useCallback(async () => {
+    try {
+      const rows = await apiGet('/notifications');
+      const activeRow = rows.find((row: MaintenanceNotification) => {
+        if (row.status === 'active') {
+          return true;
+        }
+        return false;
+      });
+      setNotification(activeRow);
+    } catch (e: any) {
+      console.log(e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiGet]);
+  useEffect(() => {
+    fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Once a user signs in, call refreshUser() so that the callback is called and the user gets signed in.
   const { authStatus } = useAuthenticator((context) => [context.isPending]);
   useEffect(() => {
@@ -114,25 +139,27 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
   const onClose = () => {
     setOpen(false);
   };
-  // const platformNotification = (
-  //   <Grid item xs={12}>
-  //     <Alert severity="warning">
-  //       <AlertTitle>
-  //         {' '}
-  //         PLATFORM NOTIFICATION: Temporary Downtime During Crossfeed Migration
-  //       </AlertTitle>
-  //       <Typography variant="caption"></Typography>
-  //       The Crossfeed environment is moving. The migration will require a a
-  //       temporary downtime of approximately one week. The downtime will begin on
-  //       Wednesday, October 25, through the day Wednesday, November 01. For
-  //       additional information, please click{' '}
-  //       <a href="https://s3.amazonaws.com/crossfeed.cyber.dhs.gov/Notice.pdf">
-  //         here
-  //       </a>
-  //       .
-  //     </Alert>
-  //   </Grid>
-  // );
+
+  const MaintenanceAlert: React.FC<any> = ({ notification }) => {
+    // Determine the conditional title
+    const isLoginUnavailable =
+      notification?.maintenanceType === 'major' &&
+      notification?.status === 'active';
+    const titleText = isLoginUnavailable
+      ? 'Crossfeed Major Maintenance: Login Not Available'
+      : 'Crossfeed Maintenance Notification';
+
+    return <AlertTitle>{titleText}</AlertTitle>;
+  };
+
+  const platformNotification = (
+    <Grid item xs={12}>
+      <Alert severity="warning">
+        <MaintenanceAlert notification={notification} />
+        {notification?.message}
+      </Alert>
+    </Grid>
+  );
   const RegistrationSuccessDialog = (
     <Dialog
       open={registerSuccess}
@@ -149,7 +176,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
   if (process.env.REACT_APP_USE_COGNITO) {
     return (
       <Grid container>
-        {/* platformNotification should go here */}
+        {notification?.status === 'active' && platformNotification}
         <Grid item xs={12} py={5}>
           <Typography variant="h3" textAlign="center">
             Welcome to Crossfeed
