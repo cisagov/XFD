@@ -58,6 +58,7 @@
     "react-table": "^7.8.0",
     "react-to-print": "^2.15.1",
     "resolve-url-loader": "^5.0.0",
+    "serverless-better-credentials": "^2.0.0",
     "universal-cookie": "^4.0.4",
     "uswds": "^2.13.3",
     "web-vitals": "^2.1.4",

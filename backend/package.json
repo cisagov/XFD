@@ -39,6 +39,7 @@
     "pg": "^8.11",
     "portscanner": "^2.2.0",
     "reflect-metadata": "^0.1.13",
+    "serverless-better-credentials": "^2.0.0",
     "serverless-http": "^3.2.0",
     "ssl-checker": "^2.0.7",
     "tar": "^7.0.0",
