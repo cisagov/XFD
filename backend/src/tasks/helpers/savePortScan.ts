@@ -2,7 +2,9 @@ import { plainToClass } from 'class-transformer';
 import { PortScan, connectToDatalake } from '../../models';
 
 export default async (port_scan: PortScan): Promise<string> => {
-  console.log(`Starting to save port scan ${port_scan.ipString} ${port_scan.port} to datalake`);
+  console.log(
+    `Starting to save port scan ${port_scan.ipString} ${port_scan.port} to datalake`
+  );
   await connectToDatalake();
   const portScanUpdatedValues = Object.keys(port_scan)
     .map((key) => {
