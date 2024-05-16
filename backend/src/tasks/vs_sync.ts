@@ -593,7 +593,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   try {
     if (portScanArray && Array.isArray(portScanArray)) {
       const port_scan_list: PortScan[] = [];
-      console.log('Starting to save Port Scans')
+      console.log('Starting to save Port Scans');
       for (const port_scan of portScanArray) {
         let ip_id: string | null = null;
         if (!(port_scan.owner in org_id_dict)) {
@@ -610,7 +610,7 @@ export const handler = async (commandOptions: CommandOptions) => {
             })
           );
         }
-        port_scan.service = JSON.parse(port_scan.service)
+        port_scan.service = JSON.parse(port_scan.service);
         const portScanObj: PortScan = plainToClass(PortScan, {
           id: port_scan._id.replace("ObjectId('", '').replace("')", ''),
           ipString: port_scan.ip,
@@ -623,7 +623,7 @@ export const handler = async (commandOptions: CommandOptions) => {
           service: port_scan.service,
           source: port_scan.source,
           state: port_scan.state,
-          timeScanned: port_scan.time,
+          timeScanned: port_scan.time
           // @ManyToMany((type) => Snapshot, (snapshot) => snapshot.portScans, {
           //   onDelete: 'CASCADE',
           //   onUpdate: 'CASCADE'
@@ -633,9 +633,8 @@ export const handler = async (commandOptions: CommandOptions) => {
 
         await savePortScan(portScanObj);
       }
-
     }
-  }catch (error) {
+  } catch (error) {
     console.error('Error saving port_scan data:', error);
     throw error;
   }
