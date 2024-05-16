@@ -61,6 +61,24 @@ export class PortScan extends BaseEntity {
     nullable: true,
     type: 'varchar'
   })
+  serviceName: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'integer'
+  })
+  serviceConfidence: number | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  serviceMethod: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
   source: string | null;
 
   @Column({

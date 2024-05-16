@@ -621,6 +621,9 @@ export const handler = async (commandOptions: CommandOptions) => {
           protocol: port_scan.protocol,
           reason: port_scan.reason,
           service: port_scan.service,
+          serviceName: port_scan.service?.name ?? null,
+          serviceConfidence: port_scan.service?.conf ?? null,
+          serviceMethod: port_scan.service?.method ?? null,
           source: port_scan.source,
           state: port_scan.state,
           timeScanned: port_scan.time
