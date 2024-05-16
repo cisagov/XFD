@@ -624,11 +624,6 @@ export const handler = async (commandOptions: CommandOptions) => {
           source: port_scan.source,
           state: port_scan.state,
           timeScanned: port_scan.time
-          // @ManyToMany((type) => Snapshot, (snapshot) => snapshot.portScans, {
-          //   onDelete: 'CASCADE',
-          //   onUpdate: 'CASCADE'
-          // })
-          // snapshots: null
         });
 
         await savePortScan(portScanObj);
