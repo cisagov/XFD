@@ -19,6 +19,7 @@ import * as tickets from './mini_data_lake/tickets';
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
+import * as vs_summary from './mini_data_lake/vs_summary';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
@@ -486,6 +487,15 @@ authenticatedRoute.get(
   handlerToExpress(tickets.countVulnerabilities)
 );
 
-app.use(authenticatedRoute);
+authenticatedRoute.get(
+  '/mdl/vsAssetCount',
+  handlerToExpress(vs_summary.assetCount)
+);
 
+authenticatedRoute.get(
+  '/mdl/vsHighLevelFindings/:acronym',
+  handlerToExpress(vs_summary.findings)
+);
+
+app.use(authenticatedRoute);
 export default app;
