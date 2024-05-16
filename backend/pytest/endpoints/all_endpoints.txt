@@ -1,0 +1,620 @@
+List of subdomains to run through PSHTT
+POST/apiv1/pshtt_unscanned_domains
+    Part of test_pshtt
+
+Check task status for endpoint.
+GET/apiv1/pshtt_unscanned_domains/task/{task_id}
+    Part of test_pshtt -> NEED TO HAVE ENDPOINT FIXED BEFORE CON
+
+Update or insert PSHTT data
+PUT/apiv1/pshtt_result_update_or_insert
+    ONCE ON POST -> Part of test_pshtt
+
+List of all Organizations
+POST/apiv1/orgs
+       Part of test_orgs
+
+List of all Weekly Statuses
+POST/apiv1/fetch_weekly_statuses
+    Part of test_weeklystatus -> NOT WORRY ABOUT
+
+List of user Weekly Status
+POST/apiv1/fetch_user_weekly_statuses/
+    Part of test_weeklystatus -> NOT WORRY ABOUT
+
+List of all Subdomains
+POST/apiv1/subdomains/{root_domain_uid}
+    Part of -> test_ListSubdomains
+
+List all breaches
+POST/apiv1/breachcomp
+    Part of post/test_breach
+
+Get the entire vw_breachcomp_credsbydate view.
+POST/apiv1/breachcomp_credsbydate
+        Part of post/test_breach
+
+Check task status for vw_breachcomp_credsbydate view query.
+GET/apiv1/breachcomp_credsbydate/task/{task_id}
+    Part of post/test_breach
+
+Get asset counts for an organization
+POST/apiv1/orgs_attacksurface
+    part of post/test_orgAttackSurrface
+
+Get cyhy assets
+POST/apiv1/cyhy_db_asset
+    post/test_cyhyDbAsset
+    DONE AND TESTED
+
+List of all CIDRS
+POST/apiv1/cidrs
+    post/test_ciders
+    DONE AND TESTED
+
+Get the entire vw_breachcomp_breachdetails view.
+POST/apiv1/breachdetails
+    post/test_breachdetails
+    IT IS Massive and I need to figure out how to run it without killing everything
+
+Check task status for vw_breachcomp_breachdetails view query.
+GET/apiv1/breachdetails/task/{task_id}
+    post/test_breachdetails
+    IT IS Massive and I need to figure out how to run it without killing everything
+
+Get user api keys
+POST/apiv1/get_key
+    post/test_getKey
+
+Sign-up to add api_key and access token to user
+POST/apiv1/signup
+    post/test_signup
+
+Upload WAS csv file
+POST/apiv1/was_upload
+    post/test_wasUpload
+
+List of all VE data
+POST/apiv1/ve_info
+    post/test_veInfo
+
+Check task VE status
+GET/apiv1/ve_info/task/{task_id}
+    post/test_veInfo
+
+List of all VS data
+POST/apiv1/vs_info
+    post/test_vsInfo
+
+Check task status
+GET/apiv1/vs_info/task/{task_id}
+    post/test_vsInfo
+
+List of all WAS data
+POST/apiv1/was_info
+    post/test_wasInfo
+
+Delete WAS data
+DELETE/apiv1/was_info_delete/{tag}
+    ->Skip for Now
+
+Create new WAS data
+POST/apiv1/was_info_create
+    post/test_wasInfoUpdate
+    ->Skip for Now
+
+Update WAS data
+PUT/apiv1/was_info_update/{tag}
+    post/test_wasInfoUpdate
+    ->Skip for Now
+
+Create new cyhy port scan data
+POST/apiv1/cyhy_port_scan
+    post/test_cyhyPortScan
+
+Update cyhy_port_scan data
+PUT/apiv1/was_info_update/{cyhy_id}
+    ->Skip for Now
+
+Get all VS cert data needed for D-Score
+POST/apiv1/dscore_vs_cert
+    post/test_dscoreVsCert
+
+Xpanse Vulns
+POST/apiv1/xpanse_vulns
+    post/test_xpanseVulns
+
+Check task status for D-Score VS cert view.
+GET/apiv1/dscore_vs_cert/task/{task_id}
+    post/test_dscoreVsCert
+
+Get all VS mail data needed for D-Score
+POST/apiv1/dscore_vs_mail
+    post/test_dscoreVsMail
+
+Check task status for D-Score VS mail view.
+GET/apiv1/dscore_vs_mail/task/{task_id}
+    post/test_dscoreVsMail
+
+Get all PE IP data needed for D-Score
+POST/apiv1/dscore_pe_ip
+    post/test_dscorePeIP
+
+Check task status for D-Score PE IP view.
+GET/apiv1/dscore_pe_ip/task/{task_id}
+    post/test_dscorePeIP
+
+Get all PE domain data needed for D-Score
+POST/apiv1/dscore_pe_domain
+    post/test_dscorePeDomain
+
+Check task status for D-Score PE domain view.
+GET/apiv1/dscore_pe_domain/task/{task_id}
+    post/test_dscorePeDomain
+
+Get all WAS webapp data needed for D-Score
+POST/apiv1/dscore_was_webapp
+    post/test_dscoreWasWebapp
+
+Check task status for D-Score WAS webapp view.
+GET/apiv1/dscore_was_webapp/task/{task_id}
+    post/test_dscoreWasWebapp
+
+Get the FCEB status of a specified list of organizations.
+POST/apiv1/fceb_status
+    post/test_fcebStatus
+
+Check task status for FCEB status query.
+GET/apiv1/fceb_status/task/{task_id}
+    post/test_fcebStatus
+
+Get all VS vuln data needed for I-Score
+POST/apiv1/iscore_vs_vuln
+    posttest_iscoreVuln
+
+Check task status for I-Score VS vuln view.
+GET/apiv1/iscore_vs_vuln/task/{task_id}
+    post/test_iscoreVuln
+
+Get all previous VS vuln data needed for I-Score
+POST/apiv1/iscore_vs_vuln_prev
+    post/test_iscoreVuln
+
+Check task status for I-Score previous VS vuln view.
+GET/apiv1/iscore_vs_vuln_prev/task/{task_id}
+    post/test_iscoreVuln
+
+Get all PE vuln data needed for I-Score
+POST/apiv1/iscore_pe_vuln
+    post/test_iscoreVuln
+
+Check task status for I-Score PE vuln view.
+GET/apiv1/iscore_pe_vuln/task/{task_id}
+    post/test_iscoreVuln
+
+Get all PE cred data needed for I-Score
+POST/apiv1/iscore_pe_cred
+    post/test_iscorePe
+
+Check task status for I-Score PE cred view.
+GET/apiv1/iscore_pe_cred/task/{task_id}
+    post/test_iscorePe
+
+Get all PE breach data needed for I-Score
+POST/apiv1/iscore_pe_breach
+    post/test_iscorePe
+
+Check task status for I-Score PE breach view.
+GET/apiv1/iscore_pe_breach/task/{task_id}
+    post/test_iscorePe
+
+Get all PE darkweb data needed for I-Score
+POST/apiv1/iscore_pe_darkweb
+    post/test_iscorePe
+
+Check task status for I-Score PE darkweb view.
+GET/apiv1/iscore_pe_darkweb/task/{task_id}
+    post/test_iscorePe
+
+Get all PE protocol data needed for I-Score
+POST/apiv1/iscore_pe_protocol
+    post/test_iscorePe
+
+Check task status for I-Score PE protocol view.
+GET/apiv1/iscore_pe_protocol/task/{task_id}
+    post/test_iscorePe
+
+Get all WAS vuln data needed for I-Score
+POST/apiv1/iscore_was_vuln
+    post/test_iscoreWas
+
+Check task status for I-Score WAS vuln view.
+GET/apiv1/iscore_was_vuln/task/{task_id}
+    post/test_iscoreWas
+
+Get all previous WAS vuln data needed for I-Score
+POST/apiv1/iscore_was_vuln_prev
+    post/test_iscoreWas
+
+Check task status for I-Score previous WAS vuln view.
+GET/apiv1/iscore_was_vuln_prev/task/{task_id}
+    post/test_iscoreWas
+
+Get list of all KEVs.
+POST/apiv1/kev_list
+    post/test_kevList
+
+Check task status for KEV list query.
+GET/apiv1/kev_list/task/{task_id}
+    post/test_kevList
+
+Get list of all XS stakeholders.
+POST/apiv1/xs_stakeholders
+    post/test_stakeholders
+
+Check task status for XS stakeholder query.
+GET/apiv1/xs_stakeholders/task/{task_id}
+    post/test_stakeholders
+
+Get list of all S stakeholders.
+POST/apiv1/s_stakeholders
+    post/test_stakeholders
+
+Check task status for S stakeholder query.
+GET/apiv1/s_stakeholders/task/{task_id}
+    post/test_stakeholders
+
+Get list of all M stakeholders.
+POST/apiv1/m_stakeholders
+    post/test_stakeholders
+
+Check task status for M stakeholder query.
+GET/apiv1/m_stakeholders/task/{task_id}
+    post/test_stakeholders
+
+Get list of all L stakeholders.
+POST/apiv1/l_stakeholders
+    post/test_stakeholders
+
+Check task status for L stakeholder query.
+GET/apiv1/l_stakeholders/task/{task_id}
+    post/test_stakeholders
+
+Get list of all XL stakeholders.
+POST/apiv1/xl_stakeholders
+    post/test_stakeholders
+
+Check task status for XL stakeholder query.
+GET/apiv1/xl_stakeholders/task/{task_id}
+    post/test_stakeholders
+
+Update or insert CVE data from NIST
+PUT/apiv1/cve_insert_or_update
+    skipForNow/test_cveInsertOrUpdate
+    ->Skip For Not
+
+PUT/apiv1/xpanse_business_unit_insert_or_update
+    skipForNow/test_xpanse
+    ->Skip For Not
+
+PUT/apiv1/xpanse_alert_insert_or_update
+     skipForNow/test_xpanse
+    ->Skip For Not
+
+Get cve data and relevant products for a gvien CVE
+POST/apiv1/get_cve
+    post/test_getCve
+
+Insert new ip records into the ips table
+POST/apiv1/ips_insert
+     skipForNow/test_ipsInsert
+    ->Skip For Not
+
+Check task status for ips_insert endpoint task.
+GET/apiv1/ips_insert/task/{task_id}
+     skipForNow/test_ipsInsert
+    ->Skip For Not
+
+Get all data from the sub_domains table
+POST/apiv1/sub_domains_table
+Sub Domains Table
+
+Check task status for sub_domains_table endpoint task.
+GET/apiv1/sub_domains_table/task/{task_id}
+Sub Domains Table Status
+
+Get all domain_alerts table data for the specified org_uid and date range.
+POST/apiv1/domain_alerts_by_org_date
+Domain Alerts By Org Date
+
+Get all domain_permutations table data for the specified org_uid and date range.
+POST/apiv1/domain_permu_by_org_date
+Domain Permu By Org Date
+
+Insert list of root domains for the specified org.
+POST/apiv1/root_domains_insert
+Root Domains Insert
+
+Get all contact data for orgs where report_on is true.
+GET/apiv1/orgs_report_on_contacts
+Orgs Report On Contacts
+
+Get all RSS data for the specified org_uid and date.
+POST/apiv1/past_asset_counts_by_org
+Past Asset Counts By Org
+
+Get attacksurface data for the specified org_uid.
+POST/apiv1/asset_counts_by_org
+Asset Counts By Org
+
+Get all data for organizations where report on is false.
+GET/apiv1/orgs_report_on_false
+Orgs Report On False
+
+Set report_on to true for the specified organization.
+POST/apiv1/orgs_set_report_on
+Orgs Set Report On
+
+Set demo to true for the specified organization.
+POST/apiv1/orgs_set_demo
+Orgs Set Demo
+
+Get all cyhy assets for the specified organization.
+POST/apiv1/cyhy_assets_by_org
+Cyhy Assets By Org
+
+Get all CIDRs and IPs for the specified organization.
+POST/apiv1/cidrs_ips_by_org
+Cidrs Ips By Org
+
+Get all IPs for the specified organization.
+POST/apiv1/ips_by_org
+Ips By Org
+
+Get all extra IPs for the specified organization.
+POST/apiv1/extra_ips_by_org
+Extra Ips By Org
+
+Set from_cidr to True for any IPs that have an origin CIDR.
+POST/apiv1/ips_update_from_cidr
+Ips Update From Cidr
+
+Check task status for ips_update_from_cidr endpoint task.
+GET/apiv1/ips_update_from_cidr/task/{task_id}
+Ips Update From Cidr Status
+
+Get all CIDRs for a specified organization.
+POST/apiv1/cidrs_by_org
+Cidrs By Org
+
+Get all distinct ports/protocols for a specified organization.
+POST/apiv1/ports_protocols_by_org
+Ports Protocols By Org
+
+Get all distinct software products for a specified organization.
+POST/apiv1/software_by_org
+Software By Org
+
+Get all foreign IPs for a specified organization.
+POST/apiv1/foreign_ips_by_org
+Foreign Ips By Org
+
+Get all root domains for a specified organization.
+POST/apiv1/root_domains_by_org
+Root Domains By Org
+
+Get vw_breachcomp data for specified org and date range.
+POST/apiv1/breachcomp_by_org
+Breachcomp By Org
+
+Get vw_breachcomp_credsbydate data for specified org and date range.
+POST/apiv1/credsbydate_by_org
+Credsbydate By Org
+
+Get vw_breachcomp_breachdetails data for specified org and date range.
+POST/apiv1/breachdetails_by_org
+Breachdetails By Org
+
+Get all records for view shodanvulns_suspected_view
+POST/apiv1/shodanvulns_suspected_view
+Shodanvulns Suspected View
+
+Get all records for view shodanvulns_verified_view
+POST/apiv1/shodanvulns_verified_view
+Shodanvulns Verified View
+
+Get all records for view shodan_assets
+POST/apiv1/shodan_assets
+Shodan Assets
+
+Get darkweb data from various tables
+POST/apiv1/darkweb_data
+Darkweb Data
+
+Get all darkweb cve data
+POST/apiv1/darkweb_cves
+Darkweb Cves
+
+Check task status for darkweb_cves endpoint task.
+GET/apiv1/darkweb_cves/task/{task_id}
+Darkweb Cves Status
+
+Insert an organization's record into the report_summary_stats table
+PUT/apiv1/rss_insert
+Rss Insert
+
+Get all sub domains for a specified organization.
+POST/apiv1/sub_domains_by_org
+Sub Domains By Org
+
+Check task status for subdomains by org query.
+GET/apiv1/sub_domains_by_org/task/{task_id}
+Sub Domains By Org Task Status
+
+Get previous report period report_summary_stats data for the specified organization
+POST/apiv1/rss_prev_period
+Rss Prev Period
+
+Get all historical domain alert data for PE score.
+POST/apiv1/pescore_hist_domain_alert
+Pescore Hist Domain Alert
+
+Check task status for pescore_hist_domain_alert endpoint task.
+GET/apiv1/pescore_hist_domain_alert/task/{task_id}
+Pescore Hist Domain Alert Status
+
+Get all historical darkweb alert data for PE score.
+POST/apiv1/pescore_hist_darkweb_alert
+Pescore Hist Darkweb Alert
+
+Check task status for pescore_hist_darkweb_alert endpoint task.
+GET/apiv1/pescore_hist_darkweb_alert/task/{task_id}
+Pescore Hist Darkweb Alert Status
+
+Get all historical darkweb mention data for PE score.
+POST/apiv1/pescore_hist_darkweb_ment
+Pescore Hist Darkweb Ment
+
+Check task status for pescore_hist_darkweb_ment endpoint task.
+GET/apiv1/pescore_hist_darkweb_ment/task/{task_id}
+Pescore Hist Darkweb Ment Status
+
+Get all historical credential data for PE score.
+POST/apiv1/pescore_hist_cred
+Pescore Hist Cred
+
+Check task status for pescore_hist_cred endpoint task.
+GET/apiv1/pescore_hist_cred/task/{task_id}
+Pescore Hist Cred Status
+
+Get all base metric data for PE score.
+POST/apiv1/pescore_base_metrics
+Pescore Base Metrics
+
+Check task status for pescore_base_metrics endpoint task.
+GET/apiv1/pescore_base_metrics/task/{task_id}
+Pescore Base Metrics Status
+
+Get any detected CVEs that aren't in the cve_info table yet.
+GET/apiv1/pescore_check_new_cve
+Pescore Check New Cve
+
+Upsert new CVEs into the cve_info table
+POST/apiv1/cve_info_insert
+Cve Info Insert
+
+Check task status for cve_info_insert endpoint task.
+GET/apiv1/cve_info_insert/task/{task_id}
+Cve Info Insert Status
+
+Get IntelX credential breaches
+POST/apiv1/cred_breach_intelx
+Cred Breach Intelx
+
+Check task status for cred_breach_intelx endpoint task.
+GET/apiv1/cred_breach_intelx/task/{task_id}
+Cred Breach Intelx Status
+
+Insert multiple sixgill records into the alerts table.
+POST/apiv1/alerts_insert
+Alerts Insert
+
+Check task status for alerts_insert endpoint task.
+GET/apiv1/alerts_insert/task/{task_id}
+Alerts Insert Status
+
+Insert multiple records into the mentions table.
+POST/apiv1/mentions_insert
+Mentions Insert
+
+Check task status for mentions_insert endpoint task.
+GET/apiv1/mentions_insert/task/{task_id}
+Mentions Insert Status
+
+Insert multiple records into the credential_breaches table.
+POST/apiv1/cred_breaches_sixgill_insert
+Cred Breaches Sixgill Insert
+
+Check task status for cred_breaches_sixgill_insert endpoint task.
+GET/apiv1/cred_breaches_sixgill_insert/task/{task_id}
+Cred Breaches Sixgill Insert Status
+
+Insert multiple records into the credential_exposures table.
+POST/apiv1/cred_exp_sixgill_insert
+Cred Exp Sixgill Insert
+
+Check task status for cred_exp_sixgill_insert endpoint task.
+GET/apiv1/cred_exp_sixgill_insert/task/{task_id}
+Cred Exp Sixgill Insert Status
+
+Insert multiple records into the top_cves table.
+POST/apiv1/top_cves_insert
+Top Cves Insert
+
+Check task status for top_cves_insert endpoint task.
+GET/apiv1/top_cves_insert/task/{task_id}
+Top Cves Insert Status
+
+Insert multiple DNSMonitor records into the domain_permutations table.
+PUT/apiv1/domain_permu_insert
+Domain Permu Insert
+
+Insert multiple DNSMonitor records into the domain_alerts table.
+PUT/apiv1/domain_alerts_insert
+Domain Alerts Insert
+
+Insert a single root domain into the root_domains table.
+PUT/apiv1/root_domains_single_insert
+Root Domains Single Insert
+
+Insert a single sub domain into the sub_domains table.
+PUT/apiv1/sub_domains_single_insert
+Sub Domains Single Insert
+
+Insert IntelX credential breaches into the credential_breaches table.
+PUT/apiv1/cred_breaches_intelx_insert
+Cred Breaches Intelx Insert
+
+Insert IntelX data into the credential_exposures table.
+PUT/apiv1/cred_exp_intelx_insert
+Cred Exp Intelx Insert
+
+Check task status for Xpanse Vulnerability pull.
+GET/apiv1/xpanse_vulns/task/{task_id}
+Get Xpanse Vulns Task Status
+
+Get all CVEs and related products since a user specified date.
+POST/apiv1/cves_by_modified_date
+Cves By Modified Date
+
+Check task status for cves_by_modified_date.
+GET/apiv1/cves_by_modified_date/task/{task_id}
+Cves By Modified Date Task Status
+
+Return all vulnerabilites formatte for crossfeed database.
+POST/apiv1/crossfeed_vulns
+Crossfeed Vulns
+
+Check task status for endpoint crossfeed vulns.
+GET/apiv1/crossfeed_vulns/task/{task_id}
+Crossfeed Vulns Resp
+
+Retrieve data for all demo or report_on orgs.
+GET/apiv1/organizations_demo_or_report_on
+Organizations Demo
+
+Retrieve data for specified data source name.
+POST/apiv1/data_source_by_name
+Data Source By Name
+
+Retrieve all breach names and uids.
+GET/apiv1/breach_names_and_uids
+Breach Names And Uids
+
+Retrieve data for the specified subdomain.
+POST/apiv1/subdomain_uid_by_domain
+Subdomain By Domain
+
+Retrieve root domains for the specified org uid.
+POST/apiv1/rootdomains_by_org_uid
+
