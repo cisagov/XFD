@@ -9,7 +9,8 @@ import {
   Ip,
   DL_Cve,
   Ticket,
-  TicketEvent
+  TicketEvent,
+  PortScan
 } from '../models';
 const { Client } = require('pg');
 import { CommandOptions } from './ecs-client';
@@ -21,6 +22,7 @@ import saveCveToMdl from './helpers/saveCveToMdl';
 import saveTicket from './helpers/saveTicket';
 import saveTicketEvent from './helpers/saveTicketEvent';
 import { plainToClass } from 'class-transformer';
+import savePortScan from './helpers/savePortScan';
 
 /** Removes a value for a given key from the dictionary and then returns it. */
 function getValueAndDelete<T>(
@@ -564,6 +566,77 @@ export const handler = async (commandOptions: CommandOptions) => {
     }
   } catch (error) {
     console.error('Error saving tickets:', error);
+    throw error;
+  }
+
+  let portScanArray;
+  try {
+    const startTime = Date.now();
+    const query =
+      'SELECT * FROM vmtableau.port_scans WHERE time >= DATE_SUB(NOW(), INTERVAL 2 DAY);';
+    const result = await client.query(query);
+    const endTime = Date.now();
+    const durationMs = endTime - startTime;
+    const durationSeconds = Math.round(durationMs / 1000);
+    console.log(
+      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
+    );
+    portScanArray = result.rows;
+  } catch (error) {
+    console.error(
+      'Error connecting to redshift and getting port_scan data:',
+      error
+    );
+    return error;
+  }
+
+  try {
+    if (portScanArray && Array.isArray(portScanArray)) {
+      const port_scan_list: PortScan[] = [];
+      console.log('Starting to save Port Scans')
+      for (const port_scan of portScanArray) {
+        let ip_id: string | null = null;
+        if (!(port_scan.owner in org_id_dict)) {
+          console.log(
+            `${port_scan.owner} is not a recognized organizations, skipping host.`
+          );
+          continue;
+        }
+        if (port_scan.ip != null) {
+          ip_id = await saveIpToMdl(
+            plainToClass(Ip, {
+              ip: port_scan.ip,
+              organization: { id: org_id_dict[port_scan.owner] }
+            })
+          );
+        }
+        port_scan.service = JSON.parse(port_scan.service)
+        const portScanObj: PortScan = plainToClass(PortScan, {
+          id: port_scan._id.replace("ObjectId('", '').replace("')", ''),
+          ipString: port_scan.ip,
+          ip: ip_id == null ? null : { id: ip_id },
+          organization: { id: org_id_dict[port_scan.owner] },
+          latest: port_scan.latest,
+          port: port_scan.port,
+          protocol: port_scan.protocol,
+          reason: port_scan.reason,
+          service: port_scan.service,
+          source: port_scan.source,
+          state: port_scan.state,
+          timeScanned: port_scan.time,
+          // @ManyToMany((type) => Snapshot, (snapshot) => snapshot.portScans, {
+          //   onDelete: 'CASCADE',
+          //   onUpdate: 'CASCADE'
+          // })
+          // snapshots: null
+        });
+
+        await savePortScan(portScanObj);
+      }
+
+    }
+  }catch (error) {
+    console.error('Error saving port_scan data:', error);
     throw error;
   }
 };

@@ -12,6 +12,7 @@ import {
 
 import { Snapshot } from './snapshots';
 import { Ip } from './ips';
+import { Organization } from './organizations';
 @Entity()
 export class PortScan extends BaseEntity {
   @PrimaryColumn()
@@ -76,4 +77,10 @@ export class PortScan extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   snapshots: Snapshot[];
+
+  @ManyToOne((type) => Organization, (org) => org.portScans, {
+    onDelete: 'CASCADE',
+    nullable: true
+  })
+  organization: Organization;
 }
