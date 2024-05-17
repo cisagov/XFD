@@ -337,8 +337,7 @@ async function isMajorActiveMaintenance(): Promise<boolean> {
     console.log('Current notifications check Result: ', notifications);
 
     // Return True if Notifcations exist
-    // if (notifications.length > 0) {
-    if (notifications) {
+    if (notifications.length > 0) {
       console.log('isMajorActiveMaintenance is returning True.');
       return true;
     } else {
