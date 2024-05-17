@@ -10,14 +10,16 @@ import {
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
 import { Table, ImportExport } from 'components';
-import { Column, CellProps } from 'react-table';
+// import { Column, CellProps } from 'react-table';
+import { Column } from 'react-table';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-import { FaTimes, FaEdit } from 'react-icons/fa';
+// import { FaTimes, FaEdit } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
 import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
 import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
 
@@ -117,16 +119,17 @@ const ScansView: React.FC = () => {
       id: 'lastRun',
       disableFilters: true
     },
-    {
-      Header: 'Edit',
-      id: 'edit',
-      Cell: ({ row }: CellProps<Scan>) => (
-        <Link to={`/scans/${row.original.id}`} style={{ color: 'black' }}>
-          <FaEdit />
-        </Link>
-      ),
-      disableFilters: true
-    },
+    // TODO: Refactor edit form if functionality is needed.
+    // {
+    //   Header: 'Edit',
+    //   id: 'edit',
+    //   Cell: ({ row }: CellProps<Scan>) => (
+    //     <Link to={`/scans/${row.original.id}`} style={{ color: 'black' }}>
+    //       <FaEdit />
+    //     </Link>
+    //   ),
+    //   disableFilters: true
+    // },
     {
       Header: 'Delete',
       id: 'delete',

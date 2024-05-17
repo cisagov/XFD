@@ -2,6 +2,7 @@ import { createConnection, Connection } from 'typeorm';
 import {
   // Models for the Crossfeed database
   ApiKey,
+  Notification,
   Assessment,
   Category,
   Cpe,
@@ -186,6 +187,8 @@ const connectDb = async (logging?: boolean) => {
       Response,
       Role,
       SavedSearch,
+      OrganizationTag,
+      Notification,
       Scan,
       ScanTask,
       Service,
