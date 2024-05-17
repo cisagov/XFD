@@ -16,43 +16,25 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(express.json({ strict: false }));
+
+const { origin, methods } = JSON.parse(process.env.CORS_MAIN);
+app.use(cors({ origin, methods }));
+
 app.use(
-  cors({
-    origin: [
-      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
-      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+  helmet({
+    contentSecurityPolicy: JSON.parse(process.env.CSP_MAIN),
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true
+    }
   })
 );
 
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: [
-          "'self'",
-          'https://cognito-idp.*.amazonaws.com',
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov'
-        ],
-        frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
-        imgSrc: [
-          "'self'",
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://www.dhs.gov'
-        ],
-        objectSrc: ["'none'"],
-        scriptSrc: [
-          "'self'",
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://www.dhs.gov'
-        ],
-        frameAncestors: ["'none'"]
-      }
-    },
+    contentSecurityPolicy: JSON.parse(process.env.CSP_MAIN),
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,

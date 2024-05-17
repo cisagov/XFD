@@ -70,32 +70,12 @@ app.use(
 
 app.use(express.json({ strict: false }));
 
-app.use(
-  cors({
-    origin: '*',
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-  })
-);
+const { origin, methods } = JSON.parse(process.env.CORS_MAIN!);
 
+app.use(cors({ origin, methods }));
 app.use(
   helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: [
-          "'self'",
-          'https://cognito-idp.us-east-1.amazonaws.com',
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
-        ],
-        objectSrc: ["'none'"],
-        scriptSrc: [
-          "'self'",
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
-          // Add any other allowed script sources here
-        ],
-        frameAncestors: ["'none'"]
-        // Add other directives as needed
-      }
-    },
+    contentSecurityPolicy: JSON.parse(process.env.CSP_MAIN!),
     hsts: {
       maxAge: 31536000,
       includeSubDomains: true,
