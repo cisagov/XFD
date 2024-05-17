@@ -61,6 +61,10 @@ export class User extends BaseEntity {
   @Column({ default: false })
   invitePending: boolean;
 
+  /** Whether the user is blocked by maintenance to login */
+  @Column({ default: false })
+  loginBlockedByMaintenance: boolean;
+
   /**
    * When the user accepted the terms of use,
    * if the user did so

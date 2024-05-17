@@ -8,6 +8,7 @@ import * as auth from './auth';
 import * as cpes from './cpes';
 import * as cves from './cves';
 import * as domains from './domains';
+import * as notifications from './notifications';
 import * as search from './search';
 import * as vulnerabilities from './vulnerabilities';
 import * as organizations from './organizations';
@@ -118,6 +119,8 @@ app.post('/auth/login', handlerToExpress(auth.login));
 app.post('/auth/callback', handlerToExpress(auth.callback));
 app.post('/users/register', handlerToExpress(users.register));
 app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
+
+app.get('/notifications', handlerToExpress(notifications.list));
 
 const checkUserLoggedIn = async (req, res, next) => {
   req.requestContext = {
@@ -455,6 +458,20 @@ authenticatedRoute.put(
   handlerToExpress(users.registrationDenial)
 );
 
+authenticatedRoute.delete(
+  '/notifications/:notificationId',
+  handlerToExpress(notifications.del)
+);
+
+authenticatedRoute.post(
+  '/notifications',
+  handlerToExpress(notifications.create)
+);
+
+authenticatedRoute.put(
+  '/notifications/:notificationId',
+  handlerToExpress(notifications.update)
+);
 //Authenticated ReadySetCyber Routes
 authenticatedRoute.get('/assessments', handlerToExpress(assessments.list));
 
