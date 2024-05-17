@@ -264,22 +264,9 @@ export const findings = wrapHandler(async (event) => {
           if(child.retired){
             return
           }
-          // const child_findings: {
-          //   acronym: string | null ;
-          //   assetsOwned: number;
-          //   assetsScanned: number;
-          //   hosts: number;
-          //   services: number;
-          //   vulnerabilities: number;
-          //   vulnerableHosts: number;
-          // }  =  
-          
           children.push(get_findings(child))
-          
-          
-          
         })
-        const awaited_children=  await Promise.all(children);
+        const awaited_children = await Promise.all(children);
 
         for (const child of awaited_children){
           total.assetsOwned += child.assetsOwned
