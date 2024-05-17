@@ -53,9 +53,7 @@ async function get_findings(org: DL_Organization): Promise<{
   vulnerabilities: number;
   vulnerableHosts: number;
 }> {
-  let vuln_count;
-
-  console.log(`vuln count is ${vuln_count}`);
+  
   const findings = {
     acronym: org.acronym,
     assetsOwned: countAssets(org.cidrs),
@@ -83,6 +81,7 @@ export async function countVulnerableHosts(org_id: string): Promise<number> {
       }
     )
     .getCount();
+    console.log(`${count} vulnerable hosts for ${org_id}`)
 
   return count;
 }
@@ -91,7 +90,7 @@ async function countVulnerabilities(org_id: string): Promise<number> {
   const dataLake = await connectToDatalake2();
   const ticketRepository = dataLake.getRepository(Ticket);
 
-  const count = ticketRepository
+  const count = await ticketRepository
     .createQueryBuilder('ticket')
     .where(
       'ticket.organizationId = :organizationId AND ticket."vulnSource" = :vulnSource AND ticket."falsePositive" = :falsePositive AND ticket."foundInLatestHostScan" = :foundInLatestHostScan',
@@ -103,6 +102,7 @@ async function countVulnerabilities(org_id: string): Promise<number> {
       }
     )
     .getCount();
+    console.log(`${count} vulnerabilities for ${org_id}`)
 
   return count;
 }
@@ -198,7 +198,6 @@ export const assetCount = wrapHandler(async (event) => {
   const mdl_connection = await connectToDatalake2();
   for (const acronym of acronymList) {
     try {
-      console.log(acronym);
       const mdl_org = await mdl_connection
         .getRepository(DL_Organization)
         .findOne({ where: { acronym }, relations: ['cidrs'] });
@@ -304,7 +303,6 @@ export const findings = wrapHandler(async (event) => {
           children.push(get_findings(child));
         });
         const awaited_children = await Promise.all(children);
-
         for (const child of awaited_children) {
           total.assetsOwned += child.assetsOwned;
           total.assetsScanned += child.assetsScanned;
@@ -314,7 +312,7 @@ export const findings = wrapHandler(async (event) => {
           total.vulnerableHosts += child.vulnerableHosts;
         }
         const return_dict = {
-          children: children,
+          children: awaited_children,
           organization: requested_org,
           total: total
         };
