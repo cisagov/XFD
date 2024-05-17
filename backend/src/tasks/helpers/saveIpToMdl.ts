@@ -2,7 +2,7 @@ import { plainToClass } from 'class-transformer';
 import { Ip, connectToDatalake } from '../../models';
 
 export default async (ipObj: Ip): Promise<string | null> => {
-  console.log('Starting to save IP to datalake');
+  console.log(`Starting to save IP to datalake: ${ipObj.ip}`);
   await connectToDatalake();
   const ipUpdatedValues = Object.keys(ipObj)
     .map((key) => {

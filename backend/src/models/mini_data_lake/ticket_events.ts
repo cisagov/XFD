@@ -6,21 +6,22 @@ import {
   Column,
   PrimaryGeneratedColumn,
   BaseEntity,
-  ManyToOne
+  ManyToOne,
+  Unique
 } from 'typeorm';
 
 import { Ticket } from './tickets';
 import { VulnScan } from './vuln_scans';
 
 @Entity()
+@Unique(['eventTimestamp', 'ticket', 'action'])
 export class TicketEvent extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column({
     nullable: true,
-    type: 'varchar',
-    unique: true
+    type: 'varchar'
   })
   reference: string | null;
 

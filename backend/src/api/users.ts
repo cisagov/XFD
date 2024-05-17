@@ -156,6 +156,10 @@ class UpdateUser {
   @IsString()
   @IsOptional()
   role: string;
+
+  @IsBoolean()
+  @IsOptional()
+  loginBlockedByMaintenance: boolean;
 }
 
 /**
