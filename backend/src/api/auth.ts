@@ -153,7 +153,7 @@ export const callback = async (event, context) => {
     const loginBlocked = await shouldBlockLogin(user);
     console.log('Login blocked response from callback: ', loginBlocked);
     user.loginBlockedByMaintenance = loginBlocked;
-    await user.save();
+    user.save();
   }
   console.log(user);
 
@@ -217,7 +217,7 @@ export const authorize = async (event) => {
       if (!apiKey) throw 'Invalid API key';
       parsed = { id: apiKey.user.id };
       apiKey.lastUsed = new Date();
-      await apiKey.save();
+      apiKey.save();
     } else {
       parsed = jwt.verify(
         event.authorizationToken,
