@@ -19,6 +19,7 @@ import {
   User,
   OrganizationTag,
   PendingDomain,
+  PortScan,
   DL_Organization,
   connectToDatalake2,
   Ticket,
@@ -56,15 +57,54 @@ async function get_findings(org: DL_Organization): Promise<{
   const findings = {
     acronym: org.acronym,
     assetsOwned: countAssets(org.cidrs),
-    assetsScanned: 0,
+    assetsScanned: await countassetsScanned(org.id),
     hosts: 0,
-    services: 0,
+    services: await countServices(org.id),
     vulnerabilities: await countVulnerabilities(org.id),
     vulnerableHosts: await countVulnerableHosts(org.id)
   };
 
   return findings;
 }
+
+async function countassetsScanned(org_id: string): Promise<number> {
+
+  const dataLake = await connectToDatalake2();
+  const hostRepository = dataLake.getRepository(Host);
+
+  const assetsScanned = await hostRepository
+    .createQueryBuilder("host")
+    .where("host.organizationId = :organizationId", { org_id })
+    .andWhere("host.latestScanCompletionTimestamp IS NOT NULL")
+    .groupBy("host.id") // Group by host's primary key (assuming it's "id")
+    .getCount();
+
+  return assetsScanned;
+}
+
+async function countServices(orgId: string): Promise<number> {
+  const eightDaysAgo = new Date();
+  eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
+
+  const dataLake = await connectToDatalake2();
+  const portScanRepository = dataLake.getRepository(PortScan);
+
+  const serviceCount = await portScanRepository
+    .createQueryBuilder("port_scan")
+    .where('port_scan.timeScanned > :eightDaysAgo AND port_scan.organizationId = :organizationId', 
+    { 
+      eightDaysAgo: eightDaysAgo,
+      organizationId: orgId
+    })
+    // .andWhere("port_scan.serviceName != 'tcpwrapped'")
+    .groupBy("port_scan.port, port_scan.ipString")
+    // .addGroupBy("port_scan.ServiceName")
+    .getCount();
+
+  return serviceCount;
+}
+
+
 export async function countVulnerableHosts(org_id: string): Promise<number> {
   const dataLake = await connectToDatalake2();
   const hostRepository = dataLake.getRepository(Host);
@@ -92,12 +132,12 @@ async function countVulnerabilities(org_id: string): Promise<number> {
   const count = await ticketRepository
     .createQueryBuilder('ticket')
     .where(
-      'ticket.organizationId = :organizationId AND ticket."vulnSource" = :vulnSource AND ticket."falsePositive" = :falsePositive AND ticket."foundInLatestHostScan" = :foundInLatestHostScan',
+      'ticket.organizationId = :organizationId AND ticket."vulnSource" = :vulnSource AND ticket."falsePositive" = :falsePositive AND ticket."open" = :open',
       {
         organizationId: org_id,
         vulnSource: 'nessus',
         falsePositive: false,
-        foundInLatestHostScan: true
+        open: true
       }
     )
     .getCount();
