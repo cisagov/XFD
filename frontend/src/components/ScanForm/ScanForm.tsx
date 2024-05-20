@@ -260,7 +260,7 @@ export const ScanForm: React.FC<{
       )}
       <br />
       {type === 'edit' && (
-        <Link to={`/scans`}>
+        <Link to={`/admin-tools`}>
           <Button type="button" outline>
             {' '}
             Return to Scans
