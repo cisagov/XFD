@@ -1,6 +1,7 @@
 import { Query, Domain } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
+import { query } from 'express';
 
 export interface DomainQuery extends Query<Domain> {
   showAll?: boolean;
@@ -66,8 +67,35 @@ export const useDomainApi = (showAll?: boolean) => {
     [apiGet]
   );
 
+  const listAllDomains = useCallback(
+    async (query: DomainQuery, doExport = false) => {
+      const { page } = query;
+
+      const { result, count, url } = await apiPost<ApiResponse>(
+        doExport ? '/domain/export' : '/domain/search',
+        {
+          body: {
+            pageSize: -1,
+            page,
+            sort: 'name',
+            order: 'ASC'
+          }
+        }
+      );
+
+      return {
+        domains: result,
+        count,
+        url,
+        pageCount: 1
+      };
+    },
+    [apiPost, showAll, currentOrganization]
+  );
+
   return {
     listDomains,
-    getDomain
+    getDomain,
+    listAllDomains
   };
 };
