@@ -67,31 +67,18 @@ export const useDomainApi = (showAll?: boolean) => {
     [apiGet]
   );
 
-  const listAllDomains = useCallback(
-    async (query: DomainQuery, doExport = false) => {
-      const { page } = query;
+  const listAllDomains = useCallback(async () => {
+    const { result, count } = await apiPost<ApiResponse>('/domain/search', {
+      body: {
+        pageSize: -1
+      }
+    });
 
-      const { result, count, url } = await apiPost<ApiResponse>(
-        doExport ? '/domain/export' : '/domain/search',
-        {
-          body: {
-            pageSize: -1,
-            page,
-            sort: 'name',
-            order: 'ASC'
-          }
-        }
-      );
-
-      return {
-        domains: result,
-        count,
-        url,
-        pageCount: 1
-      };
-    },
-    [apiPost, showAll, currentOrganization]
-  );
+    return {
+      domains: result,
+      count
+    };
+  }, [apiPost, showAll, currentOrganization]);
 
   return {
     listDomains,

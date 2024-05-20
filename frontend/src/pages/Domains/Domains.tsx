@@ -7,7 +7,7 @@ import React, {
 } from 'react';
 import { useHistory } from 'react-router-dom';
 // import { TableInstance } from 'react-table';
-import { Query } from 'types';
+// import { Query } from 'types';
 import { Table, Paginator, Subnav } from 'components';
 import { Domain } from 'types';
 // import { createColumns } from './columns';
@@ -77,25 +77,18 @@ export const Domains: React.FC = () => {
 
   //Code for new table//
 
-  const fetchAllDomains = useCallback(
-    async (q: Query<Domain>) => {
-      try {
-        const { domains, count } = await listAllDomains(q);
-        setDomains(domains);
-        setTotalResults(count);
-      } catch (e) {
-        console.error(e);
-      }
-    },
-    [listAllDomains]
-  );
+  const fetchAllDomains = useCallback(async () => {
+    try {
+      const { domains, count } = await listAllDomains();
+      setDomains(domains);
+      setTotalResults(count);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [listAllDomains]);
 
   useEffect(() => {
-    fetchAllDomains({
-      page: 1,
-      sort: [],
-      filters: []
-    });
+    fetchAllDomains();
   }, [fetchAllDomains]);
 
   console.log(domains);
