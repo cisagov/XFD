@@ -29,6 +29,7 @@ import { Cidr } from './cidrs';
 import { HostScan } from './host_scans';
 import { Host } from './hosts';
 import { Ticket } from './tickets';
+import { PortScan } from './port_scans';
 @Entity()
 export class Organization extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -233,4 +234,10 @@ export class Organization extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   hosts: Host[];
+
+  @OneToMany((type) => PortScan, (port_scan) => port_scan.organization, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
+  portScans: PortScan[];
 }
