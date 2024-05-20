@@ -58,7 +58,7 @@ async function get_findings(org: DL_Organization): Promise<{
     acronym: org.acronym,
     assetsOwned: countAssets(org.cidrs),
     assetsScanned: await countassetsScanned(org.id),
-    hosts: 0,
+    hosts: await countHosts(org.id),
     services: await countServices(org.id),
     vulnerabilities: await countVulnerabilities(org.id),
     vulnerableHosts: await countVulnerableHosts(org.id)
@@ -68,15 +68,14 @@ async function get_findings(org: DL_Organization): Promise<{
 }
 
 async function countassetsScanned(org_id: string): Promise<number> {
-
   const dataLake = await connectToDatalake2();
   const hostRepository = dataLake.getRepository(Host);
 
   const assetsScanned = await hostRepository
-    .createQueryBuilder("host")
-    .where("host.organizationId = :organizationId", { org_id })
-    .andWhere("host.latestScanCompletionTimestamp IS NOT NULL")
-    .groupBy("host.id") // Group by host's primary key (assuming it's "id")
+    .createQueryBuilder('host')
+    .where('host.organizationId = :organizationId', { org_id })
+    .andWhere('host.latestScanCompletionTimestamp IS NOT NULL')
+    .groupBy('host.id') // Group by host's primary key (assuming it's "id")
     .getCount();
 
   return assetsScanned;
@@ -90,22 +89,42 @@ async function countServices(orgId: string): Promise<number> {
   const portScanRepository = dataLake.getRepository(PortScan);
 
   const serviceCount = await portScanRepository
-    .createQueryBuilder("port_scan")
-    .where('port_scan.timeScanned > :eightDaysAgo AND port_scan.organizationId = :organizationId', 
-    { 
-      eightDaysAgo: eightDaysAgo,
-      organizationId: orgId
-    })
+    .createQueryBuilder('port_scan')
+    .where(
+      'port_scan.timeScanned > :eightDaysAgo AND port_scan.organizationId = :organizationId',
+      {
+        eightDaysAgo: eightDaysAgo,
+        organizationId: orgId
+      }
+    )
     // .andWhere("port_scan.serviceName != 'tcpwrapped'")
-    .groupBy("port_scan.port, port_scan.ipString")
+    .groupBy('port_scan.port, port_scan.ipString')
     // .addGroupBy("port_scan.ServiceName")
     .getCount();
 
   return serviceCount;
 }
 
+async function countHosts(org_id: string): Promise<number> {
+  const dataLake = await connectToDatalake2();
+  const hostRepository = dataLake.getRepository(Host);
 
-export async function countVulnerableHosts(org_id: string): Promise<number> {
+  const count = await hostRepository
+    .createQueryBuilder('host')
+    .where(
+      'host.organizationId = :organizationId AND host.hostLive = :hostLive',
+      {
+        organizationId: org_id,
+        hostLive: true
+      }
+    )
+    .getCount();
+
+  console.log(`${count} hosts for ${org_id}`);
+  return count;
+}
+
+async function countVulnerableHosts(org_id: string): Promise<number> {
   const dataLake = await connectToDatalake2();
   const hostRepository = dataLake.getRepository(Host);
 
