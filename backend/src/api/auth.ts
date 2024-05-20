@@ -6,6 +6,7 @@ import {
   OrganizationTag,
   UserType
 } from '../models';
+import { getRegion } from './organizations';
 import * as jwt from 'jsonwebtoken';
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import * as jwksClient from 'jwks-rsa';
@@ -152,7 +153,7 @@ export const callback = async (event, context) => {
     const loginBlocked = await shouldBlockLogin(user);
     console.log('Login blocked response from callback: ', loginBlocked);
     user.loginBlockedByMaintenance = loginBlocked;
-    user.save();
+    await user.save();
   }
   console.log(user);
 
@@ -216,7 +217,7 @@ export const authorize = async (event) => {
       if (!apiKey) throw 'Invalid API key';
       parsed = { id: apiKey.user.id };
       apiKey.lastUsed = new Date();
-      apiKey.save();
+      await apiKey.save();
     } else {
       parsed = jwt.verify(
         event.authorizationToken,
@@ -255,28 +256,48 @@ export const authorize = async (event) => {
 
 /** Check if a user has global write admin permissions */
 export const isGlobalWriteAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
+  return !!(
+    event.requestContext.authorizer &&
     event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN
-    ? true
-    : false;
+  );
 };
 
 /** Check if a user has global view permissions */
 export const isGlobalViewAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
+  return !!(
+    event.requestContext.authorizer &&
     (event.requestContext.authorizer.userType === UserType.GLOBAL_VIEW ||
       event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
-    ? true
-    : false;
+  );
 };
 
 /** Check if a user has regionalAdmin view permissions */
 export const isRegionalAdmin = (event: APIGatewayProxyEvent) => {
-  return event.requestContext.authorizer &&
+  return !!(
+    event.requestContext.authorizer &&
     (event.requestContext.authorizer.userType === UserType.REGIONAL_ADMIN ||
       event.requestContext.authorizer.userType === UserType.GLOBAL_ADMIN)
-    ? true
-    : false;
+  );
+};
+
+/** Check if user is a regional admin and if a selected organization belongs to their region */
+export const isRegionalAdminForOrganization = (
+  event: APIGatewayProxyEvent,
+  organizationId?: string
+) => {
+  if (!event.requestContext.authorizer || !organizationId) return false;
+  return (
+    isRegionalAdmin(event) &&
+    matchesRegion(event.requestContext.authorizer.regionId, organizationId)
+  );
+};
+
+export const matchesRegion = async (
+  regionId?: string,
+  organizationId?: string
+) => {
+  if (!organizationId || !regionId) return false;
+  return regionId === (await getRegion(organizationId));
 };
 
 /** Checks if the current user is allowed to access (modify) a user with id userId */

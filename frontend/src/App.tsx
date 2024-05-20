@@ -172,7 +172,7 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/organizations/:organizationId"
                     component={Organization}
-                    permissions={['globalView']}
+                    permissions={['globalView', 'regionalAdmin']}
                   />
                   <RouteGuard
                     path="/organizations"
