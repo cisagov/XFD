@@ -84,6 +84,24 @@ export const AuthLoginCreate: React.FC<{ showSignUp?: boolean }> = ({
         autoFocus: true
       }
     },
+    signUp: {
+      username: {
+        label: 'Email',
+        placeholder: 'Enter your email address',
+        required: true,
+        autoFocus: true
+      },
+      password: {
+        label: 'Password',
+        placeholder: 'Enter your password',
+        required: true
+      },
+      confirm_password: {
+        label: 'Confirm Password',
+        placeholder: 'Re-enter your password',
+        required: true
+      }
+    },
     confirmSignUp: {
       confirmation_code: {
         label: 'Confirmation Code',
