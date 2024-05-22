@@ -1,4 +1,5 @@
 import { S3 } from 'aws-sdk';
+import * as https from 'https';
 
 /**
  * S3 Client. Normally, interacts with S3.
@@ -19,7 +20,14 @@ class S3Client {
         s3ForcePathStyle: true
       });
     } else {
-      this.s3 = new S3();
+      const agent = new https.Agent({
+        keepAlive: false
+      });
+      this.s3 = new S3({
+        maxRetries: 3,
+        region: process.env.REGION,
+        httpOptions: { agent }
+      });
     }
   }
 
