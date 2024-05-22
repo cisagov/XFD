@@ -424,6 +424,8 @@ authenticatedRoute.post(
   handlerToExpress(organizations.checkDomainVerification)
 );
 authenticatedRoute.post('/stats', handlerToExpress(stats.get));
+authenticatedRoute.post('/summaryStats', handlerToExpress(stats.getSummary));
+authenticatedRoute.post('/vulnSummaryStats', handlerToExpress(stats.getVulnSummary));
 authenticatedRoute.post('/users', handlerToExpress(users.invite));
 authenticatedRoute.get('/users', handlerToExpress(users.list));
 authenticatedRoute.delete('/users/:userId', handlerToExpress(users.del));
