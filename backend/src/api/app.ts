@@ -175,11 +175,6 @@ app.get('/auth/callback', async (req, res) => {
   }
 
   try {
-    console.log('Exchanging code for tokens with the following parameters:');
-    console.log(`client_id: ${clientId}`);
-    console.log(`code: ${code}`);
-    console.log(`redirect_uri: ${callbackUrl}`);
-
     if (!callbackUrl) {
       throw new Error('callbackUrl is required');
     }
