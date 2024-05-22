@@ -51,7 +51,7 @@ const client = jwksClient({
   jwksUri: `https://cognito-idp.us-east-1.amazonaws.com/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`
 });
 
-function getKey(header, callback) {
+export function getKey(header, callback) {
   client.getSigningKey(header.kid, function (err, key) {
     const signingKey = key?.getPublicKey();
     callback(null, signingKey);
