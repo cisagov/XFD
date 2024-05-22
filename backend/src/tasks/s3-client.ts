@@ -25,7 +25,6 @@ class S3Client {
       });
       this.s3 = new S3({
         maxRetries: 3,
-        region: process.env.REGION,
         httpOptions: { agent }
       });
     }
