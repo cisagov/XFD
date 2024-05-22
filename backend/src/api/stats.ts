@@ -237,7 +237,12 @@ export const getSummary = wrapHandler(async (event) => {
     qs = await filterQuery(qs);
     const results = await qs.getRawMany();
     console.log(results)
-    const dictionary: { [key: string]: number } = {};
+    const dictionary: { [key: string]: number } = {
+      "Critical": 0,
+      "High": 0,
+      "Medium": 0,
+      "Low": 0
+    };
     
     results.forEach(e => {
       console.log
