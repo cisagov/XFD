@@ -1,7 +1,6 @@
 import { Query, Domain } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
-import { query } from 'express';
 
 export interface DomainQuery extends Query<Domain> {
   showAll?: boolean;
@@ -13,7 +12,7 @@ interface ApiResponse {
   url?: string;
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 
 export const useDomainApi = (showAll?: boolean) => {
   const { currentOrganization, apiPost, apiGet } = useAuthContext();
@@ -67,22 +66,8 @@ export const useDomainApi = (showAll?: boolean) => {
     [apiGet]
   );
 
-  const listAllDomains = useCallback(async () => {
-    const { result, count } = await apiPost<ApiResponse>('/domain/search', {
-      body: {
-        pageSize: -1
-      }
-    });
-
-    return {
-      domains: result,
-      count
-    };
-  }, [apiPost, showAll, currentOrganization]);
-
   return {
     listDomains,
-    getDomain,
-    listAllDomains
+    getDomain
   };
 };
