@@ -25,13 +25,11 @@ I18n.putVocabulariesForLanguage('en-US', {
   'Confirm TOTP Code': 'Enter 2FA Code'
 });
 
-const domain = process.env.COGNITO_DOMAIN || 'default_value';
-const clientId = process.env.COGNITO_CLIENT_ID || 'default_value';
-
+// Replace with commented code below when env vars are set
 const LoginButton = () => {
   const redirectToAuth = () => {
-    // Adjust this callback URL once determined
-    window.location.href = `https://${domain}/oauth2/authorize?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback`;
+    window.location.href =
+      'https://crossfeed-staging-okta-idp.auth.us-east-1.amazoncognito.com/oauth2/authorize?client_id=481n0fqrjiouharsddrv94c1a2&response_type=code&scope=email+openid+profile&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback';
   };
   return (
     <Button onClick={redirectToAuth} type={'button'}>
@@ -39,6 +37,21 @@ const LoginButton = () => {
     </Button>
   );
 };
+
+// Replace above component when env vars are set
+// const LoginButton = () => {
+//   const domain = process.env.COGNITO_DOMAIN || 'default_value';
+//   const clientId = process.env.COGNITO_CLIENT_ID || 'default_value';
+//   const redirectToAuth = () => {
+//     // Adjust this callback URL once determined
+//     window.location.href = `'https://${domain}/oauth2/authorize?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback'`;
+//   };
+//   return (
+//     <Button onClick={redirectToAuth} type={'button'}>
+//       Login with Okta
+//     </Button>
+//   );
+// };
 
 interface Errors extends Partial<FormData> {
   global?: string;
