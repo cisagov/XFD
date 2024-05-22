@@ -36,6 +36,12 @@ export class User extends BaseEntity {
   @Column({
     nullable: true
   })
+  oktaId: string;
+
+  @Index({ unique: true })
+  @Column({
+    nullable: true
+  })
   loginGovId: string;
 
   @CreateDateColumn()
