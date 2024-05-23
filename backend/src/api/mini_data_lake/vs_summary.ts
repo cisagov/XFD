@@ -252,7 +252,7 @@ export const assetCount = wrapHandler(async (event) => {
     order: { acronym: 'ASC' }
   });
   const acronymList = xfd_orgs.map((entity) => entity.acronym);
-  let result_dict: { [key: string]: number } = {};
+  const result_dict: { [key: string]: number } = {};
   const mdl_connection = await connectToDatalake2();
   for (const acronym of acronymList) {
     try {
