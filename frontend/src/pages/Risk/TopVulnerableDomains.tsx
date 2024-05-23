@@ -1,7 +1,8 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
 import { Chip } from '@mui/material';
-import { Point, VulnSeverities } from './Risk';
+import { VulnSeverities } from './Risk';
+import { Point } from 'types';
 import { useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
 import {

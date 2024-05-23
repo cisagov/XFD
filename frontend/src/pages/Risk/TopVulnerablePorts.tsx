@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import { Point } from './Risk';
+import { Point } from 'types';
 import { useHistory } from 'react-router-dom';
 import * as RiskStyles from './style';
 import { Paper } from '@mui/material';
