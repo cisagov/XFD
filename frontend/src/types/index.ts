@@ -9,7 +9,6 @@ export * from './user';
 export * from './role';
 export * from './scan-task';
 export * from './saved-search';
-export * from './stats';
 export * from './report';
 export * from './notification';
 

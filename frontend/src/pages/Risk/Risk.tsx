@@ -1,11 +1,12 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
-import { offsets, severities } from './utils';
-import * as RiskStyles from './style';
-import VSCommonServices from './VSCommonServices';
 import VulnerabilityCard from './VulnerabilityCard';
-import VulnerabilityFindings from './HighLevelFindings';
-import VulnSeverityCount from './VulnSeverityCount';
+import TopVulnerablePorts from './TopVulnerablePorts';
+import TopVulnerableDomains from './TopVulnerableDomains';
+import VulnerabilityPieChart from './VulnerabilityPieChart';
+import * as RiskStyles from './style';
+// import { delay, getSeverityColor, offsets, severities } from './utils';
+import { getSeverityColor, offsets, severities } from './utils';
 import { useAuthContext } from 'context';
 import { Paper } from '@mui/material';
 import { geoCentroid } from 'd3-geo';
@@ -18,16 +19,38 @@ import {
   Annotation
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
-import {
-  Point,
-  Stats,
-  SummaryStats,
-  VulnSummaryStats,
-  VulnerabilityCount
-} from 'types';
+import { Vulnerability } from 'types';
+// import { jsPDF } from 'jspdf';
+// import html2canvas from 'html2canvas';
+// import { Button as USWDSButton } from '@trussworks/react-uswds';
+
+export interface Point {
+  id: string;
+  label: string;
+  value: number;
+}
+
+interface Stats {
+  domains: {
+    services: Point[];
+    ports: Point[];
+    numVulnerabilities: Point[];
+    total: number;
+  };
+  vulnerabilities: {
+    severity: Point[];
+    byOrg: Point[];
+    latestVulnerabilities: Vulnerability[];
+    mostCommonVulnerabilities: VulnerabilityCount[];
+  };
+}
 
 interface ApiResponse {
   result: Stats;
+}
+
+interface VulnerabilityCount extends Vulnerability {
+  count: number;
 }
 
 export interface VulnSeverities {
@@ -47,18 +70,14 @@ const Risk: React.FC = (props) => {
     useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
-  const [summaryStats, setSummaryStats] = useState<SummaryStats | undefined>(
-    undefined
-  );
-  const [vulnSummaryStats, setVulnSummaryStats] = useState<
-    VulnSummaryStats | undefined
-  >(undefined);
   // const [isLoading, setIsLoading] = useState(false);
   const RiskRoot = RiskStyles.RiskRoot;
   const { cardRoot, content, contentWrapper, header, panel } =
     RiskStyles.classesRisk;
 
   const geoStateUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
+
+  const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
   const fetchStats = useCallback(
     async (orgId?: string) => {
@@ -87,52 +106,6 @@ const Risk: React.FC = (props) => {
   useEffect(() => {
     fetchStats();
   }, [fetchStats]);
-
-  const fetchSummaryStats = useCallback(
-    async (orgId?: string) => {
-      const result = await apiPost('/SummaryStats', {
-        body: {
-          filters:
-            (!orgId && showAllOrganizations) || !currentOrganization
-              ? {}
-              : orgId || 'rootDomains' in currentOrganization
-              ? {
-                  organization: orgId ? orgId : currentOrganization?.id
-                }
-              : { tag: currentOrganization.id }
-        }
-      });
-      setSummaryStats(result);
-    },
-    [showAllOrganizations, apiPost, currentOrganization]
-  );
-
-  useEffect(() => {
-    fetchSummaryStats();
-  }, [fetchSummaryStats]);
-
-  const fetchVulnSummaryStats = useCallback(
-    async (orgId?: string) => {
-      const result = await apiPost<VulnSummaryStats>('/vulnSummaryStats', {
-        body: {
-          filters:
-            (!orgId && showAllOrganizations) || !currentOrganization
-              ? {}
-              : orgId || 'rootDomains' in currentOrganization
-              ? {
-                  organization: orgId ? orgId : currentOrganization?.id
-                }
-              : { tag: currentOrganization.id }
-        }
-      });
-      setVulnSummaryStats(result);
-    },
-    [showAllOrganizations, apiPost, currentOrganization]
-  );
-
-  useEffect(() => {
-    fetchVulnSummaryStats();
-  }, [fetchVulnSummaryStats]);
 
   // TODO: Move MapCard to a separate component; requires refactoring of how fetchStats and authContext are passed
   const MapCard = ({
@@ -303,42 +276,53 @@ const Risk: React.FC = (props) => {
         {stats && (
           <div className={content}>
             <div className={panel}>
-              {summaryStats && summaryStats.org.acronym !== 'MANY' ? (
-                <VulnerabilityFindings
-                  title={'High Level Findings'}
-                  data={latestVulnsGroupedArr}
-                  summaryData={summaryStats}
-                  vulnSummaryData={vulnSummaryStats}
-                  showLatest={true}
-                  showCommon={false}
-                ></VulnerabilityFindings>
-              ) : (
-                <VulnSeverityCount data={summaryStats} />
-              )}
-              {stats.domains.services.length > 0 && (
-                <VSCommonServices
-                  title={'Most Common Services'}
-                  data={stats.domains.services}
-                  type={'services'}
-                />
-              )}
-            </div>
-            <div className={panel}>
               <VulnerabilityCard
                 title={'Latest Vulnerabilities'}
                 data={latestVulnsGroupedArr}
                 showLatest={true}
                 showCommon={false}
               ></VulnerabilityCard>
+              {stats.domains.services.length > 0 && (
+                <VulnerabilityPieChart
+                  title={'Most Common Services'}
+                  data={stats.domains.services}
+                  colors={allColors}
+                  type={'services'}
+                />
+              )}
+              {stats.domains.ports.length > 0 && (
+                <TopVulnerablePorts
+                  data={stats.domains.ports.slice(0, 5).reverse()}
+                />
+              )}
+              {stats.vulnerabilities.severity.length > 0 && (
+                <VulnerabilityPieChart
+                  title={'Severity Levels'}
+                  data={stats.vulnerabilities.severity}
+                  colors={getSeverityColor}
+                  type={'vulns'}
+                />
+              )}
+            </div>
+
+            <div className={panel}>
+              <Paper elevation={0} className={cardRoot}>
+                <div>
+                  {stats.domains.numVulnerabilities.length > 0 && (
+                    <TopVulnerableDomains
+                      data={stats.domains.numVulnerabilities}
+                    />
+                  )}
+                </div>
+              </Paper>
+
               <VulnerabilityCard
                 title={'Most Common Vulnerabilities'}
                 data={stats.vulnerabilities.mostCommonVulnerabilities}
                 showLatest={false}
                 showCommon={true}
               ></VulnerabilityCard>
-              {summaryStats && summaryStats.org.acronym !== 'MANY' && (
-                <VulnSeverityCount data={summaryStats} />
-              )}
+
               <div id="mapWrapper">
                 {(user?.userType === 'globalView' ||
                   user?.userType === 'globalAdmin') &&
