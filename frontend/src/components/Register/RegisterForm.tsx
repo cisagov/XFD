@@ -57,7 +57,6 @@ export const RegisterForm: React.FC<{
       );
       const data = await response.json();
       // Handle the response data here
-      console.log(data);
       return data;
     } catch (error) {
       // Handle any errors here
@@ -100,8 +99,6 @@ export const RegisterForm: React.FC<{
 
   const onSave = async () => {
     setIsLoading(true);
-    console.log('values: ', values);
-    console.log('This is where we will send the values to post.');
     const body = {
       firstName: values.firstName,
       lastName: values.lastName,
