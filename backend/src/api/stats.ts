@@ -386,7 +386,7 @@ export const getVulnSummary = wrapHandler(async (event) => {
 
   const filtered_inventory_query = await filterQuery(inventory_query);
   const inventory_result = await filtered_inventory_query.getRawMany();
-  let inventory_count = Number(inventory_result[0].count);
+  const inventory_count = Number(inventory_result[0].count);
 
   return {
     statusCode: 200,
