@@ -3,7 +3,7 @@ import { useHistory } from 'react-router-dom';
 import { ResponsiveCirclePacking } from '@nivo/circle-packing';
 import { scaleLinear } from 'd3-scale';
 import { Box, Paper } from '@mui/material';
-import { Point } from './Risk';
+import { Point } from 'types';
 import * as RiskStyles from './style';
 
 const VSCommonServices = (props: {
