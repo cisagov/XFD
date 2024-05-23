@@ -16,11 +16,9 @@ import * as scans from './scans';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
-import * as tickets from './mini_data_lake/tickets';
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
-import * as vs_summary from './mini_data_lake/vs_summary';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { UserType } from '../models';
@@ -424,11 +422,6 @@ authenticatedRoute.post(
   handlerToExpress(organizations.checkDomainVerification)
 );
 authenticatedRoute.post('/stats', handlerToExpress(stats.get));
-authenticatedRoute.post('/summaryStats', handlerToExpress(stats.getSummary));
-authenticatedRoute.post(
-  '/vulnSummaryStats',
-  handlerToExpress(stats.getVulnSummary)
-);
 authenticatedRoute.post('/users', handlerToExpress(users.invite));
 authenticatedRoute.get('/users', handlerToExpress(users.list));
 authenticatedRoute.delete('/users/:userId', handlerToExpress(users.del));
@@ -500,24 +493,6 @@ authenticatedRoute.get(
   handlerToExpress(organizations.getAllV2)
 );
 
-//*********************** */
-//  Mini Data Lake Routes   //
-//*********************** */
-
-authenticatedRoute.get(
-  '/mdl/countVulnerabilities/:organizationId',
-  handlerToExpress(tickets.countVulnerabilities)
-);
-
-authenticatedRoute.get(
-  '/mdl/vsAssetCount',
-  handlerToExpress(vs_summary.assetCount)
-);
-
-authenticatedRoute.get(
-  '/mdl/vsHighLevelFindings/:acronym',
-  handlerToExpress(vs_summary.findings)
-);
-
 app.use(authenticatedRoute);
+
 export default app;

@@ -108,7 +108,7 @@ export class Ticket extends BaseEntity {
   locationLatitude: number | null;
 
   @Column({ nullable: true })
-  open: boolean;
+  foundInLatestHostScan: boolean;
 
   @ManyToOne((type) => Organization, (org) => org.tickets, {
     onDelete: 'CASCADE',
