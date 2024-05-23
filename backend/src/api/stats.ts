@@ -1,6 +1,12 @@
 import { ValidateNested, IsOptional, IsObject, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
-import { Domain, connectToDatabase, Vulnerability, Service, Organization } from '../models';
+import {
+  Domain,
+  connectToDatabase,
+  Vulnerability,
+  Service,
+  Organization
+} from '../models';
 import { validateBody, wrapHandler } from './helpers';
 import { SelectQueryBuilder } from 'typeorm';
 import {
@@ -197,7 +203,6 @@ export const get = wrapHandler(async (event) => {
   };
 });
 
-
 /**
  * @swagger
  *
@@ -236,21 +241,21 @@ export const getSummary = wrapHandler(async (event) => {
   const performServiceQuery = async (qs: SelectQueryBuilder<any>) => {
     qs = await filterQuery(qs);
     const results = await qs.getRawMany();
-    console.log(results)
+    console.log(results);
     const dictionary: { [key: string]: number } = {
-      "Critical": 0,
-      "High": 0,
-      "Medium": 0,
-      "Low": 0
+      Critical: 0,
+      High: 0,
+      Medium: 0,
+      Low: 0
     };
-    
-    results.forEach(e => {
-      console.log
-        dictionary[String(e.id)] = Number(e.value);
+
+    results.forEach((e) => {
+      console.log;
+      dictionary[String(e.id)] = Number(e.value);
     });
-    
+
     return dictionary;
-};
+  };
 
   const severity = await performServiceQuery(
     Vulnerability.createQueryBuilder('vulnerability')
@@ -260,12 +265,16 @@ export const getSummary = wrapHandler(async (event) => {
       .groupBy('vulnerability.severity')
       .orderBy('vulnerability.severity', 'ASC')
   );
-  console.log(`The severity response is ${severity}`)
-  
+  console.log(`The severity response is ${severity}`);
+
   const organization_query = Organization.createQueryBuilder('organization')
-  .select('organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId", count(DISTINCT roles."userId") as members')
-  .leftJoin('organization.userRoles', 'roles')
-  .groupBy('organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId"')
+    .select(
+      'organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId", count(DISTINCT roles."userId") as members'
+    )
+    .leftJoin('organization.userRoles', 'roles')
+    .groupBy(
+      'organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId"'
+    );
   if (!isGlobalViewAdmin(event)) {
     organization_query.andWhere('organization.id IN (:...orgs)', {
       orgs: getOrgMemberships(event)
@@ -283,28 +292,28 @@ export const getSummary = wrapHandler(async (event) => {
   }
   const org_results = await organization_query.getRawMany();
 
-  let org
+  let org;
   if (org_results.length === 1) {
     org = org_results[0];
-    org.rootDomainCount = org.rootDomains.length
-} else {
-  let member_sum = 0;
-  let root_sum = 0;
-  for (const result of org_results) {
+    org.rootDomainCount = org.rootDomains.length;
+  } else {
+    let member_sum = 0;
+    let root_sum = 0;
+    for (const result of org_results) {
       member_sum += result.members;
-      root_sum += result.rootDomains.length
-  }
-    org ={
-      "name": "Multiple Organizations Selected",
-            "acronym": "MANY",
-            "rootDomains": [],
-            "ipBlocks": [],
-            "stateName": "NA",
-            "regionId": "NA",
-            "members": member_sum,
-            "rootDomainCount": root_sum
+      root_sum += result.rootDomains.length;
+    }
+    org = {
+      name: 'Multiple Organizations Selected',
+      acronym: 'MANY',
+      rootDomains: [],
+      ipBlocks: [],
+      stateName: 'NA',
+      regionId: 'NA',
+      members: member_sum,
+      rootDomainCount: root_sum
     };
-}
+  }
   return {
     statusCode: 200,
     body: JSON.stringify({
@@ -312,9 +321,7 @@ export const getSummary = wrapHandler(async (event) => {
       org
     })
   };
-
 });
-
 
 /**
  * @swagger
@@ -351,40 +358,39 @@ export const getVulnSummary = wrapHandler(async (event) => {
     return qs.cache(15 * 60 * 1000); // 15 minutes
   };
   const dnstwist_query = Vulnerability.createQueryBuilder('vulnerability')
-  .leftJoinAndSelect('vulnerability.domain', 'domain')
-  .select("count(*)")
-  .andWhere("vulnerability.state = 'open'")
-  .andWhere("vulnerability.cve = 'DNSTwist Suspicious Domain'")
+    .leftJoinAndSelect('vulnerability.domain', 'domain')
+    .select('count(*)')
+    .andWhere("vulnerability.state = 'open'")
+    .andWhere("vulnerability.cve = 'DNSTwist Suspicious Domain'");
 
-  const filtered_dnstwist_query = await filterQuery(dnstwist_query)
+  const filtered_dnstwist_query = await filterQuery(dnstwist_query);
   const dnstwist_results = await filtered_dnstwist_query.getRawMany();
-  let dnstwist_vuln_count
+  let dnstwist_vuln_count;
   dnstwist_vuln_count = Number(dnstwist_results[0].count);
 
   const cred_breach_query = Vulnerability.createQueryBuilder('vulnerability')
-  .leftJoinAndSelect('vulnerability.domain', 'domain')
-  .select("count(*)")
-  .andWhere("vulnerability.state = 'open'")
-  .andWhere("vulnerability.cve = 'Credential Breach'")
+    .leftJoinAndSelect('vulnerability.domain', 'domain')
+    .select('count(*)')
+    .andWhere("vulnerability.state = 'open'")
+    .andWhere("vulnerability.cve = 'Credential Breach'");
 
-  const filtered_cred_breach_query = await filterQuery(cred_breach_query)
+  const filtered_cred_breach_query = await filterQuery(cred_breach_query);
   const cred_breach_result = await filtered_cred_breach_query.getRawMany();
-  let cred_breach_count
+  let cred_breach_count;
   cred_breach_count = Number(cred_breach_result[0].count);
 
-
   let inventory_query = Domain.createQueryBuilder('domain')
-      .leftJoinAndSelect(
-        'domain.vulnerabilities',
-        'vulnerabilities',
-        "state = 'open'"
-      )
-      .select("count(Distinct domain.id)")
+    .leftJoinAndSelect(
+      'domain.vulnerabilities',
+      'vulnerabilities',
+      "state = 'open'"
+    )
+    .select('count(Distinct domain.id)');
 
-    const filtered_inventory_query = await filterQuery(inventory_query)
-    const inventory_result = await filtered_inventory_query.getRawMany();
-    let inventory_count
-    inventory_count = Number(inventory_result[0].count);
+  const filtered_inventory_query = await filterQuery(inventory_query);
+  const inventory_result = await filtered_inventory_query.getRawMany();
+  let inventory_count;
+  inventory_count = Number(inventory_result[0].count);
 
   return {
     statusCode: 200,
