@@ -1,43 +1,44 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import { Point } from 'types';
 import { useHistory } from 'react-router-dom';
 import * as RiskStyles from './style';
 import { Paper } from '@mui/material';
 import { scaleLinear } from 'd3-scale';
+import { SummaryStats } from 'types';
 
-const TopVulnerablePorts = (props: { data: Point[] }) => {
+const VulnSeverityCount = (props: { data: SummaryStats | undefined }) => {
   const history = useHistory();
   const { data } = props;
   const { cardRoot, cardSmall, header, chartSmall } = RiskStyles.classesRisk;
-  const dataVal = data.map((e) => ({ ...e, [['Port'][0]]: e.value })) as any;
 
-  const getMinMaxPort = (data: any[]): [number, number] => {
-    const ports = data
-      .filter((item) => item.Port !== null)
-      .map((item: { Port: any }) => item.Port);
-    const minPort = Math.min(...ports);
-    const maxPort = Math.max(...ports);
-    return [minPort, maxPort];
+  let severityArray: any[] = [];
+  if (data) {
+    severityArray = Object.entries(data?.severity);
+  }
+  const transformedData = severityArray.map(([id, value]) => ({ id, value }));
+
+  const getMinMaxValues = (transformedData: any[]): [number, number] => {
+    const values = transformedData
+      .filter((item) => item.value !== null)
+      .map((item: { value: any }) => item.value);
+    return [Math.min(...values), Math.max(...values)];
   };
   const colorScale = scaleLinear<string>()
-    .domain(getMinMaxPort(dataVal))
+    .domain(getMinMaxValues(transformedData))
     .range(['#7BC9FF', '#135787']);
 
   return (
     <Paper elevation={0} className={cardRoot}>
       <div className={cardSmall}>
         <div className={header}>
-          <h2>Most Common Ports</h2>
+          <h2>Vulnerability Severities</h2>
         </div>
         <div className={chartSmall}>
           <ResponsiveBar
-            data={dataVal}
+            data={transformedData}
             colors={({ value }) => colorScale(value ?? 0)}
-            keys={['Port']}
-            value="value"
-            layers={['grid', 'axes', 'bars', 'markers', 'legends']}
-            indexBy="label"
+            keys={['value']}
+            indexBy="id"
             margin={{ top: 30, right: 40, bottom: 75, left: 100 }}
             theme={{
               fontSize: 12,
@@ -49,10 +50,8 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
                 }
               }
             }}
-            onClick={(event) => {
-              history.push(
-                `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${event.data.label}_n&filters[0][type]=any`
-              );
+            onClick={() => {
+              history.push(`/inventory/vulnerabilities`);
               window.location.reload();
             }}
             padding={0.5}
@@ -63,7 +62,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
               tickSize: 0,
               tickPadding: 5,
               tickRotation: 0,
-              legend: 'Port',
+              legend: 'Severity',
               legendPosition: 'middle',
               legendOffset: 40
             }}
@@ -87,4 +86,4 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
     </Paper>
   );
 };
-export default TopVulnerablePorts;
+export default VulnSeverityCount;
