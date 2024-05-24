@@ -164,7 +164,6 @@ interface DecodedToken {
 
 // Okta Callback Handler
 app.post('/auth/callback', async (req, res) => {
-  console.log('Request Body: ', req.body);
   const { code } = req.body;
   const clientId = process.env.COGNITO_CLIENT_ID;
   const callbackUrl = process.env.COGNITO_CALLBACK_URL;
