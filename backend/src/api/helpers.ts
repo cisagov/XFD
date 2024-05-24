@@ -298,10 +298,10 @@ export const sendRegistrationApprovedEmail = async (
       replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
     };
 
-    /*const transporter = nodemailer.createTransport({
+    const transporter = nodemailer.createTransport({
       SES: new SES({ region: 'us-east-1' })
     });
-    await transporter.sendMail(mailOptions);*/
+    await transporter.sendMail(mailOptions);
   } catch (errorMessage) {
     console.log('Email error: ', errorMessage);
   }
