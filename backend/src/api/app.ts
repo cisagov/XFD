@@ -23,7 +23,6 @@ import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
 import { User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
-import axios from 'axios';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { CognitoIdentityServiceProvider } from 'aws-sdk';
