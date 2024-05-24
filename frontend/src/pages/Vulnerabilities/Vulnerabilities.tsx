@@ -6,7 +6,6 @@ import { Query } from 'types';
 import { useAuthContext } from 'context';
 import { Vulnerability } from 'types';
 import { Subnav } from 'components';
-import { parse } from 'query-string';
 import {
   Alert,
   Box,
@@ -171,26 +170,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   );
 
   console.log('vulnerabilities', vulnerabilities);
-
-  const initialFilterBy: Filters<Vulnerability> = [];
-  let initialSortBy: SortingRule<Vulnerability>[] = [];
-  const params = parse(window.location.search);
-  if (!('state' in params)) params['state'] = 'open';
-  for (const param of Object.keys(params)) {
-    if (param === 'sort') {
-      initialSortBy = [
-        {
-          id: params[param] as string,
-          desc: 'desc' in params ? params['desc'] === 'true' : true
-        }
-      ];
-    } else if (param !== 'desc') {
-      initialFilterBy.push({
-        id: param,
-        value: params[param] as string
-      });
-    }
-  }
 
   //Code for new table//
 
