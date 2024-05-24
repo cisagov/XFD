@@ -16,16 +16,23 @@ app.use(
 
 app.use(express.static(path.join(__dirname, '../docs/build')));
 
-const { origin, methods } = JSON.parse(process.env.CORS_DOCS);
 app.use(
   cors({
-    origin,
-    methods
+    origin: 'https://docs.crossfeed.cyber.dhs.gov/',
+    methods: 'GET'
   })
 );
 app.use(
   helmet({
-    contentSecurityPolicy: JSON.parse(process.env.CSP_DOCS),
+    contentSecurityPolicy: {
+      directives: {
+        baseUri: ["'none'"],
+        defaultSrc: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'none'"]
+      }
+    },
     hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
     xFrameOptions: 'DENY'
   })
