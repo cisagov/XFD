@@ -1,40 +1,28 @@
-import React, {
-  useState,
-  useCallback,
-  useRef,
-  useMemo,
-  useEffect
-} from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useHistory } from 'react-router-dom';
 import { classesVulns, Root } from './vulnerabilitiesStyle';
-import { TableInstance, Filters, SortingRule } from 'react-table';
+import { Filters, SortingRule } from 'react-table';
 import { Query } from 'types';
 import { useAuthContext } from 'context';
-// import { Table, Paginator } from 'components';
 import { Vulnerability } from 'types';
-// import classes from './styles.module.scss';
 import { Subnav } from 'components';
-// import { parse } from 'query-string';
-import { createColumns, createGroupedColumns } from './columns';
+import { parse } from 'query-string';
 import {
-  Paper,
   Alert,
+  Box,
   Button,
   IconButton,
   MenuItem,
-  // Select,
-  Menu
-  // FormControl,
-  // InputLabel
+  Menu,
+  Paper,
+  Stack
 } from '@mui/material';
-import { Box, Stack } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
-// import { he } from 'date-fns/locale';
 import { differenceInCalendarDays, parseISO, sub } from 'date-fns';
-// import { Form } from '@trussworks/react-uswds';
 
 export interface ApiResponse {
   result: Vulnerability[];
@@ -62,9 +50,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     useAuthContext();
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
-  const tableRef = useRef<TableInstance<Vulnerability>>(null);
-
-  const [noResults, setNoResults] = useState(false);
 
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
@@ -86,11 +71,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     },
     [setVulnerabilities, apiPut, vulnerabilities]
   );
-  const columns = useMemo(
-    () => createColumns(updateVulnerability),
-    [updateVulnerability]
-  );
-  const groupedColumns = useMemo(() => createGroupedColumns(), []);
 
   const vulnerabilitiesSearch = useCallback(
     async ({
@@ -177,7 +157,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         if (result.length === 0) return;
         setVulnerabilities(result);
         setTotalResults(count);
-        setNoResults(count === 0);
         setPaginationModel((prevState) => ({
           ...prevState,
           page: query.page - 1,
@@ -192,48 +171,26 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   );
 
   console.log('vulnerabilities', vulnerabilities);
-  // const fetchVulnerabilitiesExport = async (): Promise<string> => {
-  //   const { sortBy, filters } = tableRef.current?.state ?? {};
-  //   const { url } = (await vulnerabilitiesSearch({
-  //     filters: filters!,
-  //     sort: sortBy!,
-  //     page: 1,
-  //     pageSize: -1,
-  //     doExport: true
-  //   })) as ApiResponse;
-  //   return url!;
-  // };
 
-  // const renderPagination = (table: TableInstance<Vulnerability>) => (
-  //   <Paginator
-  //     table={table}
-  //     totalResults={totalResults}
-  //     export={{
-  //       name: 'vulnerabilities',
-  //       getDataToExport: fetchVulnerabilitiesExport
-  //     }}
-  //   />
-  // );
-
-  // const initialFilterBy: Filters<Vulnerability> = [];
-  // let initialSortBy: SortingRule<Vulnerability>[] = [];
-  // const params = parse(window.location.search);
-  // if (!('state' in params)) params['state'] = 'open';
-  // for (const param of Object.keys(params)) {
-  //   if (param === 'sort') {
-  //     initialSortBy = [
-  //       {
-  //         id: params[param] as string,
-  //         desc: 'desc' in params ? params['desc'] === 'true' : true
-  //       }
-  //     ];
-  //   } else if (param !== 'desc') {
-  //     initialFilterBy.push({
-  //       id: param,
-  //       value: params[param] as string
-  //     });
-  //   }
-  // }
+  const initialFilterBy: Filters<Vulnerability> = [];
+  let initialSortBy: SortingRule<Vulnerability>[] = [];
+  const params = parse(window.location.search);
+  if (!('state' in params)) params['state'] = 'open';
+  for (const param of Object.keys(params)) {
+    if (param === 'sort') {
+      initialSortBy = [
+        {
+          id: params[param] as string,
+          desc: 'desc' in params ? params['desc'] === 'true' : true
+        }
+      ];
+    } else if (param !== 'desc') {
+      initialFilterBy.push({
+        id: param,
+        value: params[param] as string
+      });
+    }
+  }
 
   //Code for new table//
 
@@ -271,6 +228,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     severity: vuln.severity,
     kev: vuln.isKev ? 'Yes' : 'No',
     domain: vuln.domain.name,
+    domainId: vuln.domain.id,
     product: vuln.cpe,
     createdAt: `${differenceInCalendarDays(
       Date.now(),
@@ -290,6 +248,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           <Button
             color="primary"
             style={{ textDecorationLine: 'underline' }}
+            endIcon={<OpenInNewIcon />}
             onClick={() =>
               window.open(
                 'https://nvd.nist.gov/vuln/detail/' + cellValues.row.title
@@ -346,14 +305,29 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     {
       field: 'kev',
       headerName: 'KEV',
-      minWidth: 75,
+      minWidth: 50,
       flex: 0.5
     },
     {
       field: 'domain',
       headerName: 'Domain',
       minWidth: 100,
-      flex: 1
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Button
+            color="primary"
+            style={{ textDecorationLine: 'underline' }}
+            sx={{ justifyContent: 'flex-start' }}
+            endIcon={<OpenInNewIcon />}
+            onClick={() =>
+              history.push('/inventory/domain/' + cellValues.row.domainId)
+            }
+          >
+            {cellValues.row.domain}
+          </Button>
+        );
+      }
     },
     {
       field: 'product',
@@ -394,9 +368,11 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           <div>
             <Button
               id="basic-button"
+              style={{ textDecorationLine: 'underline' }}
               aria-controls={open ? 'basic-menu' : undefined}
               aria-haspopup="true"
               aria-expanded={open ? 'true' : undefined}
+              endIcon={<ExpandMoreIcon />}
               onClick={handleClick}
             >
               {cellValues.row.state}
@@ -460,23 +436,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           ]}
         ></Subnav>
         <br></br>
-        {/* <div className={classes.root}>
-          <Table<Vulnerability>
-            renderPagination={renderPagination}
-            columns={groupBy ? groupedColumns : columns}
-            data={vulnerabilities}
-            pageCount={Math.ceil(totalResults / PAGE_SIZE)}
-            fetchData={fetchVulnerabilities}
-            tableRef={tableRef}
-            initialFilterBy={initialFilterBy}
-            initialSortBy={initialSortBy}
-            noResults={noResults}
-            pageSize={PAGE_SIZE}
-            noResultsMessage={
-              "We don't see any vulnerabilities that match your criteria."
-            }
-          />
-        </div> */}
         <Box mb={3} mt={3} display="flex" justifyContent="center">
           {vulnerabilities?.length === 0 ? (
             <Stack spacing={2}>
