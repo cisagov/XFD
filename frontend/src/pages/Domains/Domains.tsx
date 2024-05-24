@@ -37,6 +37,7 @@ export const Domains: React.FC = () => {
     async (q: Query<Domain>) => {
       try {
         const { domains, count } = await listDomains(q);
+        if (domains.length === 0) return;
         setDomains(domains);
         setTotalResults(count);
         setPaginationModel((prevState) => ({
@@ -154,14 +155,10 @@ export const Domains: React.FC = () => {
       <br></br>
       <Box mb={3} mt={3} display="flex" justifyContent="center">
         {domains?.length === 0 ? (
-          <Stack spacing={2}>
+          <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning">
-                {' '}
-                Unable to load domains or filter does not exist.
-              </Alert>
+              <Alert severity="warning"> Unable to load domains.</Alert>
             </Paper>
-            <br></br>
             <Button
               onClick={resetDomains}
               variant="contained"
