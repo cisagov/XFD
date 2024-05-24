@@ -73,7 +73,11 @@ app.use(express.json({ strict: false }));
 
 app.use(
   cors({
-    origin: 'http://localhost',
+    origin: [
+      'http://localhost',
+      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
+      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
+    ],
     methods: 'GET,POST,PUT,DELETE,OPTIONS'
   })
 );
@@ -84,13 +88,33 @@ app.use(
       directives: {
         defaultSrc: [
           "'self'",
+          'http://localhost',
           'https://cognito-idp.us-east-1.amazonaws.com',
-          'http://localhost'
+          'https://*.crossfeed.cyber.dhs.gov',
+          'https://crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov',
+          'https://readysetcyber.cyber.dhs.gov'
         ],
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
-        imgSrc: ["'self'", 'http://localhost', 'https://www.dhs.gov'],
+        imgSrc: [
+          "'self'",
+          'http://localhost',
+          'https://*.crossfeed.cyber.dhs.gov',
+          'https://crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov',
+          'https://readysetcyber.cyber.dhs.gov',
+          'https://www.dhs.gov'
+        ],
         objectSrc: ["'none'"],
-        scriptSrc: ["'self'", 'http://localhost', 'https://www.dhs.gov'],
+        scriptSrc: [
+          "'self'",
+          'http://localhost',
+          'https://*.crossfeed.cyber.dhs.gov',
+          'https://crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov',
+          'https://readysetcyber.cyber.dhs.gov',
+          'https://www.dhs.gov'
+        ],
         frameAncestors: ["'none'"]
       }
     },
