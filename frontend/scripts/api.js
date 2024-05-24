@@ -16,6 +16,8 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use(express.json({ strict: false }));
+
 app.use(
   cors({
     origin: [
