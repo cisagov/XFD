@@ -27,6 +27,7 @@ import axios from 'axios';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import { CognitoIdentityServiceProvider } from 'aws-sdk';
+import fetch from 'node-fetch';
 
 const sanitizer = require('sanitizer');
 
@@ -138,6 +139,7 @@ app.use(cookieParser());
 app.use(setAuthorizationHeader);
 
 app.get('/whoami', (req, res, next) => {
+  // TODO: Test and determine if this can be removed.
   // if (!req.isAuthenticated()) {
   //   console.log('User not authenticated.');
   //   return res.status(401).json({
@@ -163,9 +165,10 @@ interface DecodedToken {
   [key: string]: any; // Index signature for additional properties
 }
 
-// Latest Callback
-app.get('/auth/callback', async (req, res) => {
-  const { code } = req.query;
+// Okta Callback Handler
+app.post('/auth/callback', async (req, res) => {
+  console.log('Request Body: ', req.body);
+  const { code } = req.body;
   const clientId = process.env.COGNITO_CLIENT_ID;
   const callbackUrl = process.env.COGNITO_CALLBACK_URL;
   const domain = process.env.COGNITO_DOMAIN;
@@ -179,24 +182,22 @@ app.get('/auth/callback', async (req, res) => {
       throw new Error('callbackUrl is required');
     }
 
-    const response = await axios({
-      method: 'post',
-      url: `https://${domain}/oauth2/token`,
-      data: `grant_type=authorization_code&client_id=${clientId}&code=${code}&redirect_uri=${encodeURIComponent(
-        callbackUrl
-      )}&scope=openid`,
+    const tokenEndpoint = `https://${domain}/oauth2/token`;
+    const tokenData = `grant_type=authorization_code&client_id=${clientId}&code=${code}&redirect_uri=${callbackUrl}&scope=openid`;
+
+    const response = await fetch(tokenEndpoint, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
-      }
+      },
+      body: tokenData
     });
-
-    const { id_token, access_token, refresh_token } = response.data;
+    const { id_token, access_token, refresh_token } = await response.json();
 
     if (!id_token) {
       throw new Error('ID token is missing in the response');
     }
 
-    // Decode the ID token to get user data and attributes
     const decodedToken = jwt.decode(id_token) as DecodedToken;
     if (!decodedToken) {
       throw new Error('Failed to decode ID token');
@@ -210,7 +211,6 @@ app.get('/auth/callback', async (req, res) => {
     console.log('ID Token:', id_token);
     console.log('Decoded Token:', decodedToken);
 
-    // Verify the ID token before signing a new one
     jwt.verify(
       id_token,
       auth.getKey,
@@ -221,27 +221,24 @@ app.get('/auth/callback', async (req, res) => {
           return res.status(401).json({ message: 'Invalid ID token' });
         }
 
-        // Connect to the database
         await connectToDatabase();
 
-        // Look up or create user in the database based on the decoded token's information
         let user = await User.findOne({ email: decodedToken.email });
 
         if (!user) {
           user = User.create({
             email: decodedToken.email,
-            // username: cognitoUsername,
             oktaId: oktaId,
             firstName: decodedToken.given_name,
             lastName: decodedToken.family_name,
             invitePending: true
           });
-          if (user) {
-            await user.save();
-          }
+          await user.save();
+        } else {
+          user.oktaId = oktaId;
+          await user.save();
         }
 
-        // Set tokens in secure cookies
         res.cookie('access_token', access_token, {
           httpOnly: true,
           secure: true
@@ -252,25 +249,17 @@ app.get('/auth/callback', async (req, res) => {
         });
 
         if (user) {
-          // Update okta id
-          user.oktaId = decodedToken['custom:OKTA_ID'];
-          user.save();
-          // Ensure JWT_SECRET is defined
           if (!process.env.JWT_SECRET) {
             throw new Error('JWT_SECRET is not defined');
           }
 
-          // Sign a new token with your application's secret key
           const signedToken = await jwt.sign(
             { id: user.id, email: user.email },
-            process.env.JWT_SECRET, // Ensure JWT_SECRET is defined
+            process.env.JWT_SECRET,
             { expiresIn: '1d' }
           );
+
           res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
-          // res.cookie('crossfeed-token', signedToken, {
-          //   httpOnly: true,
-          //   secure: true
-          // });
 
           return res.status(200).json({
             token: signedToken,
@@ -293,7 +282,6 @@ app.get('/auth/callback', async (req, res) => {
 
 app.get('/', handlerToExpress(healthcheck));
 app.post('/auth/login', handlerToExpress(auth.login));
-// app.post('/auth/callback', handlerToExpress(auth.callback));
 app.post('/users/register', handlerToExpress(users.register));
 app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 

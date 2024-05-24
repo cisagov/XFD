@@ -22,6 +22,7 @@ import {
   Domains,
   Feeds,
   LoginGovCallback,
+  OktaCallback,
   RegionUsers,
   Reports,
   Risk,
@@ -122,6 +123,7 @@ const App: React.FC = () => (
                     path="/login-gov-callback"
                     component={LoginGovCallback}
                   />
+                  <Route exact path="/okta-callback" component={OktaCallback} />
                   <Route
                     exact
                     path="/create-account"
