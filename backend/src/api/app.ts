@@ -140,12 +140,10 @@ app.use(setAuthorizationHeader);
 app.get('/whoami', (req, res, next) => {
   // TODO: Test and determine if this can be removed.
   // if (!req.isAuthenticated()) {
-  //   console.log('User not authenticated.');
   //   return res.status(401).json({
   //     message: 'Unauthorized'
   //   });
   // } else {
-  //   console.log('User Authenticated');
 
   //   // You can log other SAML attributes similarly
   //   // return res.status(200).json({ user: req.user });
