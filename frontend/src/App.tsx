@@ -132,31 +132,31 @@ const App: React.FC = () => (
                     exact
                     path="/inventory"
                     component={SearchPage}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/inventory/domain/:domainId"
                     component={Domain}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard path="/inventory/domains" component={Domains} />
                   <RouteGuard
                     path="/inventory/vulnerabilities"
                     exact
                     component={Vulnerabilities}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/inventory/vulnerabilities/grouped"
                     component={(props) => (
                       <Vulnerabilities {...props} groupBy="title" />
                     )}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/inventory/vulnerability/:vulnerabilityId"
                     component={Vulnerability}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/feeds"
@@ -166,7 +166,7 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/reports"
                     component={Reports}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard path="/admin-tools" component={AdminTools} />
                   <RouteGuard
@@ -177,7 +177,7 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/organizations"
                     component={Organizations}
-                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/users"
@@ -187,7 +187,7 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/settings"
                     component={Settings}
-                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/region-admin-dashboard"
@@ -213,13 +213,23 @@ const App: React.FC = () => (
                     path="/readysetcyber/dashboard"
                     component={RSCDashboard}
                     render={() => <Redirect to="/readysetcyber/dashboard" />}
-                    permissions={['readySetCyber']}
+                    permissions={[
+                      'globalView',
+                      'readySetCyber',
+                      'regionalAdmin',
+                      'standard'
+                    ]}
                     unauth={RSCLogin}
                   />
                   <RouteGuard
                     path="/readysetcyber/result/:id"
                     component={RSCDetail}
-                    permissions={['readySetCyber']}
+                    permissions={[
+                      'globalView',
+                      'readySetCyber',
+                      'regionalAdmin',
+                      'standard'
+                    ]}
                     unauth={RSCLogin}
                   />
                 </Switch>
