@@ -29,9 +29,10 @@ I18n.putVocabulariesForLanguage('en-US', {
 // page which will remove the extra unnecessary login screen step.
 const LoginButton = () => {
   // TODO: Capture default values here once determined
-  const domain = process.env.COGNITO_DOMAIN || 'default_value';
-  const clientId = process.env.COGNITO_CLIENT_ID || 'default_value';
-  const callbackUrl = process.env.COGNITO_CALLBACK_URL || 'default_value';
+  const domain = process.env.REACT_APP_COGNITO_DOMAIN || 'default_value';
+  const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID || 'default_value';
+  const callbackUrl =
+    process.env.REACT_APP_COGNITO_CALLBACK_URL || 'default_value';
   const encodedCallbackUrl = encodeURIComponent(callbackUrl);
 
   const redirectToAuth = () => {

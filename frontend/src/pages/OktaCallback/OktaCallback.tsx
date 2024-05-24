@@ -21,11 +21,14 @@ export const OktaCallback: React.FC = () => {
 
     try {
       // Pass request to backend callback endpoint
-      const response = await apiPost<OktaCallbackResponse>('/auth/callback', {
-        body: {
-          code: code
+      const response = await apiPost<OktaCallbackResponse>(
+        '/auth/okta-callback',
+        {
+          body: {
+            code: code
+          }
         }
-      });
+      );
       console.log('Response: ', response);
       console.log('token ', response.token);
 

@@ -163,11 +163,11 @@ interface DecodedToken {
 }
 
 // Okta Callback Handler
-app.post('/auth/callback', async (req, res) => {
+app.post('/auth/okta-callback', async (req, res) => {
   const { code } = req.body;
-  const clientId = process.env.COGNITO_CLIENT_ID;
-  const callbackUrl = process.env.COGNITO_CALLBACK_URL;
-  const domain = process.env.COGNITO_DOMAIN;
+  const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID;
+  const callbackUrl = process.env.REACT_APP_COGNITO_CALLBACK_URL;
+  const domain = process.env.REACT_APP_COGNITO_DOMAIN;
 
   if (!code) {
     return res.status(400).json({ message: 'Missing authorization code' });
@@ -252,7 +252,7 @@ app.post('/auth/callback', async (req, res) => {
           const signedToken = await jwt.sign(
             { id: user.id, email: user.email },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' }
+            { expiresIn: '14m' }
           );
 
           res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
@@ -278,6 +278,7 @@ app.post('/auth/callback', async (req, res) => {
 
 app.get('/', handlerToExpress(healthcheck));
 app.post('/auth/login', handlerToExpress(auth.login));
+app.post('/auth/callback', handlerToExpress(auth.callback));
 app.post('/users/register', handlerToExpress(users.register));
 app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 
