@@ -34,20 +34,26 @@ app.use(
           "'self'",
           'https://cognito-idp.us-east-1.amazonaws.com',
           'https://*.crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov'
+          'https://crossfeed.cyber.dhs.gov',
+          'https://*.readysetcyber.cyber.dhs.gov',
+          'https://readysetcyber.cyber.dhs.gov'
         ],
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
           'https://*.crossfeed.cyber.dhs.gov',
+          'https://crossfeed.cyber.dhs.gov',
           'https://*.readysetcyber.cyber.dhs.gov',
+          'https://readysetcyber.cyber.dhs.gov',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
           'https://*.crossfeed.cyber.dhs.gov',
+          'https://crossfeed.cyber.dhs.gov',
           'https://*.readysetcyber.cyber.dhs.gov',
+          'https://readysetcyber.cyber.dhs.gov',
           'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
