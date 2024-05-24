@@ -33,9 +33,13 @@ export const RSCSideNav: React.FC<Props> = ({ categories }) => {
           {categories.map((category, index) => (
             <RSCNavItem key={index} name={category.name} />
           ))}
-          <ListItemButton>Take Questionnaire Again</ListItemButton>
+          <ListItemButton style={{ outline: 'none' }}>
+            Take Questionnaire Again
+          </ListItemButton>
           <Divider component="li" />
-          <ListItemButton onClick={logout}>Logout</ListItemButton>
+          <ListItemButton style={{ outline: 'none' }} onClick={logout}>
+            Logout
+          </ListItemButton>
         </List>
       </Box>
     </Box>
