@@ -183,6 +183,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     filters: []
   });
 
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
   const resetVulnerabilities = useCallback(() => {
     fetchVulnerabilities({
       page: 1,
@@ -326,7 +328,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       minWidth: 100,
       flex: 1,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
         const open = Boolean(anchorEl);
         const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
           setAnchorEl(event.currentTarget);
