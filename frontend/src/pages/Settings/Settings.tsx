@@ -1,11 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React from 'react';
 import classes from './Settings.module.css';
 import { useAuthContext } from 'context';
-import { Button, ModalRef } from '@trussworks/react-uswds';
+import { Button } from '@trussworks/react-uswds';
 
 const Settings: React.FC = () => {
   const { logout, user } = useAuthContext();
-  const modalRef = useRef<ModalRef>(null);
 
   return (
     <div className={classes.root}>
