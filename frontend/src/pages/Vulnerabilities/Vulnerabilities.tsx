@@ -21,7 +21,7 @@ import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
-import { differenceInCalendarDays, parseISO, sub } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 export interface ApiResponse {
   result: Vulnerability[];
