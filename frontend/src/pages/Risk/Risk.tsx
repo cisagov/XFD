@@ -238,13 +238,13 @@ const Risk: React.FC = (props) => {
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 
-  if (stats) {
-    for (const sev of severities) {
-      sev.disable = !stats.domains.numVulnerabilities.some((i) =>
-        sev.sevList.includes(i.id.split('|')[1])
-      );
-    }
-  }
+  // if (stats) {
+  //   for (const sev of severities) {
+  //     sev.disable = !stats.domains.numVulnerabilities.some((i) =>
+  //       sev.sevList.includes(i.id.split('|')[1])
+  //     );
+  //   }
+  // }
 
   // TODO: Move generatePDF to a separate component
   // const generatePDF = async () => {
