@@ -41,6 +41,7 @@ app.use(
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
+          'data:image',
           'https://*.crossfeed.cyber.dhs.gov',
           'https://crossfeed.cyber.dhs.gov',
           'https://*.readysetcyber.cyber.dhs.gov',
