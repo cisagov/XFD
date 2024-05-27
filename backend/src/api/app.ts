@@ -71,6 +71,7 @@ app.use(
 
 app.use(express.json({ strict: false }));
 
+// These CORS origins work in all Crossfeed environments
 app.use(
   cors({
     origin: [
@@ -82,37 +83,27 @@ app.use(
   })
 );
 
+// The API URLs are different in each environment
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: [
           "'self'",
-          'http://localhost',
           'https://cognito-idp.us-east-1.amazonaws.com',
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://readysetcyber.cyber.dhs.gov'
+          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
         ],
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
           'data:image',
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://readysetcyber.cyber.dhs.gov',
+          'https://api.staging-cd.crossfeed.cyber.dhs.gov',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'http://localhost',
-          'https://*.crossfeed.cyber.dhs.gov',
-          'https://crossfeed.cyber.dhs.gov',
-          'https://*.readysetcyber.cyber.dhs.gov',
-          'https://readysetcyber.cyber.dhs.gov',
+          'https://api.staging-cd.crossfeed.cyber.dhs.gov',
           'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
