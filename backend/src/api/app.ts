@@ -209,7 +209,7 @@ app.post('/auth/okta-callback', async (req, res) => {
 
     jwt.verify(
       id_token,
-      auth.getKey,
+      auth.getOktaKey,
       { algorithms: ['RS256'] },
       async (err, payload) => {
         if (err) {
