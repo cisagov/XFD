@@ -52,7 +52,7 @@ const client = jwksClient({
 });
 
 const oktaClient = jwksClient({
-  jwksUri: `https://cognito-idp.us-east-1.amazonaws.com/${process.env.REACT_APP_OKTA_USER_POOL_ID}/.well-known/jwks.json`
+  jwksUri: `https://cognito-idp.us-east-1.amazonaws.com/${process.env.REACT_APP_COGNITO_USER_POOL_ID}/.well-known/jwks.json`
 });
 
 export function getKey(header, callback) {
