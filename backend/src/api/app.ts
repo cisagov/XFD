@@ -96,8 +96,8 @@ app.use(
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
-          'data:image',
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov',
+          'data:',
+          'https://staging-cd.crossfeed.cyber.dhs.gov',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
