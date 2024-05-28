@@ -39,6 +39,18 @@ export const stateMap: { [key: string]: string } = {
   remediated: 'Remediated'
 };
 
+export interface TestVulnerability {
+  id: string;
+  title: string;
+  severity: string;
+  kev: string;
+  domain: string;
+  domainId: string;
+  product: string;
+  createdAt: string;
+  state: string;
+}
+
 export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   groupBy = undefined
 }: {
@@ -203,20 +215,22 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     });
   }, [fetchVulnerabilities]);
 
-  const testVulnerabilities = vulnerabilities.map((vuln) => ({
-    id: vuln.id,
-    title: vuln.title,
-    severity: vuln.severity,
-    kev: vuln.isKev ? 'Yes' : 'No',
-    domain: vuln.domain.name,
-    domainId: vuln.domain.id,
-    product: vuln.cpe,
-    createdAt: `${differenceInCalendarDays(
-      Date.now(),
-      parseISO(vuln.createdAt)
-    )} days`,
-    state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
-  }));
+  const testVulnerabilities: TestVulnerability[] = vulnerabilities.map(
+    (vuln) => ({
+      id: vuln.id,
+      title: vuln.title,
+      severity: vuln.severity ?? 'N/A',
+      kev: vuln.isKev ? 'Yes' : 'No',
+      domain: vuln.domain.name,
+      domainId: vuln.domain.id,
+      product: vuln.cpe ?? 'N/A',
+      createdAt: `${differenceInCalendarDays(
+        Date.now(),
+        parseISO(vuln.createdAt)
+      )} days`,
+      state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
+    })
+  );
 
   const vulCols: GridColDef[] = [
     {
