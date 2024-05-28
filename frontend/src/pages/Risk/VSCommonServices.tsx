@@ -2,7 +2,7 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import { ResponsiveCirclePacking } from '@nivo/circle-packing';
 import { scaleLinear } from 'd3-scale';
-import { Box, Paper } from '@mui/material';
+import { Box, Paper, Typography } from '@mui/material';
 import { Point } from 'types';
 import * as RiskStyles from './style';
 
@@ -36,26 +36,32 @@ const VSCommonServices = (props: {
         </div>
         <div className={chartSmall}>
           <Box sx={{ width: '100%', height: '100%' }}>
-            <ResponsiveCirclePacking
-              data={{ name: 'network-protocols', children: data }}
-              margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
-              id="id"
-              value="value"
-              colorBy="id"
-              colors={({ value }) => colorScale(value)}
-              leavesOnly={true}
-              label={({ id, value }) => `${id}: ${value}`}
-              padding={1}
-              enableLabels={true}
-              labelTextColor="white"
-              onClick={(event) => {
-                if (type === 'vulns') {
-                  history.push(
-                    `/inventory/vulnerabilities?severity=${event.id}`
-                  );
-                }
-              }}
-            />
+            {data.length <= 0 ? (
+              <Typography variant="h6" sx={{ p: 3 }} fontWeight="bold">
+                No domain service data
+              </Typography>
+            ) : (
+              <ResponsiveCirclePacking
+                data={{ name: 'network-protocols', children: data }}
+                margin={{ top: 10, right: 10, bottom: 10, left: 10 }}
+                id="id"
+                value="value"
+                colorBy="id"
+                colors={({ value }) => colorScale(value)}
+                leavesOnly={true}
+                label={({ id, value }) => `${id}: ${value}`}
+                padding={1}
+                enableLabels={true}
+                labelTextColor="white"
+                onClick={(event) => {
+                  if (type === 'vulns') {
+                    history.push(
+                      `/inventory/vulnerabilities?severity=${event.id}`
+                    );
+                  }
+                }}
+              />
+            )}
           </Box>
         </div>
       </div>

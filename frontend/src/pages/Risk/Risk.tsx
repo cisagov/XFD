@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
-import { offsets, severities } from './utils';
+import { offsets } from './utils';
 import * as RiskStyles from './style';
 import VSCommonServices from './VSCommonServices';
 import VulnerabilityCard from './VulnerabilityCard';
@@ -315,13 +315,11 @@ const Risk: React.FC = (props) => {
               ) : (
                 <VulnSeverityCount data={summaryStats} />
               )}
-              {stats.domains.services.length > 0 && (
-                <VSCommonServices
-                  title={'Most Common Services'}
-                  data={stats.domains.services}
-                  type={'services'}
-                />
-              )}
+              <VSCommonServices
+                title={'Most Common Services'}
+                data={stats.domains.services}
+                type={'services'}
+              />
             </div>
             <div className={panel}>
               <VulnerabilityCard
