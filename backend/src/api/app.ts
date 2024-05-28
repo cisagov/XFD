@@ -21,10 +21,18 @@ import * as reports from './reports';
 import * as savedSearches from './saved-searches';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { UserType } from '../models';
+import { User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
+import * as jwt from 'jsonwebtoken';
+import { Request, Response, NextFunction } from 'express';
+import { CognitoIdentityServiceProvider } from 'aws-sdk';
+import fetch from 'node-fetch';
 
 const sanitizer = require('sanitizer');
+
+const cognito = new CognitoIdentityServiceProvider({
+  region: process.env.AWS_REGION
+});
 
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
@@ -119,10 +127,166 @@ app.use(
 
 app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '0');
+  // Okta header
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   next();
 });
 
+const setAuthorizationHeader = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const accessToken = req.cookies.access_token;
+
+  if (accessToken) {
+    req.headers.authorization = `Bearer ${accessToken}`;
+  }
+
+  next();
+};
+
 app.use(cookieParser());
+app.use(setAuthorizationHeader);
+
+app.get('/whoami', (req, res, next) => {
+  // TODO: Test and determine if this can be removed.
+  // if (!req.isAuthenticated()) {
+  //   return res.status(401).json({
+  //     message: 'Unauthorized'
+  //   });
+  // } else {
+
+  //   // You can log other SAML attributes similarly
+  //   // return res.status(200).json({ user: req.user });
+  // }
+  return next();
+});
+
+interface DecodedToken {
+  sub: string;
+  email: string;
+  'cognito:username': string;
+  'custom:OKTA_ID': string;
+  given_name: string;
+  family_name: string;
+  email_verified: boolean;
+  [key: string]: any; // Index signature for additional properties
+}
+
+// Okta Callback Handler
+app.post('/auth/okta-callback', async (req, res) => {
+  const { code } = req.body;
+  const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID;
+  const callbackUrl = process.env.REACT_APP_COGNITO_CALLBACK_URL;
+  const domain = process.env.REACT_APP_COGNITO_DOMAIN;
+
+  if (!code) {
+    return res.status(400).json({ message: 'Missing authorization code' });
+  }
+
+  try {
+    if (!callbackUrl) {
+      throw new Error('callbackUrl is required');
+    }
+
+    const tokenEndpoint = `https://${domain}/oauth2/token`;
+    const tokenData = `grant_type=authorization_code&client_id=${clientId}&code=${code}&redirect_uri=${callbackUrl}&scope=openid`;
+
+    const response = await fetch(tokenEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: tokenData
+    });
+    const { id_token, access_token, refresh_token } = await response.json();
+
+    if (!id_token) {
+      throw new Error('ID token is missing in the response');
+    }
+
+    const decodedToken = jwt.decode(id_token) as DecodedToken;
+    if (!decodedToken) {
+      throw new Error('Failed to decode ID token');
+    }
+
+    const cognitoUsername = decodedToken['cognito:username'];
+    const oktaId = decodedToken['custom:OKTA_ID'];
+    console.log('Cognito Username:', cognitoUsername);
+    console.log('Cognito OKTA_ID:', oktaId);
+
+    console.log('ID Token:', id_token);
+    console.log('Decoded Token:', decodedToken);
+
+    jwt.verify(
+      id_token,
+      auth.getOktaKey,
+      { algorithms: ['RS256'] },
+      async (err, payload) => {
+        if (err) {
+          console.log('Error: ', err);
+          return res.status(401).json({ message: 'Invalid ID token' });
+        }
+
+        await connectToDatabase();
+
+        let user = await User.findOne({ email: decodedToken.email });
+
+        if (!user) {
+          user = User.create({
+            email: decodedToken.email,
+            oktaId: oktaId,
+            firstName: decodedToken.given_name,
+            lastName: decodedToken.family_name,
+            invitePending: true
+          });
+          await user.save();
+        } else {
+          user.oktaId = oktaId;
+          await user.save();
+        }
+
+        res.cookie('access_token', access_token, {
+          httpOnly: true,
+          secure: true
+        });
+        res.cookie('refresh_token', refresh_token, {
+          httpOnly: true,
+          secure: true
+        });
+
+        if (user) {
+          if (!process.env.JWT_SECRET) {
+            throw new Error('JWT_SECRET is not defined');
+          }
+
+          const signedToken = await jwt.sign(
+            { id: user.id, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: '14m' }
+          );
+
+          res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
+
+          return res.status(200).json({
+            token: signedToken,
+            user: user
+          });
+        }
+      }
+    );
+  } catch (error) {
+    console.error(
+      'Token exchange error:',
+      error.response ? error.response.data : error.message
+    );
+    res.status(500).json({
+      message: 'Authentication failed',
+      error: error.response ? error.response.data : error.message
+    });
+  }
+});
 
 app.get('/', handlerToExpress(healthcheck));
 app.post('/auth/login', handlerToExpress(auth.login));
@@ -133,18 +297,33 @@ app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 app.get('/notifications', handlerToExpress(notifications.list));
 
 const checkUserLoggedIn = async (req, res, next) => {
-  req.requestContext = {
-    authorizer: await auth.authorize({
-      authorizationToken: req.headers.authorization
-    })
-  };
-  if (
-    !req.requestContext.authorizer.id ||
-    req.requestContext.authorizer.id === 'cisa:crossfeed:anonymous'
-  ) {
+  console.log('Checking if user is logged in.');
+
+  const authorizationHeader = req.headers.authorization;
+
+  if (!authorizationHeader) {
     return res.status(401).send('Not logged in');
   }
-  return next();
+
+  try {
+    req.requestContext = {
+      authorizer: await auth.authorize({
+        authorizationToken: authorizationHeader
+      })
+    };
+
+    if (
+      !req.requestContext.authorizer.id ||
+      req.requestContext.authorizer.id === 'cisa:crossfeed:anonymous'
+    ) {
+      return res.status(401).send('Not logged in');
+    }
+
+    return next();
+  } catch (error) {
+    console.error('Error authorizing user:', error);
+    return res.status(500).send('Internal server error');
+  }
 };
 
 const checkUserSignedTerms = (req, res, next) => {

@@ -25,6 +25,28 @@ I18n.putVocabulariesForLanguage('en-US', {
   'Confirm TOTP Code': 'Enter 2FA Code'
 });
 
+// TODO make this redirection link replace the primary login UI component on landing
+// page which will remove the extra unnecessary login screen step.
+const LoginButton = () => {
+  // TODO: Capture default values here once determined
+  const domain = process.env.REACT_APP_COGNITO_DOMAIN || 'default_value';
+  const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID || 'default_value';
+  const callbackUrl =
+    process.env.REACT_APP_COGNITO_CALLBACK_URL || 'default_value';
+  const encodedCallbackUrl = encodeURIComponent(callbackUrl);
+
+  const redirectToAuth = () => {
+    // Adjust this callback URL once determined
+    window.location.href = `https://${domain}/oauth2/authorize?client_id=${clientId}&response_type=code&scope=email+openid+profile&redirect_uri=${encodedCallbackUrl}`;
+  };
+
+  return (
+    <Button onClick={redirectToAuth} type={'button'}>
+      Login with Okta
+    </Button>
+  );
+};
+
 interface Errors extends Partial<FormData> {
   global?: string;
 }
@@ -212,6 +234,11 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = ({
             >
               Register Now
             </Link>
+          </Box>
+        </Grid>
+        <Grid item xs={12}>
+          <Box pt={3} display="flex" justifyContent="center">
+            <LoginButton />
           </Box>
         </Grid>
         <Grid item xs={12}>
