@@ -219,6 +219,23 @@ const Risk: React.FC = (props) => {
     }
   }
 
+  if (user && user.invitePending) {
+    return (
+      <div
+        // TODO: Temporary Message. Update global style as needed
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh',
+          fontWeight: 'bold'
+        }}
+      >
+        <h3>Invite is pending. Request has been sent for approval.</h3>
+      </div>
+    );
+  }
+
   // TODO: Move generatePDF to a separate component
   // const generatePDF = async () => {
   //   const dateTimeNow = new Date(); // UTC Date Time

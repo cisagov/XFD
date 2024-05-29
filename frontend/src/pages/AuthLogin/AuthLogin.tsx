@@ -42,7 +42,7 @@ const LoginButton = () => {
 
   return (
     <Button onClick={redirectToAuth} type={'button'}>
-      Login with Okta
+      Sign in with LOGIN.GOV
     </Button>
   );
 };
