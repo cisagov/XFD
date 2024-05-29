@@ -1,5 +1,6 @@
 import { Client } from '@elastic/elasticsearch';
 import { Domain, Webpage } from '../models';
+import { query } from 'express';
 
 export const DOMAINS_INDEX = 'domains-5';
 
@@ -200,6 +201,20 @@ class ESClient {
     return this.client.search({
       index: DOMAINS_INDEX,
       body
+    });
+  }
+  /**
+   * Searches for ports.
+   * @param body Elasticsearch query body.
+   */
+  async searchPorts(body: any) {
+    // TODO: Not functioning
+    return this.client.search({
+      body: {
+        query: {
+          match: { port: body }
+        }
+      }
     });
   }
 

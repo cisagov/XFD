@@ -192,11 +192,19 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           }
           existingSavedSearch={search}
         />
-        {noResults && (
-          <NoResults
-            message={"We don't see any results that match your criteria."}
-          ></NoResults>
-        )}
+        {noResults &&
+          (console.log(
+            'noResults variable is: ',
+            noResults,
+            ' and facet variable is: ',
+            searchTerm
+          ),
+          (
+            // Remove Console.log after testing
+            <NoResults
+              message={"We don't see any results that match your criteria."}
+            ></NoResults>
+          ))}
         <div className={classes.content}>
           <div className={classes.panel} onScroll={handleResultScroll}>
             {results.map((result) => (

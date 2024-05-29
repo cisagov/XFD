@@ -36,15 +36,18 @@ function buildResults(hits) {
     return { raw: value, ...(snippet && { snippet }) };
   };
 
-  return hits.map((record) => {
-    const hit = Object.entries(record._source)
-      .map(([fieldName, fieldValue]) => [
-        fieldName,
-        toObject(fieldValue, getHighlight(record, fieldName))
-      ])
-      .reduce(addEachKeyValueToObject, {});
-    return { ...hit, inner_hits: record.inner_hits };
-  });
+  return hits.map(
+    (record) => {
+      const hit = Object.entries(record._source)
+        .map(([fieldName, fieldValue]) => [
+          fieldName,
+          toObject(fieldValue, getHighlight(record, fieldName))
+        ])
+        .reduce(addEachKeyValueToObject, {});
+      return { ...hit, inner_hits: record.inner_hits };
+    },
+    console.log('This is the hits: ', hits) // Remove after testing
+  );
 }
 
 /*

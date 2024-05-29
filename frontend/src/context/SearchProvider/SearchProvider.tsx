@@ -76,6 +76,10 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       });
       const responseJsonWithDisjunctiveFacetCounts =
         await applyDisjunctiveFaceting(responseJson, state, ['fromRootDomain']);
+      console.log('The body: ', body); // Remove after testing
+      console.log('The state: ', state); // Remove after testing
+      console.log('disjunctive facet name', ['fromRootDomain']); // Remove after testing
+      console.log('The response: ', responseJson); // Remove after testing
       return buildState(responseJsonWithDisjunctiveFacetCounts, resultsPerPage);
     }
   };

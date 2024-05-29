@@ -128,6 +128,7 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
             onSubmit={(e) => {
               e.preventDefault();
               onChange(query);
+              console.log('Search for:', query); // Remove after testing
             }}
           >
             <input

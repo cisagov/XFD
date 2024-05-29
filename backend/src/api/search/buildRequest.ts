@@ -73,6 +73,7 @@ export function buildRequest(
 
   const sort = buildSort(sortDirection, sortField);
   const match = buildMatch(searchTerm);
+  console.log('The match: ', match); // Remove after testing
   const size = resultsPerPage;
   const from = buildFrom(current, resultsPerPage);
   const filter = buildRequestFilter(filters);
