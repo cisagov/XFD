@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
+import { Card, CardContent, Typography } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
@@ -222,16 +223,24 @@ const Risk: React.FC = (props) => {
   if (user && user.invitePending) {
     return (
       <div
-        // TODO: Temporary Message. Update global style as needed
         style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          height: '100vh',
-          fontWeight: 'bold'
+          height: '100vh'
         }}
       >
-        <h3>Invite is pending. Request has been sent for approval.</h3>
+        <Card style={{ maxWidth: 400, textAlign: 'center' }}>
+          <CardContent>
+            <Typography variant="h5" component="h2">
+              REQUEST SENT
+            </Typography>
+            <Typography variant="body1">
+              Thank you for requesting a Crossfeed account, you will receive
+              notification once this request is approved.
+            </Typography>
+          </CardContent>
+        </Card>
       </div>
     );
   }
