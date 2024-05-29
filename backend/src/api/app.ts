@@ -30,10 +30,6 @@ import fetch from 'node-fetch';
 
 const sanitizer = require('sanitizer');
 
-const cognito = new CognitoIdentityServiceProvider({
-  region: process.env.AWS_REGION
-});
-
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
   typeof jest === 'undefined'
