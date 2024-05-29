@@ -5,7 +5,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
-import { ALLOW_ORIGIN, ALLOW_METHODS } from './constants.js';
 import logger from 'lambda-logger';
 
 export const app = express();
@@ -28,25 +27,41 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: ALLOW_ORIGIN, methods: ALLOW_METHODS }));
+// These CORS origins work in all Crossfeed environments
+app.use(
+  cors({
+    origin: [
+      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
+      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
+    ],
+    methods: 'GET,POST,PUT,DELETE,OPTIONS'
+  })
+);
 
+// The API URLs are different in each environment
 app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
         defaultSrc: [
           "'self'",
-          `'${process.env.COGNITO_URL}'`,
-          `'${process.env.BACKEND_DOMAIN}'`
+          `${process.env.COGNITO_URL}`,
+          `${process.env.BACKEND_DOMAIN}`
+        ],
+        frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
+        imgSrc: [
+          "'self'",
+          'data:',
+          `https://${process.env.DOMAIN}`,
+          'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          `'${process.env.BACKEND_DOMAIN}'`
-          // Add any other allowed script sources here
+          `${process.env.BACKEND_DOMAIN}`,
+          'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
-        // Add other directives as needed
       }
     },
     hsts: {
