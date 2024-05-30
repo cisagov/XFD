@@ -21,7 +21,7 @@ const LoginButton = () => {
 
   return (
     <Button onClick={redirectToAuth} type={'button'}>
-      Sign in with Okta
+      Sign in with LOGIN.GOV
     </Button>
   );
 };
