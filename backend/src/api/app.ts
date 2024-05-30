@@ -31,10 +31,6 @@ import logger from '../tools/lambda-logger';
 
 const sanitizer = require('sanitizer');
 
-const cognito = new CognitoIdentityServiceProvider({
-  region: process.env.AWS_REGION
-});
-
 if (
   (process.env.IS_OFFLINE || process.env.IS_LOCAL) &&
   typeof jest === 'undefined'
@@ -209,6 +205,9 @@ app.post('/auth/okta-callback', async (req, res) => {
   const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID;
   const callbackUrl = process.env.REACT_APP_COGNITO_CALLBACK_URL;
   const domain = process.env.REACT_APP_COGNITO_DOMAIN;
+  console.log('Okta ClientID: ', clientId);
+  console.log('Okta CallbackURL: ', callbackUrl);
+  console.log('Okta Domain: ', domain);
 
   if (!code) {
     return res.status(400).json({ message: 'Missing authorization code' });
@@ -229,6 +228,7 @@ app.post('/auth/okta-callback', async (req, res) => {
       },
       body: tokenData
     });
+    console.log('Okta token response: ', response);
     const { id_token, access_token, refresh_token } = await response.json();
 
     if (!id_token) {
@@ -268,7 +268,10 @@ app.post('/auth/okta-callback', async (req, res) => {
             oktaId: oktaId,
             firstName: decodedToken.given_name,
             lastName: decodedToken.family_name,
-            invitePending: true
+            invitePending: true,
+            // TODO: Replace these default Region/State values with user selection
+            state: 'Virginia',
+            regionId: '3'
           });
           await user.save();
         } else {
@@ -500,6 +503,29 @@ app.use(
   peProxy
 );
 
+const checkGlobalAdminOrRegionAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = (await auth.authorize({
+      authorizationToken: req.headers.authorization
+    })) as auth.UserToken;
+
+    if (
+      user.userType !== UserType.GLOBAL_ADMIN &&
+      user.userType !== UserType.REGIONAL_ADMIN
+    ) {
+      return res.status(401).send('Unauthorized');
+    }
+    next();
+  } catch (error) {
+    console.error('Error authorizing user:', error);
+    return res.status(500).send('Internal server error');
+  }
+};
+
 // Routes that require an authenticated user, without
 // needing to sign the terms of service yet
 const authenticatedNoTermsRoute = express.Router();
@@ -672,6 +698,7 @@ authenticatedRoute.post(
 //Authenticated Registration Routes
 authenticatedRoute.put(
   '/users/:userId/register/approve',
+  checkGlobalAdminOrRegionAdmin,
   handlerToExpress(users.registrationApproval)
 );
 
