@@ -1,5 +1,6 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
+import { Card, CardContent, Typography } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
@@ -217,6 +218,31 @@ const Risk: React.FC = (props) => {
         sev.sevList.includes(i.id.split('|')[1])
       );
     }
+  }
+
+  if (user && user.invitePending) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '100vh'
+        }}
+      >
+        <Card style={{ maxWidth: 400, textAlign: 'center' }}>
+          <CardContent>
+            <Typography variant="h5" component="h2">
+              REQUEST SENT
+            </Typography>
+            <Typography variant="body1">
+              Thank you for requesting a Crossfeed account, you will receive
+              notification once this request is approved.
+            </Typography>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   // TODO: Move generatePDF to a separate component

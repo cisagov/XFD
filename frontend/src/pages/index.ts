@@ -4,6 +4,7 @@ export * from './AuthCreateAccount';
 export * from './Domains';
 export * from './Domain';
 export * from './LoginGovCallback';
+export * from './OktaCallback';
 export * from './Scans';
 export * from './Search';
 export * from './TermsOfUse';

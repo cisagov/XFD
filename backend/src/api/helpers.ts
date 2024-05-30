@@ -285,7 +285,8 @@ export const sendRegistrationApprovedEmail = async (
     const template = handlebars.compile(htmlTemplate);
     const data = {
       firstName: firstName,
-      lastName: lastName
+      lastName: lastName,
+      domain: process.env.FRONTEND_DOMAIN!
     };
 
     const htmlToSend = template(data);
