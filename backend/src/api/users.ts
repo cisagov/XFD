@@ -894,6 +894,9 @@ export const inviteV2 = wrapHandler(async (event) => {
  *    - Users
  */
 export const updateV2 = wrapHandler(async (event) => {
+  if (!canAccessUser(event, event.pathParameters?.userId)) return Unauthorized;
+  await connectToDatabase();
+
   // Get the user id from the path
   const userId = event.pathParameters?.userId;
 
@@ -904,9 +907,10 @@ export const updateV2 = wrapHandler(async (event) => {
 
   // Validate the body
   const body = await validateBody(UpdateUser, event.body);
-
-  // Connect to the database
-  await connectToDatabase();
+  if (!isGlobalWriteAdmin(event) && body.userType) {
+    // Non-global admins can't set userType
+    return Unauthorized;
+  }
 
   const user = await User.findOne(userId);
   if (!user) {

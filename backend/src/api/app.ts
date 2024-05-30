@@ -472,7 +472,7 @@ app.use(
   peProxy
 );
 
-const checkGlobalAdmin = async (
+const checkGlobalAdminOrRegionAdmin = async (
   req: Request,
   res: Response,
   next: NextFunction
@@ -482,7 +482,10 @@ const checkGlobalAdmin = async (
       authorizationToken: req.headers.authorization
     })) as auth.UserToken;
 
-    if (user.userType !== UserType.GLOBAL_ADMIN) {
+    if (
+      user.userType !== UserType.GLOBAL_ADMIN &&
+      user.userType !== UserType.REGIONAL_ADMIN
+    ) {
       return res.status(401).send('Unauthorized');
     }
     next();
@@ -662,7 +665,7 @@ authenticatedRoute.post(
 //Authenticated Registration Routes
 authenticatedRoute.put(
   '/users/:userId/register/approve',
-  checkGlobalAdmin,
+  checkGlobalAdminOrRegionAdmin,
   handlerToExpress(users.registrationApproval)
 );
 
@@ -695,11 +698,7 @@ authenticatedRoute.get('/assessments/:id', handlerToExpress(assessments.get));
 //************* */
 
 // Users
-authenticatedRoute.put(
-  '/v2/users/:userId',
-  checkGlobalAdmin,
-  handlerToExpress(users.updateV2)
-);
+authenticatedRoute.put('/v2/users/:userId', handlerToExpress(users.updateV2));
 authenticatedRoute.get('/v2/users', handlerToExpress(users.getAllV2));
 
 // Organizations
