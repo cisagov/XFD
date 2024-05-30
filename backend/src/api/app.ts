@@ -472,6 +472,26 @@ app.use(
   peProxy
 );
 
+const checkGlobalAdmin = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const user = (await auth.authorize({
+      authorizationToken: req.headers.authorization
+    })) as auth.UserToken;
+
+    if (user.userType !== UserType.GLOBAL_ADMIN) {
+      return res.status(401).send('Unauthorized');
+    }
+    next();
+  } catch (error) {
+    console.error('Error authorizing user:', error);
+    return res.status(500).send('Internal server error');
+  }
+};
+
 // Routes that require an authenticated user, without
 // needing to sign the terms of service yet
 const authenticatedNoTermsRoute = express.Router();
@@ -642,6 +662,7 @@ authenticatedRoute.post(
 //Authenticated Registration Routes
 authenticatedRoute.put(
   '/users/:userId/register/approve',
+  checkGlobalAdmin,
   handlerToExpress(users.registrationApproval)
 );
 
@@ -674,7 +695,11 @@ authenticatedRoute.get('/assessments/:id', handlerToExpress(assessments.get));
 //************* */
 
 // Users
-authenticatedRoute.put('/v2/users/:userId', handlerToExpress(users.updateV2));
+authenticatedRoute.put(
+  '/v2/users/:userId',
+  checkGlobalAdmin,
+  handlerToExpress(users.updateV2)
+);
 authenticatedRoute.get('/v2/users', handlerToExpress(users.getAllV2));
 
 // Organizations

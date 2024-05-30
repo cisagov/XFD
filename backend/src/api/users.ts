@@ -223,13 +223,11 @@ export const update = wrapHandler(async (event) => {
     }
   );
   if (user) {
-    console.log(JSON.stringify({ original_user: user }));
     user.firstName = body.firstName ?? user.firstName;
     user.lastName = body.lastName ?? user.lastName;
     user.fullName = user.firstName + ' ' + user.lastName;
     user.userType = body.userType ?? user.userType;
     await User.save(user);
-    console.log(JSON.stringify({ updated_user: user }));
     return {
       statusCode: 200,
       body: JSON.stringify(user)
@@ -562,7 +560,6 @@ export const register = wrapHandler(async (event) => {
     regionId: REGION_STATE_MAP[body.state],
     invitePending: true
   };
-  console.log(JSON.stringify(newUser));
 
   await connectToDatabase();
 
