@@ -223,13 +223,11 @@ export const update = wrapHandler(async (event) => {
     }
   );
   if (user) {
-    console.log(JSON.stringify({ original_user: user }));
     user.firstName = body.firstName ?? user.firstName;
     user.lastName = body.lastName ?? user.lastName;
     user.fullName = user.firstName + ' ' + user.lastName;
     user.userType = body.userType ?? user.userType;
     await User.save(user);
-    console.log(JSON.stringify({ updated_user: user }));
     return {
       statusCode: 200,
       body: JSON.stringify(user)
@@ -562,7 +560,6 @@ export const register = wrapHandler(async (event) => {
     regionId: REGION_STATE_MAP[body.state],
     invitePending: true
   };
-  console.log(JSON.stringify(newUser));
 
   await connectToDatabase();
 
@@ -897,6 +894,9 @@ export const inviteV2 = wrapHandler(async (event) => {
  *    - Users
  */
 export const updateV2 = wrapHandler(async (event) => {
+  if (!canAccessUser(event, event.pathParameters?.userId)) return Unauthorized;
+  await connectToDatabase();
+
   // Get the user id from the path
   const userId = event.pathParameters?.userId;
 
@@ -907,9 +907,10 @@ export const updateV2 = wrapHandler(async (event) => {
 
   // Validate the body
   const body = await validateBody(UpdateUser, event.body);
-
-  // Connect to the database
-  await connectToDatabase();
+  if (!isGlobalWriteAdmin(event) && body.userType) {
+    // Non-global admins can't set userType
+    return Unauthorized;
+  }
 
   const user = await User.findOne(userId);
   if (!user) {
