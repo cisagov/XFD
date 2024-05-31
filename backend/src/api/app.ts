@@ -28,6 +28,7 @@ import { Request, Response, NextFunction } from 'express';
 import { CognitoIdentityServiceProvider } from 'aws-sdk';
 import fetch from 'node-fetch';
 import logger from '../tools/lambda-logger';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
 const sanitizer = require('sanitizer');
 
@@ -221,12 +222,15 @@ app.post('/auth/okta-callback', async (req, res) => {
     const tokenEndpoint = `https://${domain}/oauth2/token`;
     const tokenData = `grant_type=authorization_code&client_id=${clientId}&code=${code}&redirect_uri=${callbackUrl}&scope=openid`;
 
+    process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
     const response = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded'
       },
-      body: tokenData
+      body: tokenData,
+      agent: new HttpsProxyAgent('http://proxy.lz.us-cert.gov:8080')
     });
     console.log('Okta token response: ', response);
     const { id_token, access_token, refresh_token } = await response.json();

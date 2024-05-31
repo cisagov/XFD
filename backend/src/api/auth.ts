@@ -56,7 +56,11 @@ const client = jwksClient({
 });
 
 const oktaClient = jwksClient({
-  jwksUri: `${process.env.COGNITO_URL}/${process.env.REACT_APP_COGNITO_USER_POOL_ID}/.well-known/jwks.json`
+  jwksUri: `${process.env.COGNITO_URL}/${process.env.REACT_APP_COGNITO_USER_POOL_ID}/.well-known/jwks.json`,
+  getKeysInterceptor: () => {
+    const jwksJson = JSON.parse(process.env.REACT_APP_USER_POOL_KEY!);
+    return jwksJson.keys;
+  }
 });
 
 export function getKey(header, callback) {
@@ -170,7 +174,6 @@ export const callback = async (event, context) => {
     user.loginBlockedByMaintenance = loginBlocked;
     user.save();
   }
-  console.log(user);
 
   // If user does not exist, create it
   if (!user) {
