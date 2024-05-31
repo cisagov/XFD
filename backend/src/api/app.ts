@@ -25,7 +25,6 @@ import { User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { CognitoIdentityServiceProvider } from 'aws-sdk';
 import fetch from 'node-fetch';
 
 const sanitizer = require('sanitizer');
@@ -108,6 +107,7 @@ app.use(
         scriptSrc: [
           "'self'",
           'https://api.staging-cd.crossfeed.cyber.dhs.gov',
+          'https://www.ssa.gov/accessibility/andi/andi.js',
           'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
