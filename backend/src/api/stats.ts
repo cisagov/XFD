@@ -114,25 +114,39 @@ export const get = wrapHandler(async (event) => {
     .groupBy('services.port')
     .orderBy('value', 'DESC');
 
-  const latestVulnerabilitiesQuery = await (await filterQuery(Vulnerability.createQueryBuilder('vulnerability')
-    .leftJoinAndSelect('vulnerability.domain', 'domain')
-    .andWhere("vulnerability.state = 'open'")
-    .orderBy('vulnerability.createdAt', 'ASC')
-    .limit(MAX_RESULTS))).getMany();
+  const latestVulnerabilitiesQuery = await (
+    await filterQuery(
+      Vulnerability.createQueryBuilder('vulnerability')
+        .leftJoinAndSelect('vulnerability.domain', 'domain')
+        .andWhere("vulnerability.state = 'open'")
+        .orderBy('vulnerability.createdAt', 'ASC')
+        .limit(MAX_RESULTS)
+    )
+  ).getMany();
 
-  const mostCommonVulnerabilitiesQuery = await (await filterQuery(Vulnerability.createQueryBuilder('vulnerability')
-    .leftJoinAndSelect('vulnerability.domain', 'domain')
-    .andWhere("vulnerability.state = 'open'")
-    .select('vulnerability.title, vulnerability.description, vulnerability.severity, count(*) as count')
-    .groupBy('vulnerability.title, vulnerability.description, vulnerability.severity')
-    .orderBy('count', 'DESC')
-    .limit(MAX_RESULTS))).getMany();
+  const mostCommonVulnerabilitiesQuery = await (
+    await filterQuery(
+      Vulnerability.createQueryBuilder('vulnerability')
+        .leftJoinAndSelect('vulnerability.domain', 'domain')
+        .andWhere("vulnerability.state = 'open'")
+        .select(
+          'vulnerability.title, vulnerability.description, vulnerability.severity, count(*) as count'
+        )
+        .groupBy(
+          'vulnerability.title, vulnerability.description, vulnerability.severity'
+        )
+        .orderBy('count', 'DESC')
+        .limit(MAX_RESULTS)
+    )
+  ).getMany();
 
   const byOrgQuery = Domain.createQueryBuilder('domain')
     .innerJoinAndSelect('domain.organization', 'organization')
     .innerJoinAndSelect('domain.vulnerabilities', 'vulnerabilities')
     .andWhere("vulnerabilities.state = 'open'")
-    .select('organization.name as id, organization.id as "orgId", count(*) as value')
+    .select(
+      'organization.name as id, organization.id as "orgId", count(*) as value'
+    )
     .groupBy('organization.name, organization.id')
     .orderBy('value', 'DESC');
 
@@ -154,22 +168,20 @@ export const get = wrapHandler(async (event) => {
   const result: Stats = {
     domains: {
       services,
-      ports,
+      ports
     },
     vulnerabilities: {
       latestVulnerabilities,
       mostCommonVulnerabilities,
-      byOrg,
-    },
+      byOrg
+    }
   };
 
   return {
     statusCode: 200,
-    body: JSON.stringify({ result }),
+    body: JSON.stringify({ result })
   };
 });
-
-
 
 /**
  * @swagger
@@ -235,17 +247,19 @@ export const getSummary = wrapHandler(async (event) => {
         .groupBy('vulnerability.severity')
         .orderBy('vulnerability.severity', 'ASC')
     ),
-    (await filterQuery(
-      Organization.createQueryBuilder('organization')
-        .select(
-          'organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId", count(DISTINCT roles."userId") as members'
-        )
-        .leftJoin('organization.userRoles', 'roles')
-        .groupBy(
-          'organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId"'
-        ),
-      'organization.id'
-    )).getRawMany()
+    (
+      await filterQuery(
+        Organization.createQueryBuilder('organization')
+          .select(
+            'organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId", count(DISTINCT roles."userId") as members'
+          )
+          .leftJoin('organization.userRoles', 'roles')
+          .groupBy(
+            'organization.name, organization.acronym, organization."rootDomains", organization."ipBlocks", organization."stateName", organization."regionId"'
+          ),
+        'organization.id'
+      )
+    ).getRawMany()
   ]);
 
   // Process organization results to get organization object
@@ -254,8 +268,14 @@ export const getSummary = wrapHandler(async (event) => {
     organization = orgResults[0];
     organization.rootDomainCount = organization.rootDomains.length;
   } else {
-    const memberSum = orgResults.reduce((sum, result) => sum + result.members, 0);
-    const rootSum = orgResults.reduce((sum, result) => sum + result.rootDomains.length, 0);
+    const memberSum = orgResults.reduce(
+      (sum, result) => sum + result.members,
+      0
+    );
+    const rootSum = orgResults.reduce(
+      (sum, result) => sum + result.rootDomains.length,
+      0
+    );
     organization = {
       name: 'Multiple Organizations Selected',
       acronym: 'MANY',
@@ -276,7 +296,6 @@ export const getSummary = wrapHandler(async (event) => {
     })
   };
 });
-
 
 /**
  * @swagger
@@ -313,35 +332,38 @@ export const getVulnSummary = wrapHandler(async (event) => {
   };
 
   // Execute queries concurrently
-  const [
-    dnstwistResults,
-    credBreachResult,
-    inventoryResult
-  ] = await Promise.all([
-    (await filterQuery(
-      Vulnerability.createQueryBuilder('vulnerability')
-        .leftJoinAndSelect('vulnerability.domain', 'domain')
-        .select('count(*)')
-        .andWhere("vulnerability.state = 'open'")
-        .andWhere("vulnerability.cve = 'DNSTwist Suspicious Domain'")
-    )).getRawMany(),
-    (await filterQuery(
-      Vulnerability.createQueryBuilder('vulnerability')
-        .leftJoinAndSelect('vulnerability.domain', 'domain')
-        .select('count(*)')
-        .andWhere("vulnerability.state = 'open'")
-        .andWhere("vulnerability.cve = 'Credential Breach'")
-    )).getRawMany(),
-    (await filterQuery(
-      Domain.createQueryBuilder('domain')
-        .leftJoinAndSelect(
-          'domain.vulnerabilities',
-          'vulnerabilities',
-          "state = 'open'"
+  const [dnstwistResults, credBreachResult, inventoryResult] =
+    await Promise.all([
+      (
+        await filterQuery(
+          Vulnerability.createQueryBuilder('vulnerability')
+            .leftJoinAndSelect('vulnerability.domain', 'domain')
+            .select('count(*)')
+            .andWhere("vulnerability.state = 'open'")
+            .andWhere("vulnerability.cve = 'DNSTwist Suspicious Domain'")
         )
-        .select('count(Distinct domain.id)')
-    )).getRawMany()
-  ]);
+      ).getRawMany(),
+      (
+        await filterQuery(
+          Vulnerability.createQueryBuilder('vulnerability')
+            .leftJoinAndSelect('vulnerability.domain', 'domain')
+            .select('count(*)')
+            .andWhere("vulnerability.state = 'open'")
+            .andWhere("vulnerability.cve = 'Credential Breach'")
+        )
+      ).getRawMany(),
+      (
+        await filterQuery(
+          Domain.createQueryBuilder('domain')
+            .leftJoinAndSelect(
+              'domain.vulnerabilities',
+              'vulnerabilities',
+              "state = 'open'"
+            )
+            .select('count(Distinct domain.id)')
+        )
+      ).getRawMany()
+    ]);
 
   // Extract counts from query results
   const dnstwistVulnCount = Number(dnstwistResults[0]?.count || 0);
@@ -357,4 +379,3 @@ export const getVulnSummary = wrapHandler(async (event) => {
     })
   };
 });
-
