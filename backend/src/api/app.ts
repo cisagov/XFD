@@ -101,6 +101,7 @@ app.use(
           "'self'",
           'data:',
           'https://staging-cd.crossfeed.cyber.dhs.gov',
+          'https://www.ssa.gov/accessibility/andi/icons',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
