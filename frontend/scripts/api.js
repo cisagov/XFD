@@ -48,8 +48,9 @@ app.use(
         scriptSrc: [
           "'self'",
           'https://api.staging-cd.crossfeed.cyber.dhs.gov',
-          'https://ajax.googleapis.com/ajax/libs/jquery',
-          'https://www.ssa.gov/accessibility/andi',
+          'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
+          'https://www.ssa.gov/accessibility/andi/fandi.js',
+          'https://www.ssa.gov/accessibility/andi/andi.js',
           'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
