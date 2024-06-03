@@ -4,7 +4,8 @@ import {
   connectToDatabase,
   ApiKey,
   OrganizationTag,
-  UserType
+  UserType,
+  Organization
 } from '../models';
 import { getRegion } from './organizations';
 import * as jwt from 'jsonwebtoken';
@@ -25,6 +26,7 @@ export interface UserToken {
   acceptedTermsVersion: string | undefined;
   lastLoggedIn: Date | undefined;
   loginBlockedByMaintenance: boolean | false;
+  regionId: string | undefined;
 }
 
 interface CognitoUserToken {
@@ -92,7 +94,8 @@ export const userTokenBody = (user): UserToken => ({
     .map((role) => ({
       org: role.organization.id,
       role: role.role
-    }))
+    })),
+    regionId: user.regionId
 });
 
 /**
@@ -292,6 +295,13 @@ export const isRegionalAdminForOrganization = (
   );
 };
 
+export const isOnlyRegionalAdmin = (event: APIGatewayProxyEvent) => {
+  return !!(
+    event.requestContext.authorizer &&
+    (event.requestContext.authorizer.userType === UserType.REGIONAL_ADMIN)
+  );
+};
+
 export const matchesRegion = async (
   regionId?: string,
   organizationId?: string
@@ -336,6 +346,19 @@ export const getTagOrganizations = async (
   if (tag) return tag?.organizations.map((org) => org.id);
   return [];
 };
+
+export const getRegionOrganizations = async (
+  event: APIGatewayProxyEvent
+): Promise<string[]> => {
+  if (!isRegionalAdmin(event)) return [];
+  if (!event.requestContext.authorizer) return [];
+  await connectToDatabase();
+  console.log(event.requestContext.authorizer)
+  const orgs = await Organization.find({ where: { regionId: event.requestContext.authorizer.regionId } })
+  console.log('in region query')
+  console.log(orgs)
+  return orgs.map(org => org.id);
+}
 
 /** Returns a user's id */
 export const getUserId = (event: APIGatewayProxyEvent): string => {

@@ -12,7 +12,10 @@ import { SelectQueryBuilder } from 'typeorm';
 import {
   isGlobalViewAdmin,
   getOrgMemberships,
-  getTagOrganizations
+  getRegionOrganizations,
+  getTagOrganizations,
+  isRegionalAdmin,
+  isOnlyRegionalAdmin,
 } from './auth';
 
 interface Point {
@@ -70,10 +73,15 @@ export const get = wrapHandler(async (event) => {
   const filterQuery = async (
     qs: SelectQueryBuilder<any>
   ): Promise<SelectQueryBuilder<any>> => {
-    if (!isGlobalViewAdmin(event)) {
+    if (!isGlobalViewAdmin(event) && !isRegionalAdmin(event)) {
       qs.andWhere('domain."organizationId" IN (:...orgs)', {
         orgs: getOrgMemberships(event)
       });
+    }
+    if (isOnlyRegionalAdmin(event)){
+      qs.andWhere('domain."organizationId" IN (:...orgs)',{
+        orgs: await getRegionOrganizations(event)
+      })
     }
     if (search.filters?.organization) {
       qs.andWhere('domain."organizationId" = :org', {
@@ -201,10 +209,16 @@ export const getSummary = wrapHandler(async (event) => {
     qs: SelectQueryBuilder<any>,
     entityType: string
   ): Promise<SelectQueryBuilder<any>> => {
-    if (!isGlobalViewAdmin(event)) {
+    if (!isGlobalViewAdmin(event) && !isRegionalAdmin(event)) {
       qs.andWhere(`${entityType} IN (:...orgs)`, {
         orgs: getOrgMemberships(event)
       });
+    }
+    
+    if (isOnlyRegionalAdmin(event)){
+      qs.andWhere(`${entityType}  IN (:...orgs)`,{
+        orgs: await getRegionOrganizations(event)
+      })
     }
     if (search.filters?.organization) {
       qs.andWhere(`${entityType} = :org`, {
@@ -313,10 +327,15 @@ export const getVulnSummary = wrapHandler(async (event) => {
   const filterQuery = async (
     qs: SelectQueryBuilder<any>
   ): Promise<SelectQueryBuilder<any>> => {
-    if (!isGlobalViewAdmin(event)) {
+    if (!isGlobalViewAdmin(event)  && !isRegionalAdmin(event)) {
       qs.andWhere('domain."organizationId" IN (:...orgs)', {
         orgs: getOrgMemberships(event)
       });
+    }
+    if (isOnlyRegionalAdmin(event)){
+      qs.andWhere('domain."organizationId" IN (:...orgs)',{
+        orgs: await getRegionOrganizations(event)
+      })
     }
     if (search.filters?.organization) {
       qs.andWhere('domain."organizationId" = :org', {
