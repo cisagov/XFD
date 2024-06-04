@@ -1,9 +1,9 @@
 export * from './AuthLogin';
-export * from './AuthLogin/AuthLoginCreate';
 export * from './AuthCreateAccount';
 export * from './Domains';
 export * from './Domain';
 export * from './LoginGovCallback';
+export * from './OktaCallback';
 export * from './Scans';
 export * from './Search';
 export * from './TermsOfUse';
@@ -17,7 +17,6 @@ export { default as RegionUsers } from './RegionUsers';
 export { default as Reports } from './Reports';
 export { default as Risk } from './Risk';
 export { default as Scan } from './Scan';
-// export { default as Scans } from './Scans';
 export { default as Settings } from './Settings';
 export { default as Users } from './Users';
 export { default as Vulnerabilities } from './Vulnerabilities';

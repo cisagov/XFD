@@ -5,7 +5,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
-import { ALLOW_ORIGIN, ALLOW_METHODS } from './constants.js';
 
 export const app = express();
 
@@ -17,8 +16,18 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({ origin: ALLOW_ORIGIN, methods: ALLOW_METHODS }));
+// These CORS origins work in all Crossfeed environments
+app.use(
+  cors({
+    origin: [
+      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
+      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
+    ],
+    methods: 'GET,POST,PUT,DELETE,OPTIONS'
+  })
+);
 
+// The API URLs are different in each environment
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -28,14 +37,24 @@ app.use(
           'https://cognito-idp.us-east-1.amazonaws.com',
           'https://api.staging-cd.crossfeed.cyber.dhs.gov'
         ],
+        frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
+        imgSrc: [
+          "'self'",
+          'data:',
+          'https://staging-cd.crossfeed.cyber.dhs.gov',
+          'https://www.ssa.gov',
+          'https://www.dhs.gov'
+        ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
-          // Add any other allowed script sources here
+          'https://api.staging-cd.crossfeed.cyber.dhs.gov',
+          'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
+          'https://www.ssa.gov/accessibility/andi/fandi.js',
+          'https://www.ssa.gov/accessibility/andi/andi.js',
+          'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
-        // Add other directives as needed
       }
     },
     hsts: {
