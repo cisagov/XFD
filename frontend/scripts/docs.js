@@ -4,7 +4,6 @@ import path from 'path';
 import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import helmet from 'helmet';
-import { ALLOW_ORIGIN, ALLOW_METHODS } from './constants.js';
 
 export const app = express();
 
@@ -17,8 +16,12 @@ app.use(
 
 app.use(express.static(path.join(__dirname, '../docs/build')));
 
-app.use(cors({ origin: ALLOW_ORIGIN, methods: ALLOW_METHODS }));
-
+app.use(
+  cors({
+    origin: 'https://docs.crossfeed.cyber.dhs.gov/',
+    methods: 'GET'
+  })
+);
 app.use(
   helmet({
     contentSecurityPolicy: {

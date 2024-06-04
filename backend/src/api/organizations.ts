@@ -30,6 +30,7 @@ import {
   isOrgAdmin,
   isGlobalWriteAdmin,
   isRegionalAdmin,
+  isRegionalAdminForOrganization,
   getOrgMemberships,
   isGlobalViewAdmin
 } from './auth';
@@ -447,8 +448,13 @@ export const getTags = wrapHandler(async (event) => {
 export const get = wrapHandler(async (event) => {
   const id = event.pathParameters?.organizationId;
 
-  if (!isOrgAdmin(event, id)) return Unauthorized;
-
+  if (
+    !isOrgAdmin(event, id) &&
+    !isGlobalWriteAdmin(event) &&
+    !isRegionalAdminForOrganization(event, id)
+  ) {
+    return Unauthorized;
+  }
   await connectToDatabase();
   const result = await Organization.findOne(id, {
     relations: [
@@ -601,7 +607,7 @@ export const initiateDomainVerification = wrapHandler(async (event) => {
     };
     organization.pendingDomains.push(domain);
 
-    const res = await Organization.save(organization);
+    await Organization.save(organization);
   }
   return {
     statusCode: 200,
@@ -660,7 +666,7 @@ export const checkDomainVerification = wrapHandler(async (event) => {
           organization.pendingDomains = organization.pendingDomains.filter(
             (domain) => domain.name !== pendingDomain.name
           );
-          organization.save();
+          await organization.save();
           return {
             statusCode: 200,
             body: JSON.stringify({ success: true, organization })
@@ -816,6 +822,14 @@ export const getByState = wrapHandler(async (event) => {
   }
   return NotFound;
 });
+
+export const getRegion = async (organizationId: string) => {
+  await connectToDatabase();
+  const organization = await Organization.findOne({
+    id: organizationId
+  });
+  return organization?.regionId;
+};
 
 //V2 Endpoints
 
@@ -1046,7 +1060,7 @@ export const upsert_org = wrapHandler(async (event) => {
 
   current_org.tags = body.tags;
 
-  current_org.save();
+  await current_org.save();
 
   return {
     statusCode: 200,

@@ -3,13 +3,16 @@ import { Box, Grid, Paper, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
 import cisa_logo from '../../pages/AuthLogin/img/CISA_LOGO.png';
 
+// TODO: adjust styling so warning doesn't overlap other components when vertical screen size is too small
 export const CrossfeedWarning: React.FC = (props) => {
   const BackgroundPaper = styled(Paper)(({ theme }) => ({
     width: 900,
     borderColor: '#047d95',
     borderWidth: 2,
     padding: theme.spacing(1),
-    backgroundColor: 'inherit'
+    backgroundColor: 'inherit',
+    position: 'absolute',
+    bottom: '1rem'
   }));
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', py: 5, px: 1 }}>
