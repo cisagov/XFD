@@ -285,7 +285,8 @@ export const sendRegistrationApprovedEmail = async (
     const template = handlebars.compile(htmlTemplate);
     const data = {
       firstName: firstName,
-      lastName: lastName
+      lastName: lastName,
+      domain: process.env.FRONTEND_DOMAIN!
     };
 
     const htmlToSend = template(data);
@@ -337,8 +338,7 @@ async function isMajorActiveMaintenance(): Promise<boolean> {
     console.log('Current notifications check Result: ', notifications);
 
     // Return True if Notifcations exist
-    // if (notifications.length > 0) {
-    if (notifications) {
+    if (notifications.length > 0) {
       console.log('isMajorActiveMaintenance is returning True.');
       return true;
     } else {

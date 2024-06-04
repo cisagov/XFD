@@ -17,11 +17,11 @@ import {
   AdminTools,
   AuthCreateAccount,
   AuthLogin,
-  AuthLoginCreate,
   Domain,
   Domains,
   Feeds,
   LoginGovCallback,
+  OktaCallback,
   RegionUsers,
   Reports,
   Risk,
@@ -103,25 +103,12 @@ const App: React.FC = () => (
                     unauth={AuthLogin}
                     component={Risk}
                   />
-                  <RouteGuard
-                    exact
-                    path="/signup"
-                    render={() => <Redirect to="/inventory" />}
-                    unauth={AuthLoginCreate}
-                    component={Risk}
-                  />
-                  <RouteGuard
-                    exact
-                    path="/registration"
-                    render={() => <Redirect to="/inventory" />}
-                    unauth={AuthLoginCreate}
-                    component={Risk}
-                  />
                   <Route
                     exact
                     path="/login-gov-callback"
                     component={LoginGovCallback}
                   />
+                  <Route exact path="/okta-callback" component={OktaCallback} />
                   <Route
                     exact
                     path="/create-account"
@@ -132,31 +119,31 @@ const App: React.FC = () => (
                     exact
                     path="/inventory"
                     component={SearchPage}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/inventory/domain/:domainId"
                     component={Domain}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard path="/inventory/domains" component={Domains} />
                   <RouteGuard
                     path="/inventory/vulnerabilities"
                     exact
                     component={Vulnerabilities}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/inventory/vulnerabilities/grouped"
                     component={(props) => (
                       <Vulnerabilities {...props} groupBy="title" />
                     )}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/inventory/vulnerability/:vulnerabilityId"
                     component={Vulnerability}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/feeds"
@@ -166,18 +153,18 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/reports"
                     component={Reports}
-                    permissions={['standard', 'globalView']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard path="/admin-tools" component={AdminTools} />
                   <RouteGuard
                     path="/organizations/:organizationId"
                     component={Organization}
-                    permissions={['globalView']}
+                    permissions={['globalView', 'regionalAdmin']}
                   />
                   <RouteGuard
                     path="/organizations"
                     component={Organizations}
-                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/users"
@@ -187,7 +174,7 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/settings"
                     component={Settings}
-                    permissions={['standard', 'globalView', 'regionalAdmin']}
+                    permissions={['globalView', 'regionalAdmin', 'standard']}
                   />
                   <RouteGuard
                     path="/region-admin-dashboard"
@@ -213,13 +200,23 @@ const App: React.FC = () => (
                     path="/readysetcyber/dashboard"
                     component={RSCDashboard}
                     render={() => <Redirect to="/readysetcyber/dashboard" />}
-                    permissions={['readySetCyber']}
+                    permissions={[
+                      'globalView',
+                      'readySetCyber',
+                      'regionalAdmin',
+                      'standard'
+                    ]}
                     unauth={RSCLogin}
                   />
                   <RouteGuard
                     path="/readysetcyber/result/:id"
                     component={RSCDetail}
-                    permissions={['readySetCyber']}
+                    permissions={[
+                      'globalView',
+                      'readySetCyber',
+                      'regionalAdmin',
+                      'standard'
+                    ]}
                     unauth={RSCLogin}
                   />
                 </Switch>

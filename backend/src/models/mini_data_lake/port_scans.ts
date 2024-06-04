@@ -12,6 +12,7 @@ import {
 
 import { Snapshot } from './snapshots';
 import { Ip } from './ips';
+import { Organization } from './organizations';
 @Entity()
 export class PortScan extends BaseEntity {
   @PrimaryColumn()
@@ -60,6 +61,24 @@ export class PortScan extends BaseEntity {
     nullable: true,
     type: 'varchar'
   })
+  serviceName: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'integer'
+  })
+  serviceConfidence: number | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
+  serviceMethod: string | null;
+
+  @Column({
+    nullable: true,
+    type: 'varchar'
+  })
   source: string | null;
 
   @Column({
@@ -76,4 +95,10 @@ export class PortScan extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   snapshots: Snapshot[];
+
+  @ManyToOne((type) => Organization, (org) => org.portScans, {
+    onDelete: 'CASCADE',
+    nullable: true
+  })
+  organization: Organization;
 }
