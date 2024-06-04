@@ -17,7 +17,6 @@ import {
   AdminTools,
   AuthCreateAccount,
   AuthLogin,
-  AuthLoginCreate,
   Domain,
   Domains,
   Feeds,
@@ -102,20 +101,6 @@ const App: React.FC = () => (
                     path="/"
                     render={() => <Redirect to="/inventory" />}
                     unauth={AuthLogin}
-                    component={Risk}
-                  />
-                  <RouteGuard
-                    exact
-                    path="/signup"
-                    render={() => <Redirect to="/inventory" />}
-                    unauth={AuthLoginCreate}
-                    component={Risk}
-                  />
-                  <RouteGuard
-                    exact
-                    path="/registration"
-                    render={() => <Redirect to="/inventory" />}
-                    unauth={AuthLoginCreate}
                     component={Risk}
                   />
                   <Route
