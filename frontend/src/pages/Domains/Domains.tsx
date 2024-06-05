@@ -80,9 +80,6 @@ export const Domains: React.FC = () => {
     });
   }, [fetchDomains]);
 
-  console.log(domains);
-  console.log(totalResults);
-
   const testDomains: TestDomain[] = domains.map((domain) => ({
     id: domain.id,
     organizationName: domain.organization.name,

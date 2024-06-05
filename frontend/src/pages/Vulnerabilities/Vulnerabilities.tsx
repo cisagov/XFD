@@ -181,8 +181,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     [vulnerabilitiesSearch, groupBy]
   );
 
-  console.log('vulnerabilities', vulnerabilities);
-
   //Code for new table//
 
   const history = useHistory();
