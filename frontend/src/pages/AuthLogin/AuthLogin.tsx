@@ -3,9 +3,7 @@ import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
 import { CrossfeedWarning } from 'components/WarningBanner';
-
 import { initialNotificationValues, MaintenanceNotification } from 'types';
-import { height, Stack, width } from '@mui/system';
 
 const LoginButton = () => {
   // TODO: Capture default values here once determined
