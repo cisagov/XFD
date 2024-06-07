@@ -1,7 +1,18 @@
 import { int } from 'aws-sdk/clients/datapipeline';
+import { CommandOptions } from './ecs-client';
 import { Cpe, Cve } from '../models';
 import axios from 'axios';
 import { plainToClass } from 'class-transformer';
+import {
+  connectToDatabase,
+  Domain,
+  Service,
+  Vulnerability,
+  Organization
+} from '../models';
+import { isIP } from 'net';
+import * as dns from 'dns';
+import saveDomainsReturn from './helpers/saveDomainsReturn';
 
 interface XpanseVulnOutput {
   alert_name: string;
@@ -81,6 +92,12 @@ interface TaskResponse {
   };
   error: string | null;
 }
+function isIPAddress(input: string): boolean {
+  // Regular expression to match an IP address
+  const ipRegex = /^(?:\d{1,3}\.){3}\d{1,3}$/;
+
+  return ipRegex.test(input);
+}
 
 const createTask = async (page: number, orgId: string) => {
   console.log('Creating task to fetch CVE data');
@@ -130,13 +147,13 @@ const fetchData = async (task_id: string) => {
     console.log(`Error making POST request: ${error}`);
   }
 };
-const getVulnData = async (orgId: string) => {
+const getVulnData = async (org: Organization, commandOptions: CommandOptions) => {
   let done = false;
   let page = 1;
   let total_pages = 2;
-  let fullVulnArray: XpanseVulnOutput[] = [];
+  // let fullVulnArray: XpanseVulnOutput[] = [];
   while (!done) {
-    let taskRequest = await createTask(page, orgId);
+    let taskRequest = await createTask(page, org.acronym);
     console.log(`Fetching page ${page} of page ${total_pages}`);
     await new Promise((r) => setTimeout(r, 1000));
     if (taskRequest?.status == 'Processing') {
@@ -149,33 +166,118 @@ const getVulnData = async (orgId: string) => {
       if (taskRequest?.status == 'Completed') {
         console.log(`Task completed successfully for page: ${page}`);
         const vulnArray = taskRequest?.result?.data || []; //TODO, change this to CveEntry[]
-        fullVulnArray = fullVulnArray.concat(vulnArray);
+        // fullVulnArray = fullVulnArray.concat(vulnArray);
+        saveXpanseAlert(vulnArray, org, commandOptions.scanId)
         total_pages = taskRequest?.result?.total_pages || 1;
         const current_page = taskRequest?.result?.current_page || 1;
         if (current_page >= total_pages) {
           done = true;
-          console.log(`Finished fetching CVE data`);
-          return fullVulnArray;
+          console.log(`Finished fetching Xpanse Alert data`);
+          return 1
         }
         page = page + 1;
       }
     } else {
       done = true;
       console.log(
-        `Error fetching CVE data: ${taskRequest?.error} and status: ${taskRequest?.status}`
+        `Error fetching Xpanse Alert data: ${taskRequest?.error} and status: ${taskRequest?.status}`
       );
-      return fullVulnArray;
+      return 1
     }
   }
 };
-async function main() {
-  const org_id = 'ADF'; //testing purposes
-  const vulnArray: XpanseVulnOutput[] = (await getVulnData(org_id)) || [];
-  for (const vuln of vulnArray) {
+
+const saveXpanseAlert = async(alerts:XpanseVulnOutput[], org: Organization, scan_id: string) => {
+  for (const vuln of alerts) {
     console.log(vuln);
+    let domainId;
+    let service_domain;
+    let service_ip;
+    let ipOnly = false;
+    try{
+      if (isIPAddress(vuln.host_name)) {
+        service_ip = vuln.host_name;
+        try {
+          service_domain = (await dns.promises.reverse(service_ip))[0];
+        } catch {
+          service_domain = service_ip;
+          ipOnly = true;
+        }
+        service_ip = vuln.host_name
+      } else {
+        service_domain = vuln.host_name;
+        try {
+          service_ip = (await dns.promises.lookup(service_domain)).address;
+        } catch {
+          service_ip = null;
+        }
+      }
+      [domainId] = await saveXpanseDomain([
+        plainToClass(Domain, {
+          name: service_domain,
+          ip: service_ip,
+          organization: {id: org.id},
+          fromRootDomain: !ipOnly
+          ? service_domain.split('.').slice(-2).join('.')
+          : null,
+          discoveredBy: { id: scan_id},
+          subdomainSource: `Palo Alto Expanse`,
+          ipOnly: ipOnly
+        })
+      ])
+  
+    } catch (e) {
+      console.error(`Failed to save domain ${vuln.host_name}`);
+      console.error(e);
+      console.error('Continuing to next vulnerability');
+      continue;
+    }
+
+    try {
+      let resolution;
+          if (vuln.resolution_status.includes("RESOLVED")) {
+            resolution =  "closed";
+        } else {
+          resolution = "open";
+        }
+      
+        const vuln_obj: Vulnerability = plainToClass(Vulnerability, {
+          domain: domainId,
+          last_seen: vuln.last_modified_ts, 
+          title: vuln.alert_name,
+          cve: "Xpanse Alert",
+          description: vuln.description,
+          severity: vuln.severity,
+          state: resolution,
+          structuredData:{
+
+          },
+          source: `Palo Alto Expanse`,
+          needsPopulation: true,
+          service: null
+        })
+
+          saveXpanseVuln(vuln_obj)
+      // save vulns if this vulns hasn't been seen or if last_seen >= last_seen on alert in db
+    } catch (e) {
+      console.error('Could not save vulnerability. Continuing.');
+      console.error(e);
+    }
+
   }
-  getVulnData;
 }
+
 export const handler = async (CommandOptions) => {
-  await main();
+  try {
+    await connectToDatabase();
+    const allOrgs: Organization[] = await Organization.find();
+
+    for (const org of allOrgs) {
+      (await getVulnData(org, CommandOptions )) || [];
+    }
+  } catch (e) {
+    console.error('Unknown failure.');
+    console.error(e);
+  }
+ 
 };
