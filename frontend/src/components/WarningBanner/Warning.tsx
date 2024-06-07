@@ -11,7 +11,6 @@ export const CrossfeedWarning: React.FC = (props) => {
     borderWidth: 2,
     padding: theme.spacing(1),
     backgroundColor: 'inherit',
-    // position: 'absolute',
     bottom: '1rem'
   }));
   return (
