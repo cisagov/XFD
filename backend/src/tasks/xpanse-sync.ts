@@ -1,3 +1,4 @@
+import { int } from 'aws-sdk/clients/datapipeline';
 import { Cpe, Cve } from '../models';
 import axios from 'axios';
 import { plainToClass } from 'class-transformer';
@@ -74,76 +75,105 @@ interface XpanseCveOutput {
 }
 interface TaskResponse {
   task_id: string;
-  status: 'Pending' | 'Completed' | 'Failure';
-  result: XpanseVulnOutput[];
-  error?: string;
+  status: string;
+  result: null | {
+    total_pages: number;
+    current_page: number;
+    data: XpanseVulnOutput[];
+  };
+  error: string | null;
 }
 
-const fetchPEVulnTask = async (org_acronym: string) => {
-  console.log('Creating task to fetch PE vuln data');
+const createTask = async (page: number, orgId: string) => {
+  console.log('Creating task to fetch CVE data');
   try {
-    console.log(String(process.env.CF_API_KEY));
     const response = await axios({
-      url: 'https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/xpanse_vulns',
+      url: 'https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/cves_by_modified_date',
       method: 'POST',
       headers: {
         Authorization: String(process.env.CF_API_KEY),
         access_token: String(process.env.PE_API_KEY),
-        'Content-Type': '' // This is needed or else it breaks because axios defaults to application/json
+        'Content-Type': '' //this is needed or else it breaks because axios defaults to application/json
       },
       data: {
-        org_acronym: org_acronym
+        page: page,
+        per_page: 100 // Tested with 150 and 200 but this results in 502 errors on certain pages with a lot of CPEs
       }
     });
     if (response.status >= 200 && response.status < 300) {
-      console.log('Task request was successful');
+      //console.log('Request was successful');
     } else {
-      console.log('Task request failed');
+      console.log('Request failed');
     }
     return response.data as TaskResponse;
   } catch (error) {
     console.log(`Error making POST request: ${error}`);
   }
 };
-
-const fetchPEVulnData = async (task_id: string) => {
-  console.log('Creating task to fetch CVE data');
+const fetchData = async (task_id: string) => {
+  console.log('Fetching CVE data');
   try {
     const response = await axios({
-      url: `https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/xpanse_vulns/task/?task_id=${task_id}`,
+      url: `https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/cves_by_modified_date/task/${task_id}`,
       headers: {
         Authorization: String(process.env.CF_API_KEY),
         access_token: String(process.env.PE_API_KEY),
-        'Content-Type': '' // This is needed or else it breaks because axios defaults to application/json
+        'Content-Type': ''
       }
     });
     if (response.status >= 200 && response.status < 300) {
-      console.log('Request was successful');
+      //console.log('Request was successful');
     } else {
       console.log('Request failed');
     }
     return response.data as TaskResponse;
   } catch (error) {
-    console.log(`Error making GET request: ${error}`);
+    console.log(`Error making POST request: ${error}`);
   }
 };
+const getVulnData = async (orgId: string) => {
+  let done = false;
+  let page = 1;
+  let total_pages = 2;
+  let fullVulnArray: XpanseVulnOutput[] = [];
+  while (!done) {
+    let taskRequest = await createTask(page, orgId);
+    console.log(`Fetching page ${page} of page ${total_pages}`);
+    await new Promise((r) => setTimeout(r, 1000));
+    if (taskRequest?.status == 'Processing') {
+      while (taskRequest?.status == 'Processing') {
+        //console.log('Waiting for task to complete');
+        await new Promise((r) => setTimeout(r, 1000));
+        taskRequest = await fetchData(taskRequest.task_id);
+        //console.log(taskRequest?.status);
+      }
+      if (taskRequest?.status == 'Completed') {
+        console.log(`Task completed successfully for page: ${page}`);
 
-async function main() {
-  const taskResponse: TaskResponse | undefined =
-    await fetchPEVulnTask('TEST_ORG');
-  let validTaskResponse: TaskResponse;
-
-  if (taskResponse !== undefined) {
-    validTaskResponse = taskResponse;
-    const data: TaskResponse | undefined = await fetchPEVulnData(
-      validTaskResponse.task_id
-    );
-    if (data == undefined) {
-      console.log('error');
+        const vulnArray = taskRequest?.result?.data || []; //TODO, change this to CveEntry[]
+        fullVulnArray = fullVulnArray.concat(vulnArray);
+        total_pages = taskRequest?.result?.total_pages || 1;
+        const current_page = taskRequest?.result?.current_page || 1;
+        if (current_page >= total_pages) {
+          done = true;
+          console.log(`Finished fetching CVE data`);
+          return fullVulnArray;
+        }
+        page = page + 1;
+      }
+    } else {
+      done = true;
+      console.log(
+        `Error fetching CVE data: ${taskRequest?.error} and status: ${taskRequest?.status}`
+      );
     }
-  } else {
-    console.log('error');
   }
+};
+async function main() {
+  const org_id = 'ADF'; //testing purposes
+  await getVulnData(org_id);
+
+  getVulnData;
 }
 export const handler = async (CommandOptions) => {
   await main();
