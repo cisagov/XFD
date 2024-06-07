@@ -15,6 +15,7 @@ import * as dns from 'dns';
 import saveDomainsReturn from './helpers/saveDomainsReturn';
 
 interface XpanseVulnOutput {
+  alert_id: string;
   alert_name: string;
   description: string;
   last_modified_ts: Date;
@@ -250,7 +251,28 @@ const saveXpanseAlert = async(alerts:XpanseVulnOutput[], org: Organization, scan
           severity: vuln.severity,
           state: resolution,
           structuredData:{
-
+            alert_id: vuln.alert_id,
+            xpanse_modified_ts: vuln.last_modified_ts,
+            xpanse_insert_ts: vuln.local_insert_ts,
+            xpanse_last_observed: vuln.last_observed,
+            event_timestamps: vuln.event_timestamp,
+            host_name: vuln.host_name,
+            action_countries: vuln.action_country,
+            action_remote_port: vuln.action_remote_port,
+            external_id: vuln.external_id,
+            related_external_id: vuln.related_external_id,
+            alert_occurrence: vuln.alert_occurrence,
+            resolution_status: vuln.resolution_status,
+            resolution_comment: vuln.resolution_comment,
+            country_codes: vuln.country_codes,
+            cloud_providers: vuln.cloud_providers,
+            ipv4_addresses: vuln.ipv4_addresses,
+            domain_names: vuln.domain_names,
+            port_protocol: vuln.port_protocol,
+            time_pulled_from_xpanse: vuln.time_pulled_from_xpanse,
+            attack_surface_rule_name: vuln.attack_surface_rule_name,
+            certificate: vuln.certificate,
+            remediation_guidance: vuln.remediation_guidance
           },
           source: `Palo Alto Expanse`,
           needsPopulation: true,
