@@ -86,7 +86,7 @@ const createTask = async (page: number, orgId: string) => {
   console.log('Creating task to fetch CVE data');
   try {
     const response = await axios({
-      url: 'https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/cves_by_modified_date',
+      url: 'https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/xpanse_vulns',
       method: 'POST',
       headers: {
         Authorization: String(process.env.CF_API_KEY),
@@ -94,6 +94,7 @@ const createTask = async (page: number, orgId: string) => {
         'Content-Type': '' //this is needed or else it breaks because axios defaults to application/json
       },
       data: {
+        org_acronym: orgId,
         page: page,
         per_page: 100 // Tested with 150 and 200 but this results in 502 errors on certain pages with a lot of CPEs
       }
@@ -112,7 +113,7 @@ const fetchData = async (task_id: string) => {
   console.log('Fetching CVE data');
   try {
     const response = await axios({
-      url: `https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/cves_by_modified_date/task/${task_id}`,
+      url: `https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/xpanse_vulns/task/${task_id}`,
       headers: {
         Authorization: String(process.env.CF_API_KEY),
         access_token: String(process.env.PE_API_KEY),
