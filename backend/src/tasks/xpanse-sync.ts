@@ -148,7 +148,10 @@ const fetchData = async (task_id: string) => {
     console.log(`Error making POST request: ${error}`);
   }
 };
-const getVulnData = async (org: Organization, commandOptions: CommandOptions) => {
+const getVulnData = async (
+  org: Organization,
+  commandOptions: CommandOptions
+) => {
   let done = false;
   let page = 1;
   let total_pages = 2;
@@ -168,13 +171,13 @@ const getVulnData = async (org: Organization, commandOptions: CommandOptions) =>
         console.log(`Task completed successfully for page: ${page}`);
         const vulnArray = taskRequest?.result?.data || []; //TODO, change this to CveEntry[]
         // fullVulnArray = fullVulnArray.concat(vulnArray);
-        saveXpanseAlert(vulnArray, org, commandOptions.scanId)
+        await saveXpanseAlert(vulnArray, org, commandOptions.scanId);
         total_pages = taskRequest?.result?.total_pages || 1;
         const current_page = taskRequest?.result?.current_page || 1;
         if (current_page >= total_pages) {
           done = true;
           console.log(`Finished fetching Xpanse Alert data`);
-          return 1
+          return 1;
         }
         page = page + 1;
       }
@@ -183,19 +186,55 @@ const getVulnData = async (org: Organization, commandOptions: CommandOptions) =>
       console.log(
         `Error fetching Xpanse Alert data: ${taskRequest?.error} and status: ${taskRequest?.status}`
       );
-      return 1
+      return 1;
     }
   }
 };
+const saveXpanseDomain = async (domain) => {
+  console.log(`Service domain: ${domain.service_domain}`);
+  const existingDomain = await Domain.findOneBy({
+    name: domain.name,
+    organization: { id: domain.organization.id }
+  });
+  if (!existingDomain) {
+    const newDomain = await Domain.save(domain);
+    return newDomain;
+  } else {
+    return existingDomain;
+  }
+};
 
-const saveXpanseAlert = async(alerts:XpanseVulnOutput[], org: Organization, scan_id: string) => {
+const saveXpanseVuln = async (vuln: Vulnerability, savedDomain: Domain) => {
+  const vulns: Vulnerability[] = [];
+  const existingVuln = await Vulnerability.findOneBy({
+    domain: { id: savedDomain.id },
+    title: vuln.title
+  });
+  if (!existingVuln) {
+    const newVuln = await Vulnerability.save(vuln);
+    return newVuln;
+  } else {
+    if (vuln.lastSeen) {
+      existingVuln.lastSeen = new Date(vuln.lastSeen);
+    }
+    existingVuln.state = vuln.state;
+    existingVuln.structuredData = vuln.structuredData;
+    const newVuln = await Vulnerability.save(existingVuln);
+    return newVuln;
+  }
+};
+const saveXpanseAlert = async (
+  alerts: XpanseVulnOutput[],
+  org: Organization,
+  scan_id: string
+) => {
   for (const vuln of alerts) {
     console.log(vuln);
-    let domainId;
+    let savedDomain: Domain;
     let service_domain;
     let service_ip;
     let ipOnly = false;
-    try{
+    try {
       if (isIPAddress(vuln.host_name)) {
         service_ip = vuln.host_name;
         try {
@@ -204,7 +243,7 @@ const saveXpanseAlert = async(alerts:XpanseVulnOutput[], org: Organization, scan
           service_domain = service_ip;
           ipOnly = true;
         }
-        service_ip = vuln.host_name
+        service_ip = vuln.host_name;
       } else {
         service_domain = vuln.host_name;
         try {
@@ -213,20 +252,19 @@ const saveXpanseAlert = async(alerts:XpanseVulnOutput[], org: Organization, scan
           service_ip = null;
         }
       }
-      [domainId] = await saveXpanseDomain([
+      savedDomain = await saveXpanseDomain(
         plainToClass(Domain, {
           name: service_domain,
           ip: service_ip,
-          organization: {id: org.id},
+          organization: { org },
           fromRootDomain: !ipOnly
-          ? service_domain.split('.').slice(-2).join('.')
-          : null,
-          discoveredBy: { id: scan_id},
+            ? service_domain.split('.').slice(-2).join('.')
+            : null,
+          discoveredBy: { id: scan_id },
           subdomainSource: `Palo Alto Expanse`,
           ipOnly: ipOnly
         })
-      ])
-  
+      );
     } catch (e) {
       console.error(`Failed to save domain ${vuln.host_name}`);
       console.error(e);
@@ -236,58 +274,55 @@ const saveXpanseAlert = async(alerts:XpanseVulnOutput[], org: Organization, scan
 
     try {
       let resolution;
-          if (vuln.resolution_status.includes("RESOLVED")) {
-            resolution =  "closed";
-        } else {
-          resolution = "open";
-        }
-      
-        const vuln_obj: Vulnerability = plainToClass(Vulnerability, {
-          domain: domainId,
-          last_seen: vuln.last_modified_ts, 
-          title: vuln.alert_name,
-          cve: "Xpanse Alert",
-          description: vuln.description,
-          severity: vuln.severity,
-          state: resolution,
-          structuredData:{
-            alert_id: vuln.alert_id,
-            xpanse_modified_ts: vuln.last_modified_ts,
-            xpanse_insert_ts: vuln.local_insert_ts,
-            xpanse_last_observed: vuln.last_observed,
-            event_timestamps: vuln.event_timestamp,
-            host_name: vuln.host_name,
-            action_countries: vuln.action_country,
-            action_remote_port: vuln.action_remote_port,
-            external_id: vuln.external_id,
-            related_external_id: vuln.related_external_id,
-            alert_occurrence: vuln.alert_occurrence,
-            resolution_status: vuln.resolution_status,
-            resolution_comment: vuln.resolution_comment,
-            country_codes: vuln.country_codes,
-            cloud_providers: vuln.cloud_providers,
-            ipv4_addresses: vuln.ipv4_addresses,
-            domain_names: vuln.domain_names,
-            port_protocol: vuln.port_protocol,
-            time_pulled_from_xpanse: vuln.time_pulled_from_xpanse,
-            attack_surface_rule_name: vuln.attack_surface_rule_name,
-            certificate: vuln.certificate,
-            remediation_guidance: vuln.remediation_guidance
-          },
-          source: `Palo Alto Expanse`,
-          needsPopulation: true,
-          service: null
-        })
-
-          saveXpanseVuln(vuln_obj)
+      if (vuln.resolution_status.includes('RESOLVED')) {
+        resolution = 'closed';
+      } else {
+        resolution = 'open';
+      }
+      const vuln_obj: Vulnerability = plainToClass(Vulnerability, {
+        domain: { savedDomain },
+        last_seen: vuln.last_modified_ts,
+        title: vuln.alert_name,
+        cve: 'Xpanse Alert',
+        description: vuln.description,
+        severity: vuln.severity,
+        state: resolution,
+        structuredData: {
+          alert_id: vuln.alert_id,
+          xpanse_modified_ts: vuln.last_modified_ts,
+          xpanse_insert_ts: vuln.local_insert_ts,
+          xpanse_last_observed: vuln.last_observed,
+          event_timestamps: vuln.event_timestamp,
+          host_name: vuln.host_name,
+          action_countries: vuln.action_country,
+          action_remote_port: vuln.action_remote_port,
+          external_id: vuln.external_id,
+          related_external_id: vuln.related_external_id,
+          alert_occurrence: vuln.alert_occurrence,
+          resolution_status: vuln.resolution_status,
+          resolution_comment: vuln.resolution_comment,
+          country_codes: vuln.country_codes,
+          cloud_providers: vuln.cloud_providers,
+          ipv4_addresses: vuln.ipv4_addresses,
+          domain_names: vuln.domain_names,
+          port_protocol: vuln.port_protocol,
+          time_pulled_from_xpanse: vuln.time_pulled_from_xpanse,
+          attack_surface_rule_name: vuln.attack_surface_rule_name,
+          certificate: vuln.certificate,
+          remediation_guidance: vuln.remediation_guidance
+        },
+        source: `Palo Alto Expanse`,
+        needsPopulation: true,
+        service: null
+      });
+      await saveXpanseVuln(vuln_obj, savedDomain);
       // save vulns if this vulns hasn't been seen or if last_seen >= last_seen on alert in db
     } catch (e) {
       console.error('Could not save vulnerability. Continuing.');
       console.error(e);
     }
-
   }
-}
+};
 
 export const handler = async (CommandOptions) => {
   try {
@@ -295,11 +330,10 @@ export const handler = async (CommandOptions) => {
     const allOrgs: Organization[] = await Organization.find();
 
     for (const org of allOrgs) {
-      (await getVulnData(org, CommandOptions )) || [];
+      (await getVulnData(org, CommandOptions)) || [];
     }
   } catch (e) {
     console.error('Unknown failure.');
     console.error(e);
   }
- 
 };
