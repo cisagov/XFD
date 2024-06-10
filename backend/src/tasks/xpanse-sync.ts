@@ -192,33 +192,44 @@ const getVulnData = async (
 };
 const saveXpanseDomain = async (domain) => {
   console.log(`Service domain: ${domain.service_domain}`);
-  const existingDomain = await Domain.findOneBy({
-    name: domain.name,
-    organization: { id: domain.organization.id }
+  const existingDomain = await Domain.findOne({
+    where: {
+      name: domain.name,
+      organization: { id: domain.organization.id }
+    },
+    relations: ['organization']
   });
   if (!existingDomain) {
+    console.log(`Saving domain ${domain}`);
     const newDomain = await Domain.save(domain);
     return newDomain;
   } else {
     return existingDomain;
   }
-};
-
+}; // save vulns if this vulns hasn't been seen or if last_seen >= last_seen on alert in db
 const saveXpanseVuln = async (vuln: Vulnerability, savedDomain: Domain) => {
   const vulns: Vulnerability[] = [];
-  const existingVuln = await Vulnerability.findOneBy({
-    domain: { id: savedDomain.id },
-    title: vuln.title
+  const existingVuln = await Vulnerability.findOne({
+    where: {
+      domain: { id: savedDomain.id },
+      title: vuln.title //Change this for typeorm bump
+    }
   });
   if (!existingVuln) {
     const newVuln = await Vulnerability.save(vuln);
     return newVuln;
   } else {
     if (vuln.lastSeen) {
+      if (existingVuln.lastSeen) {
+        if (existingVuln.lastSeen >= vuln.lastSeen) {
+          return existingVuln;
+        }
+      }
       existingVuln.lastSeen = new Date(vuln.lastSeen);
     }
     existingVuln.state = vuln.state;
     existingVuln.structuredData = vuln.structuredData;
+    existingVuln.domain = savedDomain;
     const newVuln = await Vulnerability.save(existingVuln);
     return newVuln;
   }
@@ -256,7 +267,7 @@ const saveXpanseAlert = async (
         plainToClass(Domain, {
           name: service_domain,
           ip: service_ip,
-          organization: { org },
+          organization: org,
           fromRootDomain: !ipOnly
             ? service_domain.split('.').slice(-2).join('.')
             : null,
@@ -280,7 +291,7 @@ const saveXpanseAlert = async (
         resolution = 'open';
       }
       const vuln_obj: Vulnerability = plainToClass(Vulnerability, {
-        domain: { savedDomain },
+        domain: savedDomain,
         last_seen: vuln.last_modified_ts,
         title: vuln.alert_name,
         cve: 'Xpanse Alert',
