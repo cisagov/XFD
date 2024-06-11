@@ -917,6 +917,10 @@ export const updateV2 = wrapHandler(async (event) => {
     return NotFound;
   }
 
+  if (body.state) {
+    body.regionId = REGION_STATE_MAP[body.state];
+  }
+
   // Update the user
   const updatedResp = await User.update(userId, body);
 
