@@ -12,7 +12,6 @@ import {
 } from '@mui/material';
 import { Save } from '@mui/icons-material';
 import { SelectChangeEvent } from '@mui/material/Select';
-import { User } from 'types';
 import { STATE_OPTIONS } from '../../constants/constants';
 import { useAuthContext } from 'context';
 
