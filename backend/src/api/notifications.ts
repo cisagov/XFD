@@ -2,6 +2,7 @@ import { IsString, isUUID, IsOptional, IsDateString } from 'class-validator';
 import { Notification, connectToDatabase } from '../models';
 import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
 import { isGlobalWriteAdmin } from './auth';
+import S3Client from '../tasks/s3-client';
 
 class NewNotification {
   @IsDateString()
@@ -88,13 +89,6 @@ export const del = wrapHandler(async (event) => {
 export const list = wrapHandler(async (event) => {
   console.log('list function called with event: ', event);
 
-  // if (!isGlobalWriteAdmin(event)) {
-  //   return {
-  //     //TODO: Should we return a 403?
-  //     statusCode: 200,
-  //     body: JSON.stringify([])
-  //   };
-  // }
   await connectToDatabase();
   console.log('Database connected');
 
@@ -155,4 +149,31 @@ export const update = wrapHandler(async (event) => {
     };
   }
   return NotFound;
+});
+
+/**
+ * @swagger
+ *
+ * /notifications/508-banner:
+ *  get:
+ *    description: Get temporary 508 not compliant banner from s3.
+ *    tags:
+ *    - Notifications
+ */
+export const get508Banner = wrapHandler(async () => {
+  const bannerFileName = '508warningtext.html';
+  try {
+    const client = new S3Client();
+    const bannerResult = await client.getEmailAsset(bannerFileName);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(bannerResult)
+    };
+  } catch (error) {
+    console.log('S3 Banner Error: ', error);
+    return {
+      statusCode: 500,
+      body: 'Error retrieving file from S3. See details in logs.'
+    };
+  }
 });

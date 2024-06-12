@@ -11,9 +11,9 @@ class S3Client {
   isLocal: boolean;
 
   constructor(isLocal?: boolean) {
-    this.isLocal =
-      isLocal ??
-      (process.env.IS_OFFLINE || process.env.IS_LOCAL ? true : false);
+    // this.isLocal =
+    //   isLocal ??
+    //   (process.env.IS_OFFLINE || process.env.IS_LOCAL ? true : false);
     if (this.isLocal) {
       this.s3 = new S3({
         endpoint: 'http://minio:9000',
