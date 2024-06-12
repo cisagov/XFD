@@ -14,12 +14,36 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+const parseTextToJSX = (text: String) => {
+  const lines = text.split('\n');
+  return lines.map((line, index) => {
+    const parts = line.split(/(\[.*?\]\(.*?\))/g).map((part, i) => {
+      const match = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        return (
+          <a
+            key={i}
+            href={match[1]}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={match[1]}
+          >
+            {match[2]}
+          </a>
+        );
+      }
+      return part;
+    });
+    return <div key={index}>{parts}</div>;
+  });
+};
+
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { apiGet, logout, user } = useAuthContext();
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
-  const [warningBannerText, setWarningBannerText] = useState(<></>);
+  const [warningBannerText, setWarningBannerText] = useState<JSX.Element[]>([]);
   const { isTimedOut, resetTimeout } = useUserActivityTimeout(
     14 * 60 * 1000, // set to 14 minutes of inactivity to notify user
     loggedIn
@@ -44,7 +68,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const fetchWarningBannerText = useCallback(async () => {
     try {
       const text = await apiGet('/notifications/508-banner/');
-      setWarningBannerText(text);
+      const parsedText = parseTextToJSX(text);
+      setWarningBannerText(parsedText);
     } catch (e) {
       console.log(e);
     }
