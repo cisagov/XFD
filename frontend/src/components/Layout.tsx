@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import ScopedCssBaseline from '@mui/material/ScopedCssBaseline';
+import { Alert, ScopedCssBaseline } from '@mui/material';
 import { Header, GovBanner } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
@@ -48,6 +48,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           onCountdownEnd={handleCountdownEnd}
           countdown={60} // 60 second timer for user inactivity timeout
         />
+        <Alert severity="warning" aria-label="warning label">
+          <div>Placeholder text</div>
+        </Alert>
         <GovBanner />
         {!pathname.includes('/readysetcyber') ? (
           <>
