@@ -239,6 +239,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Button
+            aria-label={`View NIST entry for ${cellValues.row.title}`}
+            tabIndex={cellValues.tabIndex}
             color="primary"
             style={{ textDecorationLine: 'underline' }}
             endIcon={<OpenInNewIcon />}
@@ -309,6 +311,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Button
+            aria-label={`View details for ${cellValues.row.domain}`}
+            tabIndex={cellValues.tabIndex}
             color="primary"
             style={{ textDecorationLine: 'underline' }}
             sx={{ justifyContent: 'flex-start' }}
@@ -364,6 +368,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
               aria-controls={open ? 'basic-menu' : undefined}
               aria-haspopup="true"
               aria-expanded={open ? 'true' : undefined}
+              tabIndex={cellValues.tabIndex}
               endIcon={<ExpandMoreIcon />}
               onClick={handleClick}
             >
@@ -405,6 +410,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
+            aria-label={`View details for ${cellValues.row.title}`}
+            tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() =>
               history.push('/inventory/vulnerability/' + cellValues.row.id)

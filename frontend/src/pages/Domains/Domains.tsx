@@ -129,6 +129,7 @@ export const Domains: React.FC = () => {
         return (
           <IconButton
             aria-label={`View details for ${cellValues.row.name}`}
+            tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() =>
               history.push('/inventory/domain/' + cellValues.row.id)
