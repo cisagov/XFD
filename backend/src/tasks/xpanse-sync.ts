@@ -101,7 +101,7 @@ function isIPAddress(input: string): boolean {
 }
 
 const createTask = async (page: number, orgId: string) => {
-  console.log('Creating task to fetch CVE data');
+  console.log('Creating task to fetch Xpanse Alert data');
   try {
     const response = await axios({
       url: 'https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/xpanse_vulns',
@@ -128,7 +128,7 @@ const createTask = async (page: number, orgId: string) => {
   }
 };
 const fetchData = async (task_id: string) => {
-  console.log('Fetching CVE data');
+  console.log('Fetching Xpanse alert data');
   try {
     const response = await axios({
       url: `https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/xpanse_vulns/task/${task_id}`,
@@ -154,7 +154,7 @@ const getVulnData = async (
 ) => {
   let done = false;
   let page = 1;
-  let total_pages = 2;
+  let total_pages = 1;
   // let fullVulnArray: XpanseVulnOutput[] = [];
   while (!done) {
     let taskRequest = await createTask(page, org.acronym);
@@ -176,7 +176,7 @@ const getVulnData = async (
         const current_page = taskRequest?.result?.current_page || 1;
         if (current_page >= total_pages) {
           done = true;
-          console.log(`Finished fetching Xpanse Alert data`);
+          console.log(`Finished fetching Xpanse Alert data for ${org.name}`);
           return 1;
         }
         page = page + 1;
@@ -191,7 +191,6 @@ const getVulnData = async (
   }
 };
 const saveXpanseDomain = async (domain) => {
-  console.log(`Service domain: ${domain.service_domain}`);
   const existingDomain = await Domain.findOne({
     where: {
       name: domain.name,
@@ -240,7 +239,6 @@ const saveXpanseAlert = async (
   scan_id: string
 ) => {
   for (const vuln of alerts) {
-    console.log(vuln);
     let savedDomain: Domain;
     let service_domain;
     let service_ip;
@@ -265,7 +263,7 @@ const saveXpanseAlert = async (
       }
       savedDomain = await saveXpanseDomain(
         plainToClass(Domain, {
-          name: service_domain,
+          name: service_domain.toLowerCase(),
           ip: service_ip,
           organization: org,
           fromRootDomain: !ipOnly
@@ -277,7 +275,7 @@ const saveXpanseAlert = async (
         })
       );
     } catch (e) {
-      console.error(`Failed to save domain ${vuln.host_name}`);
+      console.error(`Failed to save domain for host: ${vuln.host_name}`);
       console.error(e);
       console.error('Continuing to next vulnerability');
       continue;
@@ -292,7 +290,7 @@ const saveXpanseAlert = async (
       }
       const vuln_obj: Vulnerability = plainToClass(Vulnerability, {
         domain: savedDomain,
-        last_seen: vuln.last_modified_ts,
+        lastSeen: vuln.last_modified_ts,
         title: vuln.alert_name,
         cve: 'Xpanse Alert',
         description: vuln.description,
@@ -320,7 +318,8 @@ const saveXpanseAlert = async (
           time_pulled_from_xpanse: vuln.time_pulled_from_xpanse,
           attack_surface_rule_name: vuln.attack_surface_rule_name,
           certificate: vuln.certificate,
-          remediation_guidance: vuln.remediation_guidance
+          remediation_guidance: vuln.remediation_guidance,
+          asset_identifiers: vuln.asset_identifiers
         },
         source: `Palo Alto Expanse`,
         needsPopulation: true,
@@ -341,6 +340,7 @@ export const handler = async (CommandOptions) => {
     const allOrgs: Organization[] = await Organization.find();
 
     for (const org of allOrgs) {
+      console.log(`Gathering Expanse alerts for ${org.name}`);
       (await getVulnData(org, CommandOptions)) || [];
     }
   } catch (e) {
