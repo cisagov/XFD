@@ -11,14 +11,16 @@ class S3Client {
   isLocal: boolean;
 
   constructor(isLocal?: boolean) {
+    // TODO: Remove once minio service is fixed
     // this.isLocal =
     //   isLocal ??
     //   (process.env.IS_OFFLINE || process.env.IS_LOCAL ? true : false);
     if (this.isLocal) {
-      this.s3 = new S3({
-        endpoint: 'http://minio:9000',
-        s3ForcePathStyle: true
-      });
+      // TODO: Remove once minio service is fixed
+      // this.s3 = new S3({
+      //   endpoint: 'http://minio:9000',
+      //   s3ForcePathStyle: true
+      // });
     } else {
       const agent = new https.Agent({
         keepAlive: false
