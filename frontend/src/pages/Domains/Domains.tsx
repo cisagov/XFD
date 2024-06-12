@@ -128,6 +128,7 @@ export const Domains: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
+            aria-label={`View details for ${cellValues.row.name}`}
             color="primary"
             onClick={() =>
               history.push('/inventory/domain/' + cellValues.row.id)
