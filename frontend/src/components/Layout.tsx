@@ -56,7 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       resetTimeout();
     }
   };
-  console.log(warningBannerText);
+
   const { pathname } = useLocation();
 
   useEffect(() => {
