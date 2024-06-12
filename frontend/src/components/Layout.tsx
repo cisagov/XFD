@@ -23,12 +23,12 @@ const parseTextToJSX = (text: String) => {
         return (
           <a
             key={i}
-            href={match[1]}
+            href={match[2]}
             target="_blank"
             rel="noopener noreferrer"
-            aria-label={match[1]}
+            aria-label={match[2]}
           >
-            {match[2]}
+            {match[1]}
           </a>
         );
       }
@@ -56,7 +56,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       resetTimeout();
     }
   };
-
+  console.log(warningBannerText);
   const { pathname } = useLocation();
 
   useEffect(() => {
