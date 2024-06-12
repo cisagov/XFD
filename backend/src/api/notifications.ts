@@ -161,7 +161,7 @@ export const update = wrapHandler(async (event) => {
  *    - Notifications
  */
 export const get508Banner = wrapHandler(async () => {
-  const bannerFileName = '508warningtext.html';
+  const bannerFileName = '508warningtext.txt';
   try {
     const client = new S3Client();
     const bannerResult = await client.getEmailAsset(bannerFileName);
