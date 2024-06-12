@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 import { Alert, ScopedCssBaseline } from '@mui/material';
@@ -15,10 +15,11 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { logout, user } = useAuthContext();
+  const { apiGet, logout, user } = useAuthContext();
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
+  const [warningBannerText, setWarningBannerText] = useState(<></>);
   const { isTimedOut, resetTimeout } = useUserActivityTimeout(
     14 * 60 * 1000, // set to 14 minutes of inactivity to notify user
     loggedIn
@@ -40,6 +41,19 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
+  const fetchWarningBannerText = useCallback(async () => {
+    try {
+      const text = await apiGet('/notifications/508-banner/');
+      setWarningBannerText(text);
+    } catch (e) {
+      console.log(e);
+    }
+  }, [apiGet, setWarningBannerText]);
+
+  useEffect(() => {
+    fetchWarningBannerText();
+  }, [fetchWarningBannerText]);
+
   return (
     <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
       <div className={classes.root}>
@@ -49,7 +63,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           countdown={60} // 60 second timer for user inactivity timeout
         />
         <Alert severity="warning" aria-label="warning label">
-          <div>Placeholder text</div>
+          <div>{warningBannerText}</div>
         </Alert>
         <GovBanner />
         {!pathname.includes('/readysetcyber') ? (
