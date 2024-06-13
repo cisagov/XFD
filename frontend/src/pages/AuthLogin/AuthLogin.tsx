@@ -3,7 +3,6 @@ import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
 import { CrossfeedWarning } from 'components/WarningBanner';
-
 import { initialNotificationValues, MaintenanceNotification } from 'types';
 
 const LoginButton = () => {
@@ -20,7 +19,11 @@ const LoginButton = () => {
   };
 
   return (
-    <Button onClick={redirectToAuth} type={'button'}>
+    <Button
+      onClick={redirectToAuth}
+      type={'button'}
+      style={{ width: 'fit-content' }}
+    >
       Sign in with LOGIN.GOV
     </Button>
   );
@@ -68,21 +71,20 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
     </Grid>
   );
   return (
-    <Grid container>
+    <Box
+      display="flex"
+      flexDirection="column"
+      justifyContent="space-around"
+      height="100vh"
+    >
       {notification?.status === 'active' && platformNotification}
-      <Grid item xs={12} py={5}>
-        <Typography variant="h3" textAlign="center">
-          Welcome to Crossfeed
-        </Typography>
-      </Grid>
-      <Grid item xs={12}>
-        <Box pt={3} mb={3} display="flex" justifyContent="center">
-          <LoginButton />
-        </Box>
-      </Grid>
-      <Grid item xs={12}>
-        <CrossfeedWarning />
-      </Grid>
-    </Grid>
+      <Typography variant="h3" textAlign="center">
+        Welcome to Crossfeed
+      </Typography>
+      <Box pt={3} mb={3} display="flex" justifyContent="center">
+        <LoginButton />
+      </Box>
+      <CrossfeedWarning />
+    </Box>
   );
 };
