@@ -301,6 +301,10 @@ app.post('/users/register', handlerToExpress(users.register));
 app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 
 app.get('/notifications', handlerToExpress(notifications.list));
+app.get(
+  '/notifications/508-banner',
+  handlerToExpress(notifications.get508Banner)
+);
 
 const checkUserLoggedIn = async (req, res, next) => {
   console.log('Checking if user is logged in.');
