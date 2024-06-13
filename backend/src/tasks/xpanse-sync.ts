@@ -199,7 +199,7 @@ const saveXpanseDomain = async (domain) => {
     relations: ['organization']
   });
   if (!existingDomain) {
-    console.log(`Saving domain ${domain}`);
+    console.log(`Saving domain ${domain.name}`);
     const newDomain = await Domain.save(domain);
     return newDomain;
   } else {
@@ -270,7 +270,7 @@ const saveXpanseAlert = async (
             ? service_domain.split('.').slice(-2).join('.')
             : null,
           discoveredBy: { id: scan_id },
-          subdomainSource: `Palo Alto Expanse`,
+          subdomainSource: `Palo Alto Xpanse`,
           ipOnly: ipOnly
         })
       );
@@ -321,7 +321,7 @@ const saveXpanseAlert = async (
           remediation_guidance: vuln.remediation_guidance,
           asset_identifiers: vuln.asset_identifiers
         },
-        source: `Palo Alto Expanse`,
+        source: `Palo Alto Xpanse`,
         needsPopulation: true,
         service: null
       });
@@ -340,7 +340,7 @@ export const handler = async (CommandOptions) => {
     const allOrgs: Organization[] = await Organization.find();
 
     for (const org of allOrgs) {
-      console.log(`Gathering Expanse alerts for ${org.name}`);
+      console.log(`Gathering Xpanse alerts for ${org.name}`);
       (await getVulnData(org, CommandOptions)) || [];
     }
   } catch (e) {
