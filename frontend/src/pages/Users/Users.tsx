@@ -27,7 +27,6 @@ import { ImportExport } from 'components';
 import { initializeUser, Organization, User } from 'types';
 import { useAuthContext } from 'context';
 import { STATE_OPTIONS } from '../../constants/constants';
-// @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
 type ErrorStates = {
@@ -77,7 +76,7 @@ export const Users: React.FC = () => {
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
-  const [infoDialogContent, setInfoDialogContent] = useState<String>('');
+  const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [formDisabled, setFormDisabled] = React.useState(true);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
@@ -114,8 +113,7 @@ export const Users: React.FC = () => {
       if (user?.userType === 'globalAdmin') {
         setUsers(rows);
       } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
-        rows.filter((row) => row.regionId === user.regionId);
-        setUsers(rows);
+        setUsers(rows.filter((row) => row.regionId === user.regionId));
       } else if (user) {
         setUsers([user]);
       }
@@ -123,13 +121,11 @@ export const Users: React.FC = () => {
     } catch (e: any) {
       setErrorStates({ ...errorStates, getUsersError: e.message });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiGet]);
+  }, [apiGet, user]);
 
   useEffect(() => {
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchUsers]);
 
   const userCols: GridColDef[] = [
     { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
@@ -158,50 +154,65 @@ export const Users: React.FC = () => {
       headerName: 'Last Logged In',
       minWidth: 100,
       flex: 0.75
-    }
-  ];
-
-  if (user?.userType === 'globalAdmin') {
-    userCols.push({
+    },
+    {
       field: 'edit',
       headerName: 'Edit',
       minWidth: 50,
       flex: 0.4,
       renderCell: (cellValues: GridRenderCellParams) => {
+        const ariaLabel = `Edit user ${cellValues.row.email}`;
+        const descriptionId = `edit-description-${cellValues.row.id}`;
         return (
-          <IconButton
-            color="primary"
-            onClick={() => {
-              setSelectedRow(cellValues.row);
-              setValues(cellValues.row);
-              setEditUserDialogOpen(true);
-            }}
-          >
-            <Edit />
-          </IconButton>
+          <>
+            <span id={descriptionId} style={{ display: 'none' }}>
+              {`Edit details for user ${cellValues.row.email}`}
+            </span>
+            <IconButton
+              color="primary"
+              aria-label={ariaLabel}
+              aria-describedby={descriptionId}
+              onClick={() => {
+                setSelectedRow(cellValues.row);
+                setValues(cellValues.row);
+                setEditUserDialogOpen(true);
+              }}
+            >
+              <Edit />
+            </IconButton>
+          </>
         );
       }
-    });
-  }
-  userCols.push({
-    field: 'delete',
-    headerName: 'Delete',
-    minWidth: 50,
-    flex: 0.4,
-    renderCell: (cellValues: GridRenderCellParams) => {
-      return (
-        <IconButton
-          color="primary"
-          onClick={() => {
-            setSelectedRow(cellValues.row);
-            setDeleteUserDialogOpen(true);
-          }}
-        >
-          <Delete />
-        </IconButton>
-      );
+    },
+    {
+      field: 'delete',
+      headerName: 'Delete',
+      minWidth: 50,
+      flex: 0.4,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        const ariaLabel = `Delete user ${cellValues.row.fullName}`;
+        const descriptionId = `delete-description-${cellValues.row.id}`;
+        return (
+          <>
+            <span id={descriptionId} style={{ display: 'none' }}>
+              {`Delete user ${cellValues.row.email}`}
+            </span>
+            <IconButton
+              color="primary"
+              aria-label={ariaLabel}
+              aria-describedby={descriptionId}
+              onClick={() => {
+                setSelectedRow(cellValues.row);
+                setDeleteUserDialogOpen(true);
+              }}
+            >
+              <Delete />
+            </IconButton>
+          </>
+        );
+      }
     }
-  });
+  ];
 
   const addUserButton = user?.userType === 'globalAdmin' && (
     <MuiButton
@@ -255,7 +266,6 @@ export const Users: React.FC = () => {
 
   const onCreateUserSubmit = async (e: any) => {
     e.preventDefault();
-    console.log(e);
     const body = {
       firstName: values.firstName,
       lastName: values.lastName,
@@ -570,7 +580,6 @@ export const Users: React.FC = () => {
               'state'
             ]}
             onImport={async (results) => {
-              // TODO: use a batch call here instead.
               const createdUsers = [];
               for (const result of results) {
                 const parsedRoles: {
@@ -578,7 +587,6 @@ export const Users: React.FC = () => {
                   role: string;
                 }[] = JSON.parse(result.roles as string);
                 const body: any = result;
-                // For now, just create role with the first organization
                 if (parsedRoles.length > 0) {
                   body.organization = parsedRoles[0].organization;
                   body.organizationAdmin = parsedRoles[0].role === 'admin';
@@ -590,7 +598,6 @@ export const Users: React.FC = () => {
                     })
                   );
                 } catch (e) {
-                  // Just continue when an error occurs
                   console.error(e);
                 }
               }
