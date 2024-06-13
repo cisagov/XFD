@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import { classes, StyledPaper } from './Styling/resultCardStyle';
 import clsx from 'classnames';
 import { Result } from '../../context/SearchProvider';
@@ -78,6 +79,8 @@ export const ResultCard: React.FC<Props> = (props) => {
   };
 
   let lastSeen;
+
+  const history = useHistory();
   try {
     lastSeen = formatDistanceToNow(parseISO(updatedAt.raw));
   } catch (e) {
@@ -86,6 +89,7 @@ export const ResultCard: React.FC<Props> = (props) => {
 
   const onClick = () => {
     onDomainSelected(id.raw);
+    history.push(`/inventory/domain/${id.raw}`);
   };
 
   const ports = services.raw.reduce(
