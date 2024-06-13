@@ -182,8 +182,8 @@ export const SCAN_SCHEMA: ScanSchema = {
     type: 'fargate',
     isPassive: true,
     global: true,
-    cpu: '1024',
-    memory: '4096',
+    cpu: '4096',
+    memory: '32768',
     description:
       'Syncs records with Elasticsearch so that they appear in search results.'
   },

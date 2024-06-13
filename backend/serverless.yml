@@ -11,7 +11,7 @@ custom:
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
-    certificateName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
+    certificateName: ${file(env.yml):${self:provider.stage}.CERT_DOMAIN, ''}
     stage: ${self:provider.stage}
     createRoute53Record: false
   serverlessIfElse:
@@ -30,17 +30,31 @@ provider:
   vpc: ${file(env.yml):${self:provider.stage}-vpc, ''}
   vpcEndpointIds:
     - ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
+  # apiName: ${file(env.yml):${self:provider.stage}.API_GATEWAY_NAME, ''}
+  # stackName: ${file(env.yml):${self:provider.stage}.STACK_NAME, ''}
   apiGateway:
     binaryMediaTypes:
       - image/*
       - font/*
-    resourcePolicy: ${file(env.yml):${self:provider.stage}.RESOURCE_POLICY, ''}
+    resourcePolicy:
+      - Effect: Deny
+        Principal: '*'
+        Action: 'execute-api:Invoke'
+        Resource: 'execute-api:/${self:provider.stage}/*/*'
+        Condition:
+          StringNotEquals:
+            'aws:sourceVpce': ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
+      - Effect: Allow
+        Principal: '*'
+        Action: execute-api:Invoke
+        Resource: execute-api:/${self:provider.stage}/*/*
   logs:
     restApi: true
   deploymentBucket:
     serverSideEncryption: AES256
   iam:
     role:
+      # name: ${file(env.yml):${self:provider.stage}.LAMBDA_ROLE, ''}
       statements:
         # TODO: make the resources more specific. See Resource: '*' was
         - Effect: Allow
@@ -116,7 +130,7 @@ resources:
       Fn::Or:
         - Fn::Equals:
             - ${self:provider.stage}
-            - staging
+            - staging-dmz
         - Fn::Equals:
             - ${self:provider.stage}
             - prod
@@ -168,6 +182,7 @@ functions:
 
 
 plugins:
+  - serverless-better-credentials
   - serverless-domain-manager
   - serverless-webpack
   - serverless-dotenv-plugin

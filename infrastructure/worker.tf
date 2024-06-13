@@ -48,29 +48,28 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
   role        = aws_iam_role.worker_task_execution_role.id
 
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Effect" : "Allow",
-        "Action" : [
-          "ecr:GetAuthorizationToken",
-          "ecr:BatchCheckLayerAvailability",
-          "ecr:GetDownloadUrlForLayer",
-          "ecr:BatchGetImage",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "sqs:ReceiveMessage",
-          "sqs:DeleteMessage",
-          "sqs:ListQueues",
-          "sqs:GetQueueAttributes"
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecr:GetAuthorizationToken",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:BatchGetImage",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+        "Effect": "Allow",
+        "Action": [
+            "ssm:GetParameters"
         ],
-        "Resource" : "*"
-      },
-      {
-        "Effect" : "Allow",
-        "Action" : ["ssm:GetParameters"],
-        "Resource" : [
+        "Resource": [
           "${aws_ssm_parameter.crossfeed_send_db_host.arn}",
           "${aws_ssm_parameter.crossfeed_send_db_name.arn}",
           "${data.aws_ssm_parameter.db_username.arn}",
@@ -91,7 +90,6 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.lg_workspace_name.arn}",
           "${data.aws_ssm_parameter.https_proxy.arn}",
           "${aws_ssm_parameter.es_endpoint.arn}",
-          "${aws_ssm_parameter.es_endpoint.arn}",
           "${data.aws_ssm_parameter.pe_api_key.arn}",
           "${data.aws_ssm_parameter.cf_api_key.arn}",
           "${data.aws_ssm_parameter.ssm_mdl_name.arn}",
@@ -102,19 +100,18 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.ssm_redshift_user.arn}",
           "${data.aws_ssm_parameter.ssm_redshift_password.arn}"
         ]
-      },
-      "${var.is_dmz ? "" : <<EOF
-      {
-        "Effect": "Allow",
-        "Action": ["kms:Decrypt"],
-        "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
-      }
-EOF
-      }"
-    ]
-  })
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt"
+      ],
+      "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
+    }
+  ]
 }
-
+EOF
+}
 
 
 resource "aws_iam_role" "worker_task_role" {
