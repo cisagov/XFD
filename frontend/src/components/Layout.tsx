@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import ScopedCssBaseline from '@mui/material/ScopedCssBaseline';
+import { Alert, ScopedCssBaseline } from '@mui/material';
 import { Header, GovBanner } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
@@ -14,11 +14,36 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+const parseTextToJSX = (text: String) => {
+  const lines = text.split('\n');
+  return lines.map((line, index) => {
+    const parts = line.split(/(\[.*?\]\(.*?\))/g).map((part, i) => {
+      const match = part.match(/\[(.*?)\]\((.*?)\)/);
+      if (match) {
+        return (
+          <a
+            key={i}
+            href={match[2]}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={match[2]}
+          >
+            {match[1]}
+          </a>
+        );
+      }
+      return part;
+    });
+    return <div key={index}>{parts}</div>;
+  });
+};
+
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { logout, user } = useAuthContext();
+  const { apiGet, logout, user } = useAuthContext();
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
+  const [warningBannerText, setWarningBannerText] = useState<JSX.Element[]>([]);
   const { isTimedOut, resetTimeout } = useUserActivityTimeout(
     14 * 60 * 1000, // set to 14 minutes of inactivity to notify user
     loggedIn
@@ -40,6 +65,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
+  const fetchWarningBannerText = useCallback(async () => {
+    try {
+      const text = await apiGet('/notifications/508-banner/');
+      const parsedText = parseTextToJSX(text);
+      setWarningBannerText(parsedText);
+    } catch (e) {
+      console.log(e);
+    }
+  }, [apiGet, setWarningBannerText]);
+
+  useEffect(() => {
+    fetchWarningBannerText();
+  }, [fetchWarningBannerText]);
+
   return (
     <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
       <div className={classes.root}>
@@ -48,6 +87,9 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
           onCountdownEnd={handleCountdownEnd}
           countdown={60} // 60 second timer for user inactivity timeout
         />
+        <Alert severity="warning" aria-label="warning label">
+          <div>{warningBannerText}</div>
+        </Alert>
         <GovBanner />
         {!pathname.includes('/readysetcyber') ? (
           <>

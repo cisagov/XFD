@@ -25,7 +25,6 @@ import { User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
-import { CognitoIdentityServiceProvider } from 'aws-sdk';
 import fetch from 'node-fetch';
 import logger from '../tools/lambda-logger';
 import { HttpsProxyAgent } from 'https-proxy-agent';
@@ -132,12 +131,16 @@ app.use(
           "'self'",
           'data:',
           `${process.env.FRONTEND_DOMAIN}`,
+          'https://www.ssa.gov',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
           `${process.env.BACKEND_DOMAIN}`,
+          'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
+          'https://www.ssa.gov/accessibility/andi/fandi.js',
+          'https://www.ssa.gov/accessibility/andi/andi.js',
           'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
@@ -331,6 +334,10 @@ app.post('/users/register', handlerToExpress(users.register));
 app.post('/readysetcyber/register', handlerToExpress(users.RSCRegister));
 
 app.get('/notifications', handlerToExpress(notifications.list));
+app.get(
+  '/notifications/508-banner',
+  handlerToExpress(notifications.get508Banner)
+);
 
 const checkUserLoggedIn = async (req, res, next) => {
   console.log('Checking if user is logged in.');

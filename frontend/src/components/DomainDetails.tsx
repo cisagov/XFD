@@ -10,12 +10,14 @@ import {
   List,
   ListItem,
   ListItemText,
-  Collapse
+  Collapse,
+  Button
 } from '@mui/material';
 import {
   ExpandLess,
   ExpandMore,
-  Launch as LinkOffIcon
+  Launch as LinkOffIcon,
+  KeyboardBackspace
 } from '@mui/icons-material';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
@@ -24,6 +26,7 @@ import { DefinitionList } from './DefinitionList';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types/webpage';
 import { useAuthContext } from 'context';
+import { Stack } from '@mui/system';
 
 const PREFIX = 'DomainDetails';
 
@@ -333,155 +336,173 @@ export const DomainDetails: React.FC<Props> = (props) => {
   const webpageTree = generateWebpageTree(webpages);
   const webpageList = generateWebpageList(webpageTree);
 
+  const backToResults = () => {
+    history.push('/inventory');
+  };
+
   return (
-    <StyledPaper classes={{ root: classes.root }}>
-      <div className={classes.title}>
-        <h4>
-          <Link to={`/inventory/domain/${domain.id}`}>{domain.name}</Link>
-        </h4>
+    <>
+      <Stack
+        direction="row"
+        spacing={1}
+        alignItems="center"
+        onClick={backToResults}
+      >
+        <KeyboardBackspace color="primary" />
+        <Button>Back To Results</Button>
+      </Stack>
 
-        <a href={url} target="_blank" rel="noopener noreferrer">
-          <LinkOffIcon />
-        </a>
-      </div>
-      <div className={classes.inner}>
-        {overviewInfo.length > 0 && (
-          <div className={classes.section}>
-            <h4 className={classes.subtitle}>Overview</h4>
-            <DefinitionList items={overviewInfo} />
-          </div>
-        )}
-        {webInfo.length > 0 && (
-          <div className={classes.section}>
-            <h4 className={classes.subtitle}>Known Products</h4>
-            <DefinitionList items={webInfo} />
-          </div>
-        )}
+      <StyledPaper classes={{ root: classes.root }}>
+        <div className={classes.title}>
+          <h4>
+            <Link to={`/inventory/domain/${domain.id}`}>{domain.name}</Link>
+          </h4>
 
-        {domain.vulnerabilities.length > 0 && (
-          <div className={classes.section}>
-            <h4 className={classes.subtitle}>Vulnerabilities</h4>
-            <Accordion className={classes.accordionHeaderRow} disabled>
-              <AccordionSummary>
-                <Typography className={classes.accordionHeading}>
-                  Title
-                </Typography>
-                <Typography className={classes.vulnDescription}>
-                  Severity
-                </Typography>
-                <Typography className={classes.vulnDescription}>
-                  State
-                </Typography>
-                <Typography className={classes.vulnDescription}>
-                  Created
-                </Typography>
-              </AccordionSummary>
-            </Accordion>
-            {domain.vulnerabilities.map((vuln) => (
-              <Accordion
-                className={classes.accordion}
-                key={vuln.id}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  history.push('/inventory/vulnerability/' + vuln.id);
-                }}
-              >
+          <a href={url} target="_blank" rel="noopener noreferrer">
+            <LinkOffIcon />
+          </a>
+        </div>
+        <div className={classes.inner}>
+          {overviewInfo.length > 0 && (
+            <div className={classes.section}>
+              <h4 className={classes.subtitle}>Overview</h4>
+              <DefinitionList items={overviewInfo} />
+            </div>
+          )}
+          {webInfo.length > 0 && (
+            <div className={classes.section}>
+              <h4 className={classes.subtitle}>Known Products</h4>
+              <DefinitionList items={webInfo} />
+            </div>
+          )}
+
+          {domain.vulnerabilities.length > 0 && (
+            <div className={classes.section}>
+              <h4 className={classes.subtitle}>Vulnerabilities</h4>
+              <Accordion className={classes.accordionHeaderRow} disabled>
                 <AccordionSummary>
                   <Typography className={classes.accordionHeading}>
-                    {vuln.title}
+                    Title
                   </Typography>
                   <Typography className={classes.vulnDescription}>
-                    {vuln.severity}
+                    Severity
                   </Typography>
                   <Typography className={classes.vulnDescription}>
-                    {vuln.state}
+                    State
                   </Typography>
                   <Typography className={classes.vulnDescription}>
-                    {vuln.createdAt
-                      ? `${differenceInCalendarDays(
-                          Date.now(),
-                          parseISO(vuln.createdAt)
-                        )} days ago`
-                      : ''}
+                    Created
                   </Typography>
                 </AccordionSummary>
               </Accordion>
-            ))}
-          </div>
-        )}
-        {domain.services.length > 0 && (
-          <div className={classes.section}>
-            <h4 className={classes.subtitle}>Ports</h4>
-            <Accordion className={classes.accordionHeaderRow} disabled>
-              <AccordionSummary expandIcon={<ExpandMore />}>
-                <Typography className={classes.accordionHeading}>
-                  Port
-                </Typography>
-                <Typography className={classes.accordionHeading}>
-                  Products
-                </Typography>
-                <Typography className={classes.lastSeen}>Last Seen</Typography>
-              </AccordionSummary>
-            </Accordion>
-            {domain.services.map((service) => {
-              const products = service.products
-                .map(
-                  (product) =>
-                    product.name +
-                    (product.version ? ` ${product.version}` : '')
-                )
-                .join(', ');
-              return (
-                <Accordion className={classes.accordion} key={service.id}>
-                  <AccordionSummary expandIcon={<ExpandMore />}>
+              {domain.vulnerabilities.map((vuln) => (
+                <Accordion
+                  className={classes.accordion}
+                  key={vuln.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    history.push('/inventory/vulnerability/' + vuln.id);
+                  }}
+                >
+                  <AccordionSummary>
                     <Typography className={classes.accordionHeading}>
-                      {service.port}
+                      {vuln.title}
                     </Typography>
-                    <Typography className={classes.accordionHeading}>
-                      {products}
+                    <Typography className={classes.vulnDescription}>
+                      {vuln.severity}
                     </Typography>
-                    <Typography className={classes.lastSeen}>
-                      {service.lastSeen
+                    <Typography className={classes.vulnDescription}>
+                      {vuln.state}
+                    </Typography>
+                    <Typography className={classes.vulnDescription}>
+                      {vuln.createdAt
                         ? `${differenceInCalendarDays(
                             Date.now(),
-                            parseISO(service.lastSeen)
+                            parseISO(vuln.createdAt)
                           )} days ago`
                         : ''}
                     </Typography>
                   </AccordionSummary>
-                  {service.products.length > 0 && (
-                    <AccordionDetails>
-                      <DefinitionList
-                        items={[
-                          {
-                            label: 'Products',
-                            value: products
-                          },
-                          {
-                            label: 'Banner',
-                            value:
-                              (user?.userType === 'globalView' ||
-                                user?.userType === 'globalAdmin') &&
-                              service.banner
-                                ? service.banner
-                                : 'None'
-                          }
-                        ]}
-                      />
-                    </AccordionDetails>
-                  )}
                 </Accordion>
-              );
-            })}
-          </div>
-        )}
-        {domain.webpages?.length > 0 && (
-          <div className={classes.section}>
-            <h4 className={classes.subtitle}>Site Map</h4>
-            {webpageList}
-          </div>
-        )}
-      </div>
-    </StyledPaper>
+              ))}
+            </div>
+          )}
+          {domain.services.length > 0 && (
+            <div className={classes.section}>
+              <h4 className={classes.subtitle}>Ports</h4>
+              <Accordion className={classes.accordionHeaderRow} disabled>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography className={classes.accordionHeading}>
+                    Port
+                  </Typography>
+                  <Typography className={classes.accordionHeading}>
+                    Products
+                  </Typography>
+                  <Typography className={classes.lastSeen}>
+                    Last Seen
+                  </Typography>
+                </AccordionSummary>
+              </Accordion>
+              {domain.services.map((service) => {
+                const products = service.products
+                  .map(
+                    (product) =>
+                      product.name +
+                      (product.version ? ` ${product.version}` : '')
+                  )
+                  .join(', ');
+                return (
+                  <Accordion className={classes.accordion} key={service.id}>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography className={classes.accordionHeading}>
+                        {service.port}
+                      </Typography>
+                      <Typography className={classes.accordionHeading}>
+                        {products}
+                      </Typography>
+                      <Typography className={classes.lastSeen}>
+                        {service.lastSeen
+                          ? `${differenceInCalendarDays(
+                              Date.now(),
+                              parseISO(service.lastSeen)
+                            )} days ago`
+                          : ''}
+                      </Typography>
+                    </AccordionSummary>
+                    {service.products.length > 0 && (
+                      <AccordionDetails>
+                        <DefinitionList
+                          items={[
+                            {
+                              label: 'Products',
+                              value: products
+                            },
+                            {
+                              label: 'Banner',
+                              value:
+                                (user?.userType === 'globalView' ||
+                                  user?.userType === 'globalAdmin') &&
+                                service.banner
+                                  ? service.banner
+                                  : 'None'
+                            }
+                          ]}
+                        />
+                      </AccordionDetails>
+                    )}
+                  </Accordion>
+                );
+              })}
+            </div>
+          )}
+          {domain.webpages?.length > 0 && (
+            <div className={classes.section}>
+              <h4 className={classes.subtitle}>Site Map</h4>
+              {webpageList}
+            </div>
+          )}
+        </div>
+      </StyledPaper>
+    </>
   );
 };
