@@ -176,7 +176,7 @@ class UpdateUser {
  *    - Users
  */
 export const del = wrapHandler(async (event) => {
-  if (!isGlobalWriteAdmin(event)) return Unauthorized;
+  if (!isGlobalWriteAdmin(event) && !isRegionalAdmin(event)) return Unauthorized;
   await connectToDatabase();
   const id = event.pathParameters?.userId;
   if (!id || !isUUID(id)) {
