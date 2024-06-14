@@ -117,9 +117,9 @@ export const Users: React.FC = () => {
       } else if (user) {
         setUsers([user]);
       }
-      setErrorStates({ ...errorStates, getUsersError: '' });
+      setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
-      setErrorStates({ ...errorStates, getUsersError: e.message });
+      setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
     }
   }, [apiGet, user]);
 
