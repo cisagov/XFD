@@ -294,7 +294,7 @@ const saveXpanseAlert = async (
         title: vuln.alert_name,
         cve: 'Xpanse Alert',
         description: vuln.description,
-        severity: vuln.severity,
+        severity: vuln.severity !== null ? vuln.severity.charAt(0).toUpperCase() + vuln.severity.slice(1).toLowerCase() : null,
         state: resolution,
         structuredData: {
           alert_id: vuln.alert_id,
