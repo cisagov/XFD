@@ -39,7 +39,7 @@ export const stateMap: { [key: string]: string } = {
   remediated: 'Remediated'
 };
 
-export interface TestVulnerability {
+export interface VulnerabilityRow {
   id: string;
   title: string;
   severity: string;
@@ -213,22 +213,20 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     });
   }, [fetchVulnerabilities]);
 
-  const testVulnerabilities: TestVulnerability[] = vulnerabilities.map(
-    (vuln) => ({
-      id: vuln.id,
-      title: vuln.title,
-      severity: vuln.severity ?? 'N/A',
-      kev: vuln.isKev ? 'Yes' : 'No',
-      domain: vuln.domain.name,
-      domainId: vuln.domain.id,
-      product: vuln.cpe ?? 'N/A',
-      createdAt: `${differenceInCalendarDays(
-        Date.now(),
-        parseISO(vuln.createdAt)
-      )} days`,
-      state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
-    })
-  );
+  const vulRows: VulnerabilityRow[] = vulnerabilities.map((vuln) => ({
+    id: vuln.id,
+    title: vuln.title,
+    severity: vuln.severity ?? 'N/A',
+    kev: vuln.isKev ? 'Yes' : 'No',
+    domain: vuln.domain.name,
+    domainId: vuln.domain.id,
+    product: vuln.cpe ?? 'N/A',
+    createdAt: `${differenceInCalendarDays(
+      Date.now(),
+      parseISO(vuln.createdAt)
+    )} days`,
+    state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
+  }));
 
   const vulCols: GridColDef[] = [
     {
@@ -458,7 +456,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           ) : (
             <Paper elevation={2} sx={{ width: '90%' }}>
               <DataGrid
-                rows={testVulnerabilities}
+                rows={vulRows}
                 rowCount={totalResults}
                 columns={vulCols}
                 slots={{ toolbar: CustomToolbar }}

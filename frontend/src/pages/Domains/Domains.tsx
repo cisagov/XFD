@@ -14,7 +14,7 @@ import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 const PAGE_SIZE = 15;
 
-export interface TestDomain {
+export interface DomainRow {
   id: string;
   organizationName: string;
   name: string;
@@ -80,7 +80,7 @@ export const Domains: React.FC = () => {
     });
   }, [fetchDomains]);
 
-  const testDomains: TestDomain[] = domains.map((domain) => ({
+  const domRows: DomainRow[] = domains.map((domain) => ({
     id: domain.id,
     organizationName: domain.organization.name,
     name: domain.name,
@@ -170,7 +170,7 @@ export const Domains: React.FC = () => {
         ) : (
           <Paper elevation={2} sx={{ width: '90%' }}>
             <DataGrid
-              rows={testDomains}
+              rows={domRows}
               rowCount={totalResults}
               columns={domCols}
               slots={{ toolbar: CustomToolbar }}
