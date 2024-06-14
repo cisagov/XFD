@@ -22,8 +22,8 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 // import { Link } from 'react-router-dom';
 import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { Alert, Box, IconButton, Paper } from '@mui/material';
+// import { DataGrid, GridColDef } from '@mui/x-data-grid';
+// import { Alert, Box, IconButton, Paper } from '@mui/material';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -254,76 +254,76 @@ const ScansView: React.FC = () => {
   };
 
   //Code for new table//
-  const newScans = scans.map((scan) => {
-    return {
-      id: scan.id,
-      name: scan.name,
-      tags: scan.tags.map((tag) => tag.name).join(', '),
-      mode:
-        scanSchema[scan.name] && scanSchema[scan.name].isPassive
-          ? 'Passive'
-          : 'Active',
-      frequency: scan.frequency,
-      lastRun:
-        !scan.lastRun ||
-        new Date(scan.lastRun).getTime() === new Date(0).getTime()
-          ? 'None'
-          : `${formatDistanceToNow(parseISO(scan.lastRun))} ago`,
-      description: scanSchema[scan.name]?.description
-    };
-  });
+  // const newScans = scans.map((scan) => {
+  //   return {
+  //     id: scan.id,
+  //     name: scan.name,
+  //     tags: scan.tags.map((tag) => tag.name).join(', '),
+  //     mode:
+  //       scanSchema[scan.name] && scanSchema[scan.name].isPassive
+  //         ? 'Passive'
+  //         : 'Active',
+  //     frequency: scan.frequency,
+  //     lastRun:
+  //       !scan.lastRun ||
+  //       new Date(scan.lastRun).getTime() === new Date(0).getTime()
+  //         ? 'None'
+  //         : `${formatDistanceToNow(parseISO(scan.lastRun))} ago`,
+  //     description: scanSchema[scan.name]?.description
+  //   };
+  // });
 
-  const scansCols: GridColDef[] = [
-    {
-      field: 'run',
-      headerName: 'Run',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues) => {
-        return (
-          <IconButton
-            color="primary"
-            onClick={() => {
-              runScan(cellValues.row.id);
-            }}
-          >
-            <FaPlayCircle />
-          </IconButton>
-        );
-      }
-    },
-    { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'tags', headerName: 'Tags', minWidth: 100, flex: 1 },
-    { field: 'mode', headerName: 'Mode', minWidth: 100, flex: 1 },
-    { field: 'frequency', headerName: 'Frequency', minWidth: 100, flex: 1 },
-    { field: 'lastRun', headerName: 'Last Run', minWidth: 100, flex: 1 },
-    {
-      field: 'delete',
-      headerName: 'Delete',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues) => {
-        return (
-          <IconButton
-            color="primary"
-            onClick={() => {
-              modalRef.current?.toggleModal(undefined, true);
-              setSelectedRow(cellValues.row.id);
-            }}
-          >
-            <FaTimes />
-          </IconButton>
-        );
-      }
-    },
-    { field: 'description', headerName: 'Description', minWidth: 100, flex: 2 }
-  ];
+  // const scansCols: GridColDef[] = [
+  //   {
+  //     field: 'run',
+  //     headerName: 'Run',
+  //     minWidth: 100,
+  //     flex: 1,
+  //     renderCell: (cellValues) => {
+  //       return (
+  //         <IconButton
+  //           color="primary"
+  //           onClick={() => {
+  //             runScan(cellValues.row.id);
+  //           }}
+  //         >
+  //           <FaPlayCircle />
+  //         </IconButton>
+  //       );
+  //     }
+  //   },
+  //   { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
+  //   { field: 'tags', headerName: 'Tags', minWidth: 100, flex: 1 },
+  //   { field: 'mode', headerName: 'Mode', minWidth: 100, flex: 1 },
+  //   { field: 'frequency', headerName: 'Frequency', minWidth: 100, flex: 1 },
+  //   { field: 'lastRun', headerName: 'Last Run', minWidth: 100, flex: 1 },
+  //   {
+  //     field: 'delete',
+  //     headerName: 'Delete',
+  //     minWidth: 100,
+  //     flex: 1,
+  //     renderCell: (cellValues) => {
+  //       return (
+  //         <IconButton
+  //           color="primary"
+  //           onClick={() => {
+  //             modalRef.current?.toggleModal(undefined, true);
+  //             setSelectedRow(cellValues.row.id);
+  //           }}
+  //         >
+  //           <FaTimes />
+  //         </IconButton>
+  //       );
+  //     }
+  //   },
+  //   { field: 'description', headerName: 'Description', minWidth: 100, flex: 2 }
+  // ];
 
   return (
     <>
       <Table<Scan> columns={columns} data={scans} fetchData={fetchScans} />
       <br></br>
-      <Box mb={3}>
+      {/* <Box mb={3}>
         <Paper elevation={0}>
           {scans?.length === 0 ? (
             <Alert severity="info">No scans found</Alert>
@@ -331,8 +331,7 @@ const ScansView: React.FC = () => {
             <DataGrid rows={newScans} columns={scansCols} />
           )}
         </Paper>
-      </Box>
-
+      </Box> */}
       <Button type="submit" outline onClick={invokeScheduler}>
         Manually run scheduler
       </Button>
