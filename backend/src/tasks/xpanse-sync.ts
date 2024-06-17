@@ -177,7 +177,6 @@ const getVulnData = async (
         if (current_page >= total_pages) {
           done = true;
           console.log(`Finished fetching Xpanse Alert data for ${org.name}`);
-          
         }
         page = page + 1;
       }
@@ -187,8 +186,8 @@ const getVulnData = async (
         `Error fetching Xpanse Alert data: ${taskRequest?.error} and status: ${taskRequest?.status}`
       );
     }
-      }
-  return 1
+  }
+  return 1;
 };
 const saveXpanseDomain = async (domain) => {
   const existingDomain = await Domain.findOne({
@@ -294,7 +293,11 @@ const saveXpanseAlert = async (
         title: vuln.alert_name,
         cve: 'Xpanse Alert',
         description: vuln.description,
-        severity: vuln.severity !== null ? vuln.severity.charAt(0).toUpperCase() + vuln.severity.slice(1).toLowerCase() : null,
+        severity:
+          vuln.severity !== null
+            ? vuln.severity.charAt(0).toUpperCase() +
+              vuln.severity.slice(1).toLowerCase()
+            : null,
         state: resolution,
         structuredData: {
           alert_id: vuln.alert_id,
@@ -341,7 +344,7 @@ export const handler = async (CommandOptions) => {
 
     for (const org of allOrgs) {
       console.log(`Gathering Xpanse alerts for ${org.name}`);
-      (await getVulnData(org, CommandOptions));
+      await getVulnData(org, CommandOptions);
     }
   } catch (e) {
     console.error('Unknown failure.');
