@@ -17,7 +17,7 @@ import { FaTimes } from 'react-icons/fa';
 import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
 // @ts-ignore:next-line
-import { formatDistanceToNow, parseISO, set } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 // import { Link } from 'react-router-dom';
 import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
