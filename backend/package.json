@@ -48,7 +48,7 @@
     "uuid": "^9.0.1",
     "wappalyzer": "^6.10.63",
     "wappalyzer-core": "^6.10.63",
-    "ws": "^8.13.0"
+    "ws": "^8.17.1"
   },
   "description": "",
   "devDependencies": {
