@@ -21,7 +21,7 @@ import {
 import S3Client from '../tasks/s3-client';
 import * as Papa from 'papaparse';
 
-const PAGE_SIZE = parseInt(process.env.PAGE_SIZE ?? '') || 25;
+const PAGE_SIZE = 15;
 
 class DomainFilters {
   @IsString()
