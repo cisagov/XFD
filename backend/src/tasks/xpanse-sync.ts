@@ -42,7 +42,7 @@ interface XpanseVulnOutput {
   time_pulled_from_xpanse: string;
   action_pretty: string;
   attack_surface_rule_name: string;
-  certificate: Record<string, any>; 
+  certificate: Record<string, any>;
   remediation_guidance: string;
   asset_identifiers: Record<string, any>[];
   services: XpanseServiceOutput[];
@@ -166,7 +166,7 @@ const getVulnData = async (
       }
       if (taskRequest?.status == 'Completed') {
         console.log(`Task completed successfully for page: ${page}`);
-        const vulnArray = taskRequest?.result?.data || []; 
+        const vulnArray = taskRequest?.result?.data || [];
         await saveXpanseAlert(vulnArray, org, commandOptions.scanId);
         total_pages = taskRequest?.result?.total_pages || 1;
         const current_page = taskRequest?.result?.current_page || 1;
@@ -206,7 +206,7 @@ const saveXpanseVuln = async (vuln: Vulnerability, savedDomain: Domain) => {
   const existingVuln = await Vulnerability.findOne({
     where: {
       domain: { id: savedDomain.id },
-      title: vuln.title 
+      title: vuln.title
     }
   });
   if (!existingVuln) {
