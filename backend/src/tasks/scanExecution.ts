@@ -5,7 +5,14 @@ import { integer } from 'aws-sdk/clients/cloudfront';
 const ecs = new AWS.ECS();
 let docker: any;
 const QUEUE_URL = process.env.QUEUE_URL!;
-const SCAN_LIST = ['dnstwist', 'hibp', 'intelx', 'cybersixgill', 'shodan'];
+const SCAN_LIST = [
+  'dnstwist',
+  'hibp',
+  'intelx',
+  'cybersixgill',
+  'shodan',
+  'xpanse'
+];
 
 if (process.env.IS_LOCAL) {
   const Docker = require('dockerode');
@@ -211,7 +218,7 @@ export const handler: Handler = async (event) => {
       await startDesiredTasks(scanType, desiredCount);
     } else {
       console.log(
-        'Shodan, DNSTwist, HIBP, IntelX, and Cybersixgill are the only script types available right now. Must be all lowercase.'
+        'Shodan, DNSTwist, HIBP, IntelX, Xpanse, and Cybersixgill are the only script types available right now. Must be all lowercase.'
       );
     }
   } catch (error) {
