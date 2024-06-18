@@ -42,7 +42,7 @@ interface XpanseVulnOutput {
   time_pulled_from_xpanse: string;
   action_pretty: string;
   attack_surface_rule_name: string;
-  certificate: Record<string, any>; //Change this to a
+  certificate: Record<string, any>; 
   remediation_guidance: string;
   asset_identifiers: Record<string, any>[];
   services: XpanseServiceOutput[];
@@ -155,22 +155,18 @@ const getVulnData = async (
   let done = false;
   let page = 1;
   let total_pages = 1;
-  // let fullVulnArray: XpanseVulnOutput[] = [];
   while (!done) {
     let taskRequest = await createTask(page, org.acronym);
     console.log(`Fetching page ${page} of page ${total_pages}`);
     await new Promise((r) => setTimeout(r, 1000));
     if (taskRequest?.status == 'Processing') {
       while (taskRequest?.status == 'Processing') {
-        //console.log('Waiting for task to complete');
         await new Promise((r) => setTimeout(r, 1000));
         taskRequest = await fetchData(taskRequest.task_id);
-        //console.log(taskRequest?.status);
       }
       if (taskRequest?.status == 'Completed') {
         console.log(`Task completed successfully for page: ${page}`);
-        const vulnArray = taskRequest?.result?.data || []; //TODO, change this to CveEntry[]
-        // fullVulnArray = fullVulnArray.concat(vulnArray);
+        const vulnArray = taskRequest?.result?.data || []; 
         await saveXpanseAlert(vulnArray, org, commandOptions.scanId);
         total_pages = taskRequest?.result?.total_pages || 1;
         const current_page = taskRequest?.result?.current_page || 1;
@@ -210,7 +206,7 @@ const saveXpanseVuln = async (vuln: Vulnerability, savedDomain: Domain) => {
   const existingVuln = await Vulnerability.findOne({
     where: {
       domain: { id: savedDomain.id },
-      title: vuln.title //Change this for typeorm bump
+      title: vuln.title 
     }
   });
   if (!existingVuln) {
