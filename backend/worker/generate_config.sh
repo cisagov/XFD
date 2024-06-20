@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Generate database.ini
-cat << EOF > pe-reports/src/pe_reports/data/database.ini
+cat << EOF > ATC-Framework/src/pe_reports/data/database.ini
 [postgres]
 host=${DB_HOST}
 database=${PE_DB_NAME}
@@ -52,6 +52,6 @@ pe_reports_path=$(pip show pe-reports | grep -E '^Location:' | awk '{print $2}')
 pe_reports_path="${pe_reports_path%/pe-reports}/pe_reports"
 
 # Copy database.ini to the module's installation directory
-cp /app/pe-reports/src/pe_reports/data/database.ini "${pe_reports_path}/data/"
+cp /app/ATC-Framework/src/pe_reports/data/database.ini "${pe_reports_path}/data/"
 
 exec "$@"
