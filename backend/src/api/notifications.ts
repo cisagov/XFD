@@ -111,8 +111,6 @@ export const list = wrapHandler(async (event) => {
     }
   });
 
-  console.log('Notification.find result: ', result);
-
   return {
     statusCode: 200,
     body: JSON.stringify(result)
