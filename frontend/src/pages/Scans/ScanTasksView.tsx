@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { TableInstance, Column, CellProps, Row } from 'react-table';
-import { Query } from 'types';
+import { Query, Scan } from 'types';
 import { Table, Paginator, ColumnFilter, selectFilter } from 'components';
 import { ScanTask } from 'types';
 import { useAuthContext } from 'context';
@@ -10,6 +10,20 @@ import classes from './Scans.module.scss';
 import { FaMinus, FaPlus, FaSyncAlt } from 'react-icons/fa';
 import { LazyLog } from 'react-lazylog';
 import { Button } from '@trussworks/react-uswds';
+import {
+  Alert,
+  Dialog,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Icon,
+  IconButton,
+  Paper,
+  Typography
+} from '@mui/material';
+import { Box } from '@mui/system';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -18,6 +32,20 @@ interface ApiResponse {
 
 interface Errors {
   global?: string;
+}
+
+export interface ScansTaskRow {
+  id: string;
+  status: string;
+  type: string;
+  input: string;
+  output: string;
+  createdAt: string;
+  startedAt: string;
+  requestedAt: string;
+  finishedAt: string;
+  scan: Scan;
+  fargateTaskArn: string;
 }
 
 const dateAccessor = (date?: string) => {
@@ -58,6 +86,9 @@ export const ScanTasksView: React.FC = () => {
   const [scanTasks, setScanTasks] = useState<ScanTask[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
+
+  const [openDialog, setOpenDialog] = useState(false);
+  const [detailsParams, setDetailsParams] = useState<GridRenderCellParams>();
 
   const killScanTask = async (index: number) => {
     try {
@@ -212,7 +243,7 @@ export const ScanTasksView: React.FC = () => {
       disableFilters: true
     }
   ];
-  const PAGE_SIZE = 25;
+  const PAGE_SIZE = 15;
 
   const fetchScanTasks = useCallback(
     async (query: Query<ScanTask>) => {
@@ -248,6 +279,12 @@ export const ScanTasksView: React.FC = () => {
         );
         setScanTasks(result);
         setTotalResults(count);
+        setPaginationModel((prev) => ({
+          ...prev,
+          page: query.page - 1,
+          pageSize: query.pageSize ?? PAGE_SIZE,
+          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
+        }));
       } catch (e) {
         console.error(e);
       }
@@ -258,6 +295,56 @@ export const ScanTasksView: React.FC = () => {
   const renderPagination = (table: TableInstance<ScanTask>) => (
     <Paginator table={table} totalResults={totalResults} />
   );
+
+  //New Table for Scans
+
+  const scansTasksRows: ScansTaskRow[] = scanTasks.map((scanTask) => ({
+    id: scanTask.id,
+    status: scanTask.status,
+    type: scanTask.type,
+    input: scanTask.input,
+    output: scanTask.output,
+    createdAt: scanTask.createdAt,
+    startedAt: scanTask.startedAt,
+    requestedAt: scanTask.requestedAt,
+    finishedAt: scanTask.finishedAt,
+    scan: scanTask.scan,
+    fargateTaskArn: scanTask.fargateTaskArn
+  }));
+
+  const scansTasksCols: GridColDef[] = [
+    { field: 'id', headerName: 'ID', minWidth: 100, flex: 2 },
+    { field: 'status', headerName: 'Status', minWidth: 100, flex: 1 },
+    { field: 'type', headerName: 'Name', minWidth: 100, flex: 1 },
+    { field: 'createdAt', headerName: 'Created At', minWidth: 200, flex: 1 },
+    { field: 'finishedAt', headerName: 'Finished At', minWidth: 200, flex: 1 },
+    {
+      field: 'details',
+      headerName: 'Details',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <IconButton
+            color="primary"
+            onClick={() => {
+              setOpenDialog(true);
+              setDetailsParams(cellValues);
+            }}
+          >
+            <Icon>info</Icon>
+          </IconButton>
+        );
+      }
+    }
+  ];
+
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: PAGE_SIZE,
+    sort: [],
+    filters: []
+  });
 
   return (
     <>
@@ -277,6 +364,69 @@ export const ScanTasksView: React.FC = () => {
         ]}
         renderExpanded={renderExpanded}
       />
+      <Box mb={3}>
+        <Paper elevation={0}>
+          {scanTasks?.length === 0 ? (
+            <Alert severity="warning">No scans found</Alert>
+          ) : (
+            <DataGrid
+              rows={scansTasksRows}
+              rowCount={totalResults}
+              columns={scansTasksCols}
+              slots={{ toolbar: CustomToolbar }}
+              paginationMode="server"
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => {
+                fetchScanTasks({
+                  page: model.page + 1,
+                  pageSize: model.pageSize,
+                  sort: paginationModel.sort,
+                  filters: paginationModel.filters
+                });
+              }}
+              pageSizeOptions={[15, 30, 50, 100]}
+            />
+          )}
+        </Paper>
+      </Box>
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{'Scan Details'}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            <Typography variant="h6" component="div">
+              Input
+            </Typography>
+            <Typography variant="body2" color="text.secondary" component="div">
+              <pre>
+                {detailsParams?.row?.input &&
+                  JSON.stringify(
+                    JSON.parse(detailsParams?.row?.input),
+                    null,
+                    2
+                  )}
+              </pre>
+            </Typography>
+            <Typography variant="h6" component="div">
+              Output
+            </Typography>
+            <Typography variant="body2" color="text.secondary" component="div">
+              <pre>
+                {detailsParams?.row?.output &&
+                  JSON.stringify(
+                    JSON.parse(detailsParams?.row?.output),
+                    null,
+                    2
+                  )}
+              </pre>
+            </Typography>
+          </DialogContentText>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
