@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { TableInstance, Column, CellProps, Row } from 'react-table';
 import { Query, Scan } from 'types';
 import { Table, Paginator, ColumnFilter, selectFilter } from 'components';
@@ -18,12 +18,16 @@ import {
   DialogTitle,
   Icon,
   IconButton,
+  Menu,
+  MenuItem,
   Paper,
   Typography
 } from '@mui/material';
 import { Box } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import { Button as MuiButton } from '@mui/material';
+import { KeyboardArrowDown } from '@mui/icons-material';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -37,7 +41,7 @@ interface Errors {
 export interface ScansTaskRow {
   id: string;
   status: string;
-  type: string;
+  name: string;
   input: string;
   output: string;
   createdAt: string;
@@ -271,6 +275,7 @@ export const ScanTasksView: React.FC = () => {
           {
             body: {
               page,
+              pageSize: query.pageSize ?? PAGE_SIZE,
               sort: sort[0]?.id ?? 'createdAt',
               order: sort[0]?.desc ? 'DESC' : 'ASC',
               filters: tableFilters
@@ -301,7 +306,7 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksRows: ScansTaskRow[] = scanTasks.map((scanTask) => ({
     id: scanTask.id,
     status: scanTask.status,
-    type: scanTask.type,
+    name: scanTask.scan?.name,
     input: scanTask.input,
     output: scanTask.output,
     createdAt: scanTask.createdAt,
@@ -315,7 +320,7 @@ export const ScanTasksView: React.FC = () => {
   const scansTasksCols: GridColDef[] = [
     { field: 'id', headerName: 'ID', minWidth: 100, flex: 2 },
     { field: 'status', headerName: 'Status', minWidth: 100, flex: 1 },
-    { field: 'type', headerName: 'Name', minWidth: 100, flex: 1 },
+    { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'createdAt', headerName: 'Created At', minWidth: 200, flex: 1 },
     { field: 'finishedAt', headerName: 'Finished At', minWidth: 200, flex: 1 },
     {
@@ -343,8 +348,138 @@ export const ScanTasksView: React.FC = () => {
     page: 0,
     pageSize: PAGE_SIZE,
     sort: [],
-    filters: []
+    filters: [] as { id: string; value: any }[]
   });
+
+  useEffect(() => {
+    fetchScanTasks({
+      page: 1,
+      pageSize: PAGE_SIZE,
+      sort: paginationModel.sort,
+      filters: paginationModel.filters
+    });
+  }, [fetchScanTasks, paginationModel.sort, paginationModel.filters]);
+
+  const [anchorElName, setAnchorElName] = useState<null | HTMLElement>(null);
+  const [anchorElStatus, setAnchorElStatus] = useState<null | HTMLElement>(
+    null
+  );
+  const openNameMenu = Boolean(anchorElName);
+  const openStatusMenu = Boolean(anchorElStatus);
+  const handleStatusClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElStatus(event.currentTarget);
+  };
+  const handleNameClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorElName(event.currentTarget);
+  };
+
+  const handleNameSelect = (name: string) => {
+    setPaginationModel((prev) => ({
+      ...prev,
+      filters: [
+        ...prev.filters.filter((f) => f.id !== 'name'),
+        { id: 'name', value: name }
+      ]
+    }));
+    setAnchorElName(null);
+  };
+  const handleStatusSelect = (status: string) => {
+    setPaginationModel((prev) => ({
+      ...prev,
+      filters: [
+        ...prev.filters.filter((f) => f.id !== 'status'),
+        { id: 'status', value: status }
+      ]
+    }));
+    setAnchorElStatus(null);
+  };
+  const scanNameValues = [
+    'censys',
+    'amass',
+    'findomain',
+    'portscanner',
+    'wappalyzer',
+    'censysIpv4',
+    'censysCertificates',
+    'sslyze',
+    'searchSync',
+    'cve',
+    'dotgov',
+    'webscraper',
+    'intrigueIdent',
+    'shodan',
+    'hibp',
+    'lookingGlass',
+    'dnstwist',
+    'rootDomainSync'
+  ];
+
+  const statusValues = [
+    'created',
+    'queued',
+    'requested',
+    'started',
+    'finished',
+    'failed'
+  ];
+
+  const scanNameDropdown = (
+    <>
+      <MuiButton
+        size="small"
+        sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
+        endIcon={<KeyboardArrowDown />}
+        onClick={handleNameClick}
+      >
+        Name
+      </MuiButton>
+      <Menu
+        anchorEl={anchorElName}
+        open={openNameMenu}
+        onClose={() => setAnchorElName(null)}
+      >
+        <MenuItem value="">All</MenuItem>
+        {scanNameValues.map((name) => (
+          <MenuItem
+            key={name}
+            value={name}
+            onClick={handleNameSelect.bind(null, name)}
+          >
+            {name}
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
+
+  const scanStatusDropdown = (
+    <>
+      <MuiButton
+        size="small"
+        sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
+        endIcon={<KeyboardArrowDown />}
+        onClick={handleStatusClick}
+      >
+        Status
+      </MuiButton>
+      <Menu
+        anchorEl={anchorElStatus}
+        open={openStatusMenu}
+        onClose={() => setAnchorElStatus(null)}
+      >
+        <MenuItem value="">All</MenuItem>
+        {statusValues.map((status) => (
+          <MenuItem
+            key={status}
+            value={status}
+            onClick={handleStatusSelect.bind(null, status)}
+          >
+            {status}
+          </MenuItem>
+        ))}
+      </Menu>
+    </>
+  );
 
   return (
     <>
@@ -374,6 +509,9 @@ export const ScanTasksView: React.FC = () => {
               rowCount={totalResults}
               columns={scansTasksCols}
               slots={{ toolbar: CustomToolbar }}
+              slotProps={{
+                toolbar: { children: [scanNameDropdown, scanStatusDropdown] }
+              }}
               paginationMode="server"
               paginationModel={paginationModel}
               onPaginationModelChange={(model) => {
@@ -382,6 +520,18 @@ export const ScanTasksView: React.FC = () => {
                   pageSize: model.pageSize,
                   sort: paginationModel.sort,
                   filters: paginationModel.filters
+                });
+              }}
+              filterMode="server"
+              onFilterModelChange={(model) => {
+                fetchScanTasks({
+                  page: 1,
+                  pageSize: paginationModel.pageSize,
+                  sort: paginationModel.sort,
+                  filters: model.items.map((item) => ({
+                    id: item.field,
+                    value: item.value
+                  }))
                 });
               }}
               pageSizeOptions={[15, 30, 50, 100]}
