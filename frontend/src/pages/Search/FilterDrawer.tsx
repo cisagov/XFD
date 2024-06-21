@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AccordionDetails,
   Accordion as MuiAccordion,
@@ -9,6 +9,9 @@ import { ExpandMore, FiberManualRecordRounded } from '@mui/icons-material';
 import { FaFilter } from 'react-icons/fa';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../../context/SearchProvider';
+import { SavedSearch } from '../../types/saved-search';
+import { useAuthContext } from '../../context';
+import { useHistory } from 'react-router-dom';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -31,6 +34,34 @@ const AccordionSummary = MuiAccordionSummary;
 
 export const FilterDrawer: React.FC<Props> = (props) => {
   const { filters, addFilter, removeFilter, facets, clearFilters } = props;
+  const { apiGet } = useAuthContext();
+  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const history = useHistory();
+
+  const loadSearches = () => {
+    return apiGet('/saved-searches');
+  };
+
+  useEffect(() => {
+    const fetchSearches = async () => {
+      // const response = await apiGet('/saved-searches');
+      try {
+        const response = await loadSearches();
+        let searches = response;
+        setSavedSearches(response.result);
+
+        // for (let key in searches){
+        //   console.log('Key: ', key, ' Value: ', searches.result[key].name,
+        //      ' ID: ', searches.result[key].id);
+        // }
+        // console.log(searches.result);
+      } catch (error) {
+        console.error('Error fetching searches:', error);
+      }
+    };
+
+    fetchSearches();
+  }, []);
 
   const filtersByColumn = useMemo(
     () =>
@@ -67,7 +98,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
   }
 
   return (
-    <StyledWrapper>
+    <StyledWrapper style={{ overflowY: 'auto' }}>
       <div className={classes.header}>
         <div className={classes.filter}>
           <FaFilter /> <h3>Filter</h3>
@@ -284,6 +315,74 @@ export const FilterDrawer: React.FC<Props> = (props) => {
           </AccordionDetails>
         </Accordion>
       )}
+      <Accordion
+        elevation={0}
+        square
+        classes={{
+          root: classes.root,
+          disabled: classes.disabled,
+          expanded: classes.expanded
+        }}
+      >
+        <AccordionSummary
+          expandIcon={<ExpandMore />}
+          classes={{
+            root: classes.root2,
+            content: classes.content,
+            disabled: classes.disabled2,
+            expanded: classes.expanded2
+          }}
+        >
+          <h3>Saved Searches</h3>
+        </AccordionSummary>
+        <AccordionDetails classes={{ root: classes.details }}>
+          {savedSearches.map((search, index) => (
+            <div key={search.id}>
+              {
+                <button
+                  onClick={() => {
+                    clearFilters;
+                    console.log('bbb');
+                    localStorage.setItem('savedSearch', JSON.stringify(search));
+                    history.push(
+                      '/inventory' +
+                        search.searchPath +
+                        '&searchId=' +
+                        search.id
+                    );
+                    // Apply the search term
+                    // setSearchTerm(search.searchTerm);
+
+                    // Apply the filters
+                    search.filters.forEach((filter) => {
+                      console.log('Filter: ', filter);
+                      filter.values.forEach((value) => {
+                        console.log(
+                          'Filter Field: ',
+                          filter.field,
+                          'Value: ',
+                          value
+                        );
+                        addFilter(filter.field, value, 'any');
+                      });
+                    });
+                  }}
+                  key={search.id}
+                  style={{ textDecoration: 'none' }}
+                >
+                  <p>{search.name}</p>{' '}
+                </button>
+              }
+              <button>X</button>
+              {/* <p>Created At: {search.createdAt}</p>
+                <p>Updated At: {search.updatedAt}</p>
+                <p>Search Term: {search.searchTerm}</p>
+                <p>Count: {search.count}</p>
+                <p>Search Path: {search.searchPath}</p> */}
+            </div>
+          ))}
+        </AccordionDetails>
+      </Accordion>
     </StyledWrapper>
   );
 };
