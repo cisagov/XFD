@@ -203,9 +203,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
         tags = await apiGet<OrganizationTag[]>('/organizations/tags');
         await setTags(tags as OrganizationTag[]);
       }
-      // Not sure why we need to add tags to the orgs array, will look for the purpose. Commenting out for now to fix type union issue
       await setOrganizations(rows);
-      // await setOrganizations(rows)
     } catch (e) {
       console.log(e);
     }
