@@ -96,18 +96,26 @@ export const ScanTasksView: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [detailsParams, setDetailsParams] = useState<GridRenderCellParams>();
 
-  // const killScanTask = async (id: string) => {
-  //   try {
-  //     await apiPost(`/scan-tasks/${id}/kill`, { body: {} });
-  //     const index = scanTasks.findIndex((task) => task.id === id);
-  //     setScanTasks(
-  //       Object.assign([], scanTasks, {
-  //         [index]: {
-  //           ...scanTasks[index],
-  //           status: 'failed'
-  //         }
-  //       })
-  //     );
+  const killScanTask2 = async (id: string) => {
+    try {
+      await apiPost(`/scan-tasks/${id}/kill`, { body: {} });
+      const index = scanTasks.findIndex((task) => task.id === id);
+      setScanTasks(
+        Object.assign([], scanTasks, {
+          [index]: {
+            ...scanTasks[index],
+            status: 'failed'
+          }
+        })
+      );
+    } catch (e: any) {
+      setErrors({
+        global:
+          e.status === 422 ? 'Unable to kill scan' : e.message ?? e.toString()
+      });
+      console.log(e);
+    }
+  };
   const killScanTask = async (index: number) => {
     try {
       const row = scanTasks[index];
@@ -628,7 +636,7 @@ export const ScanTasksView: React.FC = () => {
                   href="# "
                   onClick={(e) => {
                     e.preventDefault();
-                    killScanTask(detailsParams?.row.id);
+                    killScanTask2(detailsParams?.row.id);
                   }}
                 >
                   Kill Scan
