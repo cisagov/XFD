@@ -458,9 +458,9 @@ export const ScanTasksView: React.FC = () => {
         open={openNameMenu}
         onClose={() => setAnchorElName(null)}
       >
-        {scanNameValues.map((name) => (
+        {scanNameValues.map((name, index) => (
           <MenuItem
-            key={name + 1}
+            key={index + name}
             value={name}
             onClick={handleNameSelect.bind(null, name)}
           >
@@ -486,9 +486,9 @@ export const ScanTasksView: React.FC = () => {
         open={openStatusMenu}
         onClose={() => setAnchorElStatus(null)}
       >
-        {statusValues.map((status) => (
+        {statusValues.map((status, index) => (
           <MenuItem
-            key={status + 1}
+            key={index + status}
             value={status}
             onClick={handleStatusSelect.bind(null, status)}
           >
@@ -528,7 +528,11 @@ export const ScanTasksView: React.FC = () => {
               columns={scansTasksCols}
               slots={{ toolbar: CustomToolbar }}
               slotProps={{
-                toolbar: { children: [scanNameDropdown, scanStatusDropdown] }
+                toolbar: {
+                  children: [scanNameDropdown, scanStatusDropdown].map(
+                    (child, index) => <Box key={index}>{child}</Box>
+                  )
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -565,61 +569,52 @@ export const ScanTasksView: React.FC = () => {
       >
         <DialogTitle id="alert-dialog-title">{'Scan Details'}</DialogTitle>
         <DialogContent>
-          <DialogContentText id="alert-dialog-description">
-            <Typography variant="h6" component="div">
-              Logs
-            </Typography>
-            <Typography variant="body2" color="text.secondary" component="div">
-              {detailsParams?.row?.fargateTaskArn && (
-                <>
-                  <Log
-                    token={token ?? ''}
-                    url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
-                  />
-                  <a
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    href={`https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/${process
-                      .env
-                      .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
-                      (detailsParams?.row?.fargateTaskArn.match('.*/(.*)') || [
-                        ''
-                      ])[1]
-                    }`}
-                  >
-                    {' '}
-                    (View all on CloudWatch)
-                  </a>
-                </>
-              )}
-            </Typography>
-            <Typography variant="h6" component="div">
-              Input
-            </Typography>
-            <Typography variant="body2" color="text.secondary" component="div">
-              <pre>
-                {detailsParams?.row?.input &&
-                  JSON.stringify(
-                    JSON.parse(detailsParams?.row?.input),
-                    null,
-                    2
-                  )}
-              </pre>
-            </Typography>
-            <Typography variant="h6" component="div">
-              Output
-            </Typography>
-            <Typography variant="body2" color="text.secondary" component="div">
-              <pre>
-                {detailsParams?.row?.output &&
-                  JSON.stringify(
-                    JSON.parse(detailsParams?.row?.output),
-                    null,
-                    2
-                  )}
-              </pre>
-            </Typography>
-          </DialogContentText>
+          <Typography variant="h6" component="div">
+            Logs
+          </Typography>
+          <Typography variant="body2" color="text.secondary" component="div">
+            {detailsParams?.row?.fargateTaskArn && (
+              <>
+                <Log
+                  token={token ?? ''}
+                  url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
+                />
+                <a
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  href={`https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/${process
+                    .env
+                    .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
+                    (detailsParams?.row?.fargateTaskArn.match('.*/(.*)') || [
+                      ''
+                    ])[1]
+                  }`}
+                >
+                  {' '}
+                  (View all on CloudWatch)
+                </a>
+              </>
+            )}
+          </Typography>
+          <Typography variant="h6" component="div">
+            Input
+          </Typography>
+          <Typography variant="body2" color="text.secondary" component="div">
+            <pre>
+              {detailsParams?.row?.input &&
+                JSON.stringify(JSON.parse(detailsParams?.row?.input), null, 2)}
+            </pre>
+          </Typography>
+          <Typography variant="h6" component="div">
+            Output
+          </Typography>
+          <Typography variant="body2" color="text.secondary" component="div">
+            <pre>
+              {detailsParams?.row?.output &&
+                JSON.stringify(JSON.parse(detailsParams?.row?.output), null, 2)}
+            </pre>
+          </Typography>
+
           {detailsParams?.row.status !== 'finished' &&
             detailsParams?.row.status !== 'failed' && (
               <>
