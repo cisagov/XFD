@@ -1,17 +1,18 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { TableInstance, Column, CellProps, Row } from 'react-table';
+// import { TableInstance, Column, CellProps, Row } from 'react-table';
 import { Query, Scan } from 'types';
-import { Table, Paginator, ColumnFilter, selectFilter } from 'components';
+// import { Table, Paginator, ColumnFilter, selectFilter } from 'components';
 import { ScanTask } from 'types';
 import { useAuthContext } from 'context';
 // @ts-ignore:next-line
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO, set } from 'date-fns';
 import classes from './Scans.module.scss';
-import { FaMinus, FaPlus, FaSyncAlt } from 'react-icons/fa';
+import { FaSyncAlt } from 'react-icons/fa';
 import { LazyLog } from 'react-lazylog';
 import { Button } from '@trussworks/react-uswds';
 import {
   Alert,
+  Button as MuiButton,
   Dialog,
   DialogContent,
   DialogContentText,
@@ -26,8 +27,8 @@ import {
 import { Box } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import { Button as MuiButton } from '@mui/material';
 import { KeyboardArrowDown } from '@mui/icons-material';
+// import { da } from 'date-fns/locale';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -94,14 +95,14 @@ export const ScanTasksView: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [detailsParams, setDetailsParams] = useState<GridRenderCellParams>();
 
-  const killScanTask = async (index: number) => {
+  const killScanTask = async (id: string) => {
     try {
-      const row = scanTasks[index];
-      await apiPost(`/scan-tasks/${row.id}/kill`, { body: {} });
+      await apiPost(`/scan-tasks/${id}/kill`, { body: {} });
+      const index = scanTasks.findIndex((task) => task.id === id);
       setScanTasks(
         Object.assign([], scanTasks, {
           [index]: {
-            ...row,
+            ...scanTasks[index],
             status: 'failed'
           }
         })
@@ -115,138 +116,138 @@ export const ScanTasksView: React.FC = () => {
     }
   };
 
-  const renderExpanded = (row: Row<ScanTask>) => {
-    const { original } = row;
-    return (
-      <div className={classes.expandedRoot}>
-        {original.fargateTaskArn && (
-          <>
-            <h4>
-              Logs
-              {original.fargateTaskArn?.match('.*/(.*)') && (
-                <a
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  href={`https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/${process
-                    .env
-                    .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
-                    (original.fargateTaskArn.match('.*/(.*)') || [])[1]
-                  }`}
-                >
-                  {' '}
-                  (View all on CloudWatch)
-                </a>
-              )}
-            </h4>
+  // const renderExpanded = (row: Row<ScanTask>) => {
+  //   const { original } = row;
+  //   return (
+  //     <div className={classes.expandedRoot}>
+  //       {original.fargateTaskArn && (
+  //         <>
+  //           <h4>
+  //             Logs
+  //             {original.fargateTaskArn?.match('.*/(.*)') && (
+  //               <a
+  //                 target="_blank"
+  //                 rel="noopener noreferrer"
+  //                 href={`https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/${process
+  //                   .env
+  //                   .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
+  //                   (original.fargateTaskArn.match('.*/(.*)') || [])[1]
+  //                 }`}
+  //               >
+  //                 {' '}
+  //                 (View all on CloudWatch)
+  //               </a>
+  //             )}
+  //           </h4>
 
-            <Log
-              token={token ?? ''}
-              url={`${process.env.REACT_APP_API_URL}/scan-tasks/${original.id}/logs`}
-            />
-          </>
-        )}
+  //           <Log
+  //             token={token ?? ''}
+  //             url={`${process.env.REACT_APP_API_URL}/scan-tasks/${original.id}/logs`}
+  //           />
+  //         </>
+  //       )}
 
-        <h4>Input</h4>
-        <small>
-          <pre>{JSON.stringify(JSON.parse(original.input), null, 2)}</pre>
-        </small>
-        <h4>Output</h4>
-        <small>
-          <pre>{original.output || 'None'}</pre>
-        </small>
+  //       <h4>Input</h4>
+  //       <small>
+  //         <pre>{JSON.stringify(JSON.parse(original.input), null, 2)}</pre>
+  //       </small>
+  //       <h4>Output</h4>
+  //       <small>
+  //         <pre>{original.output || 'None'}</pre>
+  //       </small>
 
-        {row.original.status !== 'finished' &&
-          row.original.status !== 'failed' && (
-            <>
-              <h4>Actions</h4>
-              <a
-                href="# "
-                onClick={(e) => {
-                  e.preventDefault();
-                  killScanTask(row.index);
-                }}
-              >
-                Kill
-              </a>
-            </>
-          )}
-      </div>
-    );
-  };
+  //       {row.original.status !== 'finished' &&
+  //         row.original.status !== 'failed' && (
+  //           <>
+  //             <h4>Actions</h4>
+  //             <a
+  //               href="# "
+  //               onClick={(e) => {
+  //                 e.preventDefault();
+  //                 killScanTask(row.index);
+  //               }}
+  //             >
+  //               Kill
+  //             </a>
+  //           </>
+  //         )}
+  //     </div>
+  //   );
+  // };
 
-  const columns: Column<ScanTask>[] = [
-    {
-      Header: 'ID',
-      accessor: 'id',
-      Filter: ColumnFilter,
-      disableSortBy: true,
-      disableFilters: true
-    },
-    {
-      Header: 'Status',
-      accessor: 'status',
-      Filter: selectFilter([
-        'created',
-        'queued',
-        'requested',
-        'started',
-        'finished',
-        'failed'
-      ]),
-      disableSortBy: true
-    },
-    {
-      Header: 'Name',
-      id: 'name',
-      accessor: ({ scan }) => scan?.name,
-      Filter: selectFilter([
-        // TODO: sync this with the SCAN_SCHEMA
-        'censys',
-        'amass',
-        'findomain',
-        'portscanner',
-        'wappalyzer',
-        'censysIpv4',
-        'censysCertificates',
-        'sslyze',
-        'searchSync',
-        'cve',
-        'dotgov',
-        'webscraper',
-        'intrigueIdent',
-        'shodan',
-        'hibp',
-        'lookingGlass',
-        'dnstwist',
-        'rootDomainSync'
-      ]),
-      disableSortBy: true
-    },
-    {
-      Header: 'Created At',
-      id: 'createdAt',
-      accessor: ({ createdAt }) => dateAccessor(createdAt),
-      disableFilters: true
-    },
-    {
-      Header: 'Finished At',
-      id: 'finishedAt',
-      accessor: ({ finishedAt }) => dateAccessor(finishedAt),
-      disableFilters: true
-    },
-    {
-      Header: 'Details',
-      Cell: ({ row }: CellProps<ScanTask>) => (
-        <span
-          {...row.getToggleRowExpandedProps()}
-          className="text-center display-block"
-        >
-          {row.isExpanded ? <FaMinus /> : <FaPlus />}
-        </span>
-      ),
-      disableFilters: true
-    }
-  ];
+  // const columns: Column<ScanTask>[] = [
+  //   {
+  //     Header: 'ID',
+  //     accessor: 'id',
+  //     Filter: ColumnFilter,
+  //     disableSortBy: true,
+  //     disableFilters: true
+  //   },
+  //   {
+  //     Header: 'Status',
+  //     accessor: 'status',
+  //     Filter: selectFilter([
+  //       'created',
+  //       'queued',
+  //       'requested',
+  //       'started',
+  //       'finished',
+  //       'failed'
+  //     ]),
+  //     disableSortBy: true
+  //   },
+  //   {
+  //     Header: 'Name',
+  //     id: 'name',
+  //     accessor: ({ scan }) => scan?.name,
+  //     Filter: selectFilter([
+  //       // TODO: sync this with the SCAN_SCHEMA
+  //       'censys',
+  //       'amass',
+  //       'findomain',
+  //       'portscanner',
+  //       'wappalyzer',
+  //       'censysIpv4',
+  //       'censysCertificates',
+  //       'sslyze',
+  //       'searchSync',
+  //       'cve',
+  //       'dotgov',
+  //       'webscraper',
+  //       'intrigueIdent',
+  //       'shodan',
+  //       'hibp',
+  //       'lookingGlass',
+  //       'dnstwist',
+  //       'rootDomainSync'
+  //     ]),
+  //     disableSortBy: true
+  //   },
+  //   {
+  //     Header: 'Created At',
+  //     id: 'createdAt',
+  //     accessor: ({ createdAt }) => dateAccessor(createdAt),
+  //     disableFilters: true
+  //   },
+  //   {
+  //     Header: 'Finished At',
+  //     id: 'finishedAt',
+  //     accessor: ({ finishedAt }) => dateAccessor(finishedAt),
+  //     disableFilters: true
+  //   },
+  //   {
+  //     Header: 'Details',
+  //     Cell: ({ row }: CellProps<ScanTask>) => (
+  //       <span
+  //         {...row.getToggleRowExpandedProps()}
+  //         className="text-center display-block"
+  //       >
+  //         {row.isExpanded ? <FaMinus /> : <FaPlus />}
+  //       </span>
+  //     ),
+  //     disableFilters: true
+  //   }
+  // ];
   const PAGE_SIZE = 15;
 
   const fetchScanTasks = useCallback(
@@ -282,6 +283,7 @@ export const ScanTasksView: React.FC = () => {
             }
           }
         );
+        if (result.length === 0) return;
         setScanTasks(result);
         setTotalResults(count);
         setPaginationModel((prev) => ({
@@ -297,22 +299,22 @@ export const ScanTasksView: React.FC = () => {
     [apiPost, currentOrganization, showAllOrganizations]
   );
 
-  const renderPagination = (table: TableInstance<ScanTask>) => (
-    <Paginator table={table} totalResults={totalResults} />
-  );
+  // const renderPagination = (table: TableInstance<ScanTask>) => (
+  //   <Paginator table={table} totalResults={totalResults} />
+  // );
 
   //New Table for Scans
 
   const scansTasksRows: ScansTaskRow[] = scanTasks.map((scanTask) => ({
     id: scanTask.id,
     status: scanTask.status,
-    name: scanTask.scan?.name,
+    name: scanTask.scan?.name ?? 'None',
     input: scanTask.input,
     output: scanTask.output,
-    createdAt: scanTask.createdAt,
-    startedAt: scanTask.startedAt,
+    createdAt: dateAccessor(scanTask.createdAt),
+    startedAt: dateAccessor(scanTask.startedAt),
     requestedAt: scanTask.requestedAt,
-    finishedAt: scanTask.finishedAt,
+    finishedAt: dateAccessor(scanTask.finishedAt),
     scan: scanTask.scan,
     fargateTaskArn: scanTask.fargateTaskArn
   }));
@@ -331,6 +333,8 @@ export const ScanTasksView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
+            aria-label={`Details for scan task ${cellValues.row.id}`}
+            tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
               setOpenDialog(true);
@@ -366,6 +370,8 @@ export const ScanTasksView: React.FC = () => {
   );
   const openNameMenu = Boolean(anchorElName);
   const openStatusMenu = Boolean(anchorElStatus);
+  const [selectedName, setSelectedName] = useState<string>('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('');
   const handleStatusClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorElStatus(event.currentTarget);
   };
@@ -382,6 +388,7 @@ export const ScanTasksView: React.FC = () => {
       ]
     }));
     setAnchorElName(null);
+    setSelectedName(name);
   };
   const handleStatusSelect = (status: string) => {
     setPaginationModel((prev) => ({
@@ -392,6 +399,7 @@ export const ScanTasksView: React.FC = () => {
       ]
     }));
     setAnchorElStatus(null);
+    setSelectedStatus(status);
   };
   const scanNameValues = [
     'censys',
@@ -431,17 +439,16 @@ export const ScanTasksView: React.FC = () => {
         endIcon={<KeyboardArrowDown />}
         onClick={handleNameClick}
       >
-        Name
+        Name: {selectedName! || ('Select' as any)}
       </MuiButton>
       <Menu
         anchorEl={anchorElName}
         open={openNameMenu}
         onClose={() => setAnchorElName(null)}
       >
-        <MenuItem value="">All</MenuItem>
         {scanNameValues.map((name) => (
           <MenuItem
-            key={name}
+            key={name + 1}
             value={name}
             onClick={handleNameSelect.bind(null, name)}
           >
@@ -460,17 +467,16 @@ export const ScanTasksView: React.FC = () => {
         endIcon={<KeyboardArrowDown />}
         onClick={handleStatusClick}
       >
-        Status
+        Status: {selectedStatus! || ('Select' as any)}
       </MuiButton>
       <Menu
         anchorEl={anchorElStatus}
         open={openStatusMenu}
         onClose={() => setAnchorElStatus(null)}
       >
-        <MenuItem value="">All</MenuItem>
         {statusValues.map((status) => (
           <MenuItem
-            key={status}
+            key={status + 1}
             value={status}
             onClick={handleStatusSelect.bind(null, status)}
           >
@@ -484,7 +490,7 @@ export const ScanTasksView: React.FC = () => {
   return (
     <>
       {errors.global && <p className={classes.error}>{errors.global}</p>}
-      <Table<ScanTask>
+      {/* <Table<ScanTask>
         renderPagination={renderPagination}
         columns={columns}
         data={scanTasks}
@@ -498,7 +504,7 @@ export const ScanTasksView: React.FC = () => {
           }
         ]}
         renderExpanded={renderExpanded}
-      />
+      /> */}
       <Box mb={3}>
         <Paper elevation={0}>
           {scanTasks?.length === 0 ? (
@@ -549,6 +555,33 @@ export const ScanTasksView: React.FC = () => {
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
             <Typography variant="h6" component="div">
+              Logs
+            </Typography>
+            <Typography variant="body2" color="text.secondary" component="div">
+              {detailsParams?.row?.fargateTaskArn && (
+                <>
+                  <Log
+                    token={token ?? ''}
+                    url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
+                  />
+                  <a
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    href={`https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/${process
+                      .env
+                      .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
+                      (detailsParams?.row?.fargateTaskArn.match('.*/(.*)') || [
+                        ''
+                      ])[1]
+                    }`}
+                  >
+                    {' '}
+                    (View all on CloudWatch)
+                  </a>
+                </>
+              )}
+            </Typography>
+            <Typography variant="h6" component="div">
               Input
             </Typography>
             <Typography variant="body2" color="text.secondary" component="div">
@@ -575,6 +608,21 @@ export const ScanTasksView: React.FC = () => {
               </pre>
             </Typography>
           </DialogContentText>
+          {detailsParams?.row.status !== 'finished' &&
+            detailsParams?.row.status !== 'failed' && (
+              <>
+                <h4>Actions</h4>
+                <a
+                  href="# "
+                  onClick={(e) => {
+                    e.preventDefault();
+                    killScanTask(detailsParams?.row.id);
+                  }}
+                >
+                  Kill
+                </a>
+              </>
+            )}
         </DialogContent>
       </Dialog>
     </>
