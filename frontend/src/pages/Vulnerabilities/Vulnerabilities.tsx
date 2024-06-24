@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 import { classesVulns, Root } from './vulnerabilitiesStyle';
 import { Filters, SortingRule } from 'react-table';
 import { Query } from 'types';
@@ -14,7 +14,8 @@ import {
   MenuItem,
   Menu,
   Paper,
-  Stack
+  Stack,
+  Typography
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
@@ -49,6 +50,10 @@ export interface VulnerabilityRow {
   product: string;
   createdAt: string;
   state: string;
+}
+
+interface LocationState {
+  title: string;
 }
 
 export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
@@ -181,9 +186,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     [vulnerabilitiesSearch, groupBy]
   );
 
-  //Code for new table//
-
   const history = useHistory();
+  const location = useLocation();
+  const state = location.state as LocationState;
+  const [initialFilters, setInitialFilters] = useState<Filters<Vulnerability>>(
+    state?.title ? [{ id: 'title', value: state.title }] : []
+  );
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -196,6 +204,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const resetVulnerabilities = useCallback(() => {
+    setInitialFilters([]);
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
@@ -209,9 +218,9 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       sort: [],
-      filters: []
+      filters: initialFilters
     });
-  }, [fetchVulnerabilities]);
+  }, [fetchVulnerabilities, initialFilters]);
 
   const vulRows: VulnerabilityRow[] = vulnerabilities.map((vuln) => ({
     id: vuln.id,
@@ -433,6 +442,18 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           ]}
         ></Subnav>
         <br></br>
+        {initialFilters.length > 0 && (
+          <Box mt={3} display="flex" justifyContent="center">
+            <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
+              <Typography>
+                Displaying {state.title} vulnerabilities.{' '}
+                <Button onClick={resetVulnerabilities}>
+                  Reset Vulnerabilities
+                </Button>
+              </Typography>
+            </Paper>
+          </Box>
+        )}
         <Box mb={3} mt={3} display="flex" justifyContent="center">
           {vulnerabilities?.length === 0 ? (
             <Stack spacing={2}>
