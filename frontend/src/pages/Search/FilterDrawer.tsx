@@ -1,11 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
   AccordionDetails,
   Accordion as MuiAccordion,
-  AccordionSummary as MuiAccordionSummary
+  AccordionSummary as MuiAccordionSummary,
+  Button
 } from '@mui/material';
 import { classes, StyledWrapper } from './Styling/filterDrawerStyle';
-import { ExpandMore, FiberManualRecordRounded } from '@mui/icons-material';
+import {
+  Edit,
+  Delete,
+  ExpandMore,
+  FiberManualRecordRounded
+} from '@mui/icons-material';
 import { FaFilter } from 'react-icons/fa';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../../context/SearchProvider';
@@ -34,7 +40,7 @@ const AccordionSummary = MuiAccordionSummary;
 
 export const FilterDrawer: React.FC<Props> = (props) => {
   const { filters, addFilter, removeFilter, facets, clearFilters } = props;
-  const { apiGet } = useAuthContext();
+  const { apiGet, apiDelete } = useAuthContext();
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const history = useHistory();
 
@@ -62,6 +68,15 @@ export const FilterDrawer: React.FC<Props> = (props) => {
 
     fetchSearches();
   }, []);
+
+  const deleteSearch = async (id: string) => {
+    try {
+      await apiDelete(`/saved-searches/${id}`, { body: {} });
+      setSavedSearches(savedSearches.filter((search) => search.id !== id));
+    } catch (e) {
+      console.log(e);
+    }
+  };
 
   const filtersByColumn = useMemo(
     () =>
@@ -335,53 +350,86 @@ export const FilterDrawer: React.FC<Props> = (props) => {
         >
           <h3>Saved Searches</h3>
         </AccordionSummary>
-        <AccordionDetails classes={{ root: classes.details }}>
-          {savedSearches.map((search, index) => (
-            <div key={search.id}>
-              {
-                <button
-                  onClick={() => {
-                    clearFilters;
-                    console.log('bbb');
-                    localStorage.setItem('savedSearch', JSON.stringify(search));
-                    history.push(
-                      '/inventory' +
-                        search.searchPath +
-                        '&searchId=' +
-                        search.id
-                    );
-                    // Apply the search term
-                    // setSearchTerm(search.searchTerm);
-
-                    // Apply the filters
-                    search.filters.forEach((filter) => {
-                      console.log('Filter: ', filter);
-                      filter.values.forEach((value) => {
-                        console.log(
-                          'Filter Field: ',
-                          filter.field,
-                          'Value: ',
-                          value
-                        );
-                        addFilter(filter.field, value, 'any');
+        <Accordion style={{ overflowY: 'auto' }}>
+          <AccordionDetails classes={{ root: classes.details }}>
+            {savedSearches.map((search) => (
+              <div key={search.id}>
+                {
+                  <Button
+                    onClick={() => {
+                      if (clearFilters) clearFilters();
+                      console.log('bbb');
+                      localStorage.setItem(
+                        'savedSearch',
+                        JSON.stringify(search)
+                      );
+                      history.push(
+                        '/inventory' +
+                          search.searchPath +
+                          '&searchId=' +
+                          search.id
+                      );
+                      console.log(
+                        JSON.parse(localStorage.getItem('savedSearch')!)
+                      );
+                      // Apply the filters
+                      search.filters.forEach((filter) => {
+                        // console.log('Filter: ', filter);
+                        filter.values.forEach((value) => {
+                          // console.log(
+                          //   'Filter Field: ',
+                          //   filter.field,
+                          //   'Value: ',
+                          //   value
+                          // );
+                          addFilter(filter.field, value, 'any');
+                        });
                       });
-                    });
+                    }}
+                    key={search.id}
+                    style={{ textDecoration: 'none' }}
+                  >
+                    <p className={classes.savedSearchText}>{search.name}</p>
+                  </Button>
+                }
+                <a
+                  style={{
+                    cursor: 'pointer'
                   }}
-                  key={search.id}
-                  style={{ textDecoration: 'none' }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    console.log('CLICKED!');
+                  }}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      console.log('CLICKED with keyboard!');
+                    }
+                  }}
                 >
-                  <p>{search.name}</p>{' '}
-                </button>
-              }
-              <button>X</button>
-              {/* <p>Created At: {search.createdAt}</p>
+                  <Edit />
+                </a>
+                <a
+                  onClick={() => deleteSearch(search.id)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      deleteSearch(search.id);
+                    }
+                  }}
+                >
+                  <Delete />
+                </a>
+
+                {/* <p>Created At: {search.createdAt}</p>
                 <p>Updated At: {search.updatedAt}</p>
                 <p>Search Term: {search.searchTerm}</p>
                 <p>Count: {search.count}</p>
                 <p>Search Path: {search.searchPath}</p> */}
-            </div>
-          ))}
-        </AccordionDetails>
+              </div>
+            ))}
+          </AccordionDetails>
+        </Accordion>
       </Accordion>
     </StyledWrapper>
   );

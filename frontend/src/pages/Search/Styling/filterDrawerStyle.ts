@@ -16,7 +16,8 @@ export const classes = {
   header: `${PREFIX}-header`,
   details: `${PREFIX}-details`,
   applied: `${PREFIX}-applied`,
-  filter: `${PREFIX}-filter`
+  filter: `${PREFIX}-filter`,
+  savedSearchText: `${PREFIX}-savedSearchText`
 };
 
 export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
@@ -67,5 +68,8 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     '& > span': {
       display: 'block'
     }
+  },
+  [`& .${classes.savedSearchText}`]: {
+    fontSize: '12px'
   }
 }));
