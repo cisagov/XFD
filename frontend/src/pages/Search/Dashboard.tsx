@@ -120,11 +120,26 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
   };
 
+  const updateSearchTerm = (term: string) => {
+    console.log('Inside updateSearchTerm: ', term);
+    setSearchTerm(term);
+  };
+
   useEffect(() => {
     if (props.location.search === '') {
-      // Search on initial load
+      //   const savedSearch: Partial<SavedSearch> | undefined = localStorage.getItem('savedSearch')
+      //   ? JSON.parse(localStorage.getItem('savedSearch')!)
+      //   : undefined;
+      //   console.log('The Search Term: ', localStorage.getItem('savedSearch')!);
+      // // If there's a saved search, use its searchTerm to populate the search bar
+      // if (savedSearch && savedSearch.searchTerm) {
+      //   setSearchTerm(savedSearch.searchTerm);
+      // } else {
+      //   // If there's no saved search, reset the search term
+      console.log('The Search Term: ', localStorage.getItem('savedSearch')!);
       setSearchTerm('');
     }
+    // }
     return () => {
       localStorage.removeItem('savedSearch');
     };
@@ -167,6 +182,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         filters={filters}
         facets={facets}
         clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
+        updateSearchTerm={updateSearchTerm}
       />
       <div className={classes.contentWrapper}>
         <Subnav

@@ -25,6 +25,7 @@ interface Props {
   filters: ContextType['filters'];
   facets: ContextType['facets'];
   clearFilters: ContextType['clearFilters'];
+  updateSearchTerm: (term: string) => void;
 }
 
 const FiltersApplied: React.FC = () => {
@@ -53,14 +54,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
       // const response = await apiGet('/saved-searches');
       try {
         const response = await loadSearches();
-        let searches = response;
         setSavedSearches(response.result);
-
-        // for (let key in searches){
-        //   console.log('Key: ', key, ' Value: ', searches.result[key].name,
-        //      ' ID: ', searches.result[key].id);
-        // }
-        // console.log(searches.result);
       } catch (error) {
         console.error('Error fetching searches:', error);
       }
@@ -369,6 +363,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
                           '&searchId=' +
                           search.id
                       );
+                      props.updateSearchTerm(search.searchTerm);
                       console.log(
                         JSON.parse(localStorage.getItem('savedSearch')!)
                       );
