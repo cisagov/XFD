@@ -171,12 +171,9 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     apiGet
   } = useAuthContext();
 
-  
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [organizations, setOrganizations] = useState<
-    (Organization)[]
-  >([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
 
   let drawerItems: NavItemType[] = [];
@@ -201,7 +198,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   const fetchOrganizations = useCallback(async () => {
     try {
       const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: (OrganizationTag)[] = [];
+      let tags: OrganizationTag[] = [];
       if (userLevel === GLOBAL_ADMIN) {
         tags = await apiGet<OrganizationTag[]>('/organizations/tags');
         await setTags(tags as OrganizationTag[]);
@@ -314,18 +311,16 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   }
 
   const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
-    if(userLevel === GLOBAL_ADMIN){
-      return [{ name: 'All Organizations' }].concat(
-        organizations
-      )
+    if (userLevel === GLOBAL_ADMIN) {
+      return [{ name: 'All Organizations' }].concat(organizations);
     }
-    if(userLevel === REGIONAL_ADMIN){
+    if (userLevel === REGIONAL_ADMIN) {
       return organizations.filter((item) => {
-        return item.regionId === user?.regionId
-      })
+        return item.regionId === user?.regionId;
+      });
     }
-    return []
-  },[user, organizations, fetchOrganizations])
+    return [];
+  }, [user, organizations, userLevel]);
 
   return (
     <Root>
@@ -362,7 +357,11 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     isOptionEqualToValue={(option, value) =>
                       option?.name === value?.name
                     }
-                    options={userLevel === GLOBAL_ADMIN ? [...tags, ...organizationDropdownOptions] : organizationDropdownOptions}
+                    options={
+                      userLevel === GLOBAL_ADMIN
+                        ? [...tags, ...organizationDropdownOptions]
+                        : organizationDropdownOptions
+                    }
                     autoComplete={false}
                     className={classes.selectOrg}
                     classes={{
@@ -402,7 +401,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                       event: any,
                       value: Organization | { name: string } | undefined
                     ) => {
-                      
                       if (value && 'id' in value) {
                         setOrganization(value);
                         setShowAllOrganizations(false);
@@ -496,7 +494,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
           ))}
         </List>
       </Drawer>
-    </Root> 
+    </Root>
   );
 };
 
