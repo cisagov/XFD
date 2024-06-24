@@ -15,7 +15,6 @@ import {
   Button as MuiButton,
   Dialog,
   DialogContent,
-  DialogContentText,
   DialogTitle,
   Icon,
   IconButton,
@@ -24,7 +23,7 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import { Box } from '@mui/system';
+import { Box, Stack } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { KeyboardArrowDown } from '@mui/icons-material';
@@ -64,6 +63,7 @@ const Log = ({ url, token }: { url: string; token: string }) => {
   return (
     <div className={classes.logContainer}>
       <LazyLog
+        aria-label="Log readout"
         key={'lazylog-' + logKey}
         follow={true}
         extraLines={1}
@@ -74,6 +74,7 @@ const Log = ({ url, token }: { url: string; token: string }) => {
         selectableLines={true}
       />
       <Button
+        aria-label="Refresh log "
         type="button"
         outline
         size={'small' as any}
@@ -566,20 +567,22 @@ export const ScanTasksView: React.FC = () => {
         onClose={() => setOpenDialog(false)}
         aria-labelledby="alert-dialog-title"
         aria-describedby="alert-dialog-description"
+        scroll="paper"
+        fullWidth
+        maxWidth="lg"
       >
         <DialogTitle id="alert-dialog-title">{'Scan Details'}</DialogTitle>
         <DialogContent>
-          <Typography variant="h6" component="div">
-            Logs
-          </Typography>
-          <Typography variant="body2" color="text.secondary" component="div">
-            {detailsParams?.row?.fargateTaskArn && (
-              <>
-                <Log
-                  token={token ?? ''}
-                  url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
-                />
-                <a
+          {detailsParams?.row?.fargateTaskArn && (
+            <>
+              <Typography variant="h6" component="div">
+                Logs:
+              </Typography>
+
+              {detailsParams?.row?.fargateTaskArn.match && (
+                <MuiButton
+                  aria-label="View all on CloudWatch"
+                  variant="text"
                   target="_blank"
                   rel="noopener noreferrer"
                   href={`https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups/log-group/${process
@@ -591,45 +594,58 @@ export const ScanTasksView: React.FC = () => {
                   }`}
                 >
                   {' '}
-                  (View all on CloudWatch)
-                </a>
-              </>
-            )}
-          </Typography>
+                  View all on CloudWatch
+                </MuiButton>
+              )}
+              <Log
+                token={token ?? ''}
+                url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
+              />
+            </>
+          )}
           <Typography variant="h6" component="div">
-            Input
+            Input:
           </Typography>
-          <Typography variant="body2" color="text.secondary" component="div">
-            <pre>
-              {detailsParams?.row?.input &&
-                JSON.stringify(JSON.parse(detailsParams?.row?.input), null, 2)}
-            </pre>
-          </Typography>
+          <pre>
+            {detailsParams?.row?.input &&
+              JSON.stringify(JSON.parse(detailsParams?.row?.input), null, 2)}
+          </pre>
+
           <Typography variant="h6" component="div">
-            Output
+            Output:
           </Typography>
-          <Typography variant="body2" color="text.secondary" component="div">
-            <pre>
-              {detailsParams?.row?.output &&
-                JSON.stringify(JSON.parse(detailsParams?.row?.output), null, 2)}
-            </pre>
-          </Typography>
+          <pre>{detailsParams?.row?.output || 'None'}</pre>
 
           {detailsParams?.row.status !== 'finished' &&
             detailsParams?.row.status !== 'failed' && (
               <>
-                <h4>Actions</h4>
-                <a
+                <Typography variant="h6" component="div">
+                  Actions:
+                </Typography>
+                <MuiButton
+                  aria-label="Kill scan task"
+                  variant="contained"
                   href="# "
                   onClick={(e) => {
                     e.preventDefault();
                     killScanTask(detailsParams?.row.id);
                   }}
                 >
-                  Kill
-                </a>
+                  Kill Scan
+                </MuiButton>
               </>
             )}
+        </DialogContent>
+        <DialogContent>
+          <Stack spacing={2} direction="row" justifyContent="end">
+            <MuiButton
+              variant="contained"
+              aria-label="Close scan details"
+              onClick={() => setOpenDialog(false)}
+            >
+              Close
+            </MuiButton>
+          </Stack>
         </DialogContent>
       </Dialog>
     </>
