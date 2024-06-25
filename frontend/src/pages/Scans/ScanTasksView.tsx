@@ -391,6 +391,11 @@ export const ScanTasksView: React.FC = () => {
                   }))
                 });
               }}
+              initialState={{
+                sorting: {
+                  sortModel: [{ field: 'createdAt', sort: 'asc' }]
+                }
+              }}
               pageSizeOptions={[15, 30, 50, 100]}
             />
           )}
