@@ -378,7 +378,7 @@ export const ScanTasksView: React.FC = () => {
             </MuiButton>
           </Stack>
         ) : (
-          <Paper elevation={2} sx={{ width: '90%' }}>
+          <Paper elevation={2} sx={{ width: '100%' }}>
             <DataGrid
               rows={scansTasksRows}
               rowCount={totalResults}
