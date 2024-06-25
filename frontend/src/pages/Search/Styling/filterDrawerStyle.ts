@@ -1,5 +1,6 @@
 import { styled } from '@mui/material/styles';
 import { Paper } from '@mui/material';
+import { SavedSearch } from '@mui/icons-material';
 
 const Wrapper = Paper;
 const PREFIX = 'FilterDrawer';
@@ -17,6 +18,7 @@ export const classes = {
   details: `${PREFIX}-details`,
   applied: `${PREFIX}-applied`,
   filter: `${PREFIX}-filter`,
+  savedSearchHeader: `${PREFIX}-savedSearchHeader`,
   savedSearchText: `${PREFIX}-savedSearchText`
 };
 
@@ -67,6 +69,26 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     alignItems: 'center',
     '& > span': {
       display: 'block'
+    }
+  },
+  [`& .${classes.savedSearchHeader}`]: {
+    // display: 'flex',
+    alignItems: 'left',
+    flexFlow: 'row nowrap',
+    padding: '0 1rem',
+    minHeight: 25,
+    justifyContent: 'space-between',
+    '& h3': {
+      fontWeight: 400,
+      margin: 0
+    },
+    '& button': {
+      outline: 'none',
+      border: 'none',
+      color: '#71767A',
+      background: 'none',
+      cursor: 'pointer',
+      textDecoration: 'underline'
     }
   },
   [`& .${classes.savedSearchText}`]: {

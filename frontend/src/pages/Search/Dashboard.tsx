@@ -120,26 +120,16 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
   };
 
+  // Update Search Term when a saved search is selected
   const updateSearchTerm = (term: string) => {
-    console.log('Inside updateSearchTerm: ', term);
     setSearchTerm(term);
   };
 
   useEffect(() => {
     if (props.location.search === '') {
-      //   const savedSearch: Partial<SavedSearch> | undefined = localStorage.getItem('savedSearch')
-      //   ? JSON.parse(localStorage.getItem('savedSearch')!)
-      //   : undefined;
-      //   console.log('The Search Term: ', localStorage.getItem('savedSearch')!);
-      // // If there's a saved search, use its searchTerm to populate the search bar
-      // if (savedSearch && savedSearch.searchTerm) {
-      //   setSearchTerm(savedSearch.searchTerm);
-      // } else {
-      //   // If there's no saved search, reset the search term
-      console.log('The Search Term: ', localStorage.getItem('savedSearch')!);
+      // Search on initial load
       setSearchTerm('');
     }
-    // }
     return () => {
       localStorage.removeItem('savedSearch');
     };

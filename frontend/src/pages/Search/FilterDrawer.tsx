@@ -1,13 +1,14 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AccordionDetails,
   Accordion as MuiAccordion,
   AccordionSummary as MuiAccordionSummary,
-  Button
+  IconButton,
+  Paper
 } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
 import { classes, StyledWrapper } from './Styling/filterDrawerStyle';
 import {
-  Edit,
   Delete,
   ExpandMore,
   FiberManualRecordRounded
@@ -43,30 +44,28 @@ export const FilterDrawer: React.FC<Props> = (props) => {
   const { filters, addFilter, removeFilter, facets, clearFilters } = props;
   const { apiGet, apiDelete } = useAuthContext();
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
+  const [savedSearchCount, setSavedSearchCount] = useState(0);
   const history = useHistory();
-
-  const loadSearches = () => {
-    return apiGet('/saved-searches');
-  };
 
   useEffect(() => {
     const fetchSearches = async () => {
-      // const response = await apiGet('/saved-searches');
       try {
-        const response = await loadSearches();
+        const response = await apiGet('/saved-searches');
         setSavedSearches(response.result);
+        setSavedSearchCount(response.result.length);
       } catch (error) {
         console.error('Error fetching searches:', error);
       }
     };
-
     fetchSearches();
   }, []);
 
   const deleteSearch = async (id: string) => {
     try {
       await apiDelete(`/saved-searches/${id}`, { body: {} });
-      setSavedSearches(savedSearches.filter((search) => search.id !== id));
+      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      setSavedSearches(updatedSearches.result); // Update the saved searches
+      setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
       console.log(e);
     }
@@ -99,6 +98,9 @@ export const FilterDrawer: React.FC<Props> = (props) => {
   const severityFacet: any[] = facets['vulnerabilities.severity']
     ? facets['vulnerabilities.severity'][0].data
     : [];
+
+  // Create rows for DataGrid
+  // const savedSearchRows: SavedSearch[] = savedSearches
 
   // Always show all severities
   for (const value of ['Critical', 'High', 'Medium', 'Low']) {
@@ -342,87 +344,105 @@ export const FilterDrawer: React.FC<Props> = (props) => {
             expanded: classes.expanded2
           }}
         >
-          <h3>Saved Searches</h3>
+          <div className={classes.header}>
+            <h3>Saved Searches</h3>
+          </div>
         </AccordionSummary>
         <Accordion style={{ overflowY: 'auto' }}>
           <AccordionDetails classes={{ root: classes.details }}>
-            {savedSearches.map((search) => (
-              <div key={search.id}>
-                {
-                  <Button
-                    onClick={() => {
-                      if (clearFilters) clearFilters();
-                      console.log('bbb');
-                      localStorage.setItem(
-                        'savedSearch',
-                        JSON.stringify(search)
-                      );
-                      history.push(
-                        '/inventory' +
-                          search.searchPath +
-                          '&searchId=' +
-                          search.id
-                      );
-                      props.updateSearchTerm(search.searchTerm);
-                      console.log(
-                        JSON.parse(localStorage.getItem('savedSearch')!)
-                      );
-                      // Apply the filters
-                      search.filters.forEach((filter) => {
-                        // console.log('Filter: ', filter);
-                        filter.values.forEach((value) => {
-                          // console.log(
-                          //   'Filter Field: ',
-                          //   filter.field,
-                          //   'Value: ',
-                          //   value
-                          // );
-                          addFilter(filter.field, value, 'any');
-                        });
-                      });
-                    }}
-                    key={search.id}
-                    style={{ textDecoration: 'none' }}
-                  >
-                    <p className={classes.savedSearchText}>{search.name}</p>
-                  </Button>
-                }
-                <a
-                  style={{
-                    cursor: 'pointer'
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('CLICKED!');
-                  }}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      console.log('CLICKED with keyboard!');
-                    }
-                  }}
-                >
-                  <Edit />
-                </a>
-                <a
-                  onClick={() => deleteSearch(search.id)}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      deleteSearch(search.id);
-                    }
-                  }}
-                >
-                  <Delete />
-                </a>
+            <Paper elevation={2}>
+              <DataGrid
+                density="compact"
+                key={'Data Grid'}
+                rows={savedSearches.map((search) => ({ ...search }))}
+                rowCount={savedSearchCount}
+                columns={[
+                  {
+                    field: 'name',
+                    headerName: 'Name',
+                    flex: 1,
+                    renderCell: (cellValues) => {
+                      const applyFilter = () => {
+                        if (clearFilters) clearFilters();
+                        localStorage.setItem(
+                          'savedSearch',
+                          JSON.stringify(cellValues.row)
+                        );
+                        history.push(
+                          '/inventory' +
+                            cellValues.row.searchPath +
+                            '&searchId=' +
+                            cellValues.row.id
+                        );
+                        props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
 
-                {/* <p>Created At: {search.createdAt}</p>
-                <p>Updated At: {search.updatedAt}</p>
-                <p>Search Term: {search.searchTerm}</p>
-                <p>Count: {search.count}</p>
-                <p>Search Path: {search.searchPath}</p> */}
-              </div>
-            ))}
+                        // Apply the filters
+                        cellValues.row.filters.forEach((filter) => {
+                          filter.values.forEach((value) => {
+                            addFilter(filter.field, value, 'any');
+                          });
+                        });
+                      };
+                      return (
+                        <div
+                          tabIndex={0}
+                          onClick={applyFilter}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              applyFilter();
+                            }
+                          }}
+                          style={{ cursor: 'pointer', textAlign: 'center' }}
+                        >
+                          {cellValues.value}
+                        </div>
+                      );
+                    }
+                  },
+                  {
+                    field: 'actions',
+                    headerName: '',
+                    flex: 0.1,
+                    renderCell: (cellValues) => {
+                      const searchId = cellValues.id.toString();
+                      return (
+                        <div style={{ display: 'flexbox', textAlign: 'end' }}>
+                          <IconButton
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteSearch(searchId);
+                            }}
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                deleteSearch(searchId);
+                              }
+                            }}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </div>
+                      );
+                    }
+                  }
+                ]}
+                initialState={{
+                  pagination: {
+                    paginationModel: {
+                      pageSize: 5
+                    }
+                  }
+                }}
+                pageSizeOptions={[5, 10]}
+                disableRowSelectionOnClick
+                sx={{
+                  disableColumnfilter: 'true',
+                  '& .MuiDataGrid-row:hover': {
+                    cursor: 'pointer'
+                  }
+                }}
+              />
+            </Paper>
           </AccordionDetails>
         </Accordion>
       </Accordion>
