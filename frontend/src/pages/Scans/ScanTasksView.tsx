@@ -144,7 +144,7 @@ export const ScanTasksView: React.FC = () => {
               page,
               pageSize: query.pageSize ?? PAGE_SIZE,
               sort: sort[0]?.id ?? 'createdAt',
-              order: sort[0]?.desc ? 'DESC' : 'ASC',
+              order: 'DESC',
               filters: tableFilters
             }
           }
@@ -390,11 +390,6 @@ export const ScanTasksView: React.FC = () => {
                     value: item.value
                   }))
                 });
-              }}
-              initialState={{
-                sorting: {
-                  sortModel: [{ field: 'createdAt', sort: 'asc' }]
-                }
               }}
               pageSizeOptions={[15, 30, 50, 100]}
             />
