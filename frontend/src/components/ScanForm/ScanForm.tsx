@@ -138,6 +138,7 @@ export const ScanForm: React.FC<{
       {type === 'create' &&
         scanSchema && <Label htmlFor="name">Name</Label> && (
           <Dropdown
+            aria-label="Select scan dropdown"
             required
             id="name"
             name="name"
@@ -247,6 +248,7 @@ export const ScanForm: React.FC<{
             }}
           />
           <Dropdown
+            aria-label="Select frequency unit dropdown"
             id="frequencyUnit"
             name="frequencyUnit"
             onChange={onTextChange}
@@ -260,7 +262,7 @@ export const ScanForm: React.FC<{
       )}
       <br />
       {type === 'edit' && (
-        <Link to={`/scans`}>
+        <Link to={`/admin-tools`}>
           <Button type="button" outline>
             {' '}
             Return to Scans

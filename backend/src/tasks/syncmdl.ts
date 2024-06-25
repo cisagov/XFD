@@ -1,5 +1,5 @@
 import { Handler } from 'aws-lambda';
-import { connectToDatalake, connectToDatabase } from '../models';
+import { connectToDatalake2, connectToDatabase } from '../models';
 
 export const handler: Handler = async (event) => {
   const connection = await connectToDatabase();
@@ -42,7 +42,7 @@ export const handler: Handler = async (event) => {
     );
   }
 
-  const mdl_connection = await connectToDatalake(true);
+  const mdl_connection = await connectToDatalake2(true);
   const type = event?.type || event;
   const dangerouslyforce = type === 'dangerouslyforce';
 

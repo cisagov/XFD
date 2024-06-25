@@ -36,6 +36,12 @@ export class User extends BaseEntity {
   @Column({
     nullable: true
   })
+  oktaId: string;
+
+  @Index({ unique: true })
+  @Column({
+    nullable: true
+  })
   loginGovId: string;
 
   @CreateDateColumn()
@@ -60,6 +66,10 @@ export class User extends BaseEntity {
   /** Whether the user's invite is pending */
   @Column({ default: false })
   invitePending: boolean;
+
+  /** Whether the user is blocked by maintenance to login */
+  @Column({ default: false })
+  loginBlockedByMaintenance: boolean;
 
   /**
    * When the user accepted the terms of use,

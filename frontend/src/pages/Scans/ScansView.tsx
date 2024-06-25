@@ -9,17 +9,24 @@ import {
   ModalRef
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
-import { Table, ImportExport } from 'components';
-import { Column, CellProps } from 'react-table';
+import { ImportExport } from 'components';
+// import { Column, CellProps } from 'react-table';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-import { FaTimes, FaEdit } from 'react-icons/fa';
+// import { FaTimes, FaEdit } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
 import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom';
 import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { Alert, Box, IconButton, Paper } from '@mui/material';
+//Needed for the CustomToolbar:
+// import { Button as MuiButton } from '@mui/material';
+// import CustomToolbar from 'components/DataGrid/CustomToolbar';
+// import { Add, Publish } from '@mui/icons-material';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -31,126 +38,27 @@ export interface OrganizationOption {
   value: string;
 }
 
+export interface ScansRow {
+  id: string;
+  name: string;
+  tags: string;
+  mode: string;
+  frequency: number;
+  lastRun: string;
+  description: string;
+}
+
 const ScansView: React.FC = () => {
   const { apiGet, apiPost, apiDelete } = useAuthContext();
-  const modalRef = useRef<ModalRef>(null);
-  const [selectedRow, setSelectedRow] = useState<number>(0);
+  const [selectedId, setSelectedId] = useState<string>('');
+  const [selectedName, setSelectedName] = useState<string>('');
   const [scans, setScans] = useState<Scan[]>([]);
   const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
   >([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
-
-  const columns: Column<Scan>[] = [
-    {
-      Header: 'Run',
-      id: 'run',
-      Cell: ({ row }: { row: { index: number } }) => (
-        <div
-          style={{ textAlign: 'center' }}
-          onClick={() => {
-            runScan(row.index);
-          }}
-        >
-          <FaPlayCircle />
-        </div>
-      ),
-      disableFilters: true
-    },
-    {
-      Header: 'Name',
-      accessor: 'name',
-      width: 200,
-      id: 'name',
-      disableFilters: true
-    },
-    {
-      Header: 'Tags',
-      accessor: ({ tags }) => tags.map((tag) => tag.name).join(', '),
-      width: 150,
-      minWidth: 150,
-      id: 'tags',
-      disableFilters: true
-    },
-    {
-      Header: 'Mode',
-      accessor: ({ name }) =>
-        scanSchema[name] && scanSchema[name].isPassive ? 'Passive' : 'Active',
-      width: 150,
-      minWidth: 150,
-      id: 'mode',
-      disableFilters: true
-    },
-    {
-      Header: 'Frequency',
-      accessor: ({ frequency, isSingleScan }) => {
-        let val, unit;
-        if (frequency < 60 * 60) {
-          val = frequency / 60;
-          unit = 'minute';
-        } else if (frequency < 60 * 60 * 24) {
-          val = frequency / (60 * 60);
-          unit = 'hour';
-        } else {
-          val = frequency / (60 * 60 * 24);
-          unit = 'day';
-        }
-        if (isSingleScan) {
-          return 'Single Scan';
-        }
-        return `Every ${val} ${unit}${val === 1 ? '' : 's'}`;
-      },
-      width: 200,
-      id: 'frequency',
-      disableFilters: true
-    },
-    {
-      Header: 'Last Run',
-      accessor: (args: Scan) => {
-        return !args.lastRun ||
-          new Date(args.lastRun).getTime() === new Date(0).getTime()
-          ? 'None'
-          : `${formatDistanceToNow(parseISO(args.lastRun))} ago`;
-      },
-      width: 200,
-      id: 'lastRun',
-      disableFilters: true
-    },
-    {
-      Header: 'Edit',
-      id: 'edit',
-      Cell: ({ row }: CellProps<Scan>) => (
-        <Link to={`/scans/${row.original.id}`} style={{ color: 'black' }}>
-          <FaEdit />
-        </Link>
-      ),
-      disableFilters: true
-    },
-    {
-      Header: 'Delete',
-      id: 'delete',
-      Cell: ({ row }: { row: { index: number } }) => (
-        <span
-          onClick={() => {
-            modalRef.current?.toggleModal(undefined, true);
-            setSelectedRow(row.index);
-          }}
-        >
-          <FaTimes />
-        </span>
-      ),
-      disableFilters: true
-    },
-    {
-      Header: 'Description',
-      accessor: ({ name }) => scanSchema[name]?.description,
-      width: 200,
-      maxWidth: 200,
-      id: 'description',
-      disableFilters: true
-    }
-  ];
+  const deleteModalRef = useRef<ModalRef>(null);
   const [errors, setErrors] = useState<Errors>({});
 
   const [values] = useState<ScanFormValues>({
@@ -184,11 +92,10 @@ const ScansView: React.FC = () => {
     }
   }, [apiGet]);
 
-  const deleteRow = async (index: number) => {
+  const deleteRow = async (id: string) => {
     try {
-      const row = scans[index];
-      await apiDelete(`/scans/${row.id}`, { body: {} });
-      setScans(scans.filter((scan) => scan.id !== row.id));
+      await apiDelete(`/scans/${id}`, { body: {} });
+      setScans(scans.filter((scan) => scan.id !== id));
     } catch (e: any) {
       setErrors({
         global:
@@ -235,12 +142,12 @@ const ScansView: React.FC = () => {
   /**
    * Manually runs a single scan, then immediately invokes the
    * scheduler so the scan is run.
-   * @param index Row index
+   * @param id Scan ID
    */
-  const runScan = async (index: number) => {
-    const row = scans[index];
+
+  const runScan = async (id: string) => {
     try {
-      await apiPost(`/scans/${row.id}/run`, { body: {} });
+      await apiPost(`/scans/${id}/run`, { body: {} });
     } catch (e) {
       console.error(e);
       setErrors({ ...errors, scheduler: 'Run failed.' });
@@ -248,10 +155,133 @@ const ScansView: React.FC = () => {
     await invokeScheduler();
   };
 
+  //Code for new table//
+
+  React.useEffect(() => {
+    fetchScans();
+  }, [fetchScans]);
+
+  const scansRows: ScansRow[] = scans.map((scan) => {
+    return {
+      id: scan.id,
+      name: scan.name,
+      tags: scan.tags.map((tag) => tag.name).join(', '),
+      mode:
+        scanSchema[scan.name] && scanSchema[scan.name].isPassive
+          ? 'Passive'
+          : 'Active',
+      frequency: scan.frequency,
+      lastRun:
+        !scan.lastRun ||
+        new Date(scan.lastRun).getTime() === new Date(0).getTime()
+          ? 'None'
+          : `${formatDistanceToNow(parseISO(scan.lastRun))} ago`,
+      description: scanSchema[scan.name]?.description
+    };
+  });
+
+  const scansCols: GridColDef[] = [
+    {
+      field: 'run',
+      headerName: 'Run',
+      minWidth: 50,
+      flex: 0.5,
+      disableExport: true,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <IconButton
+            aria-label={`Run scan for ${cellValues.row.name}`}
+            tabIndex={cellValues.tabIndex}
+            color="primary"
+            onClick={() => {
+              runScan(cellValues.row.id);
+            }}
+          >
+            <FaPlayCircle />
+          </IconButton>
+        );
+      }
+    },
+    { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
+    { field: 'tags', headerName: 'Tags', minWidth: 100, flex: 1 },
+    { field: 'mode', headerName: 'Mode', minWidth: 100, flex: 1 },
+    { field: 'frequency', headerName: 'Frequency', minWidth: 100, flex: 1 },
+    { field: 'lastRun', headerName: 'Last Run', minWidth: 100, flex: 1 },
+    {
+      field: 'delete',
+      headerName: 'Delete',
+      minWidth: 50,
+      flex: 1,
+      disableExport: true,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <IconButton
+            aria-label={`Delete scan for ${cellValues.row.name}`}
+            tabIndex={cellValues.tabIndex}
+            color="primary"
+            onClick={() => {
+              deleteModalRef.current?.toggleModal(undefined, true);
+              setSelectedId(cellValues.row.id);
+              setSelectedName(cellValues.row.name);
+            }}
+          >
+            <FaTimes />
+          </IconButton>
+        );
+      }
+    },
+    { field: 'description', headerName: 'Description', minWidth: 250, flex: 5 }
+  ];
+
+  //To-do: Add a button to toolbar to import scans
+  // const importScanButton = (
+  //   <MuiButton
+  //     size="small"
+  //     sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
+  //     startIcon={<Publish />}
+  //     onClick={() => {
+  //       setDialogOpen(true);
+  //     }}
+  //   >
+  //     Import
+  //   </MuiButton>
+  // );
+
+  //To-do: Add a button to toolbar to add scans
+  // const addScanButton = (
+  //   <MuiButton
+  //     size="small"
+  //     sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
+  //     startIcon={<Add />}
+  //     onClick={() => {
+  //       addScanModalRef.current?.toggleModal(undefined, true);
+  //     }}
+  //   >
+  //     Add Scan
+  //   </MuiButton>
+  // );
+
+  //To-do: Dialogs/Modals need to be built for Import and Add Scan. Export is already handled by MUI DataGrid.
+
   return (
     <>
-      <Table<Scan> columns={columns} data={scans} fetchData={fetchScans} />
-      <br></br>
+      <Box mb={3}>
+        <Paper elevation={0}>
+          {scans?.length === 0 ? (
+            <Alert severity="info">No scans found</Alert>
+          ) : (
+            <DataGrid
+              rows={scansRows}
+              columns={scansCols}
+              //To-do: re-enable Custom Toolbar to handle scan Create, Export, Import,
+              // slots={{ toolbar: CustomToolbar }}
+              // slotProps={{
+              //   toolbar: { children: [importScanButton, addScanButton] }
+              // }}
+            />
+          )}
+        </Paper>
+      </Box>
       <Button type="submit" outline onClick={invokeScheduler}>
         Manually run scheduler
       </Button>
@@ -296,25 +326,25 @@ const ScansView: React.FC = () => {
         }
       />
 
-      <Modal ref={modalRef} id="modal">
+      <Modal ref={deleteModalRef} id="deleteModal">
         <ModalHeading>Delete scan?</ModalHeading>
         <p>
-          Are you sure you would like to delete the{' '}
-          <code>{scans[selectedRow]?.name}</code> scan?
+          Are you sure you would like to delete the <code>{selectedName}</code>{' '}
+          scan?
         </p>
         <ModalFooter>
           <ButtonGroup>
             <ModalToggleButton
-              modalRef={modalRef}
+              modalRef={deleteModalRef}
               closer
               onClick={() => {
-                deleteRow(selectedRow);
+                deleteRow(selectedId);
               }}
             >
               Delete
             </ModalToggleButton>
             <ModalToggleButton
-              modalRef={modalRef}
+              modalRef={deleteModalRef}
               closer
               unstyled
               className="padding-105 text-center"

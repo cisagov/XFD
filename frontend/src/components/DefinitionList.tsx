@@ -5,6 +5,7 @@ interface Props {
   items: {
     label: string;
     value: string;
+    // index?: number;
   }[];
 }
 
@@ -14,7 +15,7 @@ export const DefinitionList: React.FC<Props> = (props) => {
     <Root className={classes.root}>
       <dl className={classes.list}>
         {items.map(({ label, value }) => (
-          <div className={classes.root} key={value}>
+          <div className={classes.root} key={label}>
             <dt>{label}:</dt>
             <dd>{value}</dd>
           </div>

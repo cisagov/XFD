@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
@@ -170,11 +170,10 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     logout,
     apiGet
   } = useAuthContext();
+
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [organizations, setOrganizations] = useState<
-    (Organization | OrganizationTag)[]
-  >([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
 
   let drawerItems: NavItemType[] = [];
@@ -199,12 +198,12 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
   const fetchOrganizations = useCallback(async () => {
     try {
       const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: (OrganizationTag | Organization)[] = [];
+      let tags: OrganizationTag[] = [];
       if (userLevel === GLOBAL_ADMIN) {
         tags = await apiGet<OrganizationTag[]>('/organizations/tags');
         await setTags(tags as OrganizationTag[]);
       }
-      await setOrganizations(tags.concat(rows));
+      await setOrganizations(rows);
     } catch (e) {
       console.log(e);
     }
@@ -244,7 +243,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     nested: [
       {
         title: 'Admin Tools',
-        path: '/admin-tools/scans',
+        path: '/admin-tools',
         users: GLOBAL_ADMIN,
         exact: true
       },
@@ -309,6 +308,18 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     drawerItems = [...navItems, ...userMenu.nested];
   }
 
+  const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
+    if (userLevel === GLOBAL_ADMIN) {
+      return [{ name: 'All Organizations' }].concat(organizations);
+    }
+    if (userLevel === REGIONAL_ADMIN) {
+      return organizations.filter((item) => {
+        return item.regionId === user?.regionId;
+      });
+    }
+    return [];
+  }, [user, organizations, userLevel]);
+
   return (
     <Root>
       <AppBar position="static" elevation={0}>
@@ -344,9 +355,11 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     isOptionEqualToValue={(option, value) =>
                       option?.name === value?.name
                     }
-                    options={[{ name: 'All Organizations' }].concat(
-                      organizations
-                    )}
+                    options={
+                      userLevel === GLOBAL_ADMIN
+                        ? [...tags, ...organizationDropdownOptions]
+                        : organizationDropdownOptions
+                    }
                     autoComplete={false}
                     className={classes.selectOrg}
                     classes={{
@@ -394,7 +407,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                         } else {
                           setShowMaps(false);
                         }
-
                         // Check if we're on an organization page and, if so, update it to the new organization
                         if (orgPageMatch !== null) {
                           if (!tags.find((e) => e.id === value.id)) {
@@ -422,7 +434,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                 {!isMobile && <NavItem {...userMenu} />}
               </>
             )}
-            {isMobile && (
+            {user && isMobile && (
               <IconButton
                 edge="start"
                 className={classes.menuButton}
