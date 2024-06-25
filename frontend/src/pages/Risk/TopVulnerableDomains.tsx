@@ -94,9 +94,9 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
   return (
     <div className={cardBig}>
       <div className={seeAll}>
-        <h4>
+        <p>
           <Link to="/inventory/vulnerabilities">See All</Link>
-        </h4>
+        </p>
       </div>
       <div className={header}>
         <h2>Open Vulnerabilities by Domain</h2>
