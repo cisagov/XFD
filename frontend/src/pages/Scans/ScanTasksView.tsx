@@ -25,7 +25,6 @@ import { Box, Stack } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { KeyboardArrowDown } from '@mui/icons-material';
-// import { da } from 'date-fns/locale';
 
 interface ApiResponse {
   result: ScanTask[];
