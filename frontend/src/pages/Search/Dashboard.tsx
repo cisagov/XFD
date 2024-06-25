@@ -36,6 +36,7 @@ import { SavedSearch, Vulnerability } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
+import { useHistory } from 'react-router-dom';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -79,6 +80,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     ? JSON.parse(localStorage.getItem('savedSearch')!)
     : undefined;
 
+  const history = useHistory();
   const modalRef = useRef<ModalRef>(null);
   const [savedSearchValues, setSavedSearchValues] = useState<
     Partial<SavedSearch> & {
@@ -379,8 +381,12 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
                 };
                 if (search) {
                   await apiPut('/saved-searches/' + search.id, body);
+                  history.push('/inventory');
+                  window.location.reload();
                 } else {
                   await apiPost('/saved-searches/', body);
+                  history.push('/inventory');
+                  window.location.reload();
                 }
               }}
             >

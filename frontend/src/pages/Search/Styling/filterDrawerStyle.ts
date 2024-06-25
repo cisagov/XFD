@@ -75,7 +75,6 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     // display: 'flex',
     alignItems: 'left',
     flexFlow: 'row nowrap',
-    padding: '0 1rem',
     minHeight: 25,
     justifyContent: 'space-between',
     '& h3': {

@@ -6,7 +6,7 @@ import {
   IconButton,
   Paper
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
+import { DataGrid, GridRenderCellParams } from '@mui/x-data-grid';
 import { classes, StyledWrapper } from './Styling/filterDrawerStyle';
 import {
   Delete,
@@ -58,7 +58,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
       }
     };
     fetchSearches();
-  }, []);
+  }, [apiGet]);
 
   const deleteSearch = async (id: string) => {
     try {
@@ -98,9 +98,6 @@ export const FilterDrawer: React.FC<Props> = (props) => {
   const severityFacet: any[] = facets['vulnerabilities.severity']
     ? facets['vulnerabilities.severity'][0].data
     : [];
-
-  // Create rows for DataGrid
-  // const savedSearchRows: SavedSearch[] = savedSearches
 
   // Always show all severities
   for (const value of ['Critical', 'High', 'Medium', 'Low']) {
@@ -350,98 +347,112 @@ export const FilterDrawer: React.FC<Props> = (props) => {
         </AccordionSummary>
         <Accordion style={{ overflowY: 'auto' }}>
           <AccordionDetails classes={{ root: classes.details }}>
-            <Paper elevation={2}>
-              <DataGrid
-                density="compact"
-                key={'Data Grid'}
-                rows={savedSearches.map((search) => ({ ...search }))}
-                rowCount={savedSearchCount}
-                columns={[
-                  {
-                    field: 'name',
-                    headerName: 'Name',
-                    flex: 1,
-                    renderCell: (cellValues) => {
-                      const applyFilter = () => {
-                        if (clearFilters) clearFilters();
-                        localStorage.setItem(
-                          'savedSearch',
-                          JSON.stringify(cellValues.row)
-                        );
-                        history.push(
-                          '/inventory' +
-                            cellValues.row.searchPath +
-                            '&searchId=' +
-                            cellValues.row.id
-                        );
-                        props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
+            <Paper elevation={2} style={{ width: '15em' }}>
+              {savedSearches.length > 0 ? (
+                <DataGrid
+                  density="compact"
+                  key={'Data Grid'}
+                  rows={savedSearches.map((search) => ({ ...search }))}
+                  rowCount={savedSearchCount}
+                  columns={[
+                    {
+                      field: 'name',
+                      headerName: 'Name',
+                      flex: 1,
+                      width: 100,
+                      description: 'Name',
+                      renderCell: (cellValues) => {
+                        const applyFilter = () => {
+                          if (clearFilters) clearFilters();
+                          localStorage.setItem(
+                            'savedSearch',
+                            JSON.stringify(cellValues.row)
+                          );
+                          history.push(
+                            '/inventory' +
+                              cellValues.row.searchPath +
+                              '&searchId=' +
+                              cellValues.row.id
+                          );
+                          props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
 
-                        // Apply the filters
-                        cellValues.row.filters.forEach((filter) => {
-                          filter.values.forEach((value) => {
-                            addFilter(filter.field, value, 'any');
+                          // Apply the filters
+                          cellValues.row.filters.forEach((filter) => {
+                            filter.values.forEach((value) => {
+                              addFilter(filter.field, value, 'any');
+                            });
                           });
-                        });
-                      };
-                      return (
-                        <div
-                          tabIndex={0}
-                          onClick={applyFilter}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              applyFilter();
-                            }
-                          }}
-                          style={{ cursor: 'pointer', textAlign: 'center' }}
-                        >
-                          {cellValues.value}
-                        </div>
-                      );
-                    }
-                  },
-                  {
-                    field: 'actions',
-                    headerName: '',
-                    flex: 0.1,
-                    renderCell: (cellValues) => {
-                      const searchId = cellValues.id.toString();
-                      return (
-                        <div style={{ display: 'flexbox', textAlign: 'end' }}>
-                          <IconButton
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSearch(searchId);
-                            }}
+                        };
+                        return (
+                          <div
+                            aria-label={cellValues.row.name}
+                            title={`Saved Search: ${cellValues.row.name}`}
                             tabIndex={0}
+                            onClick={applyFilter}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
-                                deleteSearch(searchId);
+                                applyFilter();
                               }
                             }}
+                            style={{
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              width: '100%'
+                            }}
                           >
-                            <Delete />
-                          </IconButton>
-                        </div>
-                      );
+                            {cellValues.value}
+                          </div>
+                        );
+                      }
+                    },
+                    {
+                      field: 'actions',
+                      headerName: '',
+                      flex: 0.1,
+                      renderCell: (cellValues) => {
+                        const searchId = cellValues.id.toString();
+                        return (
+                          <div style={{ display: 'flexbox', textAlign: 'end' }}>
+                            <IconButton
+                              aria-label="Delete"
+                              title="Delete Search"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteSearch(searchId);
+                              }}
+                              tabIndex={0}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  deleteSearch(searchId);
+                                }
+                              }}
+                            >
+                              <Delete />
+                            </IconButton>
+                          </div>
+                        );
+                      }
                     }
-                  }
-                ]}
-                initialState={{
-                  pagination: {
-                    paginationModel: {
-                      pageSize: 5
+                  ]}
+                  initialState={{
+                    pagination: {
+                      paginationModel: {
+                        pageSize: 5
+                      }
                     }
-                  }
-                }}
-                pageSizeOptions={[5, 10]}
-                disableRowSelectionOnClick
-                sx={{
-                  disableColumnfilter: 'true',
-                  '& .MuiDataGrid-row:hover': {
-                    cursor: 'pointer'
-                  }
-                }}
-              />
+                  }}
+                  pageSizeOptions={[5, 10]}
+                  disableRowSelectionOnClick
+                  sx={{
+                    disableColumnfilter: 'true',
+                    '& .MuiDataGrid-row:hover': {
+                      cursor: 'pointer'
+                    }
+                  }}
+                />
+              ) : (
+                <div>No Saved Searches</div>
+              )}
             </Paper>
           </AccordionDetails>
         </Accordion>
