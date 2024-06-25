@@ -149,7 +149,7 @@ export const ScanTasksView: React.FC = () => {
             }
           }
         );
-        if (result.length === 0) return;
+        // if (result.length === 0) return;
         setScanTasks(result);
         setTotalResults(count);
         setPaginationModel((prev) => ({
@@ -349,14 +349,36 @@ export const ScanTasksView: React.FC = () => {
     </>
   );
 
+  const resetScans = useCallback(() => {
+    fetchScanTasks({
+      page: 1,
+      pageSize: PAGE_SIZE,
+      sort: [],
+      filters: []
+    });
+  }, [fetchScanTasks]);
+
   return (
     <>
       {errors.global && <p className={classes.error}>{errors.global}</p>}
-      <Box mb={3}>
-        <Paper elevation={0}>
-          {scanTasks?.length === 0 ? (
-            <Alert severity="warning">No scans found</Alert>
-          ) : (
+      <Box mb={3} display="flex" justifyContent="center">
+        {scanTasks?.length === 0 ? (
+          <Stack direction="row" spacing={2}>
+            <Paper elevation={2}>
+              <Alert severity="warning">No results found.</Alert>
+            </Paper>
+            <MuiButton
+              aria-label="Reset scan table"
+              onClick={resetScans}
+              variant="contained"
+              color="primary"
+              sx={{ width: 'fit-content' }}
+            >
+              Reset
+            </MuiButton>
+          </Stack>
+        ) : (
+          <Paper elevation={2} sx={{ width: '90%' }}>
             <DataGrid
               rows={scansTasksRows}
               rowCount={totalResults}
@@ -393,8 +415,8 @@ export const ScanTasksView: React.FC = () => {
               }}
               pageSizeOptions={[15, 30, 50, 100]}
             />
-          )}
-        </Paper>
+          </Paper>
+        )}
       </Box>
       <Dialog
         open={openDialog}
