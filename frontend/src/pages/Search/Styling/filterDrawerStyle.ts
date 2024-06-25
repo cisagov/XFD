@@ -1,6 +1,5 @@
 import { styled } from '@mui/material/styles';
 import { Paper } from '@mui/material';
-import { SavedSearch } from '@mui/icons-material';
 
 const Wrapper = Paper;
 const PREFIX = 'FilterDrawer';
@@ -72,7 +71,6 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     }
   },
   [`& .${classes.savedSearchHeader}`]: {
-    // display: 'flex',
     alignItems: 'left',
     flexFlow: 'row nowrap',
     minHeight: 25,

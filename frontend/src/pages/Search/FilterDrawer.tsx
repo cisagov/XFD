@@ -6,7 +6,7 @@ import {
   IconButton,
   Paper
 } from '@mui/material';
-import { DataGrid, GridRenderCellParams } from '@mui/x-data-grid';
+import { DataGrid } from '@mui/x-data-grid';
 import { classes, StyledWrapper } from './Styling/filterDrawerStyle';
 import {
   Delete,
