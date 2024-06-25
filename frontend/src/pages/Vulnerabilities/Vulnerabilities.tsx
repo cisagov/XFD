@@ -198,7 +198,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     pageSize: PAGE_SIZE,
     pageCount: 0,
     sort: [],
-    filters: []
+    filters: initialFilters
   });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
