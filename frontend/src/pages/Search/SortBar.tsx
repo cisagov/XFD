@@ -1,6 +1,12 @@
 import React from 'react';
 import { classes, Root } from './Styling/sortBarStyle';
-import { Select, FormControl, MenuItem, SelectProps } from '@mui/material';
+import {
+  Select,
+  FormControl,
+  MenuItem,
+  SelectProps,
+  IconButton
+} from '@mui/material';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
 import { SavedSearch } from 'types';
@@ -36,13 +42,19 @@ export const SortBar: React.FC<Props> = (props) => {
   return (
     <Root className={classes.root}>
       <div className={classes.sortMenu}>
-        <button className={classes.toggleDirection} onClick={toggleDirection}>
+        <IconButton
+          className={classes.toggleDirection}
+          onClick={toggleDirection}
+          aria-label={`Sort ${
+            sortDirection === 'asc' ? 'Descending' : 'Ascending'
+          }`}
+        >
           {!sortDirection || sortDirection === 'desc' ? (
             <ArrowDownward />
           ) : (
             <ArrowUpward />
           )}
-        </button>
+        </IconButton>
         <span id="sort-by-label">Sort by: </span>
         <FormControl className={classes.openFields}>
           <Select
