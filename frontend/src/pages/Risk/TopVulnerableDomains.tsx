@@ -128,14 +128,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
             <ResponsiveBar
               data={dataVal as any}
               keys={keys}
-              layers={[
-                'grid',
-                'axes',
-                'bars',
-                totalLabels,
-                'markers',
-                'legends'
-              ]}
+              layers={['grid', 'axes', 'bars', 'markers', 'legends']}
               indexBy="label"
               margin={{
                 top: 10,
@@ -164,6 +157,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
               axisTop={null}
               axisRight={null}
               axisBottom={{
+                ariaHidden: true,
                 tickSize: 0,
                 tickPadding: 5,
                 tickRotation: 0,
@@ -172,6 +166,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                 legendOffset: 40
               }}
               axisLeft={{
+                ariaHidden: true,
                 tickSize: 0,
                 tickPadding: 20,
                 tickRotation: 0,
@@ -180,11 +175,18 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                 legendOffset: -65
               }}
               animate={true}
-              enableLabel={false}
-              motionDamping={15}
-              layout={'horizontal'}
+              ariaLabel={
+                'Top Vulnerable Domains - y-axis: Domain Name, x-axis: Count of Open Vulnerabilities'
+              }
+              barAriaLabel={(d) =>
+                `Domain - ${d.indexValue}: ${d.id} - ${d.value}`
+              }
               enableGridX={true}
               enableGridY={false}
+              enableLabel={false}
+              isFocusable={true}
+              layout={'horizontal'}
+              motionDamping={15}
               {...({ motionStiffness: 90 } as any)}
             />
           </>
