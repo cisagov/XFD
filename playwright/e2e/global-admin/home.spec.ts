@@ -27,7 +27,6 @@ test.describe('home', () => {
       contentType: 'application/json'
     });
 
-    expect.soft(accessibilityScanResults.violations).toHaveLength(0);
-    await page.screenshot({ path: 'test-results/img/global-admin/home.png' });
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 });

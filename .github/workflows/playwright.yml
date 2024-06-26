@@ -1,8 +1,7 @@
 ---
-name: Playwright Tests
+name: UI Testing
 on:
   push:
-  deployment_status:
 defaults:
   run:
     working-directory: ./playwright

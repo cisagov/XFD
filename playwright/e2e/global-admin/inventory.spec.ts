@@ -26,11 +26,7 @@ test.describe('Inventory', () => {
       contentType: 'application/json'
     });
 
-    expect(accessibilityScanResults.violations).toEqual([]);
-
-    await page.screenshot({
-      path: 'test-results/img/global-admin/inventory.png'
-    });
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 
   test('Test domain accessibility', async ({ makeAxeBuilder }, testInfo) => {
@@ -45,11 +41,7 @@ test.describe('Inventory', () => {
       contentType: 'application/json'
     });
 
-    expect(accessibilityScanResults.violations).toEqual([]);
-
-    await page.screenshot({
-      path: 'test-results/img/global-admin/domains.png'
-    });
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 
   test('Test domain details accessibility', async ({
@@ -72,11 +64,7 @@ test.describe('Inventory', () => {
       contentType: 'application/json'
     });
 
-    expect(accessibilityScanResults.violations).toEqual([]);
-
-    await page.screenshot({
-      path: 'test-results/img/global-admin/domain_details.png'
-    });
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 
   test('Test domain table filter', async () => {
@@ -92,8 +80,5 @@ test.describe('Inventory', () => {
         page.getByRole('row').nth(it).getByRole('cell').nth(0)
       ).toContainText('Homeland');
     }
-    await page.screenshot({
-      path: 'test-results/img/global-admin/domain_filter.png'
-    });
   });
 });

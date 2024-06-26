@@ -28,11 +28,7 @@ test.describe('Vulnerabilities', () => {
       contentType: 'application/json'
     });
 
-    expect(accessibilityScanResults.violations).toEqual([]);
-
-    await page.screenshot({
-      path: 'test-results/img/global-admin/vulnerabilities.png'
-    });
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 
   test('Test vulnerability details NIST link', async () => {
@@ -67,6 +63,6 @@ test.describe('Vulnerabilities', () => {
       contentType: 'application/json'
     });
 
-    expect(accessibilityScanResults.violations).toEqual([]);
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 });
