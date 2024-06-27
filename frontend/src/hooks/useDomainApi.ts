@@ -12,7 +12,7 @@ interface ApiResponse {
   url?: string;
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 15;
 
 export const useDomainApi = (showAll?: boolean) => {
   const { currentOrganization, apiPost, apiGet } = useAuthContext();

@@ -21,11 +21,11 @@ security:  # configuration for the `safety check` command
   ignore-vulnerabilities:
     # We recommend making use of the optional `reason` and `expires` keys for each
     # vulnerability that you ignore.
-    54672:  # Vulnerability found in scrapy version >= 0.7
+    25853:  # Example vulnerability ID
       # optional, for internal note purposes to communicate with your team.
       # This reason will be reported in the Safety reports
-      reason: No fix currently available
-      expires: '2024-06-01'  # We will revisit for a fix in 6 months.
+      reason: we do not use the vulnerable function  # optional
+      expires: '2022-10-21'   # datetime string
   # Suppress non-zero exit codes when vulnerabilities are found. Enable this in
   # pipelines and CI/CD processes if you want to pass builds that have vulnerabilities.
   # We recommend you set this to False.
