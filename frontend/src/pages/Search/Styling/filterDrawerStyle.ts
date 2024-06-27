@@ -55,7 +55,7 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     flexFlow: 'row nowrap',
     fontSize: '0.7rem',
     textTransform: 'uppercase',
-    color: theme.palette.grey['500'],
+    color: '#4e4e4e',
     '& svg': {
       fontSize: '0.7rem',
       color: theme.palette.primary.main,
