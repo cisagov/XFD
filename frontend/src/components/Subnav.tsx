@@ -77,7 +77,7 @@ const StyledPaper = styled('div')(({ theme }) => ({
     padding: '0.75rem 1rem 0.5rem 1rem',
     borderBottom: '2px solid transparent',
     textDecoration: 'none',
-    color: theme.palette.grey[400],
+    color: '#4e4e4e',
     fontWeight: 500
   },
   [`.${classes.active}`]: {
