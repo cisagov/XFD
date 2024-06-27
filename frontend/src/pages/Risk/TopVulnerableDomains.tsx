@@ -58,39 +58,6 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
     .slice(pageStart, Math.min(pageStart + 30, domainsWithVulns))
     .reverse();
   // create the total vuln labels for each domain
-  const totalLabels = ({ bars, width }: any) => {
-    const fullWidth = width + 5;
-    return bars.map(
-      ({ data: { data, indexValue }, y, height, width }: any, i: number) => {
-        const total = Object.keys(data)
-          .filter((key) => key !== 'label')
-          .reduce((a, key) => a + data[key], 0);
-        if (i < dataVal.length) {
-          return (
-            <g
-              transform={`translate(${fullWidth}, ${y})`}
-              key={`${indexValue}-${i}`}
-            >
-              <text
-                x={10}
-                y={height / 2}
-                textAnchor="middle"
-                alignmentBaseline="central"
-                // add any style to the label here
-                style={{
-                  fill: 'rgb(51, 51, 51)',
-                  fontSize: 12
-                }}
-              >
-                {total}
-              </text>
-            </g>
-          );
-        }
-        return null;
-      }
-    );
-  };
   return (
     <div className={cardBig}>
       <div className={seeAll}>
@@ -128,14 +95,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
             <ResponsiveBar
               data={dataVal as any}
               keys={keys}
-              layers={[
-                'grid',
-                'axes',
-                'bars',
-                totalLabels,
-                'markers',
-                'legends'
-              ]}
+              layers={['grid', 'axes', 'bars', 'markers', 'legends']}
               indexBy="label"
               margin={{
                 top: 10,
@@ -164,6 +124,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
               axisTop={null}
               axisRight={null}
               axisBottom={{
+                ariaHidden: true,
                 tickSize: 0,
                 tickPadding: 5,
                 tickRotation: 0,
@@ -172,6 +133,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                 legendOffset: 40
               }}
               axisLeft={{
+                ariaHidden: true,
                 tickSize: 0,
                 tickPadding: 20,
                 tickRotation: 0,
@@ -180,11 +142,18 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                 legendOffset: -65
               }}
               animate={true}
-              enableLabel={false}
-              motionDamping={15}
-              layout={'horizontal'}
+              ariaLabel={
+                'Top Vulnerable Domains - y-axis: Domain Name, x-axis: Count of Open Vulnerabilities'
+              }
+              barAriaLabel={(d) =>
+                `Domain - ${d.indexValue}: ${d.id} - ${d.value}`
+              }
               enableGridX={true}
               enableGridY={false}
+              enableLabel={false}
+              isFocusable={true}
+              layout={'horizontal'}
+              motionDamping={15}
               {...({ motionStiffness: 90 } as any)}
             />
           </>
