@@ -163,21 +163,12 @@ export const update = wrapHandler(async (event) => {
 export const get508Banner = wrapHandler(async () => {
   const bannerFileName = '508warningtext.txt';
   try {
-    if (process.env.IS_LOCAL!) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify(
-          'This is a sample banner to show while you are local instead of pulling from S3.'
-        )
-      };
-    } else {
-      const client = new S3Client();
-      const bannerResult = await client.getEmailAsset(bannerFileName);
-      return {
-        statusCode: 200,
-        body: JSON.stringify(bannerResult)
-      };
-    }
+    const client = new S3Client();
+    const bannerResult = await client.getEmailAsset(bannerFileName);
+    return {
+      statusCode: 200,
+      body: JSON.stringify(bannerResult)
+    };
   } catch (error) {
     console.log('S3 Banner Error: ', error);
     return {
