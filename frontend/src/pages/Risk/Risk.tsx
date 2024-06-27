@@ -6,7 +6,12 @@ import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityPieChart from './VulnerabilityPieChart';
 import * as RiskStyles from './style';
-import { getSeverityColor, offsets, severities } from './utils';
+import {
+  getSeverityColor,
+  getServicesColor,
+  offsets,
+  severities
+} from './utils';
 import { useAuthContext } from 'context';
 import { geoCentroid } from 'd3-geo';
 import {
@@ -75,7 +80,7 @@ const Risk: React.FC = (props) => {
 
   const geoStateUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
-  const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
+  // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
   const fetchStats = useCallback(
     async (orgId?: string) => {
@@ -272,7 +277,8 @@ const Risk: React.FC = (props) => {
                 <VulnerabilityPieChart
                   title={'Most Common Services'}
                   data={stats.domains.services}
-                  colors={allColors}
+                  // colors={allColors}
+                  colors={getServicesColor}
                   type={'services'}
                 />
               )}
