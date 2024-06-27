@@ -298,7 +298,7 @@ const ScansView: React.FC = () => {
       ></ScanForm>
       <ImportExport<Scan>
         name="scans"
-        fieldsToExport={['name', 'arguments', 'frequency']}
+        fieldsToImport={['name', 'arguments', 'frequency']}
         onImport={async (results) => {
           // TODO: use a batch call here instead.
           const createdScans = [];
@@ -318,12 +318,6 @@ const ScansView: React.FC = () => {
           }
           setScans(scans.concat(...createdScans));
         }}
-        getDataToExport={() =>
-          scans.map((scan) => ({
-            ...scan,
-            arguments: JSON.stringify(scan.arguments)
-          }))
-        }
       />
 
       <Modal ref={deleteModalRef} id="deleteModal">
