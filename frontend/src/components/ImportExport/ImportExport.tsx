@@ -12,6 +12,8 @@ interface ImportProps<T> {
 
   // Callback that handles data on import (usually saves the data).
   onImport: (e: T[]) => void;
+
+  fieldsToImport: string[];
 }
 
 export interface ExportProps<T> {
@@ -25,11 +27,11 @@ export interface ExportProps<T> {
   getDataToExport: () => Partial<T>[] | Promise<Partial<T>[]> | Promise<string>;
 }
 
-interface ImportExportProps<T> extends ImportProps<T>, ExportProps<T> {}
+// interface ImportExportProps<T> extends ImportProps<T>, ExportProps<T> {}
 
 export const Import = <T extends object>(props: ImportProps<T>) => {
   const { setLoading } = useAuthContext();
-  const { name, onImport } = props;
+  const { name, onImport, fieldsToImport } = props;
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [results, setResults] = React.useState<T[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -83,8 +85,8 @@ export const Import = <T extends object>(props: ImportProps<T>) => {
       <h2>Import {name}</h2>
       <FormGroup>
         <Label htmlFor="import">
-          File must be in a CSV format, with the same header as the exported
-          file.
+          File must be in a CSV format, header must include the following
+          fields: <br /> {fieldsToImport.join(', ')}
         </Label>
         <FileInput
           key={key}
@@ -141,32 +143,11 @@ export const exportCSV = async <T extends object>(
   setLoading((l) => l - 1);
 };
 
-export const Export = <T extends object>(props: ExportProps<T>) => {
-  const { setLoading } = useAuthContext();
-  return (
-    <form>
-      <h2>Export {props.name}</h2>
-      <Button
-        type="button"
-        outline
-        onClick={() => exportCSV(props, setLoading)}
-      >
-        Export as CSV
-      </Button>
-    </form>
-  );
-};
-
-export const ImportExport = <T extends object>(props: ImportExportProps<T>) => {
-  const { name, onImport, getDataToExport, fieldsToExport } = props;
+export const ImportExport = <T extends object>(props: ImportProps<T>) => {
+  const { name, onImport, fieldsToImport } = props;
   return (
     <>
-      <Import name={name} onImport={onImport} />
-      <Export
-        name={name}
-        fieldsToExport={fieldsToExport}
-        getDataToExport={getDataToExport}
-      />
+      <Import name={name} onImport={onImport} fieldsToImport={fieldsToImport} />
     </>
   );
 };

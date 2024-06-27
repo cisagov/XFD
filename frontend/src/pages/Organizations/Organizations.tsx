@@ -59,7 +59,7 @@ export const Organizations: React.FC = () => {
           <>
             <ImportExport<Organization>
               name="organizations"
-              fieldsToExport={[
+              fieldsToImport={[
                 'name',
                 'acronym',
                 'rootDomains',
@@ -105,15 +105,6 @@ export const Organizations: React.FC = () => {
                 setOrganizations(organizations.concat(...createdOrganizations));
                 window.location.reload();
               }}
-              getDataToExport={() =>
-                organizations.map(
-                  (org) =>
-                    ({
-                      ...org,
-                      tags: org.tags.map((tag) => tag.name)
-                    }) as any
-                )
-              }
             />
           </>
         )}
