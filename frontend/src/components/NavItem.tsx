@@ -55,7 +55,7 @@ export const NavItem: React.FC<Props> = (props) => {
           className={classesNav.link}
           onClick={onClick ? onClick : onClickButton}
           exact={exact}
-          style={{ outline: 'none' }}
+          // style={{ outline: 'none' }}
         >
           {title}
         </NavLink>
@@ -65,7 +65,7 @@ export const NavItem: React.FC<Props> = (props) => {
             [classesNav.activeLink]: !!match
           })}
           onClick={onClick ? onClick : onClickButton}
-          style={{ outline: 'none' }}
+          // style={{ outline: 'none' }}
         >
           {title}
         </Button>
@@ -92,7 +92,7 @@ export const NavItem: React.FC<Props> = (props) => {
               onClick={
                 item.onClick ? item.onClick : () => navigateTo(item.path)
               }
-              style={{ outline: 'none' }}
+              style={{ outline: 'standard' }}
             >
               {item.title}
             </MenuItem>
