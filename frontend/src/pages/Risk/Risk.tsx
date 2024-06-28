@@ -111,7 +111,6 @@ const Risk: React.FC = (props) => {
 
   useEffect(() => {
     if (user) {
-      console.log('User state:', user.state);
       if (!user.state || user.state === '') {
         setIsUpdateStateFormOpen(true);
       }

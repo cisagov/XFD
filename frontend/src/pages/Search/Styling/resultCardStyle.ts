@@ -122,7 +122,7 @@ export const StyledPaper = styled(Paper)(({ theme }) => ({
 
   [`& .${classes.label}`]: {
     fontSize: '0.8rem',
-    color: '#71767A',
+    color: '#4e4e4e',
     display: 'block'
   },
 

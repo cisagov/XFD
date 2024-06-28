@@ -56,7 +56,7 @@ services:
       - MINIO_ACCESS_KEY=aws_access_key
       - MINIO_SECRET_KEY=aws_secret_key
     logging:
-      driver: none
+      driver: json-file
 
   docs:
     build:

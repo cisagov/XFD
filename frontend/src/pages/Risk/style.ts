@@ -122,7 +122,7 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     float: 'right',
     marginTop: '5px',
     marginRight: '20px',
-    '& h4 a': {
+    '& p a': {
       color: '#71767A',
       fontSize: '12px',
       fontWeight: '400'
