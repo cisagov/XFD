@@ -4,6 +4,18 @@ import { validateBody, wrapHandler, NotFound, Unauthorized } from './helpers';
 import { isGlobalWriteAdmin } from './auth';
 import S3Client from '../tasks/s3-client';
 
+// 508 Warning Banner S3 filename
+const bannerFileName = '508warningtext.txt';
+
+// Default 508 Warning Banner for local dev
+const default508Banner =
+  'CISA is committed to providing access for all individuals with disabilities, \
+  including members of the public and all employees. While this website is not \
+  yet fully accessible to users with disabilities as required by Section \
+  [508](https://cisa.gov/accessibility) federal law, CISA is working diligently \
+  to resolve those issues. If you experience accessibility issues, please email \
+  [TOC@mail.cisa.dhs.gov](mailto:TOC@mail.cisa.dhs.gov) for assistance.';
+
 class NewNotification {
   @IsDateString()
   startDatetime?: string;
@@ -99,8 +111,6 @@ export const list = wrapHandler(async (event) => {
     }
   });
 
-  console.log('Notification.find result: ', result);
-
   return {
     statusCode: 200,
     body: JSON.stringify(result)
@@ -161,16 +171,28 @@ export const update = wrapHandler(async (event) => {
  *    - Notifications
  */
 export const get508Banner = wrapHandler(async () => {
-  const bannerFileName = '508warningtext.txt';
+  // Return hardcoded banner for local builds
+  if (process.env.IS_LOCAL) {
+    console.log('Using default banner for 508 warning: ', default508Banner);
+    // API Response
+    return {
+      statusCode: 200,
+      body: JSON.stringify(default508Banner)
+    };
+  }
+
+  // Handle normal S3 logic
   try {
     const client = new S3Client();
     const bannerResult = await client.getEmailAsset(bannerFileName);
+    // API Response
     return {
       statusCode: 200,
       body: JSON.stringify(bannerResult)
     };
   } catch (error) {
     console.log('S3 Banner Error: ', error);
+    // API Error Response
     return {
       statusCode: 500,
       body: 'Error retrieving file from S3. See details in logs.'
