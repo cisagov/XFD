@@ -16,7 +16,9 @@ export const classes = {
   header: `${PREFIX}-header`,
   details: `${PREFIX}-details`,
   applied: `${PREFIX}-applied`,
-  filter: `${PREFIX}-filter`
+  filter: `${PREFIX}-filter`,
+  savedSearchHeader: `${PREFIX}-savedSearchHeader`,
+  savedSearchText: `${PREFIX}-savedSearchText`
 };
 
 export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
@@ -53,7 +55,7 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     flexFlow: 'row nowrap',
     fontSize: '0.7rem',
     textTransform: 'uppercase',
-    color: theme.palette.grey['500'],
+    color: '#4e4e4e',
     '& svg': {
       fontSize: '0.7rem',
       color: theme.palette.primary.main,
@@ -67,5 +69,26 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
     '& > span': {
       display: 'block'
     }
+  },
+  [`& .${classes.savedSearchHeader}`]: {
+    alignItems: 'left',
+    flexFlow: 'row nowrap',
+    minHeight: 25,
+    justifyContent: 'space-between',
+    '& h3': {
+      fontWeight: 400,
+      margin: 0
+    },
+    '& button': {
+      outline: 'none',
+      border: 'none',
+      color: '#71767A',
+      background: 'none',
+      cursor: 'pointer',
+      textDecoration: 'underline'
+    }
+  },
+  [`& .${classes.savedSearchText}`]: {
+    fontSize: '12px'
   }
 }));

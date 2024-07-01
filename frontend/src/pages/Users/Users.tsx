@@ -571,7 +571,7 @@ export const Users: React.FC = () => {
               }
           >
             name="users"
-            fieldsToExport={[
+            fieldsToImport={[
               'firstName',
               'lastName',
               'email',
@@ -603,17 +603,6 @@ export const Users: React.FC = () => {
               }
               setUsers(users.concat(...createdUsers));
             }}
-            getDataToExport={() =>
-              users.map((user) => ({
-                ...user,
-                roles: JSON.stringify(
-                  user.roles.map((role) => ({
-                    organization: role.organization.id,
-                    role: role.role
-                  }))
-                )
-              }))
-            }
           />
         </>
       )}

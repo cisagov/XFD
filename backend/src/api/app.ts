@@ -179,9 +179,6 @@ app.post('/auth/okta-callback', async (req, res) => {
   const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID;
   const callbackUrl = process.env.REACT_APP_COGNITO_CALLBACK_URL;
   const domain = process.env.REACT_APP_COGNITO_DOMAIN;
-  console.log('Okta ClientID: ', clientId);
-  console.log('Okta CallbackURL: ', callbackUrl);
-  console.log('Okta Domain: ', domain);
 
   if (!code) {
     return res.status(400).json({ message: 'Missing authorization code' });
@@ -202,7 +199,6 @@ app.post('/auth/okta-callback', async (req, res) => {
       },
       body: tokenData
     });
-    console.log('Okta token response: ', response);
     const { id_token, access_token, refresh_token } = await response.json();
 
     if (!id_token) {
@@ -216,12 +212,6 @@ app.post('/auth/okta-callback', async (req, res) => {
 
     const cognitoUsername = decodedToken['cognito:username'];
     const oktaId = decodedToken['custom:OKTA_ID'];
-    console.log('Cognito Username:', cognitoUsername);
-    console.log('Cognito OKTA_ID:', oktaId);
-
-    console.log('ID Token:', id_token);
-    console.log('Decoded Token:', decodedToken);
-
     jwt.verify(
       id_token,
       auth.getOktaKey,
