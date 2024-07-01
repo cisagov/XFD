@@ -19,7 +19,8 @@ import {
   CheckCircleOutline,
   Delete,
   Edit,
-  ErrorOutline
+  ErrorOutline,
+  InfoOutlined
 } from '@mui/icons-material';
 import {
   DataGrid,
@@ -65,7 +66,13 @@ const initialFormErrorValues = {
 };
 
 const initialInfoDialogValues = {
-  icon: <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />,
+  icon: (
+    <CheckCircleOutline
+      color="success"
+      aria-label="a success icon that displays an outlined circle with a checkmark in the center"
+      sx={{ fontSize: '80px' }}
+    />
+  ),
   title: 'Success',
   content: 'The notification was updated successfully.'
 };
@@ -165,6 +172,7 @@ export const Notifications: React.FC = () => {
         return (
           <IconButton
             color="primary"
+            aria-label="an icon button that displays a pencil and sends you to edit the selected table entry when clicked"
             onClick={() => {
               cellValues.row.startDatetime = formReadableDate(
                 toEST(cellValues.row.startDatetime)
@@ -195,6 +203,7 @@ export const Notifications: React.FC = () => {
         return (
           <IconButton
             color="primary"
+            aria-label="an icon button that displays a trash can and sends you to delete the selected table entry when clicked"
             onClick={() => {
               setDeleteDialogToggle(true);
               setRowToDelete(cellValues.row);
@@ -262,7 +271,13 @@ export const Notifications: React.FC = () => {
     } catch (e: any) {
       console.error(e);
       setInfoDialogValues({
-        icon: <ErrorOutline color="error" sx={{ fontSize: '80px' }} />,
+        icon: (
+          <ErrorOutline
+            color="error"
+            aria-label="an error icon that displays an outlined circle with a x in the center"
+            sx={{ fontSize: '80px' }}
+          />
+        ),
         title: 'Error',
         content: `${errorMessage} ${e.message}. Check the console log for more details.`
       });
@@ -628,7 +643,17 @@ export const Notifications: React.FC = () => {
               </Typography>
             </>
           ) : (
-            <Alert severity="info">
+            <Alert
+              icon={
+                <InfoOutlined
+                  fontSize="inherit"
+                  aria-label="an information alert icon that displays an outlined circle with the letter i in the center"
+                />
+              }
+              severity="info"
+              role="alert"
+              aria-label="an information alert banner to display an information alert icon and text"
+            >
               There is no active maintenance notification at this time. To make
               a notification active, add a new one or update an inactive one.
             </Alert>
@@ -641,7 +666,17 @@ export const Notifications: React.FC = () => {
             Inactive Notifications
           </Typography>
           {inactiveNotifications.length === 0 ? (
-            <Alert severity="info">
+            <Alert
+              icon={
+                <InfoOutlined
+                  fontSize="inherit"
+                  aria-label="an information alert icon that displays an outlined circle with the letter i in the center"
+                />
+              }
+              severity="info"
+              role="alert"
+              aria-label="an information alert banner to display an information alert icon and text"
+            >
               There are no inactive maintenance notifications at this time. The
               unused inactive notifications will be shown here.
             </Alert>
