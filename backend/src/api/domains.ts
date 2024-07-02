@@ -125,7 +125,7 @@ class DomainSearch {
 
   async getResults(event) {
     const pageSize = this.pageSize || PAGE_SIZE;
-    
+
     let qs = Domain.createQueryBuilder('domain')
       .leftJoinAndSelect('domain.services', 'services')
       .leftJoinAndSelect(
