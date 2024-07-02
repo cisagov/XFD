@@ -433,7 +433,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                   />
                 )}
                 {!isMobile && <NavItem {...userMenu} />}
-                {!isMobile && <UserMenu />}
+                {!isMobile && <UserMenu {...userMenu} />}
               </>
             )}
             {user && isMobile && (
