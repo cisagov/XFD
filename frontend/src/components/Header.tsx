@@ -24,6 +24,7 @@ import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';
 import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
+import { UserMenu } from './UserMenu';
 
 const PREFIX = 'Header';
 
@@ -432,6 +433,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                   />
                 )}
                 {!isMobile && <NavItem {...userMenu} />}
+                {!isMobile && <UserMenu />}
               </>
             )}
             {user && isMobile && (
