@@ -20,7 +20,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
           <ResponsiveBar
             data={dataVal as any}
             keys={['Port']}
-            layers={['grid', 'axes', 'bars', 'markers', 'legends']}
+            layers={['grid', 'axes', 'bars']}
             indexBy="label"
             margin={{ top: 30, right: 40, bottom: 75, left: 100 }}
             theme={{
@@ -45,6 +45,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
             axisTop={null}
             axisRight={null}
             axisBottom={{
+              ariaHidden: true,
               tickSize: 0,
               tickPadding: 5,
               tickRotation: 0,
@@ -53,6 +54,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
               legendOffset: 40
             }}
             axisLeft={{
+              ariaHidden: true,
               tickSize: 0,
               tickPadding: 20,
               tickRotation: 0,
@@ -61,11 +63,14 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
               legendOffset: -65
             }}
             animate={true}
-            enableLabel={false}
-            motionDamping={15}
-            layout={'horizontal'}
+            ariaLabel={'Top Vulnerable Ports - y-axis: Port, x-axis: Count'}
+            barAriaLabel={(d) => `Port - ${d.indexValue}: ${d.value}`}
             enableGridX={true}
             enableGridY={false}
+            enableLabel={false}
+            isFocusable={true}
+            layout={'horizontal'}
+            motionDamping={15}
             {...({ motionStiffness: 90 } as any)}
           />
         </div>

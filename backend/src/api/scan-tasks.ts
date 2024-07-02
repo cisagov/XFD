@@ -20,7 +20,7 @@ import {
 } from './auth';
 import ECSClient from '../tasks/ecs-client';
 
-const PAGE_SIZE = parseInt(process.env.PAGE_SIZE ?? '') || 25;
+const PAGE_SIZE = 15;
 
 class ScanTaskFilters {
   @IsString()
@@ -59,6 +59,11 @@ class ScanTaskSearch {
   @IsOptional()
   filters?: ScanTaskFilters;
 
+  @IsInt()
+  @IsOptional()
+  // If set to -1, returns all results.
+  pageSize?: number;
+
   async filterResultQueryset(qs: SelectQueryBuilder<ScanTask>, event) {
     if (this.filters?.name) {
       qs.andWhere('scan.name ILIKE :name', {
@@ -84,12 +89,16 @@ class ScanTaskSearch {
   }
 
   async getResults(event) {
+    const pageSize = this.pageSize || PAGE_SIZE;
+
     const qs = ScanTask.createQueryBuilder('scan_task')
       .leftJoinAndSelect('scan_task.scan', 'scan')
       .leftJoinAndSelect('scan_task.organizations', 'organization')
-      .orderBy(`scan_task.${this.sort}`, this.order)
-      .skip(PAGE_SIZE * (this.page - 1))
-      .take(PAGE_SIZE);
+      .orderBy(`scan_task.${this.sort}`, this.order);
+
+    if (pageSize !== -1) {
+      qs.skip(pageSize * (this.page - 1)).take(pageSize);
+    }
 
     await this.filterResultQueryset(qs, event);
     return qs.getManyAndCount();
