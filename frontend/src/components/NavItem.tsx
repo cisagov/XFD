@@ -1,17 +1,8 @@
 import React, { useState } from 'react';
 import { styled } from '@mui/material/styles';
-import classes from 'classnames';
-import { NavLink, useRouteMatch, useHistory } from 'react-router-dom';
-import { Menu, MenuItem, Button } from '@mui/material';
-
-interface LinkConfig {
-  title: string | JSX.Element;
-  path: string;
-  onClick?: any;
-}
+import { NavLink } from 'react-router-dom';
 
 interface Props {
-  nested?: LinkConfig[];
   path?: string;
   title: string | JSX.Element;
   exact?: boolean;
@@ -19,86 +10,18 @@ interface Props {
 }
 
 export const NavItem: React.FC<Props> = (props) => {
-  const { title, path, nested, exact, onClick } = props;
-  const match = useRouteMatch(path ?? '');
-  const history = useHistory();
-  const [anchor, setAnchor] = useState<any>(null);
-  const [mouseInButton, setMouseInButton] = useState(false);
-  const [mouseInMenu, setMouseInMenu] = useState(false);
-
-  const onClickButton = (e: any) => {
-    setAnchor(e.currentTarget);
-    setMouseInButton(true);
-  };
-
-  const onCloseMenu = () => {
-    setMouseInMenu(false);
-    setMouseInButton(false);
-    setAnchor(null);
-  };
-
-  const navigateTo = (to: string) => {
-    setMouseInMenu(false);
-    setMouseInButton(false);
-    setAnchor(null);
-    history.push(to);
-  };
+  const { title, path, exact } = props;
 
   return (
     <Root>
-      {path ? (
-        <NavLink
-          to={path}
-          activeClassName={
-            path !== '#' ? classesNav.activeLink : classesNav.link
-          }
-          className={classesNav.link}
-          onClick={onClick ? onClick : onClickButton}
-          exact={exact}
-          // style={{ outline: 'none' }}
-        >
-          {title}
-        </NavLink>
-      ) : (
-        <Button
-          className={classes(classesNav.link, {
-            [classesNav.activeLink]: !!match
-          })}
-          onClick={onClick ? onClick : onClickButton}
-          // style={{ outline: 'none' }}
-        >
-          {title}
-        </Button>
-      )}
-      {nested && (
-        <Menu
-          id={`menu-${title}`}
-          open={(mouseInButton || mouseInMenu) && !!anchor}
-          anchorEl={anchor}
-          onClose={onCloseMenu}
-          keepMounted
-          anchorOrigin={{
-            vertical: 'center',
-            horizontal: 'center'
-          }}
-          transformOrigin={{
-            vertical: 'center',
-            horizontal: 'center'
-          }}
-        >
-          {nested.map((item) => (
-            <MenuItem
-              key={item.title.toString()}
-              onClick={
-                item.onClick ? item.onClick : () => navigateTo(item.path)
-              }
-              style={{ outline: 'standard' }}
-            >
-              {item.title}
-            </MenuItem>
-          ))}
-        </Menu>
-      )}
+      <NavLink
+        to={path || '/'}
+        activeClassName={path !== '#' ? classesNav.activeLink : classesNav.link}
+        className={classesNav.link}
+        exact={exact}
+      >
+        {title}
+      </NavLink>
     </Root>
   );
 };

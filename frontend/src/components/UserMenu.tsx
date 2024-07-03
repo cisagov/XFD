@@ -1,25 +1,23 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { Button, Menu, MenuItem } from '@mui/material';
+import { Box, Button, Menu, MenuItem } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 
-interface LinkConfig {
-  title: string | JSX.Element;
+interface MenuItemType {
+  title: string;
   path: string;
+  users?: number;
+  exact: boolean;
   onClick?: any;
 }
 
 interface Props {
-  nested?: LinkConfig[];
-  path?: string;
-  title: string | JSX.Element;
-  exact?: boolean;
-  onClick?: any;
+  userMenuItems: MenuItemType[];
 }
 
 export const UserMenu: React.FC<Props> = (props) => {
-  const { nested } = props;
+  const { userMenuItems } = props;
   const history = useHistory();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -29,9 +27,13 @@ export const UserMenu: React.FC<Props> = (props) => {
   const handleClose = () => {
     setAnchorEl(null);
   };
+  const handleNavigate = (path: string) => {
+    handleClose();
+    history.push(path);
+  };
 
   return (
-    <div>
+    <Box ml={2}>
       <Button
         startIcon={<AccountCircleIcon />}
         endIcon={<ArrowDropDownIcon />}
@@ -41,12 +43,17 @@ export const UserMenu: React.FC<Props> = (props) => {
         My Account
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        {nested?.map((item, index) => (
-          <MenuItem key={index} onClick={() => history.push(item.path)}>
+        {userMenuItems.map((item, index) => (
+          <MenuItem
+            key={index}
+            onClick={
+              item.onClick ? item.onClick : () => handleNavigate(item.path)
+            }
+          >
             {item.title}
           </MenuItem>
         ))}
       </Menu>
-    </div>
+    </Box>
   );
 };
