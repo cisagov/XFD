@@ -6,7 +6,6 @@ interface Props {
   path?: string;
   title: string | JSX.Element;
   exact?: boolean;
-  onClick?: any;
 }
 
 export const NavItem: React.FC<Props> = (props) => {
