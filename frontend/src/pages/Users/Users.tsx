@@ -366,7 +366,7 @@ export const Users: React.FC = () => {
         <>
           <Typography mb={3}>
             This request will permanently remove <b>{selectedRow?.fullName}</b>{' '}
-            from Crossfeed and cannot be undone.
+            from Cyhy Dashboard and cannot be undone.
           </Typography>
           {errorStates.getDeleteError && (
             <Alert severity="error">

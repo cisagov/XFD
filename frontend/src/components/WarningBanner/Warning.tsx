@@ -32,7 +32,7 @@ export const CrossfeedWarning: React.FC = (props) => {
               fontSize={11}
               lineHeight={1}
             >
-              Crossfeed is hosted by Department of Homeland Security (DHS)
+              CyHy Dashboard is hosted by Department of Homeland Security (DHS)
               Cybersecurity and Infrastructure Security Agency (CISA)
               Cybersecurity Division (CSD) Vulnerability Management (VM) Attack
               Surface Management (ASM). Use of this computer system is subject

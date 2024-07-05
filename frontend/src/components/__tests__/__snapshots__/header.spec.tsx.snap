@@ -3,7 +3,7 @@
 exports[`Header component matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="css-2vyz2w"
+    class="css-1ioelfd"
   >
     <header
       class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionStatic css-1twrj82-MuiPaper-root-MuiAppBar-root"
@@ -14,13 +14,18 @@ exports[`Header component matches snapshot 1`] = `
         <div
           class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-hyum1k-MuiToolbar-root"
         >
+          <img
+            alt="Cybersecurity and Infrastructure Security Agency Logo"
+            class="Header-1cisaLogo"
+            src="cisa_logo.png"
+          />
           <a
             href="/"
           >
             <img
-              alt="Crossfeed Icon Navigate Home"
+              alt="CyHy Dashboard Icon Navigate Home"
               class="Header-logo"
-              src="crossfeed.svg"
+              src="cyhydashboard.svg"
             />
           </a>
           <div

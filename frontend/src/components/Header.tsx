@@ -18,7 +18,8 @@ import {
 import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
-import logo from '../assets/crossfeed.svg';
+import logo from '../assets/cyhydashboard.svg';
+import cisaLogo from '../assets/cisa_logo.png';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';
@@ -31,6 +32,7 @@ const classes = {
   inner: `${PREFIX}-inner`,
   menuButton: `${PREFIX}-menuButton`,
   logo: `${PREFIX}-logo`,
+  cisaLogo: `${PREFIX}-1cisaLogo`,
   spacing: `${PREFIX}-spacing`,
   activeMobileLink: `${PREFIX}-activeMobileLink`,
   link: `${PREFIX}-link`,
@@ -52,10 +54,13 @@ const Root = styled('div')(({ theme }) => ({
     marginLeft: theme.spacing(2),
     display: 'flex'
   },
-
+  [`.${classes.cisaLogo}`]: {
+    height: 40,
+    marginRight: theme.spacing(1)
+  },
   [`.${classes.logo}`]: {
-    width: 150,
-    minWidth: 150,
+    width: 175,
+    minWidth: 175,
     padding: theme.spacing(),
     paddingLeft: 0,
     [theme.breakpoints.down('xl')]: {
@@ -325,11 +330,16 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
+            <img
+              src={cisaLogo}
+              className={classes.cisaLogo}
+              alt="Cybersecurity and Infrastructure Security Agency Logo"
+            />
             <Link to="/">
               <img
                 src={logo}
                 className={classes.logo}
-                alt="Crossfeed Icon Navigate Home"
+                alt="CyHy Dashboard Icon Navigate Home"
               />
             </Link>
             {!isMobile && (
