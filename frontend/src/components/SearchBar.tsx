@@ -46,7 +46,7 @@ const Root = styled('div')(({ theme }) => ({
     fontWeight: 300,
     background: 'none',
     '&::placeholder': {
-      color: '#71767A'
+      color: '#4E4E4E'
     },
     '&:focus': {
       outline: 'none !important'
