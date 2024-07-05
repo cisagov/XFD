@@ -19,7 +19,7 @@ import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import logo from '../assets/cyhydashboard.svg';
-import cisaLogo from '../assets/cisa_logo.png';
+import cisaLogo from '../assets/cisaSeal.svg';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';

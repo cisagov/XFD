@@ -17,7 +17,7 @@ exports[`Header component matches snapshot 1`] = `
           <img
             alt="Cybersecurity and Infrastructure Security Agency Logo"
             class="Header-1cisaLogo"
-            src="cisa_logo.png"
+            src="cisaSeal.svg"
           />
           <a
             href="/"

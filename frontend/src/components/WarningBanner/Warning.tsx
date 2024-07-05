@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Grid, Paper, Typography } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import cisa_logo from '../../pages/AuthLogin/img/CISA_LOGO.png';
+import cisa_logo from '../../assets/cisaSeal.svg';
 
 // TODO: adjust styling so warning doesn't overlap other components when vertical screen size is too small
 export const CrossfeedWarning: React.FC = (props) => {
