@@ -177,7 +177,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           ...prevState,
           page: query.page - 1,
           pageSize: query.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
+          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE)),
+          filters: query.filters
         }));
       } catch (e) {
         console.error(e);
@@ -431,6 +432,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     }
   ];
   // TODO: Get server side filtering and client side filtering to work together or replace one.
+
   return (
     <Root>
       <div className={classesVulns.contentWrapper}>
@@ -494,7 +496,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 filterMode="server"
                 onFilterModelChange={(model) => {
                   fetchVulnerabilities({
-                    page: 1,
+                    page: paginationModel.page + 1,
                     pageSize: paginationModel.pageSize,
                     sort: paginationModel.sort,
                     filters: model.items.map((item) => ({
