@@ -516,7 +516,15 @@ export const Users: React.FC = () => {
 
   return (
     <div className={classes.root}>
-      <h1>Users</h1>
+      <Typography
+        variant="h1"
+        fontSize={34}
+        my={3}
+        letterSpacing={0}
+        fontWeight="medium"
+      >
+        Users
+      </Typography>
       <Paper elevation={0}>
         <DataGrid
           rows={users}
