@@ -52,11 +52,11 @@ export const Organizations: React.FC = () => {
     <Root>
       <div className={oldClasses.root}>
         <Typography
-          variant="h1"
-          my={3}
-          fontWeight="medium"
           fontSize={34}
+          fontWeight="medium"
           letterSpacing={0}
+          my={3}
+          variant="h1"
         >
           Organizations
         </Typography>

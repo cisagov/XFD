@@ -517,11 +517,11 @@ export const Users: React.FC = () => {
   return (
     <div className={classes.root}>
       <Typography
-        variant="h1"
         fontSize={34}
-        my={3}
-        letterSpacing={0}
         fontWeight="medium"
+        letterSpacing={0}
+        my={3}
+        variant="h1"
       >
         Users
       </Typography>
