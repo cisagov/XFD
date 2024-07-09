@@ -261,6 +261,6 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     fontFamily: 'Public Sans',
     margin: '10px 10px 10px 25px',
     fontStyle: 'italic',
-    color: '#71767A'
+    color: '#4e4e4e'
   }
 }));
