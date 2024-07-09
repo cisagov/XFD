@@ -391,7 +391,6 @@ export const sendRegistrationApprovedEmail = async (
  */
 async function isMajorActiveMaintenance(): Promise<boolean> {
   const now = new Date();
-  console.log(now);
   try {
     // DB connection
     await connectToDatabase();

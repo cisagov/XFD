@@ -26,9 +26,9 @@ RUN ./aws/install
 
 # Install pe-source module
 # Sync the latest from cf-staging branch
-RUN git clone -b AL-staging-SQS https://github.com/cisagov/pe-reports.git && \
-    cd pe-reports && \
-    git checkout 6405a2041656152b176b5fc9b3becb5dc11a5f3e && \
+RUN git clone -b crossfeed-SQS https://github.com/cisagov/ATC-Framework.git && \
+    cd ATC-Framework && \
+    git checkout a4036e94ad54876cb592fc966f57e7fd84750e9a && \
     pip install .
 
 RUN python -m spacy download en_core_web_lg

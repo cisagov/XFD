@@ -179,7 +179,7 @@ const App: React.FC = () => (
                   <RouteGuard
                     path="/region-admin-dashboard"
                     component={RegionUsers}
-                    permissions={['regionalAdmin']}
+                    permissions={['regionalAdmin', 'globalView']}
                   />
                   <RouteGuard
                     exact

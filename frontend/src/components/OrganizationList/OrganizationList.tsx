@@ -30,23 +30,32 @@ export const OrganizationList: React.FC<{
 
   const orgCols: GridColDef[] = [
     { field: 'name', headerName: 'Organization', minWidth: 100, flex: 2 },
-    // { field: 'userCount', headerName: 'Members', minWidth: 100, flex: 1 },
     { field: 'state', headerName: 'State', minWidth: 100, flex: 1 },
     { field: 'regionId', headerName: 'Region', minWidth: 100, flex: 1 },
-    // { field: 'tagNames', headerName: 'Tags', minWidth: 100, flex: 1 },
     {
       field: 'view',
       headerName: 'View/Edit',
       minWidth: 100,
       flex: 1,
       renderCell: (cellValues: GridRenderCellParams) => {
+        const ariaLabel = `View or edit organization ${cellValues.row.name}`;
+        const descriptionId = `description-${cellValues.row.id}`;
         return (
-          <IconButton
-            color="primary"
-            onClick={() => history.push('/organizations/' + cellValues.row.id)}
-          >
-            <EditNoteOutlinedIcon />
-          </IconButton>
+          <>
+            <span id={descriptionId} style={{ display: 'none' }}>
+              {`Edit details for organization ${cellValues.row.name}`}
+            </span>
+            <IconButton
+              color="primary"
+              aria-label={ariaLabel}
+              aria-describedby={descriptionId}
+              onClick={() =>
+                history.push('/organizations/' + cellValues.row.id)
+              }
+            >
+              <EditNoteOutlinedIcon />
+            </IconButton>
+          </>
         );
       }
     }
@@ -73,10 +82,6 @@ export const OrganizationList: React.FC<{
   const fetchOrganizations = useCallback(async () => {
     try {
       const rows = await apiGet<Organization[]>(orgsUrl);
-      // rows.forEach((obj) => {
-      //   // obj.userCount = obj.userRoles.length;
-      //   obj.tagNames = obj.tags.map((tag) => tag.name);
-      // });
       setOrganizations(rows);
     } catch (e) {
       console.error(e);

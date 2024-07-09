@@ -1,15 +1,18 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
-import { Card, CardContent, Typography } from '@mui/material';
+import { Card, CardContent, Typography, Paper } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityPieChart from './VulnerabilityPieChart';
 import * as RiskStyles from './style';
-// import { delay, getSeverityColor, offsets, severities } from './utils';
-import { getSeverityColor, offsets, severities } from './utils';
+import {
+  getSeverityColor,
+  getServicesColor,
+  offsets,
+  severities
+} from './utils';
 import { useAuthContext } from 'context';
-import { Paper } from '@mui/material';
 import { geoCentroid } from 'd3-geo';
 import {
   ComposableMap,
@@ -21,9 +24,7 @@ import {
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
-// import { jsPDF } from 'jspdf';
-// import html2canvas from 'html2canvas';
-// import { Button as USWDSButton } from '@trussworks/react-uswds';
+import { UpdateStateForm } from 'components/Register';
 
 export interface Point {
   id: string;
@@ -71,14 +72,15 @@ const Risk: React.FC = (props) => {
     useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
-  // const [isLoading, setIsLoading] = useState(false);
+  const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
+
   const RiskRoot = RiskStyles.RiskRoot;
   const { cardRoot, content, contentWrapper, header, panel } =
     RiskStyles.classesRisk;
 
   const geoStateUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
 
-  const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
+  // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
   const fetchStats = useCallback(
     async (orgId?: string) => {
@@ -95,7 +97,6 @@ const Risk: React.FC = (props) => {
         }
       });
       const max = Math.max(...result.vulnerabilities.byOrg.map((p) => p.value));
-      // Adjust color scale based on highest count
       colorScale = scaleLinear<string>()
         .domain([0, Math.log(max)])
         .range(['#c7e8ff', '#135787']);
@@ -108,7 +109,14 @@ const Risk: React.FC = (props) => {
     fetchStats();
   }, [fetchStats]);
 
-  // TODO: Move MapCard to a separate component; requires refactoring of how fetchStats and authContext are passed
+  useEffect(() => {
+    if (user) {
+      if (!user.state || user.state === '') {
+        setIsUpdateStateFormOpen(true);
+      }
+    }
+  }, [user]);
+
   const MapCard = ({
     title,
     geoUrl,
@@ -125,7 +133,6 @@ const Risk: React.FC = (props) => {
           <div className={header}>
             <h2>{title}</h2>
           </div>
-
           <ComposableMap
             data-tip="hello world"
             projection="geoAlbersUsa"
@@ -188,13 +195,11 @@ const Risk: React.FC = (props) => {
               </Geographies>
             </ZoomableGroup>
           </ComposableMap>
-          {/* <ReactTooltip>{tooltipContent}</ReactTooltip> */}
         </div>
       </div>
     </Paper>
   );
 
-  // Group latest vulns together
   const latestVulnsGrouped: {
     [key: string]: VulnerabilityCount;
   } = {};
@@ -220,7 +225,17 @@ const Risk: React.FC = (props) => {
     }
   }
 
-  if (user && user.invitePending) {
+  if (isUpdateStateFormOpen) {
+    return (
+      <UpdateStateForm
+        open={isUpdateStateFormOpen}
+        userId={user?.id ?? ''}
+        onClose={() => setIsUpdateStateFormOpen(false)}
+      />
+    );
+  }
+
+  if (user?.invitePending) {
     return (
       <div
         style={{
@@ -245,59 +260,8 @@ const Risk: React.FC = (props) => {
     );
   }
 
-  // TODO: Move generatePDF to a separate component
-  // const generatePDF = async () => {
-  //   const dateTimeNow = new Date(); // UTC Date Time
-  //   const localDate = new Date(dateTimeNow); // Local Date Time
-  //   setIsLoading(true);
-  //   await delay(650);
-  //   const input = document.getElementById('wrapper')!;
-  //   input.style.width = '1400px';
-  //   await delay(1);
-  //   await html2canvas(input, {
-  //     scrollX: 0,
-  //     scrollY: 0,
-  //     ignoreElements: function (element) {
-  //       return 'mapWrapper' === element.id;
-  //     }
-  //   }).then((canvas) => {
-  //     const imgData = canvas.toDataURL('image/png');
-  //     const imgWidth = 190;
-  //     const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  //     const pdf = new jsPDF('p', 'mm');
-  //     pdf.setFontSize(18);
-  //     pdf.text('Crossfeed Report', 12, 10);
-  //     pdf.setFontSize(10);
-  //     pdf.text(dateTimeNow.toISOString(), 12, 17);
-  //     pdf.addImage(imgData, 'PNG', 10, 20, imgWidth, imgHeight); // charts
-  //     pdf.line(3, 290, 207, 290);
-  //     pdf.setFontSize(8);
-  //     pdf.text('Prepared by ' + user?.fullName + ', ' + localDate, 3, 293); // print the name of the person who printed the report as well as a human friendly date/time
-  //     pdf.save('Crossfeed_Report_' + dateTimeNow.toISOString() + '.pdf'); // sets the filename and adds the date and time
-  //   });
-  //   input.style.removeProperty('width');
-  //   setIsLoading(false);
-  // };
-
   return (
     <RiskRoot className={classes.root}>
-      {/* {isLoading && (
-        <div className="cisa-crossfeed-loading">
-          <div></div>
-          <div></div>
-        </div>
-      )} */}
-      {/* <p>
-        <USWDSButton
-          outline
-          type="button"
-          onClick={() => {
-            generatePDF();
-          }}
-        >
-          Generate Report
-        </USWDSButton>
-      </p> */}
       <div id="wrapper" className={contentWrapper}>
         {stats && (
           <div className={content}>
@@ -312,7 +276,8 @@ const Risk: React.FC = (props) => {
                 <VulnerabilityPieChart
                   title={'Most Common Services'}
                   data={stats.domains.services}
-                  colors={allColors}
+                  // colors={allColors}
+                  colors={getServicesColor}
                   type={'services'}
                 />
               )}

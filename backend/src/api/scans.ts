@@ -246,6 +246,15 @@ export const SCAN_SCHEMA: ScanSchema = {
     cpu: '1024',
     memory: '4096',
     description: 'Scrapes all webpages on a given domain, respecting robots.txt'
+  },
+  xpanseSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description:
+      'Pull in xpanse vulnerability data from PEs Vulnerability database',
+    cpu: '1024',
+    memory: '8192'
   }
 };
 

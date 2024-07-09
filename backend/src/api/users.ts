@@ -176,7 +176,9 @@ class UpdateUser {
  *    - Users
  */
 export const del = wrapHandler(async (event) => {
-  if (!isGlobalWriteAdmin(event)) return Unauthorized;
+  if (!isGlobalWriteAdmin(event) && !isRegionalAdmin(event))
+    return Unauthorized;
+
   await connectToDatabase();
   const id = event.pathParameters?.userId;
   if (!id || !isUUID(id)) {
@@ -914,6 +916,10 @@ export const updateV2 = wrapHandler(async (event) => {
   const user = await User.findOne(userId);
   if (!user) {
     return NotFound;
+  }
+
+  if (body.state) {
+    body.regionId = REGION_STATE_MAP[body.state];
   }
 
   // Update the user
