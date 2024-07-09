@@ -193,13 +193,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const [initialFilters, setInitialFilters] = useState<Filters<Vulnerability>>(
     state?.title ? [{ id: 'title', value: state.title }] : []
   );
+  const [filters, setFilters] = useState<Filters<Vulnerability>>([]);
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: PAGE_SIZE,
     pageCount: 0,
     sort: [],
-    filters: initialFilters
+    filters: initialFilters ? initialFilters : filters
   });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -495,14 +496,16 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 }}
                 filterMode="server"
                 onFilterModelChange={(model) => {
+                  const filters = model.items.map((item) => ({
+                    id: item.field,
+                    value: item.value
+                  }));
+                  setFilters(filters);
                   fetchVulnerabilities({
                     page: paginationModel.page + 1,
                     pageSize: paginationModel.pageSize,
                     sort: paginationModel.sort,
-                    filters: model.items.map((item) => ({
-                      id: item.field,
-                      value: item.value
-                    }))
+                    filters: filters
                   });
                 }}
                 pageSizeOptions={[15, 30, 50, 100]}
