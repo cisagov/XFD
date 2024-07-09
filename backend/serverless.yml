@@ -133,7 +133,7 @@ resources:
             - staging-dmz
         - Fn::Equals:
             - ${self:provider.stage}
-            - prod
+            - prod-dmz
   Resources:
     ShodanQueue:
       Type: AWS::SQS::Queue
