@@ -78,7 +78,7 @@ export const Users: React.FC = () => {
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
-  const [formDisabled, setFormDisabled] = useState(true);
+  const [setFormDisabled] = useState(true);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
