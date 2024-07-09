@@ -78,7 +78,7 @@ export const Users: React.FC = () => {
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
-  const [setFormDisabled] = useState(true);
+  const [formDisabled, setFormDisabled] = useState(true);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
@@ -273,6 +273,7 @@ export const Users: React.FC = () => {
 
   const onResetForm = () => {
     setFormDisabled(false);
+    console.log('formDisabled state: ', formDisabled);
     setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
     setDeleteUserDialogOpen(false);
