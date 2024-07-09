@@ -329,11 +329,11 @@ export const RegionUsers: React.FC = () => {
         }}
       >
         <Box sx={{ m: 'auto', maxWidth: '1500px', px: 2, py: 5 }}>
-          <Typography variant="h4">
+          <Typography variant="h1">
             Region {regionId} Admin Dashboard
           </Typography>
           <br />
-          <Typography variant="h6" pb={2} pt={2}>
+          <Typography variant="h2" pb={2} pt={2}>
             Pending Requests
           </Typography>
           <Box sx={{ height: '387px', pb: 2 }}>
@@ -351,7 +351,7 @@ export const RegionUsers: React.FC = () => {
               {errorStates.getUsersError}
             </Alert>
           )}
-          <Typography variant="h6" pb={2} pt={3}>
+          <Typography variant="h2" pb={2} pt={3}>
             Members of Region {regionId}
           </Typography>
           <Box sx={{ height: '667px' }}>
