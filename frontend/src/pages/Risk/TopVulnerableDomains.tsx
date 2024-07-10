@@ -62,7 +62,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
     <div className={cardBig}>
       <div className={seeAll}>
         <p>
-          <Link to="/inventory/vulnerabilities">See All</Link>
+          <Link to="/inventory/vulnerabilities">See All Vulnerabilities</Link>
         </p>
       </div>
       <div className={header}>
