@@ -79,7 +79,6 @@
     "serverless": "^3.30",
     "serverless-domain-manager": "^7.0",
     "serverless-dotenv-plugin": "^6.0.0",
-    "serverless-python-requirements": "^6.1.0",
     "serverless-webpack": "^5.11.0",
     "supertest": "^6.3",
     "ts-jest": "^27",
