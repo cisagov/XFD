@@ -23,6 +23,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { truncateString } from 'utils/dataTransformUtils';
 
 export interface ApiResponse {
   result: Vulnerability[];
@@ -244,23 +245,28 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       field: 'title',
       headerName: 'Vulnerability',
       minWidth: 100,
-      flex: 1,
+      flex: 1.2,
       renderCell: (cellValues: GridRenderCellParams) => {
+        if (cellValues.row.title.startsWith('CVE')) {
+          return (
+            <Button
+              aria-label={`View NIST entry for ${cellValues.row.title}`}
+              tabIndex={cellValues.tabIndex}
+              color="primary"
+              style={{ textDecorationLine: 'underline' }}
+              endIcon={<OpenInNewIcon />}
+              onClick={() =>
+                window.open(
+                  'https://nvd.nist.gov/vuln/detail/' + cellValues.row.title
+                )
+              }
+            >
+              {cellValues.row.title}
+            </Button>
+          );
+        }
         return (
-          <Button
-            aria-label={`View NIST entry for ${cellValues.row.title}`}
-            tabIndex={cellValues.tabIndex}
-            color="primary"
-            style={{ textDecorationLine: 'underline' }}
-            endIcon={<OpenInNewIcon />}
-            onClick={() =>
-              window.open(
-                'https://nvd.nist.gov/vuln/detail/' + cellValues.row.title
-              )
-            }
-          >
-            {cellValues.row.title}
-          </Button>
+          <Typography pl={1}>{truncateString(cellValues.row.title)}</Typography>
         );
       }
     },
@@ -310,7 +316,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       field: 'kev',
       headerName: 'KEV',
       minWidth: 50,
-      flex: 0.5
+      flex: 0.3
     },
     {
       field: 'domain',
