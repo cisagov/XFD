@@ -152,3 +152,4 @@ plugins:
   - serverless-domain-manager
   - serverless-webpack
   - serverless-dotenv-plugin
+  - serverless-python-requirements
