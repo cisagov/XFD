@@ -279,6 +279,7 @@ export const Users: React.FC = () => {
   );
 
   const onResetForm = () => {
+    console.log('formDisabled: ', formDisabled);
     setFormDisabled(false);
     setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
