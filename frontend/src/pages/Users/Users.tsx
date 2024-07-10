@@ -46,7 +46,7 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
-  fullName?: string | null | undefined;
+  fullName: string;
 }
 
 type UserFormValues = {
@@ -55,15 +55,20 @@ type UserFormValues = {
   lastName: string;
   email: string;
   organization?: Organization;
-  userType: string;
+  userType:
+    | 'standard'
+    | 'globalView'
+    | 'globalAdmin'
+    | 'regionalAdmin'
+    | 'readySetCyber';
   state: string;
 };
 
-const initialUserFormValues = {
+const initialUserFormValues: UserFormValues = {
   firstName: '',
   lastName: '',
   email: '',
-  userType: '',
+  userType: 'standard',
   state: ''
 };
 
@@ -162,7 +167,9 @@ export const Users: React.FC = () => {
   const isFormValid = () => {
     return (
       !Object.values(formErrors).some((error) => error) &&
-      Object.values(values).every((value) => value.trim() !== '')
+      Object.values(values)
+        .filter((value) => typeof value === 'string')
+        .every((value) => (value as string).trim() !== '')
     );
   };
 
@@ -273,7 +280,6 @@ export const Users: React.FC = () => {
 
   const onResetForm = () => {
     setFormDisabled(false);
-    console.log('formDisabled state: ', formDisabled);
     setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
     setDeleteUserDialogOpen(false);
@@ -316,7 +322,7 @@ export const Users: React.FC = () => {
     if (!validateForm(values)) {
       return;
     }
-    const body = {
+    const body: UserFormValues = {
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
@@ -343,12 +349,11 @@ export const Users: React.FC = () => {
     }
   };
 
-  const onEditUserSubmit = async (e: any) => {
-    e.preventDefault();
+  const handleEditUserSubmit = async () => {
     if (!validateForm(values)) {
       return;
     }
-    const body = {
+    const body: UserFormValues = {
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
@@ -365,7 +370,7 @@ export const Users: React.FC = () => {
               fullName: `${values.firstName} ${values.lastName}`
             }
           : user
-      );
+      ) as UserType[];
       setUsers(updatedUsers);
       setErrorStates({ ...errorStates, getUpdateUserError: '' });
       setEditUserDialogOpen(false);
@@ -577,7 +582,7 @@ export const Users: React.FC = () => {
   const confirmEditNotificationDialog = (
     <ConfirmDialog
       isOpen={editUserDialogOpen}
-      onConfirm={onEditUserSubmit}
+      onConfirm={handleEditUserSubmit}
       onCancel={onResetForm}
       title={'Update User'}
       content={formContents}
