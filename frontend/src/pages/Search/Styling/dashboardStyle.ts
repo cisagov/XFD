@@ -80,9 +80,6 @@ export const Root = styled('div')(() => ({
     '& > span': {
       marginRight: '2rem'
     },
-    '& *:focus': {
-      outline: 'none !important'
-    },
     borderRadius: 0,
     zIndex: 9
   },
