@@ -23,6 +23,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { truncateString } from 'utils/dataTransformUtils';
 
 export interface ApiResponse {
   result: Vulnerability[];
@@ -177,7 +178,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           ...prevState,
           page: query.page - 1,
           pageSize: query.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
+          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE)),
+          filters: query.filters
         }));
       } catch (e) {
         console.error(e);
@@ -192,13 +194,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const [initialFilters, setInitialFilters] = useState<Filters<Vulnerability>>(
     state?.title ? [{ id: 'title', value: state.title }] : []
   );
+  const [filters, setFilters] = useState<Filters<Vulnerability>>([]);
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: PAGE_SIZE,
     pageCount: 0,
     sort: [],
-    filters: initialFilters
+    filters: initialFilters ? initialFilters : filters
   });
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -242,23 +245,28 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       field: 'title',
       headerName: 'Vulnerability',
       minWidth: 100,
-      flex: 1,
+      flex: 1.2,
       renderCell: (cellValues: GridRenderCellParams) => {
+        if (cellValues.row.title.startsWith('CVE')) {
+          return (
+            <Button
+              aria-label={`View NIST entry for ${cellValues.row.title}`}
+              tabIndex={cellValues.tabIndex}
+              color="primary"
+              style={{ textDecorationLine: 'underline' }}
+              endIcon={<OpenInNewIcon />}
+              onClick={() =>
+                window.open(
+                  'https://nvd.nist.gov/vuln/detail/' + cellValues.row.title
+                )
+              }
+            >
+              {cellValues.row.title}
+            </Button>
+          );
+        }
         return (
-          <Button
-            aria-label={`View NIST entry for ${cellValues.row.title}`}
-            tabIndex={cellValues.tabIndex}
-            color="primary"
-            style={{ textDecorationLine: 'underline' }}
-            endIcon={<OpenInNewIcon />}
-            onClick={() =>
-              window.open(
-                'https://nvd.nist.gov/vuln/detail/' + cellValues.row.title
-              )
-            }
-          >
-            {cellValues.row.title}
-          </Button>
+          <Typography pl={1}>{truncateString(cellValues.row.title)}</Typography>
         );
       }
     },
@@ -308,7 +316,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       field: 'kev',
       headerName: 'KEV',
       minWidth: 50,
-      flex: 0.5
+      flex: 0.3
     },
     {
       field: 'domain',
@@ -431,6 +439,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     }
   ];
   // TODO: Get server side filtering and client side filtering to work together or replace one.
+
   return (
     <Root>
       <div className={classesVulns.contentWrapper}>
@@ -493,14 +502,16 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 }}
                 filterMode="server"
                 onFilterModelChange={(model) => {
+                  const filters = model.items.map((item) => ({
+                    id: item.field,
+                    value: item.value
+                  }));
+                  setFilters(filters);
                   fetchVulnerabilities({
-                    page: 1,
+                    page: paginationModel.page + 1,
                     pageSize: paginationModel.pageSize,
                     sort: paginationModel.sort,
-                    filters: model.items.map((item) => ({
-                      id: item.field,
-                      value: item.value
-                    }))
+                    filters: filters
                   });
                 }}
                 pageSizeOptions={[15, 30, 50, 100]}
