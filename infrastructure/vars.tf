@@ -657,7 +657,7 @@ variable "ssm_redshift_password" {
   default     = "/crossfeed/staging/REDSHIFT_PASSWORD"
 }
 
-variable "create_elastcache_cluster" {
+variable "create_elasticache_cluster" {
   description = "Whether to create a elasticache cluster."
   type        = bool
   default     = false

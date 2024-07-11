@@ -104,4 +104,4 @@ ssm_redshift_host                    = "/crossfeed/staging/REDSHIFT_HOST"
 ssm_redshift_database                = "/crossfeed/staging/REDSHIFT_DATABASE"
 ssm_redshift_user                    = "/crossfeed/staging/REDSHIFT_USER"
 ssm_redshift_password                = "/crossfeed/staging/REDSHIFT_PASSWORD"
-create_elastcache_cluster            = true
+create_elasticache_cluster            = true
