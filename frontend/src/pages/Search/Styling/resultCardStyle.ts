@@ -87,14 +87,10 @@ export const StyledPaper = styled(Paper)(({ theme }) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     color: '#28A0CB',
-    outline: 'none',
     background: 'none',
     border: 'none',
     padding: '0.5rem 0',
 
-    '&:focus': {
-      outline: 'none !important'
-    },
     '& h4': {
       fontWeight: 400,
       cursor: 'pointer',
