@@ -25,6 +25,7 @@ import {
 import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
 import { UpdateStateForm } from 'components/Register';
+import WASFindings from './WASFindings';
 
 export interface Point {
   id: string;
@@ -266,6 +267,7 @@ const Risk: React.FC = (props) => {
         {stats && (
           <div className={content}>
             <div className={panel}>
+              <WASFindings />
               <VulnerabilityCard
                 title={'Latest Vulnerabilities'}
                 data={latestVulnsGroupedArr}
