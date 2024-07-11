@@ -10,11 +10,7 @@ import {
   List,
   TextField
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  AccountCircle as UserIcon,
-  ArrowDropDown
-} from '@mui/icons-material';
+import { Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
@@ -25,6 +21,7 @@ import { ContextType } from 'context/SearchProvider';
 import { SearchBar } from 'components';
 import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
+import { UserMenu } from './UserMenu';
 
 const PREFIX = 'Header';
 
@@ -155,7 +152,14 @@ interface NavItemType {
   title: string | JSX.Element;
   path: string;
   users?: number;
-  nested?: NavItemType[];
+  onClick?: any;
+  exact: boolean;
+}
+
+interface MenuItemType {
+  title: string;
+  path: string;
+  users?: number;
   onClick?: any;
   exact: boolean;
 }
@@ -237,54 +241,45 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     }
   ].filter(({ users }) => users <= userLevel);
 
-  const userMenu: NavItemType = {
-    title: (
-      <div className={classes.userLink}>
-        <UserIcon /> My Account <ArrowDropDown />
-      </div>
-    ),
-    path: '#',
-    exact: false,
-    nested: [
-      {
-        title: 'Admin Tools',
-        path: '/admin-tools',
-        users: GLOBAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'User Registration',
-        path: '/region-admin-dashboard',
-        users: REGIONAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'Manage Organizations',
-        path: '/organizations',
-        users: REGIONAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'Manage Users',
-        path: '/users',
-        users: GLOBAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'My Settings',
-        path: '/settings',
-        users: STANDARD_USER,
-        exact: true
-      },
-      {
-        title: 'Logout',
-        path: '/settings',
-        users: STANDARD_USER,
-        onClick: logout,
-        exact: true
-      }
-    ].filter(({ users }) => users <= userLevel)
-  };
+  const userMenuItems: MenuItemType[] = [
+    {
+      title: 'Admin Tools',
+      path: '/admin-tools',
+      users: GLOBAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'User Registration',
+      path: '/region-admin-dashboard',
+      users: REGIONAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'Manage Organizations',
+      path: '/organizations',
+      users: REGIONAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'Manage Users',
+      path: '/users',
+      users: GLOBAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'My Settings',
+      path: '/settings',
+      users: STANDARD_USER,
+      exact: true
+    },
+    {
+      title: 'Logout',
+      path: '/settings',
+      users: STANDARD_USER,
+      onClick: logout,
+      exact: true
+    }
+  ];
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -304,13 +299,13 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     window.addEventListener('resize', handleResize);
   });
 
-  if (isMobile && userMenu.nested) {
-    userMenu.nested.forEach((item) => {
+  if (isMobile && userMenuItems) {
+    userMenuItems.forEach((item) => {
       if (item.title !== 'Logout') {
         item.onClick = toggleDrawer(false);
       }
     });
-    drawerItems = [...navItems, ...userMenu.nested];
+    drawerItems = [...navItems, ...userMenuItems];
   }
 
   const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
@@ -441,7 +436,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     )}
                   />
                 )}
-                {!isMobile && <NavItem {...userMenu} />}
+                {!isMobile && <UserMenu userMenuItems={userMenuItems} />}
               </>
             )}
             {user && isMobile && (
@@ -471,21 +466,21 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
         }}
       >
         <List className={classes.mobileNav}>
-          {drawerItems.map(({ title, path, nested, onClick }) => (
+          {drawerItems.map(({ title, path }) => (
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem
-                  button
+                  // button
                   exact
                   component={NavLink}
                   to={path}
                   activeClassName={classes.activeMobileLink}
-                  onClick={onClick ? onClick : undefined}
+                  // onClick={onClick ? onClick : undefined}
                 >
                   {title}
                 </ListItem>
               )}
-              {nested?.map((nested) => (
+              {/* {nested?.map((nested) => (
                 <ListItem
                   button
                   exact
@@ -497,7 +492,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                 >
                   {nested.title}
                 </ListItem>
-              ))}
+              ))} */}
             </React.Fragment>
           ))}
         </List>
