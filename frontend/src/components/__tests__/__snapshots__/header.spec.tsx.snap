@@ -59,7 +59,7 @@ exports[`Header component matches snapshot 1`] = `
             class="Header-spacing"
           />
           <div
-            class="SearchBar-wrapper css-yro7sz"
+            class="SearchBar-wrapper css-wta0jn"
           >
             <div
               class="SearchBar-inner"
