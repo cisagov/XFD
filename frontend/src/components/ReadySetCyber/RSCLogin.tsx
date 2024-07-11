@@ -122,7 +122,7 @@ export const RSCLogin: React.FC<{ showSignUp?: boolean }> = ({
   //         PLATFORM NOTIFICATION: Temporary Downtime During Crossfeed Migration
   //       </AlertTitle>
   //       <Typography variant="caption"></Typography>
-  //       The Crossfeed environment is moving. The migration will require a a
+  //       The CyHy Dashboard environment is moving. The migration will require a a
   //       temporary downtime of approximately one week. The downtime will begin on
   //       Wednesday, October 25, through the day Wednesday, November 01. For
   //       additional information, please click{' '}

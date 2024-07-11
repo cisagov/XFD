@@ -251,8 +251,8 @@ const Risk: React.FC = (props) => {
               REQUEST SENT
             </Typography>
             <Typography variant="body1">
-              Thank you for requesting a Crossfeed account, you will receive
-              notification once this request is approved.
+              Thank you for requesting a CyHy Dashboard account, you will
+              receive notification once this request is approved.
             </Typography>
           </CardContent>
         </Card>

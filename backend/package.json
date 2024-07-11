@@ -24,7 +24,6 @@
     "handlebars": "^4.7.8",
     "helmet": "^4.1.1",
     "http-proxy-middleware": "^2.0.6",
-    "ip": "^1.1.9",
     "ip-address": "^9.0.5",
     "jsdom": "^22.1",
     "jsonwebtoken": "^9.0.2",
@@ -46,9 +45,7 @@
     "typeorm": "^0.2.45",
     "utf-8-validate": "^6.0.3",
     "uuid": "^9.0.1",
-    "wappalyzer": "^6.10.63",
-    "wappalyzer-core": "^6.10.63",
-    "ws": "^8.13.0"
+    "ws": "^8.18.0"
   },
   "description": "",
   "devDependencies": {
