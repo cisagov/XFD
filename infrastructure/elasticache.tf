@@ -20,13 +20,13 @@ resource "aws_elasticache_subnet_group" "crossfeed_vpc" {
 }
 
 resource "aws_elasticache_cluster" "crossfeed_vpc_elasticache_cluster" {
-  count                = var.create_elastcache_cluster ? 1 : 0
+  count                = var.create_elasticache_cluster ? 1 : 0
   cluster_id           = "crossfeed-vpc-cluster"
   engine               = "redis"
   node_type            = "cache.r7g.xlarge"
   num_cache_nodes      = 1
   parameter_group_name = "default.redis7.1"
-  engine_version       = "7.1.0"
+  engine_version       = "7.1"
   port                 = 6379
   subnet_group_name    = aws_elasticache_subnet_group.crossfeed_vpc.name
   security_group_ids   = [aws_security_group.elasticache_security_group.id]
