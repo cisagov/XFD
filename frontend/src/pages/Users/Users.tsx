@@ -46,6 +46,7 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
+  fullName: string;
 }
 
 type UserFormValues = {
@@ -54,15 +55,20 @@ type UserFormValues = {
   lastName: string;
   email: string;
   organization?: Organization;
-  userType: string;
+  userType:
+    | 'standard'
+    | 'globalView'
+    | 'globalAdmin'
+    | 'regionalAdmin'
+    | 'readySetCyber';
   state: string;
 };
 
-const initialUserFormValues = {
+const initialUserFormValues: UserFormValues = {
   firstName: '',
   lastName: '',
   email: '',
-  userType: '',
+  userType: 'standard',
   state: ''
 };
 
@@ -77,7 +83,7 @@ export const Users: React.FC = () => {
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
-  const [formDisabled, setFormDisabled] = React.useState(true);
+  const [formDisabled, setFormDisabled] = useState(true);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
@@ -109,6 +115,7 @@ export const Users: React.FC = () => {
               .map((role) => role.organization.name)
               .join(', ')
           : 'None';
+        row.fullName = `${row.firstName} ${row.lastName}`;
       });
       if (user?.userType === 'globalAdmin') {
         setUsers(rows);
@@ -126,6 +133,45 @@ export const Users: React.FC = () => {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  const validateForm = (values: UserFormValues) => {
+    const nameRegex = /^[A-Za-z\s]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const newFormErrors = {
+      firstName:
+        values.firstName.trim() === '' || !nameRegex.test(values.firstName),
+      lastName:
+        values.lastName.trim() === '' || !nameRegex.test(values.lastName),
+      email: !emailRegex.test(values.email),
+      userType: values.userType.trim() === '',
+      state: values.state.trim() === ''
+    };
+    setFormErrors(newFormErrors);
+    return !Object.values(newFormErrors).some((error) => error);
+  };
+
+  const validateField = (name: string, value: string) => {
+    const nameRegex = /^[A-Za-z\s]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    switch (name) {
+      case 'firstName':
+      case 'lastName':
+        return value.trim() === '' || !nameRegex.test(value);
+      case 'email':
+        return !emailRegex.test(value);
+      default:
+        return value.trim() === '';
+    }
+  };
+
+  const isFormValid = () => {
+    return (
+      !Object.values(formErrors).some((error) => error) &&
+      Object.values(values)
+        .filter((value) => typeof value === 'string')
+        .every((value) => (value as string).trim() !== '')
+    );
+  };
 
   const userCols: GridColDef[] = [
     { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
@@ -174,7 +220,14 @@ export const Users: React.FC = () => {
               aria-describedby={descriptionId}
               onClick={() => {
                 setSelectedRow(cellValues.row);
-                setValues(cellValues.row);
+                setValues({
+                  id: cellValues.row.id,
+                  firstName: cellValues.row.firstName,
+                  lastName: cellValues.row.lastName,
+                  email: cellValues.row.email,
+                  userType: cellValues.row.userType,
+                  state: cellValues.row.state
+                });
                 setEditUserDialogOpen(true);
               }}
             >
@@ -226,6 +279,7 @@ export const Users: React.FC = () => {
   );
 
   const onResetForm = () => {
+    console.log('formDisabled: ', formDisabled);
     setFormDisabled(false);
     setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
@@ -266,29 +320,21 @@ export const Users: React.FC = () => {
 
   const onCreateUserSubmit = async (e: any) => {
     e.preventDefault();
-    const body = {
+    if (!validateForm(values)) {
+      return;
+    }
+    const body: UserFormValues = {
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
       userType: values.userType,
       state: values.state
     };
-    const { firstName, lastName, email, userType, state } = values;
-    const newFormErrors = {
-      firstName: !firstName,
-      lastName: !lastName,
-      email: !email,
-      userType: !userType,
-      state: !state
-    };
-    setFormErrors(newFormErrors);
-    if (Object.values(newFormErrors).some((error) => error)) {
-      return;
-    }
     try {
       const user = await apiPost('/users/', {
         body
       });
+      user.fullName = `${user.firstName} ${user.lastName}`;
       setUsers(users.concat(user));
       setErrorStates({ ...errorStates, getAddUserError: '' });
       handleCloseAddUserDialog('closeButtonClick');
@@ -304,9 +350,54 @@ export const Users: React.FC = () => {
     }
   };
 
+  const handleEditUserSubmit = async () => {
+    if (!validateForm(values)) {
+      return;
+    }
+    const body: UserFormValues = {
+      firstName: values.firstName,
+      lastName: values.lastName,
+      email: values.email,
+      userType: values.userType,
+      state: values.state
+    };
+    try {
+      await apiPut(`/v2/users/${values.id}`, { body });
+      const updatedUsers = users.map((user) =>
+        user.id === values.id
+          ? {
+              ...user,
+              ...values,
+              fullName: `${values.firstName} ${values.lastName}`
+            }
+          : user
+      ) as UserType[];
+      setUsers(updatedUsers);
+      setErrorStates({ ...errorStates, getUpdateUserError: '' });
+      setEditUserDialogOpen(false);
+      setInfoDialogContent('This user has been successfully updated.');
+      setInfoDialogOpen(true);
+    } catch (e: any) {
+      setErrorStates({ ...errorStates, getUpdateUserError: e.message });
+      setInfoDialogContent(
+        'This user has not been updated. Check the console log for more details.'
+      );
+      console.log(e);
+    }
+  };
+
   const onTextChange: React.ChangeEventHandler<
     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  > = (e) => onChange(e.target.name, e.target.value);
+  > = (e) => {
+    const { name, value } = e.target;
+    onChange(name, value);
+    const fieldError = validateField(name, value);
+    setFormErrors((prevErrors) => ({
+      ...prevErrors,
+      [name]: fieldError
+    }));
+    setFormDisabled(!isFormValid());
+  };
 
   const onChange = (name: string, value: any) => {
     setValues((values) => ({
@@ -321,6 +412,7 @@ export const Users: React.FC = () => {
       ...values,
       [event.target.name]: event.target.value
     }));
+    setFormDisabled(!isFormValid());
   };
 
   const textFieldStyling = {
@@ -328,29 +420,6 @@ export const Users: React.FC = () => {
       '&.Mui-focused fieldset': {
         borderRadius: '0px'
       }
-    }
-  };
-
-  const updateRow = async (row: UserFormValues) => {
-    try {
-      await apiPut(`/v2/users/${row.id}`, { body: { userType: row.userType } });
-      const updateUsers = (prevUsers: any[]) =>
-        prevUsers.map((user) => {
-          if (user.id === row.id) {
-            return { ...user, userType: row.userType };
-          }
-          return user;
-        });
-      setUsers(updateUsers(users));
-      setErrorStates({ ...errorStates, getUpdateUserError: '' });
-      setInfoDialogContent('This user has been successfully updated.');
-      setInfoDialogOpen(true);
-    } catch (e: any) {
-      setErrorStates({ ...errorStates, getUpdateUserError: e.message });
-      setInfoDialogContent(
-        'This user has been not been updated. Check the console log for more details.'
-      );
-      console.log(e);
     }
   };
 
@@ -392,12 +461,15 @@ export const Users: React.FC = () => {
         inputProps={{ maxLength: 250 }}
         name="firstName"
         error={formErrors.firstName}
-        helperText={formErrors.firstName && 'First Name is required'}
+        helperText={
+          formErrors.firstName &&
+          'First Name is required and cannot contain numbers'
+        }
         type="text"
         fullWidth
         value={values.firstName}
         onChange={onTextChange}
-        disabled={editUserDialogOpen}
+        disabled={!(user?.userType === 'globalAdmin')}
       />
       <Typography mt={1}>Last Name</Typography>
       <TextField
@@ -409,12 +481,15 @@ export const Users: React.FC = () => {
         inputProps={{ maxLength: 250 }}
         name="lastName"
         error={formErrors.lastName}
-        helperText={formErrors.lastName && 'Last Name is required'}
+        helperText={
+          formErrors.lastName &&
+          'Last Name is required and cannot contain numbers'
+        }
         type="text"
         fullWidth
         value={values.lastName}
         onChange={onTextChange}
-        disabled={editUserDialogOpen}
+        disabled={!(user?.userType === 'globalAdmin')}
       />
       <Typography mt={1}>Email</Typography>
       <TextField
@@ -426,12 +501,14 @@ export const Users: React.FC = () => {
         inputProps={{ maxLength: 250 }}
         name="email"
         error={formErrors.email}
-        helperText={formErrors.email && 'Email is required'}
+        helperText={
+          formErrors.email &&
+          'Email is required and must be in the correct format'
+        }
         type="text"
         fullWidth
         value={values.email}
-        onChange={onTextChange}
-        disabled={editUserDialogOpen}
+        disabled
       />
       <Typography mt={1}>State</Typography>
       <Select
@@ -448,7 +525,7 @@ export const Users: React.FC = () => {
             ? undefined
             : () => <Typography color="#bdbdbd">Select a State</Typography>
         }
-        disabled={editUserDialogOpen}
+        disabled={!(user?.userType === 'globalAdmin')}
       >
         {STATE_OPTIONS.map((state: string, index: number) => (
           <MenuItem key={index} value={state}>
@@ -506,11 +583,11 @@ export const Users: React.FC = () => {
   const confirmEditNotificationDialog = (
     <ConfirmDialog
       isOpen={editUserDialogOpen}
-      onConfirm={() => updateRow(values)}
+      onConfirm={handleEditUserSubmit}
       onCancel={onResetForm}
       title={'Update User'}
       content={formContents}
-      disabled={formDisabled}
+      disabled={!isFormValid()}
     />
   );
 
@@ -565,6 +642,7 @@ export const Users: React.FC = () => {
             variant="contained"
             type="submit"
             onClick={onCreateUserSubmit}
+            disabled={!isFormValid()}
           >
             Invite User
           </MuiButton>
