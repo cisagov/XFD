@@ -37,7 +37,7 @@ export const Root = styled('div')(({ theme }) => ({
       isFixed ? '0px 1px 2px rgba(0, 0, 0, 0.15)' : 'none',
     transition: 'box-shadow 0.3s linear',
     '& button': {
-      outline: 'none',
+      outline: 'standard',
       border: 'none',
       color: '#4e4e4e',
       background: 'none',
@@ -45,7 +45,7 @@ export const Root = styled('div')(({ theme }) => ({
       textDecoration: 'underline'
     },
     '& *:focus': {
-      outline: 'none !important'
+      outline: 'standard'
     },
     fontSize: 14
   },

@@ -78,7 +78,7 @@ export const AuthCreateAccount: React.FC = () => {
 
   return (
     <AuthForm onSubmit={onSubmit}>
-      <h2>Crossfeed is currently in private beta</h2>
+      <h2>CyHy Dashboard is currently in private beta</h2>
       {(process.env.NODE_ENV === 'development' ||
         (user && user.userType === 'globalAdmin')) && (
         <>

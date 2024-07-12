@@ -1,7 +1,7 @@
 import React from 'react';
 import { Box, Grid, Link } from '@mui/material';
 import { useAuthContext } from 'context';
-import logo from '../../assets/crossfeed.svg';
+import logo from '../../assets/cyhydashboard.svg';
 import * as FooterStyles from './styleFooter';
 
 export const CrossfeedFooter: React.FC = (props) => {
@@ -14,7 +14,7 @@ export const CrossfeedFooter: React.FC = (props) => {
         <Grid className={footerClasses.footerContainer} container>
           <Grid className={footerClasses.footerLogo} item xs={12} sm={2}>
             <Link href="/">
-              <img src={logo} alt="Crossfeed Icon Navigate Home" />
+              <img src={logo} alt="CyHy Dashboard Icon Navigate Home" />
             </Link>
           </Grid>
           {user && (
