@@ -134,7 +134,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
     return () => {
       localStorage.removeItem('savedSearch');
-      setSearchTerm('')
+      setSearchTerm('');
     };
   }, [setSearchTerm, props.location.search]);
 
