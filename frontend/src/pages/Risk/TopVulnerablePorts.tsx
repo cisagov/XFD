@@ -5,11 +5,43 @@ import { useHistory } from 'react-router-dom';
 import { getSingleColor } from './utils';
 import * as RiskStyles from './style';
 import { Paper } from '@mui/material';
+
 const TopVulnerablePorts = (props: { data: Point[] }) => {
+  const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
+    const reversedBars = [...bars].reverse();
+    return reversedBars.map((bar) => (
+      <g key={bar.key}>
+        <rect
+          role="button"
+          key={bar.key}
+          x={bar.x}
+          y={bar.y}
+          width={bar.width}
+          height={bar.height}
+          fill={bar.color}
+          tabIndex={0}
+          aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
+          onClick={(e) => {
+            console.log('clicked label value: ', bar);
+            history.push(
+              `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
+            );
+            window.location.reload();
+          }}
+        />
+        <title>
+          Port - {bar.data.indexValue}: {bar.data.value}
+        </title>
+      </g>
+    ));
+  };
   const history = useHistory();
   const { data } = props;
   const { cardRoot, cardSmall, header, chartSmall } = RiskStyles.classesRisk;
-  const dataVal = data.map((e) => ({ ...e, [['Port'][0]]: e.value })) as any;
+  const reversedData = [...data].reverse();
+  const dataVal = data
+    .reverse()
+    .map((e) => ({ ...e, [['Port'][0]]: e.value })) as any;
   return (
     <Paper elevation={0} className={cardRoot}>
       <div className={cardSmall}>
@@ -20,7 +52,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
           <ResponsiveBar
             data={dataVal as any}
             keys={['Port']}
-            layers={['grid', 'axes', 'bars']}
+            layers={['grid', 'axes', CustomBarLayer]}
             indexBy="label"
             margin={{ top: 30, right: 40, bottom: 75, left: 100 }}
             theme={{
@@ -34,6 +66,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
               }
             }}
             onClick={(event) => {
+              console.log('clicked label value: ', event.data.label);
               history.push(
                 `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${event.data.label}_n&filters[0][type]=any`
               );
