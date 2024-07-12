@@ -6,12 +6,7 @@ import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityPieChart from './VulnerabilityPieChart';
 import * as RiskStyles from './style';
-import {
-  getSeverityColor,
-  getServicesColor,
-  offsets,
-  severities
-} from './utils';
+import { getSeverityColor, offsets, severities } from './utils';
 import { useAuthContext } from 'context';
 import { geoCentroid } from 'd3-geo';
 import {
@@ -275,15 +270,6 @@ const Risk: React.FC = (props) => {
                         showLatest={true}
                         showCommon={false}
                       ></VulnerabilityCard>
-                      {stats.domains.services.length > 0 && (
-                        <VulnerabilityPieChart
-                          title={'Most Common Services'}
-                          data={stats.domains.services}
-                          // colors={allColors}
-                          colors={getServicesColor}
-                          type={'services'}
-                        />
-                      )}
                       {stats.domains.ports.length > 0 && (
                         <TopVulnerablePorts
                           data={stats.domains.ports.slice(0, 5).reverse()}
