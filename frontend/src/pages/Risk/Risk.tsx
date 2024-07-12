@@ -261,7 +261,7 @@ const Risk: React.FC = (props) => {
           <div id="wrapper" className={contentWrapper}>
             {stats && (
               <Grid container>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6}>
+                <Grid item xs={12} sm={12} md={12} lg={6} xl={6} mb={-4}>
                   <div className={content}>
                     <div className={panel}>
                       <VulnerabilityCard
