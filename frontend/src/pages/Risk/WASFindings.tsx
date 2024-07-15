@@ -1,14 +1,7 @@
 import React from 'react';
 import { Grid, Paper, Typography } from '@mui/material';
 import * as RiskStyles from './style';
-
-const testData = {
-  scanDate: '5 Jul 2024',
-  activeVulns: '100',
-  newVulns: '20',
-  reopenedVulns: '30',
-  sensitiveContent: '4'
-};
+import { wasFindingsData } from 'test-utils/stats';
 
 const WASFindings = () => {
   const { cardRoot, cardSmall, header, body } = RiskStyles.classesRisk;
@@ -23,7 +16,7 @@ const WASFindings = () => {
           <Grid container spacing={1}>
             <Grid item xs={12} pb={2}>
               <Typography variant="h6">
-                Scan Date: {testData.scanDate}
+                Scan Date: {wasFindingsData.scanDate}
               </Typography>
             </Grid>
             <Grid item xs={6}>
@@ -31,14 +24,14 @@ const WASFindings = () => {
                 ACTIVE VULNERABILITIES
               </Typography>
               <Typography variant="h4" color="error">
-                {testData.activeVulns}
+                {wasFindingsData.activeVulns}
               </Typography>
               <br />
               <Typography variant="h5" sx={headerFontSize}>
                 REOPENED VULNERABILITIES
               </Typography>
               <Typography variant="h4" color="error">
-                {testData.reopenedVulns}
+                {wasFindingsData.reopenedVulns}
               </Typography>
             </Grid>
             <Grid item xs={6}>
@@ -46,14 +39,14 @@ const WASFindings = () => {
                 NEW VULNERABILITIES
               </Typography>
               <Typography variant="h4" color="error">
-                {testData.newVulns}
+                {wasFindingsData.newVulns}
               </Typography>
               <br />
               <Typography variant="h5" sx={headerFontSize}>
                 SENSITIVE CONTENT
               </Typography>
               <Typography variant="h4" color="error">
-                {testData.sensitiveContent}
+                {wasFindingsData.sensitiveContent}
               </Typography>
             </Grid>
           </Grid>
