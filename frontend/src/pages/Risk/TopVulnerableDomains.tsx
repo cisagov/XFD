@@ -51,11 +51,11 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
   const dataVal = Object.keys(domainToSevMap)
     .map((key) => ({
       label: key,
-      total: domainTotals[key],
+      Total: domainTotals[key],
       ...domainToSevMap[key]
     }))
     .sort((a, b) => {
-      let diff = b.total - a.total;
+      let diff = b.Total - a.Total;
       if (diff === 0) {
         for (const label of sevLabels) {
           diff += (label in b ? b[label] : 0) - (label in a ? a[label] : 0);
@@ -83,16 +83,17 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
           fill={bar.color}
           tabIndex={0}
           aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
-          onClick={(e) => {
+          onClick={() => {
             console.log('clicked label value: ', bar);
             history.push(
-              `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
+              `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
             );
-            window.location.reload();
           }}
         />
         <title>
-          Port - {bar.data.indexValue}: {bar.data.value}
+          {bar.data.value} {bar.data.id}{' '}
+          {bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'} in domain{' '}
+          {bar.data.indexValue}
         </title>
       </g>
     ));
@@ -136,7 +137,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
               tabIndex={0}
               data={dataVal as any}
               //If all vuln is selected, only show total vulns
-              keys={allVuln ? ['total'] : keys}
+              keys={allVuln ? ['Total'] : keys}
               layers={['grid', 'axes', CustomBarLayer, 'markers', 'legends']}
               indexBy="label"
               margin={{
@@ -155,11 +156,11 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                   }
                 }
               }}
-              onClick={(event) => {
-                history.push(
-                  `/inventory/vulnerabilities?domain=${event.data.label}&severity=${event.id}`
-                );
-              }}
+              // onClick={(event) => {
+              //   history.push(
+              //     `/inventory/vulnerabilities?domain=${event.data.label}&severity=${event.id}`
+              //   );
+              // }}
               padding={0.5}
               //If all vuln is selected, only show color for total vulns
               colors={allVuln ? getAllVulnColor : (getSeverityColor as any)}
