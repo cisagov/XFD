@@ -66,7 +66,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
     })
     .slice(pageStart, Math.min(pageStart + 30, domainsWithVulns))
     .reverse();
-  // Check if all vuln labels are selected
+  // Repurposes the "All" chip to show total vulns vs aggregate
   const allVuln = labels.length === 5;
   //Custom Bar Layer to allow for top to bottom tab navigation
   const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
@@ -82,7 +82,11 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
           height={bar.height}
           fill={bar.color}
           tabIndex={0}
-          aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
+          aria-label={` ${bar.data.value} ${bar.data.id}${' '}
+          ${
+            bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'
+          } in domain${' '}
+          ${bar.data.indexValue}`}
           onClick={() => {
             history.push(
               `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
