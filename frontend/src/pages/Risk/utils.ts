@@ -4,6 +4,9 @@ export const resultsPerPage = 30;
 export const getSingleColor = () => {
   return '#F23AB8';
 };
+export const getAllVulnColor = () => {
+  return '#ce80ed';
+};
 export const getSeverityColor = ({ id }: { id: string }) => {
   if (id === 'null' || id === '') return '#EFF1F5';
   else if (id === 'Low') return '#ffe100';
