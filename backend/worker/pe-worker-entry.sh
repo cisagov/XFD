@@ -63,7 +63,7 @@ while true; do
   elif [[ "$SERVICE_TYPE" = *"cybersixgill"* ]]; then
     COMMAND="pe-source cybersixgill --org=$ORG --soc_med_included"
   elif [[ "$SERVICE_TYPE" = *"xpanse"* ]]; then
-    COMMAND="python3 ATC-Framework/src/pe_source/xpanse_alert_pull.py --org='$ORG'"
+    COMMAND="pe-source xpanse --org='$ORG'"
   else
     echo "Unsupported SERVICE_TYPE: $SERVICE_TYPE"
     break
