@@ -84,7 +84,6 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
           tabIndex={0}
           aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
           onClick={() => {
-            console.log('clicked label value: ', bar);
             history.push(
               `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
             );
@@ -156,11 +155,6 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                   }
                 }
               }}
-              // onClick={(event) => {
-              //   history.push(
-              //     `/inventory/vulnerabilities?domain=${event.data.label}&severity=${event.id}`
-              //   );
-              // }}
               padding={0.5}
               //If all vuln is selected, only show color for total vulns
               colors={allVuln ? getAllVulnColor : (getSeverityColor as any)}
