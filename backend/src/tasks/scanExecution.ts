@@ -145,6 +145,8 @@ async function startLocalContainers(
           `SIXGILL_CLIENT_ID=${process.env.SIXGILL_CLIENT_ID}`,
           `SIXGILL_CLIENT_SECRET=${process.env.SIXGILL_CLIENT_SECRET}`,
           `INTELX_API_KEY=${process.env.INTELX_API_KEY}`,
+          `XPANSE_API_KEY=${process.env.XPANSE_API_KEY}`,
+          `XPANSE_AUTH_ID=${process.env.XPANSE_AUTH_ID}`,
           `PE_SHODAN_API_KEYS=${shodan_api_key}`,
           `WORKER_SIGNATURE_PUBLIC_KEY=${process.env.WORKER_SIGNATURE_PUBLIC_KEY}`,
           `WORKER_SIGNATURE_PRIVATE_KEY=${process.env.WORKER_SIGNATURE_PRIVATE_KEY}`,

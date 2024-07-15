@@ -43,6 +43,10 @@ api_key=${INTELX_API_KEY}
 [API_Client_secret]
 [API_WHOIS]
 
+[xpanse]
+api_key=${XPANSE_API_KEY}
+auth_id=${XPANSE_AUTH_ID}
+
 
 EOF
 
