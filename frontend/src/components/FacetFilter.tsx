@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { FC, memo, useMemo } from 'react';
 import { FormGroup, FormControlLabel, Checkbox } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -12,6 +12,7 @@ interface Props {
 export const FacetFilter: React.FC<Props> = (props) => {
   const { options, selected, onSelect, onDeselect } = props;
 
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     value: string
@@ -24,12 +25,23 @@ export const FacetFilter: React.FC<Props> = (props) => {
     }
   };
 
+
+  const OptionTotal = memo(({ count }: { count: number }) => {
+    return (
+      <span className={classes.count}>{count}</span>
+    )
+  })
+
+  const fixedOptions = useMemo(() => {
+    return options
+  },[])
+
   return (
     <>
       <Root className={classes.root}>
         <FormGroup classes={{ root: classes.root }}>
           {/* <input className={classes.inp} placeholder="Filter" /> */}
-          {options.map((opt) => (
+          {fixedOptions.map((opt) => (
             <FormControlLabel
               classes={{ label: classes.label, root: classes.root }}
               key={opt.value}
@@ -42,7 +54,7 @@ export const FacetFilter: React.FC<Props> = (props) => {
               label={
                 <>
                   <span>{opt.value}</span>
-                  <span className={classes.count}>{opt.count}</span>
+                  <OptionTotal count={opt.count}/>
                 </>
               }
             />
