@@ -391,7 +391,7 @@ data "aws_ssm_parameter" "sixgill_client_id" { name = var.ssm_sixgill_client_id 
 
 data "aws_ssm_parameter" "intelx_api_key" { name = var.ssm_intelx_api_key }
 
-data "aws_ssm_parameter" "spanse_api_key" { name = var.ssm_xpanse_api_key }
+data "aws_ssm_parameter" "xpanse_api_key" { name = var.ssm_xpanse_api_key }
 
 data "aws_ssm_parameter" "xpanse_auth_id" { name = var.ssm_xpanse_auth_id }
 
