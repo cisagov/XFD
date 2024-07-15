@@ -12,7 +12,6 @@ interface Props {
 export const FacetFilter: React.FC<Props> = (props) => {
   const { options, selected, onSelect, onDeselect } = props;
 
-
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     value: string
@@ -25,16 +24,13 @@ export const FacetFilter: React.FC<Props> = (props) => {
     }
   };
 
-
   const OptionTotal = memo(({ count }: { count: number }) => {
-    return (
-      <span className={classes.count}>{count}</span>
-    )
-  })
+    return <span className={classes.count}>{count}</span>;
+  });
 
   const fixedOptions = useMemo(() => {
-    return options
-  },[])
+    return options;
+  }, []);
 
   return (
     <>
@@ -54,7 +50,7 @@ export const FacetFilter: React.FC<Props> = (props) => {
               label={
                 <>
                   <span>{opt.value}</span>
-                  <OptionTotal count={opt.count}/>
+                  <OptionTotal count={opt.count} />
                 </>
               }
             />
