@@ -155,7 +155,10 @@ async function startLocalContainers(
           `LG_API_KEY=${process.env.LG_API_KEY}`,
           `LG_WORKSPACE_NAME=${process.env.LG_WORKSPACE_NAME}`,
           `SERVICE_QUEUE_URL=${queueUrl}`,
-          `SERVICE_TYPE=${scanType}`
+          `SERVICE_TYPE=${scanType}`,
+          `PE_API_URL=${process.env.PE_API_URL}`,
+          `PE_API_KEY=${process.env.PE_API_KEY}`,
+          `CF_API_KEY=${process.env.CF_API_KEY}`
         ]
       } as any);
       await container.start();
