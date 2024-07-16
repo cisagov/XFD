@@ -21,6 +21,14 @@ import {
   User,
   Vulnerability,
   Webpage,
+  VwServiceStats,
+  VwPortsStats,
+  VwNumVulns,
+  VwLatestVulns,
+  VwMostCommonVulns,
+  VwSeverityStats,
+  VwDomainStats,
+  VwOrgStats,
 
   //  Models for the Mini Data Lake database
   CertScan,
@@ -194,7 +202,15 @@ const connectDb = async (logging?: boolean) => {
       Service,
       User,
       Vulnerability,
-      Webpage
+      Webpage,
+      VwServiceStats,
+      VwPortsStats,
+      VwNumVulns,
+      VwLatestVulns,
+      VwMostCommonVulns,
+      VwSeverityStats,
+      VwDomainStats,
+      VwOrgStats
     ],
     synchronize: false,
     name: 'default',
