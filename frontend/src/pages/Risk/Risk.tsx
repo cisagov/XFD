@@ -4,7 +4,7 @@ import { Card, CardContent, Typography, Paper } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
-import VulnerabilityPieChart from './VulnerabilityPieChart';
+import VulnerabilityBarChart from './VulnerabilityBarChart';
 import * as RiskStyles from './style';
 import {
   getSeverityColor,
@@ -273,7 +273,7 @@ const Risk: React.FC = (props) => {
                 showCommon={false}
               ></VulnerabilityCard>
               {stats.domains.services.length > 0 && (
-                <VulnerabilityPieChart
+                <VulnerabilityBarChart
                   title={'Most Common Services'}
                   data={stats.domains.services}
                   // colors={allColors}
@@ -287,7 +287,7 @@ const Risk: React.FC = (props) => {
                 />
               )}
               {stats.vulnerabilities.severity.length > 0 && (
-                <VulnerabilityPieChart
+                <VulnerabilityBarChart
                   title={'Severity Levels'}
                   data={stats.vulnerabilities.severity}
                   colors={getSeverityColor}
