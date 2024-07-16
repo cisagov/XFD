@@ -5,7 +5,6 @@ import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import flagIcon from '../assets/us_flag_small.png';
 import govIcon from '../assets/icon-dot-gov.svg';
 import httpsIcon from '../assets/icon-https.svg';
-import { padding } from '@mui/system';
 
 const PREFIX = 'GovBanner';
 

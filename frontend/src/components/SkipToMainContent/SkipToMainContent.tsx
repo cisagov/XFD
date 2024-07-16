@@ -1,27 +1,23 @@
 import React from 'react';
-import { Box, Button } from '@mui/material';
-import { fontSize } from '@mui/system';
+import { Box, Button, Tooltip } from '@mui/material';
 
 export const SkipToMainContent: React.FC = () => {
   const handleClick = (event: any) => {
-    event.preventDefault(); // Prevent default anchor behavior
+    event.preventDefault();
     const mainContentElement = document.getElementById('main-content');
     if (mainContentElement) {
       mainContentElement.focus(); // Programmatically set focus
-    } else {
-      document.getElementById('inventory-content')?.focus();
     }
   };
 
   return (
     <Box sx={{ paddingLeft: 1 }}>
-      <a
-        href="#main-content"
-        className="skip-to-main-content"
-        onClick={handleClick}
-      >
+      <Tooltip title="Skip to main content" placement="right">
         <Button
+          aria-label="Skip to main content"
+          variant="text"
           tabIndex={0}
+          onClick={handleClick}
           sx={{
             outline: 'true',
             fontSize: 10,
@@ -30,7 +26,7 @@ export const SkipToMainContent: React.FC = () => {
         >
           Skip to main content
         </Button>
-      </a>
+      </Tooltip>
     </Box>
   );
 };
