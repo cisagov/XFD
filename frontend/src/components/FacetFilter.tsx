@@ -30,6 +30,8 @@ export const FacetFilter: React.FC<Props> = (props) => {
 
   const fixedOptions = useMemo(() => {
     return options;
+    // NOTE: Desired functionality is to calculate on mount - Update deps and remove the below rule if this changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
