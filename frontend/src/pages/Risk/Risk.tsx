@@ -19,27 +19,13 @@ import {
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
+import { Stats } from 'types/stats';
 import { UpdateStateForm } from 'components/Register';
 
 export interface Point {
   id: string;
   label: string;
   value: number;
-}
-
-interface Stats {
-  domains: {
-    services: Point[];
-    ports: Point[];
-    numVulnerabilities: Point[];
-    total: number;
-  };
-  vulnerabilities: {
-    severity: Point[];
-    byOrg: Point[];
-    latestVulnerabilities: Vulnerability[];
-    mostCommonVulnerabilities: VulnerabilityCount[];
-  };
 }
 
 interface ApiResponse {
