@@ -38,7 +38,6 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
   const history = useHistory();
   const { data } = props;
   const { cardRoot, cardSmall, header, chartSmall } = RiskStyles.classesRisk;
-  const reversedData = [...data].reverse();
   const dataVal = data
     .reverse()
     .map((e) => ({ ...e, [['Port'][0]]: e.value })) as any;
