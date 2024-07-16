@@ -175,6 +175,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         facets={facets}
         clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
         updateSearchTerm={updateSearchTerm}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
       />
       <div className={classes.contentWrapper}>
         <Subnav

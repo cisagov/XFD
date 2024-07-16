@@ -20,6 +20,7 @@ import { ContextType } from '../../context/SearchProvider';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { useHistory, useLocation } from 'react-router-dom';
+import { withSearch } from '@elastic/react-search-ui';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -28,8 +29,8 @@ interface Props {
   facets: ContextType['facets'];
   clearFilters: ContextType['clearFilters'];
   updateSearchTerm: (term: string) => void;
-  setSearchTerm: ContextType['setSearchTerm'];
   searchTerm: ContextType['searchTerm'];
+  setSearchTerm: ContextType['setSearchTerm'];
 }
 
 const FiltersApplied: React.FC = () => {
@@ -44,7 +45,15 @@ const Accordion = MuiAccordion;
 const AccordionSummary = MuiAccordionSummary;
 
 export const FilterDrawer: React.FC<Props> = (props) => {
-  const { filters, addFilter, removeFilter, facets, clearFilters } = props;
+  const {
+    filters,
+    addFilter,
+    removeFilter,
+    facets,
+    clearFilters,
+    searchTerm,
+    setSearchTerm
+  } = props;
   const { apiGet, apiDelete } = useAuthContext();
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchCount, setSavedSearchCount] = useState(0);
@@ -478,3 +487,10 @@ export const FilterDrawer: React.FC<Props> = (props) => {
     </StyledWrapper>
   );
 };
+
+export const FilterDrawerWithSearch = withSearch(
+  ({ searchTerm, setSearchTerm }: ContextType) => ({
+    searchTerm,
+    setSearchTerm
+  })
+)(FilterDrawer);
