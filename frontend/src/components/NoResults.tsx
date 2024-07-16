@@ -1,7 +1,7 @@
 import React from 'react';
 import { styled } from '@mui/material/styles';
 import { Paper } from '@mui/material';
-import logo from '../assets/crossfeed_blue.svg';
+import logo from '../assets/cisa_logo.png';
 
 const PREFIX = 'NoResults';
 
@@ -49,7 +49,7 @@ interface Props {
 export const NoResults: React.FC<Props> = (props) => {
   return (
     <StyledPaper className={classes.card}>
-      <img src={logo} className={classes.logo} alt="Crossfeed Icon" />
+      <img src={logo} className={classes.logo} alt="CyHy Dashboard Icon" />
       <p>{props.message}</p>
     </StyledPaper>
   );

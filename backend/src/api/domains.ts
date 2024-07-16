@@ -26,7 +26,7 @@ const PAGE_SIZE = 15;
 class DomainFilters {
   @IsString()
   @IsOptional()
-  port?: string;
+  ports?: string;
 
   @IsString()
   @IsOptional()
@@ -50,7 +50,7 @@ class DomainFilters {
 
   @IsString()
   @IsOptional()
-  vulnerability?: string;
+  vulnerabilities?: string;
 
   @IsUUID()
   @IsOptional()
@@ -90,9 +90,9 @@ class DomainSearch {
     if (this.filters?.ip) {
       qs.andWhere('domain.ip LIKE :ip', { ip: `%${this.filters?.ip}%` });
     }
-    if (this.filters?.port) {
+    if (this.filters?.ports) {
       qs.andWhere('services.port::text LIKE :port', {
-        port: this.filters?.port
+        port: this.filters?.ports
       });
     }
     if (this.filters?.service) {
@@ -115,9 +115,9 @@ class DomainSearch {
         orgs: await getTagOrganizations(event, this.filters.tag)
       });
     }
-    if (this.filters?.vulnerability) {
+    if (this.filters?.vulnerabilities) {
       qs.andWhere('vulnerabilities.title ILIKE :title', {
-        title: `%${this.filters?.vulnerability}%`
+        title: `%${this.filters?.vulnerabilities}%`
       });
     }
     return qs;
@@ -125,6 +125,7 @@ class DomainSearch {
 
   async getResults(event) {
     const pageSize = this.pageSize || PAGE_SIZE;
+
     let qs = Domain.createQueryBuilder('domain')
       .leftJoinAndSelect('domain.services', 'services')
       .leftJoinAndSelect(

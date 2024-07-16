@@ -31,21 +31,21 @@ export const Root = styled('div')(({ theme }) => ({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '0.2rem 1rem 0.5rem 1rem',
-    color: '#71767A',
+    color: '#4e4e4e',
     margin: '0.5rem 0',
     boxShadow: ({ isFixed }: Props) =>
       isFixed ? '0px 1px 2px rgba(0, 0, 0, 0.15)' : 'none',
     transition: 'box-shadow 0.3s linear',
     '& button': {
-      outline: 'none',
+      outline: 'standard',
       border: 'none',
-      color: '#71767A',
+      color: '#4e4e4e',
       background: 'none',
       cursor: 'pointer',
       textDecoration: 'underline'
     },
     '& *:focus': {
-      outline: 'none !important'
+      outline: 'standard'
     },
     fontSize: 14
   },
@@ -64,7 +64,7 @@ export const Root = styled('div')(({ theme }) => ({
       display: 'block',
       fontSize: '1rem',
       fontWeight: 600,
-      color: '#71767A'
+      color: '#4e4e4e'
     }
   },
 
@@ -80,12 +80,12 @@ export const Root = styled('div')(({ theme }) => ({
     fontWeight: 600,
     fontSize: 14,
     padding: 0,
-    color: '#71767A'
+    color: '#4e4e4e'
   },
 
   [`& .${classes.option}`]: {
     fontWeight: 600,
     fontSize: 14,
-    color: '#71767A'
+    color: '#4e4e4e'
   }
 }));

@@ -56,8 +56,8 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
       notification?.maintenanceType === 'major' &&
       notification?.status === 'active';
     const titleText = isLoginUnavailable
-      ? 'Crossfeed Major Maintenance: Login Not Available'
-      : 'Crossfeed Maintenance Notification';
+      ? 'CyHy Dashboard Major Maintenance: Login Not Available'
+      : 'CyHy Dashboard Maintenance Notification';
 
     return <AlertTitle>{titleText}</AlertTitle>;
   };
@@ -79,7 +79,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
     >
       {notification?.status === 'active' && platformNotification}
       <Typography variant="h3" textAlign="center">
-        Welcome to Crossfeed
+        Welcome to CyHy Dashboard
       </Typography>
       <Box pt={3} mb={3} display="flex" justifyContent="center">
         <LoginButton />

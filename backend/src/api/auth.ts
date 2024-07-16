@@ -166,7 +166,6 @@ export const callback = async (event, context) => {
     user.loginBlockedByMaintenance = loginBlocked;
     user.save();
   }
-  console.log(user);
 
   // If user does not exist, create it
   if (!user) {

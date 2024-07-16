@@ -60,8 +60,8 @@ exports[`Layout component matches snapshot 1`] = `
                 href="/"
               >
                 <img
-                  alt="Crossfeed Icon Navigate Home"
-                  src="crossfeed.svg"
+                  alt="CyHy Dashboard Icon Navigate Home"
+                  src="cyhydashboard.svg"
                 />
               </a>
             </div>

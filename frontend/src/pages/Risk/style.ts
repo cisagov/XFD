@@ -122,8 +122,8 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     float: 'right',
     marginTop: '5px',
     marginRight: '20px',
-    '& h4 a': {
-      color: '#71767A',
+    '& p a': {
+      color: '#4e4e4e',
       fontSize: '12px',
       fontWeight: '400'
     }
@@ -261,6 +261,6 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     fontFamily: 'Public Sans',
     margin: '10px 10px 10px 25px',
     fontStyle: 'italic',
-    color: '#71767A'
+    color: '#4e4e4e'
   }
 }));
