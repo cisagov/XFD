@@ -20,7 +20,7 @@ export const SkipToMainContent: React.FC = () => {
           onClick={handleClick}
           sx={{
             outline: 'true',
-            fontSize: 10,
+            fontSize: '0.6rem',
             padding: 0
           }}
         >
