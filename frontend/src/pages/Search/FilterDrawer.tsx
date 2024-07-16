@@ -14,11 +14,12 @@ import {
   FiberManualRecordRounded
 } from '@mui/icons-material';
 import { FaFilter } from 'react-icons/fa';
+import { SearchBar } from 'components';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../../context/SearchProvider';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -27,6 +28,8 @@ interface Props {
   facets: ContextType['facets'];
   clearFilters: ContextType['clearFilters'];
   updateSearchTerm: (term: string) => void;
+  setSearchTerm: ContextType['setSearchTerm'];
+  searchTerm: ContextType['searchTerm'];
 }
 
 const FiltersApplied: React.FC = () => {
@@ -46,6 +49,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchCount, setSavedSearchCount] = useState(0);
   const history = useHistory();
+  const location = useLocation();
 
   useEffect(() => {
     const fetchSearches = async () => {
@@ -107,6 +111,20 @@ export const FilterDrawer: React.FC<Props> = (props) => {
 
   return (
     <StyledWrapper style={{ overflowY: 'auto' }}>
+      <div className={classes.header}>
+        <SearchBar
+          initialValue={searchTerm}
+          value={searchTerm}
+          onChange={(value) => {
+            if (location.pathname !== '/inventory')
+              history.push('/inventory?q=' + value);
+            setSearchTerm(value, {
+              shouldClearFilters: false,
+              autocompleteResults: false
+            });
+          }}
+        />
+      </div>
       <div className={classes.header}>
         <div className={classes.filter}>
           <FaFilter /> <h3>Filter</h3>
