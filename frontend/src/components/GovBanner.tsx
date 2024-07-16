@@ -5,6 +5,7 @@ import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import flagIcon from '../assets/us_flag_small.png';
 import govIcon from '../assets/icon-dot-gov.svg';
 import httpsIcon from '../assets/icon-https.svg';
+import { padding } from '@mui/system';
 
 const PREFIX = 'GovBanner';
 
@@ -56,6 +57,7 @@ const Root = styled('div')(({ theme }) => ({
     flexFlow: 'row wrap',
     alignItems: 'center',
     flexGrow: 1,
+    paddingLeft: '5px',
     [theme.breakpoints.down('sm')]: {
       padding: `5px 0`
     }

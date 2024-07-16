@@ -9,7 +9,7 @@ import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
 import { CrossfeedFooter } from './Footer';
 import { RSCFooter } from './ReadySetCyber/RSCFooter';
 import { RSCHeader } from './ReadySetCyber/RSCHeader';
-
+import { SkipToMainContent } from './SkipToMainContent/index';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -90,15 +90,20 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Alert severity="warning" aria-label="warning label">
           <div>{warningBannerText}</div>
         </Alert>
-        <GovBanner />
+        <div style={{ display: 'flex' }}>
+          <GovBanner />
+          <SkipToMainContent />
+        </div>
         {!pathname.includes('/readysetcyber') ? (
           <>
             <Header />
-            {pathname === '/inventory' ? (
-              children
-            ) : (
-              <div className={classes.content}>{children}</div>
-            )}
+            <div className="main-content" id="main-content" tabIndex={-1}>
+              {pathname === '/inventory' ? (
+                children
+              ) : (
+                <div className={classes.content}>{children}</div>
+              )}
+            </div>
             <CrossfeedFooter />
           </>
         ) : (
