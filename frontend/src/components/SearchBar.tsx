@@ -41,7 +41,9 @@ const Root = styled('div')(({ theme }) => ({
     padding: '0.5rem 0.5rem 0.5rem 2rem',
     display: 'block',
     width: '100%',
-    border: 'none',
+    border: '1px solid',
+    borderRadius: '5px',
+    borderColor: '#07648D',
     height: '45px',
     fontSize: '1rem',
     fontWeight: 300,
@@ -120,15 +122,7 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
 
     return (
       <Root className={classes.wrapper}>
-        <Box
-          className={classes.inner}
-          sx={{
-            border: 2,
-            borderColor: 'primary.main',
-            padding: 0.25,
-            borderRadius: '10px'
-          }}
-        >
+        <Box className={classes.inner}>
           <SearchOutlined className={classes.icon} />
           <form
             onSubmit={(e) => {
