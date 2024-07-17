@@ -31,9 +31,9 @@ async function sendMessageToQueue(message, queue) {
 }
 
 // Simulate sending a message
-const SCAN_TYPE = 'dnstwist';
+const SCAN_TYPE = 'xpanse';
 const DESIRED_COUNT = 1;
-const ORG_LIST = ['DHS', 'DOI'];
+const ORG_LIST = ['National Science Foundation (NSF) - CISA'];
 const QUEUE = `staging-${SCAN_TYPE}-queue`;
 const API_KEY_LIST = '';
 

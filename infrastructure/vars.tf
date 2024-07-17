@@ -327,6 +327,18 @@ variable "ssm_intelx_api_key" {
   default     = "/crossfeed/staging/INTELX_API_KEY"
 }
 
+variable "ssm_xpanse_api_key" {
+  description = "ssm_xpanse_api_key"
+  type        = string
+  default     = "/crossfeed/staging/XPANSE_API_KEY"
+}
+
+variable "ssm_xpanse_auth_id" {
+  description = "ssm_xpanse_auth_id"
+  type        = string
+  default     = "/crossfeed/staging/XPANSE_AUTH_ID"
+}
+
 
 variable "ssm_lg_api_key" {
   description = "ssm_lg_api_key"

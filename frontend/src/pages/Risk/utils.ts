@@ -9,6 +9,9 @@ export const getTooltipColor = () => {
   return '#FFFFFF';
 };
 
+export const getAllVulnColor = () => {
+  return '#ce80ed';
+};
 export const getSeverityColor = ({ id }: { id: string }) => {
   if (id === 'null' || id === '') return '#EFF1F5';
   else if (id === 'Low') return '#ffe100';
