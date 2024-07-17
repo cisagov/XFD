@@ -404,7 +404,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
                             history.push(
                               '/inventory?q=' + cellValues.row.searchTerm
                             );
-                          console.log(cellValues.row.searchTerm);
+
                           // history.push(
                           //   '/inventory' +
                           //     cellValues.row.searchPath +
@@ -414,11 +414,11 @@ export const FilterDrawer: React.FC<Props> = (props) => {
                           // props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
 
                           // Apply the filters
-                          // cellValues.row.filters.forEach((filter) => {
-                          //   filter.values.forEach((value) => {
-                          //     addFilter(filter.field, value, 'any');
-                          //   });
-                          // });
+                          cellValues.row.filters.forEach((filter) => {
+                            filter.values.forEach((value) => {
+                              addFilter(filter.field, value, 'any');
+                            });
+                          });
                         };
                         return (
                           <div
