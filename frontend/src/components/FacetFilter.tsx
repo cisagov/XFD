@@ -52,7 +52,7 @@ export const FacetFilter: React.FC<Props> = (props) => {
               label={
                 <>
                   <span>{opt.value}</span>
-                  <OptionTotal count={opt.count} />
+                  {/* <OptionTotal count={opt.count} /> */}
                 </>
               }
             />
