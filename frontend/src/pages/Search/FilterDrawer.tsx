@@ -404,6 +404,7 @@ export const FilterDrawer: React.FC<Props> = (props) => {
                             history.push(
                               '/inventory?q=' + cellValues.row.searchTerm
                             );
+                          console.log(cellValues.row.searchTerm);
                           // history.push(
                           //   '/inventory' +
                           //     cellValues.row.searchPath +
