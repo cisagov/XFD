@@ -24,10 +24,6 @@ export const FacetFilter: React.FC<Props> = (props) => {
     }
   };
 
-  const OptionTotal = memo(({ count }: { count: number }) => {
-    return <span className={classes.count}>{count}</span>;
-  });
-
   const fixedOptions = useMemo(() => {
     return options;
     // NOTE: Desired functionality is to calculate on mount - Update deps and remove the below rule if this changes
@@ -52,7 +48,6 @@ export const FacetFilter: React.FC<Props> = (props) => {
               label={
                 <>
                   <span>{opt.value}</span>
-                  {/* <OptionTotal count={opt.count} /> */}
                 </>
               }
             />
