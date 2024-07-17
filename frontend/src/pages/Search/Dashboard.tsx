@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
-import { FilterDrawer } from './FilterDrawer';
+import { FilterDrawerWithSearch } from './FilterDrawer';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
 import {
@@ -169,7 +169,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   return (
     <Root className={classes.root}>
-      <FilterDrawer
+      <FilterDrawerWithSearch
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}
