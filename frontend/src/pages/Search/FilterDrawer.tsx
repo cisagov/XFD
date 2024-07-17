@@ -21,6 +21,7 @@ import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
+import { set } from 'date-fns';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -395,20 +396,28 @@ export const FilterDrawer: React.FC<Props> = (props) => {
                             'savedSearch',
                             JSON.stringify(cellValues.row)
                           );
-                          history.push(
-                            '/inventory' +
-                              cellValues.row.searchPath +
-                              '&searchId=' +
-                              cellValues.row.id
-                          );
-                          props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
+                          setSearchTerm(cellValues.row.searchTerm, {
+                            shouldClearFilters: false,
+                            autocompleteResults: false
+                          });
+                          if (location.pathname !== '/inventory')
+                            history.push(
+                              '/inventory?q=' + cellValues.row.searchTerm
+                            );
+                          // history.push(
+                          //   '/inventory' +
+                          //     cellValues.row.searchPath +
+                          //     '&searchId=' +
+                          //     cellValues.row.id
+                          // );
+                          // props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
 
                           // Apply the filters
-                          cellValues.row.filters.forEach((filter) => {
-                            filter.values.forEach((value) => {
-                              addFilter(filter.field, value, 'any');
-                            });
-                          });
+                          // cellValues.row.filters.forEach((filter) => {
+                          //   filter.values.forEach((value) => {
+                          //     addFilter(filter.field, value, 'any');
+                          //   });
+                          // });
                         };
                         return (
                           <div
