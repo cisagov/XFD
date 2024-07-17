@@ -143,6 +143,13 @@ resources:
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
+    XpanseQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-xpanse-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
 
 functions:
   - ${file(./src/tasks/functions.yml)}

@@ -130,6 +130,22 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.intelx_api_key.arn}"
       },
       {
+        "name": "XPANSE_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.xpanse_api_key.arn}"
+      },
+      {
+        "name": "XPANSE_AUTH_ID",
+        "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
+      },
+      {
+        "name": "PE_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
+      },
+      {
+        "name": "CF_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.cf_api_key.arn}"
+      },
+      {
         "name": "LG_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.lg_api_key.arn}"
       },
