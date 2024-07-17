@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { styled } from '@mui/material/styles';
+import Box from '@mui/material/Box';
 import clsx from 'classnames';
 import { List, ListItem, Paper } from '@mui/material';
 import { SearchOutlined } from '@mui/icons-material';
@@ -122,7 +123,15 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
 
     return (
       <Root className={classes.wrapper}>
-        <div className={classes.inner}>
+        <Box
+          className={classes.inner}
+          sx={{
+            border: 2,
+            borderColor: 'primary.main',
+            padding: 0.25,
+            borderRadius: '10px'
+          }}
+        >
           <SearchOutlined className={classes.icon} />
           <form
             onSubmit={(e) => {
@@ -164,7 +173,7 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
                 </List>
               </Paper>
             )}
-        </div>
+        </Box>
       </Root>
     );
   }
