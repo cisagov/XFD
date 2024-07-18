@@ -404,14 +404,6 @@ export const FilterDrawer: React.FC<Props> = (props) => {
                               '/inventory?q=' + cellValues.row.searchTerm
                             );
 
-                          // history.push(
-                          //   '/inventory' +
-                          //     cellValues.row.searchPath +
-                          //     '&searchId=' +
-                          //     cellValues.row.id
-                          // );
-                          // props.updateSearchTerm(cellValues.row.searchTerm); // Prop to lift the search term to the parent component
-
                           // Apply the filters
                           cellValues.row.filters.forEach((filter) => {
                             filter.values.forEach((value) => {
