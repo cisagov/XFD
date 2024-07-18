@@ -37,3 +37,28 @@ resource "aws_elasticache_cluster" "crossfeed_vpc_elasticache_cluster" {
     Stage   = var.stage
   }
 }
+
+resource "aws_iam_policy" "elasticache_policy" {
+  name        = "elasticache_policy"
+  description = "Policy to allow ElastiCache operations"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticache:CreateCacheSubnetGroup",
+          "elasticache:DeleteCacheSubnetGroup",
+          "elasticache:DescribeCacheSubnetGroups",
+          "elasticache:ModifyCacheSubnetGroup"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_user_policy_attachment" "elasticache_user_policy_attachment" {
+  user       = "crossfeed-deploy-staging"
+  policy_arn = aws_iam_policy.elasticache_policy.arn
+}
