@@ -4,6 +4,11 @@ export const resultsPerPage = 30;
 export const getSingleColor = () => {
   return '#F23AB8';
 };
+
+export const getTooltipColor = () => {
+  return '#FFFFFF';
+};
+
 export const getAllVulnColor = () => {
   return '#ce80ed';
 };

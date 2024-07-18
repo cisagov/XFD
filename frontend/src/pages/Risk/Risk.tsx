@@ -4,7 +4,7 @@ import { Card, CardContent, Grid, Paper, Typography } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
-import VulnerabilityPieChart from './VulnerabilityPieChart';
+import VulnerabilityBarChart from './VulnerabilityBarChart';
 import * as RiskStyles from './style';
 import { getSeverityColor, offsets, severities } from './utils';
 import { useAuthContext } from 'context';
@@ -262,7 +262,7 @@ const Risk: React.FC = (props) => {
                         />
                       )}
                       {stats.vulnerabilities.severity.length > 0 && (
-                        <VulnerabilityPieChart
+                        <VulnerabilityBarChart
                           title={'Severity Levels'}
                           data={stats.vulnerabilities.severity}
                           colors={getSeverityColor}
