@@ -21,7 +21,6 @@ import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { set } from 'date-fns';
 
 interface Props {
   addFilter: ContextType['addFilter'];
