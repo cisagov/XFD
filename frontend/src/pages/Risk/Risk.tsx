@@ -1,17 +1,12 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import classes from './Risk.module.scss';
-import { Card, CardContent, Typography, Paper } from '@mui/material';
+import { Card, CardContent, Grid, Paper, Typography } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
-import VulnerabilityPieChart from './VulnerabilityPieChart';
+import VulnerabilityBarChart from './VulnerabilityBarChart';
 import * as RiskStyles from './style';
-import {
-  getSeverityColor,
-  getServicesColor,
-  offsets,
-  severities
-} from './utils';
+import { getSeverityColor, offsets, severities } from './utils';
 import { useAuthContext } from 'context';
 import { geoCentroid } from 'd3-geo';
 import {
@@ -24,27 +19,13 @@ import {
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
+import { Stats } from 'types/stats';
 import { UpdateStateForm } from 'components/Register';
 
 export interface Point {
   id: string;
   label: string;
   value: number;
-}
-
-interface Stats {
-  domains: {
-    services: Point[];
-    ports: Point[];
-    numVulnerabilities: Point[];
-    total: number;
-  };
-  vulnerabilities: {
-    severity: Point[];
-    byOrg: Point[];
-    latestVulnerabilities: Vulnerability[];
-    mostCommonVulnerabilities: VulnerabilityCount[];
-  };
 }
 
 interface ApiResponse {
@@ -128,74 +109,72 @@ const Risk: React.FC = (props) => {
     type: string;
   }) => (
     <Paper elevation={0} className={cardRoot}>
-      <div>
-        <div className={classes.chart}>
-          <div className={header}>
-            <h2>{title}</h2>
-          </div>
-          <ComposableMap
-            data-tip="hello world"
-            projection="geoAlbersUsa"
-            style={{
-              width: '90%',
-              display: 'block',
-              margin: 'auto'
-            }}
-          >
-            <ZoomableGroup zoom={1}>
-              <Geographies geography={geoUrl}>
-                {({ geographies }) =>
-                  geographies.map((geo) => {
-                    const cur = findFn(geo) as
-                      | (Point & {
-                          orgId: string;
-                        })
-                      | undefined;
-                    const centroid = geoCentroid(geo);
-                    const name: string = geo.properties.name;
-                    return (
-                      <React.Fragment key={geo.rsmKey}>
-                        <Geography
-                          geography={geo}
-                          fill={colorScale(cur ? Math.log(cur.value) : 0)}
-                          onClick={() => {
-                            if (cur) fetchStats(cur.orgId);
-                          }}
-                        />
-                        <g>
-                          {centroid[0] > -160 &&
-                            centroid[0] < -67 &&
-                            (Object.keys(offsets).indexOf(name) === -1 ? (
-                              <Marker coordinates={centroid}>
-                                <text y="2" fontSize={14} textAnchor="middle">
-                                  {cur ? cur.value : 0}
-                                </text>
-                              </Marker>
-                            ) : (
-                              <Annotation
-                                subject={centroid}
-                                dx={offsets[name][0]}
-                                dy={offsets[name][1]}
-                                connectorProps={{}}
-                              >
-                                <text
-                                  x={4}
-                                  fontSize={14}
-                                  alignmentBaseline="middle"
-                                >
-                                  {cur ? cur.value : 0}
-                                </text>
-                              </Annotation>
-                            ))}
-                        </g>
-                      </React.Fragment>
-                    );
-                  })
-                }
-              </Geographies>
-            </ZoomableGroup>
-          </ComposableMap>
+      <div className={classes.chart}>
+        <div className={header}>
+          <h2>{title}</h2>
         </div>
+        <ComposableMap
+          data-tip="hello world"
+          projection="geoAlbersUsa"
+          style={{
+            width: '90%',
+            display: 'block',
+            margin: 'auto'
+          }}
+        >
+          <ZoomableGroup zoom={1}>
+            <Geographies geography={geoUrl}>
+              {({ geographies }) =>
+                geographies.map((geo) => {
+                  const cur = findFn(geo) as
+                    | (Point & {
+                        orgId: string;
+                      })
+                    | undefined;
+                  const centroid = geoCentroid(geo);
+                  const name: string = geo.properties.name;
+                  return (
+                    <React.Fragment key={geo.rsmKey}>
+                      <Geography
+                        geography={geo}
+                        fill={colorScale(cur ? Math.log(cur.value) : 0)}
+                        onClick={() => {
+                          if (cur) fetchStats(cur.orgId);
+                        }}
+                      />
+                      <g>
+                        {centroid[0] > -160 &&
+                          centroid[0] < -67 &&
+                          (Object.keys(offsets).indexOf(name) === -1 ? (
+                            <Marker coordinates={centroid}>
+                              <text y="2" fontSize={14} textAnchor="middle">
+                                {cur ? cur.value : 0}
+                              </text>
+                            </Marker>
+                          ) : (
+                            <Annotation
+                              subject={centroid}
+                              dx={offsets[name][0]}
+                              dy={offsets[name][1]}
+                              connectorProps={{}}
+                            >
+                              <text
+                                x={4}
+                                fontSize={14}
+                                alignmentBaseline="middle"
+                              >
+                                {cur ? cur.value : 0}
+                              </text>
+                            </Annotation>
+                          ))}
+                      </g>
+                    </React.Fragment>
+                  );
+                })
+              }
+            </Geographies>
+          </ZoomableGroup>
+        </ComposableMap>
       </div>
     </Paper>
   );
@@ -261,92 +240,94 @@ const Risk: React.FC = (props) => {
   }
 
   return (
-    <RiskRoot className={classes.root}>
-      <div id="wrapper" className={contentWrapper}>
-        {stats && (
-          <div className={content}>
-            <div className={panel}>
-              <VulnerabilityCard
-                title={'Latest Vulnerabilities'}
-                data={latestVulnsGroupedArr}
-                showLatest={true}
-                showCommon={false}
-              ></VulnerabilityCard>
-              {stats.domains.services.length > 0 && (
-                <VulnerabilityPieChart
-                  title={'Most Common Services'}
-                  data={stats.domains.services}
-                  // colors={allColors}
-                  colors={getServicesColor}
-                  type={'services'}
-                />
-              )}
-              {stats.domains.ports.length > 0 && (
-                <TopVulnerablePorts
-                  data={stats.domains.ports.slice(0, 5).reverse()}
-                />
-              )}
-              {stats.vulnerabilities.severity.length > 0 && (
-                <VulnerabilityPieChart
-                  title={'Severity Levels'}
-                  data={stats.vulnerabilities.severity}
-                  colors={getSeverityColor}
-                  type={'vulns'}
-                />
-              )}
-            </div>
-
-            <div className={panel}>
-              <Paper elevation={0} className={cardRoot}>
-                <div>
-                  {stats.domains.numVulnerabilities.length > 0 && (
-                    <TopVulnerableDomains
-                      data={stats.domains.numVulnerabilities}
-                    />
-                  )}
-                </div>
-              </Paper>
-
-              <VulnerabilityCard
-                title={'Most Common Vulnerabilities'}
-                data={stats.vulnerabilities.mostCommonVulnerabilities}
-                showLatest={false}
-                showCommon={true}
-              ></VulnerabilityCard>
-
-              <div id="mapWrapper">
-                {(user?.userType === 'globalView' ||
-                  user?.userType === 'globalAdmin') &&
-                  showMaps && (
-                    <>
-                      <MapCard
-                        title={'State Vulnerabilities'}
-                        geoUrl={geoStateUrl}
-                        findFn={(geo) =>
-                          stats?.vulnerabilities.byOrg.find(
-                            (p) => p.label === geo.properties.name
-                          )
-                        }
-                        type={'state'}
-                      ></MapCard>
-                      <MapCard
-                        title={'County Vulnerabilities'}
-                        geoUrl={geoStateUrl}
-                        findFn={(geo) =>
-                          stats?.vulnerabilities.byOrg.find(
-                            (p) => p.label === geo.properties.name + ' Counties'
-                          )
-                        }
-                        type={'county'}
-                      ></MapCard>
-                    </>
-                  )}
-              </div>
-            </div>
+    <Grid container>
+      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
+      <Grid item sm={11} lg={10} xl={8} sx={{ maxWidth: '1500px' }}>
+        <RiskRoot className={classes.root}>
+          <div id="wrapper" className={contentWrapper}>
+            {stats && (
+              <Grid container>
+                <Grid item xs={12} sm={12} md={12} lg={6} xl={6} mb={-4}>
+                  <div className={content}>
+                    <div className={panel}>
+                      <VulnerabilityCard
+                        title={'Latest Vulnerabilities'}
+                        data={latestVulnsGroupedArr}
+                        showLatest={true}
+                        showCommon={false}
+                      ></VulnerabilityCard>
+                      {stats.domains.ports.length > 0 && (
+                        <TopVulnerablePorts
+                          data={stats.domains.ports.slice(0, 5).reverse()}
+                        />
+                      )}
+                      {stats.vulnerabilities.severity.length > 0 && (
+                        <VulnerabilityBarChart
+                          title={'Severity Levels'}
+                          data={stats.vulnerabilities.severity}
+                          colors={getSeverityColor}
+                          type={'vulns'}
+                        />
+                      )}
+                    </div>
+                  </div>
+                </Grid>
+                <Grid item xs={12} sm={12} md={12} lg={6} xl={6}>
+                  <div className={content}>
+                    <div className={panel}>
+                      <Paper elevation={0} className={cardRoot}>
+                        {stats.domains.numVulnerabilities.length > 0 && (
+                          <TopVulnerableDomains
+                            data={stats.domains.numVulnerabilities}
+                          />
+                        )}
+                      </Paper>
+                      <VulnerabilityCard
+                        title={'Most Common Vulnerabilities'}
+                        data={stats.vulnerabilities.mostCommonVulnerabilities}
+                        showLatest={false}
+                        showCommon={true}
+                      ></VulnerabilityCard>
+                      <div id="mapWrapper">
+                        {(user?.userType === 'globalView' ||
+                          user?.userType === 'globalAdmin') &&
+                          showMaps && (
+                            <>
+                              <MapCard
+                                title={'State Vulnerabilities'}
+                                geoUrl={geoStateUrl}
+                                findFn={(geo) =>
+                                  stats?.vulnerabilities.byOrg.find(
+                                    (p) => p.label === geo.properties.name
+                                  )
+                                }
+                                type={'state'}
+                              ></MapCard>
+                              <MapCard
+                                title={'County Vulnerabilities'}
+                                geoUrl={geoStateUrl}
+                                findFn={(geo) =>
+                                  stats?.vulnerabilities.byOrg.find(
+                                    (p) =>
+                                      p.label ===
+                                      geo.properties.name + ' Counties'
+                                  )
+                                }
+                                type={'county'}
+                              ></MapCard>
+                            </>
+                          )}
+                      </div>
+                    </div>
+                  </div>
+                </Grid>
+              </Grid>
+            )}
           </div>
-        )}
-      </div>
-    </RiskRoot>
+        </RiskRoot>
+      </Grid>
+      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
+    </Grid>
   );
 };
 

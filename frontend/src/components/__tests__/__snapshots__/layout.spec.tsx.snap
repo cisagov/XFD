@@ -34,12 +34,37 @@ exports[`Layout component matches snapshot 1`] = `
           <div />
         </div>
       </div>
-      <div>
-        GOV_BANNER
+      <div
+        style="display: flex;"
+      >
+        <div>
+          GOV_BANNER
+        </div>
+        <div
+          class="MuiBox-root css-1iuj5ih"
+        >
+          <button
+            aria-label="Skip to main content"
+            class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-1a47txt-MuiButtonBase-root-MuiButton-root"
+            data-mui-internal-clone-element="true"
+            tabindex="0"
+            type="button"
+          >
+            Skip to main content
+            <span
+              class="MuiTouchRipple-root css-8je8zh-MuiTouchRipple-root"
+            />
+          </button>
+        </div>
       </div>
       <div>
         HEADER
       </div>
+      <div
+        class="main-content"
+        id="main-content"
+        tabindex="-1"
+      />
       <div
         class="Layout-content"
       />

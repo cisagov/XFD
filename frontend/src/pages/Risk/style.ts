@@ -158,7 +158,7 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     height: '100%',
     overflowY: 'auto',
     padding: '0 1rem 2rem 1rem',
-    flex: '0 0 50%'
+    flex: '0 0 100%'
   },
   [`& .${classesRisk.miniCardRoot}`]: {
     boxSizing: 'border-box',
