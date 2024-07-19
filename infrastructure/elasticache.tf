@@ -50,7 +50,9 @@ resource "aws_iam_policy" "elasticache_policy" {
           "elasticache:CreateCacheSubnetGroup",
           "elasticache:DeleteCacheSubnetGroup",
           "elasticache:DescribeCacheSubnetGroups",
-          "elasticache:ModifyCacheSubnetGroup"
+          "elasticache:ModifyCacheSubnetGroup",
+          "iam:CreatePolicy",
+          "iam:AttachUserPolicy"
         ]
         Resource = "*"
       }
