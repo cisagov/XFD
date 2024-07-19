@@ -46,7 +46,7 @@ const Root = styled('div')(({ theme }) => ({
     fontWeight: 300,
     background: 'none',
     '&::placeholder': {
-      color: '#71767A'
+      color: '#4E4E4E'
     },
     '&:focus': {
       outline: 'none !important'
@@ -59,7 +59,7 @@ const Root = styled('div')(({ theme }) => ({
     top: '50%',
     transform: 'translateY(-50%)',
     fontSize: '1.5rem',
-    color: '#71767A'
+    color: '#4E4E4E'
   },
 
   [`& .${classes.autocompleteRoot}`]: {

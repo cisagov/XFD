@@ -2,7 +2,15 @@ import { VulnSeverities } from './Risk';
 
 export const resultsPerPage = 30;
 export const getSingleColor = () => {
-  return '#FFBC78';
+  return '#F23AB8';
+};
+
+export const getTooltipColor = () => {
+  return '#FFFFFF';
+};
+
+export const getAllVulnColor = () => {
+  return '#ce80ed';
 };
 export const getSeverityColor = ({ id }: { id: string }) => {
   if (id === 'null' || id === '') return '#EFF1F5';

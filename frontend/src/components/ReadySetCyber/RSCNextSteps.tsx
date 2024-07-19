@@ -86,7 +86,7 @@ export const RSCNextSteps: React.FC = () => {
                 component="div"
                 color="#005288"
               >
-                Enroll in Crossfeed
+                Enroll in CyHy Dashoard
               </Typography>
               <Typography variant="body1" gutterBottom component="div">
                 Automatically scan and organize vulnerabilities.

@@ -123,7 +123,7 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     marginTop: '5px',
     marginRight: '20px',
     '& p a': {
-      color: '#71767A',
+      color: '#4e4e4e',
       fontSize: '12px',
       fontWeight: '400'
     }
@@ -158,7 +158,7 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     height: '100%',
     overflowY: 'auto',
     padding: '0 1rem 2rem 1rem',
-    flex: '0 0 50%'
+    flex: '0 0 100%'
   },
   [`& .${classesRisk.miniCardRoot}`]: {
     boxSizing: 'border-box',
@@ -261,6 +261,6 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     fontFamily: 'Public Sans',
     margin: '10px 10px 10px 25px',
     fontStyle: 'italic',
-    color: '#71767A'
+    color: '#4e4e4e'
   }
 }));

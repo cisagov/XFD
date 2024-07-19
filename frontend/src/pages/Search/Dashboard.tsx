@@ -3,6 +3,7 @@ import { classes, Root } from './Styling/dashboardStyle';
 import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
 import {
+  Button,
   Paper,
   FormControl,
   Select,
@@ -20,7 +21,6 @@ import { FilterDrawer } from './FilterDrawer';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
 import {
-  Button as USWDSButton,
   Modal,
   TextInput,
   Label,
@@ -134,6 +134,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
     return () => {
       localStorage.removeItem('savedSearch');
+      setSearchTerm('');
     };
   }, [setSearchTerm, props.location.search]);
 
@@ -260,10 +261,9 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
               ))}
             </Select>
           </FormControl>
-          <USWDSButton
+          <Button
+            variant="outlined"
             className={classes.exportButton}
-            outline
-            type="button"
             onClick={() =>
               exportCSV(
                 {
@@ -275,7 +275,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             }
           >
             Export Results
-          </USWDSButton>
+          </Button>
         </Paper>
       </div>
 

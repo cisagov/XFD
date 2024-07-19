@@ -8,7 +8,8 @@ import {
   sevLabels,
   resultsPerPage,
   getSeverityColor,
-  severities
+  severities,
+  getAllVulnColor
 } from './utils';
 import * as RiskStyles from './style';
 import { Pagination } from '@mui/lab';
@@ -31,7 +32,9 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
   const [labels, setLabels] = useState(sevLabels);
   const keys = sevLabels;
   const pageStart = (current - 1) * resultsPerPage;
-  // Separate count by severity
+  // Store for count by total vulns
+  const domainTotals: { [key: string]: number } = {};
+  // Separate count by severity but also store total vulns
   const domainToSevMap: any = {};
   for (const point of data) {
     const split = point.id.split('|');
@@ -39,30 +42,71 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
     const severity = split[1];
     if (labels.includes(severity)) {
       if (!(domain in domainToSevMap)) domainToSevMap[domain] = {};
+      if (!(domain in domainTotals)) domainTotals[domain] = 0;
       domainToSevMap[domain][severity] = point.value;
+      domainTotals[domain] += point.value;
     }
   }
   const domainsWithVulns = Object.keys(domainToSevMap).length;
   const dataVal = Object.keys(domainToSevMap)
     .map((key) => ({
       label: key,
+      Total: domainTotals[key],
       ...domainToSevMap[key]
     }))
     .sort((a, b) => {
-      let diff = 0;
-      for (const label of sevLabels) {
-        diff += (label in b ? b[label] : 0) - (label in a ? a[label] : 0);
+      let diff = b.Total - a.Total;
+      if (diff === 0) {
+        for (const label of sevLabels) {
+          diff += (label in b ? b[label] : 0) - (label in a ? a[label] : 0);
+          if (diff !== 0) break;
+        }
       }
       return diff;
     })
     .slice(pageStart, Math.min(pageStart + 30, domainsWithVulns))
     .reverse();
+  // Repurposes the "All" chip to show total vulns vs aggregate
+  const allVuln = labels.length === 5;
+  //Custom Bar Layer to allow for top to bottom tab navigation
+  const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
+    const reversedBars = [...bars].reverse();
+    return reversedBars.map((bar) => (
+      <g key={bar.key}>
+        <rect
+          role="button"
+          key={bar.key}
+          x={bar.x}
+          y={bar.y}
+          width={bar.width}
+          height={bar.height}
+          fill={bar.color}
+          tabIndex={0}
+          aria-label={` ${bar.data.value} ${bar.data.id}${' '}
+          ${
+            bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'
+          } in domain${' '}
+          ${bar.data.indexValue}`}
+          onClick={() => {
+            history.push(
+              `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
+            );
+          }}
+        />
+        <title>
+          {bar.data.value} {bar.data.id}{' '}
+          {bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'} in domain{' '}
+          {bar.data.indexValue}
+        </title>
+      </g>
+    ));
+  };
   // create the total vuln labels for each domain
   return (
     <div className={cardBig}>
       <div className={seeAll}>
         <p>
-          <Link to="/inventory/vulnerabilities">See All</Link>
+          <Link to="/inventory/vulnerabilities">See All Vulnerabilities</Link>
         </p>
       </div>
       <div className={header}>
@@ -93,9 +137,11 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
               <h5 style={{ textAlign: 'right', paddingLeft: 0 }}>Total</h5>
             </div>
             <ResponsiveBar
+              tabIndex={0}
               data={dataVal as any}
-              keys={keys}
-              layers={['grid', 'axes', 'bars', 'markers', 'legends']}
+              //If all vuln is selected, only show total vulns
+              keys={allVuln ? ['Total'] : keys}
+              layers={['grid', 'axes', CustomBarLayer, 'markers', 'legends']}
               indexBy="label"
               margin={{
                 top: 10,
@@ -113,13 +159,9 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                   }
                 }
               }}
-              onClick={(event) => {
-                history.push(
-                  `/inventory/vulnerabilities?domain=${event.data.label}&severity=${event.id}`
-                );
-              }}
               padding={0.5}
-              colors={getSeverityColor as any}
+              //If all vuln is selected, only show color for total vulns
+              colors={allVuln ? getAllVulnColor : (getSeverityColor as any)}
               borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
               axisTop={null}
               axisRight={null}
@@ -153,6 +195,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
               enableLabel={false}
               isFocusable={true}
               layout={'horizontal'}
+              // reverse={true}
               motionDamping={15}
               {...({ motionStiffness: 90 } as any)}
             />
