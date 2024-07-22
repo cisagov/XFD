@@ -35,7 +35,7 @@ resource "aws_elasticache_cluster" "crossfeed_vpc_elasticache_cluster" {
   engine               = "redis"
   node_type            = "cache.r7g.xlarge"
   num_cache_nodes      = 1
-  parameter_group_name = "aws_elasticache_parameter_group.xfd_redis_group.name"
+  parameter_group_name = aws_elasticache_parameter_group.xfd_redis_group.name
   engine_version       = "7.1"
   port                 = 6379
   subnet_group_name    = aws_elasticache_subnet_group.crossfeed_vpc.name
