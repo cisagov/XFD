@@ -47,6 +47,7 @@ resource "aws_iam_policy" "elasticache_policy" {
       {
         Effect = "Allow"
         Action = [
+          "elasticache:CreateCacheCluster",
           "elasticache:CreateCacheSubnetGroup",
           "elasticache:DeleteCacheSubnetGroup",
           "elasticache:DescribeCacheSubnetGroups",
