@@ -22,6 +22,8 @@ export interface AuthContextType extends ReturnType<typeof useApi> {
   setShowMaps: (showMap: boolean) => void;
   showAllOrganizations: boolean;
   setShowAllOrganizations: (showAllOrganizations: boolean) => void;
+  showRegionOrganizations: boolean;
+  setShowRegionOrganizations: (showRegionalOrganizations: boolean) => void;
   refreshUser: () => Promise<void>;
   setLoading: React.Dispatch<React.SetStateAction<number>>;
   setFeedbackMessage: (message: {

@@ -174,6 +174,8 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     setOrganization,
     showAllOrganizations,
     setShowAllOrganizations,
+    showRegionOrganizations,
+    setShowRegionOrganizations,
     setShowMaps,
     user,
     logout,
@@ -310,12 +312,13 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
 
   const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
     if (userLevel === GLOBAL_ADMIN) {
-      return [{ name: 'All Organizations' }].concat(organizations);
+      return [{ name: 'All Organizations' }, ...tags].concat(organizations);
     }
     if (userLevel === REGIONAL_ADMIN) {
-      return organizations.filter((item) => {
+      const regionAdminOptions = organizations.filter((item) => {
         return item.regionId === user?.regionId;
       });
+      return [{ name: `Region ${user?.regionId}` }].concat(regionAdminOptions);
     }
     return [];
   }, [user, organizations, userLevel]);
@@ -371,14 +374,18 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                       option: classes.option
                     }}
                     value={
-                      showAllOrganizations
-                        ? { name: 'All Organizations' }
+                      showAllOrganizations || showRegionOrganizations
+                        ? showAllOrganizations
+                          ? { name: 'All Organizations'}
+                          : showRegionOrganizations
+                          ? { name: `Region ${user?.regionId}` }
+                          : currentOrganization ?? undefined
                         : currentOrganization ?? undefined
                     }
                     filterOptions={(options, state) => {
                       // If already selected, show all
                       if (
-                        options.find(
+                        organizationDropdownOptions.find(
                           (option) =>
                             option?.name.toLowerCase() ===
                             state.inputValue.toLowerCase()
@@ -386,7 +393,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                       ) {
                         return options;
                       }
-                      return options.filter(
+                      return organizationDropdownOptions.filter(
                         (option) =>
                           option?.name
                             .toLowerCase()
@@ -396,17 +403,18 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     disableClearable
                     blurOnSelect
                     selectOnFocus
-                    getOptionLabel={(option) => option!.name}
+                    getOptionLabel={(option) => option?.name ?? ''}
                     renderOption={(props, option) => (
                       <li {...props}>{option!.name}</li>
                     )}
                     onChange={(
                       event: any,
-                      value: Organization | { name: string } | undefined
+                      value: Organization | { name?: string } | undefined
                     ) => {
                       if (value && 'id' in value) {
                         setOrganization(value);
                         setShowAllOrganizations(false);
+                        setShowRegionOrganizations(false);
                         if (value.name === 'Election') {
                           setShowMaps(true);
                         } else {
@@ -418,10 +426,16 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                             history.push(`/organizations/${value.id}`);
                           }
                         }
+                      } else if (value?.name === `Region ${user?.regionId}`) {
+                        setShowRegionOrganizations(true);
+                        setShowAllOrganizations(false);
                       } else {
+                        console.log('here5');
                         setShowAllOrganizations(true);
+                        setShowRegionOrganizations(false);
                         setShowMaps(false);
                       }
+                      return event
                     }}
                     renderInput={(params) => (
                       <TextField

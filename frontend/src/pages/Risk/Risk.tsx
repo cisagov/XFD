@@ -49,8 +49,14 @@ let colorScale = scaleLinear<string>()
   .range(['#c7e8ff', '#135787']);
 
 const Risk: React.FC = (props) => {
-  const { currentOrganization, showAllOrganizations, showMaps, user, apiPost } =
-    useAuthContext();
+  const {
+    currentOrganization,
+    showAllOrganizations,
+    showMaps,
+    user,
+    apiPost,
+    showRegionOrganizations
+  } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
@@ -63,18 +69,27 @@ const Risk: React.FC = (props) => {
 
   // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
+  const getFilters = (orgId?: string) => {
+    if ((!orgId && showAllOrganizations) || !currentOrganization) {
+      return {};
+    }
+    if ((!orgId && showRegionOrganizations) || !currentOrganization) {
+      return { regionId: user?.regionId };
+    }
+    if (orgId || 'rootDomains' in currentOrganization) {
+      return {
+        organization: orgId ? orgId : currentOrganization?.id
+      };
+    } else {
+      return { tag: currentOrganization.id };
+    }
+  };
+
   const fetchStats = useCallback(
     async (orgId?: string) => {
       const { result } = await apiPost<ApiResponse>('/stats', {
         body: {
-          filters:
-            (!orgId && showAllOrganizations) || !currentOrganization
-              ? {}
-              : orgId || 'rootDomains' in currentOrganization
-              ? {
-                  organization: orgId ? orgId : currentOrganization?.id
-                }
-              : { tag: currentOrganization.id }
+          filters: getFilters(orgId)
         }
       });
       const max = Math.max(...result.vulnerabilities.byOrg.map((p) => p.value));
@@ -83,7 +98,12 @@ const Risk: React.FC = (props) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [showAllOrganizations, apiPost, currentOrganization]
+    [
+      showAllOrganizations,
+      apiPost,
+      currentOrganization,
+      showRegionOrganizations
+    ]
   );
 
   useEffect(() => {

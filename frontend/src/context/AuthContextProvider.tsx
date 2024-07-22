@@ -32,6 +32,8 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const [showMap, setShowMap] = usePersistentState<boolean>('showMap', false);
   const [showAllOrganizations, setShowAllOrganizations] =
     usePersistentState<boolean>('showAllOrganizations', false);
+  const [showRegionOrganizations, setShowRegionOrganizations] =
+    usePersistentState<boolean>('showRegionOrganizations', false);
   const [feedbackMessage, setFeedbackMessage] = useState<{
     message: string;
     type: AlertProps['severity'];
@@ -146,6 +148,8 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         currentOrganization: extendedOrg,
         showAllOrganizations: showAllOrganizations,
         setShowAllOrganizations: setShowAllOrganizations,
+        showRegionOrganizations: showRegionOrganizations,
+        setShowRegionOrganizations: setShowRegionOrganizations,
         login: setToken,
         logout,
         setLoading: () => {},
