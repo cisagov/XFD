@@ -97,13 +97,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         {!pathname.includes('/readysetcyber') ? (
           <>
             <Header />
-            <div className="main-content" id="main-content" tabIndex={-1}>
-              {pathname === '/inventory' ? (
-                children
-              ) : (
-                <div className={classes.content}>{children}</div>
-              )}
-            </div>
+
+            <div className="main-content" id="main-content" tabIndex={-1} />
+            {pathname === '/inventory' ? (
+              children
+            ) : (
+              <div className={classes.content}>{children}</div>
+            )}
+
             <CrossfeedFooter />
           </>
         ) : (

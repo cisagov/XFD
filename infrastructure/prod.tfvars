@@ -103,3 +103,4 @@ ssm_redshift_host                    = "/crossfeed/prod/REDSHIFT_HOST"
 ssm_redshift_database                = "/crossfeed/prod/REDSHIFT_DATABASE"
 ssm_redshift_user                    = "/crossfeed/prod/REDSHIFT_USER"
 ssm_redshift_password                = "/crossfeed/prod/REDSHIFT_PASSWORD"
+create_elasticache_cluster           = false

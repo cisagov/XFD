@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
+import { NavLink, Link, useHistory } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -16,9 +16,6 @@ import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import logo from '../assets/cyhydashboard.svg';
 import cisaLogo from '../assets/cisaSeal.svg';
-import { withSearch } from '@elastic/react-search-ui';
-import { ContextType } from 'context/SearchProvider';
-import { SearchBar } from 'components';
 import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
 import { UserMenu } from './UserMenu';
@@ -164,11 +161,8 @@ interface MenuItemType {
   exact: boolean;
 }
 
-const HeaderNoCtx: React.FC<ContextType> = (props) => {
-  const { searchTerm, setSearchTerm } = props;
-
+export const Header: React.FC = () => {
   const history = useHistory();
-  const location = useLocation();
   const {
     currentOrganization,
     setOrganization,
@@ -346,18 +340,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
             <div className={classes.spacing} />
             {userLevel > 0 && (
               <>
-                <SearchBar
-                  initialValue={searchTerm}
-                  value={searchTerm}
-                  onChange={(value) => {
-                    if (location.pathname !== '/inventory')
-                      history.push('/inventory?q=' + value);
-                    setSearchTerm(value, {
-                      shouldClearFilters: false,
-                      autocompleteResults: false
-                    });
-                  }}
-                />
                 {organizations.length > 1 && (
                   <Autocomplete
                     isOptionEqualToValue={(option, value) =>
@@ -514,10 +496,3 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     </Root>
   );
 };
-
-export const Header = withSearch(
-  ({ searchTerm, setSearchTerm }: ContextType) => ({
-    searchTerm,
-    setSearchTerm
-  })
-)(HeaderNoCtx);
