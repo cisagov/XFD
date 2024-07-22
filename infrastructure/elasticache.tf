@@ -52,6 +52,7 @@ resource "aws_iam_policy" "elasticache_policy" {
           "elasticache:DescribeCacheSubnetGroups",
           "elasticache:ModifyCacheSubnetGroup",
           "elasticache:AddTagsToResource",
+          "elasticache:ListTagsForResource",
           "iam:CreatePolicy",
           "iam:AttachUserPolicy",
           "iam:GetPolicyVersion",
