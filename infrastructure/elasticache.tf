@@ -67,7 +67,8 @@ resource "aws_iam_policy" "elasticache_policy" {
           "iam:CreatePolicy",
           "iam:AttachUserPolicy",
           "iam:GetPolicyVersion",
-          "iam:ListPolicyVersions"
+          "iam:ListPolicyVersions",
+          "iam:DeletePolicy"
         ]
         Resource = "*"
       }
