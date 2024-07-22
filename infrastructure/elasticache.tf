@@ -11,7 +11,7 @@ resource "aws_security_group" "elasticache_security_group" {
 }
 
 resource "aws_elasticache_subnet_group" "crossfeed_vpc" {
-  name       = "aws_vpc.crossfeed_vpc"
+  name       = "crossfeed-vpc-subnet-group"
   subnet_ids = [aws_subnet.backend.id]
 
   tags = {
@@ -51,8 +51,11 @@ resource "aws_iam_policy" "elasticache_policy" {
           "elasticache:DeleteCacheSubnetGroup",
           "elasticache:DescribeCacheSubnetGroups",
           "elasticache:ModifyCacheSubnetGroup",
+          "elasticache:AddTagsToResource",
           "iam:CreatePolicy",
-          "iam:AttachUserPolicy"
+          "iam:AttachUserPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListPolicyVersions"
         ]
         Resource = "*"
       }
