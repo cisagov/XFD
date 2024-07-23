@@ -6,7 +6,7 @@ resource "aws_security_group" "elasticache_security_group" {
     from_port   = 6379
     to_port     = 6379
     protocol    = "tcp"
-    cidr_blocks = ["172.31.0.0/16"] // Restrict to a specific CIDR block, ideally your VPC's CIDR
+    cidr_blocks = [aws_vpc.crossfeed_vpc.cidr_block] // Dynamically restrict to a specific CIDR block, ideally your VPC's CIDR
   }
 }
 
