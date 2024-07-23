@@ -1,12 +1,12 @@
 resource "aws_security_group" "elasticache_security_group" {
   name_prefix = "elasticache-"
   description = "ElastiCache security group"
-
+  vpc_id      = aws_vpc.crossfeed_vpc.id
   ingress {
     from_port   = 6379
     to_port     = 6379
     protocol    = "tcp"
-    cidr_blocks = ["10.0.2.0/24"] // Restrict to a specific CIDR block, ideally your VPC's CIDR
+    cidr_blocks = [aws_vpc.crossfeed_vpc.cidr_block] // Dynamically restrict to a specific CIDR block, ideally your VPC's CIDR
   }
 }
 
@@ -61,14 +61,26 @@ resource "aws_iam_policy" "elasticache_policy" {
           "elasticache:CreateCacheSubnetGroup",
           "elasticache:DeleteCacheSubnetGroup",
           "elasticache:DescribeCacheSubnetGroups",
+          "elasticache:DescribeCacheClusters",
+          "elasticache:DescribeCacheEngineVersions",
+          "elasticache:DescribeCacheSecurityGroups",
+          "elasticache:DescribeCacheParameters",
+          "elasticache:DescribeCacheParameterGroups",
           "elasticache:ModifyCacheSubnetGroup",
           "elasticache:AddTagsToResource",
           "elasticache:ListTagsForResource",
+          "elasticache:CreateCacheParameterGroup",
+          "elasticache:DeleteCacheParameterGroup",
+          "elasticache:DescribeCacheParameterGroups",
+          "elasticache:ModifyCacheParameterGroup",
+          "iam:ListAttachedUserPolicies",
           "iam:CreatePolicy",
+          "iam:CreatePolicyVersion",
           "iam:AttachUserPolicy",
           "iam:GetPolicyVersion",
           "iam:ListPolicyVersions",
-          "iam:DeletePolicy"
+          "iam:DeletePolicy",
+          "iam:DetachUserPolicy"
         ]
         Resource = "*"
       }
