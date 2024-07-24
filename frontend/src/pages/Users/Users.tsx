@@ -117,7 +117,6 @@ export const Users: React.FC = () => {
           : 'None';
         row.fullName = `${row.firstName} ${row.lastName}`;
       });
-      console.log(rows);
       if (user?.userType === 'globalAdmin') {
         setUsers(rows);
       } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
