@@ -647,7 +647,9 @@ export const Notifications: React.FC = () => {
               icon={
                 <InfoOutlined
                   fontSize="inherit"
-                  aria-label="an information alert icon that displays an outlined circle with the letter i in the center"
+                  role="img"
+                  aria-hidden="false"
+                  aria-label="Information Alert"
                 />
               }
               severity="info"
@@ -670,7 +672,9 @@ export const Notifications: React.FC = () => {
               icon={
                 <InfoOutlined
                   fontSize="inherit"
-                  aria-label="an information alert icon that displays an outlined circle with the letter i in the center"
+                  role="img"
+                  aria-hidden="false"
+                  aria-label="Information Alert"
                 />
               }
               severity="info"
