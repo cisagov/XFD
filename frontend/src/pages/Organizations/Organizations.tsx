@@ -25,7 +25,7 @@ export const Organizations: React.FC = () => {
 
   return (
     <Box mb={3} mt={3} display="flex" justifyContent="center">
-      <Stack spacing={2} sx={{ width: '75%' }}>
+      <Stack spacing={2} sx={{ width: '70%' }}>
         <Typography
           fontSize={34}
           fontWeight="medium"
