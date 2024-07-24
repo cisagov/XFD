@@ -64,11 +64,10 @@ exports[`Layout component matches snapshot 1`] = `
         class="main-content"
         id="main-content"
         tabindex="-1"
-      >
-        <div
-          class="Layout-content"
-        />
-      </div>
+      />
+      <div
+        class="Layout-content"
+      />
       <div
         class="css-1ycjho2"
       >
