@@ -11,4 +11,30 @@ api:
         path: /{any+}
         method: ANY
         cors: true
+  package:
+    include:
+      - src/**
+      - node_modules/**
+    exclude:
+      - requirements.txt
+
   # provisionedConcurrency: 1
+
+fastApi:
+  handler: python-app.handler
+  runtime: python3.11
+  events:
+    - http:
+        path: /v3
+        method: ANY
+        cors: true
+    - http:
+        path: /v3/{any+}
+        method: ANY
+        cors: true
+  package:
+    include:
+      - src/**
+      - requirements.txt
+    exclude:
+      - node_modules/**
