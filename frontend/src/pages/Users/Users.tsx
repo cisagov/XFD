@@ -1,4 +1,3 @@
-import classes from './Users.module.scss';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
@@ -28,6 +27,7 @@ import { initializeUser, Organization, User } from 'types';
 import { useAuthContext } from 'context';
 import { STATE_OPTIONS } from '../../constants/constants';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { Box, Stack } from '@mui/system';
 
 type ErrorStates = {
   getUsersError: string;
@@ -592,118 +592,122 @@ export const Users: React.FC = () => {
   );
 
   return (
-    <div className={classes.root}>
-      <Typography
-        fontSize={34}
-        fontWeight="medium"
-        letterSpacing={0}
-        my={3}
-        variant="h1"
-      >
-        Users
-      </Typography>
-      <Paper elevation={0}>
-        <DataGrid
-          rows={users}
-          columns={userCols}
-          slots={{ toolbar: CustomToolbar }}
-          slotProps={{
-            toolbar: { children: addUserButton }
-          }}
-        />
-      </Paper>
-      {confirmDeleteUserDialog}
-      <MuiDialog
-        open={newUserDialogOpen}
-        onClose={(_, reason) => handleCloseAddUserDialog(reason)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Invite a User</DialogTitle>
-        {formContents}
-        <DialogActions>
-          <MuiButton
-            variant="outlined"
-            onClick={() => {
-              setNewUserDialogOpen(false);
-              setFormErrors({
-                firstName: false,
-                lastName: false,
-                email: false,
-                userType: false,
-                state: false
-              });
-              setValues(initialUserFormValues);
-            }}
-          >
-            Cancel
-          </MuiButton>
-          <MuiButton
-            variant="contained"
-            type="submit"
-            onClick={onCreateUserSubmit}
-            disabled={!isFormValid()}
-          >
-            Invite User
-          </MuiButton>
-        </DialogActions>
-      </MuiDialog>
-      {user?.userType === 'globalAdmin' && (
-        <>
-          <ImportExport<
-            | User
-            | {
-                roles: string;
-              }
-          >
-            name="users"
-            fieldsToImport={[
-              'firstName',
-              'lastName',
-              'email',
-              'roles',
-              'userType',
-              'state'
-            ]}
-            onImport={async (results) => {
-              const createdUsers = [];
-              for (const result of results) {
-                const parsedRoles: {
-                  organization: string;
-                  role: string;
-                }[] = JSON.parse(result.roles as string);
-                const body: any = result;
-                if (parsedRoles.length > 0) {
-                  body.organization = parsedRoles[0].organization;
-                  body.organizationAdmin = parsedRoles[0].role === 'admin';
-                }
-                try {
-                  createdUsers.push(
-                    await apiPost('/users', {
-                      body
-                    })
-                  );
-                } catch (e) {
-                  console.error(e);
-                }
-              }
-              setUsers(users.concat(...createdUsers));
+    <Box mt={3} display="flex" justifyContent="center">
+      <Stack spacing={2} sx={{ width: '70%' }}>
+        <Typography
+          fontSize={34}
+          fontWeight="medium"
+          letterSpacing={0}
+          my={3}
+          variant="h1"
+        >
+          Users
+        </Typography>
+        <Paper elevation={0}>
+          <DataGrid
+            rows={users}
+            columns={userCols}
+            slots={{ toolbar: CustomToolbar }}
+            slotProps={{
+              toolbar: { children: addUserButton }
             }}
           />
-        </>
-      )}
-      {confirmEditNotificationDialog}
-      <InfoDialog
-        isOpen={infoDialogOpen}
-        handleClick={() => {
-          onResetForm();
-          window.location.reload();
-        }}
-        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
-        title={<Typography variant="h4">Success </Typography>}
-        content={<Typography variant="body1">{infoDialogContent}</Typography>}
-      />
-    </div>
+        </Paper>
+        {confirmDeleteUserDialog}
+        <MuiDialog
+          open={newUserDialogOpen}
+          onClose={(_, reason) => handleCloseAddUserDialog(reason)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Invite a User</DialogTitle>
+          {formContents}
+          <DialogActions>
+            <MuiButton
+              variant="outlined"
+              onClick={() => {
+                setNewUserDialogOpen(false);
+                setFormErrors({
+                  firstName: false,
+                  lastName: false,
+                  email: false,
+                  userType: false,
+                  state: false
+                });
+                setValues(initialUserFormValues);
+              }}
+            >
+              Cancel
+            </MuiButton>
+            <MuiButton
+              variant="contained"
+              type="submit"
+              onClick={onCreateUserSubmit}
+              disabled={!isFormValid()}
+            >
+              Invite User
+            </MuiButton>
+          </DialogActions>
+        </MuiDialog>
+        {user?.userType === 'globalAdmin' && (
+          <>
+            <ImportExport<
+              | User
+              | {
+                  roles: string;
+                }
+            >
+              name="users"
+              fieldsToImport={[
+                'firstName',
+                'lastName',
+                'email',
+                'roles',
+                'userType',
+                'state'
+              ]}
+              onImport={async (results) => {
+                const createdUsers = [];
+                for (const result of results) {
+                  const parsedRoles: {
+                    organization: string;
+                    role: string;
+                  }[] = JSON.parse(result.roles as string);
+                  const body: any = result;
+                  if (parsedRoles.length > 0) {
+                    body.organization = parsedRoles[0].organization;
+                    body.organizationAdmin = parsedRoles[0].role === 'admin';
+                  }
+                  try {
+                    createdUsers.push(
+                      await apiPost('/users', {
+                        body
+                      })
+                    );
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }
+                setUsers(users.concat(...createdUsers));
+              }}
+            />
+          </>
+        )}
+        {confirmEditNotificationDialog}
+        <InfoDialog
+          isOpen={infoDialogOpen}
+          handleClick={() => {
+            onResetForm();
+            window.location.reload();
+          }}
+          icon={
+            <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />
+          }
+          title={<Typography variant="h4">Success </Typography>}
+          content={<Typography variant="body1">{infoDialogContent}</Typography>}
+        />
+      </Stack>
+    </Box>
   );
 };
 
