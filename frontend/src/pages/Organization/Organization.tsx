@@ -26,23 +26,21 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  FormControlLabel,
-  FormLabel,
   Grid,
   Link as MuiLink,
   Paper,
-  Radio,
-  RadioGroup,
   Switch as SwitchInput,
   Tab,
   TextField,
   Typography
 } from '@mui/material';
+import { DataGrid } from '@mui/x-data-grid';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { ChevronRight, ControlPoint } from '@mui/icons-material';
 import { Autocomplete } from '@mui/material';
 import { createFilterOptions } from '@mui/material/useAutocomplete';
 import { OrganizationList } from 'components/OrganizationList';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -92,83 +90,41 @@ export const Organization: React.FC = () => {
 
   const organizationClasses = OrganizationStyles.organizationClasses;
   const Root = OrganizationStyles.OrganizationRoot;
-
-  const userRoleColumns: Column<Role>[] = [
+  console.log(userRoles);
+  const userRoleColumns = [
     {
-      Header: 'Name',
-      accessor: ({ user }) => user?.fullName,
-      width: 200,
-      disableFilters: true,
-      id: 'name'
+      headerName: 'Name',
+      field: 'fullName',
+      valueGetter: (params: any) => params.row?.user?.fullName,
+      flex: 1
     },
     {
-      Header: 'Email',
-      accessor: ({ user }) => user?.email,
-      width: 150,
-      minWidth: 150,
-      id: 'email',
-      disableFilters: true
+      headerName: 'Email',
+      field: 'email',
+      valueGetter: (params: any) => params.row?.user?.email,
+      flex: 1.5
     },
     {
-      Header: 'Role',
-      accessor: ({ approved, role, user }) => {
-        if (approved) {
-          if (user?.invitePending) {
+      headerName: 'Role',
+      field: 'role',
+      valueGetter: (params: any) => {
+        if (params.row?.approved) {
+          if (params.row?.user?.invitePending) {
             return 'Invite pending';
-          } else if (role === 'admin') {
+          } else if (params.row?.role === 'admin') {
             return 'Administrator';
           } else {
             return 'Member';
           }
         }
-        return 'Pending approval';
       },
-      width: 50,
-      minWidth: 50,
-      id: 'approved',
-      disableFilters: true
+      flex: 1
     },
     {
-      Header: () => {
-        return (
-          <Root style={{ justifyContent: 'flex-center' }}>
-            <Button color="secondary" onClick={() => setOpenMemberDialog(true)}>
-              <ControlPoint style={{ marginRight: '10px' }}></ControlPoint>
-              Add member
-            </Button>
-          </Root>
-        );
-      },
-      id: 'action',
-      Cell: ({ row }: { row: { index: number } }) => {
-        const isApproved =
-          !organization?.userRoles[row.index] ||
-          organization?.userRoles[row.index].approved;
-        return (
-          <>
-            {isApproved ? (
-              <Button
-                onClick={() => {
-                  removeUser(row.index);
-                }}
-                color="secondary"
-              >
-                <p>Remove</p>
-              </Button>
-            ) : (
-              <Button
-                onClick={() => {
-                  approveUser(row.index);
-                }}
-                color="secondary"
-              >
-                <p>Approve</p>
-              </Button>
-            )}
-          </>
-        );
-      },
-      disableFilters: true
+      headerName: '',
+      field: 'delete',
+      flex: 0.5
+      // TODO: Add x icon
     }
   ];
 
@@ -810,7 +766,14 @@ export const Organization: React.FC = () => {
       </Grid>
     </Paper>,
     <React.Fragment key={1}>
-      <Table<Role> columns={userRoleColumns} data={userRoles} />
+      <Paper elevation={0}>
+        <DataGrid
+          rows={userRoles}
+          columns={userRoleColumns}
+          slots={{ toolbar: CustomToolbar }}
+        />
+      </Paper>
+      {/* <Table<Role> columns={userRoleColumns} data={userRoles} />
       <Dialog
         open={openMemberDialog}
         onClose={() => setOpenMemberDialog(false)}
@@ -906,7 +869,7 @@ export const Organization: React.FC = () => {
             Add
           </Button>
         </DialogActions>
-      </Dialog>
+      </Dialog> */}
     </React.Fragment>,
     <React.Fragment key={2}>
       <OrganizationList parent={organization}></OrganizationList>
