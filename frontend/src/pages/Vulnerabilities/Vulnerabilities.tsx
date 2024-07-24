@@ -437,7 +437,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       }
     }
   ];
-  // TODO: Get server side filtering and client side filtering to work together or replace one.
 
   return (
     <Box>
