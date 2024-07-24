@@ -32,6 +32,7 @@ export const Domains: React.FC = () => {
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(showAllOrganizations);
   const history = useHistory();
+  const [filters, setFilters] = useState<Query<Domain>['filters']>([]);
 
   const fetchDomains = useCallback(
     async (q: Query<Domain>) => {
@@ -44,7 +45,8 @@ export const Domains: React.FC = () => {
           ...prevState,
           page: q.page - 1,
           pageSize: q.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (q.pageSize ?? PAGE_SIZE))
+          pageCount: Math.ceil(count / (q.pageSize ?? PAGE_SIZE)),
+          filters: q.filters
         }));
       } catch (e) {
         console.error(e);
@@ -62,13 +64,12 @@ export const Domains: React.FC = () => {
     });
   }, [fetchDomains]);
 
-  //Code for new table//
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: PAGE_SIZE,
     pageCount: 0,
     sort: [],
-    filters: []
+    filters: filters
   });
 
   useEffect(() => {
@@ -186,14 +187,16 @@ export const Domains: React.FC = () => {
               }}
               filterMode="server"
               onFilterModelChange={(model) => {
+                const filters = model.items.map((item) => ({
+                  id: item.field,
+                  value: item.value
+                }));
+                setFilters(filters);
                 fetchDomains({
-                  page: 1,
+                  page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
                   sort: paginationModel.sort,
-                  filters: model.items.map((item) => ({
-                    id: item.field,
-                    value: item.value
-                  }))
+                  filters: filters
                 });
               }}
               pageSizeOptions={[15, 30, 50, 100]}

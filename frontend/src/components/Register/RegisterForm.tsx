@@ -149,7 +149,9 @@ export const RegisterForm: React.FC<{
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle id="form-dialog-title">Register with Crossfeed</DialogTitle>
+      <DialogTitle id="form-dialog-title">
+        Register with CyHy Dashboard
+      </DialogTitle>
       <DialogContent>
         {errorRequestMessage && (
           <p className="text-error">{errorRequestMessage}</p>

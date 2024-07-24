@@ -3,10 +3,10 @@
 exports[`matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="SearchBar-wrapper css-yro7sz"
+    class="SearchBar-wrapper css-1ysk2k2"
   >
     <div
-      class="SearchBar-inner"
+      class="SearchBar-inner MuiBox-root css-0"
     >
       <svg
         aria-hidden="true"

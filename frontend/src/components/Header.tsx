@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
+import { NavLink, Link, useHistory } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -10,20 +10,15 @@ import {
   List,
   TextField
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  AccountCircle as UserIcon,
-  ArrowDropDown
-} from '@mui/icons-material';
+import { Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
-import logo from '../assets/crossfeed.svg';
-import { withSearch } from '@elastic/react-search-ui';
-import { ContextType } from 'context/SearchProvider';
-import { SearchBar } from 'components';
+import logo from '../assets/cyhydashboard.svg';
+import cisaLogo from '../assets/cisaSeal.svg';
 import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
+import { UserMenu } from './UserMenu';
 
 const PREFIX = 'Header';
 
@@ -31,6 +26,7 @@ const classes = {
   inner: `${PREFIX}-inner`,
   menuButton: `${PREFIX}-menuButton`,
   logo: `${PREFIX}-logo`,
+  cisaLogo: `${PREFIX}-1cisaLogo`,
   spacing: `${PREFIX}-spacing`,
   activeMobileLink: `${PREFIX}-activeMobileLink`,
   link: `${PREFIX}-link`,
@@ -52,10 +48,13 @@ const Root = styled('div')(({ theme }) => ({
     marginLeft: theme.spacing(2),
     display: 'flex'
   },
-
+  [`.${classes.cisaLogo}`]: {
+    height: 40,
+    marginRight: theme.spacing(1)
+  },
   [`.${classes.logo}`]: {
-    width: 150,
-    minWidth: 150,
+    width: 175,
+    minWidth: 175,
     padding: theme.spacing(),
     paddingLeft: 0,
     [theme.breakpoints.down('xl')]: {
@@ -150,16 +149,20 @@ interface NavItemType {
   title: string | JSX.Element;
   path: string;
   users?: number;
-  nested?: NavItemType[];
   onClick?: any;
   exact: boolean;
 }
 
-const HeaderNoCtx: React.FC<ContextType> = (props) => {
-  const { searchTerm, setSearchTerm } = props;
+interface MenuItemType {
+  title: string;
+  path: string;
+  users?: number;
+  onClick?: any;
+  exact: boolean;
+}
 
+export const Header: React.FC = () => {
   const history = useHistory();
-  const location = useLocation();
   const {
     currentOrganization,
     setOrganization,
@@ -232,54 +235,45 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     }
   ].filter(({ users }) => users <= userLevel);
 
-  const userMenu: NavItemType = {
-    title: (
-      <div className={classes.userLink}>
-        <UserIcon /> My Account <ArrowDropDown />
-      </div>
-    ),
-    path: '#',
-    exact: false,
-    nested: [
-      {
-        title: 'Admin Tools',
-        path: '/admin-tools',
-        users: GLOBAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'User Registration',
-        path: '/region-admin-dashboard',
-        users: REGIONAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'Manage Organizations',
-        path: '/organizations',
-        users: REGIONAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'Manage Users',
-        path: '/users',
-        users: GLOBAL_ADMIN,
-        exact: true
-      },
-      {
-        title: 'My Settings',
-        path: '/settings',
-        users: STANDARD_USER,
-        exact: true
-      },
-      {
-        title: 'Logout',
-        path: '/settings',
-        users: STANDARD_USER,
-        onClick: logout,
-        exact: true
-      }
-    ].filter(({ users }) => users <= userLevel)
-  };
+  const userMenuItems: MenuItemType[] = [
+    {
+      title: 'Admin Tools',
+      path: '/admin-tools',
+      users: GLOBAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'User Registration',
+      path: '/region-admin-dashboard',
+      users: REGIONAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'Manage Organizations',
+      path: '/organizations',
+      users: REGIONAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'Manage Users',
+      path: '/users',
+      users: GLOBAL_ADMIN,
+      exact: true
+    },
+    {
+      title: 'My Settings',
+      path: '/settings',
+      users: STANDARD_USER,
+      exact: true
+    },
+    {
+      title: 'Logout',
+      path: '/settings',
+      users: STANDARD_USER,
+      onClick: logout,
+      exact: true
+    }
+  ];
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -299,13 +293,13 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     window.addEventListener('resize', handleResize);
   });
 
-  if (isMobile && userMenu.nested) {
-    userMenu.nested.forEach((item) => {
+  if (isMobile && userMenuItems) {
+    userMenuItems.forEach((item) => {
       if (item.title !== 'Logout') {
         item.onClick = toggleDrawer(false);
       }
     });
-    drawerItems = [...navItems, ...userMenu.nested];
+    drawerItems = [...navItems, ...userMenuItems];
   }
 
   const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
@@ -325,11 +319,16 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
+            <img
+              src={cisaLogo}
+              className={classes.cisaLogo}
+              alt="Cybersecurity and Infrastructure Security Agency Logo"
+            />
             <Link to="/">
               <img
                 src={logo}
                 className={classes.logo}
-                alt="Crossfeed Icon Navigate Home"
+                alt="CyHy Dashboard Icon Navigate Home"
               />
             </Link>
             {!isMobile && (
@@ -338,18 +337,6 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
             <div className={classes.spacing} />
             {userLevel > 0 && (
               <>
-                <SearchBar
-                  initialValue={searchTerm}
-                  value={searchTerm}
-                  onChange={(value) => {
-                    if (location.pathname !== '/inventory')
-                      history.push('/inventory?q=' + value);
-                    setSearchTerm(value, {
-                      shouldClearFilters: false,
-                      autocompleteResults: false
-                    });
-                  }}
-                />
                 {organizations.length > 1 && (
                   <Autocomplete
                     isOptionEqualToValue={(option, value) =>
@@ -431,7 +418,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                     )}
                   />
                 )}
-                {!isMobile && <NavItem {...userMenu} />}
+                {!isMobile && <UserMenu userMenuItems={userMenuItems} />}
               </>
             )}
             {user && isMobile && (
@@ -461,21 +448,21 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
         }}
       >
         <List className={classes.mobileNav}>
-          {drawerItems.map(({ title, path, nested, onClick }) => (
+          {drawerItems.map(({ title, path }) => (
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem
-                  button
+                  // button
                   exact
                   component={NavLink}
                   to={path}
                   activeClassName={classes.activeMobileLink}
-                  onClick={onClick ? onClick : undefined}
+                  // onClick={onClick ? onClick : undefined}
                 >
                   {title}
                 </ListItem>
               )}
-              {nested?.map((nested) => (
+              {/* {nested?.map((nested) => (
                 <ListItem
                   button
                   exact
@@ -487,7 +474,7 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
                 >
                   {nested.title}
                 </ListItem>
-              ))}
+              ))} */}
             </React.Fragment>
           ))}
         </List>
@@ -495,10 +482,3 @@ const HeaderNoCtx: React.FC<ContextType> = (props) => {
     </Root>
   );
 };
-
-export const Header = withSearch(
-  ({ searchTerm, setSearchTerm }: ContextType) => ({
-    searchTerm,
-    setSearchTerm
-  })
-)(HeaderNoCtx);

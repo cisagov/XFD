@@ -32,7 +32,11 @@ provider:
       - Effect: Allow
         Principal: '*'
         Action: execute-api:Invoke
-        Resource: 'execute-api:/${self:provider.stage}/*/*'
+        Resource: execute-api:/${self:provider.stage}/*/*
+        Condition:
+          IpAddress:
+            aws:SourceIp:
+              - ${file(env.yml):${self:provider.stage}.DMZ_CIDR, ''}
   logs:
     restApi: true
   deploymentBucket:

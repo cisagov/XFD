@@ -240,6 +240,7 @@ app.post('/auth/okta-callback', async (req, res) => {
           await user.save();
         } else {
           user.oktaId = oktaId;
+          user.lastLoggedIn = new Date(Date.now());
           await user.save();
         }
 

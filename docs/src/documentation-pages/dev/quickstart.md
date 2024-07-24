@@ -55,21 +55,27 @@ This quickstart describes the initial setup required to run an instance of Cross
       cp dev.env.example .env
    ```
 
-3. Generate the P&E DB Schema
+3. Start application:
+
+   ```bash
+      npm start
+   ```
+
+4. Generate the P&E DB Schema:
 
    ```bash
    cd backend
    npm run pesyncdb
    ```
 
-4. Invoke scans by running below. You can edit the backend/src/tools/run-scanExecution.ts to run the desired scan type."
+5. Invoke scans by running below. You can edit the backend/src/tools/run-scanExecution.ts to run the desired scan type."
 
    ```bash
    cd backend
    npm run scan-exec
    ```
 
-5. Observe logs in docker containers.
+6. Observe logs in docker containers.
 
 ### Running tests
 
