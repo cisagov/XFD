@@ -1,35 +1,10 @@
-import oldClasses from './Organizations.module.scss';
-import { styled } from '@mui/material/styles';
 import React, { useCallback, useState } from 'react';
 import { ImportExport } from 'components';
 import { Organization } from 'types';
 import { useAuthContext } from 'context';
 import { OrganizationList } from 'components/OrganizationList';
 import { Typography } from '@mui/material';
-
-const PREFIX = 'Organizations';
-
-const classes = {
-  header: `${PREFIX}-header`,
-  headerLabel: `${PREFIX}-headerLabel`
-};
-
-const Root = styled('div')(({ theme }) => ({
-  [`& .${classes.header}`]: {
-    background: '#F9F9F9'
-  },
-
-  [`& .${classes.headerLabel}`]: {
-    margin: 0,
-    paddingTop: '1.5rem',
-    paddingBottom: '1rem',
-    marginLeft: '15%',
-    fontWeight: 500,
-    fontStyle: 'normal',
-    fontSize: '24px',
-    color: '#07648D'
-  }
-}));
+import { Box, Stack } from '@mui/system';
 
 export const Organizations: React.FC = () => {
   const { user, apiGet, apiPost } = useAuthContext();
@@ -49,8 +24,8 @@ export const Organizations: React.FC = () => {
   }, [apiGet, fetchOrganizations]);
 
   return (
-    <Root>
-      <div className={oldClasses.root}>
+    <Box mb={3} mt={3} display="flex" justifyContent="center">
+      <Stack spacing={2} sx={{ width: '75%' }}>
         <Typography
           fontSize={34}
           fontWeight="medium"
@@ -114,9 +89,8 @@ export const Organizations: React.FC = () => {
             />
           </>
         )}
-      </div>
-      <br />
-    </Root>
+      </Stack>
+    </Box>
   );
 };
 
