@@ -440,6 +440,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   ];
   // TODO: Get server side filtering and client side filtering to work together or replace one.
 
+  const areVulnsLoaded = () => vulnerabilities.length > 0;
+
+  setTimeout(() => {
+    areVulnsLoaded();
+  }, 2000);
+
   return (
     <Root>
       <div className={classesVulns.contentWrapper}>
@@ -464,7 +470,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           </Box>
         )}
         <Box mb={3} mt={3} display="flex" justifyContent="center">
-          {vulnerabilities?.length === 0 ? (
+          {!areVulnsLoaded ? (
             <Stack spacing={2}>
               <Paper elevation={2}>
                 <Alert severity="warning">
