@@ -24,10 +24,6 @@ export const getTouVersion = (maxRole: string) => {
 };
 
 export const getUserMustSign = (user: AuthUser | null, touVersion: string) => {
-  // const approvedEmailAddresses = ['@cisa.dhs.gov', '@associates.cisa.dhs.gov'];
-  // for (const email of approvedEmailAddresses) {
-  //   if (user?.email.endsWith(email)) return false;
-  // }
   return Boolean(
     !user?.dateAcceptedTerms ||
       (user.acceptedTermsVersion && user.acceptedTermsVersion !== touVersion)
