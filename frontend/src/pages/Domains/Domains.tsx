@@ -33,9 +33,12 @@ export const Domains: React.FC = () => {
   const { listDomains } = useDomainApi(showAllOrganizations);
   const history = useHistory();
   const [filters, setFilters] = useState<Query<Domain>['filters']>([]);
+  const [loadingError, setLoadingError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchDomains = useCallback(
     async (q: Query<Domain>) => {
+      setIsLoading(true);
       try {
         const { domains, count } = await listDomains(q);
         if (domains.length === 0) return;
@@ -50,6 +53,9 @@ export const Domains: React.FC = () => {
         }));
       } catch (e) {
         console.error(e);
+        setLoadingError(true);
+      } finally {
+        setIsLoading(false);
       }
     },
     [listDomains]
@@ -154,10 +160,14 @@ export const Domains: React.FC = () => {
       ></Subnav>
       <br></br>
       <Box mb={3} mt={3} display="flex" justifyContent="center">
-        {domains?.length === 0 ? (
+        {isLoading ? (
+          <Paper elevation={2}>
+            <Alert severity="info">Loading Domains...</Alert>
+          </Paper>
+        ) : !isLoading && loadingError ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning"> Unable to load domains.</Alert>
+              <Alert severity="warning"> Error Loading Domains!!</Alert>
             </Paper>
             <Button
               onClick={resetDomains}
@@ -168,7 +178,7 @@ export const Domains: React.FC = () => {
               Retry
             </Button>
           </Stack>
-        ) : (
+        ) : !isLoading && !loadingError ? (
           <Paper elevation={2} sx={{ width: '90%' }}>
             <DataGrid
               rows={domRows}
@@ -202,7 +212,7 @@ export const Domains: React.FC = () => {
               pageSizeOptions={[15, 30, 50, 100]}
             />
           </Paper>
-        )}
+        ) : null}
       </Box>
     </div>
   );

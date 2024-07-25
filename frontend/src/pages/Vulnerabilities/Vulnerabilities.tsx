@@ -161,6 +161,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
 
   const fetchVulnerabilities = useCallback(
     async (query: Query<Vulnerability>) => {
+      //isLoading here
       try {
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
@@ -183,7 +184,10 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         }));
       } catch (e) {
         console.error(e);
+        //errorLoading here
       }
+      // finally {
+      //   setIsLoading(false); here
     },
     [vulnerabilitiesSearch, groupBy]
   );
