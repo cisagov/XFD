@@ -17,6 +17,7 @@ from mangum import Mangum
 from starlette.middleware.cors import CORSMiddleware
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Import views after Django setup
