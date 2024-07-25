@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import { Chip } from '@mui/material';
+import { Chip, Tooltip } from '@mui/material';
 import { Point, VulnSeverities } from './Risk';
 import { useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
@@ -72,33 +72,42 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
   const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
     const reversedBars = [...bars].reverse();
     return reversedBars.map((bar) => (
-      <g key={bar.key}>
-        <rect
-          role="button"
-          key={bar.key}
-          x={bar.x}
-          y={bar.y}
-          width={bar.width}
-          height={bar.height}
-          fill={bar.color}
-          tabIndex={0}
-          aria-label={` ${bar.data.value} ${bar.data.id}${' '}
+      <Tooltip
+        arrow
+        title={
+          <span>
+            {' '}
+            {bar.data.value} {bar.data.id}{' '}
+            {bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'} in Domain:{' '}
+            {bar.data.indexValue}{' '}
+          </span>
+        }
+        key={bar.key}
+        placement="right"
+      >
+        <g key={bar.key}>
+          <rect
+            role="button"
+            key={bar.key}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            fill={bar.color}
+            tabIndex={0}
+            aria-label={` ${bar.data.value} ${bar.data.id}${' '}
           ${
             bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'
           } in domain${' '}
           ${bar.data.indexValue}`}
-          onClick={() => {
-            history.push(
-              `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
-            );
-          }}
-        />
-        <title>
-          {bar.data.value} {bar.data.id}{' '}
-          {bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'} in domain{' '}
-          {bar.data.indexValue}
-        </title>
-      </g>
+            onClick={() => {
+              history.push(
+                `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
+              );
+            }}
+          />
+        </g>
+      </Tooltip>
     ));
   };
   // create the total vuln labels for each domain
