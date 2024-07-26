@@ -4,35 +4,46 @@ import { Point } from './Risk';
 import { useHistory } from 'react-router-dom';
 import { getSingleColor } from './utils';
 import * as RiskStyles from './style';
-import { Paper } from '@mui/material';
+import { Paper, Tooltip } from '@mui/material';
 
 const TopVulnerablePorts = (props: { data: Point[] }) => {
   const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
     const reversedBars = [...bars].reverse();
     return reversedBars.map((bar) => (
-      <g key={bar.key}>
-        <rect
-          role="button"
-          key={bar.key}
-          x={bar.x}
-          y={bar.y}
-          width={bar.width}
-          height={bar.height}
-          fill={bar.color}
-          tabIndex={0}
-          aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
-          onClick={(e) => {
-            console.log('clicked label value: ', bar);
-            history.push(
-              `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
-            );
-            window.location.reload();
-          }}
-        />
-        <title>
-          Port - {bar.data.indexValue}: {bar.data.value}
-        </title>
-      </g>
+      <Tooltip
+        title={
+          <span>
+            Port - {bar.data.indexValue}: {bar.data.value}
+          </span>
+        }
+        placement="right"
+        arrow
+        key={bar.key}
+      >
+        <g key={bar.key}>
+          <rect
+            role="button"
+            key={bar.key}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            fill={bar.color}
+            tabIndex={0}
+            aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
+            onClick={() => {
+              console.log('clicked label value: ', bar);
+              history.push(
+                `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
+              );
+              window.location.reload();
+            }}
+          />
+          <title>
+            Port - {bar.data.indexValue}: {bar.data.value}
+          </title>
+        </g>
+      </Tooltip>
     ));
   };
   const history = useHistory();
