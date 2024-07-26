@@ -67,9 +67,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     useAuthContext();
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
+  const [loadingError, setLoadingError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
+      setIsLoading(true);
       try {
         const res = await apiPut<Vulnerability>(
           '/vulnerabilities/' + vulnerabilities[index].id,
@@ -161,7 +164,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
 
   const fetchVulnerabilities = useCallback(
     async (query: Query<Vulnerability>) => {
-      //isLoading here
+      setIsLoading(true);
       try {
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
@@ -184,10 +187,10 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         }));
       } catch (e) {
         console.error(e);
-        //errorLoading here
+        setLoadingError(true);
+      } finally {
+        setIsLoading(false);
       }
-      // finally {
-      //   setIsLoading(false); here
     },
     [vulnerabilitiesSearch, groupBy]
   );
@@ -474,13 +477,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           </Box>
         )}
         <Box mb={3} mt={3} display="flex" justifyContent="center">
-          {!areVulnsLoaded ? (
+          {isLoading ? (
+            <Paper elevation={2}>
+              <Alert severity="info">Loading Vulnerabilities...</Alert>
+            </Paper>
+          ) : !isLoading && loadingError ? (
             <Stack spacing={2}>
               <Paper elevation={2}>
-                <Alert severity="warning">
-                  {' '}
-                  Unable to load vulnerabilities.
-                </Alert>
+                <Alert severity="warning">Error Loading Vulnerabilities.</Alert>
               </Paper>
               <Stack direction="row" spacing={2} justifyContent="end">
                 <Button
@@ -493,7 +497,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 </Button>
               </Stack>
             </Stack>
-          ) : (
+          ) : !isLoading && loadingError ? (
             <Paper elevation={2} sx={{ width: '90%' }}>
               <DataGrid
                 rows={vulRows}
@@ -527,7 +531,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 pageSizeOptions={[15, 30, 50, 100]}
               />
             </Paper>
-          )}
+          ) : null}
         </Box>
       </div>
     </Root>
