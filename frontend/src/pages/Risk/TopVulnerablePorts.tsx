@@ -13,7 +13,8 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
       <Tooltip
         title={
           <span>
-            Port - {bar.data.indexValue}: {bar.data.value}
+            {bar.data.value} domains with vulnerabilities on port{' '}
+            {bar.data.indexValue}
           </span>
         }
         placement="right"
@@ -39,9 +40,6 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
               window.location.reload();
             }}
           />
-          <title>
-            Port - {bar.data.indexValue}: {bar.data.value}
-          </title>
         </g>
       </Tooltip>
     ));
