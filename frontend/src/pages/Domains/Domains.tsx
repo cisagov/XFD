@@ -164,7 +164,7 @@ export const Domains: React.FC = () => {
           <Paper elevation={2}>
             <Alert severity="info">Loading Domains...</Alert>
           </Paper>
-        ) : !isLoading && loadingError ? (
+        ) : isLoading === false && loadingError === true ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning"> Error Loading Domains!!</Alert>
@@ -178,7 +178,7 @@ export const Domains: React.FC = () => {
               Retry
             </Button>
           </Stack>
-        ) : !isLoading && !loadingError ? (
+        ) : isLoading === false && loadingError === false ? (
           <Paper elevation={2} sx={{ width: '90%' }}>
             <DataGrid
               rows={domRows}
