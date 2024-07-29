@@ -110,7 +110,6 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
       </Tooltip>
     ));
   };
-  // create the total vuln labels for each domain
   return (
     <div className={cardBig}>
       <div className={seeAll}>
@@ -196,15 +195,11 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
               ariaLabel={
                 'Top Vulnerable Domains - y-axis: Domain Name, x-axis: Count of Open Vulnerabilities'
               }
-              barAriaLabel={(d) =>
-                `Domain - ${d.indexValue}: ${d.id} - ${d.value}`
-              }
               enableGridX={true}
               enableGridY={false}
               enableLabel={false}
               isFocusable={true}
               layout={'horizontal'}
-              // reverse={true}
               motionDamping={15}
               {...({ motionStiffness: 90 } as any)}
             />
