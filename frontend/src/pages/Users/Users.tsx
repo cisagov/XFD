@@ -176,6 +176,7 @@ export const Users: React.FC = () => {
   const userCols: GridColDef[] = [
     { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 100, flex: 1.75 },
+    { field: 'regionId', headerName: 'Region', minWidth: 100, flex: 0.5 },
     {
       field: 'orgs',
       headerName: 'Organizations',
