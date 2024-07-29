@@ -605,7 +605,7 @@ export const Users: React.FC = () => {
         <Paper elevation={2}>
           <Alert severity="info">Loading Users...</Alert>
         </Paper>
-      ) : !isLoading && loadingError ? (
+      ) : isLoading === false && loadingError === true ? (
         <Stack spacing={2}>
           <Paper elevation={2}>
             <Alert severity="warning">Error Loading Users.</Alert>
@@ -621,7 +621,7 @@ export const Users: React.FC = () => {
             </Button>
           </Stack>
         </Stack>
-      ) : !isLoading && !loadingError ? (
+      ) : isLoading === false && loadingError === false ? (
         <>
           <Typography
             fontSize={34}
