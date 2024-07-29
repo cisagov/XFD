@@ -28,13 +28,15 @@ import {
   DialogTitle,
   Grid,
   Link as MuiLink,
+  IconButton,
   Paper,
   Switch as SwitchInput,
   Tab,
   TextField,
   Typography
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
+import { DataGrid, GridRenderCellParams } from '@mui/x-data-grid';
+import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { ChevronRight, ControlPoint } from '@mui/icons-material';
 import { Autocomplete } from '@mui/material';
@@ -90,7 +92,7 @@ export const Organization: React.FC = () => {
 
   const organizationClasses = OrganizationStyles.organizationClasses;
   const Root = OrganizationStyles.OrganizationRoot;
-  console.log(userRoles);
+
   const userRoleColumns = [
     {
       headerName: 'Name',
@@ -121,10 +123,28 @@ export const Organization: React.FC = () => {
       flex: 1
     },
     {
-      headerName: '',
-      field: 'delete',
-      flex: 0.5
-      // TODO: Add x icon
+      headerName: 'Remove',
+      field: 'remove',
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        const descriptionId = `description-${cellValues.row.id}`;
+        const description = `Remove ${cellValues.row.user?.fullName} from ${organization?.name}`;
+        return (
+          <>
+            <span id={descriptionId} style={{ display: 'none' }}>
+              {description}
+            </span>
+            <IconButton
+              color="error"
+              aria-label={description}
+              aria-describedby={descriptionId}
+              onClick={() => removeUser(cellValues.row.user.id)}
+            >
+              <RemoveCircleOutlineIcon />
+            </IconButton>
+          </>
+        );
+      }
     }
   ];
 
@@ -284,17 +304,19 @@ export const Organization: React.FC = () => {
       console.error(e);
     }
   };
-
-  const removeUser = async (user: number) => {
+  console.log(userRoles);
+  const removeUser = async (userId: String) => {
     try {
+      const userRole = userRoles.find((role) => role.user.id === userId);
       await apiPost(
-        `/organizations/${organization?.id}/roles/${userRoles[user].id}/remove`,
+        `/organizations/${organization?.id}/roles/${userRole?.id}/remove`,
         { body: {} }
       );
-      const copy = userRoles.filter((_, ind) => ind !== user);
-      setUserRoles(copy);
+      setUserRoles(userRoles.filter((row) => row.id !== userRole?.id));
+      console.log('The user was successfully removed from the organization.');
     } catch (e) {
       console.error(e);
+      console.log(e);
     }
   };
 
@@ -898,7 +920,7 @@ export const Organization: React.FC = () => {
           </Typography>
         </Breadcrumbs>
       </Grid>
-      <Grid xs={12} md={2} xl={3} />
+      <Grid item xs={12} md={2} xl={3} />
       <Grid item xs={12} md={8} xl={6}>
         <TabContext value={tabValue}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -911,7 +933,7 @@ export const Organization: React.FC = () => {
           <TabPanel value="2">{views[1]}</TabPanel>
         </TabContext>
       </Grid>
-      <Grid xs={12} md={2} xl={3} />
+      <Grid item xs={12} md={2} xl={3} />
     </Grid>
   );
 };
