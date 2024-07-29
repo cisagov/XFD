@@ -6,7 +6,6 @@ import {
   Organization as OrganizationType,
   Role,
   ScanTask,
-  User,
   Scan,
   ScanSchema,
   OrganizationTag,
@@ -38,7 +37,7 @@ import {
 import { DataGrid, GridRenderCellParams } from '@mui/x-data-grid';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { ChevronRight, ControlPoint } from '@mui/icons-material';
+import { ChevronRight } from '@mui/icons-material';
 import { Autocomplete } from '@mui/material';
 import { createFilterOptions } from '@mui/material/useAutocomplete';
 import { OrganizationList } from 'components/OrganizationList';
@@ -58,18 +57,6 @@ export const Organization: React.FC = () => {
   const [scanTasks, setScanTasks] = useState<ScanTask[]>([]);
   const [scans, setScans] = useState<Scan[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
-  const [newUserValues, setNewUserValues] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    organization?: OrganizationType;
-    role: string;
-  }>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    role: ''
-  });
   const [tabValue, setTabValue] = React.useState('1');
   const [tagValue, setTagValue] = React.useState<AutocompleteType | null>(null);
   const [inputValue, setInputValue] = React.useState('');
@@ -80,7 +67,6 @@ export const Organization: React.FC = () => {
     stage?: number;
     domainVerificationStatusMessage?: string;
   }>({ open: false });
-  const [openMemberDialog, setOpenMemberDialog] = React.useState(false);
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     setTabValue(newValue);
   };
@@ -91,7 +77,6 @@ export const Organization: React.FC = () => {
   };
 
   const organizationClasses = OrganizationStyles.organizationClasses;
-  const Root = OrganizationStyles.OrganizationRoot;
 
   const userRoleColumns = [
     {
@@ -290,21 +275,6 @@ export const Organization: React.FC = () => {
     }
   }, [apiGet, user]);
 
-  const approveUser = async (user: number) => {
-    try {
-      await apiPost(
-        `/organizations/${organization?.id}/roles/${organization?.userRoles[user].id}/approve`,
-        { body: {} }
-      );
-      const copy = userRoles.map((role, id) =>
-        id === user ? { ...role, approved: true } : role
-      );
-      setUserRoles(copy);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-  console.log(userRoles);
   const removeUser = async (userId: String) => {
     try {
       const userRole = userRoles.find((role) => role.user.id === userId);
@@ -433,47 +403,6 @@ export const Organization: React.FC = () => {
     fetchOrganization();
   }, [fetchOrganization]);
 
-  const onInviteUserSubmit = async () => {
-    try {
-      const body = {
-        firstName: newUserValues.firstName,
-        lastName: newUserValues.lastName,
-        email: newUserValues.email,
-        organization: organization?.id,
-        organizationAdmin: newUserValues.role === 'admin'
-      };
-      const user: User = await apiPost('/users/', {
-        body
-      });
-      const newRole = user.roles[user.roles.length - 1];
-      newRole.user = user;
-      if (userRoles.find((role) => role.user.id === user.id)) {
-        setUserRoles(
-          userRoles.map((role) => (role.user.id === user.id ? newRole : role))
-        );
-      } else {
-        setUserRoles(userRoles.concat([newRole]));
-      }
-    } catch (e: any) {
-      setFeedbackMessage({
-        message:
-          e.status === 422 ? 'Error inviting user' : e.message ?? e.toString(),
-        type: 'error'
-      });
-      console.log(e);
-    }
-  };
-
-  const onInviteUserTextChange: React.ChangeEventHandler<
-    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  > = (e) => onInviteUserChange(e.target.name, e.target.value);
-
-  const onInviteUserChange = (name: string, value: any) => {
-    setNewUserValues((values) => ({
-      ...values,
-      [name]: value
-    }));
-  };
   const filter = createFilterOptions<AutocompleteType>();
 
   const ListInput = (props: {
@@ -795,103 +724,6 @@ export const Organization: React.FC = () => {
           slots={{ toolbar: CustomToolbar }}
         />
       </Paper>
-      {/* <Table<Role> columns={userRoleColumns} data={userRoles} />
-      <Dialog
-        open={openMemberDialog}
-        onClose={() => setOpenMemberDialog(false)}
-        aria-labelledby="form-dialog-title"
-        maxWidth="xs"
-        fullWidth
-      >
-        <DialogTitle id="form-dialog-title">Add Member</DialogTitle>
-        <DialogContent>
-          <p style={{ color: '#3D4551' }}>
-            Organization members can view Organization-specific vulnerabilities,
-            domains, and notes. Organization administrators can additionally
-            manage members and update the organization.
-          </p>
-          <TextField
-            margin="dense"
-            id="firstName"
-            name="firstName"
-            inputProps={{ maxLength: 50 }}
-            label="First Name"
-            type="text"
-            fullWidth
-            value={newUserValues.firstName}
-            onChange={onInviteUserTextChange}
-            variant="filled"
-            InputProps={{
-              className: organizationClasses.textField
-            }}
-          />
-          <TextField
-            margin="dense"
-            id="lastName"
-            name="lastName"
-            label="Last Name"
-            inputProps={{ maxLength: 50 }}
-            type="text"
-            fullWidth
-            value={newUserValues.lastName}
-            onChange={onInviteUserTextChange}
-            variant="filled"
-            InputProps={{
-              className: organizationClasses.textField
-            }}
-          />
-          <TextField
-            margin="dense"
-            id="email"
-            name="email"
-            label="Email"
-            inputProps={{ maxLength: 100 }}
-            type="text"
-            fullWidth
-            value={newUserValues.email}
-            onChange={onInviteUserTextChange}
-            variant="filled"
-            InputProps={{
-              className: organizationClasses.textField
-            }}
-          />
-          <br></br>
-          <br></br>
-          <FormLabel component="legend">Role</FormLabel>
-          <RadioGroup
-            aria-label="role"
-            name="role"
-            value={newUserValues.role}
-            onChange={onInviteUserTextChange}
-          >
-            <FormControlLabel
-              value="standard"
-              control={<Radio color="primary" />}
-              label="Standard"
-            />
-            <FormControlLabel
-              value="admin"
-              control={<Radio color="primary" />}
-              label="Administrator"
-            />
-          </RadioGroup>
-        </DialogContent>
-        <DialogActions>
-          <Button variant="outlined" onClick={() => setOpenMemberDialog(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={async () => {
-              onInviteUserSubmit();
-              setOpenMemberDialog(false);
-            }}
-          >
-            Add
-          </Button>
-        </DialogActions>
-      </Dialog> */}
     </React.Fragment>,
     <React.Fragment key={2}>
       <OrganizationList parent={organization}></OrganizationList>
