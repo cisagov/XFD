@@ -27,21 +27,18 @@ import {
   DialogTitle,
   Grid,
   Link as MuiLink,
-  IconButton,
   Paper,
   Switch as SwitchInput,
   Tab,
   TextField,
   Typography
 } from '@mui/material';
-import { DataGrid, GridRenderCellParams } from '@mui/x-data-grid';
-import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { ChevronRight } from '@mui/icons-material';
 import { Autocomplete } from '@mui/material';
 import { createFilterOptions } from '@mui/material/useAutocomplete';
 import { OrganizationList } from 'components/OrganizationList';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import OrgMembers from './OrgMembers';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -77,61 +74,6 @@ export const Organization: React.FC = () => {
   };
 
   const organizationClasses = OrganizationStyles.organizationClasses;
-
-  const userRoleColumns = [
-    {
-      headerName: 'Name',
-      field: 'fullName',
-      valueGetter: (params: any) => params.row?.user?.fullName,
-      flex: 1
-    },
-    {
-      headerName: 'Email',
-      field: 'email',
-      valueGetter: (params: any) => params.row?.user?.email,
-      flex: 1.5
-    },
-    {
-      headerName: 'Role',
-      field: 'role',
-      valueGetter: (params: any) => {
-        if (params.row?.approved) {
-          if (params.row?.user?.invitePending) {
-            return 'Invite pending';
-          } else if (params.row?.role === 'admin') {
-            return 'Administrator';
-          } else {
-            return 'Member';
-          }
-        }
-      },
-      flex: 1
-    },
-    {
-      headerName: 'Remove',
-      field: 'remove',
-      flex: 0.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        const descriptionId = `description-${cellValues.row.id}`;
-        const description = `Remove ${cellValues.row.user?.fullName} from ${organization?.name}`;
-        return (
-          <>
-            <span id={descriptionId} style={{ display: 'none' }}>
-              {description}
-            </span>
-            <IconButton
-              color="error"
-              aria-label={description}
-              aria-describedby={descriptionId}
-              onClick={() => removeUser(cellValues.row.user.id)}
-            >
-              <RemoveCircleOutlineIcon />
-            </IconButton>
-          </>
-        );
-      }
-    }
-  ];
 
   const scanColumns: Column<Scan>[] = [
     {
@@ -274,21 +216,6 @@ export const Organization: React.FC = () => {
       console.error(e);
     }
   }, [apiGet, user]);
-
-  const removeUser = async (userId: String) => {
-    try {
-      const userRole = userRoles.find((role) => role.user.id === userId);
-      await apiPost(
-        `/organizations/${organization?.id}/roles/${userRole?.id}/remove`,
-        { body: {} }
-      );
-      setUserRoles(userRoles.filter((row) => row.id !== userRole?.id));
-      console.log('The user was successfully removed from the organization.');
-    } catch (e) {
-      console.error(e);
-      console.log(e);
-    }
-  };
 
   const updateOrganization = async (body: any) => {
     try {
@@ -717,13 +644,11 @@ export const Organization: React.FC = () => {
       </Grid>
     </Paper>,
     <React.Fragment key={1}>
-      <Paper elevation={0}>
-        <DataGrid
-          rows={userRoles}
-          columns={userRoleColumns}
-          slots={{ toolbar: CustomToolbar }}
-        />
-      </Paper>
+      <OrgMembers
+        organization={organization}
+        userRoles={userRoles}
+        setUserRoles={setUserRoles}
+      />
     </React.Fragment>,
     <React.Fragment key={2}>
       <OrganizationList parent={organization}></OrganizationList>
