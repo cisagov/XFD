@@ -198,4 +198,3 @@ plugins:
   - serverless-webpack
   - serverless-dotenv-plugin
   - serverless-plugin-ifelse
-  - serverless-python-requirements
