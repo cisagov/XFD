@@ -27,7 +27,7 @@ import { ImportExport } from 'components';
 import { initializeUser, Organization, User } from 'types';
 import { useAuthContext } from 'context';
 import { STATE_OPTIONS } from '../../constants/constants';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 
 type ErrorStates = {
   getUsersError: string;
@@ -104,10 +104,10 @@ export const Users: React.FC = () => {
       const rows = await apiGet<UserType[]>(`/users/`);
       rows.forEach((row) => {
         row.lastLoggedInString = row.lastLoggedIn
-          ? `${formatDistanceToNow(parseISO(row.lastLoggedIn))} ago`
+          ? format(parseISO(row.lastLoggedIn), "MM-dd-yyyy 'at' hh:mm a")
           : 'None';
         row.dateToUSigned = row.dateAcceptedTerms
-          ? `${formatDistanceToNow(parseISO(row.dateAcceptedTerms))} ago`
+          ? format(parseISO(row.dateAcceptedTerms), "MM-dd-yyyy 'at' hh:mm a")
           : 'None';
         row.orgs = row.roles
           ? row.roles
@@ -199,7 +199,7 @@ export const Users: React.FC = () => {
       field: 'lastLoggedInString',
       headerName: 'Last Logged In',
       minWidth: 100,
-      flex: 0.75
+      flex: 1
     },
     {
       field: 'edit',
