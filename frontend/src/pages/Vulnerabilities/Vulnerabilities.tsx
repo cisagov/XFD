@@ -481,7 +481,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             <Paper elevation={2}>
               <Alert severity="info">Loading Vulnerabilities...</Alert>
             </Paper>
-          ) : !isLoading && loadingError ? (
+          ) : isLoading === false && loadingError === true ? (
             <Stack spacing={2}>
               <Paper elevation={2}>
                 <Alert severity="warning">Error Loading Vulnerabilities.</Alert>
@@ -497,7 +497,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 </Button>
               </Stack>
             </Stack>
-          ) : !isLoading && loadingError ? (
+          ) : isLoading === false && loadingError === false ? (
             <Paper elevation={2} sx={{ width: '90%' }}>
               <DataGrid
                 rows={vulRows}
