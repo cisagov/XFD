@@ -273,6 +273,7 @@ app.post('/auth/okta-callback', async (req, res) => {
           await user.save();
         } else {
           user.oktaId = oktaId;
+          user.lastLoggedIn = new Date(Date.now());
           await user.save();
         }
 
@@ -503,6 +504,19 @@ app.use(
   },
   peProxy
 );
+
+if (process.env.IS_LOCAL) {
+  app.use(
+    '/v3',
+    createProxyMiddleware({
+      target: 'http://python-backend:8000',
+      changeOrigin: true,
+      pathRewrite: {
+        '^/v3': ''
+      }
+    })
+  );
+}
 
 const checkGlobalAdminOrRegionAdmin = async (
   req: Request,

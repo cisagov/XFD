@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { FormGroup, FormControlLabel, Checkbox } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
@@ -24,12 +24,18 @@ export const FacetFilter: React.FC<Props> = (props) => {
     }
   };
 
+  const fixedOptions = useMemo(() => {
+    return options;
+    // NOTE: Desired functionality is to calculate on mount - Update deps and remove the below rule if this changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <>
       <Root className={classes.root}>
         <FormGroup classes={{ root: classes.root }}>
           {/* <input className={classes.inp} placeholder="Filter" /> */}
-          {options.map((opt) => (
+          {fixedOptions.map((opt) => (
             <FormControlLabel
               classes={{ label: classes.label, root: classes.root }}
               key={opt.value}
@@ -42,7 +48,6 @@ export const FacetFilter: React.FC<Props> = (props) => {
               label={
                 <>
                   <span>{opt.value}</span>
-                  <span className={classes.count}>{opt.count}</span>
                 </>
               }
             />

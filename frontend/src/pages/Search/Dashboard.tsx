@@ -3,6 +3,7 @@ import { classes, Root } from './Styling/dashboardStyle';
 import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
 import {
+  Button,
   Paper,
   FormControl,
   Select,
@@ -16,11 +17,10 @@ import {
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
-import { FilterDrawer } from './FilterDrawer';
+import { FilterDrawerWithSearch } from './FilterDrawer';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
 import {
-  Button as USWDSButton,
   Modal,
   TextInput,
   Label,
@@ -134,6 +134,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
     return () => {
       localStorage.removeItem('savedSearch');
+      setSearchTerm('');
     };
   }, [setSearchTerm, props.location.search]);
 
@@ -168,13 +169,15 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   return (
     <Root className={classes.root}>
-      <FilterDrawer
+      <FilterDrawerWithSearch
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}
         facets={facets}
         clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
         updateSearchTerm={updateSearchTerm}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
       />
       <div className={classes.contentWrapper}>
         <Subnav
@@ -260,10 +263,9 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
               ))}
             </Select>
           </FormControl>
-          <USWDSButton
+          <Button
+            variant="outlined"
             className={classes.exportButton}
-            outline
-            type="button"
             onClick={() =>
               exportCSV(
                 {
@@ -275,7 +277,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             }
           >
             Export Results
-          </USWDSButton>
+          </Button>
         </Paper>
       </div>
 

@@ -9,7 +9,7 @@ COPY ./package* ./
 
 RUN npm install -g npm@9
 
-RUN PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true npm ci
+RUN npm ci
 
 COPY tsconfig.json ./tsconfig.json
 COPY webpack.worker.config.js ./webpack.worker.config.js

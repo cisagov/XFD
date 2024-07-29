@@ -78,9 +78,9 @@ export const RSCDashboard: React.FC = () => {
                   posture, along with recommended resources to help address
                   those areas. To take further action, contact your regional
                   CISA Cybersecurity Advisor (CSA) for personalized support. You
-                  can also explore Crossfeed, CISA’s Attack Surface Management
-                  platform, for free vulnerability scanning services to
-                  kickstart or enhance your cybersecurity measures.
+                  can also explore CyHy Dashboard, CISA’s Attack Surface
+                  Management platform, for free vulnerability scanning services
+                  to kickstart or enhance your cybersecurity measures.
                 </p>
                 <Stack spacing={2}>
                   {results.map((result) => (

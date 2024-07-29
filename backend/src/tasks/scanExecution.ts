@@ -5,7 +5,14 @@ import { integer } from 'aws-sdk/clients/cloudfront';
 const ecs = new AWS.ECS();
 let docker: any;
 const QUEUE_URL = process.env.QUEUE_URL!;
-const SCAN_LIST = ['dnstwist', 'hibp', 'intelx', 'cybersixgill', 'shodan'];
+const SCAN_LIST = [
+  'dnstwist',
+  'hibp',
+  'intelx',
+  'cybersixgill',
+  'shodan',
+  'xpanse'
+];
 
 if (process.env.IS_LOCAL) {
   const Docker = require('dockerode');
@@ -142,6 +149,8 @@ async function startLocalContainers(
           `SIXGILL_CLIENT_ID=${process.env.SIXGILL_CLIENT_ID}`,
           `SIXGILL_CLIENT_SECRET=${process.env.SIXGILL_CLIENT_SECRET}`,
           `INTELX_API_KEY=${process.env.INTELX_API_KEY}`,
+          `XPANSE_API_KEY=${process.env.XPANSE_API_KEY}`,
+          `XPANSE_AUTH_ID=${process.env.XPANSE_AUTH_ID}`,
           `PE_SHODAN_API_KEYS=${shodan_api_key}`,
           `WORKER_SIGNATURE_PUBLIC_KEY=${process.env.WORKER_SIGNATURE_PUBLIC_KEY}`,
           `WORKER_SIGNATURE_PRIVATE_KEY=${process.env.WORKER_SIGNATURE_PRIVATE_KEY}`,
@@ -152,7 +161,10 @@ async function startLocalContainers(
           `LG_API_KEY=${process.env.LG_API_KEY}`,
           `LG_WORKSPACE_NAME=${process.env.LG_WORKSPACE_NAME}`,
           `SERVICE_QUEUE_URL=${queueUrl}`,
-          `SERVICE_TYPE=${scanType}`
+          `SERVICE_TYPE=${scanType}`,
+          `PE_API_URL=${process.env.PE_API_URL}`,
+          `PE_API_KEY=${process.env.PE_API_KEY}`,
+          `CF_API_KEY=${process.env.CF_API_KEY}`
         ]
       } as any);
       await container.start();
@@ -215,7 +227,7 @@ export const handler: Handler = async (event) => {
       await startDesiredTasks(scanType, desiredCount);
     } else {
       console.log(
-        'Shodan, DNSTwist, HIBP, IntelX, and Cybersixgill are the only script types available right now. Must be all lowercase.'
+        'Shodan, DNSTwist, HIBP, IntelX, Xpanse, and Cybersixgill are the only script types available right now. Must be all lowercase.'
       );
     }
   } catch (error) {

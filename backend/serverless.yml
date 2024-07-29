@@ -48,6 +48,10 @@ provider:
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
+        Condition:
+          IpAddress:
+            aws:SourceIp:
+              - ${file(env.yml):${self:provider.stage}.DMZ_CIDR, ''}
   logs:
     restApi: true
   deploymentBucket:
@@ -175,6 +179,13 @@ resources:
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
+    XpanseQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        QueueName: ${self:provider.stage}-xpanse-queue
+        VisibilityTimeout: 18000  # 5 hours
+        MaximumMessageSize: 262144  # 256 KB
+        MessageRetentionPeriod: 604800  # 7 days
 
 functions:
   - ${file(./src/tasks/functions.yml)}
@@ -187,3 +198,4 @@ plugins:
   - serverless-webpack
   - serverless-dotenv-plugin
   - serverless-plugin-ifelse
+  - serverless-python-requirements

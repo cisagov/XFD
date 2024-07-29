@@ -340,6 +340,24 @@ variable "ssm_sixgill_client_secret" {
   default     = "/crossfeed/staging/SIXGILL_CLIENT_SECRET"
 }
 
+variable "ssm_intelx_api_key" {
+  description = "ssm_intelx_api_key"
+  type        = string
+  default     = "/crossfeed/staging/INTELX_API_KEY"
+}
+
+variable "ssm_xpanse_api_key" {
+  description = "ssm_xpanse_api_key"
+  type        = string
+  default     = "/crossfeed/staging/XPANSE_API_KEY"
+}
+
+variable "ssm_xpanse_auth_id" {
+  description = "ssm_xpanse_auth_id"
+  type        = string
+  default     = "/crossfeed/staging/XPANSE_AUTH_ID"
+}
+
 
 variable "ssm_lg_api_key" {
   description = "ssm_lg_api_key"
@@ -781,4 +799,10 @@ variable "ssm_redshift_password" {
   description = "ssm_redshift_password"
   type        = string
   default     = "/crossfeed/staging/REDSHIFT_PASSWORD"
+}
+
+variable "create_elasticache_cluster" {
+  description = "Whether to create a elasticache cluster."
+  type        = bool
+  default     = false
 }

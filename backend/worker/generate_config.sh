@@ -16,8 +16,9 @@ key1=${PE_SHODAN_API_KEYS}
 key=${HIBP_API_KEY}
 
 [pe_api]
-pe_api_key=
-pe_api_url=
+pe_api_key=${PE_API_KEY}
+pe_api_url=https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/
+cf_api_key=${CF_API_KEY}
 
 [staging]
 [cyhy_mongo]
@@ -41,6 +42,10 @@ api_key=${INTELX_API_KEY}
 [API_Client_ID]
 [API_Client_secret]
 [API_WHOIS]
+
+[xpanse]
+api_key=${XPANSE_API_KEY}
+auth_id=${XPANSE_AUTH_ID}
 
 
 EOF

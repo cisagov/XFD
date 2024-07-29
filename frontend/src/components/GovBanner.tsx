@@ -56,6 +56,7 @@ const Root = styled('div')(({ theme }) => ({
     flexFlow: 'row wrap',
     alignItems: 'center',
     flexGrow: 1,
+    paddingLeft: '5px',
     [theme.breakpoints.down('sm')]: {
       padding: `5px 0`
     }
