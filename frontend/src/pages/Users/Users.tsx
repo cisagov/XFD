@@ -15,7 +15,9 @@ import {
   RadioGroup,
   Select,
   TextField,
-  Typography
+  Typography,
+  Stack,
+  Button
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -84,6 +86,8 @@ export const Users: React.FC = () => {
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [formDisabled, setFormDisabled] = useState(true);
+  const [loadingError, setLoadingError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
@@ -100,6 +104,7 @@ export const Users: React.FC = () => {
   const [values, setValues] = useState<UserFormValues>(initialUserFormValues);
 
   const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
     try {
       const rows = await apiGet<UserType[]>(`/users/`);
       rows.forEach((row) => {
@@ -126,7 +131,10 @@ export const Users: React.FC = () => {
       }
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
+      setLoadingError(true);
       setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
+    } finally {
+      setIsLoading(false);
     }
   }, [apiGet, user]);
 
@@ -593,25 +601,49 @@ export const Users: React.FC = () => {
 
   return (
     <div className={classes.root}>
-      <Typography
-        fontSize={34}
-        fontWeight="medium"
-        letterSpacing={0}
-        my={3}
-        variant="h1"
-      >
-        Users
-      </Typography>
-      <Paper elevation={0}>
-        <DataGrid
-          rows={users}
-          columns={userCols}
-          slots={{ toolbar: CustomToolbar }}
-          slotProps={{
-            toolbar: { children: addUserButton }
-          }}
-        />
-      </Paper>
+      {isLoading ? (
+        <Paper elevation={2}>
+          <Alert severity="info">Loading Users...</Alert>
+        </Paper>
+      ) : !isLoading && loadingError ? (
+        <Stack spacing={2}>
+          <Paper elevation={2}>
+            <Alert severity="warning">Error Loading Users.</Alert>
+          </Paper>
+          <Stack direction="row" spacing={2} justifyContent="end">
+            <Button
+              onClick={onCreateUserSubmit}
+              variant="contained"
+              color="primary"
+              sx={{ width: 'fit-content' }}
+            >
+              Retry
+            </Button>
+          </Stack>
+        </Stack>
+      ) : !isLoading && !loadingError ? (
+        <>
+          <Typography
+            fontSize={34}
+            fontWeight="medium"
+            letterSpacing={0}
+            my={3}
+            variant="h1"
+          >
+            Users
+          </Typography>
+          <Paper elevation={0}>
+            <DataGrid
+              rows={users}
+              columns={userCols}
+              slots={{ toolbar: CustomToolbar }}
+              slotProps={{
+                toolbar: { children: addUserButton }
+              }}
+            />
+          </Paper>
+        </>
+      ) : null}
       {confirmDeleteUserDialog}
       <MuiDialog
         open={newUserDialogOpen}
