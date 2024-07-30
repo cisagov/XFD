@@ -21,7 +21,7 @@ api:
   # provisionedConcurrency: 1
 
 fastApi:
-  handler: python-app.handler
+  handler: src/xfd_django/xfd_django/asgi.handler
   runtime: python3.11
   events:
     - http:
