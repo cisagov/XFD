@@ -98,7 +98,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
             aria-label={` ${bar.data.value} ${bar.data.id}${' '}
           ${
             bar.data.value > 1 ? 'vulnerabilites' : 'vulnerability'
-          } in domain${' '}
+          } in Domain:${' '}
           ${bar.data.indexValue}`}
             onClick={() => {
               history.push(
