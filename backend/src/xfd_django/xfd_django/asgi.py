@@ -6,7 +6,10 @@ It exposes the ASGI callable as a module-level variable named ``application``.
 For more information on this file, see
 https://docs.djangoproject.com/en/4.1/howto/deployment/asgi/
 """
+# Standard Python Libraries
 import os
+
+# Third-Party Libraries
 import django
 from django.apps import apps
 from django.conf import settings
@@ -15,13 +18,11 @@ from fastapi import FastAPI
 from fastapi.middleware.wsgi import WSGIMiddleware
 from mangum import Mangum
 from starlette.middleware.cors import CORSMiddleware
+from xfd_api.views import api_router
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
-
-# Import views after Django setup
-from xfd_api.views import api_router
 
 application = get_asgi_application()
 
@@ -44,7 +45,7 @@ def get_application() -> FastAPI:
 
     return app
 
+
 app = get_application()
 
 handler = Mangum(app)
- 

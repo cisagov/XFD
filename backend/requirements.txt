@@ -1,6 +1,6 @@
+django==5.0.7
 fastapi==0.111.0
 mangum==0.17.0
+psycopg2-binary==2.9.9
+PyJWT==2.8.0
 uvicorn==0.30.1
-django
-psycopg2-binary
-PyJWT

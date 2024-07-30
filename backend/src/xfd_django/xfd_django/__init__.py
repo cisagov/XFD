@@ -1,0 +1,1 @@
+"""xfd_django initializer."""
