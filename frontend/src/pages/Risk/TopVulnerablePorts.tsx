@@ -31,7 +31,11 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
             height={bar.height}
             fill={bar.color}
             tabIndex={0}
-            aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
+            aria-label={`${
+              bar.data.value
+            }${' '}domains with vulnerabilities on port${' '}
+            ${bar.data.indexValue}`}
+            //To-do: Fix onClick so that User is routed to Inventory page with Port # pre-selected as a filter
             onClick={() => {
               console.log('clicked label value: ', bar);
               history.push(
@@ -73,13 +77,6 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
                 }
               }
             }}
-            onClick={(event) => {
-              console.log('clicked label value: ', event.data.label);
-              history.push(
-                `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${event.data.label}_n&filters[0][type]=any`
-              );
-              window.location.reload();
-            }}
             padding={0.5}
             colors={getSingleColor}
             borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
@@ -105,7 +102,6 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
             }}
             animate={true}
             ariaLabel={'Top Vulnerable Ports - y-axis: Port, x-axis: Count'}
-            barAriaLabel={(d) => `Port - ${d.indexValue}: ${d.value}`}
             enableGridX={true}
             enableGridY={false}
             enableLabel={false}
