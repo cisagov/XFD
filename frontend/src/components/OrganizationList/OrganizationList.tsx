@@ -109,18 +109,14 @@ export const OrganizationList: React.FC<{
   return (
     <Box mb={3}>
       <Paper elevation={0}>
-        {organizations?.length === 0 ? (
-          <Alert severity="warning">Unable to load organizations.</Alert>
-        ) : (
-          <DataGrid
-            rows={organizations}
-            columns={orgCols}
-            slots={{ toolbar: CustomToolbar }}
-            slotProps={{
-              toolbar: { children: addOrgButton }
-            }}
-          />
-        )}
+        <DataGrid
+          rows={organizations}
+          columns={orgCols}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: { children: addOrgButton }
+          }}
+        />
       </Paper>
       <OrganizationForm
         onSubmit={onSubmit}
