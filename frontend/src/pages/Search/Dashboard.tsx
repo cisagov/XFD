@@ -15,7 +15,7 @@ import {
   TextareaAutosize,
   ButtonGroup
 } from '@mui/material';
-import { Pagination } from '@mui/material';
+import { Grid, Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
 import { FilterDrawerWithSearch } from './FilterDrawer';
 import { ContextType } from '../../context/SearchProvider';
@@ -168,8 +168,11 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   };
 
   return (
-    <Root className={classes.root}>
-      <FilterDrawerWithSearch
+    <Grid container>
+      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
+      <Grid item sm={11} lg={10} xl={8} sx={{ maxWidth: '1500px' }}>
+        <Root className={classes.root}>
+          {/* <FilterDrawerWithSearch
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}
@@ -178,123 +181,128 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         updateSearchTerm={updateSearchTerm}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-      />
-      <div className={classes.contentWrapper}>
-        <Subnav
-          items={[
-            { title: 'Search Results', path: '/inventory', exact: true },
-            { title: 'All Domains', path: '/inventory/domains' },
-            { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
-          ]}
-          styles={{
-            paddingLeft: '0%'
-          }}
-        />
-        <FilterTags filters={filters} removeFilter={removeFilter} />
-        <SortBar
-          sortField={sortField}
-          sortDirection={sortDirection}
-          setSort={setSort}
-          isFixed={resultsScrolled}
-          saveSearch={
-            filters.length > 0 || searchTerm
-              ? () => modalRef.current?.toggleModal(undefined, true)
-              : undefined
-          }
-          existingSavedSearch={search}
-        />
-        {noResults && (
-          <NoResults
-            message={"We don't see any results that match your criteria."}
-          ></NoResults>
-        )}
-        <div className={classes.content}>
-          <div className={classes.panel} onScroll={handleResultScroll}>
-            {results.map((result) => (
-              <ResultCard
-                key={result.id.raw}
-                {...result}
-                onDomainSelected={(id) => setSelectedDomain(id)}
-                selected={result.id.raw === selectedDomain}
-              />
-            ))}
-          </div>
-        </div>
-        <Paper classes={{ root: classes.pagination }}>
-          <span>
-            <strong>
-              {(totalResults === 0
-                ? 0
-                : (current - 1) * resultsPerPage + 1
-              ).toLocaleString()}{' '}
-              -{' '}
-              {Math.min(
-                (current - 1) * resultsPerPage + resultsPerPage,
-                totalResults
-              ).toLocaleString()}
-            </strong>{' '}
-            of <strong>{totalResults.toLocaleString()}</strong>
-          </span>
-          <Pagination
-            count={totalPages}
-            page={current}
-            onChange={(_, page) => setCurrent(page)}
-            color="primary"
-            size="small"
-          />
-          <FormControl
-            variant="outlined"
-            className={classes.pageSize}
-            size="small"
-          >
-            <Typography id="results-per-page-label">
-              Results per page:
-            </Typography>
-            <Select
-              id="teststa"
-              labelId="results-per-page-label"
-              value={resultsPerPage}
-              onChange={(e) => setResultsPerPage(e.target.value as number)}
-            >
-              {[15, 45, 90].map((perPage) => (
-                <MenuItem key={perPage} value={perPage}>
-                  {perPage}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button
-            variant="outlined"
-            className={classes.exportButton}
-            onClick={() =>
-              exportCSV(
+      /> */}
+          <div className={classes.contentWrapper}>
+            <Subnav
+              items={[
+                { title: 'Search Results', path: '/inventory', exact: true },
+                { title: 'All Domains', path: '/inventory/domains' },
                 {
-                  name: 'domains',
-                  getDataToExport: fetchDomainsExport
-                },
-                setLoading
-              )
-            }
-          >
-            Export Results
-          </Button>
-        </Paper>
-      </div>
+                  title: 'All Vulnerabilities',
+                  path: '/inventory/vulnerabilities'
+                }
+              ]}
+              styles={{
+                paddingLeft: '0%'
+              }}
+            />
+            <FilterTags filters={filters} removeFilter={removeFilter} />
+            <SortBar
+              sortField={sortField}
+              sortDirection={sortDirection}
+              setSort={setSort}
+              isFixed={resultsScrolled}
+              saveSearch={
+                filters.length > 0 || searchTerm
+                  ? () => modalRef.current?.toggleModal(undefined, true)
+                  : undefined
+              }
+              existingSavedSearch={search}
+            />
+            {noResults && (
+              <NoResults
+                message={"We don't see any results that match your criteria."}
+              ></NoResults>
+            )}
+            <div className={classes.content}>
+              <div className={classes.panel} onScroll={handleResultScroll}>
+                {results.map((result) => (
+                  <ResultCard
+                    key={result.id.raw}
+                    {...result}
+                    onDomainSelected={(id) => setSelectedDomain(id)}
+                    selected={result.id.raw === selectedDomain}
+                  />
+                ))}
+              </div>
+            </div>
+            <Paper classes={{ root: classes.pagination }}>
+              <span>
+                <strong>
+                  {(totalResults === 0
+                    ? 0
+                    : (current - 1) * resultsPerPage + 1
+                  ).toLocaleString()}{' '}
+                  -{' '}
+                  {Math.min(
+                    (current - 1) * resultsPerPage + resultsPerPage,
+                    totalResults
+                  ).toLocaleString()}
+                </strong>{' '}
+                of <strong>{totalResults.toLocaleString()}</strong>
+              </span>
+              <Pagination
+                count={totalPages}
+                page={current}
+                onChange={(_, page) => setCurrent(page)}
+                color="primary"
+                size="small"
+              />
+              <FormControl
+                variant="outlined"
+                className={classes.pageSize}
+                size="small"
+              >
+                <Typography id="results-per-page-label">
+                  Results per page:
+                </Typography>
+                <Select
+                  id="teststa"
+                  labelId="results-per-page-label"
+                  value={resultsPerPage}
+                  onChange={(e) => setResultsPerPage(e.target.value as number)}
+                >
+                  {[15, 45, 90].map((perPage) => (
+                    <MenuItem key={perPage} value={perPage}>
+                      {perPage}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Button
+                variant="outlined"
+                className={classes.exportButton}
+                onClick={() =>
+                  exportCSV(
+                    {
+                      name: 'domains',
+                      getDataToExport: fetchDomainsExport
+                    },
+                    setLoading
+                  )
+                }
+              >
+                Export Results
+              </Button>
+            </Paper>
+          </div>
 
-      <Modal ref={modalRef} id="modal">
-        <ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>
-        <FormGroup>
-          <Label htmlFor="name">Name Your Search</Label>
-          <TextInput
-            required
-            id="name"
-            name="name"
-            type="text"
-            value={savedSearchValues.name}
-            onChange={onTextChange}
-          />
-          <p>When a new result is found:</p>
-          {/* <FormControlLabel
+          <Modal ref={modalRef} id="modal">
+            <ModalHeading>
+              {search ? 'Update Search' : 'Save Search'}
+            </ModalHeading>
+            <FormGroup>
+              <Label htmlFor="name">Name Your Search</Label>
+              <TextInput
+                required
+                id="name"
+                name="name"
+                type="text"
+                value={savedSearchValues.name}
+                onChange={onTextChange}
+              />
+              <p>When a new result is found:</p>
+              {/* <FormControlLabel
                   control={
                     <Checkbox
                       // checked={gilad}
@@ -304,57 +312,57 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
                   }
                   label="Email me"
                 /> */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={savedSearchValues.createVulnerabilities}
-                onChange={(e) => onChange(e.target.name, e.target.checked)}
-                id="createVulnerabilities"
-                name="createVulnerabilities"
-              />
-            }
-            label="Create a vulnerability"
-          />
-          {savedSearchValues.createVulnerabilities && (
-            <>
-              <Label htmlFor="title">Title</Label>
-              <TextInput
-                required
-                id="title"
-                name="title"
-                type="text"
-                value={savedSearchValues.vulnerabilityTemplate.title}
-                onChange={onVulnerabilityTemplateChange}
-              />
-              <Label htmlFor="description">Description</Label>
-              <TextareaAutosize
-                required
-                id="description"
-                name="description"
-                style={{ padding: 10 }}
-                minRows={2}
-                value={savedSearchValues.vulnerabilityTemplate.description}
-                onChange={onVulnerabilityTemplateChange}
-              />
-              <Label htmlFor="description">Severity</Label>
-              <Dropdown
-                id="severity"
-                name="severity"
-                onChange={onVulnerabilityTemplateChange}
-                value={
-                  savedSearchValues.vulnerabilityTemplate.severity as string
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={savedSearchValues.createVulnerabilities}
+                    onChange={(e) => onChange(e.target.name, e.target.checked)}
+                    id="createVulnerabilities"
+                    name="createVulnerabilities"
+                  />
                 }
-                style={{ display: 'inline-block', width: '150px' }}
-              >
-                <option value="None">None</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </Dropdown>
-            </>
-          )}
-          {/* <h3>Collaborators</h3>
+                label="Create a vulnerability"
+              />
+              {savedSearchValues.createVulnerabilities && (
+                <>
+                  <Label htmlFor="title">Title</Label>
+                  <TextInput
+                    required
+                    id="title"
+                    name="title"
+                    type="text"
+                    value={savedSearchValues.vulnerabilityTemplate.title}
+                    onChange={onVulnerabilityTemplateChange}
+                  />
+                  <Label htmlFor="description">Description</Label>
+                  <TextareaAutosize
+                    required
+                    id="description"
+                    name="description"
+                    style={{ padding: 10 }}
+                    minRows={2}
+                    value={savedSearchValues.vulnerabilityTemplate.description}
+                    onChange={onVulnerabilityTemplateChange}
+                  />
+                  <Label htmlFor="description">Severity</Label>
+                  <Dropdown
+                    id="severity"
+                    name="severity"
+                    onChange={onVulnerabilityTemplateChange}
+                    value={
+                      savedSearchValues.vulnerabilityTemplate.severity as string
+                    }
+                    style={{ display: 'inline-block', width: '150px' }}
+                  >
+                    <option value="None">None</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </Dropdown>
+                </>
+              )}
+              {/* <h3>Collaborators</h3>
                 <p>
                   Collaborators can view vulnerabilities, and domains within
                   this search. Adding a team will make all members
@@ -363,49 +371,51 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
                 <button className={classes.addButton} >
                   <AddCircleOutline></AddCircleOutline> ADD
                 </button> */}
-        </FormGroup>
-        <ModalFooter>
-          <ButtonGroup>
-            <ModalToggleButton
-              modalRef={modalRef}
-              closer
-              onClick={async () => {
-                const body = {
-                  body: {
-                    ...savedSearchValues,
-                    searchTerm,
-                    filters,
-                    count: totalResults,
-                    searchPath: window.location.search,
-                    sortField,
-                    sortDirection
-                  }
-                };
-                if (search) {
-                  await apiPut('/saved-searches/' + search.id, body);
-                  history.push('/inventory');
-                  window.location.reload();
-                } else {
-                  await apiPost('/saved-searches/', body);
-                  history.push('/inventory');
-                  window.location.reload();
-                }
-              }}
-            >
-              Save
-            </ModalToggleButton>
-            <ModalToggleButton
-              modalRef={modalRef}
-              closer
-              unstyled
-              className="padding-105 text-center"
-            >
-              Cancel
-            </ModalToggleButton>
-          </ButtonGroup>
-        </ModalFooter>
-      </Modal>
-    </Root>
+            </FormGroup>
+            <ModalFooter>
+              <ButtonGroup>
+                <ModalToggleButton
+                  modalRef={modalRef}
+                  closer
+                  onClick={async () => {
+                    const body = {
+                      body: {
+                        ...savedSearchValues,
+                        searchTerm,
+                        filters,
+                        count: totalResults,
+                        searchPath: window.location.search,
+                        sortField,
+                        sortDirection
+                      }
+                    };
+                    if (search) {
+                      await apiPut('/saved-searches/' + search.id, body);
+                      history.push('/inventory');
+                      window.location.reload();
+                    } else {
+                      await apiPost('/saved-searches/', body);
+                      history.push('/inventory');
+                      window.location.reload();
+                    }
+                  }}
+                >
+                  Save
+                </ModalToggleButton>
+                <ModalToggleButton
+                  modalRef={modalRef}
+                  closer
+                  unstyled
+                  className="padding-105 text-center"
+                >
+                  Cancel
+                </ModalToggleButton>
+              </ButtonGroup>
+            </ModalFooter>
+          </Modal>
+        </Root>
+      </Grid>
+    </Grid>
   );
 };
 
