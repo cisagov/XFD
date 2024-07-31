@@ -108,7 +108,7 @@ export const OrganizationList: React.FC<{
 
   return (
     <Box mb={3}>
-      <Paper elevation={0}>
+      <Paper elevation={2}>
         {organizations?.length === 0 ? (
           <Alert severity="warning">Unable to load organizations.</Alert>
         ) : (
