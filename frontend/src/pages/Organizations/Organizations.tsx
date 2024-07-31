@@ -5,7 +5,7 @@ import { ImportExport } from 'components';
 import { Organization } from 'types';
 import { useAuthContext } from 'context';
 import { OrganizationList } from 'components/OrganizationList';
-import { Typography } from '@mui/material';
+import { Alert, Button, Paper, Stack, Typography } from '@mui/material';
 
 const PREFIX = 'Organizations';
 
@@ -34,13 +34,19 @@ const Root = styled('div')(({ theme }) => ({
 export const Organizations: React.FC = () => {
   const { user, apiGet, apiPost } = useAuthContext();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [loadingError, setLoadingError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const fetchOrganizations = useCallback(async () => {
+    setIsLoading(true);
     try {
       const rows = await apiGet<Organization[]>('/v2/organizations/');
       setOrganizations(rows);
     } catch (e) {
       console.error(e);
+      setLoadingError(true);
+    } finally {
+      setIsLoading(false);
     }
   }, [apiGet]);
 
@@ -51,16 +57,40 @@ export const Organizations: React.FC = () => {
   return (
     <Root>
       <div className={oldClasses.root}>
-        <Typography
-          fontSize={34}
-          fontWeight="medium"
-          letterSpacing={0}
-          my={3}
-          variant="h1"
-        >
-          Organizations
-        </Typography>
-        <OrganizationList></OrganizationList>
+        <>
+          <Typography
+            fontSize={34}
+            fontWeight="medium"
+            letterSpacing={0}
+            my={3}
+            variant="h1"
+          >
+            Organizations
+          </Typography>
+          {isLoading ? (
+            <Paper elevation={2}>
+              <Alert severity="info">Loading Organizations...</Alert>
+            </Paper>
+          ) : isLoading === false && loadingError === true ? (
+            <Stack spacing={2}>
+              <Paper elevation={2}>
+                <Alert severity="warning">Error Loading Organizations!!!</Alert>
+              </Paper>
+              <Stack direction="row" spacing={2} justifyContent="end">
+                <Button
+                  onClick={fetchOrganizations}
+                  variant="contained"
+                  color="primary"
+                  sx={{ width: 'fit-content' }}
+                >
+                  Retry
+                </Button>
+              </Stack>
+            </Stack>
+          ) : isLoading === false && loadingError === false ? (
+            <OrganizationList></OrganizationList>
+          ) : null}
+        </>
         {user?.userType === 'globalAdmin' && (
           <>
             <ImportExport<Organization>
