@@ -1,8 +1,8 @@
-import classes from './Users.module.scss';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Button as MuiButton,
+  Box,
   Dialog as MuiDialog,
   DialogActions,
   DialogContent,
@@ -601,142 +601,146 @@ export const Users: React.FC = () => {
   );
 
   return (
-    <div className={classes.root}>
-      {isLoading ? (
-        <Paper elevation={2}>
-          <Alert severity="info">Loading Users...</Alert>
-        </Paper>
-      ) : isLoading === false && loadingError === true ? (
-        <Stack spacing={2}>
+    <Box mt={3} display="flex" justifyContent="center">
+      <Stack spacing={2} sx={{ width: '70%' }}>
+        {isLoading ? (
           <Paper elevation={2}>
-            <Alert severity="warning">Error Loading Users.</Alert>
+            <Alert severity="info">Loading Users...</Alert>
           </Paper>
-          <Stack direction="row" spacing={2} justifyContent="end">
-            <Button
-              onClick={onCreateUserSubmit}
-              variant="contained"
-              color="primary"
-              sx={{ width: 'fit-content' }}
-            >
-              Retry
-            </Button>
+        ) : isLoading === false && loadingError === true ? (
+          <Stack spacing={2}>
+            <Paper elevation={2}>
+              <Alert severity="warning">Error Loading Users.</Alert>
+            </Paper>
+            <Stack direction="row" spacing={2} justifyContent="end">
+              <Button
+                onClick={onCreateUserSubmit}
+                variant="contained"
+                color="primary"
+                sx={{ width: 'fit-content' }}
+              >
+                Retry
+              </Button>
+            </Stack>
           </Stack>
-        </Stack>
-      ) : isLoading === false && loadingError === false ? (
-        <>
-          <Typography
-            fontSize={34}
-            fontWeight="medium"
-            letterSpacing={0}
-            my={3}
-            variant="h1"
-          >
-            Users
-          </Typography>
-          <Paper elevation={0}>
-            <DataGrid
-              rows={users}
-              columns={userCols}
-              slots={{ toolbar: CustomToolbar }}
-              slotProps={{
-                toolbar: { children: addUserButton }
+        ) : isLoading === false && loadingError === false ? (
+          <>
+            <Typography
+              fontSize={34}
+              fontWeight="medium"
+              letterSpacing={0}
+              my={3}
+              variant="h1"
+            >
+              Users
+            </Typography>
+            <Paper elevation={0}>
+              <DataGrid
+                rows={users}
+                columns={userCols}
+                slots={{ toolbar: CustomToolbar }}
+                slotProps={{
+                  toolbar: { children: addUserButton }
+                }}
+              />
+            </Paper>
+          </>
+        ) : null}
+        {confirmDeleteUserDialog}
+        <MuiDialog
+          open={newUserDialogOpen}
+          onClose={(_, reason) => handleCloseAddUserDialog(reason)}
+          fullWidth
+          maxWidth="xs"
+        >
+          <DialogTitle>Invite a User</DialogTitle>
+          {formContents}
+          <DialogActions>
+            <MuiButton
+              variant="outlined"
+              onClick={() => {
+                setNewUserDialogOpen(false);
+                setFormErrors({
+                  firstName: false,
+                  lastName: false,
+                  email: false,
+                  userType: false,
+                  state: false
+                });
+                setValues(initialUserFormValues);
+              }}
+            >
+              Cancel
+            </MuiButton>
+            <MuiButton
+              variant="contained"
+              type="submit"
+              onClick={onCreateUserSubmit}
+              disabled={!isFormValid()}
+            >
+              Invite User
+            </MuiButton>
+          </DialogActions>
+        </MuiDialog>
+        {user?.userType === 'globalAdmin' && (
+          <>
+            <ImportExport<
+              | User
+              | {
+                  roles: string;
+                }
+            >
+              name="users"
+              fieldsToImport={[
+                'firstName',
+                'lastName',
+                'email',
+                'roles',
+                'userType',
+                'state'
+              ]}
+              onImport={async (results) => {
+                const createdUsers = [];
+                for (const result of results) {
+                  const parsedRoles: {
+                    organization: string;
+                    role: string;
+                  }[] = JSON.parse(result.roles as string);
+                  const body: any = result;
+                  if (parsedRoles.length > 0) {
+                    body.organization = parsedRoles[0].organization;
+                    body.organizationAdmin = parsedRoles[0].role === 'admin';
+                  }
+                  try {
+                    createdUsers.push(
+                      await apiPost('/users', {
+                        body
+                      })
+                    );
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }
+                setUsers(users.concat(...createdUsers));
               }}
             />
-          </Paper>
-        </>
-      ) : null}
-      {confirmDeleteUserDialog}
-      <MuiDialog
-        open={newUserDialogOpen}
-        onClose={(_, reason) => handleCloseAddUserDialog(reason)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Invite a User</DialogTitle>
-        {formContents}
-        <DialogActions>
-          <MuiButton
-            variant="outlined"
-            onClick={() => {
-              setNewUserDialogOpen(false);
-              setFormErrors({
-                firstName: false,
-                lastName: false,
-                email: false,
-                userType: false,
-                state: false
-              });
-              setValues(initialUserFormValues);
-            }}
-          >
-            Cancel
-          </MuiButton>
-          <MuiButton
-            variant="contained"
-            type="submit"
-            onClick={onCreateUserSubmit}
-            disabled={!isFormValid()}
-          >
-            Invite User
-          </MuiButton>
-        </DialogActions>
-      </MuiDialog>
-      {user?.userType === 'globalAdmin' && (
-        <>
-          <ImportExport<
-            | User
-            | {
-                roles: string;
-              }
-          >
-            name="users"
-            fieldsToImport={[
-              'firstName',
-              'lastName',
-              'email',
-              'roles',
-              'userType',
-              'state'
-            ]}
-            onImport={async (results) => {
-              const createdUsers = [];
-              for (const result of results) {
-                const parsedRoles: {
-                  organization: string;
-                  role: string;
-                }[] = JSON.parse(result.roles as string);
-                const body: any = result;
-                if (parsedRoles.length > 0) {
-                  body.organization = parsedRoles[0].organization;
-                  body.organizationAdmin = parsedRoles[0].role === 'admin';
-                }
-                try {
-                  createdUsers.push(
-                    await apiPost('/users', {
-                      body
-                    })
-                  );
-                } catch (e) {
-                  console.error(e);
-                }
-              }
-              setUsers(users.concat(...createdUsers));
-            }}
-          />
-        </>
-      )}
-      {confirmEditNotificationDialog}
-      <InfoDialog
-        isOpen={infoDialogOpen}
-        handleClick={() => {
-          onResetForm();
-          window.location.reload();
-        }}
-        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
-        title={<Typography variant="h4">Success </Typography>}
-        content={<Typography variant="body1">{infoDialogContent}</Typography>}
-      />
-    </div>
+          </>
+        )}
+        {confirmEditNotificationDialog}
+        <InfoDialog
+          isOpen={infoDialogOpen}
+          handleClick={() => {
+            onResetForm();
+            window.location.reload();
+          }}
+          icon={
+            <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />
+          }
+          title={<Typography variant="h4">Success </Typography>}
+          content={<Typography variant="body1">{infoDialogContent}</Typography>}
+        />
+      </Stack>
+    </Box>
   );
 };
 

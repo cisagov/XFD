@@ -1,35 +1,9 @@
-import oldClasses from './Organizations.module.scss';
-import { styled } from '@mui/material/styles';
 import React, { useCallback, useState } from 'react';
 import { ImportExport } from 'components';
 import { Organization } from 'types';
 import { useAuthContext } from 'context';
 import { OrganizationList } from 'components/OrganizationList';
-import { Alert, Button, Paper, Stack, Typography } from '@mui/material';
-
-const PREFIX = 'Organizations';
-
-const classes = {
-  header: `${PREFIX}-header`,
-  headerLabel: `${PREFIX}-headerLabel`
-};
-
-const Root = styled('div')(({ theme }) => ({
-  [`& .${classes.header}`]: {
-    background: '#F9F9F9'
-  },
-
-  [`& .${classes.headerLabel}`]: {
-    margin: 0,
-    paddingTop: '1.5rem',
-    paddingBottom: '1rem',
-    marginLeft: '15%',
-    fontWeight: 500,
-    fontStyle: 'normal',
-    fontSize: '24px',
-    color: '#07648D'
-  }
-}));
+import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
 
 export const Organizations: React.FC = () => {
   const { user, apiGet, apiPost } = useAuthContext();
@@ -55,42 +29,40 @@ export const Organizations: React.FC = () => {
   }, [apiGet, fetchOrganizations]);
 
   return (
-    <Root>
-      <div className={oldClasses.root}>
-        <>
-          <Typography
-            fontSize={34}
-            fontWeight="medium"
-            letterSpacing={0}
-            my={3}
-            variant="h1"
-          >
-            Organizations
-          </Typography>
-          {isLoading ? (
+    <Box mb={3} mt={3} display="flex" justifyContent="center">
+      <Stack spacing={2} sx={{ width: '70%' }}>
+        <Typography
+          fontSize={34}
+          fontWeight="medium"
+          letterSpacing={0}
+          my={3}
+          variant="h1"
+        >
+          Organizations
+        </Typography>
+        {isLoading ? (
+          <Paper elevation={2}>
+            <Alert severity="info">Loading Organizations...</Alert>
+          </Paper>
+        ) : isLoading === false && loadingError === true ? (
+          <Stack spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="info">Loading Organizations...</Alert>
+              <Alert severity="warning">Error Loading Organizations!!!</Alert>
             </Paper>
-          ) : isLoading === false && loadingError === true ? (
-            <Stack spacing={2}>
-              <Paper elevation={2}>
-                <Alert severity="warning">Error Loading Organizations!!!</Alert>
-              </Paper>
-              <Stack direction="row" spacing={2} justifyContent="end">
-                <Button
-                  onClick={fetchOrganizations}
-                  variant="contained"
-                  color="primary"
-                  sx={{ width: 'fit-content' }}
-                >
-                  Retry
-                </Button>
-              </Stack>
+            <Stack direction="row" spacing={2} justifyContent="end">
+              <Button
+                onClick={fetchOrganizations}
+                variant="contained"
+                color="primary"
+                sx={{ width: 'fit-content' }}
+              >
+                Retry
+              </Button>
             </Stack>
-          ) : isLoading === false && loadingError === false ? (
-            <OrganizationList></OrganizationList>
-          ) : null}
-        </>
+          </Stack>
+        ) : isLoading === false && loadingError === false ? (
+          <OrganizationList></OrganizationList>
+        ) : null}
         {user?.userType === 'globalAdmin' && (
           <>
             <ImportExport<Organization>
@@ -144,9 +116,8 @@ export const Organizations: React.FC = () => {
             />
           </>
         )}
-      </div>
-      <br />
-    </Root>
+      </Stack>
+    </Box>
   );
 };
 

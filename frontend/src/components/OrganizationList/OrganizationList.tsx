@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
-import { Alert, Box, Button, IconButton, Paper } from '@mui/material';
+import { Box, Button, IconButton, Paper } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
 import { Add } from '@mui/icons-material';
@@ -108,7 +108,7 @@ export const OrganizationList: React.FC<{
 
   return (
     <Box mb={3}>
-      <Paper elevation={0}>
+      <Paper elevation={2}>
         <DataGrid
           rows={organizations}
           columns={orgCols}

@@ -150,7 +150,7 @@ export const Domains: React.FC = () => {
   ];
 
   return (
-    <div>
+    <Box>
       <Subnav
         items={[
           { title: 'Search Results', path: '/inventory', exact: true },
@@ -214,6 +214,6 @@ export const Domains: React.FC = () => {
           </Paper>
         ) : null}
       </Box>
-    </div>
+    </Box>
   );
 };
