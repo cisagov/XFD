@@ -605,12 +605,12 @@ export const Users: React.FC = () => {
       <Stack spacing={2} sx={{ width: '70%' }}>
         {isLoading ? (
           <Paper elevation={2}>
-            <Alert severity="info">Loading Users...</Alert>
+            <Alert severity="info">Loading Users..</Alert>
           </Paper>
         ) : isLoading === false && loadingError === true ? (
           <Stack spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Users.</Alert>
+              <Alert severity="warning">Error Loading Users!!</Alert>
             </Paper>
             <Stack direction="row" spacing={2} justifyContent="end">
               <Button

@@ -162,12 +162,12 @@ export const Domains: React.FC = () => {
       <Box mb={3} mt={3} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
-            <Alert severity="info">Loading Domains...</Alert>
+            <Alert severity="info">Loading Domains..</Alert>
           </Paper>
         ) : isLoading === false && loadingError === true ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning"> Error Loading Domains!!</Alert>
+              <Alert severity="warning">Error Loading Domains!!</Alert>
             </Paper>
             <Button
               onClick={resetDomains}

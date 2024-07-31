@@ -42,12 +42,12 @@ export const Organizations: React.FC = () => {
         </Typography>
         {isLoading ? (
           <Paper elevation={2}>
-            <Alert severity="info">Loading Organizations...</Alert>
+            <Alert severity="info">Loading Organizations..</Alert>
           </Paper>
         ) : isLoading === false && loadingError === true ? (
           <Stack spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Organizations!!!</Alert>
+              <Alert severity="warning">Error Loading Organizations!!</Alert>
             </Paper>
             <Stack direction="row" spacing={2} justifyContent="end">
               <Button
