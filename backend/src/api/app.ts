@@ -26,6 +26,7 @@ import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import fetch from 'node-fetch';
+import * as searchOrganizations from './organizationSearch'
 
 const sanitizer = require('sanitizer');
 
@@ -530,6 +531,7 @@ authenticatedRoute.post('/api-keys', handlerToExpress(apiKeys.generate));
 authenticatedRoute.delete('/api-keys/:keyId', handlerToExpress(apiKeys.del));
 
 authenticatedRoute.post('/search', handlerToExpress(search.search));
+authenticatedRoute.post('/search/organizations', handlerToExpress(searchOrganizations.searchOrganizations))
 authenticatedRoute.post('/search/export', handlerToExpress(search.export_));
 authenticatedRoute.get('/cpes/:id', handlerToExpress(cpes.get));
 authenticatedRoute.get('/cves/:id', handlerToExpress(cves.get));

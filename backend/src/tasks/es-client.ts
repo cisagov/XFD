@@ -264,6 +264,13 @@ class ESClient {
     });
   }
 
+  async searchOrganizations(body: any){
+    return this.client.search({
+      index: ORGANIZATIONS_INDEX,
+      body
+    })
+  }
+
   /**
    * Deletes everything in Elasticsearch
    */
