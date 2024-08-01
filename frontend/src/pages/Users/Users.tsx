@@ -86,7 +86,7 @@ export const Users: React.FC = () => {
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [formDisabled, setFormDisabled] = useState(true);
-  // const [loadingError, setLoadingError] = useState(false);
+  const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
@@ -131,7 +131,7 @@ export const Users: React.FC = () => {
       }
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
-      // setLoadingError(true);
+      setLoadingError(true);
       setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
     } finally {
       setIsLoading(false);
@@ -599,7 +599,7 @@ export const Users: React.FC = () => {
       disabled={!isFormValid()}
     />
   );
-  const loadingError = false;
+
   return (
     <Box display="flex" justifyContent="center">
       <Box
