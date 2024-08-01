@@ -319,6 +319,15 @@ export const Header: React.FC = () => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              // onClick={handleDrawerToggle}
+              sx={{ mr: 2, display: { sm: 'none' } }}
+            >
+              <MenuIcon />
+            </IconButton>
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
