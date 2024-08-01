@@ -52,20 +52,18 @@ export const Organizations: React.FC = () => {
               <Alert severity="info">Loading Organizations..</Alert>
             </Paper>
           ) : isLoading === false && loadingError === true ? (
-            <Stack spacing={2}>
+            <Stack direction="row" spacing={2}>
               <Paper elevation={2}>
                 <Alert severity="warning">Error Loading Organizations!!</Alert>
               </Paper>
-              <Stack direction="row" spacing={2} justifyContent="end">
-                <Button
-                  onClick={fetchOrganizations}
-                  variant="contained"
-                  color="primary"
-                  sx={{ width: 'fit-content' }}
-                >
-                  Retry
-                </Button>
-              </Stack>
+              <Button
+                onClick={fetchOrganizations}
+                variant="contained"
+                color="primary"
+                sx={{ width: 'fit-content' }}
+              >
+                Retry
+              </Button>
             </Stack>
           ) : isLoading === false && loadingError === false ? (
             <OrganizationList></OrganizationList>
