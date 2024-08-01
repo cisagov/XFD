@@ -29,8 +29,14 @@ export const Organizations: React.FC = () => {
   }, [apiGet, fetchOrganizations]);
 
   return (
-    <Box mb={3} mt={3} display="flex" justifyContent="center">
-      <Stack spacing={2} sx={{ width: '70%' }}>
+    <Box display="flex" justifyContent="center">
+      <Box
+        mb={3}
+        mt={3}
+        display="flex"
+        flexDirection="column"
+        sx={{ width: '70%' }}
+      >
         <Typography
           fontSize={34}
           fontWeight="medium"
@@ -40,29 +46,31 @@ export const Organizations: React.FC = () => {
         >
           Organizations
         </Typography>
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Organizations..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
-          <Stack spacing={2}>
+        <Box mb={3} mt={3} display="flex" justifyContent="center">
+          {isLoading ? (
             <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Organizations!!</Alert>
+              <Alert severity="info">Loading Organizations..</Alert>
             </Paper>
-            <Stack direction="row" spacing={2} justifyContent="end">
-              <Button
-                onClick={fetchOrganizations}
-                variant="contained"
-                color="primary"
-                sx={{ width: 'fit-content' }}
-              >
-                Retry
-              </Button>
+          ) : isLoading === false && loadingError === true ? (
+            <Stack spacing={2}>
+              <Paper elevation={2}>
+                <Alert severity="warning">Error Loading Organizations!!</Alert>
+              </Paper>
+              <Stack direction="row" spacing={2} justifyContent="end">
+                <Button
+                  onClick={fetchOrganizations}
+                  variant="contained"
+                  color="primary"
+                  sx={{ width: 'fit-content' }}
+                >
+                  Retry
+                </Button>
+              </Stack>
             </Stack>
-          </Stack>
-        ) : isLoading === false && loadingError === false ? (
-          <OrganizationList></OrganizationList>
-        ) : null}
+          ) : isLoading === false && loadingError === false ? (
+            <OrganizationList></OrganizationList>
+          ) : null}
+        </Box>
         {user?.userType === 'globalAdmin' && (
           <>
             <ImportExport<Organization>
@@ -116,7 +124,7 @@ export const Organizations: React.FC = () => {
             />
           </>
         )}
-      </Stack>
+      </Box>
     </Box>
   );
 };

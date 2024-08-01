@@ -473,20 +473,20 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             <Alert severity="info">Loading Vulnerabilities..</Alert>
           </Paper>
         ) : isLoading === false && loadingError === true ? (
-          <Stack spacing={2}>
+          <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Vulnerabilities!!</Alert>
             </Paper>
-            <Stack direction="row" spacing={2} justifyContent="end">
-              <Button
-                onClick={resetVulnerabilities}
-                variant="contained"
-                color="primary"
-                sx={{ width: 'fit-content' }}
-              >
-                Retry
-              </Button>
-            </Stack>
+            {/* <Stack direction="row" spacing={2} justifyContent="end"> */}
+            <Button
+              onClick={resetVulnerabilities}
+              variant="contained"
+              color="primary"
+              sx={{ width: 'fit-content' }}
+            >
+              Retry
+            </Button>
+            {/* </Stack> */}
           </Stack>
         ) : isLoading === false && loadingError === false ? (
           <Paper elevation={2} sx={{ width: '90%' }}>

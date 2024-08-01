@@ -107,8 +107,8 @@ export const OrganizationList: React.FC<{
   );
 
   return (
-    <Box mb={3}>
-      <Paper elevation={2}>
+    <>
+      <Paper elevation={2} sx={{ width: '100%' }}>
         <DataGrid
           rows={organizations}
           columns={orgCols}
@@ -125,6 +125,6 @@ export const OrganizationList: React.FC<{
         type="create"
         parent={parent}
       ></OrganizationForm>
-    </Box>
+    </>
   );
 };

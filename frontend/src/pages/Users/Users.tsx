@@ -86,7 +86,7 @@ export const Users: React.FC = () => {
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [formDisabled, setFormDisabled] = useState(true);
-  const [loadingError, setLoadingError] = useState(false);
+  // const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
@@ -131,7 +131,7 @@ export const Users: React.FC = () => {
       }
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
-      setLoadingError(true);
+      // setLoadingError(true);
       setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
     } finally {
       setIsLoading(false);
@@ -196,7 +196,7 @@ export const Users: React.FC = () => {
       field: 'dateToUSigned',
       headerName: 'Date ToU Signed',
       minWidth: 100,
-      flex: 0.75
+      flex: 1
     },
     {
       field: 'acceptedTermsVersion',
@@ -599,20 +599,35 @@ export const Users: React.FC = () => {
       disabled={!isFormValid()}
     />
   );
-
+  const loadingError = false;
   return (
-    <Box mt={3} display="flex" justifyContent="center">
-      <Stack spacing={2} sx={{ width: '70%' }}>
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Users..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
-          <Stack spacing={2}>
+    <Box display="flex" justifyContent="center">
+      <Box
+        mb={3}
+        mt={3}
+        display="flex"
+        flexDirection="column"
+        sx={{ width: '80%' }}
+      >
+        <Typography
+          fontSize={34}
+          fontWeight="medium"
+          letterSpacing={0}
+          my={3}
+          variant="h1"
+        >
+          Users
+        </Typography>
+        <Box mb={3} mt={3} display="flex" justifyContent="center">
+          {isLoading ? (
             <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Users!!</Alert>
+              <Alert severity="info">Loading Users..</Alert>
             </Paper>
-            <Stack direction="row" spacing={2} justifyContent="end">
+          ) : isLoading === false && loadingError ? (
+            <Stack direction="row" spacing={2}>
+              <Paper elevation={2}>
+                <Alert severity="warning">Error Loading Users!!</Alert>
+              </Paper>
               <Button
                 onClick={onCreateUserSubmit}
                 variant="contained"
@@ -622,19 +637,8 @@ export const Users: React.FC = () => {
                 Retry
               </Button>
             </Stack>
-          </Stack>
-        ) : isLoading === false && loadingError === false ? (
-          <>
-            <Typography
-              fontSize={34}
-              fontWeight="medium"
-              letterSpacing={0}
-              my={3}
-              variant="h1"
-            >
-              Users
-            </Typography>
-            <Paper elevation={0}>
+          ) : isLoading === false && loadingError === false ? (
+            <Paper elevation={2} sx={{ width: '100%' }}>
               <DataGrid
                 rows={users}
                 columns={userCols}
@@ -644,8 +648,8 @@ export const Users: React.FC = () => {
                 }}
               />
             </Paper>
-          </>
-        ) : null}
+          ) : null}
+        </Box>
         {confirmDeleteUserDialog}
         <MuiDialog
           open={newUserDialogOpen}
@@ -739,7 +743,7 @@ export const Users: React.FC = () => {
           title={<Typography variant="h4">Success </Typography>}
           content={<Typography variant="body1">{infoDialogContent}</Typography>}
         />
-      </Stack>
+      </Box>
     </Box>
   );
 };
