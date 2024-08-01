@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
-import { Box, Button, IconButton, Paper } from '@mui/material';
+import { Button, IconButton, Paper } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
 import { Add } from '@mui/icons-material';
