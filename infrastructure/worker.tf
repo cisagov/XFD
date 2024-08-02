@@ -431,8 +431,6 @@ data "aws_ssm_parameter" "worker_signature_private_key" { name = var.ssm_worker_
 
 data "aws_ssm_parameter" "https_proxy" { name = var.ssm_https_proxy }
 
-data "aws_ssm_parameter" "intelx_api_key" { name = var.ssm_intelx_api_key }
-
 data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
 
 data "aws_ssm_parameter" "cf_api_key" { name = var.ssm_cf_api_key }

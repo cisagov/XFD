@@ -693,12 +693,6 @@ variable "ssm_worker_kms_keys" {
   default     = "/crossfeed/staging/WORKER_KMS_KEYS"
 }
 
-variable "ssm_intelx_api_key" {
-  description = "ssm_intelx_api_key"
-  type        = string
-  default     = "/crossfeed/staging/INTELX_API_KEY"
-}
-
 variable "ssm_pe_api_key" {
   description = "ssm_pe_api_key"
   type        = string
