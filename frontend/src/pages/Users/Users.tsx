@@ -629,7 +629,7 @@ export const Users: React.FC = () => {
                 <Alert severity="warning">Error Loading Users!!</Alert>
               </Paper>
               <Button
-                onClick={onCreateUserSubmit}
+                onClick={fetchUsers}
                 variant="contained"
                 color="primary"
                 sx={{ width: 'fit-content' }}

@@ -61,15 +61,6 @@ export const Domains: React.FC = () => {
     [listDomains]
   );
 
-  const resetDomains = useCallback(() => {
-    fetchDomains({
-      page: 1,
-      pageSize: PAGE_SIZE,
-      sort: [],
-      filters: []
-    });
-  }, [fetchDomains]);
-
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: PAGE_SIZE,
@@ -170,7 +161,7 @@ export const Domains: React.FC = () => {
               <Alert severity="warning">Error Loading Domains!!</Alert>
             </Paper>
             <Button
-              onClick={resetDomains}
+              onClick={() => fetchDomains}
               variant="contained"
               color="primary"
               sx={{ width: 'fit-content' }}
