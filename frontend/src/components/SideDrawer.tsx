@@ -21,7 +21,7 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
     setSearchTerm
   } = props;
 
-  const [open, setOpen] = React.useState(false);
+  // const [open, setOpen] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [isClosing, setIsClosing] = React.useState(false);
 
@@ -29,9 +29,9 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
     setSearchTerm(term);
   };
 
-  const toggleDrawer = (newOpen: boolean) => () => {
-    setOpen(newOpen);
-  };
+  // const toggleDrawer = (newOpen: boolean) => () => {
+  //   setOpen(newOpen);
+  // };
 
   const handleDrawerClose = () => {
     setIsClosing(true);
