@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { NavLink, Link, useHistory } from 'react-router-dom';
+import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
@@ -19,6 +19,7 @@ import cisaLogo from '../assets/cisaSeal.svg';
 import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
 import { UserMenu } from './UserMenu';
+import { SideDrawerWithSearch } from './SideDrawer';
 
 const PREFIX = 'Header';
 
@@ -163,6 +164,7 @@ interface MenuItemType {
 
 export const Header: React.FC = () => {
   const history = useHistory();
+  const { pathname } = useLocation();
   const {
     currentOrganization,
     setOrganization,
@@ -319,15 +321,10 @@ export const Header: React.FC = () => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              // onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { sm: 'none' } }}
-            >
-              <MenuIcon />
-            </IconButton>
+            {userLevel > 0 &&
+            (pathname === '/inventory' || pathname === '/') ? (
+              <SideDrawerWithSearch />
+            ) : null}
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
