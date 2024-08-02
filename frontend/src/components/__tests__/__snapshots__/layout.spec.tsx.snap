@@ -80,19 +80,6 @@ exports[`Layout component matches snapshot 1`] = `
               <p>
                 <a
                   class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
-                  href="https://docs.crossfeed.cyber.dhs.gov/"
-                  target="_blank"
-                >
-                  Documentation
-                </a>
-              </p>
-            </div>
-            <div
-              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
-            >
-              <p>
-                <a
-                  class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
                   href="https://www.cisa.gov"
                   target="_blank"
                 >
