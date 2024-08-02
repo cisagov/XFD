@@ -30,6 +30,7 @@ import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
+import { OrganizationSearch } from './OrganizationSearch';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -191,12 +192,13 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
           Organization(s)
         </AccordionSummary>
         <AccordionDetails>
-          <SearchBar
+          {/* <SearchBar
             onChange={function (value: string): void {
               throw new Error('Function not implemented.');
             }}
             initialValue={''}
-          />
+          /> */}
+          <OrganizationSearch />
           <List sx={{ width: '100%' }}>
             <ListItem sx={{ padding: '0px' }}>
               <ListItemButton sx={{ padding: '0px' }}>

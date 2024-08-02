@@ -7,6 +7,7 @@ import { IconButton, Toolbar, Typography } from '@mui/material';
 import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
 import { TestDrawerInteriorWithSearch } from './TestDrawer';
+
 export const SideDrawer: React.FC<ContextType & { location: any }> = (
   props
 ) => {
@@ -21,6 +22,8 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
   } = props;
 
   const [open, setOpen] = React.useState(false);
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [isClosing, setIsClosing] = React.useState(false);
 
   const updateSearchTerm = (term: string) => {
     setSearchTerm(term);
@@ -30,8 +33,23 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
     setOpen(newOpen);
   };
 
+  const handleDrawerClose = () => {
+    setIsClosing(true);
+    setMobileOpen(false);
+  };
+
+  const handleDrawerTransitionEnd = () => {
+    setIsClosing(false);
+  };
+
+  const handleDrawerToggle = () => {
+    if (!isClosing) {
+      setMobileOpen(!mobileOpen);
+    }
+  };
+
   const DrawerList = (
-    <Box sx={{ width: 350 }} role="presentation">
+    <Box sx={{ width: 250 }} role="presentation">
       <Toolbar>
         <Typography>Filter Drawer</Typography>
       </Toolbar>
@@ -51,13 +69,37 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
 
   return (
     <div>
-      {/* <Button>Open drawer</Button> */}
-      <Drawer open={open} onClose={toggleDrawer(false)}>
-        {DrawerList}
-      </Drawer>
-      <IconButton onClick={toggleDrawer(true)}>
+      <IconButton
+        onClick={handleDrawerToggle}
+        sx={{ mr: 2, display: { sm: 'none' } }}
+      >
         <MenuIcon />
       </IconButton>
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onTransitionEnd={handleDrawerTransitionEnd}
+        onClose={handleDrawerClose}
+        ModalProps={{
+          keepMounted: true // Better open performance on mobile.
+        }}
+        sx={{
+          display: { xs: 'block', sm: 'none' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box' }
+        }}
+      >
+        {DrawerList}
+      </Drawer>
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: 'none', sm: 'block' },
+          '& .MuiDrawer-paper': { boxSizing: 'border-box' }
+        }}
+        open
+      >
+        {DrawerList}
+      </Drawer>
     </div>
   );
 };
