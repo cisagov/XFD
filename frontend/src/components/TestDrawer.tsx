@@ -192,31 +192,7 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
           Organization(s)
         </AccordionSummary>
         <AccordionDetails>
-          {/* <SearchBar
-            onChange={function (value: string): void {
-              throw new Error('Function not implemented.');
-            }}
-            initialValue={''}
-          /> */}
           <OrganizationSearch />
-          <List sx={{ width: '100%' }}>
-            <ListItem sx={{ padding: '0px' }}>
-              <ListItemButton sx={{ padding: '0px' }}>
-                <ListItemIcon>
-                  <CheckBox />
-                </ListItemIcon>
-                <ListItemText primary="Pedantic County" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem sx={{ padding: '0px' }}>
-              <ListItemButton sx={{ padding: '0px' }}>
-                <ListItemIcon>
-                  <CheckBox />
-                </ListItemIcon>
-                <ListItemText primary="Cool Agency" />
-              </ListItemButton>
-            </ListItem>
-          </List>
         </AccordionDetails>
       </Accordion>
       <Accordion

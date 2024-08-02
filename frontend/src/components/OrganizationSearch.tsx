@@ -2,7 +2,16 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouteMatch, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import { Organization, OrganizationTag } from 'types';
-import { Autocomplete, TextField } from '@mui/material';
+import {
+  Autocomplete,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  TextField
+} from '@mui/material';
+import { CheckBox } from '@mui/icons-material';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -70,6 +79,11 @@ export const OrganizationSearch: React.FC = () => {
     return [];
   }, [user, organizations, userLevel]);
 
+  const topTenOrganizations = useMemo(() => {
+    return organizations.slice(0, 10);
+  }, [organizations]);
+
+  console.log('top 10', topTenOrganizations);
   return (
     <>
       {organizations.length > 1 && (
@@ -150,6 +164,18 @@ export const OrganizationSearch: React.FC = () => {
           )}
         />
       )}
+      {topTenOrganizations.map((org) => (
+        <List sx={{ width: '100%' }} key={org.id}>
+          <ListItem sx={{ padding: '0px' }}>
+            <ListItemButton sx={{ padding: '0px' }}>
+              <ListItemIcon>
+                <CheckBox />
+              </ListItemIcon>
+              <ListItemText primary={org.name} />
+            </ListItemButton>
+          </ListItem>
+        </List>
+      ))}
     </>
   );
 };
