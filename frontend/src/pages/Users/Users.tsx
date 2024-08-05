@@ -9,7 +9,12 @@ import {
   Button
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { Add, CheckCircleOutline, Edit, Delete } from '@mui/icons-material';
+import {
+  Add,
+  CheckCircleOutline,
+  EditNoteOutlined,
+  Delete
+} from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
@@ -87,10 +92,10 @@ export const Users: React.FC = () => {
       const rows = await apiGet<UserType[]>(`/users/`);
       rows.forEach((row) => {
         row.lastLoggedInString = row.lastLoggedIn
-          ? format(parseISO(row.lastLoggedIn), "MM-dd-yyyy 'at' hh:mm a")
+          ? format(parseISO(row.lastLoggedIn), 'MM-dd-yyyy hh:mm a')
           : 'None';
         row.dateToUSigned = row.dateAcceptedTerms
-          ? format(parseISO(row.dateAcceptedTerms), "MM-dd-yyyy 'at' hh:mm a")
+          ? format(parseISO(row.dateAcceptedTerms), 'MM-dd-yyyy hh:mm a')
           : 'None';
         row.orgs = row.roles
           ? row.roles
@@ -123,7 +128,7 @@ export const Users: React.FC = () => {
   const userCols: GridColDef[] = [
     { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 100, flex: 1.5 },
-    { field: 'regionId', headerName: 'Region', minWidth: 100, flex: 0.5 },
+    { field: 'regionId', headerName: 'Region', minWidth: 100, flex: 0.4 },
     {
       field: 'orgs',
       headerName: 'Organizations',
@@ -151,12 +156,12 @@ export const Users: React.FC = () => {
     },
     {
       field: 'edit',
-      headerName: 'Edit',
+      headerName: 'View/Edit',
       minWidth: 50,
-      flex: 0.4,
+      flex: 0.5,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `Edit user ${cellValues.row.email}`;
-        const descriptionId = `edit-description-${cellValues.row.id}`;
+        const ariaLabel = `View or edit user ${cellValues.row.fullName}`;
+        const descriptionId = `description-${cellValues.row.id}`;
         return (
           <>
             <span id={descriptionId} style={{ display: 'none' }}>
@@ -179,7 +184,7 @@ export const Users: React.FC = () => {
                 setEditUserDialogOpen(true);
               }}
             >
-              <Edit />
+              <EditNoteOutlined />
             </IconButton>
           </>
         );
