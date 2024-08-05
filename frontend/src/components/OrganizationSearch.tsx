@@ -3,15 +3,21 @@ import { useRouteMatch, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import { Organization, OrganizationTag } from 'types';
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Autocomplete,
+  Divider,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  TextField
+  TextField,
+  Toolbar,
+  Typography
 } from '@mui/material';
-import { CheckBox } from '@mui/icons-material';
+import { CheckBox, ExpandMore } from '@mui/icons-material';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -31,7 +37,20 @@ export const OrganizationSearch: React.FC = () => {
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
+  // const [regionIds, setRegionIds] = useState<number[]>([]);
 
+  console.log('organizations', organizations);
+  const regionIds = useMemo(() => {
+    return organizations.map((org) => org.regionId);
+  }, [organizations]);
+  console.log('regionIds', regionIds);
+  const uniqueRegionIds = useMemo(() => {
+    const regionIdSet = new Set(regionIds);
+    const uniqueIdsArray = Array.from(regionIdSet);
+    return uniqueIdsArray.sort();
+  }, [regionIds]);
+
+  console.log('Number of unique regionIds:', uniqueRegionIds);
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
@@ -86,96 +105,131 @@ export const OrganizationSearch: React.FC = () => {
   console.log('top 10', topTenOrganizations);
   return (
     <>
-      {organizations.length > 1 && (
-        <Autocomplete
-          isOptionEqualToValue={(option, value) => option?.name === value?.name}
-          options={
-            userLevel === GLOBAL_ADMIN
-              ? [...tags, ...organizationDropdownOptions]
-              : organizationDropdownOptions
-          }
-          autoComplete={false}
-          //   className={classes.selectOrg}
-          classes={
-            {
-              // option: classes.option
-            }
-          }
-          value={
-            showAllOrganizations
-              ? { name: 'All Organizations' }
-              : currentOrganization ?? undefined
-          }
-          filterOptions={(options, state) => {
-            // If already selected, show all
-            if (
-              options.find(
-                (option) =>
-                  option?.name.toLowerCase() === state.inputValue.toLowerCase()
-              )
-            ) {
-              return options;
-            }
-            return options.filter(
-              (option) =>
-                option?.name
-                  .toLowerCase()
-                  .includes(state.inputValue.toLowerCase())
-            );
-          }}
-          disableClearable
-          blurOnSelect
-          selectOnFocus
-          getOptionLabel={(option) => option!.name}
-          renderOption={(props, option) => <li {...props}>{option!.name}</li>}
-          onChange={(
-            event: any,
-            value: Organization | { name: string } | undefined
-          ) => {
-            if (value && 'id' in value) {
-              setOrganization(value);
-              setShowAllOrganizations(false);
-              if (value.name === 'Election') {
-                setShowMaps(true);
-              } else {
-                setShowMaps(false);
+      <Toolbar sx={{ justifyContent: 'center' }}>
+        <Typography variant="h6">Region or Organization</Typography>
+      </Toolbar>
+      <Divider />
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography>Region(s)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <List>
+            {uniqueRegionIds.map((regionId) => (
+              <ListItem sx={{ padding: '0px' }} key={regionId}>
+                <ListItemButton sx={{ padding: '0px' }}>
+                  <ListItemIcon>
+                    <CheckBox />
+                  </ListItemIcon>
+                  <ListItemText primary={`Region ${regionId}`} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography>Organization(s)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          {organizations.length > 1 && (
+            <Autocomplete
+              isOptionEqualToValue={(option, value) =>
+                option?.name === value?.name
               }
-              // Check if we're on an organization page and, if so, update it to the new organization
-              if (orgPageMatch !== null) {
-                if (!tags.find((e) => e.id === value.id)) {
-                  history.push(`/organizations/${value.id}`);
+              options={
+                userLevel === GLOBAL_ADMIN
+                  ? [...tags, ...organizationDropdownOptions]
+                  : organizationDropdownOptions
+              }
+              autoComplete={false}
+              //   className={classes.selectOrg}
+              classes={
+                {
+                  // option: classes.option
                 }
               }
-            } else {
-              setShowAllOrganizations(true);
-              setShowMaps(false);
-            }
-          }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              inputProps={{
-                ...params.inputProps,
-                id: 'autocomplete-input',
-                autoComplete: 'new-password' // disable autocomplete and autofill
+              value={
+                showAllOrganizations
+                  ? { name: 'All Organizations' }
+                  : currentOrganization ?? undefined
+              }
+              filterOptions={(options, state) => {
+                // If already selected, show all
+                if (
+                  options.find(
+                    (option) =>
+                      option?.name.toLowerCase() ===
+                      state.inputValue.toLowerCase()
+                  )
+                ) {
+                  return options;
+                }
+                return options.filter(
+                  (option) =>
+                    option?.name
+                      .toLowerCase()
+                      .includes(state.inputValue.toLowerCase())
+                );
               }}
+              disableClearable
+              blurOnSelect
+              selectOnFocus
+              getOptionLabel={(option) => option!.name}
+              renderOption={(props, option) => (
+                <li {...props}>{option!.name}</li>
+              )}
+              onChange={(
+                event: any,
+                value: Organization | { name: string } | undefined
+              ) => {
+                if (value && 'id' in value) {
+                  setOrganization(value);
+                  setShowAllOrganizations(false);
+                  if (value.name === 'Election') {
+                    setShowMaps(true);
+                  } else {
+                    setShowMaps(false);
+                  }
+                  // Check if we're on an organization page and, if so, update it to the new organization
+                  if (orgPageMatch !== null) {
+                    if (!tags.find((e) => e.id === value.id)) {
+                      history.push(`/organizations/${value.id}`);
+                    }
+                  }
+                } else {
+                  setShowAllOrganizations(true);
+                  setShowMaps(false);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  variant="outlined"
+                  inputProps={{
+                    ...params.inputProps,
+                    id: 'autocomplete-input',
+                    autoComplete: 'new-password' // disable autocomplete and autofill
+                  }}
+                />
+              )}
             />
           )}
-        />
-      )}
-      {topTenOrganizations.map((org) => (
-        <List sx={{ width: '100%' }} key={org.id}>
-          <ListItem sx={{ padding: '0px' }}>
-            <ListItemButton sx={{ padding: '0px' }}>
-              <ListItemIcon>
-                <CheckBox />
-              </ListItemIcon>
-              <ListItemText primary={org.name} />
-            </ListItemButton>
-          </ListItem>
-        </List>
-      ))}
+          <List sx={{ width: '100%' }}>
+            {topTenOrganizations.map((org) => (
+              <ListItem sx={{ padding: '0px' }} key={org.id}>
+                <ListItemButton sx={{ padding: '0px' }}>
+                  <ListItemIcon>
+                    <CheckBox />
+                  </ListItemIcon>
+                  <ListItemText primary={org.name} />
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </AccordionDetails>
+      </Accordion>
     </>
   );
 };

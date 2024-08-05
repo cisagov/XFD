@@ -1,12 +1,12 @@
 import * as React from 'react';
-import Box from '@mui/material/Box';
-import Drawer from '@mui/material/Drawer';
-import Divider from '@mui/material/Divider';
-import MenuIcon from '@mui/icons-material/Menu';
-import { IconButton, Toolbar, Typography } from '@mui/material';
 import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
+import Box from '@mui/material/Box';
+import Drawer from '@mui/material/Drawer';
+import MenuIcon from '@mui/icons-material/Menu';
+import { IconButton } from '@mui/material';
 import { TestDrawerInteriorWithSearch } from './TestDrawer';
+import { OrganizationSearch } from './OrganizationSearch';
 
 export const SideDrawer: React.FC<ContextType & { location: any }> = (
   props
@@ -49,11 +49,8 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
   };
 
   const DrawerList = (
-    <Box sx={{ width: 250 }} role="presentation">
-      <Toolbar>
-        <Typography>Filter Drawer</Typography>
-      </Toolbar>
-      <Divider />
+    <Box sx={{ width: 300 }} role="presentation">
+      <OrganizationSearch />
       <TestDrawerInteriorWithSearch
         addFilter={addFilter}
         removeFilter={removeFilter}

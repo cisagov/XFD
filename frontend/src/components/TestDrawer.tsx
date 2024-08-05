@@ -5,11 +5,10 @@ import {
   AccordionSummary as MuiAccordionSummary,
   IconButton,
   Paper,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  ListItem,
-  List
+  Divider,
+  Stack,
+  Toolbar,
+  Typography
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -17,12 +16,11 @@ import {
   StyledWrapper
 } from '../pages/Search/Styling/filterDrawerStyle';
 import {
-  CheckBox,
   Delete,
   ExpandMore,
   FiberManualRecordRounded
 } from '@mui/icons-material';
-import { FaFilter } from 'react-icons/fa';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { SearchBar } from 'components';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../context/SearchProvider';
@@ -30,7 +28,6 @@ import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { OrganizationSearch } from './OrganizationSearch';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -69,6 +66,7 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
   const [savedSearchCount, setSavedSearchCount] = useState(0);
   const history = useHistory();
   const location = useLocation();
+  const { pathname } = location;
 
   useEffect(() => {
     const fetchSearches = async () => {
@@ -130,412 +128,385 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
 
   return (
     <StyledWrapper style={{ overflowY: 'auto' }}>
-      <div className={classes.header}>
-        <SearchBar
-          initialValue={searchTerm}
-          value={searchTerm}
-          onChange={(value) => {
-            if (location.pathname !== '/inventory')
-              history.push('/inventory?q=' + value);
-            setSearchTerm(value, {
-              shouldClearFilters: false,
-              autocompleteResults: false
-            });
-          }}
-        />
-      </div>
-      <div className={classes.header}>
-        <div className={classes.filter}>
-          <FaFilter /> <h3>Filter</h3>
-        </div>
-        {clearFilters && (
-          <div>
-            <button onClick={clearFilters}>Clear All Filters</button>
-          </div>
-        )}
-      </div>
-      <Accordion elevation={0}>
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          Region(s)
-        </AccordionSummary>
-        <AccordionDetails>
-          <List sx={{ width: '100%' }}>
-            <ListItem sx={{ padding: '0px' }}>
-              <ListItemButton sx={{ padding: '0px' }}>
-                <ListItemIcon>
-                  <CheckBox />
-                </ListItemIcon>
-                <ListItemText primary="Region 1" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem sx={{ padding: '0px' }}>
-              <ListItemButton sx={{ padding: '0px' }}>
-                <ListItemIcon>
-                  <CheckBox />
-                </ListItemIcon>
-                <ListItemText primary="Region 2" />
-              </ListItemButton>
-            </ListItem>
-            <ListItem sx={{ padding: '0px' }}>
-              <ListItemButton sx={{ padding: '0px' }}>
-                <ListItemIcon>
-                  <CheckBox />
-                </ListItemIcon>
-                <ListItemText primary="Region 3" />
-              </ListItemButton>
-            </ListItem>
-          </List>
-        </AccordionDetails>
-      </Accordion>
-      <Accordion>
-        <AccordionSummary expandIcon={<ExpandMore />}>
-          Organization(s)
-        </AccordionSummary>
-        <AccordionDetails>
-          <OrganizationSearch />
-        </AccordionDetails>
-      </Accordion>
-      <Accordion
-        elevation={0}
-        square
-        classes={{
-          root: classes.root,
-          disabled: classes.disabled,
-          expanded: classes.expanded
-        }}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMore />}
-          classes={{
-            root: classes.root2,
-            content: classes.content,
-            disabled: classes.disabled2,
-            expanded: classes.expanded2
-          }}
-        >
-          <div>IP(s)</div>
-          {filtersByColumn['ip']?.length > 0 && <FiltersApplied />}
-        </AccordionSummary>
-        <AccordionDetails classes={{ root: classes.details }}>
-          <TaggedArrayInput
-            placeholder="IP address"
-            values={filtersByColumn.ip ?? []}
-            onAddTag={(value) => addFilter('ip', value, 'any')}
-            onRemoveTag={(value) => removeFilter('ip', value, 'any')}
-          />
-        </AccordionDetails>
-      </Accordion>
-      <Accordion
-        elevation={0}
-        square
-        classes={{
-          root: classes.root,
-          disabled: classes.disabled,
-          expanded: classes.expanded
-        }}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMore />}
-          classes={{
-            root: classes.root2,
-            content: classes.content,
-            disabled: classes.disabled2,
-            expanded: classes.expanded2
-          }}
-        >
-          <div>Domain(s)</div>
-          {filtersByColumn['name']?.length > 0 && <FiltersApplied />}
-        </AccordionSummary>
-        <AccordionDetails classes={{ root: classes.details }}>
-          <TaggedArrayInput
-            placeholder="Domain"
-            values={filtersByColumn.name ?? []}
-            onAddTag={(value) => addFilter('name', value, 'any')}
-            onRemoveTag={(value) => removeFilter('name', value, 'any')}
-          />
-        </AccordionDetails>
-      </Accordion>
-      {fromDomainFacet.length > 0 && (
-        <Accordion
-          elevation={0}
-          square
-          classes={{
-            root: classes.root,
-            disabled: classes.disabled,
-            expanded: classes.expanded
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMore />}
-            classes={{
-              root: classes.root2,
-              content: classes.content,
-              disabled: classes.disabled2,
-              expanded: classes.expanded2
-            }}
-          >
-            <div>Root Domain(s)</div>
-            {filtersByColumn['fromRootDomain']?.length > 0 && (
-              <FiltersApplied />
-            )}
-          </AccordionSummary>
-          <AccordionDetails classes={{ root: classes.details }}>
-            <FacetFilter
-              options={fromDomainFacet}
-              selected={filtersByColumn['fromRootDomain'] ?? []}
-              onSelect={(value) => addFilter('fromRootDomain', value, 'any')}
-              onDeselect={(value) =>
-                removeFilter('fromRootDomain', value, 'any')
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {portFacet.length > 0 && (
-        <Accordion
-          elevation={0}
-          square
-          classes={{
-            root: classes.root,
-            disabled: classes.disabled,
-            expanded: classes.expanded
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMore />}
-            classes={{
-              root: classes.root2,
-              content: classes.content,
-              disabled: classes.disabled2,
-              expanded: classes.expanded2
-            }}
-          >
-            <div>Port(s)</div>
-            {filtersByColumn['services.port']?.length > 0 && <FiltersApplied />}
-          </AccordionSummary>
-          <AccordionDetails classes={{ root: classes.details }}>
-            <FacetFilter
-              options={portFacet}
-              selected={filtersByColumn['services.port'] ?? []}
-              onSelect={(value) => addFilter('services.port', value, 'any')}
-              onDeselect={(value) =>
-                removeFilter('services.port', value, 'any')
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {cveFacet.length > 0 && (
-        <Accordion
-          elevation={0}
-          square
-          classes={{
-            root: classes.root,
-            disabled: classes.disabled,
-            expanded: classes.expanded
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMore />}
-            classes={{
-              root: classes.root2,
-              content: classes.content,
-              disabled: classes.disabled2,
-              expanded: classes.expanded2
-            }}
-          >
-            <div>CVE(s)</div>
-            {filtersByColumn['vulnerabilities.cve']?.length > 0 && (
-              <FiltersApplied />
-            )}
-          </AccordionSummary>
-          <AccordionDetails classes={{ root: classes.details }}>
-            <FacetFilter
-              options={cveFacet}
-              selected={filtersByColumn['vulnerabilities.cve'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.cve', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.cve', value, 'any')
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {severityFacet.length > 0 && (
-        <Accordion
-          elevation={0}
-          square
-          classes={{
-            root: classes.root,
-            disabled: classes.disabled,
-            expanded: classes.expanded
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMore />}
-            classes={{
-              root: classes.root2,
-              content: classes.content,
-              disabled: classes.disabled2,
-              expanded: classes.expanded2
-            }}
-          >
-            <div>Severity</div>
-            {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
-              <FiltersApplied />
-            )}
-          </AccordionSummary>
-          <AccordionDetails classes={{ root: classes.details }}>
-            <FacetFilter
-              options={severityFacet}
-              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.severity', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.severity', value, 'any')
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      <Accordion
-        elevation={0}
-        square
-        classes={{
-          root: classes.root,
-          disabled: classes.disabled,
-          expanded: classes.expanded
-        }}
-      >
-        <AccordionSummary
-          expandIcon={<ExpandMore />}
-          classes={{
-            root: classes.root2,
-            content: classes.content,
-            disabled: classes.disabled2,
-            expanded: classes.expanded2
-          }}
-        >
+      {pathname === '/inventory' ? (
+        <>
+          <Toolbar sx={{ justifyContent: 'center' }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Typography variant="h6" component="h2">
+                Filters
+              </Typography>
+              <FilterAltIcon />
+            </Stack>
+          </Toolbar>
+          <Divider />
           <div className={classes.header}>
-            <h3>Saved Searches</h3>
+            <SearchBar
+              initialValue={searchTerm}
+              value={searchTerm}
+              onChange={(value) => {
+                if (location.pathname !== '/inventory')
+                  history.push('/inventory?q=' + value);
+                setSearchTerm(value, {
+                  shouldClearFilters: false,
+                  autocompleteResults: false
+                });
+              }}
+            />
           </div>
-        </AccordionSummary>
-        <Accordion style={{ overflowY: 'auto' }}>
-          <AccordionDetails classes={{ root: classes.details }}>
-            <Paper elevation={2} style={{ width: '15em' }}>
-              {savedSearches.length > 0 ? (
-                <DataGrid
-                  density="compact"
-                  key={'Data Grid'}
-                  rows={savedSearches.map((search) => ({ ...search }))}
-                  rowCount={savedSearchCount}
-                  columns={[
-                    {
-                      field: 'name',
-                      headerName: 'Name',
-                      flex: 1,
-                      width: 100,
-                      description: 'Name',
-                      renderCell: (cellValues) => {
-                        const applyFilter = () => {
-                          if (clearFilters) clearFilters();
-                          localStorage.setItem(
-                            'savedSearch',
-                            JSON.stringify(cellValues.row)
-                          );
-                          setSearchTerm(cellValues.row.searchTerm, {
-                            shouldClearFilters: false,
-                            autocompleteResults: false
-                          });
-                          if (location.pathname !== '/inventory')
-                            history.push(
-                              '/inventory?q=' + cellValues.row.searchTerm
-                            );
-
-                          // Apply the filters
-                          cellValues.row.filters.forEach((filter) => {
-                            filter.values.forEach((value) => {
-                              addFilter(filter.field, value, 'any');
-                            });
-                          });
-                        };
-                        return (
-                          <div
-                            aria-label={cellValues.row.name}
-                            title={`Saved Search: ${cellValues.row.name}`}
-                            tabIndex={0}
-                            onClick={applyFilter}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                applyFilter();
-                              }
-                            }}
-                            style={{
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              width: '100%'
-                            }}
-                          >
-                            {cellValues.value}
-                          </div>
-                        );
-                      }
-                    },
-                    {
-                      field: 'actions',
-                      headerName: '',
-                      flex: 0.1,
-                      renderCell: (cellValues) => {
-                        const searchId = cellValues.id.toString();
-                        return (
-                          <div style={{ display: 'flexbox', textAlign: 'end' }}>
-                            <IconButton
-                              aria-label="Delete"
-                              title="Delete Search"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteSearch(searchId);
-                              }}
-                              tabIndex={0}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  deleteSearch(searchId);
-                                }
-                              }}
-                            >
-                              <Delete />
-                            </IconButton>
-                          </div>
-                        );
-                      }
-                    }
-                  ]}
-                  initialState={{
-                    pagination: {
-                      paginationModel: {
-                        pageSize: 5
-                      }
-                    }
-                  }}
-                  pageSizeOptions={[5, 10]}
-                  disableRowSelectionOnClick
-                  sx={{
-                    disableColumnfilter: 'true',
-                    '& .MuiDataGrid-row:hover': {
-                      cursor: 'pointer'
-                    }
-                  }}
+          {clearFilters && (
+            <div>
+              <button onClick={clearFilters}>Clear All Filters</button>
+            </div>
+          )}
+          <Accordion
+            elevation={0}
+            square
+            classes={{
+              root: classes.root,
+              disabled: classes.disabled,
+              expanded: classes.expanded
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMore />}
+              classes={{
+                root: classes.root2,
+                content: classes.content,
+                disabled: classes.disabled2,
+                expanded: classes.expanded2
+              }}
+            >
+              <div>IP(s)</div>
+              {filtersByColumn['ip']?.length > 0 && <FiltersApplied />}
+            </AccordionSummary>
+            <AccordionDetails classes={{ root: classes.details }}>
+              <TaggedArrayInput
+                placeholder="IP address"
+                values={filtersByColumn.ip ?? []}
+                onAddTag={(value) => addFilter('ip', value, 'any')}
+                onRemoveTag={(value) => removeFilter('ip', value, 'any')}
+              />
+            </AccordionDetails>
+          </Accordion>
+          <Accordion
+            elevation={0}
+            square
+            classes={{
+              root: classes.root,
+              disabled: classes.disabled,
+              expanded: classes.expanded
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMore />}
+              classes={{
+                root: classes.root2,
+                content: classes.content,
+                disabled: classes.disabled2,
+                expanded: classes.expanded2
+              }}
+            >
+              <div>Domain(s)</div>
+              {filtersByColumn['name']?.length > 0 && <FiltersApplied />}
+            </AccordionSummary>
+            <AccordionDetails classes={{ root: classes.details }}>
+              <TaggedArrayInput
+                placeholder="Domain"
+                values={filtersByColumn.name ?? []}
+                onAddTag={(value) => addFilter('name', value, 'any')}
+                onRemoveTag={(value) => removeFilter('name', value, 'any')}
+              />
+            </AccordionDetails>
+          </Accordion>
+          {fromDomainFacet.length > 0 && (
+            <Accordion
+              elevation={0}
+              square
+              classes={{
+                root: classes.root,
+                disabled: classes.disabled,
+                expanded: classes.expanded
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore />}
+                classes={{
+                  root: classes.root2,
+                  content: classes.content,
+                  disabled: classes.disabled2,
+                  expanded: classes.expanded2
+                }}
+              >
+                <div>Root Domain(s)</div>
+                {filtersByColumn['fromRootDomain']?.length > 0 && (
+                  <FiltersApplied />
+                )}
+              </AccordionSummary>
+              <AccordionDetails classes={{ root: classes.details }}>
+                <FacetFilter
+                  options={fromDomainFacet}
+                  selected={filtersByColumn['fromRootDomain'] ?? []}
+                  onSelect={(value) =>
+                    addFilter('fromRootDomain', value, 'any')
+                  }
+                  onDeselect={(value) =>
+                    removeFilter('fromRootDomain', value, 'any')
+                  }
                 />
-              ) : (
-                <div>No Saved Searches</div>
-              )}
-            </Paper>
-          </AccordionDetails>
-        </Accordion>
-      </Accordion>
+              </AccordionDetails>
+            </Accordion>
+          )}
+          {portFacet.length > 0 && (
+            <Accordion
+              elevation={0}
+              square
+              classes={{
+                root: classes.root,
+                disabled: classes.disabled,
+                expanded: classes.expanded
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore />}
+                classes={{
+                  root: classes.root2,
+                  content: classes.content,
+                  disabled: classes.disabled2,
+                  expanded: classes.expanded2
+                }}
+              >
+                <div>Port(s)</div>
+                {filtersByColumn['services.port']?.length > 0 && (
+                  <FiltersApplied />
+                )}
+              </AccordionSummary>
+              <AccordionDetails classes={{ root: classes.details }}>
+                <FacetFilter
+                  options={portFacet}
+                  selected={filtersByColumn['services.port'] ?? []}
+                  onSelect={(value) => addFilter('services.port', value, 'any')}
+                  onDeselect={(value) =>
+                    removeFilter('services.port', value, 'any')
+                  }
+                />
+              </AccordionDetails>
+            </Accordion>
+          )}
+          {cveFacet.length > 0 && (
+            <Accordion
+              elevation={0}
+              square
+              classes={{
+                root: classes.root,
+                disabled: classes.disabled,
+                expanded: classes.expanded
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore />}
+                classes={{
+                  root: classes.root2,
+                  content: classes.content,
+                  disabled: classes.disabled2,
+                  expanded: classes.expanded2
+                }}
+              >
+                <div>CVE(s)</div>
+                {filtersByColumn['vulnerabilities.cve']?.length > 0 && (
+                  <FiltersApplied />
+                )}
+              </AccordionSummary>
+              <AccordionDetails classes={{ root: classes.details }}>
+                <FacetFilter
+                  options={cveFacet}
+                  selected={filtersByColumn['vulnerabilities.cve'] ?? []}
+                  onSelect={(value) =>
+                    addFilter('vulnerabilities.cve', value, 'any')
+                  }
+                  onDeselect={(value) =>
+                    removeFilter('vulnerabilities.cve', value, 'any')
+                  }
+                />
+              </AccordionDetails>
+            </Accordion>
+          )}
+          {severityFacet.length > 0 && (
+            <Accordion
+              elevation={0}
+              square
+              classes={{
+                root: classes.root,
+                disabled: classes.disabled,
+                expanded: classes.expanded
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<ExpandMore />}
+                classes={{
+                  root: classes.root2,
+                  content: classes.content,
+                  disabled: classes.disabled2,
+                  expanded: classes.expanded2
+                }}
+              >
+                <div>Severity</div>
+                {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
+                  <FiltersApplied />
+                )}
+              </AccordionSummary>
+              <AccordionDetails classes={{ root: classes.details }}>
+                <FacetFilter
+                  options={severityFacet}
+                  selected={filtersByColumn['vulnerabilities.severity'] ?? []}
+                  onSelect={(value) =>
+                    addFilter('vulnerabilities.severity', value, 'any')
+                  }
+                  onDeselect={(value) =>
+                    removeFilter('vulnerabilities.severity', value, 'any')
+                  }
+                />
+              </AccordionDetails>
+            </Accordion>
+          )}
+          <Accordion
+            elevation={0}
+            square
+            classes={{
+              root: classes.root,
+              disabled: classes.disabled,
+              expanded: classes.expanded
+            }}
+          >
+            <AccordionSummary
+              expandIcon={<ExpandMore />}
+              classes={{
+                root: classes.root2,
+                content: classes.content,
+                disabled: classes.disabled2,
+                expanded: classes.expanded2
+              }}
+            >
+              <div className={classes.header}>
+                <h3>Saved Searches</h3>
+              </div>
+            </AccordionSummary>
+            <Accordion style={{ overflowY: 'auto' }}>
+              <AccordionDetails classes={{ root: classes.details }}>
+                <Paper elevation={2} style={{ width: '15em' }}>
+                  {savedSearches.length > 0 ? (
+                    <DataGrid
+                      density="compact"
+                      key={'Data Grid'}
+                      rows={savedSearches.map((search) => ({ ...search }))}
+                      rowCount={savedSearchCount}
+                      columns={[
+                        {
+                          field: 'name',
+                          headerName: 'Name',
+                          flex: 1,
+                          width: 100,
+                          description: 'Name',
+                          renderCell: (cellValues) => {
+                            const applyFilter = () => {
+                              if (clearFilters) clearFilters();
+                              localStorage.setItem(
+                                'savedSearch',
+                                JSON.stringify(cellValues.row)
+                              );
+                              setSearchTerm(cellValues.row.searchTerm, {
+                                shouldClearFilters: false,
+                                autocompleteResults: false
+                              });
+                              if (location.pathname !== '/inventory')
+                                history.push(
+                                  '/inventory?q=' + cellValues.row.searchTerm
+                                );
+
+                              // Apply the filters
+                              cellValues.row.filters.forEach((filter) => {
+                                filter.values.forEach((value) => {
+                                  addFilter(filter.field, value, 'any');
+                                });
+                              });
+                            };
+                            return (
+                              <div
+                                aria-label={cellValues.row.name}
+                                title={`Saved Search: ${cellValues.row.name}`}
+                                tabIndex={0}
+                                onClick={applyFilter}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    applyFilter();
+                                  }
+                                }}
+                                style={{
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  width: '100%'
+                                }}
+                              >
+                                {cellValues.value}
+                              </div>
+                            );
+                          }
+                        },
+                        {
+                          field: 'actions',
+                          headerName: '',
+                          flex: 0.1,
+                          renderCell: (cellValues) => {
+                            const searchId = cellValues.id.toString();
+                            return (
+                              <div
+                                style={{ display: 'flexbox', textAlign: 'end' }}
+                              >
+                                <IconButton
+                                  aria-label="Delete"
+                                  title="Delete Search"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteSearch(searchId);
+                                  }}
+                                  tabIndex={0}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      deleteSearch(searchId);
+                                    }
+                                  }}
+                                >
+                                  <Delete />
+                                </IconButton>
+                              </div>
+                            );
+                          }
+                        }
+                      ]}
+                      initialState={{
+                        pagination: {
+                          paginationModel: {
+                            pageSize: 5
+                          }
+                        }
+                      }}
+                      pageSizeOptions={[5, 10]}
+                      disableRowSelectionOnClick
+                      sx={{
+                        disableColumnfilter: 'true',
+                        '& .MuiDataGrid-row:hover': {
+                          cursor: 'pointer'
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div>No Saved Searches</div>
+                  )}
+                </Paper>
+              </AccordionDetails>
+            </Accordion>
+          </Accordion>
+        </>
+      ) : null}
     </StyledWrapper>
   );
 };
