@@ -4,15 +4,14 @@ from django.shortcuts import render
 from fastapi import (
     APIRouter,
     Depends,
-    File,
     HTTPException,
-    Request,
     Security,
-    UploadFile,
-    status,
+
 )
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from .auth import get_current_active_user
 from .models import ApiKey, Organization, User
+from typing import Any, List, Optional, Union
 
 api_router = APIRouter()
 
@@ -29,7 +28,7 @@ async def healthcheck():
     return {"status": "ok2"}
 
 
-@api_router.get("/apikeys")
+@api_router.get("/test-apikeys")
 async def get_api_keys():
     """
     Get all API keys.
@@ -54,15 +53,14 @@ async def get_api_keys():
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
 
-@api_router.get("/organizations")
-async def get_organizations(current_user: User = Depends(get_current_active_user)):
-    """
-    Get all organizations.
-    Returns:
-        list: A list of all organizations.
-    """
+@api_router.post(
+    "/test-orgs",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["List of all Organizations"],
+)
+def read_orgs(current_user: User = Depends(get_current_active_user)):
+    """Call API endpoint to get all organizations."""
     try:
         organizations = Organization.objects.all()
         return [
