@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import {
   Alert,
-  Button,
-  Dialog,
-  DialogActions,
   DialogContent,
-  DialogTitle,
   FormControlLabel,
   MenuItem,
   Radio,
@@ -166,8 +162,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     onResetForm();
   };
 
-  const onCreateUserSubmit = async (e: any) => {
-    e.preventDefault();
+  const onCreateUserSubmit = async () => {
     if (!validateForm(values)) {
       return;
     }
@@ -186,12 +181,12 @@ export const UserForm: React.FC<UserFormProps> = ({
       setUsers(users.concat(user));
       setApiErrorStates({ ...apiErrorStates, getAddUserError: '' });
       handleCloseAddUserDialog('closeButtonClick');
-      setInfoDialogContent('This user has been successfully added.');
+      setInfoDialogContent('This user has been successfully invited.');
       setInfoDialogOpen(true);
     } catch (e: any) {
       setApiErrorStates({ ...apiErrorStates, getAddUserError: e.message });
       setInfoDialogContent(
-        'This user has been not been added. Check the console log for more details.'
+        'This user has been not been invited. Check the console log for more details.'
       );
       console.log(e);
       setValues(initialUserFormValues);
@@ -330,7 +325,8 @@ export const UserForm: React.FC<UserFormProps> = ({
         type="text"
         fullWidth
         value={values.email}
-        disabled
+        onChange={onTextChange}
+        disabled={editUserDialogOpen}
       />
       <Typography mt={1}>State</Typography>
       <Select
@@ -402,7 +398,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     </DialogContent>
   );
 
-  const confirmEditNotificationDialog = (
+  const editUserFormDialog = (
     <ConfirmDialog
       isOpen={editUserDialogOpen}
       onConfirm={handleEditUserSubmit}
@@ -413,44 +409,31 @@ export const UserForm: React.FC<UserFormProps> = ({
     />
   );
 
+  const inviteUserFormDialog = (
+    <ConfirmDialog
+      isOpen={newUserDialogOpen}
+      onConfirm={onCreateUserSubmit}
+      onCancel={() => {
+        setNewUserDialogOpen(false);
+        setFormErrors({
+          firstName: false,
+          lastName: false,
+          email: false,
+          userType: false,
+          state: false
+        });
+        setValues(initialUserFormValues);
+      }}
+      onClose={(_, reason) => handleCloseAddUserDialog(reason)}
+      title={'Invite a User'}
+      content={formContents}
+      disabled={!isFormValid()}
+    />
+  );
   return (
     <>
-      <Dialog
-        open={newUserDialogOpen}
-        onClose={(_, reason) => handleCloseAddUserDialog(reason)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>Invite a User</DialogTitle>
-        {formContents}
-        <DialogActions>
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setNewUserDialogOpen(false);
-              setFormErrors({
-                firstName: false,
-                lastName: false,
-                email: false,
-                userType: false,
-                state: false
-              });
-              setValues(initialUserFormValues);
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            type="submit"
-            onClick={onCreateUserSubmit}
-            disabled={!isFormValid()}
-          >
-            Invite User
-          </Button>
-        </DialogActions>
-      </Dialog>
-      {confirmEditNotificationDialog}
+      {inviteUserFormDialog}
+      {editUserFormDialog}
     </>
   );
 };
