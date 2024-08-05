@@ -7,17 +7,17 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
+  Checkbox,
   Divider,
+  FormControlLabel,
+  FormGroup,
   List,
   ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
   TextField,
   Toolbar,
   Typography
 } from '@mui/material';
-import { CheckBox, ExpandMore } from '@mui/icons-material';
+import { ExpandMore } from '@mui/icons-material';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -105,9 +105,16 @@ export const OrganizationSearch: React.FC = () => {
   console.log('top 10', topTenOrganizations);
   return (
     <>
-      <Toolbar sx={{ justifyContent: 'center' }}>
-        <Typography variant="h6">Region or Organization</Typography>
-      </Toolbar>
+      {userLevel === GLOBAL_ADMIN && (
+        <Toolbar sx={{ justifyContent: 'center' }}>
+          <Typography variant="h6">Region(s) & Organization(s)</Typography>
+        </Toolbar>
+      )}
+      {userLevel === (REGIONAL_ADMIN || STANDARD_USER) && (
+        <Toolbar sx={{ justifyContent: 'center' }}>
+          <Typography variant="h6">Organization(s)</Typography>
+        </Toolbar>
+      )}
       <Divider />
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMore />}>
@@ -117,18 +124,19 @@ export const OrganizationSearch: React.FC = () => {
           <List>
             {uniqueRegionIds.map((regionId) => (
               <ListItem sx={{ padding: '0px' }} key={regionId}>
-                <ListItemButton sx={{ padding: '0px' }}>
-                  <ListItemIcon>
-                    <CheckBox />
-                  </ListItemIcon>
-                  <ListItemText primary={`Region ${regionId}`} />
-                </ListItemButton>
+                <FormGroup>
+                  <FormControlLabel
+                    control={<Checkbox />}
+                    label={`Region ${regionId?.toString()}`}
+                    sx={{ padding: '0px' }}
+                  />
+                </FormGroup>
               </ListItem>
             ))}
           </List>
         </AccordionDetails>
       </Accordion>
-      <Accordion>
+      <Accordion defaultExpanded>
         <AccordionSummary expandIcon={<ExpandMore />}>
           <Typography>Organization(s)</Typography>
         </AccordionSummary>
@@ -219,12 +227,13 @@ export const OrganizationSearch: React.FC = () => {
           <List sx={{ width: '100%' }}>
             {topTenOrganizations.map((org) => (
               <ListItem sx={{ padding: '0px' }} key={org.id}>
-                <ListItemButton sx={{ padding: '0px' }}>
-                  <ListItemIcon>
-                    <CheckBox />
-                  </ListItemIcon>
-                  <ListItemText primary={org.name} />
-                </ListItemButton>
+                <FormGroup>
+                  <FormControlLabel
+                    control={<Checkbox />}
+                    label={org.name}
+                    sx={{ padding: '0px' }}
+                  />
+                </FormGroup>
               </ListItem>
             ))}
           </List>
