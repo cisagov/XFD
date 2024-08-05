@@ -184,8 +184,10 @@ export const Users: React.FC = () => {
           </>
         );
       }
-    },
-    {
+    }
+  ];
+  if (user?.userType === 'globalAdmin') {
+    userCols.push({
       field: 'delete',
       headerName: 'Delete',
       minWidth: 50,
@@ -212,9 +214,8 @@ export const Users: React.FC = () => {
           </>
         );
       }
-    }
-  ];
-
+    });
+  }
   const addUserButton = user?.userType === 'globalAdmin' && (
     <Button
       size="small"
