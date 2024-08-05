@@ -54,7 +54,7 @@ export const Organizations: React.FC = () => {
           ) : isLoading === false && loadingError === true ? (
             <Stack direction="row" spacing={2}>
               <Paper elevation={2}>
-                <Alert severity="warning">Error Loading Organizations!!</Alert>
+                <Alert severity="warning">Error Loading Organizations!</Alert>
               </Paper>
               <Button
                 onClick={fetchOrganizations}

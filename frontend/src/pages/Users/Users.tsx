@@ -626,7 +626,7 @@ export const Users: React.FC = () => {
           ) : isLoading === false && loadingError ? (
             <Stack direction="row" spacing={2}>
               <Paper elevation={2}>
-                <Alert severity="warning">Error Loading Users!!</Alert>
+                <Alert severity="warning">Error Loading Users!</Alert>
               </Paper>
               <Button
                 onClick={fetchUsers}

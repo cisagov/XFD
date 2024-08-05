@@ -158,7 +158,7 @@ export const Domains: React.FC = () => {
         ) : isLoading === false && loadingError === true ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Domains!!</Alert>
+              <Alert severity="warning">Error Loading Domains!</Alert>
             </Paper>
             <Button
               onClick={() => fetchDomains}

@@ -476,7 +476,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         ) : isLoading === false && loadingError === true ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Vulnerabilities!!</Alert>
+              <Alert severity="warning">Error Loading Vulnerabilities!</Alert>
             </Paper>
             {/* <Stack direction="row" spacing={2} justifyContent="end"> */}
             <Button
