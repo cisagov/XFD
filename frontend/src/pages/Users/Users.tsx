@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   Button as MuiButton,
+  Box,
   Dialog as MuiDialog,
   DialogActions,
   DialogContent,
@@ -14,7 +15,9 @@ import {
   RadioGroup,
   Select,
   TextField,
-  Typography
+  Typography,
+  Stack,
+  Button
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
@@ -26,7 +29,6 @@ import { ImportExport } from 'components';
 import { initializeUser, Organization, User } from 'types';
 import { useAuthContext } from 'context';
 import { STATE_OPTIONS } from '../../constants/constants';
-import { Box, Stack } from '@mui/system';
 import { parseISO, format } from 'date-fns';
 
 type ErrorStates = {
@@ -84,6 +86,8 @@ export const Users: React.FC = () => {
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [formDisabled, setFormDisabled] = useState(true);
+  const [loadingError, setLoadingError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
@@ -100,6 +104,7 @@ export const Users: React.FC = () => {
   const [values, setValues] = useState<UserFormValues>(initialUserFormValues);
 
   const fetchUsers = useCallback(async () => {
+    setIsLoading(true);
     try {
       const rows = await apiGet<UserType[]>(`/users/`);
       rows.forEach((row) => {
@@ -126,7 +131,10 @@ export const Users: React.FC = () => {
       }
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
+      setLoadingError(true);
       setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
+    } finally {
+      setIsLoading(false);
     }
   }, [apiGet, user]);
 
@@ -188,7 +196,7 @@ export const Users: React.FC = () => {
       field: 'dateToUSigned',
       headerName: 'Date ToU Signed',
       minWidth: 100,
-      flex: 0.75
+      flex: 1
     },
     {
       field: 'acceptedTermsVersion',
@@ -593,8 +601,14 @@ export const Users: React.FC = () => {
   );
 
   return (
-    <Box mt={3} display="flex" justifyContent="center">
-      <Stack spacing={2} sx={{ width: '70%' }}>
+    <Box display="flex" justifyContent="center">
+      <Box
+        mb={3}
+        mt={3}
+        display="flex"
+        flexDirection="column"
+        sx={{ width: '80%' }}
+      >
         <Typography
           fontSize={34}
           fontWeight="medium"
@@ -604,16 +618,38 @@ export const Users: React.FC = () => {
         >
           Users
         </Typography>
-        <Paper elevation={0}>
-          <DataGrid
-            rows={users}
-            columns={userCols}
-            slots={{ toolbar: CustomToolbar }}
-            slotProps={{
-              toolbar: { children: addUserButton }
-            }}
-          />
-        </Paper>
+        <Box mb={3} mt={3} display="flex" justifyContent="center">
+          {isLoading ? (
+            <Paper elevation={2}>
+              <Alert severity="info">Loading Users..</Alert>
+            </Paper>
+          ) : isLoading === false && loadingError ? (
+            <Stack direction="row" spacing={2}>
+              <Paper elevation={2}>
+                <Alert severity="warning">Error Loading Users!</Alert>
+              </Paper>
+              <Button
+                onClick={fetchUsers}
+                variant="contained"
+                color="primary"
+                sx={{ width: 'fit-content' }}
+              >
+                Retry
+              </Button>
+            </Stack>
+          ) : isLoading === false && loadingError === false ? (
+            <Paper elevation={2} sx={{ width: '100%' }}>
+              <DataGrid
+                rows={users}
+                columns={userCols}
+                slots={{ toolbar: CustomToolbar }}
+                slotProps={{
+                  toolbar: { children: addUserButton }
+                }}
+              />
+            </Paper>
+          ) : null}
+        </Box>
         {confirmDeleteUserDialog}
         <MuiDialog
           open={newUserDialogOpen}
@@ -707,7 +743,7 @@ export const Users: React.FC = () => {
           title={<Typography variant="h4">Success </Typography>}
           content={<Typography variant="body1">{infoDialogContent}</Typography>}
         />
-      </Stack>
+      </Box>
     </Box>
   );
 };
