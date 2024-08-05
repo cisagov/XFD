@@ -19,7 +19,12 @@ import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ImportExport } from 'components';
-import { initializeUser, Organization, User } from 'types';
+import {
+  initialUserFormValues,
+  initializeUser,
+  User,
+  UserFormValues
+} from 'types';
 import { useAuthContext } from 'context';
 import { parseISO, format } from 'date-fns';
 import UserForm from './UserForm';
@@ -44,29 +49,6 @@ interface UserType extends User {
   fullName: string;
 }
 
-type UserFormValues = {
-  id?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  organization?: Organization;
-  userType:
-    | 'standard'
-    | 'globalView'
-    | 'globalAdmin'
-    | 'regionalAdmin'
-    | 'readySetCyber';
-  state: string;
-};
-
-const initialUserFormValues: UserFormValues = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  userType: 'standard',
-  state: ''
-};
-
 export const Users: React.FC = () => {
   const { user, apiDelete, apiGet, apiPost } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
@@ -84,7 +66,9 @@ export const Users: React.FC = () => {
     getDeleteError: '',
     getUpdateUserError: ''
   });
-  const [values, setValues] = useState<UserFormValues>(initialUserFormValues);
+  const [formValues, setFormValues] = useState<UserFormValues>(
+    initialUserFormValues
+  );
 
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
@@ -173,13 +157,16 @@ export const Users: React.FC = () => {
               aria-describedby={descriptionId}
               onClick={() => {
                 setSelectedRow(cellValues.row);
-                setValues({
+                setFormValues({
                   id: cellValues.row.id,
                   firstName: cellValues.row.firstName,
                   lastName: cellValues.row.lastName,
                   email: cellValues.row.email,
                   userType: cellValues.row.userType,
-                  state: cellValues.row.state
+                  state: cellValues.row.state,
+                  regionId: cellValues.row.regionId,
+                  orgName: cellValues.row.roles[0].organization.name,
+                  orgId: cellValues.row.roles[0].organization.id
                 });
                 setEditUserDialogOpen(true);
               }}
@@ -332,8 +319,8 @@ export const Users: React.FC = () => {
         <UserForm
           users={users}
           setUsers={setUsers}
-          values={values}
-          setValues={setValues}
+          values={formValues}
+          setValues={setFormValues}
           newUserDialogOpen={newUserDialogOpen}
           setNewUserDialogOpen={setNewUserDialogOpen}
           editUserDialogOpen={editUserDialogOpen}

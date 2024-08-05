@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
-import { Organization, User } from 'types';
+import { initialUserFormValues, User, UserFormValues } from 'types';
 import { useAuthContext } from 'context';
 import { STATE_OPTIONS } from '../../constants/constants';
 
@@ -35,29 +35,6 @@ interface UserType extends User {
   orgs?: string | null | undefined;
   fullName: string;
 }
-
-type UserFormValues = {
-  id?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  organization?: Organization;
-  userType:
-    | 'standard'
-    | 'globalView'
-    | 'globalAdmin'
-    | 'regionalAdmin'
-    | 'readySetCyber';
-  state: string;
-};
-
-const initialUserFormValues: UserFormValues = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  userType: 'standard',
-  state: ''
-};
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
@@ -171,7 +148,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       lastName: values.lastName,
       email: values.email,
       userType: values.userType,
-      state: values.state
+      state: values.state,
+      regionId: values.regionId,
+      orgName: values.orgName,
+      orgId: values.orgId
     };
     try {
       const user = await apiPost('/users/', {
@@ -202,7 +182,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       lastName: values.lastName,
       email: values.email,
       userType: values.userType,
-      state: values.state
+      state: values.state,
+      regionId: values.regionId,
+      orgName: values.orgName,
+      orgId: values.orgId
     };
     try {
       await apiPut(`/v2/users/${values.id}`, { body });
