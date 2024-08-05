@@ -43,9 +43,9 @@ export const RegionUsers: React.FC = () => {
   const { apiDelete, apiGet, apiPost, apiPut, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
-  const regionId = user?.regionId;
-  const getOrgsURL = `/organizations/regionId/${regionId}`;
-  const getUsersURL = `/v2/users?regionId=${regionId}&invitePending=`;
+  const regionalAdminId = user?.regionId;
+  const getOrgsURL = `/organizations/regionId/`;
+  const getUsersURL = `/v2/users?invitePending=`;
   const pendingCols: GridColDef[] = [
     { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 100, flex: 2 },
@@ -64,6 +64,7 @@ export const RegionUsers: React.FC = () => {
               endIcon={<DoneIcon />}
               color="success"
               onClick={() => handleApproveClick(cellValues.row)}
+              disabled={user?.userType === 'globalView'}
             >
               Approve
             </Button>
@@ -72,6 +73,7 @@ export const RegionUsers: React.FC = () => {
               endIcon={<CloseIcon />}
               color="error"
               onClick={() => handleDenyClick(cellValues.row)}
+              disabled={user?.userType === 'globalView'}
             >
               Deny
             </Button>
@@ -97,6 +99,16 @@ export const RegionUsers: React.FC = () => {
       flex: 2
     }
   ];
+  const regionIdColumn = {
+    field: 'regionId',
+    headerName: 'Region',
+    minWidth: 100,
+    flex: 0.5
+  };
+  if (user?.userType !== 'regionalAdmin') {
+    pendingCols.unshift(regionIdColumn);
+    memberCols.unshift(regionIdColumn);
+  }
   const orgCols: GridColDef[] = [
     { field: 'name', headerName: 'Name', minWidth: 100, flex: 2 },
     { field: 'updatedAt', headerName: 'Updated At', minWidth: 100, flex: 1 },
@@ -121,19 +133,22 @@ export const RegionUsers: React.FC = () => {
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
 
-  const fetchOrganizations = useCallback(async () => {
+  const fetchOrganizations = async (row: User) => {
     try {
-      const rows = await apiGet<OrganizationType[]>(getOrgsURL);
+      const rows = await apiGet<OrganizationType[]>(getOrgsURL + row.regionId);
       setOrganizations(rows);
       setErrorStates({ ...errorStates, getOrgsError: '' });
     } catch (e: any) {
       setErrorStates({ ...errorStates, getOrgsError: e.message });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiGet]);
+  };
   const fetchPendingUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(`${getUsersURL}true`);
+      const rows = await apiGet<User[]>(
+        user?.userType === 'regionalAdmin'
+          ? `${getUsersURL}true&regionId=${regionalAdminId}`
+          : `${getUsersURL}true`
+      );
       setPendingUsers(rows);
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -143,7 +158,11 @@ export const RegionUsers: React.FC = () => {
   }, [apiGet]);
   const fetchCurrentUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(`${getUsersURL}false`);
+      const rows = await apiGet<User[]>(
+        user?.userType === 'regionalAdmin'
+          ? `${getUsersURL}false&regionId=${regionalAdminId}`
+          : `${getUsersURL}false`
+      );
       setCurrentUsers(transformData(rows));
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -153,7 +172,6 @@ export const RegionUsers: React.FC = () => {
   }, [apiGet]);
 
   useEffect(() => {
-    fetchOrganizations();
     fetchPendingUsers();
     fetchCurrentUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,6 +287,7 @@ export const RegionUsers: React.FC = () => {
       isOrgDialogOpen: true
     });
     selectUser(row);
+    fetchOrganizations(row);
   };
 
   const handleDenyClick = (row: typeof initializeUser) => {
@@ -303,7 +322,7 @@ export const RegionUsers: React.FC = () => {
         isInfoDialogOpen: true
       }));
       setInfoDialogContent(
-        `The user has been approved and is a member of Region ${regionId}.`
+        `The user has been approved and is a member of Region ${selectedUser.regionId}.`
       );
     }
   };
@@ -330,7 +349,8 @@ export const RegionUsers: React.FC = () => {
       >
         <Box sx={{ m: 'auto', maxWidth: '1500px', px: 2, py: 5 }}>
           <Typography variant="h1" style={{ fontSize: '2.125rem' }}>
-            Region {regionId} Admin Dashboard
+            {user?.userType === 'regionalAdmin' && `Region ${regionalAdminId} `}
+            User Registration Dashboard
           </Typography>
           <br />
           <Typography
@@ -362,7 +382,10 @@ export const RegionUsers: React.FC = () => {
             pb={2}
             pt={3}
           >
-            Members of Region {regionId}
+            Members of
+            {user?.userType === 'regionalAdmin'
+              ? ` Region ${regionalAdminId}`
+              : ' all regions'}
           </Typography>
           <Box sx={{ height: '667px' }}>
             <DataGrid
@@ -381,7 +404,7 @@ export const RegionUsers: React.FC = () => {
         onClose={(_, reason) => handleCloseDialog(reason)}
         onConfirm={handleApproveConfirmClick}
         onCancel={handleApproveCancelClick}
-        title={`Add ${selectedUser.fullName} to an organization`}
+        title={`Add ${selectedUser.fullName} to an organization in Region ${selectedUser.regionId}`}
         content={
           <>
             <Typography mb={3}>

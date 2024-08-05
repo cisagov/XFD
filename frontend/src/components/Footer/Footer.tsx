@@ -24,7 +24,7 @@ export const CrossfeedFooter: React.FC = (props) => {
               </Link>
             </Grid>
           )}
-          <Grid className={footerClasses.footerNavItem} item xs={12} sm={2}>
+          {/* <Grid className={footerClasses.footerNavItem} item xs={12} sm={2}>
             <p>
               <Link
                 className={footerClasses.footerNavLink}
@@ -34,7 +34,7 @@ export const CrossfeedFooter: React.FC = (props) => {
                 Documentation
               </Link>
             </p>
-          </Grid>
+          </Grid> */}
           <Grid className={footerClasses.footerNavItem} item xs={12} sm={2}>
             <p>
               <Link
