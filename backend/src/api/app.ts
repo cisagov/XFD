@@ -16,6 +16,7 @@ import * as scans from './scans';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
+import * as regions from './regions'
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
@@ -610,6 +611,7 @@ authenticatedRoute.get(
   '/organizations/regionId/:regionId',
   handlerToExpress(organizations.getByRegionId)
 );
+authenticatedRoute.get('/regions', handlerToExpress(regions.getAll))
 authenticatedRoute.post(
   '/organizations',
   handlerToExpress(organizations.create)
