@@ -34,6 +34,7 @@ type ApiErrorStates = {
   getAddUserError: string;
   getDeleteError: string;
   getUpdateUserError: string;
+  getOrgsError: string;
 };
 
 export interface ApiResponse {
@@ -64,7 +65,8 @@ export const Users: React.FC = () => {
     getUsersError: '',
     getAddUserError: '',
     getDeleteError: '',
-    getUpdateUserError: ''
+    getUpdateUserError: '',
+    getOrgsError: ''
   });
   const [formValues, setFormValues] = useState<UserFormValues>(
     initialUserFormValues
@@ -89,11 +91,7 @@ export const Users: React.FC = () => {
           : 'None';
         row.fullName = `${row.firstName} ${row.lastName}`;
       });
-      if (user?.userType !== 'standard') {
-        setUsers(rows);
-      } else if (user) {
-        setUsers([user]);
-      }
+      setUsers(rows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
       setLoadingError(true);
@@ -101,7 +99,7 @@ export const Users: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet, user]);
+  }, [apiGet]);
 
   useEffect(() => {
     fetchUsers();

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Alert,
   DialogContent,
   FormControlLabel,
+  Grid,
   MenuItem,
   Radio,
   RadioGroup,
@@ -12,15 +13,21 @@ import {
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
-import { initialUserFormValues, User, UserFormValues } from 'types';
+import {
+  initialUserFormValues,
+  Organization,
+  User,
+  UserFormValues
+} from 'types';
 import { useAuthContext } from 'context';
-import { STATE_OPTIONS } from '../../constants/constants';
+import { REGION_STATE_MAP, STATE_OPTIONS } from '../../constants/constants';
 
 type ApiErrorStates = {
   getUsersError: string;
   getAddUserError: string;
   getDeleteError: string;
   getUpdateUserError: string;
+  getOrgsError: string;
 };
 
 export interface ApiResponse {
@@ -67,8 +74,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogOpen,
   setInfoDialogContent
 }) => {
-  const { user, apiPost, apiPut } = useAuthContext();
-  const [formDisabled, setFormDisabled] = useState(true);
+  const { user, apiGet, apiPost, apiPut } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
@@ -76,6 +82,35 @@ export const UserForm: React.FC<UserFormProps> = ({
     userType: false,
     state: false
   });
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const fetchOrganizations = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      let rows: Organization[] = [];
+      if (values.regionId) {
+        rows = await apiGet<Organization[]>(
+          '/organizations/regionId/' + values.regionId
+        );
+      }
+      setOrganizations(rows);
+      setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: '' }));
+    } catch (e: any) {
+      setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: e.message }));
+      console.log(e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [apiGet, values.regionId, setApiErrorStates]);
+
+  useEffect(() => {
+    fetchOrganizations();
+  }, [fetchOrganizations]);
+
+  const getOrgNameById = (id: string) => {
+    const organization = organizations.find((org) => org.id === id);
+    return organization ? organization.name : null;
+  };
 
   const validateForm = (values: UserFormValues) => {
     const nameRegex = /^[A-Za-z\s]+$/;
@@ -117,8 +152,6 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const onResetForm = () => {
-    console.log('formDisabled: ', formDisabled);
-    setFormDisabled(false);
     setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
     setInfoDialogOpen(false);
@@ -222,7 +255,6 @@ export const UserForm: React.FC<UserFormProps> = ({
       ...prevErrors,
       [name]: fieldError
     }));
-    setFormDisabled(!isFormValid());
   };
 
   const onChange = (name: string, value: any) => {
@@ -230,15 +262,24 @@ export const UserForm: React.FC<UserFormProps> = ({
       ...values,
       [name]: value
     }));
-    setFormDisabled(false);
   };
 
-  const handleChange = (event: SelectChangeEvent) => {
+  const handleStateChange = (event: SelectChangeEvent) => {
     setValues((values: any) => ({
       ...values,
-      [event.target.name]: event.target.value
+      [event.target.name]: event.target.value,
+      regionId: REGION_STATE_MAP[String(event.target.value)],
+      orgId: '',
+      orgName: ''
     }));
-    setFormDisabled(!isFormValid());
+  };
+
+  const handleOrgChange = (event: SelectChangeEvent) => {
+    setValues((values: any) => ({
+      ...values,
+      orgId: event.target.value,
+      orgName: getOrgNameById(event.target.value)
+    }));
   };
 
   const textFieldStyling = {
@@ -251,133 +292,196 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const formContents = (
     <DialogContent>
-      <Typography mt={1}>First Name</Typography>
-      <TextField
-        sx={textFieldStyling}
-        placeholder="Enter a First Name"
-        size="small"
-        margin="dense"
-        id="firstName"
-        inputProps={{ maxLength: 250 }}
-        name="firstName"
-        error={formErrors.firstName}
-        helperText={
-          formErrors.firstName &&
-          'First Name is required and cannot contain numbers'
-        }
-        type="text"
-        fullWidth
-        value={values.firstName}
-        onChange={onTextChange}
-        disabled={!(user?.userType === 'globalAdmin')}
-      />
-      <Typography mt={1}>Last Name</Typography>
-      <TextField
-        sx={textFieldStyling}
-        placeholder="Enter a Last Name"
-        size="small"
-        margin="dense"
-        id="lastName"
-        inputProps={{ maxLength: 250 }}
-        name="lastName"
-        error={formErrors.lastName}
-        helperText={
-          formErrors.lastName &&
-          'Last Name is required and cannot contain numbers'
-        }
-        type="text"
-        fullWidth
-        value={values.lastName}
-        onChange={onTextChange}
-        disabled={!(user?.userType === 'globalAdmin')}
-      />
-      <Typography mt={1}>Email</Typography>
-      <TextField
-        sx={textFieldStyling}
-        placeholder="Enter an Email"
-        size="small"
-        margin="dense"
-        id="email"
-        inputProps={{ maxLength: 250 }}
-        name="email"
-        error={formErrors.email}
-        helperText={
-          formErrors.email &&
-          'Email is required and must be in the correct format'
-        }
-        type="text"
-        fullWidth
-        value={values.email}
-        onChange={onTextChange}
-        disabled={editUserDialogOpen}
-      />
-      <Typography mt={1}>State</Typography>
-      <Select
-        displayEmpty
-        size="small"
-        id="state"
-        value={values.state === null ? '' : values.state}
-        name="state"
-        error={formErrors.state}
-        onChange={handleChange}
-        fullWidth
-        renderValue={
-          values.state !== ''
-            ? undefined
-            : () => <Typography color="#bdbdbd">Select a State</Typography>
-        }
-        disabled={!(user?.userType === 'globalAdmin')}
-      >
-        {STATE_OPTIONS.map((state: string, index: number) => (
-          <MenuItem key={index} value={state}>
-            {state}
-          </MenuItem>
-        ))}
-      </Select>
-      {formErrors.state && (
-        <Typography pl={2} variant="caption" color="error.main">
-          State is required
-        </Typography>
-      )}
-      <Typography mt={2}>User Type</Typography>
-      <RadioGroup
-        aria-label="User Type"
-        name="userType"
-        value={values.userType}
-        onChange={onTextChange}
-      >
-        <FormControlLabel
-          value="standard"
-          control={<Radio color="primary" />}
-          label="Standard"
-        />
-        <FormControlLabel
-          value="globalView"
-          control={<Radio color="primary" />}
-          label="Global View"
-        />
-        <FormControlLabel
-          value="regionalAdmin"
-          control={<Radio color="primary" />}
-          label="Regional Administrator"
-        />
-        <FormControlLabel
-          value="globalAdmin"
-          control={<Radio color="primary" />}
-          label="Global Administrator"
-        />
-      </RadioGroup>
-      {formErrors.userType && (
-        <Typography pl={2} variant="caption" color="error.main">
-          User Type is required
-        </Typography>
-      )}
-      {apiErrorStates.getAddUserError && (
-        <Alert severity="error">
-          Error adding user to the database: {apiErrorStates.getAddUserError}.
-          See the network tab for more details.
-        </Alert>
-      )}
+      <Grid container spacing={1}>
+        <Grid item xs={12} md={6}>
+          <Typography>First Name</Typography>
+          <TextField
+            sx={textFieldStyling}
+            placeholder="Enter a First Name"
+            size="small"
+            margin="dense"
+            id="firstName"
+            inputProps={{ maxLength: 250 }}
+            name="firstName"
+            error={formErrors.firstName}
+            helperText={
+              formErrors.firstName &&
+              'First Name is required and cannot contain numbers'
+            }
+            type="text"
+            fullWidth
+            value={values.firstName}
+            onChange={onTextChange}
+            disabled={user?.userType !== 'globalAdmin'}
+          />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Typography>Last Name</Typography>
+          <TextField
+            sx={textFieldStyling}
+            placeholder="Enter a Last Name"
+            size="small"
+            margin="dense"
+            id="lastName"
+            inputProps={{ maxLength: 250 }}
+            name="lastName"
+            error={formErrors.lastName}
+            helperText={
+              formErrors.lastName &&
+              'Last Name is required and cannot contain numbers'
+            }
+            type="text"
+            fullWidth
+            value={values.lastName}
+            onChange={onTextChange}
+            disabled={user?.userType !== 'globalAdmin'}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Typography>Email</Typography>
+          <TextField
+            sx={textFieldStyling}
+            placeholder="Enter an Email"
+            size="small"
+            margin="dense"
+            id="email"
+            inputProps={{ maxLength: 250 }}
+            name="email"
+            error={formErrors.email}
+            helperText={
+              formErrors.email &&
+              'Email is required and must be in the correct format'
+            }
+            type="text"
+            fullWidth
+            value={values.email}
+            onChange={onTextChange}
+            disabled={editUserDialogOpen}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Typography>State</Typography>
+          <Select
+            displayEmpty
+            size="small"
+            id="state"
+            value={values.state === null ? '' : values.state}
+            name="state"
+            error={formErrors.state}
+            onChange={handleStateChange}
+            fullWidth
+            renderValue={
+              values.state !== ''
+                ? undefined
+                : () => <Typography color="#bdbdbd">Select a State</Typography>
+            }
+            disabled={user?.userType !== 'globalAdmin'}
+          >
+            {STATE_OPTIONS.map((state: string, index: number) => (
+              <MenuItem key={index} value={state}>
+                {state}
+              </MenuItem>
+            ))}
+          </Select>
+          {formErrors.state && (
+            <Typography pl={2} variant="caption" color="error.main">
+              State is required
+            </Typography>
+          )}
+        </Grid>
+        <Grid item xs={12}>
+          <Typography>Organization</Typography>
+          {isLoading ? (
+            <Alert severity="info">Loading Organization Selections..</Alert>
+          ) : organizations.length === 0 ? (
+            <Alert severity="info">No Organizations found to select.</Alert>
+          ) : apiErrorStates.getOrgsError ? (
+            <Alert severity="info">Error retrieving organizations.</Alert>
+          ) : (
+            <Select
+              displayEmpty
+              size="small"
+              id="orgId"
+              value={values.orgId === null ? '' : values.orgId}
+              name="orgId"
+              // error={formErrors.orgId}
+              onChange={handleOrgChange}
+              fullWidth
+              renderValue={
+                values.orgId !== ''
+                  ? undefined
+                  : () => (
+                      <Typography color="#bdbdbd">
+                        Select an Organization
+                      </Typography>
+                    )
+              }
+              disabled={
+                organizations.length === 0 || user?.userType !== 'globalAdmin'
+              }
+            >
+              {organizations.map((organization) => (
+                <MenuItem key={organization.id} value={organization.id}>
+                  {organization.name}
+                </MenuItem>
+              ))}
+            </Select>
+          )}
+          {formErrors.state && (
+            <Typography pl={2} variant="caption" color="error.main">
+              State is required
+            </Typography>
+          )}
+        </Grid>
+        <Grid item xs={12}>
+          <Typography mt={1}>User Type</Typography>
+          <RadioGroup
+            aria-label="User Type"
+            name="userType"
+            value={values.userType}
+            onChange={onTextChange}
+          >
+            <FormControlLabel
+              value="standard"
+              control={<Radio color="primary" />}
+              label="Standard"
+              disabled={user?.userType !== 'globalAdmin'}
+            />
+            <FormControlLabel
+              value="globalView"
+              control={<Radio color="primary" />}
+              label="Global View"
+              disabled={user?.userType !== 'globalAdmin'}
+            />
+            <FormControlLabel
+              value="regionalAdmin"
+              control={<Radio color="primary" />}
+              label="Regional Administrator"
+              disabled={user?.userType !== 'globalAdmin'}
+            />
+            <FormControlLabel
+              value="globalAdmin"
+              control={<Radio color="primary" />}
+              label="Global Administrator"
+              disabled={user?.userType !== 'globalAdmin'}
+            />
+          </RadioGroup>
+          {formErrors.userType && (
+            <Typography pl={2} variant="caption" color="error.main">
+              User Type is required
+            </Typography>
+          )}
+        </Grid>
+        <Grid item xs={12}>
+          {apiErrorStates.getAddUserError && (
+            <Alert severity="error">
+              Error adding user to the database:{' '}
+              {apiErrorStates.getAddUserError}. See the network tab for more
+              details.
+            </Alert>
+          )}
+        </Grid>
+      </Grid>
     </DialogContent>
   );
 
