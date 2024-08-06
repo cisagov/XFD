@@ -89,10 +89,8 @@ export const Users: React.FC = () => {
           : 'None';
         row.fullName = `${row.firstName} ${row.lastName}`;
       });
-      if (user?.userType === 'globalAdmin') {
+      if (user?.userType !== 'standard') {
         setUsers(rows);
-      } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
-        setUsers(rows.filter((row) => row.regionId === user.regionId));
       } else if (user) {
         setUsers([user]);
       }
@@ -163,10 +161,10 @@ export const Users: React.FC = () => {
                   lastName: cellValues.row.lastName,
                   email: cellValues.row.email,
                   userType: cellValues.row.userType,
-                  state: cellValues.row.state,
-                  regionId: cellValues.row.regionId,
-                  orgName: cellValues.row.roles[0].organization.name,
-                  orgId: cellValues.row.roles[0].organization.id
+                  state: cellValues.row.state || '',
+                  regionId: cellValues.row.regionId || '',
+                  orgName: cellValues.row.roles[0]?.organization?.name || '',
+                  orgId: cellValues.row.roles[0]?.organization?.id || ''
                 });
                 setEditUserDialogOpen(true);
               }}
