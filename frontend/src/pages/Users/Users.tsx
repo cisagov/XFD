@@ -122,13 +122,13 @@ export const Users: React.FC = () => {
           : 'None';
         row.fullName = `${row.firstName} ${row.lastName}`;
       });
-      if (user?.userType === 'globalAdmin') {
-        setUsers(rows);
-      } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
-        setUsers(rows.filter((row) => row.regionId === user.regionId));
-      } else if (user) {
-        setUsers([user]);
-      }
+      // if (user?.userType === 'globalAdmin') {
+      setUsers(rows);
+      // } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
+      //   setUsers(rows.filter((row) => row.regionId === user.regionId));
+      // } else if (user) {
+      //   setUsers([user]);
+      // }
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
       setLoadingError(true);

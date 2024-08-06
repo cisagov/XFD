@@ -451,7 +451,7 @@ export const acceptTerms = wrapHandler(async (event) => {
  *
  */
 export const list = wrapHandler(async (event) => {
-  if (!isGlobalViewAdmin(event)) return Unauthorized;
+  if (!isGlobalViewAdmin(event) && !isRegionalAdmin(event)) return Unauthorized;
   await connectToDatabase();
   const result = await User.find({
     relations: ['roles', 'roles.organization']
