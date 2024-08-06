@@ -238,6 +238,15 @@ export const SCAN_SCHEMA: ScanSchema = {
     description:
       'Open source tool that fingerprints web technologies based on HTTP responses'
   },
+  wasSync: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description:
+      'Pull in WAS vulnerability data from PEs Vulnerability database',
+    cpu: '1024',
+    memory: '8192'
+  },
   webscraper: {
     type: 'fargate',
     isPassive: true,

@@ -46,7 +46,8 @@ import {
   TicketEvent,
   Ticket,
   TrustymailScan,
-  VulnScan
+  VulnScan,
+  WasFinding
 } from '.';
 
 let connection: Connection | null = null;
@@ -87,7 +88,8 @@ const connectDl2 = async (logging?: boolean) => {
       TicketEvent,
       Ticket,
       TrustymailScan,
-      VulnScan
+      VulnScan,
+      WasFinding
     ],
     synchronize: false,
     name: 'default2',
@@ -146,7 +148,8 @@ const connectDl = async (logging?: boolean) => {
       TicketEvent,
       Ticket,
       TrustymailScan,
-      VulnScan
+      VulnScan,
+      WasFinding
     ],
     synchronize: false,
     name: 'default',
@@ -187,7 +190,6 @@ const connectDb = async (logging?: boolean) => {
       Response,
       Role,
       SavedSearch,
-      OrganizationTag,
       Notification,
       Scan,
       ScanTask,

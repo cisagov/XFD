@@ -30,6 +30,7 @@ import { HostScan } from './host_scans';
 import { Host } from './hosts';
 import { Ticket } from './tickets';
 import { PortScan } from './port_scans';
+import { WasFinding } from './was_findings';
 @Entity()
 export class Organization extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
@@ -222,6 +223,12 @@ export class Organization extends BaseEntity {
     onUpdate: 'CASCADE'
   })
   vulnScans: VulnScan[];
+
+  @OneToMany((type) => WasFinding, (was_finding) => was_finding.organization, {
+    onDelete: 'CASCADE',
+    onUpdate: 'CASCADE'
+  })
+  wasFindings: WasFinding[];
 
   @OneToMany((type) => HostScan, (host_scan) => host_scan.organization, {
     onDelete: 'CASCADE',
