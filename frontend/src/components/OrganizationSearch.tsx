@@ -32,25 +32,14 @@ export const OrganizationSearch: React.FC = () => {
     setShowAllOrganizations,
     setShowMaps,
     user,
-    apiGet
+    apiGet,
+    apiPost
   } = useAuthContext();
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
-  // const [regionIds, setRegionIds] = useState<number[]>([]);
+  const [orgResults, setOrgResults] = useState<Organization[]>([]);
 
-  console.log('organizations', organizations);
-  const regionIds = useMemo(() => {
-    return organizations.map((org) => org.regionId);
-  }, [organizations]);
-  console.log('regionIds', regionIds);
-  const uniqueRegionIds = useMemo(() => {
-    const regionIdSet = new Set(regionIds);
-    const uniqueIdsArray = Array.from(regionIdSet);
-    return uniqueIdsArray.sort();
-  }, [regionIds]);
-
-  console.log('Number of unique regionIds:', uniqueRegionIds);
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
@@ -64,6 +53,23 @@ export const OrganizationSearch: React.FC = () => {
       userLevel = REGIONAL_ADMIN;
     }
   }
+  const searchOrganizations = useCallback(
+    async (searchTerm: string) => {
+      try {
+        const results = await apiPost<{
+          body: { hits: { hits: { _source: Organization }[] } };
+        }>('/search/organizations', {
+          searchTerm
+        });
+        const orgs = results.body.hits.hits.map((hit) => hit._source);
+        setOrgResults(orgs);
+      } catch (e) {
+        console.log(e);
+      }
+    },
+    [apiPost, setOrgResults]
+  );
+
   const fetchOrganizations = useCallback(async () => {
     try {
       const rows = await apiGet<Organization[]>('/v2/organizations/');
@@ -82,7 +88,8 @@ export const OrganizationSearch: React.FC = () => {
     if (userLevel > 0) {
       fetchOrganizations();
     }
-  }, [fetchOrganizations, userLevel]);
+    searchOrganizations(' ');
+  }, [fetchOrganizations, userLevel, searchOrganizations]);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -98,11 +105,10 @@ export const OrganizationSearch: React.FC = () => {
     return [];
   }, [user, organizations, userLevel]);
 
-  const topTenOrganizations = useMemo(() => {
-    return organizations.slice(0, 10);
-  }, [organizations]);
+  const top5Organizations = useMemo(() => {
+    return orgResults.slice(0, 5);
+  }, [orgResults]);
 
-  console.log('top 10', topTenOrganizations);
   return (
     <>
       {userLevel === GLOBAL_ADMIN && (
@@ -123,7 +129,7 @@ export const OrganizationSearch: React.FC = () => {
             <Typography>Region(s)</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            <List>
+            {/* <List>
               {uniqueRegionIds.map((regionId) => (
                 <ListItem sx={{ padding: '0px' }} key={regionId}>
                   <FormGroup>
@@ -135,7 +141,7 @@ export const OrganizationSearch: React.FC = () => {
                   </FormGroup>
                 </ListItem>
               ))}
-            </List>
+            </List> */}
           </AccordionDetails>
         </Accordion>
       )}
@@ -197,6 +203,8 @@ export const OrganizationSearch: React.FC = () => {
                   value: Organization | { name: string } | undefined
                 ) => {
                   if (value && 'id' in value) {
+                    console.log('value', value);
+                    console.log('value.name', value.name);
                     setOrganization(value);
                     setShowAllOrganizations(false);
                     if (value.name === 'Election') {
@@ -228,8 +236,41 @@ export const OrganizationSearch: React.FC = () => {
                 )}
               />
             )}
+            <br />
+            <Autocomplete
+              options={orgResults}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) =>
+                option?.name === value?.name
+              }
+              onChange={(event, value) => {
+                if (value) {
+                  console.log('value', value);
+                  console.log('value.name', value.name);
+                  setOrganization(value);
+                  setShowAllOrganizations(false);
+                  if (value.name === 'Election') {
+                    setShowMaps(true);
+                  } else {
+                    setShowMaps(false);
+                  }
+                  // Check if we're on an organization page and, if so, update it to the new organization
+                  if (orgPageMatch !== null) {
+                    if (!tags.find((e) => e.id === value.id)) {
+                      history.push(`/organizations/${value.id}`);
+                    }
+                  }
+                } else {
+                  setShowAllOrganizations(true);
+                  setShowMaps(false);
+                }
+              }}
+              renderInput={(params) => (
+                <TextField {...params} label="Search Organizations" />
+              )}
+            />
             <List sx={{ width: '100%' }}>
-              {topTenOrganizations.map((org) => (
+              {top5Organizations.map((org) => (
                 <ListItem sx={{ padding: '0px' }} key={org.id}>
                   <FormGroup>
                     <FormControlLabel
@@ -241,6 +282,7 @@ export const OrganizationSearch: React.FC = () => {
                 </ListItem>
               ))}
             </List>
+            <br />
           </AccordionDetails>
         </Accordion>
       ) : null}
