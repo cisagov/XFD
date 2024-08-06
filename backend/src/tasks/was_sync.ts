@@ -30,11 +30,11 @@ interface WasFindingResult {
   cvss_v3_attack_vector: string;
   cwe_list: number[];
   wasc_list: any[];
-  last_tested: Date,
-  fixed_date: Date,
-  is_ignored: boolean,
-  url: string,
-  qid: number,
+  last_tested: Date;
+  fixed_date: Date;
+  is_ignored: boolean;
+  url: string;
+  qid: number;
 }
 interface TaskResponse {
   task_id: string;
@@ -111,7 +111,7 @@ export const handler = async (commandOptions: CommandOptions) => {
     // Get all organizations
     await connectToDatabase();
     const allOrgs: Organization[] = await Organization.find();
-    
+
     // For each organization, fetch Was finding data
     for (const org of allOrgs) {
       console.log(
@@ -122,10 +122,12 @@ export const handler = async (commandOptions: CommandOptions) => {
       const organization = await dl_org.findOne({
         where: { acronym: org.acronym }
       });
-      console.log(`queried org ${organization}`)
+      console.log(`queried org ${organization}`);
 
       if (!organization) {
-        console.log(`No organization found in the datalake with the acronym '${org.acronym}'`);
+        console.log(
+          `No organization found in the datalake with the acronym '${org.acronym}'`
+        );
         continue;
       }
       let done = false;
@@ -139,43 +141,44 @@ export const handler = async (commandOptions: CommandOptions) => {
         let taskRequest = await fetchWasFindingTask(org.acronym, page);
         console.log(`Fetching `);
         if (taskRequest?.task_id) {
-          while(!finished){
-            if (taskRequest?.status === "Processing" || taskRequest?.status === "Pending") {
+          while (!finished) {
+            if (
+              taskRequest?.status === 'Processing' ||
+              taskRequest?.status === 'Pending'
+            ) {
               await new Promise((r) => setTimeout(r, 1000));
               taskRequest = await fetchWasFindingData(taskRequest.task_id);
-            }
-            else if (taskRequest?.status === "Completed") {
-            
+            } else if (taskRequest?.status === 'Completed') {
               for (const finding of taskRequest?.result?.data ?? []) {
                 try {
                   const finding_obj: WasFinding = plainToClass(WasFinding, {
-                        id: finding.finding_uid,
-                        webappId: finding.webapp_id,
-                        wasOrgId: finding.was_org_id,
-                        owaspCategory: finding.owasp_category,
-                        severity: finding.severity,
-                        timesDetected: finding.times_detected,
-                        baseScore: finding.base_score,
-                        temporalScore: finding.temporal_score,
-                        fstatus: finding.fstatus,
-                        lastDetected: finding.last_detected,
-                        firstDetected: finding.first_detected,
-                        isRemediated: finding.is_remediated,
-                        potential: finding.potential,
-                        webappUrl: finding.webapp_url,
-                        webappName: finding.webapp_name,
-                        name: finding.name,
-                        cvssV3AttackVector: finding.cvss_v3_attack_vector,
-                        cweList: finding.cwe_list,
-                        wascList: finding.wasc_list,
-                        lastTested: finding.last_tested,
-                        fixedDate: finding.fixed_date,
-                        isIgnored: finding.is_ignored,
-                        url: finding.url,
-                        qid: finding.qid,
-                        organization: {id: organization.id}
-                    })
-                  
+                    id: finding.finding_uid,
+                    webappId: finding.webapp_id,
+                    wasOrgId: finding.was_org_id,
+                    owaspCategory: finding.owasp_category,
+                    severity: finding.severity,
+                    timesDetected: finding.times_detected,
+                    baseScore: finding.base_score,
+                    temporalScore: finding.temporal_score,
+                    fstatus: finding.fstatus,
+                    lastDetected: finding.last_detected,
+                    firstDetected: finding.first_detected,
+                    isRemediated: finding.is_remediated,
+                    potential: finding.potential,
+                    webappUrl: finding.webapp_url,
+                    webappName: finding.webapp_name,
+                    name: finding.name,
+                    cvssV3AttackVector: finding.cvss_v3_attack_vector,
+                    cweList: finding.cwe_list,
+                    wascList: finding.wasc_list,
+                    lastTested: finding.last_tested,
+                    fixedDate: finding.fixed_date,
+                    isIgnored: finding.is_ignored,
+                    url: finding.url,
+                    qid: finding.qid,
+                    organization: { id: organization.id }
+                  });
+
                   await saveWasFindingToDb(finding_obj);
                 } catch (e) {
                   console.error('Could not save WAS finding. Continuing.');
@@ -191,29 +194,26 @@ export const handler = async (commandOptions: CommandOptions) => {
               finished = true;
               console.log(`Task completed successfully for page: ${page}`);
               page = page + 1;
-            }
-            else {
+            } else {
               finished = true;
               console.error(
                 `Failed to recieve WAS finding task for org: ${org.acronym} on page ${page}`
               );
               page = page + 1;
             }
-            
           }
-        }  else {
+        } else {
           done = true;
           console.log(
             `Error fetching WAS data: ${taskRequest?.error} and status: ${taskRequest?.status}`
           );
-        } 
+        }
       }
     }
-    
   } catch (e) {
-      console.error('Unknown failure.');
-      console.error(e);
-    }
+    console.error('Unknown failure.');
+    console.error(e);
+  }
   await sleep(1000);
   console.log(`Finished retrieving WAS findings for all orgs`);
 };

@@ -2,8 +2,10 @@ import { plainToClass } from 'class-transformer';
 import { WasFinding, connectToDatalake2 } from '../../models';
 
 export default async (wasFindingObj: WasFinding): Promise<string | null> => {
-  console.log(`Starting to save WAS finding to datalake: ${wasFindingObj.name}`);
-  
+  console.log(
+    `Starting to save WAS finding to datalake: ${wasFindingObj.name}`
+  );
+
   let datalakeConnnection = await connectToDatalake2();
   let dl_was_finding = datalakeConnnection.getRepository(WasFinding);
   const wasFindingValues = Object.keys(wasFindingObj)
@@ -13,19 +15,19 @@ export default async (wasFindingObj: WasFinding): Promise<string | null> => {
       return wasFindingObj[key] != null ? key : '';
     })
     .filter((key) => key !== '');
-    console.log(wasFindingObj)
-    const was_finding_id: string = (
-        await dl_was_finding.createQueryBuilder()
-          .insert()
-          .values(wasFindingObj)
-          .orUpdate({
-            conflict_target: ['id'],
-            overwrite: wasFindingValues
-          })
-          .returning('id')
-          .execute()
-      ).identifiers[0].id;
-    
-      return was_finding_id;
-  
+  console.log(wasFindingObj);
+  const was_finding_id: string = (
+    await dl_was_finding
+      .createQueryBuilder()
+      .insert()
+      .values(wasFindingObj)
+      .orUpdate({
+        conflict_target: ['id'],
+        overwrite: wasFindingValues
+      })
+      .returning('id')
+      .execute()
+  ).identifiers[0].id;
+
+  return was_finding_id;
 };
