@@ -80,10 +80,13 @@ export const UserForm: React.FC<UserFormProps> = ({
     lastName: false,
     email: false,
     userType: false,
-    state: false
+    state: false,
+    orgId: false
   });
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialOrgIdChange, setInitialOrgIdChange] = useState(false);
+
   const fetchOrganizations = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -122,7 +125,8 @@ export const UserForm: React.FC<UserFormProps> = ({
         values.lastName.trim() === '' || !nameRegex.test(values.lastName),
       email: !emailRegex.test(values.email),
       userType: values.userType.trim() === '',
-      state: values.state.trim() === ''
+      state: values.state.trim() === '',
+      orgId: values.orgId.trim() === ''
     };
     setFormErrors(newFormErrors);
     return !Object.values(newFormErrors).some((error) => error);
@@ -144,6 +148,7 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const isFormValid = () => {
     return (
+      initialOrgIdChange &&
       !Object.values(formErrors).some((error) => error) &&
       Object.values(values)
         .filter((value) => typeof value === 'string')
@@ -161,8 +166,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       lastName: false,
       email: false,
       userType: false,
-      state: false
+      state: false,
+      orgId: false
     });
+    setInitialOrgIdChange(false);
   };
 
   const handleCloseAddUserDialog = (value: CloseReason) => {
@@ -196,6 +203,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       handleCloseAddUserDialog('closeButtonClick');
       setInfoDialogContent('This user has been successfully invited.');
       setInfoDialogOpen(true);
+      setInitialOrgIdChange(false);
     } catch (e: any) {
       setApiErrorStates({ ...apiErrorStates, getAddUserError: e.message });
       setInfoDialogContent(
@@ -203,6 +211,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       );
       console.log(e);
       setValues(initialUserFormValues);
+      setInitialOrgIdChange(false);
     }
   };
 
@@ -236,11 +245,13 @@ export const UserForm: React.FC<UserFormProps> = ({
       setEditUserDialogOpen(false);
       setInfoDialogContent('This user has been successfully updated.');
       setInfoDialogOpen(true);
+      setInitialOrgIdChange(false);
     } catch (e: any) {
       setApiErrorStates({ ...apiErrorStates, getUpdateUserError: e.message });
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
+      setInitialOrgIdChange(false);
       console.log(e);
     }
   };
@@ -275,6 +286,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const handleOrgChange = (event: SelectChangeEvent) => {
+    setInitialOrgIdChange(true);
     setValues((values: any) => ({
       ...values,
       orgId: event.target.value,
@@ -392,11 +404,18 @@ export const UserForm: React.FC<UserFormProps> = ({
         <Grid item xs={12}>
           <Typography>Organization</Typography>
           {isLoading ? (
-            <Alert severity="info">Loading Organization Selections..</Alert>
-          ) : organizations.length === 0 ? (
-            <Alert severity="info">No Organizations found to select.</Alert>
+            <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
-            <Alert severity="info">Error retrieving organizations.</Alert>
+            <Alert severity="info">
+              {apiErrorStates.getOrgsError}. Error retrieving organizations.
+            </Alert>
+          ) : values.state === '' ? (
+            <Alert severity="info">Select a state to make a selection.</Alert>
+          ) : organizations.length === 0 ? (
+            <Alert severity="info">
+              No organizations found. Add orgs to Region {values.regionId} to
+              make a selection.
+            </Alert>
           ) : (
             <Select
               displayEmpty
@@ -404,7 +423,7 @@ export const UserForm: React.FC<UserFormProps> = ({
               id="orgId"
               value={values.orgId === null ? '' : values.orgId}
               name="orgId"
-              // error={formErrors.orgId}
+              error={formErrors.orgId}
               onChange={handleOrgChange}
               fullWidth
               renderValue={
@@ -500,17 +519,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     <ConfirmDialog
       isOpen={newUserDialogOpen}
       onConfirm={onCreateUserSubmit}
-      onCancel={() => {
-        setNewUserDialogOpen(false);
-        setFormErrors({
-          firstName: false,
-          lastName: false,
-          email: false,
-          userType: false,
-          state: false
-        });
-        setValues(initialUserFormValues);
-      }}
+      onCancel={onResetForm}
       onClose={(_, reason) => handleCloseAddUserDialog(reason)}
       title={'Invite a User'}
       content={formContents}
