@@ -130,7 +130,7 @@ export const Users: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet, user]);
+  }, [apiGet]);
 
   useEffect(() => {
     fetchUsers();
