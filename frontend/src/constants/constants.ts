@@ -120,7 +120,11 @@ export const STATE_ABBREVIATED_OPTIONS = [
   'WY' // Wyoming
 ];
 
-export const REGION_STATE_MAP = {
+export type RegionStateMap = {
+  [key: string]: string;
+};
+
+export const REGION_STATE_MAP: RegionStateMap = {
   Alabama: '4',
   Alaska: '10',
   'American Samoa': '9',
