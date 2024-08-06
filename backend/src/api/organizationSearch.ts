@@ -1,8 +1,14 @@
-import { IsString } from "class-validator";
+import { IsArray, IsOptional, IsString, IsUUID } from "class-validator";
 import { validateBody, wrapHandler } from "./helpers";
 import ESClient from "../tasks/es-client"
+import { Type } from "class-transformer";
 
 class OrganizationSearchBody {
+    @IsOptional()
+    @IsArray()
+    @Type(() => IsUUID)
+    regions?: string[]
+
     @IsString()
     searchTerm: string;
 }
@@ -16,7 +22,7 @@ interface OrganizationSearchBodyType {
 
 const buildRequest = (state: OrganizationSearchBodyType) => {
     if(!state.searchTerm) return {
-        "_source": ["name", "id"],
+        "_source": ["name", "id", "rootDomains"],
     }
     return {
         "query": {
@@ -25,7 +31,7 @@ const buildRequest = (state: OrganizationSearchBodyType) => {
                 "auto_generate_synonyms_phrase_query": true
             },
         },
-        "_source": ["name", "id"],
+        "_source": ["name", "id", "rootDomains"],
     }
 }
 
