@@ -13,17 +13,24 @@ interface OrganizationSearchBodyType {
 
 
 
-const buildRequest = (state: OrganizationSearchBodyType ) => {
+
+const buildRequest = (state: OrganizationSearchBodyType) => {
+    if(!state.searchTerm) return {
+        "_source": ["name", "id"],
+    }
     return {
         "query": {
-            "match": {
-                "name": state.searchTerm
-            }
-        }
+            "query_string": {
+                "query": `name:${state.searchTerm}~5`,
+                "auto_generate_synonyms_phrase_query": true
+            },
+        },
+        "_source": ["name", "id"],
     }
 }
 
 export const searchOrganizations = wrapHandler(async (event) => {
+    console.log('event', event)
 
     const searchBody = await validateBody(OrganizationSearchBody, event.body)
     const request = buildRequest(searchBody)

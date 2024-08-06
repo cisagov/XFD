@@ -39,6 +39,13 @@ export interface WebpageRecord {
   webpage_body?: string;
 }
 
+
+const organizationMapping = {
+  name: {
+    type: 'text'
+  }
+}
+
 /**
  * Elasticsearch client.
  */
@@ -51,16 +58,34 @@ class ESClient {
 
 
   async syncOrganizationsIndex(){
+    
     console.log('syncOrganizationsIndex')
     try {
       await this.client.indices.get({
         index: ORGANIZATIONS_INDEX
       })
+      await this.client.indices.putMapping({
+        index: ORGANIZATIONS_INDEX,
+        body: { properties: organizationMapping }
+      })
     } catch (e){
       console.log('sync orgs error', e)
       await this.client.indices.create({
         index: ORGANIZATIONS_INDEX,
-        body: {}
+        body: {
+          mappings: {
+            properties: {
+              ...organizationMapping,
+              suggest: {
+                type: 'completion'
+              }
+            },
+            dynamic: true
+          },
+          settings: {
+            number_of_shards: 2
+          }
+        }
       })
     }
   }
