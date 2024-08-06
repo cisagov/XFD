@@ -39,6 +39,7 @@ export const OrganizationSearch: React.FC = () => {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [orgResults, setOrgResults] = useState<Organization[]>([]);
+  const [regions, setRegions] = useState<{ regionId: string }[]>([]);
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -53,6 +54,16 @@ export const OrganizationSearch: React.FC = () => {
       userLevel = REGIONAL_ADMIN;
     }
   }
+
+  const fetchRegions = useCallback(async () => {
+    try {
+      const results = await apiGet('/regions');
+      setRegions(results);
+    } catch (e) {
+      console.log(e);
+    }
+  }, [apiGet]);
+
   const searchOrganizations = useCallback(
     async (searchTerm: string) => {
       try {
@@ -89,7 +100,8 @@ export const OrganizationSearch: React.FC = () => {
       fetchOrganizations();
     }
     searchOrganizations(' ');
-  }, [fetchOrganizations, userLevel, searchOrganizations]);
+    fetchRegions();
+  }, [userLevel, fetchOrganizations, searchOrganizations, fetchRegions]);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -105,9 +117,9 @@ export const OrganizationSearch: React.FC = () => {
     return [];
   }, [user, organizations, userLevel]);
 
-  const top5Organizations = useMemo(() => {
-    return orgResults.slice(0, 5);
-  }, [orgResults]);
+  const regionIds = useMemo(() => {
+    return regions.map((region) => region.regionId).sort();
+  }, [regions]);
 
   return (
     <>
@@ -129,19 +141,19 @@ export const OrganizationSearch: React.FC = () => {
             <Typography>Region(s)</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            {/* <List>
-              {uniqueRegionIds.map((regionId) => (
-                <ListItem sx={{ padding: '0px' }} key={regionId}>
+            <List>
+              {regionIds.map((id) => (
+                <ListItem sx={{ padding: '0px' }} key={id}>
                   <FormGroup>
                     <FormControlLabel
                       control={<Checkbox />}
-                      label={`Region ${regionId?.toString()}`}
+                      label={`Region ${id}`}
                       sx={{ padding: '0px' }}
                     />
                   </FormGroup>
                 </ListItem>
               ))}
-            </List> */}
+            </List>
           </AccordionDetails>
         </Accordion>
       )}
@@ -245,8 +257,6 @@ export const OrganizationSearch: React.FC = () => {
               }
               onChange={(event, value) => {
                 if (value) {
-                  console.log('value', value);
-                  console.log('value.name', value.name);
                   setOrganization(value);
                   setShowAllOrganizations(false);
                   if (value.name === 'Election') {
@@ -269,19 +279,24 @@ export const OrganizationSearch: React.FC = () => {
                 <TextField {...params} label="Search Organizations" />
               )}
             />
-            <List sx={{ width: '100%' }}>
-              {top5Organizations.map((org) => (
-                <ListItem sx={{ padding: '0px' }} key={org.id}>
+            {!showAllOrganizations && (
+              <List sx={{ width: '100%' }}>
+                <ListItem sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
-                      control={<Checkbox />}
-                      label={org.name}
                       sx={{ padding: '0px' }}
+                      label={currentOrganization?.name}
+                      control={<Checkbox />}
+                      checked={!showAllOrganizations}
+                      onChange={() => {
+                        setShowAllOrganizations(true);
+                        setShowMaps(false);
+                      }}
                     />
                   </FormGroup>
                 </ListItem>
-              ))}
-            </List>
+              </List>
+            )}
             <br />
           </AccordionDetails>
         </Accordion>
