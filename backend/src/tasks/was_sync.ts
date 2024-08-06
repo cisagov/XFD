@@ -117,8 +117,8 @@ export const handler = async (commandOptions: CommandOptions) => {
       console.log(
         `Scanning PE database for vulnerabilities & services for ${org.acronym}, ${org.name}`
       );
-      let datalakeConnnection = await connectToDatalake2();
-      let dl_org = datalakeConnnection.getRepository(DL_Organization);
+      const datalakeConnnection = await connectToDatalake2();
+      const dl_org = datalakeConnnection.getRepository(DL_Organization);
       const organization = await dl_org.findOne({
         where: { acronym: org.acronym }
       });

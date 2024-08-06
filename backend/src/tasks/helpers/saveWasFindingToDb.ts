@@ -6,8 +6,8 @@ export default async (wasFindingObj: WasFinding): Promise<string | null> => {
     `Starting to save WAS finding to datalake: ${wasFindingObj.name}`
   );
 
-  let datalakeConnnection = await connectToDatalake2();
-  let dl_was_finding = datalakeConnnection.getRepository(WasFinding);
+  const datalakeConnnection = await connectToDatalake2();
+  const dl_was_finding = datalakeConnnection.getRepository(WasFinding);
   const wasFindingValues = Object.keys(wasFindingObj)
     .map((key) => {
       if (['id'].indexOf(key) > -1) return '';
