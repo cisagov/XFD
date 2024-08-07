@@ -65,12 +65,13 @@ export const OrganizationSearch: React.FC = () => {
   }, [apiGet]);
 
   const searchOrganizations = useCallback(
-    async (searchTerm: string) => {
+    async (searchTerm: string, regions?: string[]) => {
       try {
         const results = await apiPost<{
           body: { hits: { hits: { _source: Organization }[] } };
         }>('/search/organizations', {
-          searchTerm
+          searchTerm,
+          regions
         });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
         setOrgResults(orgs);
@@ -80,6 +81,28 @@ export const OrganizationSearch: React.FC = () => {
     },
     [apiPost, setOrgResults]
   );
+
+  console.log('orgResults', orgResults);
+
+  // const filterOrganizations = useCallback(
+  //   async (regions: string[]) => {
+  //     try {
+  //       const results = await apiPost<{
+  //         body: { hits: { hits: { _source: Organization }[] } };
+  //       }>('/search/organizations', {
+  //         regions
+  //       });
+  //       const orgs = results.body.hits.hits.map((hit) => hit._source);
+  //       setOrgResults(orgs);
+  //     } catch (e) {
+  //       console.log(e);
+  //     }
+  //   },
+  //   [apiPost, setOrgResults]
+  // );
+
+  // console.log('filterOrganizations', filterOrganizations);
+  // console.log('regionOrgs', orgResults);
 
   const fetchOrganizations = useCallback(async () => {
     try {
@@ -99,7 +122,7 @@ export const OrganizationSearch: React.FC = () => {
     if (userLevel > 0) {
       fetchOrganizations();
     }
-    searchOrganizations(' ');
+    searchOrganizations('');
     fetchRegions();
   }, [userLevel, fetchOrganizations, searchOrganizations, fetchRegions]);
 
@@ -142,13 +165,17 @@ export const OrganizationSearch: React.FC = () => {
           </AccordionSummary>
           <AccordionDetails>
             <List>
-              {regionIds.map((id) => (
-                <ListItem sx={{ padding: '0px' }} key={id}>
+              {regionIds.map((regionId) => (
+                <ListItem sx={{ padding: '0px' }} key={regionId}>
                   <FormGroup>
                     <FormControlLabel
                       control={<Checkbox />}
-                      label={`Region ${id}`}
+                      label={`Region ${regionId}`}
                       sx={{ padding: '0px' }}
+                      onChange={() => {
+                        // filterOrganizations([regionId]);
+                        console.log('regionId', regionId);
+                      }}
                     />
                   </FormGroup>
                 </ListItem>
