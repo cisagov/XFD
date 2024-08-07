@@ -122,13 +122,7 @@ export const Users: React.FC = () => {
           : 'None';
         row.fullName = `${row.firstName} ${row.lastName}`;
       });
-      if (user?.userType === 'globalAdmin') {
-        setUsers(rows);
-      } else if (user?.userType === 'regionalAdmin' && user?.regionId) {
-        setUsers(rows.filter((row) => row.regionId === user.regionId));
-      } else if (user) {
-        setUsers([user]);
-      }
+      setUsers(rows);
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
       setLoadingError(true);
@@ -136,7 +130,7 @@ export const Users: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet, user]);
+  }, [apiGet]);
 
   useEffect(() => {
     fetchUsers();
@@ -209,7 +203,12 @@ export const Users: React.FC = () => {
       headerName: 'Last Logged In',
       minWidth: 100,
       flex: 1
-    },
+    }
+  ];
+
+  // Admin Columns are meant for CRUD operations. These will only be visible to Global Admins and
+  // are pushed onto the grid conditionally based on the user's userType.
+  const adminCols: GridColDef[] = [
     {
       field: 'edit',
       headerName: 'Edit',
@@ -275,6 +274,10 @@ export const Users: React.FC = () => {
       }
     }
   ];
+
+  if (user?.userType === 'globalAdmin') {
+    userCols.push(...adminCols);
+  }
 
   const addUserButton = user?.userType === 'globalAdmin' && (
     <MuiButton
