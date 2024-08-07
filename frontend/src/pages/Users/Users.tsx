@@ -162,7 +162,10 @@ export const Users: React.FC = () => {
                   state: cellValues.row.state || '',
                   regionId: cellValues.row.regionId || '',
                   orgName: cellValues.row.roles[0]?.organization?.name || '',
-                  orgId: cellValues.row.roles[0]?.organization?.id || ''
+                  orgId: cellValues.row.roles[0]?.organization?.id || '',
+                  originalOrgId:
+                    cellValues.row.roles[0]?.organization?.id || '',
+                  originalRoleId: cellValues.row.roles[0]?.id || ''
                 });
                 setEditUserDialogOpen(true);
               }}

@@ -83,10 +83,11 @@ export const UserForm: React.FC<UserFormProps> = ({
     state: false,
     orgId: false
   });
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [organizationsInRegion, setOrganizationsInRegion] = useState<
+    Organization[]
+  >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialOrgIdChange, setInitialOrgIdChange] = useState(false);
-
   const fetchOrganizations = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -96,7 +97,7 @@ export const UserForm: React.FC<UserFormProps> = ({
           '/organizations/regionId/' + values.regionId
         );
       }
-      setOrganizations(rows);
+      setOrganizationsInRegion(rows);
       setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: '' }));
     } catch (e: any) {
       setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: e.message }));
@@ -111,7 +112,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   }, [fetchOrganizations]);
 
   const getOrgNameById = (id: string) => {
-    const organization = organizations.find((org) => org.id === id);
+    const organization = organizationsInRegion.find((org) => org.id === id);
     return organization ? organization.name : null;
   };
 
@@ -183,15 +184,13 @@ export const UserForm: React.FC<UserFormProps> = ({
     if (!validateForm(values)) {
       return;
     }
-    const body: UserFormValues = {
+    const body = {
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
       userType: values.userType,
       state: values.state,
-      regionId: values.regionId,
-      orgName: values.orgName,
-      orgId: values.orgId
+      regionId: values.regionId
     };
     try {
       const user = await apiPost('/users/', {
@@ -219,18 +218,25 @@ export const UserForm: React.FC<UserFormProps> = ({
     if (!validateForm(values)) {
       return;
     }
-    const body: UserFormValues = {
+    const body = {
       firstName: values.firstName,
       lastName: values.lastName,
       email: values.email,
       userType: values.userType,
       state: values.state,
-      regionId: values.regionId,
-      orgName: values.orgName,
-      orgId: values.orgId
+      regionId: values.regionId
     };
     try {
       await apiPut(`/v2/users/${values.id}`, { body });
+      if (values.originalOrgId !== values.orgId) {
+        await apiPost(
+          `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
+          { body: {} }
+        );
+        await apiPost(`/v2/organizations/${values.orgId}/users`, {
+          body: { userId: values.id, role: 'user' }
+        });
+      }
       const updatedUsers = users.map((user) =>
         user.id === values.id
           ? {
@@ -403,7 +409,12 @@ export const UserForm: React.FC<UserFormProps> = ({
         </Grid>
         <Grid item xs={12}>
           <Typography>Organization</Typography>
-          {isLoading ? (
+          {newUserDialogOpen ? (
+            <Alert severity="info">
+              An organization cannot be selected until the user is in the
+              system.
+            </Alert>
+          ) : isLoading ? (
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
@@ -411,7 +422,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             </Alert>
           ) : values.state === '' ? (
             <Alert severity="info">Select a state to make a selection.</Alert>
-          ) : organizations.length === 0 ? (
+          ) : organizationsInRegion.length === 0 ? (
             <Alert severity="info">
               No organizations found. Add orgs to Region {values.regionId} to
               make a selection.
@@ -436,10 +447,11 @@ export const UserForm: React.FC<UserFormProps> = ({
                     )
               }
               disabled={
-                organizations.length === 0 || user?.userType !== 'globalAdmin'
+                organizationsInRegion.length === 0 ||
+                user?.userType !== 'globalAdmin'
               }
             >
-              {organizations.map((organization) => (
+              {organizationsInRegion.map((organization) => (
                 <MenuItem key={organization.id} value={organization.id}>
                   {organization.name}
                 </MenuItem>

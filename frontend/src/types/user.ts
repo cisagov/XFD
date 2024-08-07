@@ -64,6 +64,8 @@ export type UserFormValues = {
   regionId: string;
   orgName: string;
   orgId: string;
+  originalOrgId: string;
+  originalRoleId: string;
 };
 
 export const initialUserFormValues: UserFormValues = {
@@ -74,5 +76,7 @@ export const initialUserFormValues: UserFormValues = {
   state: '',
   regionId: '',
   orgName: '',
-  orgId: ''
+  orgId: '',
+  originalOrgId: '',
+  originalRoleId: ''
 };
