@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   DialogContent,
@@ -21,6 +21,7 @@ import {
 } from 'types';
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '../../constants/constants';
+import { isEqual } from 'lodash';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -74,14 +75,14 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogOpen,
   setInfoDialogContent
 }) => {
+  const initialValuesRef = useRef(values);
   const { user, apiGet, apiPost, apiPut } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
     firstName: false,
     lastName: false,
     email: false,
     userType: false,
-    state: false,
-    orgId: false
+    state: false
   });
   const [organizationsInRegion, setOrganizationsInRegion] = useState<
     Organization[]
@@ -126,8 +127,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         values.lastName.trim() === '' || !nameRegex.test(values.lastName),
       email: !emailRegex.test(values.email),
       userType: values.userType.trim() === '',
-      state: values.state.trim() === '',
-      orgId: values.orgId.trim() === ''
+      state: values.state.trim() === ''
     };
     setFormErrors(newFormErrors);
     return !Object.values(newFormErrors).some((error) => error);
@@ -147,16 +147,6 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
   };
 
-  const isFormValid = () => {
-    return (
-      initialOrgIdChange &&
-      !Object.values(formErrors).some((error) => error) &&
-      Object.values(values)
-        .filter((value) => typeof value === 'string')
-        .every((value) => (value as string).trim() !== '')
-    );
-  };
-
   const onResetForm = () => {
     setEditUserDialogOpen(false);
     setNewUserDialogOpen(false);
@@ -167,10 +157,8 @@ export const UserForm: React.FC<UserFormProps> = ({
       lastName: false,
       email: false,
       userType: false,
-      state: false,
-      orgId: false
+      state: false
     });
-    setInitialOrgIdChange(false);
   };
 
   const handleCloseAddUserDialog = (value: CloseReason) => {
@@ -202,7 +190,6 @@ export const UserForm: React.FC<UserFormProps> = ({
       handleCloseAddUserDialog('closeButtonClick');
       setInfoDialogContent('This user has been successfully invited.');
       setInfoDialogOpen(true);
-      setInitialOrgIdChange(false);
     } catch (e: any) {
       setApiErrorStates({ ...apiErrorStates, getAddUserError: e.message });
       setInfoDialogContent(
@@ -210,12 +197,11 @@ export const UserForm: React.FC<UserFormProps> = ({
       );
       console.log(e);
       setValues(initialUserFormValues);
-      setInitialOrgIdChange(false);
     }
   };
 
   const handleEditUserSubmit = async () => {
-    if (!validateForm(values)) {
+    if (!validateForm(values) || values.orgId === '') {
       return;
     }
     const body = {
@@ -251,13 +237,11 @@ export const UserForm: React.FC<UserFormProps> = ({
       setEditUserDialogOpen(false);
       setInfoDialogContent('This user has been successfully updated.');
       setInfoDialogOpen(true);
-      setInitialOrgIdChange(false);
     } catch (e: any) {
       setApiErrorStates({ ...apiErrorStates, getUpdateUserError: e.message });
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
-      setInitialOrgIdChange(false);
       console.log(e);
     }
   };
@@ -292,7 +276,11 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const handleOrgChange = (event: SelectChangeEvent) => {
-    setInitialOrgIdChange(true);
+    if (values.originalOrgId !== event.target.value) {
+      setInitialOrgIdChange(true);
+    } else {
+      setInitialOrgIdChange(false);
+    }
     setValues((values: any) => ({
       ...values,
       orgId: event.target.value,
@@ -428,40 +416,43 @@ export const UserForm: React.FC<UserFormProps> = ({
               make a selection.
             </Alert>
           ) : (
-            <Select
-              displayEmpty
-              size="small"
-              id="orgId"
-              value={values.orgId === null ? '' : values.orgId}
-              name="orgId"
-              error={formErrors.orgId}
-              onChange={handleOrgChange}
-              fullWidth
-              renderValue={
-                values.orgId !== ''
-                  ? undefined
-                  : () => (
-                      <Typography color="#bdbdbd">
-                        Select an Organization
-                      </Typography>
-                    )
-              }
-              disabled={
-                organizationsInRegion.length === 0 ||
-                user?.userType !== 'globalAdmin'
-              }
-            >
-              {organizationsInRegion.map((organization) => (
-                <MenuItem key={organization.id} value={organization.id}>
-                  {organization.name}
-                </MenuItem>
-              ))}
-            </Select>
-          )}
-          {formErrors.state && (
-            <Typography pl={2} variant="caption" color="error.main">
-              State is required
-            </Typography>
+            <>
+              <Select
+                displayEmpty
+                size="small"
+                id="orgId"
+                value={values.orgId === null ? '' : values.orgId}
+                name="orgId"
+                // error={formErrors.orgId}
+                error={values.orgId === ''}
+                onChange={handleOrgChange}
+                fullWidth
+                renderValue={
+                  values.orgId !== ''
+                    ? undefined
+                    : () => (
+                        <Typography color="#bdbdbd">
+                          Select an Organization
+                        </Typography>
+                      )
+                }
+                disabled={
+                  organizationsInRegion.length === 0 ||
+                  user?.userType !== 'globalAdmin'
+                }
+              >
+                {organizationsInRegion.map((organization) => (
+                  <MenuItem key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </MenuItem>
+                ))}
+              </Select>
+              {values.orgId === '' && (
+                <Typography pl={2} variant="caption" color="error.main">
+                  Organization is required
+                </Typography>
+              )}
+            </>
           )}
         </Grid>
         <Grid item xs={12}>
@@ -523,7 +514,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       onCancel={onResetForm}
       title={'Update User'}
       content={formContents}
-      disabled={!isFormValid()}
+      disabled={
+        (isEqual(initialValuesRef.current, values) && !initialOrgIdChange) ||
+        values.orgId === ''
+      }
     />
   );
 
@@ -535,7 +529,6 @@ export const UserForm: React.FC<UserFormProps> = ({
       onClose={(_, reason) => handleCloseAddUserDialog(reason)}
       title={'Invite a User'}
       content={formContents}
-      disabled={!isFormValid()}
     />
   );
   return (

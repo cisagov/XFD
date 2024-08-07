@@ -260,6 +260,23 @@ export const Users: React.FC = () => {
     />
   );
 
+  const renderUserForm = (
+    <UserForm
+      users={users}
+      setUsers={setUsers}
+      values={formValues}
+      setValues={setFormValues}
+      newUserDialogOpen={newUserDialogOpen}
+      setNewUserDialogOpen={setNewUserDialogOpen}
+      editUserDialogOpen={editUserDialogOpen}
+      setEditUserDialogOpen={setEditUserDialogOpen}
+      apiErrorStates={apiErrorStates}
+      setApiErrorStates={setApiErrorStates}
+      setInfoDialogOpen={setInfoDialogOpen}
+      setInfoDialogContent={setInfoDialogContent}
+    />
+  );
+
   return (
     <Box display="flex" justifyContent="center">
       <Box
@@ -315,20 +332,7 @@ export const Users: React.FC = () => {
           ) : null}
         </Box>
         {confirmDeleteUserDialog}
-        <UserForm
-          users={users}
-          setUsers={setUsers}
-          values={formValues}
-          setValues={setFormValues}
-          newUserDialogOpen={newUserDialogOpen}
-          setNewUserDialogOpen={setNewUserDialogOpen}
-          editUserDialogOpen={editUserDialogOpen}
-          setEditUserDialogOpen={setEditUserDialogOpen}
-          apiErrorStates={apiErrorStates}
-          setApiErrorStates={setApiErrorStates}
-          setInfoDialogOpen={setInfoDialogOpen}
-          setInfoDialogContent={setInfoDialogContent}
-        />
+        {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
         {user?.userType === 'globalAdmin' && (
           <>
             <ImportExport<
