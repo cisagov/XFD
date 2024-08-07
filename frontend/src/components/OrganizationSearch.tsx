@@ -64,7 +64,6 @@ export const OrganizationSearch: React.FC = () => {
     }
   }, [apiGet]);
 
-
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
       try {
@@ -75,7 +74,7 @@ export const OrganizationSearch: React.FC = () => {
             searchTerm,
             regions
           }
-        } );
+        });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
         setOrgResults(orgs);
       } catch (e) {
@@ -84,7 +83,6 @@ export const OrganizationSearch: React.FC = () => {
     },
     [apiPost, setOrgResults]
   );
-
 
   // const temp = async (body: { searchTerm: string, regions: []}) => {
   //   const results = await apiPost()
@@ -109,7 +107,6 @@ export const OrganizationSearch: React.FC = () => {
   //     console.log(e);
   //   }
   // }
-
 
   // const filterOrganizations = useCallback(
   //   async (regions: string[]) => {
@@ -333,8 +330,8 @@ export const OrganizationSearch: React.FC = () => {
                 <TextField {...params} label="Search Organizations" />
               )}
             />
-            {currentOrganization ?
-              (<List sx={{ width: '100%' }}>
+            {currentOrganization ? (
+              <List sx={{ width: '100%' }}>
                 <ListItem sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
@@ -344,14 +341,16 @@ export const OrganizationSearch: React.FC = () => {
                       checked={!showAllOrganizations}
                       onChange={() => {
                         setShowAllOrganizations(true);
-                        setOrganization(null)
+                        setOrganization(null);
                         setShowMaps(false);
                       }}
                     />
                   </FormGroup>
                 </ListItem>
-              </List>) : <></>
-            }
+              </List>
+            ) : (
+              <></>
+            )}
             <br />
           </AccordionDetails>
         </Accordion>

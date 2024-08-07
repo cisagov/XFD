@@ -21,8 +21,6 @@ interface OrganizationSearchBodyType {
 const ALL_REGIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 const buildRequest = (state: OrganizationSearchBodyType) => {
-
-
   return {
     query: {
       bool: {
