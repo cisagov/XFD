@@ -64,15 +64,18 @@ export const OrganizationSearch: React.FC = () => {
     }
   }, [apiGet]);
 
+
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
       try {
         const results = await apiPost<{
           body: { hits: { hits: { _source: Organization }[] } };
         }>('/search/organizations', {
-          searchTerm,
-          regions
-        });
+          body: {
+            searchTerm,
+            regions
+          }
+        } );
         const orgs = results.body.hits.hits.map((hit) => hit._source);
         setOrgResults(orgs);
       } catch (e) {
@@ -82,7 +85,31 @@ export const OrganizationSearch: React.FC = () => {
     [apiPost, setOrgResults]
   );
 
-  console.log('orgResults', orgResults);
+
+  // const temp = async (body: { searchTerm: string, regions: []}) => {
+  //   const results = await apiPost()
+  // }
+
+  // const testOne = async (searchTerm: string, regions?: string[]) => {
+
+  //   console.log('HERE',{
+  //     searchTerm,
+  //     regions
+  //   })
+  //   try {
+  //     const results = await apiPost<{
+  //       body: { hits: { hits: { _source: Organization }[] } };
+  //     }>('/search/organizations', {
+  //       searchTerm,
+  //       regions
+  //     });
+  //     const orgs = results.body.hits.hits.map((hit) => hit._source);
+  //     setOrgResults(orgs);
+  //   } catch (e) {
+  //     console.log(e);
+  //   }
+  // }
+
 
   // const filterOrganizations = useCallback(
   //   async (regions: string[]) => {
@@ -122,7 +149,7 @@ export const OrganizationSearch: React.FC = () => {
     if (userLevel > 0) {
       fetchOrganizations();
     }
-    searchOrganizations('');
+    searchOrganizations('', []);
     fetchRegions();
   }, [userLevel, fetchOrganizations, searchOrganizations, fetchRegions]);
 
@@ -306,8 +333,8 @@ export const OrganizationSearch: React.FC = () => {
                 <TextField {...params} label="Search Organizations" />
               )}
             />
-            {!showAllOrganizations && (
-              <List sx={{ width: '100%' }}>
+            {currentOrganization ?
+              (<List sx={{ width: '100%' }}>
                 <ListItem sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
@@ -317,13 +344,14 @@ export const OrganizationSearch: React.FC = () => {
                       checked={!showAllOrganizations}
                       onChange={() => {
                         setShowAllOrganizations(true);
+                        setOrganization(null)
                         setShowMaps(false);
                       }}
                     />
                   </FormGroup>
                 </ListItem>
-              </List>
-            )}
+              </List>) : <></>
+            }
             <br />
           </AccordionDetails>
         </Accordion>
