@@ -10,7 +10,7 @@ import {
   List,
   TextField
 } from '@mui/material';
-import { Menu as MenuIcon } from '@mui/icons-material';
+import { ChevronLeft, Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
@@ -20,6 +20,7 @@ import { Autocomplete } from '@mui/material';
 import { Organization, OrganizationTag } from 'types';
 import { UserMenu } from './UserMenu';
 import { SideDrawerWithSearch } from './SideDrawer';
+import { matchPath } from 'utils/matchPath';
 
 const PREFIX = 'Header';
 
@@ -162,7 +163,12 @@ interface MenuItemType {
   exact: boolean;
 }
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  isFilterDrawerOpen: boolean
+  setIsFilterDrawerOpen: (isFilterDrawerOpen: boolean) => void
+}
+
+export const Header: React.FC<HeaderProps> = ({ isFilterDrawerOpen, setIsFilterDrawerOpen }) => {
   const history = useHistory();
   const { pathname } = useLocation();
   const {
@@ -321,7 +327,9 @@ export const Header: React.FC = () => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            
+            {matchPath(['/', '/inventory', '/inventory/domains', '/inventory/vulnerabilities'], pathname) && user ? <IconButton onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}>
+              {isFilterDrawerOpen ? <ChevronLeft style={{ color: 'white'}} /> : <MenuIcon style={{ color: 'white'}} /> }
+            </IconButton> : <></>}
             <img
               src={cisaLogo}
               className={classes.cisaLogo}

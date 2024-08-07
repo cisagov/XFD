@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import { ScopedCssBaseline } from '@mui/material';
+import { Box, Drawer, ScopedCssBaseline } from '@mui/material';
 import { Header, GovBanner } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
@@ -12,6 +12,7 @@ import { RSCHeader } from './ReadySetCyber/RSCHeader';
 import { SkipToMainContent } from './SkipToMainContent/index';
 import { SideDrawerWithSearch } from './SideDrawer';
 import { matchPath } from 'utils/matchPath';
+import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -20,9 +21,33 @@ const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
 
+
+
+const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
+  open?: boolean;
+}>(({ theme, open }) => ({
+  flexGrow: 1,
+  height: 'calc(100vh - 24px)',
+  maxHeight: 'calc(100vh - 24px)',
+  overflow: 'scroll',
+  transition: theme.transitions.create('margin', {
+    easing: theme.transitions.easing.sharp,
+    duration: theme.transitions.duration.leavingScreen,
+  }),
+  marginLeft: `-${drawerWidth}px`,
+  ...(open && {
+    transition: theme.transitions.create('margin', {
+      easing: theme.transitions.easing.easeOut,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
+    marginLeft: 0,
+  }),
+}));
+
+
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { logout, user } = useAuthContext();
-
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
@@ -60,6 +85,8 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
+  
+
   return (
     <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
       <div className={classes.root}>
@@ -83,28 +110,25 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               {userLevel > 0 &&
               (matchPath(['/', '/inventory', '/inventory/domains', '/inventory/vulnerabilities'], pathname)) ? (
-                <SideDrawerWithSearch />
-              ) : null}
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  width: '100%',
-                  height: 'calc(100vh - 24px)'
-                }}
-                // Content container
-              >
-                <Header />
+                <FilterDrawerV2 isFilterDrawerOpen={isFilterDrawerOpen} />
+              ) : <Drawer open={false} variant='persistent' sx={{ width: drawerWidth }}/>}
+              <Main open={isFilterDrawerOpen}>
+                  <Header isFilterDrawerOpen={isFilterDrawerOpen} setIsFilterDrawerOpen={setIsFilterDrawerOpen} />
+                
+                <Box display='block' position='relative' flex='1' height='calc(100vh - 64px - 72px - 24px)' overflow='scroll' zIndex={16}>
+                  {children}
+                </Box>
+                
 
-                <div className="main-content" id="main-content" tabIndex={-1} />
+                {/* <div className="main-content" id="main-content" tabIndex={-1} />
                 {pathname === '/inventory' ? (
                   children
                 ) : (
                   <div className={classes.content}>{children}</div>
-                )}
+                )} */}
 
                 <CrossfeedFooter />
-              </div>
+              </Main>
             </div>
           </>
         ) : (

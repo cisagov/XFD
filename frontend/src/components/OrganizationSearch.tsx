@@ -18,7 +18,6 @@ import {
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
-import { useUserLevel } from 'hooks/useUserLevel';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -55,9 +54,6 @@ export const OrganizationSearch: React.FC = () => {
       userLevel = REGIONAL_ADMIN;
     }
   }
-
-  const temp = useUserLevel()
-  console.log('RIGHT HERE',temp)
 
   const fetchRegions = useCallback(async () => {
     try {

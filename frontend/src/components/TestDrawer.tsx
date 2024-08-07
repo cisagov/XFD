@@ -129,8 +129,6 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
 
   return (
     <StyledWrapper style={{ overflowY: 'auto' }}>
-      { matchPath( ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'] ,pathname)? (
-        <>
           <Toolbar sx={{ justifyContent: 'center' }}>
             <Stack direction="row" spacing={2} alignItems="center">
               <Typography variant="h6" component="h2">
@@ -506,8 +504,6 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
               </AccordionDetails>
             </Accordion>
           </Accordion>
-        </>
-      ) : null}
     </StyledWrapper>
   );
 };

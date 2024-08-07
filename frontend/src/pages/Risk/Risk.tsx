@@ -108,7 +108,7 @@ const Risk: React.FC = (props) => {
     findFn: (geo: any) => Point | undefined;
     type: string;
   }) => (
-    <Paper elevation={0} className={cardRoot}>
+    <Paper elevation={0} >
       <div className={classes.chart}>
         <div className={header}>
           <h2>{title}</h2>
