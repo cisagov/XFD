@@ -28,6 +28,7 @@ import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
+import { matchPath } from 'utils/matchPath';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -128,7 +129,7 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
 
   return (
     <StyledWrapper style={{ overflowY: 'auto' }}>
-      {pathname === '/inventory' ? (
+      { matchPath( ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'] ,pathname)? (
         <>
           <Toolbar sx={{ justifyContent: 'center' }}>
             <Stack direction="row" spacing={2} alignItems="center">

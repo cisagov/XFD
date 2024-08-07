@@ -169,7 +169,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   return (
     <Root className={classes.root}>
-      <FilterDrawerWithSearch
+      {/* <FilterDrawerWithSearch
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}
@@ -178,7 +178,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         updateSearchTerm={updateSearchTerm}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
-      />
+      /> */}
       <div className={classes.contentWrapper}>
         <Subnav
           items={[

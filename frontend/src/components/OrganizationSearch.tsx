@@ -18,6 +18,7 @@ import {
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
+import { useUserLevel } from 'hooks/useUserLevel';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -55,6 +56,9 @@ export const OrganizationSearch: React.FC = () => {
     }
   }
 
+  const temp = useUserLevel()
+  console.log('RIGHT HERE',temp)
+
   const fetchRegions = useCallback(async () => {
     try {
       const results = await apiGet('/regions');
@@ -64,7 +68,6 @@ export const OrganizationSearch: React.FC = () => {
     }
   }, [apiGet]);
 
-
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
       try {
@@ -73,9 +76,9 @@ export const OrganizationSearch: React.FC = () => {
         }>('/search/organizations', {
           body: {
             searchTerm,
-            regions
+            regions,
           }
-        } );
+        });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
         setOrgResults(orgs);
       } catch (e) {
@@ -84,7 +87,6 @@ export const OrganizationSearch: React.FC = () => {
     },
     [apiPost, setOrgResults]
   );
-
 
   // const temp = async (body: { searchTerm: string, regions: []}) => {
   //   const results = await apiPost()
@@ -109,7 +111,6 @@ export const OrganizationSearch: React.FC = () => {
   //     console.log(e);
   //   }
   // }
-
 
   // const filterOrganizations = useCallback(
   //   async (regions: string[]) => {
@@ -217,7 +218,7 @@ export const OrganizationSearch: React.FC = () => {
             <Typography>Organization(s)</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            {organizations.length > 1 && (
+            {/* {organizations.length > 1 && (
               <Autocomplete
                 isOptionEqualToValue={(option, value) =>
                   option?.name === value?.name
@@ -301,7 +302,7 @@ export const OrganizationSearch: React.FC = () => {
                   />
                 )}
               />
-            )}
+            )} */}
             <br />
             <Autocomplete
               options={orgResults}
@@ -333,8 +334,8 @@ export const OrganizationSearch: React.FC = () => {
                 <TextField {...params} label="Search Organizations" />
               )}
             />
-            {currentOrganization ?
-              (<List sx={{ width: '100%' }}>
+            {currentOrganization ? (
+              <List sx={{ width: '100%' }}>
                 <ListItem sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
@@ -344,14 +345,16 @@ export const OrganizationSearch: React.FC = () => {
                       checked={!showAllOrganizations}
                       onChange={() => {
                         setShowAllOrganizations(true);
-                        setOrganization(null)
+                        setOrganization(null);
                         setShowMaps(false);
                       }}
                     />
                   </FormGroup>
                 </ListItem>
-              </List>) : <></>
-            }
+              </List>
+            ) : (
+              <></>
+            )}
             <br />
           </AccordionDetails>
         </Accordion>

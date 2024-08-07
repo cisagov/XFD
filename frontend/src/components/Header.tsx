@@ -321,10 +321,7 @@ export const Header: React.FC = () => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            {userLevel > 0 &&
-            (pathname === '/inventory' || pathname === '/') ? (
-              <SideDrawerWithSearch />
-            ) : null}
+            
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
@@ -343,87 +340,6 @@ export const Header: React.FC = () => {
             <div className={classes.spacing} />
             {userLevel > 0 && (
               <>
-                {organizations.length > 1 && (
-                  <Autocomplete
-                    isOptionEqualToValue={(option, value) =>
-                      option?.name === value?.name
-                    }
-                    options={
-                      userLevel === GLOBAL_ADMIN
-                        ? [...tags, ...organizationDropdownOptions]
-                        : organizationDropdownOptions
-                    }
-                    autoComplete={false}
-                    className={classes.selectOrg}
-                    classes={{
-                      option: classes.option
-                    }}
-                    value={
-                      showAllOrganizations
-                        ? { name: 'All Organizations' }
-                        : currentOrganization ?? undefined
-                    }
-                    filterOptions={(options, state) => {
-                      // If already selected, show all
-                      if (
-                        options.find(
-                          (option) =>
-                            option?.name.toLowerCase() ===
-                            state.inputValue.toLowerCase()
-                        )
-                      ) {
-                        return options;
-                      }
-                      return options.filter(
-                        (option) =>
-                          option?.name
-                            .toLowerCase()
-                            .includes(state.inputValue.toLowerCase())
-                      );
-                    }}
-                    disableClearable
-                    blurOnSelect
-                    selectOnFocus
-                    getOptionLabel={(option) => option!.name}
-                    renderOption={(props, option) => (
-                      <li {...props}>{option!.name}</li>
-                    )}
-                    onChange={(
-                      event: any,
-                      value: Organization | { name: string } | undefined
-                    ) => {
-                      if (value && 'id' in value) {
-                        setOrganization(value);
-                        setShowAllOrganizations(false);
-                        if (value.name === 'Election') {
-                          setShowMaps(true);
-                        } else {
-                          setShowMaps(false);
-                        }
-                        // Check if we're on an organization page and, if so, update it to the new organization
-                        if (orgPageMatch !== null) {
-                          if (!tags.find((e) => e.id === value.id)) {
-                            history.push(`/organizations/${value.id}`);
-                          }
-                        }
-                      } else {
-                        setShowAllOrganizations(true);
-                        setShowMaps(false);
-                      }
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        variant="outlined"
-                        inputProps={{
-                          ...params.inputProps,
-                          id: 'autocomplete-input',
-                          autoComplete: 'new-password' // disable autocomplete and autofill
-                        }}
-                      />
-                    )}
-                  />
-                )}
                 {!isMobile && <UserMenu userMenuItems={userMenuItems} />}
               </>
             )}

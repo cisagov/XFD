@@ -10,12 +10,32 @@ import { CrossfeedFooter } from './Footer';
 import { RSCFooter } from './ReadySetCyber/RSCFooter';
 import { RSCHeader } from './ReadySetCyber/RSCHeader';
 import { SkipToMainContent } from './SkipToMainContent/index';
+import { SideDrawerWithSearch } from './SideDrawer';
+import { matchPath } from 'utils/matchPath';
 interface LayoutProps {
   children: React.ReactNode;
 }
 
+const GLOBAL_ADMIN = 3;
+const REGIONAL_ADMIN = 2;
+const STANDARD_USER = 1;
+
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { logout, user } = useAuthContext();
+
+  let userLevel = 0;
+  if (user && user.isRegistered) {
+    if (user.userType === 'standard') {
+      userLevel = STANDARD_USER;
+    } else if (user.userType === 'globalAdmin') {
+      userLevel = GLOBAL_ADMIN;
+    } else if (
+      user.userType === 'regionalAdmin' ||
+      user.userType === 'globalView'
+    ) {
+      userLevel = REGIONAL_ADMIN;
+    }
+  }
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
@@ -54,16 +74,38 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
         {!pathname.includes('/readysetcyber') ? (
           <>
-            <Header />
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                height: '100vh',
+              }}
+            >
+              {userLevel > 0 &&
+              (matchPath(['/', '/inventory', '/inventory/domains', '/inventory/vulnerabilities'], pathname)) ? (
+                <SideDrawerWithSearch />
+              ) : null}
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  width: '100%',
+                  height: 'calc(100vh - 24px)'
+                }}
+                // Content container
+              >
+                <Header />
 
-            <div className="main-content" id="main-content" tabIndex={-1} />
-            {pathname === '/inventory' ? (
-              children
-            ) : (
-              <div className={classes.content}>{children}</div>
-            )}
+                <div className="main-content" id="main-content" tabIndex={-1} />
+                {pathname === '/inventory' ? (
+                  children
+                ) : (
+                  <div className={classes.content}>{children}</div>
+                )}
 
-            <CrossfeedFooter />
+                <CrossfeedFooter />
+              </div>
+            </div>
           </>
         ) : (
           <>
@@ -103,6 +145,8 @@ const StyledScopedCssBaseline = styled(ScopedCssBaseline)(({ theme }) => ({
   [`& .${classes.content}`]: {
     flex: '1',
     display: 'block',
-    position: 'relative'
+    position: 'relative',
+    height: 'calc(100vh - 24px)',
+    overflow: 'scroll'
   }
 }));
