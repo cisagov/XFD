@@ -423,7 +423,6 @@ export const UserForm: React.FC<UserFormProps> = ({
                 id="orgId"
                 value={values.orgId === null ? '' : values.orgId}
                 name="orgId"
-                // error={formErrors.orgId}
                 error={values.orgId === ''}
                 onChange={handleOrgChange}
                 fullWidth
