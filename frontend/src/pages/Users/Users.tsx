@@ -108,7 +108,7 @@ export const Users: React.FC = () => {
   const userCols: GridColDef[] = [
     { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 100, flex: 1.5 },
-    { field: 'regionId', headerName: 'Region', minWidth: 100, flex: 0.4 },
+    { field: 'regionId', headerName: 'Region', minWidth: 50, flex: 0.4 },
     {
       field: 'orgs',
       headerName: 'Organizations',
@@ -125,7 +125,7 @@ export const Users: React.FC = () => {
     {
       field: 'acceptedTermsVersion',
       headerName: 'ToU Version',
-      minWidth: 100,
+      minWidth: 50,
       flex: 0.5
     },
     {

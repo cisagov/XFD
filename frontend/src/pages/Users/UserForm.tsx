@@ -511,7 +511,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       isOpen={editUserDialogOpen}
       onConfirm={handleEditUserSubmit}
       onCancel={onResetForm}
-      title={'Update User'}
+      title={'View/Edit User'}
       content={formContents}
       disabled={
         (isEqual(initialValuesRef.current, values) && !initialOrgIdChange) ||
