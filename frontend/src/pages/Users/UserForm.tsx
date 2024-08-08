@@ -215,10 +215,12 @@ export const UserForm: React.FC<UserFormProps> = ({
     try {
       await apiPut(`/v2/users/${values.id}`, { body });
       if (values.originalOrgId !== values.orgId) {
-        await apiPost(
-          `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
-          { body: {} }
-        );
+        if (values.originalOrgId) {
+          await apiPost(
+            `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
+            { body: {} }
+          );
+        }
         await apiPost(`/v2/organizations/${values.orgId}/users`, {
           body: { userId: values.id, role: 'user' }
         });
@@ -498,6 +500,13 @@ export const UserForm: React.FC<UserFormProps> = ({
             <Alert severity="error">
               Error adding user to the database:{' '}
               {apiErrorStates.getAddUserError}. See the network tab for more
+              details.
+            </Alert>
+          )}
+          {apiErrorStates.getUpdateUserError && (
+            <Alert severity="error">
+              Error updating user in the database:{' '}
+              {apiErrorStates.getUpdateUserError}. See the network tab for more
               details.
             </Alert>
           )}
