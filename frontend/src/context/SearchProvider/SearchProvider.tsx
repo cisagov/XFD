@@ -17,6 +17,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   const config = {
     debug: false,
     alwaysSearchOnInitialLoad: false,
+    trackUrlState: false,
     initialState: {
       resultsPerPage: 15,
       sortField: 'name',

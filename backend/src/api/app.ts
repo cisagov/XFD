@@ -16,7 +16,7 @@ import * as scans from './scans';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
-import * as regions from './regions'
+import * as regions from './regions';
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
@@ -27,7 +27,7 @@ import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import fetch from 'node-fetch';
-import * as searchOrganizations from './organizationSearch'
+import * as searchOrganizations from './organizationSearch';
 
 const sanitizer = require('sanitizer');
 
@@ -532,7 +532,10 @@ authenticatedRoute.post('/api-keys', handlerToExpress(apiKeys.generate));
 authenticatedRoute.delete('/api-keys/:keyId', handlerToExpress(apiKeys.del));
 
 authenticatedRoute.post('/search', handlerToExpress(search.search));
-authenticatedRoute.post('/search/organizations', handlerToExpress(searchOrganizations.searchOrganizations))
+authenticatedRoute.post(
+  '/search/organizations',
+  handlerToExpress(searchOrganizations.searchOrganizations)
+);
 authenticatedRoute.post('/search/export', handlerToExpress(search.export_));
 authenticatedRoute.get('/cpes/:id', handlerToExpress(cpes.get));
 authenticatedRoute.get('/cves/:id', handlerToExpress(cves.get));
@@ -611,7 +614,7 @@ authenticatedRoute.get(
   '/organizations/regionId/:regionId',
   handlerToExpress(organizations.getByRegionId)
 );
-authenticatedRoute.get('/regions', handlerToExpress(regions.getAll))
+authenticatedRoute.get('/regions', handlerToExpress(regions.getAll));
 authenticatedRoute.post(
   '/organizations',
   handlerToExpress(organizations.create)

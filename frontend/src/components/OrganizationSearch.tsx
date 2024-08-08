@@ -18,6 +18,7 @@ import {
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
+import { debounce } from 'utils/debounce';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -56,9 +57,6 @@ export const OrganizationSearch: React.FC = () => {
       userLevel = REGIONAL_ADMIN;
     }
   }
-
-  // const temp = useUserLevel();
-  // console.log('RIGHT HERE', temp);
 
   const fetchRegions = useCallback(async () => {
     try {
@@ -125,19 +123,26 @@ export const OrganizationSearch: React.FC = () => {
   //   [apiPost, setOrgResults]
   // );
 
-  // const fetchOrganizations = useCallback(async () => {
-  //   try {
-  //     const rows = await apiGet<Organization[]>('/v2/organizations/');
-  //     let tags: OrganizationTag[] = [];
-  //     if (userLevel === GLOBAL_ADMIN) {
-  //       tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-  //       await setTags(tags as OrganizationTag[]);
-  //     }
-  //     await setOrganizations(rows);
-  //   } catch (e) {
-  //     console.log(e);
-  //   }
-  // }, [apiGet, setOrganizations, userLevel]);
+  // console.log('filterOrganizations', filterOrganizations);
+  // console.log('regionOrgs', orgResults);
+
+  const fetchOrganizations = useCallback(async () => {
+    try {
+      const rows = await apiGet<Organization[]>('/v2/organizations/');
+      let tags: OrganizationTag[] = [];
+      if (userLevel === GLOBAL_ADMIN) {
+        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
+        await setTags(tags as OrganizationTag[]);
+      }
+      await setOrganizations(rows);
+    } catch (e) {
+      console.log(e);
+    }
+  }, [apiGet, setOrganizations, userLevel]);
+
+  const handleChange = (v: string) => {
+    debounce(searchOrganizations(v) as any, 400);
+  };
 
   useEffect(() => {
     searchOrganizations(searchTerm, []);
@@ -291,6 +296,7 @@ export const OrganizationSearch: React.FC = () => {
             )} */}
             <br />
             <Autocomplete
+              onInputChange={(_, v) => handleChange(v)}
               options={orgResults}
               getOptionLabel={(option) => option.name}
               isOptionEqualToValue={(option, value) =>

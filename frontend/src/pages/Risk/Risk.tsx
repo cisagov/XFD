@@ -72,7 +72,7 @@ const Risk: React.FC = (props) => {
               ? {}
               : orgId || 'rootDomains' in currentOrganization
               ? {
-                  organization: orgId ? orgId : currentOrganization?.id
+                  organizations: [orgId ? orgId : currentOrganization?.id]
                 }
               : { tag: currentOrganization.id }
         }
@@ -108,7 +108,7 @@ const Risk: React.FC = (props) => {
     findFn: (geo: any) => Point | undefined;
     type: string;
   }) => (
-    <Paper elevation={0} className={cardRoot}>
+    <Paper elevation={0}>
       <div className={classes.chart}>
         <div className={header}>
           <h2>{title}</h2>

@@ -13,7 +13,8 @@ import {
   FormControlLabel,
   FormGroup,
   TextareaAutosize,
-  ButtonGroup
+  ButtonGroup,
+  Box
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
@@ -179,7 +180,15 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
       /> */}
-      <div className={classes.contentWrapper}>
+      <Box
+        position="relative"
+        flex="1 1 auto"
+        height="100%"
+        maxHeight="100%"
+        display="flex"
+        flexWrap="nowrap"
+        flexDirection="column"
+      >
         <Subnav
           items={[
             { title: 'Search Results', path: '/inventory', exact: true },
@@ -208,19 +217,28 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             message={"We don't see any results that match your criteria."}
           ></NoResults>
         )}
-        <div className={classes.content}>
-          <div className={classes.panel} onScroll={handleResultScroll}>
-            {results.map((result) => (
-              <ResultCard
-                key={result.id.raw}
-                {...result}
-                onDomainSelected={(id) => setSelectedDomain(id)}
-                selected={result.id.raw === selectedDomain}
-              />
-            ))}
-          </div>
-        </div>
-        <Paper classes={{ root: classes.pagination }}>
+        <Box
+          height="100%"
+          flexDirection="column"
+          flexWrap="nowrap"
+          gap="1rem"
+          alignItems="stretch"
+          display="flex"
+          overflow="scroll"
+          position="relative"
+          padding="0 1rem 2rem 1rem"
+          sx={{ overflowY: 'auto' }}
+        >
+          {results.map((result) => (
+            <ResultCard
+              key={result.id.raw}
+              {...result}
+              onDomainSelected={(id) => setSelectedDomain(id)}
+              selected={result.id.raw === selectedDomain}
+            />
+          ))}
+        </Box>
+        <Paper className={classes.pagination}>
           <span>
             <strong>
               {(totalResults === 0
@@ -279,7 +297,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             Export Results
           </Button>
         </Paper>
-      </div>
+      </Box>
 
       <Modal ref={modalRef} id="modal">
         <ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>

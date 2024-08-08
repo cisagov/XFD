@@ -1,4 +1,11 @@
-import { ValidateNested, IsOptional, IsObject, IsUUID, isUUID, IsArray } from 'class-validator';
+import {
+  ValidateNested,
+  IsOptional,
+  IsObject,
+  IsUUID,
+  isUUID,
+  IsArray
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { Domain, connectToDatabase, Vulnerability, Service } from '../models';
 import { validateBody, wrapHandler } from './helpers';
@@ -44,7 +51,7 @@ class StatsFilters {
   @IsOptional()
   @IsArray()
   @Type(() => IsUUID)
-  regions?: string[]
+  regions?: string[];
 }
 
 class StatsSearch {
@@ -76,7 +83,10 @@ export const get = wrapHandler(async (event) => {
         orgs: getOrgMemberships(event)
       });
     }
-    if (search.filters?.organizations && search.filters?.organizations.length > 0) {
+    if (
+      search.filters?.organizations &&
+      search.filters?.organizations.length > 0
+    ) {
       qs.andWhere('domain."organizationId" IN (:...orgs)', {
         orgs: search.filters?.organizations
       });
@@ -90,8 +100,7 @@ export const get = wrapHandler(async (event) => {
     if (search.filters?.regions && search.filters.regions.length > 0) {
       qs.andWhere('"organization"."regionId" IN (:...regions)', {
         regions: search.filters.regions
-        }
-      )
+      });
     }
 
     return qs.cache(15 * 60 * 1000); // 15 minutes
@@ -108,7 +117,6 @@ export const get = wrapHandler(async (event) => {
 
   const MAX_RESULTS = 50;
 
-  
   const services = await performQuery(
     Service.createQueryBuilder('service')
       .innerJoinAndSelect('service.domain', 'domain')
@@ -174,7 +182,9 @@ export const get = wrapHandler(async (event) => {
       .orderBy('vulnerability.severity', 'ASC')
   );
   const total = await performQuery(
-    Domain.createQueryBuilder('domain').select('count(*) as value').innerJoin('domain.organization', "organization")
+    Domain.createQueryBuilder('domain')
+      .select('count(*) as value')
+      .innerJoin('domain.organization', 'organization')
   );
   const byOrg = (
     await (

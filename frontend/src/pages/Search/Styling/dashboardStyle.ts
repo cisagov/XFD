@@ -28,6 +28,7 @@ export const Root = styled('div')(() => ({
     flexFlow: 'row nowrap',
     alignItems: 'stretch',
     margin: '0',
+    height: 'inherit',
     overflowY: 'hidden'
   },
 
@@ -54,18 +55,6 @@ export const Root = styled('div')(() => ({
     alignItems: 'stretch',
     flex: '1',
     overflowY: 'hidden'
-  },
-
-  [`& .${classes.panel}`]: {
-    position: 'relative',
-    height: '100%',
-    overflowY: 'auto',
-    padding: '0 1rem 2rem 1rem',
-    flex: '0 0 100%',
-    display: 'flex',
-    flexFlow: 'column nowrap',
-    alignItems: 'stretch',
-    gap: '1rem'
   },
 
   [`& .${classes.pagination}`]: {
