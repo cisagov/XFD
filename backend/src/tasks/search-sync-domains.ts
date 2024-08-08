@@ -71,22 +71,4 @@ export const handler = async (commandOptions: CommandOptions) => {
   } else {
     console.log('Not syncing any domains.');
   }
-
-  const orgQs = Organization.createQueryBuilder('organization');
-  const orgIds = (await orgQs.getMany()).map((e) => e.id);
-  console.log(`Got ${orgIds.length} organizations.`);
-  if (orgIds.length) {
-    const organizationIdChunks = chunk(orgIds, ORGANIZATION_CHUNK_SIZE);
-    for (const organizationIdChunk of organizationIdChunks) {
-      const organizations = await Organization.find({
-        where: { id: In(organizationIdChunk) }
-      });
-      console.log(`Syncing ${organizations.length} organizations...`);
-      await pRetry(() => client.updateOrganizations(organizations), {
-        retries: 3,
-        randomize: true
-      });
-      // Need to add a synced_at field to organizations
-    }
-  }
 };

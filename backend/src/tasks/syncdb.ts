@@ -17,7 +17,8 @@ import * as nouns from './sample_data/nouns.json';
 import * as adjectives from './sample_data/adjectives.json';
 import { saveToDb } from './cve-sync';
 import { sample } from 'lodash';
-import { handler as searchSync } from './search-sync';
+import { handler as searchSyncDomains } from './search-sync-domains';
+import { handler as searchSyncOrgs } from './search-sync-orgs'
 import { In } from 'typeorm';
 
 const SAMPLE_TAG_NAME = 'Sample Data'; // Tag name for sample data
@@ -139,7 +140,7 @@ export const handler: Handler = async (event) => {
 
     console.log('Done. Running search sync...');
     for (const organizationId of organizationIds) {
-      await searchSync({
+      await searchSyncDomains({
         organizationId,
         scanId: 'scanId',
         scanName: 'scanName',
@@ -149,4 +150,5 @@ export const handler: Handler = async (event) => {
     }
     console.log('Done.');
   }
+  await searchSyncOrgs()
 };

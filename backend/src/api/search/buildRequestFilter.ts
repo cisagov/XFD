@@ -7,6 +7,9 @@ function getTermFilterValue(field, fieldValue) {
   if (fieldValue === 'false' || fieldValue === 'true') {
     return { [field]: fieldValue === 'true' };
   }
+  if(field === 'organization.regionId'){
+    return { [field]:   fieldValue}
+  }
   if (typeof fieldValue === 'number') {
     return { [field]: fieldValue };
   }
@@ -29,16 +32,35 @@ function getTermFilter(filter) {
   if (filter.field === 'services.port') {
     searchType = 'match';
   }
+  if (filter.field === 'organization.regionId'){
+    searchType = 'terms'
+  }
+
+
 
   if (filter.type === 'any') {
-    search = {
-      bool: {
-        should: filter.values.map((filterValue) => ({
-          [searchType]: getTermFilterValue(filter.field, filterValue)
-        })),
-        minimum_should_match: 1
+    if(filter.field === 'organization.regionId'){
+      search = {
+        bool: {
+          should: [
+            {
+              [searchType]: getTermFilterValue(filter.field, filter.values)
+            }
+          ],
+          minimum_should_match: 1
+        }
       }
-    };
+      
+    }else {
+      search = {
+        bool: {
+          should: filter.values.map((filterValue) => ({
+            [searchType]: getTermFilterValue(filter.field, filterValue)
+          })),
+          minimum_should_match: 1
+        }
+      };
+    }
   } else if (filter.type === 'all') {
     search = {
       bool: {
@@ -48,7 +70,7 @@ function getTermFilter(filter) {
       }
     };
   }
-  if (fieldPath.length > 1) {
+  if (fieldPath.length > 1 && filter.field !== 'organization.regionId') {
     return {
       nested: {
         path: fieldPath[0],
