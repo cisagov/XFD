@@ -91,63 +91,48 @@ export const OrganizationSearch: React.FC = () => {
   );
 
   const handleCheckboxChange = (regionId: string) => {
-    if (checkedRegions.includes(regionId)) {
-      setCheckedRegions(checkedRegions.filter((region) => region !== regionId));
-    } else {
-      setCheckedRegions([...checkedRegions, regionId]);
-    }
-    searchOrganizations(searchTerm, checkedRegions);
+    setCheckedRegions((prev) => {
+      if (prev.includes(regionId)) {
+        return prev.filter((r) => r !== regionId);
+      }
+      return [...prev, regionId];
+    });
   };
-  console.log('searchTerm', searchTerm);
-  console.log('orgResults', orgResults);
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newSearchTerm = e.target.value;
+    setSearchTerm(newSearchTerm);
+  };
+  // console.log('searchTerm', searchTerm);
+  // console.log('orgResults', orgResults);
   console.log('region List', regionList);
   console.log('checkedRegions', checkedRegions);
-  // const temp = async (body: { searchTerm: string, regions: []}) => {
-  //   const results = await apiPost()
-  // }
 
-  // const filterOrganizations = useCallback(
-  //   async (regions: string[]) => {
-  //     try {
-  //       const results = await apiPost<{
-  //         body: { hits: { hits: { _source: Organization }[] } };
-  //       }>('/search/organizations', {
-  //         regions
-  //       });
-  //       const orgs = results.body.hits.hits.map((hit) => hit._source);
-  //       setOrgResults(orgs);
-  //     } catch (e) {
-  //       console.log(e);
+  // const fetchOrganizations = useCallback(async () => {
+  //   try {
+  //     const rows = await apiGet<Organization[]>('/v2/organizations/');
+  //     let tags: OrganizationTag[] = [];
+  //     if (userLevel === GLOBAL_ADMIN) {
+  //       tags = await apiGet<OrganizationTag[]>('/organizations/tags');
+  //       await setTags(tags as OrganizationTag[]);
   //     }
-  //   },
-  //   [apiPost, setOrgResults]
-  // );
-
-  // console.log('filterOrganizations', filterOrganizations);
-  // console.log('regionOrgs', orgResults);
-
-  const fetchOrganizations = useCallback(async () => {
-    try {
-      const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: OrganizationTag[] = [];
-      if (userLevel === GLOBAL_ADMIN) {
-        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-        await setTags(tags as OrganizationTag[]);
-      }
-      await setOrganizations(rows);
-    } catch (e) {
-      console.log(e);
-    }
-  }, [apiGet, setOrganizations, userLevel]);
+  //     await setOrganizations(rows);
+  //   } catch (e) {
+  //     console.log(e);
+  //   }
+  // }, [apiGet, setOrganizations, userLevel]);
 
   const handleChange = (v: string) => {
     debounce(searchOrganizations(v) as any, 400);
   };
+  useEffect(() => {
+    fetchRegions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
-    searchOrganizations(searchTerm, []);
-    fetchRegions();
-  }, [searchOrganizations, fetchRegions, searchTerm]);
+    searchOrganizations(searchTerm, checkedRegions);
+  }, [searchOrganizations, searchTerm, checkedRegions]);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -326,10 +311,7 @@ export const OrganizationSearch: React.FC = () => {
                 <TextField
                   {...params}
                   label="Search Organizations"
-                  onChange={(e) => {
-                    e.preventDefault();
-                    setSearchTerm(params.inputProps.value?.toString() || '');
-                  }}
+                  onChange={handleTextChange}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault();
@@ -361,33 +343,6 @@ export const OrganizationSearch: React.FC = () => {
               <></>
             )}
             <br />
-            {orgResults.length > 0 ? (
-              <List sx={{ width: '100%' }}>
-                {orgResults.map((org) => (
-                  <ListItem key={org.id} sx={{ padding: '0px' }}>
-                    <FormGroup>
-                      <FormControlLabel
-                        sx={{ padding: '0px' }}
-                        label={org.name}
-                        control={<Checkbox />}
-                        checked={currentOrganization?.id === org.id}
-                        onChange={() => {
-                          setOrganization(org);
-                          setShowAllOrganizations(false);
-                          if (org.name === 'Election') {
-                            setShowMaps(true);
-                          } else {
-                            setShowMaps(false);
-                          }
-                        }}
-                      />
-                    </FormGroup>
-                  </ListItem>
-                ))}
-              </List>
-            ) : (
-              <></>
-            )}
           </AccordionDetails>
         </Accordion>
       ) : null}
