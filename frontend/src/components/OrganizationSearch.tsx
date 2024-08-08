@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouteMatch, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import { Organization, OrganizationTag } from 'types';
@@ -18,7 +18,6 @@ import {
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
-import { useUserLevel } from 'hooks/useUserLevel';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -39,8 +38,10 @@ export const OrganizationSearch: React.FC = () => {
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [tags, setTags] = useState<OrganizationTag[]>([]);
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<Organization[]>([]);
-  const [regions, setRegions] = useState<{ regionId: string }[]>([]);
+  const [regionList, setRegionList] = useState<{ regionId: string }[]>([]);
+  const [checkedRegions, setCheckedRegions] = useState<string[]>([]);
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -56,17 +57,20 @@ export const OrganizationSearch: React.FC = () => {
     }
   }
 
-  const temp = useUserLevel()
-  console.log('RIGHT HERE',temp)
+  // const temp = useUserLevel();
+  // console.log('RIGHT HERE', temp);
 
   const fetchRegions = useCallback(async () => {
     try {
       const results = await apiGet('/regions');
-      setRegions(results);
+      setRegionList(results);
+      setCheckedRegions(
+        results.map((region: { regionId: any }) => region.regionId).sort()
+      );
     } catch (e) {
       console.log(e);
     }
-  }, [apiGet]);
+  }, [apiGet, setRegionList]);
 
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
@@ -76,7 +80,7 @@ export const OrganizationSearch: React.FC = () => {
         }>('/search/organizations', {
           body: {
             searchTerm,
-            regions,
+            regions
           }
         });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
@@ -88,28 +92,20 @@ export const OrganizationSearch: React.FC = () => {
     [apiPost, setOrgResults]
   );
 
+  const handleCheckboxChange = (regionId: string) => {
+    if (checkedRegions.includes(regionId)) {
+      setCheckedRegions(checkedRegions.filter((region) => region !== regionId));
+    } else {
+      setCheckedRegions([...checkedRegions, regionId]);
+    }
+    searchOrganizations(searchTerm, checkedRegions);
+  };
+  console.log('searchTerm', searchTerm);
+  console.log('orgResults', orgResults);
+  console.log('region List', regionList);
+  console.log('checkedRegions', checkedRegions);
   // const temp = async (body: { searchTerm: string, regions: []}) => {
   //   const results = await apiPost()
-  // }
-
-  // const testOne = async (searchTerm: string, regions?: string[]) => {
-
-  //   console.log('HERE',{
-  //     searchTerm,
-  //     regions
-  //   })
-  //   try {
-  //     const results = await apiPost<{
-  //       body: { hits: { hits: { _source: Organization }[] } };
-  //     }>('/search/organizations', {
-  //       searchTerm,
-  //       regions
-  //     });
-  //     const orgs = results.body.hits.hits.map((hit) => hit._source);
-  //     setOrgResults(orgs);
-  //   } catch (e) {
-  //     console.log(e);
-  //   }
   // }
 
   // const filterOrganizations = useCallback(
@@ -129,48 +125,38 @@ export const OrganizationSearch: React.FC = () => {
   //   [apiPost, setOrgResults]
   // );
 
-  // console.log('filterOrganizations', filterOrganizations);
-  // console.log('regionOrgs', orgResults);
-
-  const fetchOrganizations = useCallback(async () => {
-    try {
-      const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: OrganizationTag[] = [];
-      if (userLevel === GLOBAL_ADMIN) {
-        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-        await setTags(tags as OrganizationTag[]);
-      }
-      await setOrganizations(rows);
-    } catch (e) {
-      console.log(e);
-    }
-  }, [apiGet, setOrganizations, userLevel]);
+  // const fetchOrganizations = useCallback(async () => {
+  //   try {
+  //     const rows = await apiGet<Organization[]>('/v2/organizations/');
+  //     let tags: OrganizationTag[] = [];
+  //     if (userLevel === GLOBAL_ADMIN) {
+  //       tags = await apiGet<OrganizationTag[]>('/organizations/tags');
+  //       await setTags(tags as OrganizationTag[]);
+  //     }
+  //     await setOrganizations(rows);
+  //   } catch (e) {
+  //     console.log(e);
+  //   }
+  // }, [apiGet, setOrganizations, userLevel]);
 
   useEffect(() => {
-    if (userLevel > 0) {
-      fetchOrganizations();
-    }
-    searchOrganizations('', []);
+    searchOrganizations(searchTerm, []);
     fetchRegions();
-  }, [userLevel, fetchOrganizations, searchOrganizations, fetchRegions]);
+  }, [searchOrganizations, fetchRegions, searchTerm]);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
-  const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
-    if (userLevel === GLOBAL_ADMIN) {
-      return [{ name: 'All Organizations' }].concat(organizations);
-    }
-    if (userLevel === REGIONAL_ADMIN) {
-      return organizations.filter((item) => {
-        return item.regionId === user?.regionId;
-      });
-    }
-    return [];
-  }, [user, organizations, userLevel]);
-
-  const regionIds = useMemo(() => {
-    return regions.map((region) => region.regionId).sort();
-  }, [regions]);
+  // const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
+  //   if (userLevel === GLOBAL_ADMIN) {
+  //     return [{ name: 'All Organizations' }].concat(organizations);
+  //   }
+  //   if (userLevel === REGIONAL_ADMIN) {
+  //     return organizations.filter((item) => {
+  //       return item.regionId === user?.regionId;
+  //     });
+  //   }
+  //   return [];
+  // }, [user, organizations, userLevel]);
 
   return (
     <>
@@ -193,21 +179,21 @@ export const OrganizationSearch: React.FC = () => {
           </AccordionSummary>
           <AccordionDetails>
             <List>
-              {regionIds.map((regionId) => (
-                <ListItem sx={{ padding: '0px' }} key={regionId}>
-                  <FormGroup>
-                    <FormControlLabel
-                      control={<Checkbox />}
-                      label={`Region ${regionId}`}
-                      sx={{ padding: '0px' }}
-                      onChange={() => {
-                        // filterOrganizations([regionId]);
-                        console.log('regionId', regionId);
-                      }}
-                    />
-                  </FormGroup>
-                </ListItem>
-              ))}
+              {regionList
+                .sort((a, b) => parseInt(a.regionId) - parseInt(b.regionId))
+                .map((region) => (
+                  <ListItem sx={{ padding: '0px' }} key={region.regionId}>
+                    <FormGroup>
+                      <FormControlLabel
+                        control={<Checkbox />}
+                        label={`Region ${region.regionId}`}
+                        checked={checkedRegions.includes(region.regionId)}
+                        onChange={() => handleCheckboxChange(region.regionId)}
+                        sx={{ padding: '0px' }}
+                      />
+                    </FormGroup>
+                  </ListItem>
+                ))}
             </List>
           </AccordionDetails>
         </Accordion>
@@ -331,7 +317,20 @@ export const OrganizationSearch: React.FC = () => {
                 }
               }}
               renderInput={(params) => (
-                <TextField {...params} label="Search Organizations" />
+                <TextField
+                  {...params}
+                  label="Search Organizations"
+                  onChange={(e) => {
+                    e.preventDefault();
+                    setSearchTerm(params.inputProps.value?.toString() || '');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      searchOrganizations(searchTerm, checkedRegions);
+                    }
+                  }}
+                />
               )}
             />
             {currentOrganization ? (
@@ -356,6 +355,33 @@ export const OrganizationSearch: React.FC = () => {
               <></>
             )}
             <br />
+            {orgResults.length > 0 ? (
+              <List sx={{ width: '100%' }}>
+                {orgResults.map((org) => (
+                  <ListItem key={org.id} sx={{ padding: '0px' }}>
+                    <FormGroup>
+                      <FormControlLabel
+                        sx={{ padding: '0px' }}
+                        label={org.name}
+                        control={<Checkbox />}
+                        checked={currentOrganization?.id === org.id}
+                        onChange={() => {
+                          setOrganization(org);
+                          setShowAllOrganizations(false);
+                          if (org.name === 'Election') {
+                            setShowMaps(true);
+                          } else {
+                            setShowMaps(false);
+                          }
+                        }}
+                      />
+                    </FormGroup>
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <></>
+            )}
           </AccordionDetails>
         </Accordion>
       ) : null}

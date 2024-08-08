@@ -321,7 +321,6 @@ export const Header: React.FC = () => {
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
@@ -339,9 +338,7 @@ export const Header: React.FC = () => {
             )}
             <div className={classes.spacing} />
             {userLevel > 0 && (
-              <>
-                {!isMobile && <UserMenu userMenuItems={userMenuItems} />}
-              </>
+              <>{!isMobile && <UserMenu userMenuItems={userMenuItems} />}</>
             )}
             {user && isMobile && (
               <IconButton
