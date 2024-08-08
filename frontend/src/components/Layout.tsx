@@ -13,6 +13,7 @@ import { SkipToMainContent } from './SkipToMainContent/index';
 import { SideDrawerWithSearch } from './SideDrawer';
 import { matchPath } from 'utils/matchPath';
 import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
+import { usePersistentState } from 'hooks';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -47,7 +48,7 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { logout, user } = useAuthContext();
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = usePersistentState('isFilterDrawerOpen',false)
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
@@ -92,7 +93,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className={classes.root}>
         <UserInactiveModal
           isOpen={isTimedOut}
-          onCountdownEnd={handleCountdownEnd}
+          onCountdownEnd={() => {}}
           countdown={60} // 60 second timer for user inactivity timeout
         />
         <div style={{ display: 'flex' }}>

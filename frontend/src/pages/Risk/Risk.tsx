@@ -72,7 +72,7 @@ const Risk: React.FC = (props) => {
               ? {}
               : orgId || 'rootDomains' in currentOrganization
               ? {
-                  organization: orgId ? orgId : currentOrganization?.id
+                  organizations: [orgId ? orgId : currentOrganization?.id]
                 }
               : { tag: currentOrganization.id }
         }

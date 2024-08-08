@@ -18,6 +18,7 @@ import {
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
+import { debounce } from 'utils/debounce';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -141,6 +142,10 @@ export const OrganizationSearch: React.FC = () => {
       console.log(e);
     }
   }, [apiGet, setOrganizations, userLevel]);
+
+  const handleChange = (v: string) => {
+     debounce(searchOrganizations(v) as any, 400)
+  }
 
   useEffect(() => {
     if (userLevel > 0) {
@@ -301,6 +306,7 @@ export const OrganizationSearch: React.FC = () => {
             )} */}
             <br />
             <Autocomplete
+              onInputChange={(_, v) => handleChange(v)}
               options={orgResults}
               getOptionLabel={(option) => option.name}
               isOptionEqualToValue={(option, value) =>

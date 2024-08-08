@@ -172,10 +172,6 @@ export const Header: React.FC<HeaderProps> = ({ isFilterDrawerOpen, setIsFilterD
   const history = useHistory();
   const { pathname } = useLocation();
   const {
-    currentOrganization,
-    setOrganization,
-    showAllOrganizations,
-    setShowAllOrganizations,
     setShowMaps,
     user,
     logout,
