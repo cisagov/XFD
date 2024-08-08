@@ -22,8 +22,6 @@ const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
 
-
-
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   open?: boolean;
 }>(({ theme, open }) => ({
@@ -33,22 +31,24 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   overflow: 'scroll',
   transition: theme.transitions.create('margin', {
     easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen,
+    duration: theme.transitions.duration.leavingScreen
   }),
   marginLeft: `-${drawerWidth}px`,
   ...(open && {
     transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen,
+      duration: theme.transitions.duration.enteringScreen
     }),
-    marginLeft: 0,
-  }),
+    marginLeft: 0
+  })
 }));
-
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { logout, user } = useAuthContext();
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = usePersistentState('isFilterDrawerOpen',false)
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = usePersistentState(
+    'isFilterDrawerOpen',
+    false
+  );
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
@@ -86,8 +86,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
-  
-
   return (
     <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
       <div className={classes.root}>
@@ -106,20 +104,43 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               style={{
                 display: 'flex',
                 flexDirection: 'row',
-                height: '100vh',
+                height: '100vh'
               }}
             >
               {userLevel > 0 &&
-              (matchPath(['/', '/inventory', '/inventory/domains', '/inventory/vulnerabilities'], pathname)) ? (
+              matchPath(
+                [
+                  '/',
+                  '/inventory',
+                  '/inventory/domains',
+                  '/inventory/vulnerabilities'
+                ],
+                pathname
+              ) ? (
                 <FilterDrawerV2 isFilterDrawerOpen={isFilterDrawerOpen} />
-              ) : <Drawer open={false} variant='persistent' sx={{ width: drawerWidth }}/>}
+              ) : (
+                <Drawer
+                  open={false}
+                  variant="persistent"
+                  sx={{ width: drawerWidth }}
+                />
+              )}
               <Main open={isFilterDrawerOpen}>
-                  <Header isFilterDrawerOpen={isFilterDrawerOpen} setIsFilterDrawerOpen={setIsFilterDrawerOpen} />
-                
-                <Box display='block' position='relative' flex='1' height='calc(100vh - 64px - 72px - 24px)' overflow='scroll' zIndex={16}>
+                <Header
+                  isFilterDrawerOpen={isFilterDrawerOpen}
+                  setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+                />
+
+                <Box
+                  display="block"
+                  position="relative"
+                  flex="1"
+                  height="calc(100vh - 64px - 72px - 24px)"
+                  overflow="scroll"
+                  zIndex={16}
+                >
                   {children}
                 </Box>
-                
 
                 {/* <div className="main-content" id="main-content" tabIndex={-1} />
                 {pathname === '/inventory' ? (

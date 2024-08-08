@@ -57,7 +57,6 @@ export const Root = styled('div')(() => ({
     overflowY: 'hidden'
   },
 
-
   [`& .${classes.pagination}`]: {
     height: 'auto',
     flex: 0,

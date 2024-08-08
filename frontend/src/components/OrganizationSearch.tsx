@@ -73,7 +73,7 @@ export const OrganizationSearch: React.FC = () => {
         }>('/search/organizations', {
           body: {
             searchTerm,
-            regions,
+            regions
           }
         });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
@@ -144,8 +144,8 @@ export const OrganizationSearch: React.FC = () => {
   }, [apiGet, setOrganizations, userLevel]);
 
   const handleChange = (v: string) => {
-     debounce(searchOrganizations(v) as any, 400)
-  }
+    debounce(searchOrganizations(v) as any, 400);
+  };
 
   useEffect(() => {
     if (userLevel > 0) {

@@ -98,7 +98,15 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
       >
         {DrawerList}
       </Drawer> */}
-      <Box height='calc(100vh - 24px)' maxHeight='calc(100vh - 24px)' overflow='scroll' display='flex' bgcolor='white' >{DrawerList}</Box>
+      <Box
+        height="calc(100vh - 24px)"
+        maxHeight="calc(100vh - 24px)"
+        overflow="scroll"
+        display="flex"
+        bgcolor="white"
+      >
+        {DrawerList}
+      </Box>
     </div>
   );
 };

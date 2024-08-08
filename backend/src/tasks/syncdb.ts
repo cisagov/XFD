@@ -47,7 +47,7 @@ export const handler: Handler = async (event) => {
       console.log('Done.');
     }
     await client.syncDomainsIndex();
-    await client.syncOrganizationsIndex()
+    await client.syncOrganizationsIndex();
   }
 
   if (type === 'populate') {

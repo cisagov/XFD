@@ -11,11 +11,11 @@ import { matchPath } from 'utils/matchPath';
 import { useHistory, useLocation } from 'react-router-dom';
 import { useUserLevel } from 'hooks/useUserLevel';
 
-export const drawerWidth = 300
+export const drawerWidth = 300;
 
-export const FilterDrawer: React.FC<ContextType & { isFilterDrawerOpen: boolean }> = (
-  props
-) => {
+export const FilterDrawer: React.FC<
+  ContextType & { isFilterDrawerOpen: boolean }
+> = (props) => {
   const {
     addFilter,
     removeFilter,
@@ -27,8 +27,7 @@ export const FilterDrawer: React.FC<ContextType & { isFilterDrawerOpen: boolean 
     isFilterDrawerOpen
   } = props;
 
-  const { pathname } = useLocation()
-
+  const { pathname } = useLocation();
 
   // const [open, setOpen] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -57,31 +56,43 @@ export const FilterDrawer: React.FC<ContextType & { isFilterDrawerOpen: boolean 
     }
   };
 
-  const { userLevel } = useUserLevel()
+  const { userLevel } = useUserLevel();
 
   const DrawerList = (
     <Box sx={{ width: 300 }} role="presentation">
       <OrganizationSearch />
-      {matchPath(['/inventory', '/inventory/domains', '/inventory/vulnerabilities'], pathname) ?  <TestDrawerInteriorWithSearch
-        addFilter={addFilter}
-        removeFilter={removeFilter}
-        filters={filters}
-        facets={facets}
-        clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
-        updateSearchTerm={updateSearchTerm}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-      /> : <></> }
+      {matchPath(
+        ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
+        pathname
+      ) ? (
+        <TestDrawerInteriorWithSearch
+          addFilter={addFilter}
+          removeFilter={removeFilter}
+          filters={filters}
+          facets={facets}
+          clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
+          updateSearchTerm={updateSearchTerm}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+        />
+      ) : (
+        <></>
+      )}
     </Box>
   );
 
   return (
-    <Drawer open={isFilterDrawerOpen} variant='persistent' sx={{
+    <Drawer
+      open={isFilterDrawerOpen}
+      variant="persistent"
+      sx={{
         width: drawerWidth,
         overflow: 'scroll',
         height: 'calc(100vh - 24px)'
-    }} PaperProps={{ style: { position: 'unset' }}}>
-    { DrawerList}
+      }}
+      PaperProps={{ style: { position: 'unset' } }}
+    >
+      {DrawerList}
     </Drawer>
   );
 };

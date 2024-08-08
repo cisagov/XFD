@@ -164,19 +164,17 @@ interface MenuItemType {
 }
 
 interface HeaderProps {
-  isFilterDrawerOpen: boolean
-  setIsFilterDrawerOpen: (isFilterDrawerOpen: boolean) => void
+  isFilterDrawerOpen: boolean;
+  setIsFilterDrawerOpen: (isFilterDrawerOpen: boolean) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ isFilterDrawerOpen, setIsFilterDrawerOpen }) => {
+export const Header: React.FC<HeaderProps> = ({
+  isFilterDrawerOpen,
+  setIsFilterDrawerOpen
+}) => {
   const history = useHistory();
   const { pathname } = useLocation();
-  const {
-    setShowMaps,
-    user,
-    logout,
-    apiGet
-  } = useAuthContext();
+  const { setShowMaps, user, logout, apiGet } = useAuthContext();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -323,9 +321,27 @@ export const Header: React.FC<HeaderProps> = ({ isFilterDrawerOpen, setIsFilterD
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            {matchPath(['/', '/inventory', '/inventory/domains', '/inventory/vulnerabilities'], pathname) && user ? <IconButton onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}>
-              {isFilterDrawerOpen ? <ChevronLeft style={{ color: 'white'}} /> : <MenuIcon style={{ color: 'white'}} /> }
-            </IconButton> : <></>}
+            {matchPath(
+              [
+                '/',
+                '/inventory',
+                '/inventory/domains',
+                '/inventory/vulnerabilities'
+              ],
+              pathname
+            ) && user ? (
+              <IconButton
+                onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
+              >
+                {isFilterDrawerOpen ? (
+                  <ChevronLeft style={{ color: 'white' }} />
+                ) : (
+                  <MenuIcon style={{ color: 'white' }} />
+                )}
+              </IconButton>
+            ) : (
+              <></>
+            )}
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
@@ -343,9 +359,7 @@ export const Header: React.FC<HeaderProps> = ({ isFilterDrawerOpen, setIsFilterD
             )}
             <div className={classes.spacing} />
             {userLevel > 0 && (
-              <>
-                {!isMobile && <UserMenu userMenuItems={userMenuItems} />}
-              </>
+              <>{!isMobile && <UserMenu userMenuItems={userMenuItems} />}</>
             )}
             {user && isMobile && (
               <IconButton

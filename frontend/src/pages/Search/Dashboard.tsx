@@ -180,8 +180,16 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
       /> */}
-      <Box position='relative' flex='1 1 auto' height='100%' maxHeight='100%' display='flex' flexWrap='nowrap' flexDirection='column'>
-      <Subnav
+      <Box
+        position="relative"
+        flex="1 1 auto"
+        height="100%"
+        maxHeight="100%"
+        display="flex"
+        flexWrap="nowrap"
+        flexDirection="column"
+      >
+        <Subnav
           items={[
             { title: 'Search Results', path: '/inventory', exact: true },
             { title: 'All Domains', path: '/inventory/domains' },
@@ -209,15 +217,26 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             message={"We don't see any results that match your criteria."}
           ></NoResults>
         )}
-        <Box height='100%' flexDirection='column' flexWrap='nowrap' gap='1rem' alignItems='stretch' display='flex'  overflow='scroll' position='relative' padding='0 1rem 2rem 1rem' sx={{ overflowY: 'auto'}}>
+        <Box
+          height="100%"
+          flexDirection="column"
+          flexWrap="nowrap"
+          gap="1rem"
+          alignItems="stretch"
+          display="flex"
+          overflow="scroll"
+          position="relative"
+          padding="0 1rem 2rem 1rem"
+          sx={{ overflowY: 'auto' }}
+        >
           {results.map((result) => (
-              <ResultCard
-                key={result.id.raw}
-                {...result}
-                onDomainSelected={(id) => setSelectedDomain(id)}
-                selected={result.id.raw === selectedDomain}
-              />
-            ))}
+            <ResultCard
+              key={result.id.raw}
+              {...result}
+              onDomainSelected={(id) => setSelectedDomain(id)}
+              selected={result.id.raw === selectedDomain}
+            />
+          ))}
         </Box>
         <Paper className={classes.pagination}>
           <span>
