@@ -19,6 +19,7 @@ from pathlib import Path
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
+from decouple import config
 
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
@@ -37,15 +38,15 @@ SECRET_KEY = 'django-insecure-255j80npx26z%x0@-7p@(qs9(yvtuuln#xuhxt_x$bbevvxnm!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [".execute-api.us-east-1.amazonaws.com", 'https://api.staging-cd.crossfeed.cyber.dhs.gov']
+ALLOWED_HOSTS = [".execute-api.us-east-1.amazonaws.com", 'https://api.staging-cd.crossfeed.cyber.dhs.gov', 'localhost','127.0.0.1']
 
-MESSAGE_TAGS = {
-    messages.DEBUG: "alert-secondary",
-    messages.INFO: "alert-info",
-    messages.SUCCESS: "alert-success",
-    messages.WARNING: "alert-warning",
-    messages.ERROR: "alert-danger",
-}
+# MESSAGE_TAGS = {
+#     messages.DEBUG: "alert-secondary",
+#     messages.INFO: "alert-info",
+#     messages.SUCCESS: "alert-success",
+#     messages.WARNING: "alert-warning",
+#     messages.ERROR: "alert-danger",
+# }
 
 # Application definition
 
@@ -96,14 +97,16 @@ WSGI_APPLICATION = 'xfd_django.wsgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",
-        "NAME": "crossfeed",
-        "USER": "crossfeed",
-        "PASSWORD": "password",
-        "HOST": "db",
-        "PORT": "5432",
+        "NAME": config("database"),
+        "USER": config("user"),
+        "PASSWORD": config("password"),
+        "HOST": config("host"),
+        "PORT": config("port"),
     }
 }
 
+
+ELASTICACHE_ENDPOINT = "crossfeed-vpc-cluster.loz4zr.0001.use1.cache.amazonaws.com:6379"
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators

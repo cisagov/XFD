@@ -1,6 +1,7 @@
 
 
 from django.shortcuts import render
+from django.conf import settings
 from fastapi import (
     APIRouter,
     Depends,
@@ -11,11 +12,27 @@ from fastapi import (
     UploadFile,
     status,
 )
+from fastapi_limiter import FastAPILimiter
+from redis import asyncio as aioredis
 from .auth import get_current_active_user
 from .models import ApiKey, Organization, User
 
 api_router = APIRouter()
 
+async def default_identifier(request):
+    """Return default identifier."""
+    return request.headers.get("X-Real-IP", request.client.host)
+
+@api_router.on_event("startup")
+async def startup():
+    """Start up Redis with ElastiCache."""
+    # Initialize Redis with the ElastiCache endpoint using the modern Redis-Py Asyncio
+    redis = await aioredis.from_url(
+        f"redis://{settings.ELASTICACHE_ENDPOINT}", encoding="utf-8", decode_responses=True
+    )
+
+    # Initialize FastAPI Limiter with the Redis instance
+    await FastAPILimiter.init(redis, identifier=default_identifier)
 
 # Healthcheck endpoint
 @api_router.get("/healthcheck")
