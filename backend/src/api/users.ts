@@ -243,25 +243,25 @@ const sendInviteEmail = async (email: string, organization?: Organization) => {
 
   await sendEmail(
     email,
-    'Crossfeed Invitation',
+    'CyHy Dashboard Invitation',
     `Hi there,
 
 You've been invited to join ${
       organization?.name ? `the ${organization?.name} organization on ` : ''
-    }Crossfeed. To accept the invitation and start using Crossfeed, sign on at ${
+    }CyHy Dashboard. To accept the invitation and start using CyHy Dashboard, sign on at ${
       process.env.FRONTEND_DOMAIN
     }/signup.
 
-Crossfeed access instructions:
+CyHy Dashboard access instructions:
 
 1. Visit ${process.env.FRONTEND_DOMAIN}/signup.
 2. Select "Create Account."
-3. Enter your email address and a new password for Crossfeed.
+3. Enter your email address and a new password for CyHy Dashboard.
 4. A confirmation code will be sent to your email. Enter this code when you receive it.
 5. You will be prompted to enable MFA. Scan the QR code with an authenticator app on your phone, such as Microsoft Authenticator. Enter the MFA code you see after scanning.
-6. After configuring your account, you will be redirected to Crossfeed.
+6. After configuring your account, you will be redirected to CyHy Dashboard.
 
-For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
+For more information on using CyHy Dashboard, view the CyHy Dashboard user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
 
 If you encounter any difficulties, please feel free to reply to this email (or send an email to ${
       process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO
@@ -279,16 +279,16 @@ const sendRSCInviteEmail = async (email: string) => {
 
 You've been invited to join ReadySetCyber Dashboard. To accept the invitation and start using your Dashboard, sign on at ${process.env.FRONTEND_DOMAIN}/readysetcyber/create-account.
 
-Crossfeed access instructions:
+CyHy Dashboard access instructions:
 
 1. Visit ${process.env.FRONTEND_DOMAIN}/readysetcyber/create-account.
 2. Select "Create Account."
-3. Enter your email address and a new password for Crossfeed.
+3. Enter your email address and a new password for CyHy Dashboard.
 4. A confirmation code will be sent to your email. Enter this code when you receive it.
 5. You will be prompted to enable MFA. Scan the QR code with an authenticator app on your phone, such as Microsoft Authenticator. Enter the MFA code you see after scanning.
-6. After configuring your account, you will be redirected to Crossfeed.
+6. After configuring your account, you will be redirected to CyHy Dashboard.
 
-For more information on using Crossfeed, view the Crossfeed user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
+For more information on using CyHy Dashboard, view the CyHy Dashboard user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
 
 If you encounter any difficulties, please feel free to reply to this email (or send an email to ${process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO}).`
   );
@@ -592,7 +592,7 @@ export const register = wrapHandler(async (event) => {
   // Send email notification
   await sendUserRegistrationEmail(
     savedUser.email,
-    'Crossfeed Registration Pending',
+    'CyHy Dashboard Registration Pending',
     savedUser.firstName,
     savedUser.lastName,
     'crossfeed_registration_notification.html'
@@ -637,7 +637,7 @@ export const registrationApproval = wrapHandler(async (event) => {
   // Send email notification
   await sendRegistrationApprovedEmail(
     user.email,
-    'Crossfeed Registration Approved',
+    'CyHy Dashboard Registration Approved',
     user.firstName,
     user.lastName,
     'crossfeed_approval_notification.html'
@@ -682,7 +682,7 @@ export const registrationDenial = wrapHandler(async (event) => {
 
   await sendRegistrationDeniedEmail(
     user.email,
-    'Crossfeed Registration Denied',
+    'CyHy Dashboard Registration Denied',
     user.firstName,
     user.lastName,
     'crossfeed_denial_notification.html'
@@ -799,9 +799,9 @@ export const inviteV2 = wrapHandler(async (event) => {
 
     await sendEmail(
       email,
-      'Crossfeed Registration',
+      'CyHy Dashboard Registration',
       `Hello,
-      Your Crossfeed registration is under review.
+      Your CyHy Dashboard registration is under review.
       You will receive an email when your registration is approved.
 
       Thank you!`
