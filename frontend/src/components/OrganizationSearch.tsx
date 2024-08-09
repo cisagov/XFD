@@ -19,6 +19,7 @@ import {
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
 import { debounce } from 'utils/debounce';
+import { useFiltercontext } from 'context/FilterContext';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -44,6 +45,8 @@ export const OrganizationSearch: React.FC = () => {
   const [regionList, setRegionList] = useState<{ regionId: string }[]>([]);
   const [checkedRegions, setCheckedRegions] = useState<string[]>([]);
 
+  const { regions, setRegions } = useFiltercontext();
+
   let userLevel = 0;
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
@@ -62,7 +65,10 @@ export const OrganizationSearch: React.FC = () => {
     try {
       const results = await apiGet('/regions');
       setRegionList(results);
-      setCheckedRegions(
+      // setCheckedRegions(
+      //   results.map((region: { regionId: any }) => region.regionId).sort()
+      // );
+      setRegions(
         results.map((region: { regionId: any }) => region.regionId).sort()
       );
     } catch (e) {
@@ -91,22 +97,22 @@ export const OrganizationSearch: React.FC = () => {
   );
 
   const handleCheckboxChange = (regionId: string) => {
-    setCheckedRegions((prev) => {
-      if (prev.includes(regionId)) {
-        return prev.filter((r) => r !== regionId);
+    const selection = () => {
+      if (regions.includes(regionId)) {
+        return regions.filter((r) => r !== regionId);
       }
-      return [...prev, regionId];
-    });
+      return [...regions, regionId];
+    };
+    setRegions(selection());
   };
 
   const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSearchTerm = e.target.value;
     setSearchTerm(newSearchTerm);
   };
-  // console.log('searchTerm', searchTerm);
-  // console.log('orgResults', orgResults);
-  console.log('region List', regionList);
-  console.log('checkedRegions', checkedRegions);
+  console.log('searchTerm', searchTerm);
+  console.log('orgResults', orgResults);
+  console.log('regions context', regions);
 
   // const fetchOrganizations = useCallback(async () => {
   //   try {
@@ -131,8 +137,8 @@ export const OrganizationSearch: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    searchOrganizations(searchTerm, checkedRegions);
-  }, [searchOrganizations, searchTerm, checkedRegions]);
+    searchOrganizations(searchTerm, regions);
+  }, [searchOrganizations, searchTerm, regions]);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
@@ -147,6 +153,8 @@ export const OrganizationSearch: React.FC = () => {
   //   }
   //   return [];
   // }, [user, organizations, userLevel]);
+
+  // console.log(searchTerm)
 
   return (
     <>
@@ -163,7 +171,7 @@ export const OrganizationSearch: React.FC = () => {
         ))}
       <Divider />
       {userLevel === GLOBAL_ADMIN && (
-        <Accordion defaultExpanded>
+        <Accordion>
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Typography>Region(s)</Typography>
           </AccordionSummary>
@@ -177,7 +185,7 @@ export const OrganizationSearch: React.FC = () => {
                       <FormControlLabel
                         control={<Checkbox />}
                         label={`Region ${region.regionId}`}
-                        checked={checkedRegions.includes(region.regionId)}
+                        checked={regions.includes(region.regionId)}
                         onChange={() => handleCheckboxChange(region.regionId)}
                         sx={{ padding: '0px' }}
                       />
@@ -280,8 +288,11 @@ export const OrganizationSearch: React.FC = () => {
               />
             )} */}
             <br />
+            {/* Need to reconcile type issues caused by adding freeSolo prop */}
             <Autocomplete
               onInputChange={(_, v) => handleChange(v)}
+              // inputValue={searchTerm}
+              freeSolo
               options={orgResults}
               getOptionLabel={(option) => option.name}
               isOptionEqualToValue={(option, value) =>
@@ -311,13 +322,15 @@ export const OrganizationSearch: React.FC = () => {
                 <TextField
                   {...params}
                   label="Search Organizations"
+                  value={searchTerm}
                   onChange={handleTextChange}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      searchOrganizations(searchTerm, checkedRegions);
-                    }
-                  }}
+                  // onKeyDown={(e) => {
+                  //   if (e.key === 'Enter') {
+                  //     e.preventDefault();
+                  //     handleChange(searchTerm)
+                  //     // searchOrganizations(searchTerm, checkedRegions);
+                  //   }
+                  // }}
                 />
               )}
             />

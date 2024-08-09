@@ -91,7 +91,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <div className={classes.root}>
         <UserInactiveModal
           isOpen={isTimedOut}
-          onCountdownEnd={() => {}}
+          onCountdownEnd={handleCountdownEnd}
           countdown={60} // 60 second timer for user inactivity timeout
         />
         <div style={{ display: 'flex' }}>
