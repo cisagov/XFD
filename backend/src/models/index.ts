@@ -44,3 +44,4 @@ export * from './mini_data_lake/ticket_events';
 export * from './mini_data_lake/tickets';
 export * from './mini_data_lake/trustymail_scans';
 export * from './mini_data_lake/vuln_scans';
+export * from './mini_data_lake/was_findings';
