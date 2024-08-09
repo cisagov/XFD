@@ -88,6 +88,9 @@ export const FilterDrawer: React.FC<
       sx={{
         width: drawerWidth,
         overflow: 'scroll',
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
         height: 'calc(100vh - 24px)'
       }}
       PaperProps={{ style: { position: 'unset' } }}

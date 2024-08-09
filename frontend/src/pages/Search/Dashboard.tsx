@@ -227,7 +227,12 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           overflow="scroll"
           position="relative"
           padding="0 1rem 2rem 1rem"
-          sx={{ overflowY: 'auto' }}
+          sx={{
+            overflowY: 'auto',
+            '&::-webkit-scrollbar': {
+              display: 'none'
+            }
+          }}
         >
           {results.map((result) => (
             <ResultCard

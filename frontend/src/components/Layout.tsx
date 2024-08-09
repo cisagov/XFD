@@ -29,6 +29,9 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   height: 'calc(100vh - 24px)',
   maxHeight: 'calc(100vh - 24px)',
   overflow: 'scroll',
+  '&::-webkit-scrollbar': {
+    display: 'none'
+  },
   transition: theme.transitions.create('margin', {
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen
@@ -137,6 +140,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   flex="1"
                   height="calc(100vh - 64px - 72px - 24px)"
                   overflow="scroll"
+                  sx={{
+                    '&::-webkit-scrollbar': {
+                      display: 'none'
+                    }
+                  }}
                   zIndex={16}
                 >
                   {children}
