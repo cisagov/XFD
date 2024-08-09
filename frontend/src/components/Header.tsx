@@ -259,7 +259,7 @@ export const Header: React.FC<HeaderProps> = ({
     {
       title: 'Manage Users',
       path: '/users',
-      users: GLOBAL_ADMIN,
+      users: REGIONAL_ADMIN,
       exact: true
     },
     {
