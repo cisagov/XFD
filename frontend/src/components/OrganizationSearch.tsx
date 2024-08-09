@@ -295,6 +295,13 @@ export const OrganizationSearch: React.FC = () => {
               freeSolo
               options={orgResults}
               getOptionLabel={(option) => option.name}
+              renderOption={(params, option) => {
+                return (
+                  <li {...params} key={option.id}>
+                    {option.name}
+                  </li>
+                );
+              }}
               isOptionEqualToValue={(option, value) =>
                 option?.name === value?.name
               }
