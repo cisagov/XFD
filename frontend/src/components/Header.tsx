@@ -10,7 +10,7 @@ import {
   List,
   TextField
 } from '@mui/material';
-import { ChevronLeft, Menu as MenuIcon } from '@mui/icons-material';
+import { ChevronLeft, FilterAlt, Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
 import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
@@ -336,7 +336,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {isFilterDrawerOpen ? (
                   <ChevronLeft style={{ color: 'white' }} />
                 ) : (
-                  <MenuIcon style={{ color: 'white' }} />
+                  <FilterAlt style={{ color: 'white' }} />
                 )}
               </IconButton>
             ) : (
