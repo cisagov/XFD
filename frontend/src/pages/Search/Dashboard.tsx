@@ -18,7 +18,6 @@ import {
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
-import { FilterDrawerWithSearch } from './FilterDrawer';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
 import {
@@ -48,11 +47,11 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     resultsPerPage,
     setResultsPerPage,
     filters,
-    addFilter,
+    // addFilter,
     removeFilter,
     results,
-    facets,
-    clearFilters,
+    // facets,
+    // clearFilters,
     sortDirection,
     sortField,
     setSort,

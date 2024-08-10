@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRouteMatch, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
-import { Organization, OrganizationTag } from 'types';
+import { Organization } from 'types';
+//Are we still using this?
+// import  {OrganizationTag} from 'types';
 import {
   Accordion,
   AccordionDetails,
@@ -38,12 +40,11 @@ export const OrganizationSearch: React.FC = () => {
     apiPost
   } = useAuthContext();
 
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [tags, setTags] = useState<OrganizationTag[]>([]);
+  //Are we still using this?
+  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<Organization[]>([]);
   const [regionList, setRegionList] = useState<{ regionId: string }[]>([]);
-  const [checkedRegions, setCheckedRegions] = useState<string[]>([]);
 
   const { regions, setRegions } = useFiltercontext();
 
@@ -65,16 +66,13 @@ export const OrganizationSearch: React.FC = () => {
     try {
       const results = await apiGet('/regions');
       setRegionList(results);
-      // setCheckedRegions(
-      //   results.map((region: { regionId: any }) => region.regionId).sort()
-      // );
       setRegions(
         results.map((region: { regionId: any }) => region.regionId).sort()
       );
     } catch (e) {
       console.log(e);
     }
-  }, [apiGet, setRegionList]);
+  }, [apiGet, setRegionList, setRegions]);
 
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
@@ -114,20 +112,6 @@ export const OrganizationSearch: React.FC = () => {
   console.log('orgResults', orgResults);
   console.log('regions context', regions);
 
-  // const fetchOrganizations = useCallback(async () => {
-  //   try {
-  //     const rows = await apiGet<Organization[]>('/v2/organizations/');
-  //     let tags: OrganizationTag[] = [];
-  //     if (userLevel === GLOBAL_ADMIN) {
-  //       tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-  //       await setTags(tags as OrganizationTag[]);
-  //     }
-  //     await setOrganizations(rows);
-  //   } catch (e) {
-  //     console.log(e);
-  //   }
-  // }, [apiGet, setOrganizations, userLevel]);
-
   const handleChange = (v: string) => {
     debounce(searchOrganizations(v) as any, 400);
   };
@@ -141,20 +125,6 @@ export const OrganizationSearch: React.FC = () => {
   }, [searchOrganizations, searchTerm, regions]);
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
-
-  // const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
-  //   if (userLevel === GLOBAL_ADMIN) {
-  //     return [{ name: 'All Organizations' }].concat(organizations);
-  //   }
-  //   if (userLevel === REGIONAL_ADMIN) {
-  //     return organizations.filter((item) => {
-  //       return item.regionId === user?.regionId;
-  //     });
-  //   }
-  //   return [];
-  // }, [user, organizations, userLevel]);
-
-  // console.log(searchTerm)
 
   return (
     <>
@@ -202,96 +172,9 @@ export const OrganizationSearch: React.FC = () => {
             <Typography>Organization(s)</Typography>
           </AccordionSummary>
           <AccordionDetails>
-            {/* {organizations.length > 1 && (
-              <Autocomplete
-                isOptionEqualToValue={(option, value) =>
-                  option?.name === value?.name
-                }
-                options={
-                  userLevel === GLOBAL_ADMIN
-                    ? [...tags, ...organizationDropdownOptions]
-                    : organizationDropdownOptions
-                }
-                autoComplete={false}
-                //   className={classes.selectOrg}
-                classes={
-                  {
-                    // option: classes.option
-                  }
-                }
-                value={
-                  showAllOrganizations
-                    ? { name: 'All Organizations' }
-                    : currentOrganization ?? undefined
-                }
-                filterOptions={(options, state) => {
-                  // If already selected, show all
-                  if (
-                    options.find(
-                      (option) =>
-                        option?.name.toLowerCase() ===
-                        state.inputValue.toLowerCase()
-                    )
-                  ) {
-                    return options;
-                  }
-                  return options.filter(
-                    (option) =>
-                      option?.name
-                        .toLowerCase()
-                        .includes(state.inputValue.toLowerCase())
-                  );
-                }}
-                disableClearable
-                blurOnSelect
-                selectOnFocus
-                getOptionLabel={(option) => option!.name}
-                renderOption={(props, option) => (
-                  <li {...props}>{option!.name}</li>
-                )}
-                onChange={(
-                  event: any,
-                  value: Organization | { name: string } | undefined
-                ) => {
-                  if (value && 'id' in value) {
-                    console.log('value', value);
-                    console.log('value.name', value.name);
-                    setOrganization(value);
-                    setShowAllOrganizations(false);
-                    if (value.name === 'Election') {
-                      setShowMaps(true);
-                    } else {
-                      setShowMaps(false);
-                    }
-                    // Check if we're on an organization page and, if so, update it to the new organization
-                    if (orgPageMatch !== null) {
-                      if (!tags.find((e) => e.id === value.id)) {
-                        history.push(`/organizations/${value.id}`);
-                      }
-                    }
-                  } else {
-                    setShowAllOrganizations(true);
-                    setShowMaps(false);
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    variant="outlined"
-                    inputProps={{
-                      ...params.inputProps,
-                      id: 'autocomplete-input',
-                      autoComplete: 'new-password' // disable autocomplete and autofill
-                    }}
-                  />
-                )}
-              />
-            )} */}
-            <br />
             {/* Need to reconcile type issues caused by adding freeSolo prop */}
             <Autocomplete
               onInputChange={(_, v) => handleChange(v)}
-              // inputValue={searchTerm}
               freeSolo
               options={orgResults}
               getOptionLabel={(option) => option.name}
@@ -314,6 +197,7 @@ export const OrganizationSearch: React.FC = () => {
                   } else {
                     setShowMaps(false);
                   }
+                  //Are we still using this?
                   // Check if we're on an organization page and, if so, update it to the new organization
                   if (orgPageMatch !== null) {
                     if (!tags.find((e) => e.id === value.id)) {
@@ -331,13 +215,6 @@ export const OrganizationSearch: React.FC = () => {
                   label="Search Organizations"
                   value={searchTerm}
                   onChange={handleTextChange}
-                  // onKeyDown={(e) => {
-                  //   if (e.key === 'Enter') {
-                  //     e.preventDefault();
-                  //     handleChange(searchTerm)
-                  //     // searchOrganizations(searchTerm, checkedRegions);
-                  //   }
-                  // }}
                 />
               )}
             />

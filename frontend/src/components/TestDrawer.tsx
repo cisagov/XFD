@@ -28,7 +28,6 @@ import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { matchPath } from 'utils/matchPath';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -67,7 +66,6 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
   const [savedSearchCount, setSavedSearchCount] = useState(0);
   const history = useHistory();
   const location = useLocation();
-  const { pathname } = location;
 
   useEffect(() => {
     const fetchSearches = async () => {

@@ -10,7 +10,6 @@ import { CrossfeedFooter } from './Footer';
 import { RSCFooter } from './ReadySetCyber/RSCFooter';
 import { RSCHeader } from './ReadySetCyber/RSCHeader';
 import { SkipToMainContent } from './SkipToMainContent/index';
-import { SideDrawerWithSearch } from './SideDrawer';
 import { matchPath } from 'utils/matchPath';
 import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
 import { usePersistentState } from 'hooks';
