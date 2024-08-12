@@ -1,4 +1,4 @@
-import React, { useContext, createContext } from 'react';
+import React, { useContext } from 'react';
 
 export interface OrganizationShallow {
   regionId: string;
@@ -9,17 +9,17 @@ export interface OrganizationShallow {
 
 export type Region = string;
 
-export interface FilterContext {
+export interface FilterContextType {
   regions: Array<Region>;
   organizations: OrganizationShallow[];
-  setRegions: (regions: FilterContext['regions']) => void;
-  setOrganizations: (organizations: FilterContext['organizations']) => void;
+  setRegions: (regions: FilterContextType['regions']) => void;
+  setOrganizations: (organizations: FilterContextType['organizations']) => void;
   addOrganization: (organization: OrganizationShallow) => void;
   removeOrganization: (organization: OrganizationShallow) => void;
 }
 
-export const FilterContext = React.createContext<FilterContext>(undefined!);
+export const FilterContext = React.createContext<FilterContextType>(undefined!);
 
-export const useFilterContext = (): FilterContext => {
+export const useFilterContext = (): FilterContextType => {
   return useContext(FilterContext);
 };

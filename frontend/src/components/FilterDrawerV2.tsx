@@ -3,13 +3,10 @@ import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
-import MenuIcon from '@mui/icons-material/Menu';
-import { IconButton } from '@mui/material';
 import { TestDrawerInteriorWithSearch } from './TestDrawer';
 import { OrganizationSearch } from './OrganizationSearch';
 import { matchPath } from 'utils/matchPath';
-import { useHistory, useLocation } from 'react-router-dom';
-import { useUserLevel } from 'hooks/useUserLevel';
+import { useLocation } from 'react-router-dom';
 
 export const drawerWidth = 300;
 
@@ -30,8 +27,8 @@ export const FilterDrawer: React.FC<
   const { pathname } = useLocation();
 
   // const [open, setOpen] = React.useState(false);
-  const [mobileOpen, setMobileOpen] = React.useState(false);
-  const [isClosing, setIsClosing] = React.useState(false);
+  // const [mobileOpen, setMobileOpen] = React.useState(false);
+  // const [isClosing, setIsClosing] = React.useState(false);
 
   const updateSearchTerm = (term: string) => {
     setSearchTerm(term);
@@ -41,22 +38,22 @@ export const FilterDrawer: React.FC<
   //   setOpen(newOpen);
   // };
 
-  const handleDrawerClose = () => {
-    setIsClosing(true);
-    setMobileOpen(false);
-  };
+  // const handleDrawerClose = () => {
+  //   setIsClosing(true);
+  //   setMobileOpen(false);
+  // };
 
-  const handleDrawerTransitionEnd = () => {
-    setIsClosing(false);
-  };
+  // const handleDrawerTransitionEnd = () => {
+  //   setIsClosing(false);
+  // };
 
-  const handleDrawerToggle = () => {
-    if (!isClosing) {
-      setMobileOpen(!mobileOpen);
-    }
-  };
+  // const handleDrawerToggle = () => {
+  //   if (!isClosing) {
+  //     setMobileOpen(!mobileOpen);
+  //   }
+  // };
 
-  const { userLevel } = useUserLevel();
+  // const { userLevel } = useUserLevel();
 
   const DrawerList = (
     <Box sx={{ width: 300 }} role="presentation">

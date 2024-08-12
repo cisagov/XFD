@@ -47,11 +47,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     resultsPerPage,
     setResultsPerPage,
     filters,
-    // addFilter,
     removeFilter,
     results,
-    // facets,
-    // clearFilters,
     sortDirection,
     sortField,
     setSort,
@@ -63,7 +60,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   } = props;
 
   const [selectedDomain, setSelectedDomain] = useState('');
-  const [resultsScrolled, setResultsScrolled] = useState(false);
+  const [resultsScrolled] = useState(false);
   const {
     apiPost,
     apiPut,
@@ -114,18 +111,18 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     setSavedSearchValues(savedSearchValues);
   };
 
-  const handleResultScroll = (e: React.UIEvent<HTMLElement>) => {
-    if (e.currentTarget.scrollTop > 0) {
-      setResultsScrolled(true);
-    } else {
-      setResultsScrolled(false);
-    }
-  };
+  // const handleResultScroll = (e: React.UIEvent<HTMLElement>) => {
+  //   if (e.currentTarget.scrollTop > 0) {
+  //     setResultsScrolled(true);
+  //   } else {
+  //     setResultsScrolled(false);
+  //   }
+  // };
 
   // Update Search Term when a saved search is selected
-  const updateSearchTerm = (term: string) => {
-    setSearchTerm(term);
-  };
+  // const updateSearchTerm = (term: string) => {
+  //   setSearchTerm(term);
+  // };
 
   useEffect(() => {
     if (props.location.search === '') {
@@ -226,12 +223,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           overflow="scroll"
           position="relative"
           padding="0 1rem 2rem 1rem"
-          sx={{
-            overflowY: 'auto',
-            '&::-webkit-scrollbar': {
-              display: 'none'
-            }
-          }}
+          sx={{ overflowY: 'auto' }}
         >
           {results.map((result) => (
             <ResultCard

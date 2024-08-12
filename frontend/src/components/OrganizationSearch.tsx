@@ -1,7 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useRouteMatch, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
-import { Organization } from 'types';
 //Are we still using this?
 // import  {OrganizationTag} from 'types';
 import {
@@ -16,7 +14,6 @@ import {
   List,
   ListItem,
   TextField,
-  Toolbar,
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
@@ -31,16 +28,7 @@ const STANDARD_USER = 1;
 export const toggleRegionalUserType = true;
 
 export const OrganizationSearch: React.FC = () => {
-  const history = useHistory();
-  const {
-    showAllOrganizations,
-    currentOrganization,
-    setShowAllOrganizations,
-    setShowMaps,
-    user,
-    apiGet,
-    apiPost
-  } = useAuthContext();
+  const { setShowMaps, user, apiGet, apiPost } = useAuthContext();
 
   //Are we still using this?
   // const [tags, setTags] = useState<OrganizationTag[]>([]);
@@ -53,8 +41,7 @@ export const OrganizationSearch: React.FC = () => {
     setRegions,
     organizations,
     setOrganizations,
-    addOrganization,
-    removeOrganization
+    addOrganization
   } = useFilterContext();
 
   let userLevel = 0;
@@ -92,7 +79,7 @@ export const OrganizationSearch: React.FC = () => {
     } catch (e) {
       console.log(e);
     }
-  }, [apiGet, setRegionList, setRegions]);
+  }, [apiGet, setRegionList, setRegions, userLevel, user?.regionId]);
 
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
@@ -141,10 +128,7 @@ export const OrganizationSearch: React.FC = () => {
     searchOrganizations(searchTerm, regions);
   }, [searchOrganizations, searchTerm, regions]);
 
-  const orgPageMatch = useRouteMatch('/organizations/:id');
-
-  console.log('CORG', currentOrganization);
-
+  // const orgPageMatch = useRouteMatch('/organizations/:id');
   return (
     <>
       <Divider />
@@ -216,13 +200,6 @@ export const OrganizationSearch: React.FC = () => {
                   } else {
                     setShowMaps(false);
                   }
-                  //Are we still using this?
-                  // Check if we're on an organization page and, if so, update it to the new organization
-                  // if (orgPageMatch !== null) {
-                  //   if (!tags.find((e) => e.id === value.id)) {
-                  //     history.push(`/organizations/${value.id}`);
-                  //   }
-                  // }
                 } else {
                 }
               }}
@@ -255,10 +232,6 @@ export const OrganizationSearch: React.FC = () => {
                         );
                         setOrganizations(newOrgs);
                       }}
-                      // onChange={() => {
-                      //   setOrganization(null);
-                      //   setShowMaps(false);
-                      // }}
                     />
                   </FormGroup>
                 </ListItem>

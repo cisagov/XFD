@@ -1,25 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { NavLink, Link, useHistory, useLocation } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
   IconButton,
   Drawer,
   ListItem,
-  List,
-  TextField
+  List
 } from '@mui/material';
 import { ChevronLeft, FilterAlt, Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
-import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import logo from '../assets/cyhydashboard.svg';
 import cisaLogo from '../assets/cisaSeal.svg';
-import { Autocomplete } from '@mui/material';
-import { Organization, OrganizationTag } from 'types';
 import { UserMenu } from './UserMenu';
-import { SideDrawerWithSearch } from './SideDrawer';
 import { matchPath } from 'utils/matchPath';
 
 const PREFIX = 'Header';
@@ -254,7 +249,7 @@ export const Header: React.FC<HeaderProps> = ({
     }
   ];
 
-  const orgPageMatch = useRouteMatch('/organizations/:id');
+  // const orgPageMatch = useRouteMatch('/organizations/:id');
 
   const desktopNavItems: JSX.Element[] = navItems.map((item) => (
     <NavItem key={item.title.toString()} {...item} />

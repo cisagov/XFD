@@ -53,8 +53,7 @@ let colorScale = scaleLinear<string>()
   .range(['#c7e8ff', '#135787']);
 
 const Risk: React.FC = (props) => {
-  const { currentOrganization, showAllOrganizations, showMaps, user, apiPost } =
-    useAuthContext();
+  const { currentOrganization, showMaps, user, apiPost } = useAuthContext();
   const { regions, organizations } = useFilterContext();
 
   const { userLevel } = useUserLevel();
@@ -87,11 +86,12 @@ const Risk: React.FC = (props) => {
         };
 
       case GLOBAL_ADMIN:
+        break;
 
       default:
         break;
     }
-  }, [regions, organizations]);
+  }, [regions, organizations, userLevel, user?.regionId, currentOrganization]);
 
   console.log('RiskFilters', riskFilters);
 
@@ -108,7 +108,7 @@ const Risk: React.FC = (props) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [apiPost, regions, organizations]
+    [apiPost, riskFilters]
   );
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { FilterContext, OrganizationShallow, Region } from './FilterContext';
 import { usePersistentState } from 'hooks';
 
@@ -23,7 +23,7 @@ export const FilterContextProvider: React.FC<FilterContextProviderProps> = ({
       const newOrgs = [...organizations, organization];
       setOrganizations(newOrgs);
     },
-    [organizations]
+    [organizations, setOrganizations]
   );
 
   const removeOrganization = useCallback(
@@ -32,7 +32,7 @@ export const FilterContextProvider: React.FC<FilterContextProviderProps> = ({
         organizations.filter((org) => org.id !== organization.id)
       );
     },
-    [organizations]
+    [organizations, setOrganizations]
   );
 
   return (
