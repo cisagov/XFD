@@ -215,10 +215,10 @@ export const OrganizationSearch: React.FC = () => {
           ) : (
             <></>
           )}
-          {organizations.map((org) => {
-            return (
-              <List key={org.id} sx={{ width: '100%' }}>
-                <ListItem sx={{ padding: '0px' }}>
+          <List sx={{ width: '100%' }}>
+            {organizations.map((org) => {
+              return (
+                <ListItem key={org.id} sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
                       sx={{ padding: '0px' }}
@@ -235,9 +235,9 @@ export const OrganizationSearch: React.FC = () => {
                     />
                   </FormGroup>
                 </ListItem>
-              </List>
-            );
-          })}
+              );
+            })}
+          </List>
           <br />
         </AccordionDetails>
       </Accordion>
