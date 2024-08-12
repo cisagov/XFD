@@ -14,10 +14,12 @@ export interface FilterContext {
   organizations: OrganizationShallow[];
   setRegions: (regions: FilterContext['regions']) => void;
   setOrganizations: (organizations: FilterContext['organizations']) => void;
+  addOrganization: (organization: OrganizationShallow) => void;
+  removeOrganization: (organization: OrganizationShallow) => void;
 }
 
 export const FilterContext = React.createContext<FilterContext>(undefined!);
 
-export const useFiltercontext = (): FilterContext => {
+export const useFilterContext = (): FilterContext => {
   return useContext(FilterContext);
 };

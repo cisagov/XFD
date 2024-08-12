@@ -78,15 +78,11 @@ export const get = wrapHandler(async (event) => {
   const filterQuery = async (
     qs: SelectQueryBuilder<any>
   ): Promise<SelectQueryBuilder<any>> => {
-    if (!isGlobalViewAdmin(event)) {
-      qs.andWhere('domain."organizationId" IN (:...orgs)', {
-        orgs: getOrgMemberships(event)
-      });
-    }
     if (
       search.filters?.organizations &&
       search.filters?.organizations.length > 0
     ) {
+      console.log('adding org filter -> ?');
       qs.andWhere('domain."organizationId" IN (:...orgs)', {
         orgs: search.filters?.organizations
       });
@@ -100,6 +96,16 @@ export const get = wrapHandler(async (event) => {
     if (search.filters?.regions && search.filters.regions.length > 0) {
       qs.andWhere('"organization"."regionId" IN (:...regions)', {
         regions: search.filters.regions
+      });
+    }
+
+    // Handles the case where no orgs and no regions are set, and we pull stats for a region that will never exist
+    if (
+      search.filters?.organizations?.length === 0 &&
+      search.filters?.regions?.length === 0
+    ) {
+      qs.andWhere('organization."regionId" IN (:...regions)', {
+        regions: ['FORCEEMPTY']
       });
     }
 

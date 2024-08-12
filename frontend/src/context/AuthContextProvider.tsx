@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Auth } from 'aws-amplify';
-import { AuthContext, AuthUser } from './AuthContext';
+import { AuthContext, AuthUser, CurrentOrganization } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
 import { useApi } from 'hooks/useApi';
 import { usePersistentState } from 'hooks';
@@ -105,7 +105,10 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   }, [apiPost, setToken, token]);
 
   const extendedOrg = useMemo(() => {
-    return getExtendedOrg(org, authUser);
+    console.log('firing memo above');
+    if (org !== null) {
+      return getExtendedOrg(org, authUser);
+    }
   }, [org, authUser]);
 
   const maximumRole = useMemo(() => {
@@ -119,6 +122,11 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const userMustSign = useMemo(() => {
     return getUserMustSign(authUser, touVersion);
   }, [authUser, touVersion]);
+
+  const setOrganization = (organization: CurrentOrganization | null) => {
+    console.log('FIRING HERE');
+    setOrg(organization);
+  };
 
   useEffect(() => {
     refreshUser();

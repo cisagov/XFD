@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import classes from './Risk.module.scss';
 import { Card, CardContent, Grid, Paper, Typography } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
@@ -21,6 +21,10 @@ import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
 import { Stats } from 'types/stats';
 import { UpdateStateForm } from 'components/Register';
+import { GLOBAL_ADMIN, REGIONAL_ADMIN, useUserLevel } from 'hooks/useUserLevel';
+import { STANDARD_USER } from 'context/userStateUtils';
+import { useFilterContext } from 'context/FilterContext';
+import { toggleRegionalUserType } from 'components/OrganizationSearch';
 
 export interface Point {
   id: string;
@@ -51,6 +55,9 @@ let colorScale = scaleLinear<string>()
 const Risk: React.FC = (props) => {
   const { currentOrganization, showAllOrganizations, showMaps, user, apiPost } =
     useAuthContext();
+  const { regions, organizations } = useFilterContext();
+
+  const { userLevel } = useUserLevel();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
@@ -63,18 +70,36 @@ const Risk: React.FC = (props) => {
 
   // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
+  const riskFilters = useMemo(() => {
+    switch (userLevel) {
+      case STANDARD_USER:
+        if (currentOrganization && user?.regionId) {
+          return {
+            organizations: [currentOrganization.id],
+            regions: [{ regionId: user?.regionId }]
+          };
+        }
+        break;
+      case REGIONAL_ADMIN:
+        return {
+          organizations: organizations.map((org) => org.id),
+          regions: toggleRegionalUserType ? [user?.regionId] : regions
+        };
+
+      case GLOBAL_ADMIN:
+
+      default:
+        break;
+    }
+  }, [regions, organizations]);
+
+  console.log('RiskFilters', riskFilters);
+
   const fetchStats = useCallback(
     async (orgId?: string) => {
       const { result } = await apiPost<ApiResponse>('/stats', {
         body: {
-          filters:
-            (!orgId && showAllOrganizations) || !currentOrganization
-              ? {}
-              : orgId || 'rootDomains' in currentOrganization
-              ? {
-                  organizations: [orgId ? orgId : currentOrganization?.id]
-                }
-              : { tag: currentOrganization.id }
+          filters: riskFilters
         }
       });
       const max = Math.max(...result.vulnerabilities.byOrg.map((p) => p.value));
@@ -83,7 +108,7 @@ const Risk: React.FC = (props) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [showAllOrganizations, apiPost, currentOrganization]
+    [apiPost, regions, organizations]
   );
 
   useEffect(() => {

@@ -7,8 +7,8 @@ function getTermFilterValue(field, fieldValue) {
   if (fieldValue === 'false' || fieldValue === 'true') {
     return { [field]: fieldValue === 'true' };
   }
-  if(field === 'organization.regionId'){
-    return { [field]:   fieldValue}
+  if (field === 'organization.regionId') {
+    return { [field]: fieldValue };
   }
   if (typeof fieldValue === 'number') {
     return { [field]: fieldValue };
@@ -32,14 +32,12 @@ function getTermFilter(filter) {
   if (filter.field === 'services.port') {
     searchType = 'match';
   }
-  if (filter.field === 'organization.regionId'){
-    searchType = 'terms'
+  if (filter.field === 'organization.regionId') {
+    searchType = 'terms';
   }
 
-
-
   if (filter.type === 'any') {
-    if(filter.field === 'organization.regionId'){
+    if (filter.field === 'organization.regionId') {
       search = {
         bool: {
           should: [
@@ -49,9 +47,8 @@ function getTermFilter(filter) {
           ],
           minimum_should_match: 1
         }
-      }
-      
-    }else {
+      };
+    } else {
       search = {
         bool: {
           should: filter.values.map((filterValue) => ({

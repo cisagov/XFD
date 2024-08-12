@@ -172,14 +172,11 @@ export const Header: React.FC<HeaderProps> = ({
   isFilterDrawerOpen,
   setIsFilterDrawerOpen
 }) => {
-  const history = useHistory();
   const { pathname } = useLocation();
-  const { setShowMaps, user, logout, apiGet } = useAuthContext();
+  const { user, logout } = useAuthContext();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [tags, setTags] = useState<OrganizationTag[]>([]);
 
   let drawerItems: NavItemType[] = [];
   const toggleDrawer = (newOpen: boolean) => () => {
@@ -199,26 +196,6 @@ export const Header: React.FC<HeaderProps> = ({
       userLevel = REGIONAL_ADMIN;
     }
   }
-
-  const fetchOrganizations = useCallback(async () => {
-    try {
-      const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: OrganizationTag[] = [];
-      if (userLevel === GLOBAL_ADMIN) {
-        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-        await setTags(tags as OrganizationTag[]);
-      }
-      await setOrganizations(rows);
-    } catch (e) {
-      console.log(e);
-    }
-  }, [apiGet, setOrganizations, userLevel]);
-
-  useEffect(() => {
-    if (userLevel > 0) {
-      fetchOrganizations();
-    }
-  }, [fetchOrganizations, userLevel]);
 
   const navItems: NavItemType[] = [
     {
@@ -303,18 +280,6 @@ export const Header: React.FC<HeaderProps> = ({
     });
     drawerItems = [...navItems, ...userMenuItems];
   }
-
-  const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
-    if (userLevel === GLOBAL_ADMIN) {
-      return [{ name: 'All Organizations' }].concat(organizations);
-    }
-    if (userLevel === REGIONAL_ADMIN) {
-      return organizations.filter((item) => {
-        return item.regionId === user?.regionId;
-      });
-    }
-    return [];
-  }, [user, organizations, userLevel]);
 
   return (
     <Root>

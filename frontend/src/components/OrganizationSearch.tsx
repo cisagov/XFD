@@ -21,18 +21,20 @@ import {
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
 import { debounce } from 'utils/debounce';
-import { useFiltercontext } from 'context/FilterContext';
+import { OrganizationShallow, useFilterContext } from 'context/FilterContext';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
 
+// Swap this value to allow regional admin to filter on regions that aren't their own
+export const toggleRegionalUserType = true;
+
 export const OrganizationSearch: React.FC = () => {
   const history = useHistory();
   const {
-    currentOrganization,
-    setOrganization,
     showAllOrganizations,
+    currentOrganization,
     setShowAllOrganizations,
     setShowMaps,
     user,
@@ -43,10 +45,17 @@ export const OrganizationSearch: React.FC = () => {
   //Are we still using this?
   // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [orgResults, setOrgResults] = useState<Organization[]>([]);
+  const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [regionList, setRegionList] = useState<{ regionId: string }[]>([]);
 
-  const { regions, setRegions } = useFiltercontext();
+  const {
+    regions,
+    setRegions,
+    organizations,
+    setOrganizations,
+    addOrganization,
+    removeOrganization
+  } = useFilterContext();
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -65,6 +74,17 @@ export const OrganizationSearch: React.FC = () => {
   const fetchRegions = useCallback(async () => {
     try {
       const results = await apiGet('/regions');
+      if (
+        userLevel === STANDARD_USER ||
+        (userLevel === REGIONAL_ADMIN && toggleRegionalUserType)
+      ) {
+        if (user?.regionId) {
+          setRegionList([{ regionId: user?.regionId }]);
+          return;
+        }
+      }
+      if (userLevel === REGIONAL_ADMIN && toggleRegionalUserType) {
+      }
       setRegionList(results);
       setRegions(
         results.map((region: { regionId: any }) => region.regionId).sort()
@@ -78,7 +98,7 @@ export const OrganizationSearch: React.FC = () => {
     async (searchTerm: string, regions?: string[]) => {
       try {
         const results = await apiPost<{
-          body: { hits: { hits: { _source: Organization }[] } };
+          body: { hits: { hits: { _source: OrganizationShallow }[] } };
         }>('/search/organizations', {
           body: {
             searchTerm,
@@ -108,9 +128,6 @@ export const OrganizationSearch: React.FC = () => {
     const newSearchTerm = e.target.value;
     setSearchTerm(newSearchTerm);
   };
-  console.log('searchTerm', searchTerm);
-  console.log('orgResults', orgResults);
-  console.log('regions context', regions);
 
   const handleChange = (v: string) => {
     debounce(searchOrganizations(v) as any, 400);
@@ -126,56 +143,58 @@ export const OrganizationSearch: React.FC = () => {
 
   const orgPageMatch = useRouteMatch('/organizations/:id');
 
+  console.log('CORG', currentOrganization);
+
   return (
     <>
-      {userLevel === GLOBAL_ADMIN && (
-        <Toolbar sx={{ justifyContent: 'center' }}>
-          <Typography variant="h6">Region(s) & Organization(s)</Typography>
-        </Toolbar>
-      )}
-      {userLevel === REGIONAL_ADMIN ||
-        (userLevel === STANDARD_USER && (
-          <Toolbar sx={{ justifyContent: 'center' }}>
-            <Typography variant="h6">Organization(s)</Typography>
-          </Toolbar>
-        ))}
       <Divider />
-      {userLevel === GLOBAL_ADMIN && (
-        <Accordion>
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Typography>Region(s)</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            <List>
-              {regionList
-                .sort((a, b) => parseInt(a.regionId) - parseInt(b.regionId))
-                .map((region) => (
+      <Accordion expanded={userLevel === STANDARD_USER ? true : undefined}>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography>Region(s)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <List>
+            {regionList
+              .sort((a, b) => parseInt(a.regionId) - parseInt(b.regionId))
+              .map((region) => {
+                return (
                   <ListItem sx={{ padding: '0px' }} key={region.regionId}>
                     <FormGroup>
                       <FormControlLabel
                         control={<Checkbox />}
+                        disabled={
+                          userLevel === STANDARD_USER || toggleRegionalUserType
+                        }
                         label={`Region ${region.regionId}`}
-                        checked={regions.includes(region.regionId)}
+                        checked={
+                          regions.includes(region.regionId) ||
+                          userLevel === STANDARD_USER ||
+                          toggleRegionalUserType
+                        }
                         onChange={() => handleCheckboxChange(region.regionId)}
                         sx={{ padding: '0px' }}
                       />
                     </FormGroup>
                   </ListItem>
-                ))}
-            </List>
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {userLevel === GLOBAL_ADMIN || userLevel === REGIONAL_ADMIN ? (
-        <Accordion defaultExpanded>
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Typography>Organization(s)</Typography>
-          </AccordionSummary>
-          <AccordionDetails>
-            {/* Need to reconcile type issues caused by adding freeSolo prop */}
+                );
+              })}
+          </List>
+        </AccordionDetails>
+      </Accordion>
+      <Accordion
+        defaultExpanded
+        expanded={userLevel === STANDARD_USER ? true : undefined}
+      >
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography>Organization(s)</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          {/* Need to reconcile type issues caused by adding freeSolo prop */}
+          {userLevel !== STANDARD_USER ? (
             <Autocomplete
               onInputChange={(_, v) => handleChange(v)}
-              freeSolo
+              // freeSolo
+              disableClearable
               options={orgResults}
               getOptionLabel={(option) => option.name}
               renderOption={(params, option) => {
@@ -190,8 +209,8 @@ export const OrganizationSearch: React.FC = () => {
               }
               onChange={(event, value) => {
                 if (value) {
-                  setOrganization(value);
-                  setShowAllOrganizations(false);
+                  addOrganization(value);
+                  setSearchTerm('');
                   if (value.name === 'Election') {
                     setShowMaps(true);
                   } else {
@@ -199,14 +218,12 @@ export const OrganizationSearch: React.FC = () => {
                   }
                   //Are we still using this?
                   // Check if we're on an organization page and, if so, update it to the new organization
-                  if (orgPageMatch !== null) {
-                    if (!tags.find((e) => e.id === value.id)) {
-                      history.push(`/organizations/${value.id}`);
-                    }
-                  }
+                  // if (orgPageMatch !== null) {
+                  //   if (!tags.find((e) => e.id === value.id)) {
+                  //     history.push(`/organizations/${value.id}`);
+                  //   }
+                  // }
                 } else {
-                  setShowAllOrganizations(true);
-                  setShowMaps(false);
                 }
               }}
               renderInput={(params) => (
@@ -218,31 +235,39 @@ export const OrganizationSearch: React.FC = () => {
                 />
               )}
             />
-            {currentOrganization ? (
-              <List sx={{ width: '100%' }}>
+          ) : (
+            <></>
+          )}
+          {organizations.map((org) => {
+            return (
+              <List key={org.id} sx={{ width: '100%' }}>
                 <ListItem sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
                       sx={{ padding: '0px' }}
-                      label={currentOrganization?.name}
+                      disabled={userLevel === STANDARD_USER}
+                      label={org?.name}
                       control={<Checkbox />}
-                      checked={!showAllOrganizations}
+                      checked={true}
                       onChange={() => {
-                        setShowAllOrganizations(true);
-                        setOrganization(null);
-                        setShowMaps(false);
+                        const newOrgs = organizations.filter(
+                          (o) => o.id !== org.id
+                        );
+                        setOrganizations(newOrgs);
                       }}
+                      // onChange={() => {
+                      //   setOrganization(null);
+                      //   setShowMaps(false);
+                      // }}
                     />
                   </FormGroup>
                 </ListItem>
               </List>
-            ) : (
-              <></>
-            )}
-            <br />
-          </AccordionDetails>
-        </Accordion>
-      ) : null}
+            );
+          })}
+          <br />
+        </AccordionDetails>
+      </Accordion>
     </>
   );
 };
