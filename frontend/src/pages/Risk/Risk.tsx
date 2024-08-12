@@ -93,8 +93,6 @@ const Risk: React.FC = (props) => {
     }
   }, [regions, organizations, userLevel, user?.regionId, currentOrganization]);
 
-  console.log('RiskFilters', riskFilters);
-
   const fetchStats = useCallback(
     async (orgId?: string) => {
       const { result } = await apiPost<ApiResponse>('/stats', {

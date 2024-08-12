@@ -3,7 +3,7 @@ import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
-import { TestDrawerInteriorWithSearch } from './TestDrawer';
+import { DrawerInteriorWithSearch } from './DrawerInterior';
 import { OrganizationSearch } from './OrganizationSearch';
 import { matchPath } from 'utils/matchPath';
 import { useLocation } from 'react-router-dom';
@@ -11,7 +11,11 @@ import { useLocation } from 'react-router-dom';
 export const drawerWidth = 300;
 
 export const FilterDrawer: React.FC<
-  ContextType & { isFilterDrawerOpen: boolean }
+  ContextType & {
+    isFilterDrawerOpen: boolean;
+    isMobile: boolean;
+    setIsFilterDrawerOpen: (isOpen: boolean) => void;
+  }
 > = (props) => {
   const {
     addFilter,
@@ -21,39 +25,15 @@ export const FilterDrawer: React.FC<
     clearFilters,
     searchTerm,
     setSearchTerm,
-    isFilterDrawerOpen
+    isMobile,
+    isFilterDrawerOpen,
+    setIsFilterDrawerOpen
   } = props;
-
   const { pathname } = useLocation();
-
-  // const [open, setOpen] = React.useState(false);
-  // const [mobileOpen, setMobileOpen] = React.useState(false);
-  // const [isClosing, setIsClosing] = React.useState(false);
 
   const updateSearchTerm = (term: string) => {
     setSearchTerm(term);
   };
-
-  // const toggleDrawer = (newOpen: boolean) => () => {
-  //   setOpen(newOpen);
-  // };
-
-  // const handleDrawerClose = () => {
-  //   setIsClosing(true);
-  //   setMobileOpen(false);
-  // };
-
-  // const handleDrawerTransitionEnd = () => {
-  //   setIsClosing(false);
-  // };
-
-  // const handleDrawerToggle = () => {
-  //   if (!isClosing) {
-  //     setMobileOpen(!mobileOpen);
-  //   }
-  // };
-
-  // const { userLevel } = useUserLevel();
 
   const DrawerList = (
     <Box sx={{ width: 300 }} role="presentation">
@@ -62,7 +42,7 @@ export const FilterDrawer: React.FC<
         ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
         pathname
       ) ? (
-        <TestDrawerInteriorWithSearch
+        <DrawerInteriorWithSearch
           addFilter={addFilter}
           removeFilter={removeFilter}
           filters={filters}
@@ -81,14 +61,16 @@ export const FilterDrawer: React.FC<
   return (
     <Drawer
       open={isFilterDrawerOpen}
-      variant="persistent"
+      variant={isMobile ? 'temporary' : 'persistent'}
+      keepMounted={isMobile}
+      onClose={() => setIsFilterDrawerOpen(false)}
       sx={{
         width: drawerWidth,
         overflow: 'scroll',
         '&::-webkit-scrollbar': {
           display: 'none'
         },
-        height: 'calc(100vh - 24px)'
+        height: isMobile ? 'unset' : 'calc(100vh - 24px)'
       }}
       PaperProps={{ style: { position: 'unset' } }}
     >

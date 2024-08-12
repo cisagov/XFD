@@ -500,7 +500,7 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
   );
 };
 
-export const TestDrawerInteriorWithSearch = withSearch(
+export const DrawerInteriorWithSearch = withSearch(
   ({ searchTerm, setSearchTerm }: ContextType) => ({
     searchTerm,
     setSearchTerm

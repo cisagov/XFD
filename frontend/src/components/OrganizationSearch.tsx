@@ -25,7 +25,7 @@ const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
-export const toggleRegionalUserType = true;
+export const toggleRegionalUserType = false;
 
 export const OrganizationSearch: React.FC = () => {
   const { setShowMaps, user, apiGet, apiPost } = useAuthContext();

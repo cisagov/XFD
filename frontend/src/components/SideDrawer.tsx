@@ -5,7 +5,7 @@ import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import MenuIcon from '@mui/icons-material/Menu';
 import { IconButton } from '@mui/material';
-import { TestDrawerInteriorWithSearch } from './TestDrawer';
+import { DrawerInteriorWithSearch } from './DrawerInterior';
 import { OrganizationSearch } from './OrganizationSearch';
 
 export const SideDrawer: React.FC<ContextType & { location: any }> = (
@@ -51,7 +51,7 @@ export const SideDrawer: React.FC<ContextType & { location: any }> = (
   const DrawerList = (
     <Box sx={{ width: 300 }} role="presentation">
       <OrganizationSearch />
-      <TestDrawerInteriorWithSearch
+      <DrawerInteriorWithSearch
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}

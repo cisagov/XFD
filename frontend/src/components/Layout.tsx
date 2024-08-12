@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import { Box, Drawer, ScopedCssBaseline } from '@mui/material';
+import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
 import { Header, GovBanner } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
@@ -13,6 +13,7 @@ import { SkipToMainContent } from './SkipToMainContent/index';
 import { matchPath } from 'utils/matchPath';
 import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
 import { usePersistentState } from 'hooks';
+import { useTheme } from '@mui/system';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -35,18 +36,29 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
     easing: theme.transitions.easing.sharp,
     duration: theme.transitions.duration.leavingScreen
   }),
-  marginLeft: `-${drawerWidth}px`,
+  [theme.breakpoints.up('lg')]: {
+    marginLeft: `-${drawerWidth}px`
+  },
+  [theme.breakpoints.down('lg')]: {
+    marginLeft: 0
+  },
   ...(open && {
     transition: theme.transitions.create('margin', {
       easing: theme.transitions.easing.easeOut,
       duration: theme.transitions.duration.enteringScreen
     }),
-    marginLeft: 0
+    [theme.breakpoints.up('lg')]: {
+      marginLeft: 0
+    },
+    [theme.breakpoints.down('lg')]: {
+      marginLeft: 0
+    }
   })
 }));
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { logout, user } = useAuthContext();
+  const theme = useTheme();
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = usePersistentState(
     'isFilterDrawerOpen',
     false
@@ -88,6 +100,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+
+  console.log('isMobile', isMobile);
+
   return (
     <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
       <div className={classes.root}>
@@ -119,7 +135,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 ],
                 pathname
               ) ? (
-                <FilterDrawerV2 isFilterDrawerOpen={isFilterDrawerOpen} />
+                <FilterDrawerV2
+                  setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+                  isFilterDrawerOpen={isFilterDrawerOpen}
+                  isMobile={isMobile}
+                />
               ) : (
                 <Drawer
                   open={false}
