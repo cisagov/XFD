@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import { Alert, ScopedCssBaseline } from '@mui/material';
+import { ScopedCssBaseline } from '@mui/material';
 import { Header, GovBanner } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
@@ -19,7 +19,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
-  const [warningBannerText, setWarningBannerText] = useState<JSX.Element[]>([]);
   const { isTimedOut, resetTimeout } = useUserActivityTimeout(
     14 * 60 * 1000, // set to 14 minutes of inactivity to notify user
     loggedIn

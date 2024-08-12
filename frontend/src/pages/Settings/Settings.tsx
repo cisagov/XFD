@@ -19,6 +19,7 @@ const Settings: React.FC = () => {
             .map((role) => role.organization.name)
             .join(', ')}
       </h2>
+      <h2>Region: {user && user.regionId ? user.regionId : 'None'} </h2>
       <Button type="button" onClick={logout}>
         Logout
       </Button>
