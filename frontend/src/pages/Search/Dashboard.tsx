@@ -111,19 +111,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     setSavedSearchValues(savedSearchValues);
   };
 
-  // const handleResultScroll = (e: React.UIEvent<HTMLElement>) => {
-  //   if (e.currentTarget.scrollTop > 0) {
-  //     setResultsScrolled(true);
-  //   } else {
-  //     setResultsScrolled(false);
-  //   }
-  // };
-
-  // Update Search Term when a saved search is selected
-  // const updateSearchTerm = (term: string) => {
-  //   setSearchTerm(term);
-  // };
-
   useEffect(() => {
     if (props.location.search === '') {
       // Search on initial load

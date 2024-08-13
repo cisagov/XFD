@@ -97,20 +97,6 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
     return 0;
   }, [user]);
 
-  // let userLevel = 0;
-  // if (user && user.isRegistered) {
-  //   if (user.userType === 'standard') {
-  //     userLevel = STANDARD_USER;
-  //   } else if (user.userType === 'globalAdmin') {
-  //     userLevel = GLOBAL_ADMIN;
-  //   } else if (
-  //     user.userType === 'regionalAdmin' ||
-  //     user.userType === 'globalView'
-  //   ) {
-  //     userLevel = REGIONAL_ADMIN;
-  //   }
-  // }
-
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
@@ -118,14 +104,6 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
     14 * 60 * 1000, // set to 14 minutes of inactivity to notify user
     loggedIn
   );
-
-  // const handleCountdownEnd = (shouldLogout: boolean) => {
-  //   if (shouldLogout) {
-  //     logout();
-  //   } else {
-  //     resetTimeout();
-  //   }
-  // };
 
   const handleCountdownEnd = useCallback(
     (shouldLogout: boolean) => {
