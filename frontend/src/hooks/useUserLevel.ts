@@ -1,4 +1,4 @@
-import { useAuthContext } from 'context';
+import { AuthContextType, useAuthContext } from 'context';
 
 export const GLOBAL_ADMIN = 3;
 export const REGIONAL_ADMIN = 2;
@@ -16,6 +16,7 @@ type UserType =
 type UserLevel = {
   userLevel: number;
   userType: UserType;
+  user: AuthContextType['user'];
 };
 
 export const useUserLevel: () => UserLevel = () => {
@@ -36,6 +37,7 @@ export const useUserLevel: () => UserLevel = () => {
   }
   return {
     userLevel,
-    userType
+    userType,
+    user
   };
 };

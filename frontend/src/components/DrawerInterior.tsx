@@ -35,7 +35,6 @@ interface Props {
   filters: ContextType['filters'];
   facets: ContextType['facets'];
   clearFilters: ContextType['clearFilters'];
-  updateSearchTerm: (term: string) => void;
   searchTerm: ContextType['searchTerm'];
   setSearchTerm: ContextType['setSearchTerm'];
 }
@@ -51,7 +50,7 @@ const FiltersApplied: React.FC = () => {
 const Accordion = MuiAccordion;
 const AccordionSummary = MuiAccordionSummary;
 
-export const TestDrawerInterior: React.FC<Props> = (props) => {
+export const DrawerInterior: React.FC<Props> = (props) => {
   const {
     filters,
     addFilter,
@@ -401,7 +400,7 @@ export const TestDrawerInterior: React.FC<Props> = (props) => {
                       description: 'Name',
                       renderCell: (cellValues) => {
                         const applyFilter = () => {
-                          if (clearFilters) clearFilters();
+                          // if (clearFilters) clearFilters();
                           localStorage.setItem(
                             'savedSearch',
                             JSON.stringify(cellValues.row)
@@ -505,4 +504,4 @@ export const DrawerInteriorWithSearch = withSearch(
     searchTerm,
     setSearchTerm
   })
-)(TestDrawerInterior);
+)(DrawerInterior);

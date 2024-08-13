@@ -37,7 +37,7 @@ function getTermFilter(filter) {
   }
 
   if (filter.type === 'any') {
-    if (filter.field === 'organization.regionId') {
+    if (filter.field === 'organization.regionId' && filter.values.length > 0) {
       search = {
         bool: {
           should: [

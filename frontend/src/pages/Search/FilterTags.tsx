@@ -8,6 +8,32 @@ interface Props {
   removeFilter: ContextType['removeFilter'];
 }
 
+interface FieldToLabelMap {
+  [key: string]: {
+    labelAccessor: (t: any) => any;
+    filterValueAccssor: (t: any) => any;
+  };
+}
+
+const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
+  'organization.regionId': {
+    labelAccessor: (t) => {
+      return 'Region';
+    },
+    filterValueAccssor: (t) => {
+      return t;
+    }
+  },
+  organizationId: {
+    labelAccessor: (t) => {
+      return 'Organization';
+    },
+    filterValueAccssor: (t) => {
+      return t.name;
+    }
+  }
+};
+
 type FlatFilters = {
   field: string;
   label: string;
@@ -19,24 +45,34 @@ type FlatFilters = {
 export const FilterTags: React.FC<Props> = (props) => {
   const { filters, removeFilter } = props;
 
-  const filtersByColumn: FlatFilters = useMemo(
-    () =>
-      filters.reduce(
-        (acc, nextFilter) => [
-          ...acc,
-          {
-            ...nextFilter,
-            value: nextFilter.values.join(', '),
-            label: nextFilter.field.split('.').pop()
-          }
-        ],
-        []
-      ),
-    [filters]
-  );
+  const filtersByColumn: FlatFilters = useMemo(() => {
+    return filters.reduce((acc, nextFilter) => {
+      const fieldAccessors = FIELD_TO_LABEL_MAP[nextFilter.field] ?? null;
+      const value = fieldAccessors
+        ? nextFilter.values
+            .map((item: any) => fieldAccessors.filterValueAccssor(item))
+            .join(', ')
+        : nextFilter.values.join(', ');
+      const label = fieldAccessors
+        ? fieldAccessors.labelAccessor(nextFilter)
+        : nextFilter.field.split('.').pop();
+      return [
+        ...acc,
+        {
+          ...nextFilter,
+          value: value,
+          label: label
+        }
+      ];
+    }, []);
+  }, [filters]);
 
   return (
-    <Root>
+    <Root
+      sx={{
+        marginTop: 1
+      }}
+    >
       {filtersByColumn.map((filter, idx) => (
         <Chip
           key={idx}

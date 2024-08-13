@@ -105,7 +105,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   }, [apiPost, setToken, token]);
 
   const extendedOrg = useMemo(() => {
-    console.log('firing memo above');
     if (org !== null) {
       return getExtendedOrg(org, authUser);
     }
