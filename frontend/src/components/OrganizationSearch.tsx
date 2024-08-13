@@ -92,12 +92,23 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
           }
         });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
-        setOrgResults(orgs);
+        // Filter out organizations that are already in the filters
+        const filteredOrgs = orgs.filter(
+          (org) =>
+            !filters.find(
+              (filter) =>
+                filter.field === ORGANIZATION_FILTER_KEY &&
+                filter.values.find(
+                  (value: { id: string }) => value.id === org.id
+                )
+            )
+        );
+        setOrgResults(filteredOrgs);
       } catch (e) {
         console.log(e);
       }
     },
-    [apiPost, setOrgResults]
+    [apiPost, setOrgResults, filters]
   );
 
   const regionFilterValues = useMemo(() => {
