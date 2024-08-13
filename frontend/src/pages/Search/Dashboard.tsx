@@ -37,7 +37,6 @@ import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
 import { useHistory } from 'react-router-dom';
-import { useFilterContext } from 'context/FilterContext';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -69,8 +68,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     showAllOrganizations,
     currentOrganization
   } = useAuthContext();
-
-  const { regions, organizations } = useFilterContext();
 
   const search:
     | (SavedSearch & {
@@ -117,22 +114,17 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   useEffect(() => {
     if (props.location.search === '') {
       // Search on initial load
-      setSearchTerm('');
+      setSearchTerm('', { shouldClearFilters: false });
     }
     return () => {
       localStorage.removeItem('savedSearch');
-      setSearchTerm('');
+      setSearchTerm('', { shouldClearFilters: false });
     };
   }, [setSearchTerm, props.location.search]);
 
   useBeforeunload((event) => {
     localStorage.removeItem('savedSearch');
   });
-
-  useEffect(() => {
-    // Set filters in WithSearch state when region and organization change
-    console.log('filters in WithSearch', filters);
-  }, [regions, organizations, filters]);
 
   const fetchDomainsExport = async (): Promise<string> => {
     try {

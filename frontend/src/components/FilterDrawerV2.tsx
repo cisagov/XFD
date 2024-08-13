@@ -3,7 +3,7 @@ import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
-import { DrawerInteriorWithSearch } from './DrawerInterior';
+import { DrawerInterior } from './DrawerInterior';
 import { OrganizationSearch } from './OrganizationSearch';
 import { matchPath } from 'utils/matchPath';
 import { useLocation } from 'react-router-dom';
@@ -18,37 +18,37 @@ export const FilterDrawer: React.FC<
   }
 > = (props) => {
   const {
+    isMobile,
+    isFilterDrawerOpen,
+    setIsFilterDrawerOpen,
     addFilter,
     removeFilter,
-    filters,
     facets,
     clearFilters,
     searchTerm,
     setSearchTerm,
-    isMobile,
-    isFilterDrawerOpen,
-    setIsFilterDrawerOpen
+    filters
   } = props;
   const { pathname } = useLocation();
 
-  const updateSearchTerm = (term: string) => {
-    setSearchTerm(term);
-  };
-
   const DrawerList = (
-    <Box sx={{ width: 300 }} role="presentation">
-      <OrganizationSearch />
+    <Box sx={{ width: drawerWidth }} role="presentation">
+      <OrganizationSearch
+        addFilter={addFilter}
+        removeFilter={removeFilter}
+        filters={filters}
+      />
       {matchPath(
         ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
         pathname
       ) ? (
-        <DrawerInteriorWithSearch
+        // <></>
+        <DrawerInterior
           addFilter={addFilter}
           removeFilter={removeFilter}
           filters={filters}
           facets={facets}
           clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
-          updateSearchTerm={updateSearchTerm}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
         />

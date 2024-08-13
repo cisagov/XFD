@@ -24,7 +24,6 @@ import {
   OktaCallback,
   RegionUsers,
   Reports,
-  Risk,
   Organization,
   Organizations,
   SearchPage,
@@ -34,14 +33,15 @@ import {
   Vulnerabilities,
   Vulnerability
 } from 'pages';
-import { Layout, RouteGuard } from 'components';
+import { LayoutWithSearch, RouteGuard } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { RSCDashboard } from 'components/ReadySetCyber/RSCDashboard';
 import { RSCDetail } from 'components/ReadySetCyber/RSCDetail';
 import { RSCLogin } from 'components/ReadySetCyber/RSCLogin';
 import { RSCAuthLoginCreate } from 'components/ReadySetCyber/RSCAuthLoginCreate';
-import { FilterContextProvider } from 'context/FilterContextProvider';
+import { RiskWithSearch } from 'pages/Risk/Risk';
+import { StaticsContextProvider } from 'context/StaticsContextProvider';
 
 API.configure({
   endpoints: [
@@ -92,10 +92,10 @@ const App: React.FC = () => (
     <Router>
       <CFThemeProvider>
         <AuthContextProvider>
-          <FilterContextProvider>
-            <Authenticator.Provider>
+          <Authenticator.Provider>
+            <StaticsContextProvider>
               <SearchProvider>
-                <Layout>
+                <LayoutWithSearch>
                   <LinkTracker />
                   <Switch>
                     <RouteGuard
@@ -103,7 +103,7 @@ const App: React.FC = () => (
                       path="/"
                       render={() => <Redirect to="/inventory" />}
                       unauth={AuthLogin}
-                      component={Risk}
+                      component={RiskWithSearch}
                     />
                     <Route
                       exact
@@ -226,10 +226,10 @@ const App: React.FC = () => (
                       unauth={RSCLogin}
                     />
                   </Switch>
-                </Layout>
+                </LayoutWithSearch>
               </SearchProvider>
-            </Authenticator.Provider>
-          </FilterContextProvider>
+            </StaticsContextProvider>
+          </Authenticator.Provider>
         </AuthContextProvider>
       </CFThemeProvider>
     </Router>

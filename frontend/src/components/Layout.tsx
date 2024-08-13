@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
@@ -14,6 +14,10 @@ import { matchPath } from 'utils/matchPath';
 import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
 import { usePersistentState } from 'hooks';
 import { useTheme } from '@mui/system';
+import { withSearch } from '@elastic/react-search-ui';
+import { ContextType } from 'context';
+import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
+import { useStaticsContext } from 'context/StaticsContext';
 interface LayoutProps {
   children: React.ReactNode;
 }
@@ -56,26 +60,57 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   })
 }));
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps & ContextType> = ({
+  children,
+  filters,
+  addFilter,
+  removeFilter
+}) => {
   const { logout, user } = useAuthContext();
+
+  useEffect(() => {
+    localStorage.setItem('es-search-filters', JSON.stringify(filters));
+  }, [filters]);
+
+  const { regions } = useStaticsContext();
+
   const theme = useTheme();
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = usePersistentState(
     'isFilterDrawerOpen',
     false
   );
-  let userLevel = 0;
-  if (user && user.isRegistered) {
-    if (user.userType === 'standard') {
-      userLevel = STANDARD_USER;
-    } else if (user.userType === 'globalAdmin') {
-      userLevel = GLOBAL_ADMIN;
-    } else if (
-      user.userType === 'regionalAdmin' ||
-      user.userType === 'globalView'
-    ) {
-      userLevel = REGIONAL_ADMIN;
+
+  const userLevel = useMemo(() => {
+    if (user && user.isRegistered) {
+      if (user.userType === 'standard') {
+        return STANDARD_USER;
+      } else if (user.userType === 'globalAdmin') {
+        return GLOBAL_ADMIN;
+      } else if (
+        user.userType === 'regionalAdmin' ||
+        user.userType === 'globalView'
+      ) {
+        return REGIONAL_ADMIN;
+      }
+      return 0;
     }
-  }
+    return 0;
+  }, [user]);
+
+  // let userLevel = 0;
+  // if (user && user.isRegistered) {
+  //   if (user.userType === 'standard') {
+  //     userLevel = STANDARD_USER;
+  //   } else if (user.userType === 'globalAdmin') {
+  //     userLevel = GLOBAL_ADMIN;
+  //   } else if (
+  //     user.userType === 'regionalAdmin' ||
+  //     user.userType === 'globalView'
+  //   ) {
+  //     userLevel = REGIONAL_ADMIN;
+  //   }
+  // }
+
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
@@ -84,13 +119,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     loggedIn
   );
 
-  const handleCountdownEnd = (shouldLogout: boolean) => {
-    if (shouldLogout) {
-      logout();
-    } else {
-      resetTimeout();
-    }
-  };
+  // const handleCountdownEnd = (shouldLogout: boolean) => {
+  //   if (shouldLogout) {
+  //     logout();
+  //   } else {
+  //     resetTimeout();
+  //   }
+  // };
+
+  const handleCountdownEnd = useCallback(
+    (shouldLogout: boolean) => {
+      if (shouldLogout) {
+        logout();
+      } else {
+        resetTimeout();
+      }
+    },
+    [logout, resetTimeout]
+  );
 
   const { pathname } = useLocation();
 
@@ -100,9 +146,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const initialFiltersForUser = useUserTypeFilters(
+    filters,
+    addFilter,
+    removeFilter,
+    regions,
+    user,
+    userLevel
+  );
 
-  console.log('isMobile', isMobile);
+  useEffect(() => {
+    initialFiltersForUser.forEach((filter) => {
+      filter.values.forEach((val) => {
+        addFilter(filter.field, val, filter.type);
+      });
+    });
+  }, [regions]);
+
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
   return (
     <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
@@ -142,10 +203,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                 />
               ) : (
                 <Drawer
-                  open={false}
-                  variant="persistent"
                   sx={{ width: drawerWidth }}
-                />
+                  variant='persistent'
+                  >
+                    <Box sx={{ width: drawerWidth}} />
+                </Drawer>
               )}
               <Main open={isFilterDrawerOpen}>
                 <Header
@@ -191,6 +253,14 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     </StyledScopedCssBaseline>
   );
 };
+
+export const LayoutWithSearch = withSearch(
+  ({ addFilter, removeFilter, filters }: ContextType) => ({
+    addFilter,
+    removeFilter,
+    filters
+  })
+)(Layout);
 
 //Styling
 const PREFIX = 'Layout';

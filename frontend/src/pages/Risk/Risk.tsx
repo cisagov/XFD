@@ -7,7 +7,7 @@ import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityBarChart from './VulnerabilityBarChart';
 import * as RiskStyles from './style';
 import { getSeverityColor, offsets, severities } from './utils';
-import { useAuthContext } from 'context';
+import { ContextType, useAuthContext } from 'context';
 import { geoCentroid } from 'd3-geo';
 import {
   ComposableMap,
@@ -21,10 +21,12 @@ import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
 import { Stats } from 'types/stats';
 import { UpdateStateForm } from 'components/Register';
-import { GLOBAL_ADMIN, REGIONAL_ADMIN, useUserLevel } from 'hooks/useUserLevel';
-import { STANDARD_USER } from 'context/userStateUtils';
-import { useFilterContext } from 'context/FilterContext';
-import { toggleRegionalUserType } from 'components/OrganizationSearch';
+import {
+  ORGANIZATION_FILTER_KEY,
+  OrganizationShallow,
+  REGION_FILTER_KEY
+} from 'components/OrganizationSearch';
+import { withSearch } from '@elastic/react-search-ui';
 
 export interface Point {
   id: string;
@@ -52,11 +54,8 @@ let colorScale = scaleLinear<string>()
   .domain([0, 1])
   .range(['#c7e8ff', '#135787']);
 
-const Risk: React.FC = (props) => {
-  const { currentOrganization, showMaps, user, apiPost } = useAuthContext();
-  const { regions, organizations } = useFilterContext();
-
-  const { userLevel } = useUserLevel();
+const Risk: React.FC<ContextType & {}> = ({ filters }) => {
+  const { showMaps, user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
@@ -70,28 +69,27 @@ const Risk: React.FC = (props) => {
   // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
   const riskFilters = useMemo(() => {
-    switch (userLevel) {
-      case STANDARD_USER:
-        if (currentOrganization && user?.regionId) {
-          return {
-            organizations: [currentOrganization.id],
-            regions: [{ regionId: user?.regionId }]
-          };
-        }
-        break;
-      case REGIONAL_ADMIN:
-        return {
-          organizations: organizations.map((org) => org.id),
-          regions: toggleRegionalUserType ? [user?.regionId] : regions
-        };
+    const regionFilters = filters.find(
+      (filter) => filter.field === REGION_FILTER_KEY
+    );
+    const organizationFilters = filters.find(
+      (filter) => filter.field === ORGANIZATION_FILTER_KEY
+    );
 
-      case GLOBAL_ADMIN:
-        break;
-
-      default:
-        break;
-    }
-  }, [regions, organizations, userLevel, user?.regionId, currentOrganization]);
+    console.log('HERE', { regionFilters, organizationFilters });
+    return {
+      regions:
+        regionFilters && regionFilters.values.length > 0
+          ? regionFilters.values
+          : [],
+      organizations:
+        organizationFilters && organizationFilters.values.length > 0
+          ? organizationFilters.values.map(
+              (item: OrganizationShallow) => item.id
+            )
+          : []
+    };
+  }, [filters]);
 
   const fetchStats = useCallback(
     async (orgId?: string) => {
@@ -106,12 +104,12 @@ const Risk: React.FC = (props) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [apiPost, riskFilters]
+    [riskFilters]
   );
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+  }, [riskFilters]);
 
   useEffect(() => {
     if (user) {
@@ -120,6 +118,8 @@ const Risk: React.FC = (props) => {
       }
     }
   }, [user]);
+
+  console.log('riskFilters', riskFilters);
 
   const MapCard = ({
     title,
@@ -353,5 +353,25 @@ const Risk: React.FC = (props) => {
     </Grid>
   );
 };
+
+export const RiskWithSearch = withSearch(
+  ({
+    addFilter,
+    removeFilter,
+    filters,
+    facets,
+    clearFilters,
+    searchTerm,
+    setSearchTerm
+  }: ContextType) => ({
+    addFilter,
+    removeFilter,
+    filters,
+    facets,
+    clearFilters,
+    searchTerm,
+    setSearchTerm
+  })
+)(Risk);
 
 export default Risk;
