@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
-import { Alert, Box, Button, IconButton, Paper } from '@mui/material';
+import { Button, IconButton, Paper } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
 import { Add } from '@mui/icons-material';
@@ -107,20 +107,16 @@ export const OrganizationList: React.FC<{
   );
 
   return (
-    <Box mb={3}>
-      <Paper elevation={0}>
-        {organizations?.length === 0 ? (
-          <Alert severity="warning">Unable to load organizations.</Alert>
-        ) : (
-          <DataGrid
-            rows={organizations}
-            columns={orgCols}
-            slots={{ toolbar: CustomToolbar }}
-            slotProps={{
-              toolbar: { children: addOrgButton }
-            }}
-          />
-        )}
+    <>
+      <Paper elevation={2} sx={{ width: '100%' }}>
+        <DataGrid
+          rows={organizations}
+          columns={orgCols}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: { children: addOrgButton }
+          }}
+        />
       </Paper>
       <OrganizationForm
         onSubmit={onSubmit}
@@ -129,6 +125,6 @@ export const OrganizationList: React.FC<{
         type="create"
         parent={parent}
       ></OrganizationForm>
-    </Box>
+    </>
   );
 };

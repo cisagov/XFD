@@ -9,32 +9,6 @@ exports[`Layout component matches snapshot 1`] = `
       class="Layout-root"
     >
       <div
-        aria-label="warning label"
-        class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation0 MuiAlert-root MuiAlert-standardWarning MuiAlert-standard css-to2f46-MuiPaper-root-MuiAlert-root"
-        role="alert"
-      >
-        <div
-          class="MuiAlert-icon css-1ytlwq5-MuiAlert-icon"
-        >
-          <svg
-            aria-hidden="true"
-            class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1vooibu-MuiSvgIcon-root"
-            data-testid="ReportProblemOutlinedIcon"
-            focusable="false"
-            viewBox="0 0 24 24"
-          >
-            <path
-              d="M12 5.99L19.53 19H4.47L12 5.99M12 2L1 21h22L12 2zm1 14h-2v2h2v-2zm0-6h-2v4h2v-4z"
-            />
-          </svg>
-        </div>
-        <div
-          class="MuiAlert-message css-1pxa9xg-MuiAlert-message"
-        >
-          <div />
-        </div>
-      </div>
-      <div
         style="display: flex;"
       >
         <div>
@@ -99,19 +73,6 @@ exports[`Layout component matches snapshot 1`] = `
               >
                 Home
               </a>
-            </div>
-            <div
-              class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
-            >
-              <p>
-                <a
-                  class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
-                  href="https://docs.crossfeed.cyber.dhs.gov/"
-                  target="_blank"
-                >
-                  Documentation
-                </a>
-              </p>
             </div>
             <div
               class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
