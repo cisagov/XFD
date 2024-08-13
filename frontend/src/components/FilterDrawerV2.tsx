@@ -42,7 +42,6 @@ export const FilterDrawer: React.FC<
         ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
         pathname
       ) ? (
-        // <></>
         <DrawerInterior
           addFilter={addFilter}
           removeFilter={removeFilter}
