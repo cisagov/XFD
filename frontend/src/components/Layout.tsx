@@ -24,9 +24,6 @@ import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
-interface LayoutProps {
-  children: React.ReactNode;
-}
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -129,7 +126,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     if (!matchPath(pathsAllowed, pathname)) {
       setIsFilterDrawerOpen(false);
     }
-  }, [pathname]);
+  }, [pathname, setIsFilterDrawerOpen]);
 
   useEffect(() => {
     // set logged in if use exists then set true, otherwise set false
@@ -152,6 +149,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         addFilter(filter.field, val, filter.type);
       });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regions, user]);
 
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));

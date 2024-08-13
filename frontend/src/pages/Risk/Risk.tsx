@@ -104,12 +104,12 @@ const Risk: React.FC<ContextType & {}> = ({ filters }) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [riskFilters]
+    [apiPost, riskFilters]
   );
 
   useEffect(() => {
     fetchStats();
-  }, [riskFilters]);
+  }, [fetchStats, riskFilters]);
 
   useEffect(() => {
     if (user) {
