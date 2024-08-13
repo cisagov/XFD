@@ -114,19 +114,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     setSavedSearchValues(savedSearchValues);
   };
 
-  // const handleResultScroll = (e: React.UIEvent<HTMLElement>) => {
-  //   if (e.currentTarget.scrollTop > 0) {
-  //     setResultsScrolled(true);
-  //   } else {
-  //     setResultsScrolled(false);
-  //   }
-  // };
-
-  // Update Search Term when a saved search is selected
-  // const updateSearchTerm = (term: string) => {
-  //   setSearchTerm(term);
-  // };
-
   useEffect(() => {
     if (props.location.search === '') {
       // Search on initial load
@@ -174,16 +161,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   return (
     <Root className={classes.root}>
-      {/* <FilterDrawerWithSearch
-        addFilter={addFilter}
-        removeFilter={removeFilter}
-        filters={filters}
-        facets={facets}
-        clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
-        updateSearchTerm={updateSearchTerm}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
-      /> */}
       <Box
         position="relative"
         flex="1 1 auto"
