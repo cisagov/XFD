@@ -45,7 +45,7 @@ class SearchBody {
   @IsOptional()
   @IsArray()
   @Type(() => IsUUID)
-  organizationIds: string[]
+  organizationIds: string[];
 
   @IsOptional()
   @IsUUID()
@@ -191,7 +191,7 @@ export const search = wrapHandler(async (event) => {
   const options = await getOptions(searchBody, event);
   const request = buildRequest(searchBody, options);
 
-  console.log("REQUEST BODY", JSON.stringify(request))
+  console.log('REQUEST BODY', JSON.stringify(request));
 
   const client = new ESClient();
   let searchResults;

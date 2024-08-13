@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
@@ -18,9 +24,6 @@ import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
-interface LayoutProps {
-  children: React.ReactNode;
-}
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -60,7 +63,7 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   })
 }));
 
-export const Layout: React.FC<LayoutProps & ContextType> = ({
+export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   children,
   filters,
   addFilter,
@@ -123,7 +126,7 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
     if (!matchPath(pathsAllowed, pathname)) {
       setIsFilterDrawerOpen(false);
     }
-  }, [pathname]);
+  }, [pathname, setIsFilterDrawerOpen]);
 
   useEffect(() => {
     // set logged in if use exists then set true, otherwise set false
@@ -146,6 +149,7 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
         addFilter(filter.field, val, filter.type);
       });
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regions, user]);
 
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));

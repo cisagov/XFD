@@ -28,11 +28,13 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
     } catch (e) {
       console.log(e);
     }
-  }, [user]);
+  }, [apiGet, setRegions]);
 
   useEffect(() => {
-    fetchRegions();
-  }, [user]);
+    if (user) {
+      fetchRegions();
+    }
+  }, [user, fetchRegions]);
 
   const memoizedRegions = useMemo(() => {
     return regions;

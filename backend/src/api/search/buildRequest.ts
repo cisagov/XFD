@@ -71,11 +71,13 @@ export function buildRequest(
     sortField
   } = state;
 
+  const orgsInFilters = filters.find(
+    (filter) => filter.field === 'organizationId'
+  );
+  const refinedFilters = orgsInFilters
+    ? filters.filter((filter) => filter.field !== 'organizationId')
+    : filters;
 
-  const orgsInFilters = filters.find((filter) => filter.field === "organizationId")
-  const refinedFilters = orgsInFilters ? filters.filter((filter) => filter.field !== "organizationId") : filters
-
-  console.log("ORGS IN FILTERS")
   const sort = buildSort(sortDirection, sortField);
   const match = buildMatch(searchTerm);
   const size = resultsPerPage;
@@ -123,7 +125,9 @@ export function buildRequest(
         must: [
           {
             terms: {
-              'organization.id.keyword': orgsInFilters.values.map((org) => org.id)
+              'organization.id.keyword': orgsInFilters.values.map(
+                (org) => org.id
+              )
             }
           },
           query
