@@ -209,59 +209,46 @@ Object {
     "bool": Object {
       "must": Array [
         Object {
-          "terms": Object {
-            "organization.id.keyword": Array [
-              "id1",
-            ],
+          "match": Object {
+            "parent_join": "domain",
           },
         },
         Object {
           "bool": Object {
-            "must": Array [
+            "should": Array [
               Object {
-                "match": Object {
-                  "parent_join": "domain",
+                "query_string": Object {
+                  "analyze_wildcard": true,
+                  "fields": Array [
+                    "*",
+                  ],
+                  "query": "term",
                 },
               },
               Object {
-                "bool": Object {
-                  "should": Array [
-                    Object {
-                      "query_string": Object {
-                        "analyze_wildcard": true,
-                        "fields": Array [
-                          "*",
-                        ],
-                        "query": "term",
+                "has_child": Object {
+                  "inner_hits": Object {
+                    "_source": Array [
+                      "webpage_url",
+                    ],
+                    "highlight": Object {
+                      "fields": Object {
+                        "webpage_body": Object {},
                       },
+                      "fragment_size": 50,
+                      "number_of_fragments": 3,
                     },
-                    Object {
-                      "has_child": Object {
-                        "inner_hits": Object {
-                          "_source": Array [
-                            "webpage_url",
-                          ],
-                          "highlight": Object {
-                            "fields": Object {
-                              "webpage_body": Object {},
-                            },
-                            "fragment_size": 50,
-                            "number_of_fragments": 3,
-                          },
-                        },
-                        "query": Object {
-                          "query_string": Object {
-                            "analyze_wildcard": true,
-                            "fields": Array [
-                              "*",
-                            ],
-                            "query": "term",
-                          },
-                        },
-                        "type": "webpage",
-                      },
+                  },
+                  "query": Object {
+                    "query_string": Object {
+                      "analyze_wildcard": true,
+                      "fields": Array [
+                        "*",
+                      ],
+                      "query": "term",
                     },
-                  ],
+                  },
+                  "type": "webpage",
                 },
               },
             ],

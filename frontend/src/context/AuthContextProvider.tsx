@@ -105,9 +105,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   }, [apiPost, setToken, token]);
 
   const extendedOrg = useMemo(() => {
-    if (org !== null) {
-      return getExtendedOrg(org, authUser);
-    }
+    return getExtendedOrg(org, authUser);
   }, [org, authUser]);
 
   const maximumRole = useMemo(() => {
