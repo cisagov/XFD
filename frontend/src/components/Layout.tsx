@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import { Box, ScopedCssBaseline, useMediaQuery } from '@mui/material';
+import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
 import { Header, GovBanner } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
@@ -202,7 +202,12 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
                   isMobile={isMobile}
                 />
               ) : (
-                <></>
+                <Drawer
+                  sx={{ width: drawerWidth }}
+                  variant='persistent'
+                  >
+                    <Box sx={{ width: drawerWidth}} />
+                </Drawer>
               )}
               <Main open={isFilterDrawerOpen}>
                 <Header

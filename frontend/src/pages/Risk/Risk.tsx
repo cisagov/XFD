@@ -109,7 +109,7 @@ const Risk: React.FC<ContextType & {}> = ({ filters }) => {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [riskFilters]);
 
   useEffect(() => {
     if (user) {
