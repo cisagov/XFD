@@ -124,7 +124,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   };
 
   const handleChange = (v: string) => {
-    debounce(searchOrganizations(v) as any, 400);
+    debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
   };
 
   // NEED TO REENABLE THIS
@@ -256,10 +256,10 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
           ) : (
             <></>
           )}
-          {organizationsInFilters?.map((org) => {
-            return (
-              <List key={org.id} sx={{ width: '100%' }}>
-                <ListItem sx={{ padding: '0px' }}>
+          <List sx={{ width: '100%' }}>
+            {organizationsInFilters?.map((org) => {
+              return (
+                <ListItem key={org.id} sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
                       sx={{ padding: '0px' }}
@@ -280,9 +280,9 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
                     />
                   </FormGroup>
                 </ListItem>
-              </List>
               );
             })}
+          </List>
           <br />
         </AccordionDetails>
       </Accordion>

@@ -141,6 +141,13 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
   const { pathname } = useLocation();
 
   useEffect(() => {
+    const pathsAllowed = ['/', '/inventory'];
+    if (!matchPath(pathsAllowed, pathname)) {
+      setIsFilterDrawerOpen(false);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
     // set logged in if use exists then set true, otherwise set false
     if (user) setLoggedIn(true);
     else setLoggedIn(false);
@@ -161,7 +168,7 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
         addFilter(filter.field, val, filter.type);
       });
     });
-  }, [regions]);
+  }, [regions, user]);
 
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
@@ -202,11 +209,8 @@ export const Layout: React.FC<LayoutProps & ContextType> = ({
                   isMobile={isMobile}
                 />
               ) : (
-                <Drawer
-                  sx={{ width: drawerWidth }}
-                  variant='persistent'
-                  >
-                    <Box sx={{ width: drawerWidth}} />
+                <Drawer sx={{ width: drawerWidth }} variant="persistent">
+                  <Box sx={{ width: drawerWidth }} />
                 </Drawer>
               )}
               <Main open={isFilterDrawerOpen}>

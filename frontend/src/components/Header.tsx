@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
 import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
@@ -281,27 +281,22 @@ export const Header: React.FC<HeaderProps> = ({
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            {matchPath(
-              [
-                '/',
-                '/inventory',
-                '/inventory/domains',
-                '/inventory/vulnerabilities'
-              ],
-              pathname
-            ) && user ? (
-              <IconButton
-                onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
-              >
-                {isFilterDrawerOpen ? (
-                  <ChevronLeft style={{ color: 'white' }} />
-                ) : (
-                  <FilterAlt style={{ color: 'white' }} />
-                )}
-              </IconButton>
-            ) : (
-              <></>
-            )}
+            <IconButton
+              sx={{
+                width: 40,
+                height: 40
+              }}
+              onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
+            >
+              {matchPath(['/', '/inventory'], pathname) && user ? (
+                <FilterDrawerButton
+                  open={isFilterDrawerOpen}
+                  setOpen={setIsFilterDrawerOpen}
+                />
+              ) : (
+                <></>
+              )}
+            </IconButton>
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
@@ -352,33 +347,35 @@ export const Header: React.FC<HeaderProps> = ({
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem
-                  // button
                   exact
                   component={NavLink}
                   to={path}
                   activeClassName={classes.activeMobileLink}
-                  // onClick={onClick ? onClick : undefined}
                 >
                   {title}
                 </ListItem>
               )}
-              {/* {nested?.map((nested) => (
-                <ListItem
-                  button
-                  exact
-                  key={nested.title.toString()}
-                  component={NavLink}
-                  to={nested.onClick ? '#' : nested.path}
-                  activeClassName={classes.activeMobileLink}
-                  onClick={nested.onClick ? nested.onClick : undefined}
-                >
-                  {nested.title}
-                </ListItem>
-              ))} */}
             </React.Fragment>
           ))}
         </List>
       </Drawer>
     </Root>
+  );
+};
+
+interface FilterDrawerButtonProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+const FilterDrawerButton: FC<FilterDrawerButtonProps> = ({ open, setOpen }) => {
+  return (
+    <IconButton onClick={() => setOpen(!open)}>
+      {open ? (
+        <ChevronLeft style={{ color: 'white' }} />
+      ) : (
+        <FilterAlt style={{ color: 'white' }} />
+      )}
+    </IconButton>
   );
 };

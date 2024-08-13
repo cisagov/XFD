@@ -79,14 +79,32 @@ export const useUserTypeFilters: UseUserTypeFilters = (
           type: 'any'
         }
       ];
-
-      break;
     case GLOBAL_ADMIN:
-      return [];
-      break;
+      return [
+        {
+          field: 'organization.regionId',
+          values: regions,
+          type: 'any'
+        },
+        {
+          field: 'organizationId',
+          values: userOrgs,
+          type: 'any'
+        }
+      ];
     case GLOBAL_VIEW:
-      return [];
-      break;
+      return [
+        {
+          field: 'organization.regionId',
+          values: regions,
+          type: 'any'
+        },
+        {
+          field: 'organizationId',
+          values: userOrgs,
+          type: 'any'
+        }
+      ];
 
     default:
       return [];

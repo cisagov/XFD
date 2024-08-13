@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { FC } from 'react';
 import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
 import Box from '@mui/material/Box';
@@ -10,7 +10,7 @@ import { useLocation } from 'react-router-dom';
 
 export const drawerWidth = 300;
 
-export const FilterDrawer: React.FC<
+export const FilterDrawer: FC<
   ContextType & {
     isFilterDrawerOpen: boolean;
     isMobile: boolean;

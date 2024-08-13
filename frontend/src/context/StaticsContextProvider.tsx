@@ -16,23 +16,23 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
     []
   );
 
-  const { apiGet } = useAuthContext();
+  const { apiGet, user } = useAuthContext();
   const fetchRegions = useCallback(async () => {
     try {
       const results = await apiGet('/regions');
       setRegions(
         results
-          .sort((a: string, b: string) => parseInt(a) - parseInt(b))
+          .sort((a: string, b: string) => parseInt(a) + parseInt(b))
           .map((region: { regionId: string }) => region.regionId)
       );
     } catch (e) {
       console.log(e);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     fetchRegions();
-  }, []);
+  }, [user]);
 
   const memoizedRegions = useMemo(() => {
     return regions;
