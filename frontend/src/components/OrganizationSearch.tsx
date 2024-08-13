@@ -281,8 +281,8 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
                   </FormGroup>
                 </ListItem>
               </List>
-            );
-          })}
+              );
+            })}
           <br />
         </AccordionDetails>
       </Accordion>
