@@ -9,7 +9,8 @@ import {
   Stack,
   Toolbar,
   Typography,
-  Box
+  Box,
+  Button
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -152,7 +153,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       </div>
       {clearFilters && (
         <Box display="flex" width="100%" justifyContent="center">
-          <button onClick={clearFilters}>Clear All Filters</button>
+          <Button onClick={clearFilters}>Clear All Filters</Button>
         </Box>
       )}
       <Accordion
