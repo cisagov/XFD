@@ -461,7 +461,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
             <Typography>
               Displaying {state.title} vulnerabilities.{' '}
-              <Button onClick={() => fetchVulnerabilities}>
+              <Button onClick={resetVulnerabilities}>
                 Reset Vulnerabilities
               </Button>
             </Typography>
