@@ -21,9 +21,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
     try {
       const results = await apiGet('/regions');
       setRegions(
-        results
-          .sort((a: string, b: string) => parseInt(a) + parseInt(b))
-          .map((region: { regionId: string }) => region.regionId)
+        results.map((region: { regionId: string }) => region.regionId).sort()
       );
     } catch (e) {
       console.log(e);
