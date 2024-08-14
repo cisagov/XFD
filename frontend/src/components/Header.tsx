@@ -32,7 +32,6 @@ const classes = {
   link: `${PREFIX}-link`,
   userLink: `${PREFIX}-userLink`,
   lgNav: `${PREFIX}-lgNav`,
-  mobileNav: `${PREFIX}-mobileNav`,
   selectOrg: `${PREFIX}-selectOrg`,
   option: `${PREFIX}-option`
 };
@@ -109,9 +108,6 @@ const Root = styled('div')(({ theme }) => ({
     }
   },
 
-  [`.${classes.mobileNav}`]: {
-    padding: `${theme.spacing(2)} ${theme.spacing()}px`
-  },
   [`.${classes.selectOrg}`]: {
     border: '1px solid #FFFFFF',
     borderRadius: '5px',
@@ -447,35 +443,20 @@ export const Header: React.FC = () => {
           }
         }}
       >
-        <List className={classes.mobileNav}>
+        <List sx={{ p: 2 }}>
           {drawerItems.map(({ title, path }) => (
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem
-                  // button
                   sx={{ color: 'white' }}
                   exact
                   component={NavLink}
                   to={path}
                   activeClassName={classes.activeMobileLink}
-                  // onClick={onClick ? onClick : undefined}
                 >
                   {title}
                 </ListItem>
               )}
-              {/* {nested?.map((nested) => (
-                <ListItem
-                  button
-                  exact
-                  key={nested.title.toString()}
-                  component={NavLink}
-                  to={nested.onClick ? '#' : nested.path}
-                  activeClassName={classes.activeMobileLink}
-                  onClick={nested.onClick ? nested.onClick : undefined}
-                >
-                  {nested.title}
-                </ListItem>
-              ))} */}
             </React.Fragment>
           ))}
         </List>
