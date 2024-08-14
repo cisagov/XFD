@@ -370,7 +370,10 @@ interface FilterDrawerButtonProps {
 
 const FilterDrawerButton: FC<FilterDrawerButtonProps> = ({ open, setOpen }) => {
   return (
-    <IconButton onClick={() => setOpen(!open)}>
+    <IconButton
+      onClick={() => setOpen(!open)}
+      aria-label={open ? 'Close filter drawer' : 'Open filter drawer'}
+    >
       {open ? (
         <ChevronLeft style={{ color: 'white' }} />
       ) : (
