@@ -8,7 +8,8 @@ import {
   Divider,
   Stack,
   Toolbar,
-  Typography
+  Typography,
+  Box
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -150,11 +151,14 @@ export const DrawerInterior: React.FC<Props> = (props) => {
         />
       </div>
       {clearFilters && (
-        <div>
+        <Box display="flex" width="100%" justifyContent="center">
           <button onClick={clearFilters}>Clear All Filters</button>
-        </div>
+        </Box>
       )}
       <Accordion
+        sx={{
+          marginTop: 1
+        }}
         elevation={0}
         square
         classes={{
