@@ -38,7 +38,6 @@ export const Domains: React.FC = () => {
 
   const fetchDomains = useCallback(
     async (q: Query<Domain>) => {
-      setIsLoading(true);
       try {
         const { domains, count } = await listDomains(q);
         if (domains.length === 0) return;
@@ -70,6 +69,7 @@ export const Domains: React.FC = () => {
   });
 
   useEffect(() => {
+    setIsLoading(true);
     fetchDomains({
       page: 1,
       pageSize: PAGE_SIZE,
