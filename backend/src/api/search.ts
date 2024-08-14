@@ -191,8 +191,6 @@ export const search = wrapHandler(async (event) => {
   const options = await getOptions(searchBody, event);
   const request = buildRequest(searchBody, options);
 
-  console.log('REQUEST BODY', JSON.stringify(request));
-
   const client = new ESClient();
   let searchResults;
   try {

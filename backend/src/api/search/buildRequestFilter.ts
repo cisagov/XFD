@@ -110,13 +110,21 @@ function getTermFilter(filter) {
 //   }
 // }
 
-export default function buildRequestFilter(filters) {
-  if (!filters) return;
+export default function buildRequestFilter(
+  filters: any[],
+  forceReturnNoResults: boolean
+) {
+  if (forceReturnNoResults) {
+    return {
+      term: {
+        non_existent_field: ''
+      }
+    };
+  }
 
   filters = filters.reduce((acc, filter) => {
     return [...acc, getTermFilter(filter)];
   }, []);
 
-  if (filters.length < 1) return;
   return filters;
 }
