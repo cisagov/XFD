@@ -21,7 +21,9 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
     try {
       const results = await apiGet('/regions');
       setRegions(
-        results.map((region: { regionId: string }) => region.regionId).sort()
+        results
+          .map((region: { regionId: string }) => region.regionId)
+          .sort((a: string, b: string) => a.localeCompare(b))
       );
     } catch (e) {
       console.log(e);
