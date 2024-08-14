@@ -78,11 +78,13 @@ export function buildRequest(
     ? filters.filter((filter) => filter.field !== 'organizationId')
     : filters;
 
+  const shouldReturnNoResults = Object.keys(filters).length === 0;
+
   const sort = buildSort(sortDirection, sortField);
   const match = buildMatch(searchTerm);
   const size = resultsPerPage;
   const from = buildFrom(current, resultsPerPage);
-  const filter = buildRequestFilter(refinedFilters);
+  const filter = buildRequestFilter(refinedFilters, shouldReturnNoResults);
 
   let query: any = {
     bool: {
@@ -116,7 +118,7 @@ export function buildRequest(
           }
         }
       ],
-      ...(filter && { filter })
+      ...{ filter }
     }
   };
   if (orgsInFilters) {
