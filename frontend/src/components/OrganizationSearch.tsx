@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAuthContext } from 'context';
 //Are we still using this?
 // import  {OrganizationTag} from 'types';
@@ -79,7 +79,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
       userLevel = REGIONAL_ADMIN;
     }
   }
-
+  console.log('filters', filters);
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
       try {
@@ -104,6 +104,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
             )
         );
         setOrgResults(filteredOrgs);
+        console.log('filteredOrgs', filteredOrgs);
       } catch (e) {
         console.log(e);
       }
@@ -138,10 +139,9 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
   };
 
-  // NEED TO REENABLE THIS
-  // useEffect(() => {
-  //   searchOrganizations(searchTerm, []);
-  // }, [searchOrganizations, searchTerm, []]);
+  useEffect(() => {
+    searchOrganizations(searchTerm, regionFilterValues ?? []);
+  }, [searchOrganizations, searchTerm, regionFilterValues]);
 
   const organizationsInFilters = useMemo(() => {
     const orgsFilter = filters.find(
