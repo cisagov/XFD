@@ -453,6 +453,7 @@ export const Header: React.FC = () => {
               {path && (
                 <ListItem
                   // button
+                  sx={{ color: 'white' }}
                   exact
                   component={NavLink}
                   to={path}
