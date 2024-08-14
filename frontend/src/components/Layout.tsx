@@ -31,7 +31,8 @@ const STANDARD_USER = 1;
 
 const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
   open?: boolean;
-}>(({ theme, open }) => ({
+  user?: boolean;
+}>(({ theme, open, user }) => ({
   flexGrow: 1,
   height: 'calc(100vh - 24px)',
   maxHeight: 'calc(100vh - 24px)',
@@ -47,7 +48,7 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
     marginLeft: `-${drawerWidth}px`
   },
   [theme.breakpoints.down('lg')]: {
-    marginLeft: 0
+    marginLeft: user ? 0 : `-${drawerWidth}px`
   },
   ...(open && {
     transition: theme.transitions.create('margin', {
@@ -134,14 +135,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     else setLoggedIn(false);
   }, [user]);
 
-  const initialFiltersForUser = useUserTypeFilters(
-    filters,
-    addFilter,
-    removeFilter,
-    regions,
-    user,
-    userLevel
-  );
+  const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
 
   useEffect(() => {
     initialFiltersForUser.forEach((filter) => {
@@ -195,7 +189,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                   <Box sx={{ width: drawerWidth }} />
                 </Drawer>
               )}
-              <Main open={isFilterDrawerOpen}>
+              <Main open={isFilterDrawerOpen} user={!!user}>
                 <Header
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}

@@ -5,8 +5,11 @@ import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import { DrawerInterior } from './DrawerInterior';
 import { OrganizationSearch } from './OrganizationSearch';
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { matchPath } from 'utils/matchPath';
 import { useLocation } from 'react-router-dom';
+import { Stack } from '@mui/system';
+import { Toolbar, Typography } from '@mui/material';
 
 export const drawerWidth = 300;
 
@@ -33,6 +36,14 @@ export const FilterDrawer: FC<
 
   const DrawerList = (
     <Box sx={{ width: drawerWidth }} role="presentation">
+      <Toolbar sx={{ justifyContent: 'center' }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="h6" component="h3">
+            Filters
+          </Typography>
+          <FilterAltIcon />
+        </Stack>
+      </Toolbar>
       <OrganizationSearch
         addFilter={addFilter}
         removeFilter={removeFilter}

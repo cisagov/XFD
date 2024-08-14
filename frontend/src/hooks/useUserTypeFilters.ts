@@ -10,26 +10,14 @@ interface Filter {
   values: Array<any>;
   type: 'any' | 'all' | 'none';
 }
-type AddFilter = (
-  field: Filter['field'],
-  value: any,
-  type: Filter['type']
-) => void;
-type RemoveFilter = AddFilter;
 
 type UseUserTypeFilters = (
-  filters: Filter[],
-  addFilter: AddFilter,
-  removeFilter: RemoveFilter,
   regions: string[],
   user: AuthContextType['user'],
   userLevel: number
 ) => Filter[];
 
 export const useUserTypeFilters: UseUserTypeFilters = (
-  filters,
-  addFilter,
-  removeFilter,
   regions,
   user,
   userLevel

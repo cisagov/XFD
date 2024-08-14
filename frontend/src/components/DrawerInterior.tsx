@@ -130,8 +130,8 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     <StyledWrapper style={{ overflowY: 'auto' }}>
       <Toolbar sx={{ justifyContent: 'center' }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="h6" component="h2">
-            Filters
+          <Typography variant="h6" component="h3">
+            Advanced Filters
           </Typography>
           <FilterAltIcon />
         </Stack>

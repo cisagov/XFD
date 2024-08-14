@@ -25,11 +25,12 @@ export const Root = styled('div')(() => ({
     flex: '1',
     width: '100%',
     display: 'flex',
-    flexFlow: 'row nowrap',
+    flexFlow: 'column nowrap',
     alignItems: 'stretch',
-    margin: '0',
-    height: 'inherit',
-    overflowY: 'hidden'
+    // justifyContent: 'center',
+    margin: '0'
+    // height: 'calc(100% - 72px)'
+    // overflowY: 'hidden'
   },
 
   [`& .${classes.contentWrapper}`]: {
