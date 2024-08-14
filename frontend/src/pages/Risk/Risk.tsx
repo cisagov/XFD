@@ -75,8 +75,6 @@ const Risk: React.FC<ContextType & {}> = ({ filters }) => {
     const organizationFilters = filters.find(
       (filter) => filter.field === ORGANIZATION_FILTER_KEY
     );
-
-    console.log('HERE', { regionFilters, organizationFilters });
     return {
       regions:
         regionFilters && regionFilters.values.length > 0
@@ -118,8 +116,6 @@ const Risk: React.FC<ContextType & {}> = ({ filters }) => {
       }
     }
   }, [user]);
-
-  console.log('riskFilters', riskFilters);
 
   const MapCard = ({
     title,

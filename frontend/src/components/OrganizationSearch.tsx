@@ -79,7 +79,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
       userLevel = REGIONAL_ADMIN;
     }
   }
-  console.log('filters', filters);
   const searchOrganizations = useCallback(
     async (searchTerm: string, regions?: string[]) => {
       try {
@@ -104,7 +103,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
             )
         );
         setOrgResults(filteredOrgs);
-        console.log('filteredOrgs', filteredOrgs);
       } catch (e) {
         console.log(e);
       }
