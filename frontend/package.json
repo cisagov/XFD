@@ -29,7 +29,7 @@
     "@trussworks/react-uswds": "^5.1.1",
     "autoprefixer": "^10.4.13",
     "aws-amplify": "^5.3.12",
-    "axios": "^1.6.2",
+    "axios": "^1.7.4",
     "classnames": "^2.3.2",
     "cors": "^2.8.5",
     "d3-scale": "^4.0.2",
