@@ -8,7 +8,7 @@
     "@types/dockerode": "^3.3.19",
     "amqplib": "^0.10.3",
     "aws-sdk": "^2.1551.0",
-    "axios": "^1.6",
+    "axios": "^1.7",
     "body-parser": "^1.19.0",
     "bufferutil": "^4.0.7",
     "class-transformer": "^0.3.1",
