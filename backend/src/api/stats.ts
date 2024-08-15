@@ -1,4 +1,11 @@
-import { ValidateNested, IsOptional, IsObject, IsUUID } from 'class-validator';
+import {
+  ValidateNested,
+  IsOptional,
+  IsObject,
+  IsUUID,
+  isUUID,
+  IsArray
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { Domain, connectToDatabase, Vulnerability, Service } from '../models';
 import { validateBody, wrapHandler } from './helpers';
@@ -31,13 +38,20 @@ interface Stats {
 }
 
 class StatsFilters {
-  @IsUUID()
   @IsOptional()
-  organization?: string;
+  @IsArray()
+  // Validates each item in array as UUID
+  @Type(() => IsUUID)
+  organizations?: string[];
 
   @IsUUID()
   @IsOptional()
   tag?: string;
+
+  @IsOptional()
+  @IsArray()
+  @Type(() => IsUUID)
+  regions?: string[];
 }
 
 class StatsSearch {
@@ -64,19 +78,34 @@ export const get = wrapHandler(async (event) => {
   const filterQuery = async (
     qs: SelectQueryBuilder<any>
   ): Promise<SelectQueryBuilder<any>> => {
-    if (!isGlobalViewAdmin(event)) {
+    if (
+      search.filters?.organizations &&
+      search.filters?.organizations.length > 0
+    ) {
+      console.log('adding org filter -> ?');
       qs.andWhere('domain."organizationId" IN (:...orgs)', {
-        orgs: getOrgMemberships(event)
-      });
-    }
-    if (search.filters?.organization) {
-      qs.andWhere('domain."organizationId" = :org', {
-        org: search.filters?.organization
+        orgs: search.filters?.organizations
       });
     }
     if (search.filters?.tag) {
       qs.andWhere('domain."organizationId" IN (:...orgs)', {
         orgs: await getTagOrganizations(event, search.filters.tag)
+      });
+    }
+
+    if (search.filters?.regions && search.filters.regions.length > 0) {
+      qs.andWhere('"organization"."regionId" IN (:...regions)', {
+        regions: search.filters.regions
+      });
+    }
+
+    // Handles the case where no orgs and no regions are set, and we pull stats for a region that will never exist
+    if (
+      search.filters?.organizations?.length === 0 &&
+      search.filters?.regions?.length === 0
+    ) {
+      qs.andWhere('organization."regionId" IN (:...regions)', {
+        regions: ['FORCEEMPTY']
       });
     }
 
@@ -97,6 +126,7 @@ export const get = wrapHandler(async (event) => {
   const services = await performQuery(
     Service.createQueryBuilder('service')
       .innerJoinAndSelect('service.domain', 'domain')
+      .innerJoin('domain.organization', 'organization')
       .where('service IS NOT NULL')
       .select('service as id, count(*) as value')
       .groupBy('service')
@@ -105,6 +135,7 @@ export const get = wrapHandler(async (event) => {
   const ports = await performQuery(
     Domain.createQueryBuilder('domain')
       .innerJoinAndSelect('domain.services', 'services')
+      .innerJoin('domain.organization', 'organization')
       .select('services.port as id, count(*) as value')
       .groupBy('services.port')
       .orderBy('value', 'DESC')
@@ -112,6 +143,7 @@ export const get = wrapHandler(async (event) => {
   const numVulnerabilities = await performQuery(
     Domain.createQueryBuilder('domain')
       .innerJoinAndSelect('domain.vulnerabilities', 'vulnerabilities')
+      .innerJoin('domain.organization', 'organization')
       .andWhere("vulnerabilities.state = 'open'")
       .select(
         "CONCAT(domain.name, '|', vulnerabilities.severity) as id, count(*) as value"
@@ -124,6 +156,7 @@ export const get = wrapHandler(async (event) => {
     await filterQuery(
       Vulnerability.createQueryBuilder('vulnerability')
         .leftJoinAndSelect('vulnerability.domain', 'domain')
+        .innerJoin('domain.organization', 'organization')
         .andWhere("vulnerability.state = 'open'")
         .orderBy('vulnerability.createdAt', 'ASC')
         .limit(MAX_RESULTS)
@@ -133,6 +166,7 @@ export const get = wrapHandler(async (event) => {
     await filterQuery(
       Vulnerability.createQueryBuilder('vulnerability')
         .leftJoinAndSelect('vulnerability.domain', 'domain')
+        .innerJoin('domain.organization', 'organization')
         .andWhere("vulnerability.state = 'open'")
         .select(
           'vulnerability.title, vulnerability.description, vulnerability.severity, count(*) as count'
@@ -147,13 +181,16 @@ export const get = wrapHandler(async (event) => {
   const severity = await performQuery(
     Vulnerability.createQueryBuilder('vulnerability')
       .leftJoinAndSelect('vulnerability.domain', 'domain')
+      .innerJoin('domain.organization', 'organization')
       .andWhere("vulnerability.state = 'open'")
       .select('vulnerability.severity as id, count(*) as value')
       .groupBy('vulnerability.severity')
       .orderBy('vulnerability.severity', 'ASC')
   );
   const total = await performQuery(
-    Domain.createQueryBuilder('domain').select('count(*) as value')
+    Domain.createQueryBuilder('domain')
+      .select('count(*) as value')
+      .innerJoin('domain.organization', 'organization')
   );
   const byOrg = (
     await (

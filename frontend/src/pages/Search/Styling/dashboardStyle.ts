@@ -25,10 +25,12 @@ export const Root = styled('div')(() => ({
     flex: '1',
     width: '100%',
     display: 'flex',
-    flexFlow: 'row nowrap',
+    flexFlow: 'column nowrap',
     alignItems: 'stretch',
-    margin: '0',
-    overflowY: 'hidden'
+    // justifyContent: 'center',
+    margin: '0'
+    // height: 'calc(100% - 72px)'
+    // overflowY: 'hidden'
   },
 
   [`& .${classes.contentWrapper}`]: {
@@ -54,18 +56,6 @@ export const Root = styled('div')(() => ({
     alignItems: 'stretch',
     flex: '1',
     overflowY: 'hidden'
-  },
-
-  [`& .${classes.panel}`]: {
-    position: 'relative',
-    height: '100%',
-    overflowY: 'auto',
-    padding: '0 1rem 2rem 1rem',
-    flex: '0 0 100%',
-    display: 'flex',
-    flexFlow: 'column nowrap',
-    alignItems: 'stretch',
-    gap: '1rem'
   },
 
   [`& .${classes.pagination}`]: {

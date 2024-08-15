@@ -1,11 +1,20 @@
 import { Client } from '@elastic/elasticsearch';
-import { Domain, Webpage } from '../models';
+import { Domain, Organization, Webpage } from '../models';
 
 export const DOMAINS_INDEX = 'domains-5';
+export const ORGANIZATIONS_INDEX = 'organizations-1';
 
+interface Suggest {
+  input: string | string[];
+  weight: number;
+}
 interface DomainRecord extends Domain {
-  suggest: { input: string | string[]; weight: number }[];
+  suggest: Suggest[];
   parent_join: 'domain';
+}
+
+interface OrganizationRecord extends Organization {
+  suggest: Suggest[];
 }
 
 export interface WebpageRecord {
@@ -30,6 +39,12 @@ export interface WebpageRecord {
   webpage_body?: string;
 }
 
+const organizationMapping = {
+  name: {
+    type: 'text'
+  }
+};
+
 /**
  * Elasticsearch client.
  */
@@ -40,10 +55,43 @@ class ESClient {
     this.client = new Client({ node: process.env.ELASTICSEARCH_ENDPOINT! });
   }
 
+  async syncOrganizationsIndex() {
+    console.log('syncOrganizationsIndex');
+    try {
+      await this.client.indices.get({
+        index: ORGANIZATIONS_INDEX
+      });
+      await this.client.indices.putMapping({
+        index: ORGANIZATIONS_INDEX,
+        body: { properties: organizationMapping }
+      });
+    } catch (e) {
+      console.log('sync orgs error', e);
+      await this.client.indices.create({
+        index: ORGANIZATIONS_INDEX,
+        body: {
+          mappings: {
+            properties: {
+              ...organizationMapping,
+              suggest: {
+                type: 'completion'
+              }
+            },
+            dynamic: true
+          },
+          settings: {
+            number_of_shards: 2
+          }
+        }
+      });
+    }
+  }
+
   /**
    * Creates the domains index, if it doesn't already exist.
    */
   async syncDomainsIndex() {
+    console.log('syncDomainsIndex');
     const mapping = {
       services: {
         type: 'nested'
@@ -116,11 +164,43 @@ class ESClient {
     return copy;
   };
 
+  async updateOrganizations(organizations: Organization[]) {
+    const organizationRecords = organizations.map((rec) => {
+      return {
+        suggest: [{ input: rec.name, weight: 1 }],
+        ...rec
+      };
+    }) as OrganizationRecord[];
+    const b = this.client.helpers.bulk<OrganizationRecord>({
+      datasource: organizationRecords,
+      onDocument(organization) {
+        return [
+          {
+            update: {
+              _index: ORGANIZATIONS_INDEX,
+              _id: organization.id
+            }
+          },
+          {
+            doc_as_upsert: true
+          }
+        ];
+      }
+    });
+    const result = await b;
+    if (result.aborted) {
+      console.error(result);
+      throw new Error('Bulk operation aborted');
+    }
+    return result;
+  }
+
   /**
    * Updates the given domains, upserting as necessary.
    * @param domains Domains to insert.
    */
   async updateDomains(domains: Domain[]) {
+    console.log('updateDomains');
     const domainRecords = domains.map((e) => ({
       ...this.excludeFields(e),
       suggest: [{ input: e.name, weight: 1 }],
@@ -157,6 +237,7 @@ class ESClient {
    * @param webpages Webpages to insert.
    */
   async updateWebpages(webpages: WebpageRecord[]) {
+    console.log('updateWebpages');
     const webpageRecords = webpages.map((e) => ({
       ...e,
       suggest: [{ input: e.webpage_url, weight: 1 }],
@@ -197,8 +278,16 @@ class ESClient {
    * @param body Elasticsearch query body.
    */
   async searchDomains(body: any) {
+    console.log('searchDomains');
     return this.client.search({
       index: DOMAINS_INDEX,
+      body
+    });
+  }
+
+  async searchOrganizations(body: any) {
+    return this.client.search({
+      index: ORGANIZATIONS_INDEX,
       body
     });
   }
