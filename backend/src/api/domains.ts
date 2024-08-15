@@ -38,6 +38,10 @@ class DomainFilters {
 
   @IsString()
   @IsOptional()
+  reverseName?: string;
+
+  @IsString()
+  @IsOptional()
   ip?: string;
 
   @IsUUID()
@@ -82,6 +86,11 @@ class DomainSearch {
   pageSize?: number;
 
   async filterResultQueryset(qs: SelectQueryBuilder<Domain>, event) {
+    if (this.filters?.reverseName) {
+      qs.andWhere('domain.name ILIKE :name', {
+        name: `%${this.filters?.reverseName}%`
+      });
+    }
     if (this.filters?.name) {
       qs.andWhere('domain.name ILIKE :name', {
         name: `%${this.filters?.name}%`
