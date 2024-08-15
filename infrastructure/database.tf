@@ -167,6 +167,16 @@ resource "aws_iam_role_policy" "db_accessor_s3_policy" {
         "lambda:InvokeFunction"
       ],
       "Resource": ["*"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecs:ListTasks",
+        "ecs:DescribeTasks",
+        "ecs:ListClusters",
+        "ecs:DescribeClusters"
+      ],
+      "Resource": "*"
     }
   ]
 }
