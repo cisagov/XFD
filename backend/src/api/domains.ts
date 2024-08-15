@@ -34,7 +34,7 @@ class DomainFilters {
 
   @IsString()
   @IsOptional()
-  reverseName?: string;
+  name?: string;
 
   @IsString()
   @IsOptional()
@@ -82,9 +82,9 @@ class DomainSearch {
   pageSize?: number;
 
   async filterResultQueryset(qs: SelectQueryBuilder<Domain>, event) {
-    if (this.filters?.reverseName) {
+    if (this.filters?.name) {
       qs.andWhere('domain.name ILIKE :name', {
-        name: `%${this.filters?.reverseName}%`
+        name: `%${this.filters?.name}%`
       });
     }
     if (this.filters?.ip) {
