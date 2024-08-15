@@ -21,7 +21,7 @@
     "url": "git+https://github.com/cisagov/crossfeed.git"
   },
   "scripts": {
-    "start": "docker-compose build --parallel && docker-compose up --force-recreate"
+    "start": "docker compose build --parallel && docker compose up --force-recreate"
   },
   "version": "1.0.0"
 }
