@@ -106,11 +106,9 @@ DATABASES = {
 }
 
 
-<<<<<<< HEAD
+
 ELASTICACHE_ENDPOINT = "crossfeed-vpc-cluster.loz4zr.0001.use1.cache.amazonaws.com"
-=======
-ELASTICACHE_ENDPOINT = "crossfeed-vpc-cluster.loz4zr.0001.use1.cache.amazonaws.com:6379"
->>>>>>> 249278019f443452c0cf868f901b86576a55be64
+
 
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
