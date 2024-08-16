@@ -32,10 +32,38 @@ class Stats(BaseModel):
     class Config:
         from_attributes = True
 
+class Ports(BaseModel):
+    id: UUID4
+    value: int
+
+    class Config:
+        from_attributes = True
+
 class StatsFilters(BaseModel):
     organization: Optional[UUID4]
     tag: Optional[UUID4]
 
 class StatsSearch(BaseModel):
     filters: Optional[StatsFilters]
+
+class Domain(BaseModel):
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    syncedAt: datetime
+    ip: str
+    fromRootDomain: Optional[str]
+    subdomainSource: Optional[str]
+    ipOnly: bool
+    reverseName: Optional[str]
+    name: Optional[str]
+    screenshot: Optional[str]
+    country: Optional[str]
+    asn: Optional[str]
+    cloudHosted: bool
+    ssl: Optional[Any]
+    censysCertificatesResults: Optional[dict]
+    trustymailResults: Optional[dict]
+    discoveredById: Optional[Any]
+    organizationId: Optional[Any]
     

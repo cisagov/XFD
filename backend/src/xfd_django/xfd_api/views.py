@@ -12,14 +12,12 @@ from fastapi import (
 )
 from fastapi_limiter import FastAPILimiter
 from redis import asyncio as aioredis
-<<<<<<< HEAD
 from . import schemas
 from typing import Any, List, Optional, Union
 import uuid
-=======
 from .auth import get_current_active_user
-from .models import ApiKey, Organization, User
->>>>>>> 249278019f443452c0cf868f901b86576a55be64
+from .models import ApiKey, Organization, User, Domain
+
 
 api_router = APIRouter()
 
@@ -27,21 +25,9 @@ async def default_identifier(request):
     """Return default identifier."""
     return request.headers.get("X-Real-IP", request.client.host)
 
-<<<<<<< HEAD
+
 async def get_redis_client(request: Request):
     return request.app.state.redis
-=======
-@api_router.on_event("startup")
-async def startup():
-    """Start up Redis with ElastiCache."""
-    # Initialize Redis with the ElastiCache endpoint using the modern Redis-Py Asyncio
-    redis = await aioredis.from_url(
-        f"redis://{settings.ELASTICACHE_ENDPOINT}", encoding="utf-8", decode_responses=True
-    )
-
-    # Initialize FastAPI Limiter with the Redis instance
-    await FastAPILimiter.init(redis, identifier=default_identifier)
->>>>>>> 249278019f443452c0cf868f901b86576a55be64
 
 # Healthcheck endpoint
 @api_router.get("/healthcheck")
@@ -203,7 +189,7 @@ async def get_api_keys():
     response_model=List[schemas.Stats],  # Expecting a list of Stats objects
     tags=["Retrieve Stats view query."],
 )
-async def get_Stats(redis_client=Depends(get_redis_client)):
+async def get_Stats(domain_id: str, redis_client=Depends(get_redis_client)):
     """Retrieve Stats from Elasticache."""
     try:
         # Retrieve all service data from Redis
@@ -229,4 +215,53 @@ async def get_Stats(redis_client=Depends(get_redis_client)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
+# @api_router.get(
+#     "/ports/",
+#     response_model=List[schemas.Ports],  # Expecting a list of Stats objects
+#     tags=["Retrieve Stats view query."],
+# )
+# async def get_Ports(domain_id: str, redis_client=Depends(get_redis_client)):
+#     """Retrieve Stats from Elasticache."""
+#     try:
+#         # Retrieve all service data from Redis
+#         ports_ids = await redis_client.keys("*")  # Adjust the pattern if needed
+#         ports_data = []
+#
+#         for ports_id in ports_ids:
+#             ports_data = await redis_client.get(ports_id)
+#             if ports_data:
+#                 ports_data.append({
+#                     "id": ports_id,  # Ensure this is a valid UUID string
+#                     "value": int(ports_data)  # Convert the value to an integer
+#                 })
+#
+#         if not ports_data:
+#             raise HTTPException(status_code=404, detail="No stats data found in cache.")
+#
+#         return ports_data
+#
+#     except aioredis.RedisError as redis_error:
+#         raise HTTPException(status_code=500, detail=f"Redis error: {redis_error}")
+#
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {e}")
 
+
+@api_router.get(
+    "/domain/{domain_id}",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[schemas.Domain],
+    tags=["Get domain by id"],
+)
+async def get_domain_by_id(domain_id: str):
+    """
+    Get domain by id.
+    Returns:
+        object: a single Domain object.
+    """
+    try:
+        domains = list(Domain.objects.filter(id=domain_id))
+
+        return domains
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
