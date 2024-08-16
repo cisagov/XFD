@@ -215,6 +215,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     filters: initialFilters ? initialFilters : filters
   });
 
+  const [filterModel, setFilterModel] = useState(
+    initialFilters.map((filter) => ({
+      field: filter.id,
+      operatorValue: 'contains',
+      value: filter.value
+    }))
+  );
+
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const resetVulnerabilities = useCallback(() => {
@@ -461,7 +469,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         ]}
       ></Subnav>
       <br></br>
-      {initialFilters.length > 0 && (
+      {/* {initialFilters.length > 0 && (
         <Box mt={3} display="flex" justifyContent="center">
           <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
             <Typography>
@@ -472,7 +480,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             </Typography>
           </Paper>
         </Box>
-      )}
+      )} */}
       <Box mb={3} mt={3} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
@@ -510,6 +518,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 });
               }}
               filterMode="server"
+              filterModel={{
+                items: filterModel.map((item) => ({
+                  ...item,
+                  operator: 'contains'
+                }))
+              }}
               onFilterModelChange={(model) => {
                 const filters = model.items.map((item) => ({
                   id: item.field,
