@@ -12,9 +12,14 @@ from fastapi import (
 )
 from fastapi_limiter import FastAPILimiter
 from redis import asyncio as aioredis
+<<<<<<< HEAD
 from . import schemas
 from typing import Any, List, Optional, Union
 import uuid
+=======
+from .auth import get_current_active_user
+from .models import ApiKey, Organization, User
+>>>>>>> 249278019f443452c0cf868f901b86576a55be64
 
 api_router = APIRouter()
 
@@ -22,8 +27,21 @@ async def default_identifier(request):
     """Return default identifier."""
     return request.headers.get("X-Real-IP", request.client.host)
 
+<<<<<<< HEAD
 async def get_redis_client(request: Request):
     return request.app.state.redis
+=======
+@api_router.on_event("startup")
+async def startup():
+    """Start up Redis with ElastiCache."""
+    # Initialize Redis with the ElastiCache endpoint using the modern Redis-Py Asyncio
+    redis = await aioredis.from_url(
+        f"redis://{settings.ELASTICACHE_ENDPOINT}", encoding="utf-8", decode_responses=True
+    )
+
+    # Initialize FastAPI Limiter with the Redis instance
+    await FastAPILimiter.init(redis, identifier=default_identifier)
+>>>>>>> 249278019f443452c0cf868f901b86576a55be64
 
 # Healthcheck endpoint
 @api_router.get("/healthcheck")
