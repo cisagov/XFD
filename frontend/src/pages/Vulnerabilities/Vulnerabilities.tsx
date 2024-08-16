@@ -53,6 +53,7 @@ export interface VulnerabilityRow {
 }
 
 interface LocationState {
+  domain: any;
   title: string;
 }
 
@@ -198,7 +199,11 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const location = useLocation();
   const state = location.state as LocationState;
   const [initialFilters, setInitialFilters] = useState<Filters<Vulnerability>>(
-    state?.title ? [{ id: 'title', value: state.title }] : []
+    state?.title
+      ? [{ id: 'title', value: state.title }]
+      : state?.domain
+      ? [{ id: 'domain', value: state.domain }]
+      : []
   );
   const [filters, setFilters] = useState<Filters<Vulnerability>>([]);
 
@@ -460,7 +465,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         <Box mt={3} display="flex" justifyContent="center">
           <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
             <Typography>
-              Displaying {state.title} vulnerabilities.{' '}
+              Displaying {state.title || state.domain} vulnerabilities.{' '}
               <Button onClick={resetVulnerabilities}>
                 Reset Vulnerabilities
               </Button>
