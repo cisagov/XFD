@@ -200,9 +200,19 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const state = location.state as LocationState;
   const [initialFilters, setInitialFilters] = useState<Filters<Vulnerability>>(
     state?.title
-      ? [{ id: 'title', value: state.title }]
+      ? [
+          {
+            id: 'title',
+            value: state.title
+          }
+        ]
       : state?.domain
-      ? [{ id: 'domain', value: state.domain }]
+      ? [
+          {
+            id: 'domain',
+            value: state.domain
+          }
+        ]
       : []
   );
   const [filters, setFilters] = useState<Filters<Vulnerability>>([]);
@@ -215,7 +225,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     filters: initialFilters ? initialFilters : filters
   });
 
-  const [filterModel, setFilterModel] = useState(
+  const [filterModel] = useState(
     initialFilters.map((filter) => ({
       field: filter.id,
       operatorValue: 'contains',
