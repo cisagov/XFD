@@ -36,7 +36,6 @@ import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
 import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { Form } from '@trussworks/react-uswds';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -99,22 +98,24 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     }
   };
 
-  const applyFilter = () => {
-    localStorage.setItem('savedSearch', JSON.stringify(searchTerm));
-    setSearchTerm(searchTerm, {
-      shouldClearFilters: false,
-      autocompleteResults: false
-    });
-    if (location.pathname !== '/inventory')
-      history.push('/inventory?q=' + searchTerm);
+  // const applySavedSearch = () => {
+  //   // localStorage.setItem('savedSearch', JSON.stringify(searchTerm));
+  //   console.log('Saved Search:', searchTerm);
+  //   console.log('saved searches:', savedSearches);
+  //   setSearchTerm(searchTerm, {
+  //     shouldClearFilters: false,
+  //     autocompleteResults: false
+  //   });
+  //   if (location.pathname !== '/inventory')
+  //     history.push('/inventory?q=' + searchTerm);
 
-    // Apply the filters
-    filters.forEach((filter) => {
-      filter.values.forEach((value: string) => {
-        addFilter(filter.field, value, 'any');
-      });
-    });
-  };
+  //   // Apply the filters
+  //   filters.forEach((filter) => {
+  //     filter.values.forEach((value: string) => {
+  //       addFilter(filter.field, value, 'any');
+  //     });
+  //   });
+  // };
 
   const filtersByColumn = useMemo(
     () =>
@@ -405,6 +406,25 @@ export const DrawerInterior: React.FC<Props> = (props) => {
                     control={<Checkbox />}
                     label={search.name}
                     sx={{ padding: '0px' }}
+                    onChange={() => {
+                      localStorage.setItem(
+                        'savedSearch',
+                        JSON.stringify(search)
+                      );
+                      setSearchTerm(search.searchTerm, {
+                        shouldClearFilters: false,
+                        autocompleteResults: false
+                      });
+                      if (location.pathname !== '/inventory')
+                        history.push('/inventory?q=' + search.searchTerm);
+
+                      // Apply the filters
+                      search.filters.forEach((filter) => {
+                        filter.values.forEach((value) => {
+                          addFilter(filter.field, value, 'any');
+                        });
+                      });
+                    }}
                   />
                 </FormGroup>
                 <IconButton
