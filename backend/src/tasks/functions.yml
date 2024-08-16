@@ -58,3 +58,20 @@ updateScanTaskStatus:
           detail:
             clusterArn:
               - ${file(env.yml):${self:provider.stage}-ecs-cluster, ''}
+
+populateStatsElasticache:
+  handler: src/xfd_django/xfd_api/tasks.populate_Statscache
+  runtime: python3.11
+  environment:
+    DJANGO_SETTINGS_MODULE: xfd_django.settings
+    REDIS_ENDPOINT: ${env:ELASTICACHE_ENDPOINT}
+  events:
+    - schedule:
+        rate: ron(0 0 * * ? *)  # This triggers the function every day it mightnight
+        enabled: true
+  package:
+    include:
+      - src/**
+      - requirements.txt
+    exclude:
+      - node_modules/**

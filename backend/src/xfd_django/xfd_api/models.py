@@ -10,12 +10,12 @@ from django.db import models
 
 class ApiKey(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    lastused = models.DateTimeField(db_column='lastUsed', blank=True, null=True)  # Field name made lowercase.
-    hashedkey = models.TextField(db_column='hashedKey')  # Field name made lowercase.
-    lastfour = models.TextField(db_column='lastFour')  # Field name made lowercase.
-    userid = models.ForeignKey('User', models.DO_NOTHING, db_column='userId', blank=True, null=True)  # Field name made lowercase.
+    createdAt = models.DateTimeField(auto_now_add=True, db_column='createdAt')
+    updatedAt = models.DateTimeField(auto_now=True, db_column='updatedAt')
+    lastUsed = models.DateTimeField(db_column='lastUsed', blank=True, null=True)
+    hashedKey = models.TextField(db_column='hashedKey')
+    lastFour = models.TextField(db_column='lastFour')
+    userId = models.ForeignKey('User', models.CASCADE, db_column='userId', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -24,11 +24,11 @@ class ApiKey(models.Model):
 
 class Assessment(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    rscid = models.CharField(db_column='rscId', unique=True)  # Field name made lowercase.
-    type = models.CharField()
-    userid = models.ForeignKey('User', models.DO_NOTHING, db_column='userId', blank=True, null=True)  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    rscId = models.CharField(db_column='rscId', unique=True)
+    type = models.CharField(max_length=255)
+    userId = models.ForeignKey('User', db_column='userId', blank=True, null=True, on_delete=models.CASCADE)
 
     class Meta:
         managed = False
@@ -37,9 +37,9 @@ class Assessment(models.Model):
 
 class Category(models.Model):
     id = models.UUIDField(primary_key=True)
-    name = models.CharField()
-    number = models.CharField(unique=True)
-    shortname = models.CharField(db_column='shortName', blank=True, null=True)  # Field name made lowercase.
+    name = models.CharField(max_length=255)
+    number = models.CharField(max_length=255, unique=True)
+    shortName = models.CharField(db_column='shortName', max_length=255, blank=True, null=True)
 
     class Meta:
         managed = False
@@ -48,48 +48,49 @@ class Category(models.Model):
 
 class Cpe(models.Model):
     id = models.UUIDField(primary_key=True)
-    name = models.CharField()
-    version = models.CharField()
-    vendor = models.CharField()
-    lastseenat = models.DateTimeField(db_column='lastSeenAt')  # Field name made lowercase.
+    name = models.CharField(max_length=255)
+    version = models.CharField(max_length=255)
+    vendor = models.CharField(max_length=255)
+    lastSeenAt = models.DateTimeField(db_column='lastSeenAt')
 
     class Meta:
-        managed = False
         db_table = 'cpe'
-        unique_together = (('name', 'version', 'vendor'),)
+        managed = False  # This ensures Django does not manage the table
+        unique_together = (('name', 'version', 'vendor'),)  # Unique constraint
+
 
 
 class Cve(models.Model):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(unique=True, blank=True, null=True)
-    publishedat = models.DateTimeField(db_column='publishedAt', blank=True, null=True)  # Field name made lowercase.
-    modifiedat = models.DateTimeField(db_column='modifiedAt', blank=True, null=True)  # Field name made lowercase.
+    publishedAt = models.DateTimeField(db_column='publishedAt', blank=True, null=True)
+    modifiedAt = models.DateTimeField(db_column='modifiedAt', blank=True, null=True)
     status = models.CharField(blank=True, null=True)
     description = models.CharField(blank=True, null=True)
-    cvssv2source = models.CharField(db_column='cvssV2Source', blank=True, null=True)  # Field name made lowercase.
-    cvssv2type = models.CharField(db_column='cvssV2Type', blank=True, null=True)  # Field name made lowercase.
-    cvssv2version = models.CharField(db_column='cvssV2Version', blank=True, null=True)  # Field name made lowercase.
-    cvssv2vectorstring = models.CharField(db_column='cvssV2VectorString', blank=True, null=True)  # Field name made lowercase.
-    cvssv2basescore = models.CharField(db_column='cvssV2BaseScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv2baseseverity = models.CharField(db_column='cvssV2BaseSeverity', blank=True, null=True)  # Field name made lowercase.
-    cvssv2exploitabilityscore = models.CharField(db_column='cvssV2ExploitabilityScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv2impactscore = models.CharField(db_column='cvssV2ImpactScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv3source = models.CharField(db_column='cvssV3Source', blank=True, null=True)  # Field name made lowercase.
-    cvssv3type = models.CharField(db_column='cvssV3Type', blank=True, null=True)  # Field name made lowercase.
-    cvssv3version = models.CharField(db_column='cvssV3Version', blank=True, null=True)  # Field name made lowercase.
-    cvssv3vectorstring = models.CharField(db_column='cvssV3VectorString', blank=True, null=True)  # Field name made lowercase.
-    cvssv3basescore = models.CharField(db_column='cvssV3BaseScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv3baseseverity = models.CharField(db_column='cvssV3BaseSeverity', blank=True, null=True)  # Field name made lowercase.
-    cvssv3exploitabilityscore = models.CharField(db_column='cvssV3ExploitabilityScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv3impactscore = models.CharField(db_column='cvssV3ImpactScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv4source = models.CharField(db_column='cvssV4Source', blank=True, null=True)  # Field name made lowercase.
-    cvssv4type = models.CharField(db_column='cvssV4Type', blank=True, null=True)  # Field name made lowercase.
-    cvssv4version = models.CharField(db_column='cvssV4Version', blank=True, null=True)  # Field name made lowercase.
-    cvssv4vectorstring = models.CharField(db_column='cvssV4VectorString', blank=True, null=True)  # Field name made lowercase.
-    cvssv4basescore = models.CharField(db_column='cvssV4BaseScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv4baseseverity = models.CharField(db_column='cvssV4BaseSeverity', blank=True, null=True)  # Field name made lowercase.
-    cvssv4exploitabilityscore = models.CharField(db_column='cvssV4ExploitabilityScore', blank=True, null=True)  # Field name made lowercase.
-    cvssv4impactscore = models.CharField(db_column='cvssV4ImpactScore', blank=True, null=True)  # Field name made lowercase.
+    cvssV2Source = models.CharField(db_column='cvssV2Source', blank=True, null=True)
+    cvssV2Type = models.CharField(db_column='cvssV2Type', blank=True, null=True)
+    cvssV2Version = models.CharField(db_column='cvssV2Version', blank=True, null=True)
+    cvssV2VectorString = models.CharField(db_column='cvssV2VectorString', blank=True, null=True)
+    cvssV2BaseScore = models.CharField(db_column='cvssV2BaseScore', blank=True, null=True)
+    cvssV2BaseSeverity = models.CharField(db_column='cvssV2BaseSeverity', blank=True, null=True)
+    cvssV2ExploitabilityScore = models.CharField(db_column='cvssV2ExploitabilityScore', blank=True, null=True)
+    cvssV2ImpactScore = models.CharField(db_column='cvssV2ImpactScore', blank=True, null=True)
+    cvssV3Source = models.CharField(db_column='cvssV3Source', blank=True, null=True)
+    cvssV3Type = models.CharField(db_column='cvssV3Type', blank=True, null=True)
+    cvssV3Version = models.CharField(db_column='cvssV3Version', blank=True, null=True)
+    cvssV3VectorString = models.CharField(db_column='cvssV3VectorString', blank=True, null=True)
+    cvssV3BaseScore = models.CharField(db_column='cvssV3BaseScore', blank=True, null=True)
+    cvssV3BaseSeverity = models.CharField(db_column='cvssV3BaseSeverity', blank=True, null=True)
+    cvssV3ExploitabilityScore = models.CharField(db_column='cvssV3ExploitabilityScore', blank=True, null=True)
+    cvssV3ImpactScore = models.CharField(db_column='cvssV3ImpactScore', blank=True, null=True)
+    cvssV4Source = models.CharField(db_column='cvssV4Source', blank=True, null=True)
+    cvssV4Type = models.CharField(db_column='cvssV4Type', blank=True, null=True)
+    cvssV4Version = models.CharField(db_column='cvssV4Version', blank=True, null=True)
+    cvssV4VectorString = models.CharField(db_column='cvssV4VectorString', blank=True, null=True)
+    cvssV4BaseScore = models.CharField(db_column='cvssV4BaseScore', blank=True, null=True)
+    cvssV4BaseSeverity = models.CharField(db_column='cvssV4BaseSeverity', blank=True, null=True)
+    cvssV4ExploitabilityScore = models.CharField(db_column='cvssV4ExploitabilityScore', blank=True, null=True)
+    cvssV4ImpactScore = models.CharField(db_column='cvssV4ImpactScore', blank=True, null=True)
     weaknesses = models.TextField(blank=True, null=True)
     references = models.TextField(blank=True, null=True)
 
@@ -99,51 +100,56 @@ class Cve(models.Model):
 
 
 class CveCpesCpe(models.Model):
-    cveid = models.OneToOneField(Cve, models.DO_NOTHING, db_column='cveId', primary_key=True)  # Field name made lowercase. The composite primary key (cveId, cpeId) found, that is not supported. The first column is selected.
-    cpeid = models.ForeignKey(Cpe, models.DO_NOTHING, db_column='cpeId')  # Field name made lowercase.
+    cveId = models.ForeignKey(Cve, on_delete=models.CASCADE, db_column='cveId')
+    cpeId = models.ForeignKey(Cpe, on_delete=models.CASCADE, db_column='cpeId')
 
     class Meta:
-        managed = False
         db_table = 'cve_cpes_cpe'
-        unique_together = (('cveid', 'cpeid'),)
+        managed = False  # This ensures Django does not manage the table
+        unique_together = (('cve', 'cpe'),)  # Unique constraint
 
 
 class Domain(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    syncedat = models.DateTimeField(db_column='syncedAt', blank=True, null=True)  # Field name made lowercase.
-    ip = models.CharField(blank=True, null=True)
-    fromrootdomain = models.CharField(db_column='fromRootDomain', blank=True, null=True)  # Field name made lowercase.
-    subdomainsource = models.CharField(db_column='subdomainSource', blank=True, null=True)  # Field name made lowercase.
-    iponly = models.BooleanField(db_column='ipOnly', blank=True, null=True)  # Field name made lowercase.
-    reversename = models.CharField(db_column='reverseName', max_length=512)  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    syncedAt = models.DateTimeField(db_column='syncedAt', blank=True, null=True)
+    ip = models.CharField(max_length=255, blank=True, null=True)
+    fromRootDomain = models.CharField(db_column='fromRootDomain', blank=True, null=True)
+    subdomainSource = models.CharField(db_column='subdomainSource', max_length=255, blank=True, null=True)
+    ipOnly = models.BooleanField(db_column='ipOnly', default=False)
+    reverseName = models.CharField(db_column='reverseName', max_length=512)
     name = models.CharField(max_length=512)
     screenshot = models.CharField(max_length=512, blank=True, null=True)
-    country = models.CharField(blank=True, null=True)
-    asn = models.CharField(blank=True, null=True)
-    cloudhosted = models.BooleanField(db_column='cloudHosted')  # Field name made lowercase.
+    country = models.CharField(max_length=255, blank=True, null=True)
+    asn = models.CharField(max_length=255, blank=True, null=True)
+    cloudHosted = models.BooleanField(db_column='cloudHosted', default=False)
     ssl = models.JSONField(blank=True, null=True)
-    censyscertificatesresults = models.JSONField(db_column='censysCertificatesResults')  # Field name made lowercase.
-    trustymailresults = models.JSONField(db_column='trustymailResults')  # Field name made lowercase.
-    discoveredbyid = models.ForeignKey('Scan', models.DO_NOTHING, db_column='discoveredById', blank=True, null=True)  # Field name made lowercase.
-    organizationid = models.ForeignKey('Organization', models.DO_NOTHING, db_column='organizationId')  # Field name made lowercase.
+    censysCertificatesResults = models.JSONField(db_column='censysCertificatesResults', default=dict)
+    trustymailResults = models.JSONField(db_column='trustymailResults', default=dict)
+    discoveredById = models.ForeignKey('Scan', on_delete=models.SET_NULL, db_column='discoveredById', blank=True, null=True)
+    organizationId = models.ForeignKey('Organization', on_delete=models.CASCADE, db_column='organizationId')
 
     class Meta:
-        managed = False
         db_table = 'domain'
-        unique_together = (('name', 'organizationid'),)
+        managed = False  # This ensures Django does not manage the table
+        unique_together = (('name', 'organization'),)  # Unique constraint
+
+    def save(self, *args, **kwargs):
+        self.name = self.name.lower()
+        self.reverseName = '.'.join(reversed(self.name.split('.')))
+        super(Domain, self).save(*args, **kwargs)
 
 
 class Notification(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    startdatetime = models.DateTimeField(db_column='startDatetime', blank=True, null=True)  # Field name made lowercase.
-    enddatetime = models.DateTimeField(db_column='endDatetime', blank=True, null=True)  # Field name made lowercase.
-    maintenancetype = models.CharField(db_column='maintenanceType', blank=True, null=True)  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    startDatetime = models.DateTimeField(db_column='startDatetime', blank=True, null=True)
+    endDatetime = models.DateTimeField(db_column='endDatetime', blank=True, null=True)
+    maintenanceType = models.CharField(db_column='maintenanceType', blank=True, null=True)
     status = models.CharField(blank=True, null=True)
-    updatedby = models.CharField(db_column='updatedBy', blank=True, null=True)  # Field name made lowercase.
+    updatedBy = models.CharField(db_column='updatedBy', blank=True, null=True)
     message = models.CharField(blank=True, null=True)
 
     class Meta:
@@ -153,24 +159,24 @@ class Notification(models.Model):
 
 class Organization(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
     acronym = models.CharField(unique=True, blank=True, null=True)
     name = models.CharField()
-    rootdomains = models.TextField(db_column='rootDomains')  # Field name made lowercase. This field type is a guess.
-    ipblocks = models.TextField(db_column='ipBlocks')  # Field name made lowercase. This field type is a guess.
-    ispassive = models.BooleanField(db_column='isPassive')  # Field name made lowercase.
-    pendingdomains = models.TextField(db_column='pendingDomains')  # Field name made lowercase. This field type is a guess.
+    rootDomains = models.TextField(db_column='rootDomains') # This field type is a guess.
+    ipBlocks = models.TextField(db_column='ipBlocks') # This field type is a guess.
+    isPassive = models.BooleanField(db_column='isPassive')
+    pendingDomains = models.TextField(db_column='pendingDomains') # This field type is a guess.
     country = models.CharField(blank=True, null=True)
     state = models.CharField(blank=True, null=True)
-    regionid = models.CharField(db_column='regionId', blank=True, null=True)  # Field name made lowercase.
-    statefips = models.IntegerField(db_column='stateFips', blank=True, null=True)  # Field name made lowercase.
-    statename = models.CharField(db_column='stateName', blank=True, null=True)  # Field name made lowercase.
+    regionId = models.CharField(db_column='regionId', blank=True, null=True)
+    stateFips = models.IntegerField(db_column='stateFips', blank=True, null=True)
+    stateName = models.CharField(db_column='stateName', blank=True, null=True)
     county = models.CharField(blank=True, null=True)
-    countyfips = models.IntegerField(db_column='countyFips', blank=True, null=True)  # Field name made lowercase.
+    countyFips = models.IntegerField(db_column='countyFips', blank=True, null=True)
     type = models.CharField(blank=True, null=True)
-    parentid = models.ForeignKey('self', models.DO_NOTHING, db_column='parentId', blank=True, null=True)  # Field name made lowercase.
-    createdbyid = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)  # Field name made lowercase.
+    parentId = models.ForeignKey('self', models.DO_NOTHING, db_column='parentId', blank=True, null=True)
+    createdById = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -179,8 +185,8 @@ class Organization(models.Model):
 
 class OrganizationTag(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
     name = models.CharField(unique=True)
 
     class Meta:
@@ -189,13 +195,13 @@ class OrganizationTag(models.Model):
 
 
 class OrganizationTagOrganizationsOrganization(models.Model):
-    organizationtagid = models.OneToOneField(OrganizationTag, models.DO_NOTHING, db_column='organizationTagId', primary_key=True)  # Field name made lowercase. The composite primary key (organizationTagId, organizationId) found, that is not supported. The first column is selected.
-    organizationid = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId')  # Field name made lowercase.
+    organizationTagId = models.OneToOneField(OrganizationTag, models.DO_NOTHING, db_column='organizationTagId', primary_key=True) # The composite primary key (organizationTagId, organizationId) found, that is not supported. The first column is selected.
+    organizationId = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId')
 
     class Meta:
         managed = False
         db_table = 'organization_tag_organizations_organization'
-        unique_together = (('organizationtagid', 'organizationid'),)
+        unique_together = (('organizationTagId', 'organizationId'),)
 
 
 class QueryResultCache(models.Model):
@@ -212,26 +218,27 @@ class QueryResultCache(models.Model):
 
 class Question(models.Model):
     id = models.UUIDField(primary_key=True)
-    name = models.CharField()
+    name = models.CharField(max_length=255)
     description = models.CharField(blank=True, null=True)
-    longform = models.CharField(db_column='longForm')  # Field name made lowercase.
-    number = models.CharField()
-    categoryid = models.ForeignKey(Category, models.DO_NOTHING, db_column='categoryId', blank=True, null=True)  # Field name made lowercase.
+    longForm = models.CharField(db_column='longForm')
+    number = models.CharField(max_length=255)
+    categoryId = models.ForeignKey(Category, models.DO_NOTHING, db_column='categoryId', blank=True, null=True)
 
     class Meta:
-        managed = False
         db_table = 'question'
-        unique_together = (('categoryid', 'number'),)
+        managed = False
+        unique_together = (('category', 'number'),)
 
 
+# Question and Resource many-to-many
 class QuestionResourcesResource(models.Model):
-    questionid = models.OneToOneField(Question, models.DO_NOTHING, db_column='questionId', primary_key=True)  # Field name made lowercase. The composite primary key (questionId, resourceId) found, that is not supported. The first column is selected.
-    resourceid = models.ForeignKey('Resource', models.DO_NOTHING, db_column='resourceId')  # Field name made lowercase.
+    questionId = models.ForeignKey('Question', on_delete=models.CASCADE, db_column='questionId')
+    resourceId = models.ForeignKey('Resource', on_delete=models.CASCADE, db_column='resourceId')
 
     class Meta:
-        managed = False
         db_table = 'question_resources_resource'
-        unique_together = (('questionid', 'resourceid'),)
+        managed = False
+        unique_together = (('question', 'resource'),)
 
 
 class Resource(models.Model):
@@ -245,50 +252,49 @@ class Resource(models.Model):
         managed = False
         db_table = 'resource'
 
-
 class Response(models.Model):
     id = models.UUIDField(primary_key=True)
     selection = models.CharField()
-    assessmentid = models.ForeignKey(Assessment, models.DO_NOTHING, db_column='assessmentId', blank=True, null=True)  # Field name made lowercase.
-    questionid = models.ForeignKey(Question, models.DO_NOTHING, db_column='questionId', blank=True, null=True)  # Field name made lowercase.
+    assessmentId = models.ForeignKey(Assessment, models.DO_NOTHING, db_column='assessmentId', blank=True, null=True)
+    questionId = models.ForeignKey(Question, models.DO_NOTHING, db_column='questionId', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'response'
-        unique_together = (('assessmentid', 'questionid'),)
+        unique_together = (('assessmentId', 'questionId'),)
 
 
 class Role(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
     role = models.CharField()
     approved = models.BooleanField()
-    createdbyid = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)  # Field name made lowercase.
-    approvedbyid = models.ForeignKey('User', models.DO_NOTHING, db_column='approvedById', related_name='role_approvedbyid_set', blank=True, null=True)  # Field name made lowercase.
-    userid = models.ForeignKey('User', models.DO_NOTHING, db_column='userId', related_name='role_userid_set', blank=True, null=True)  # Field name made lowercase.
-    organizationid = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId', blank=True, null=True)  # Field name made lowercase.
+    createdById = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)
+    approvedById = models.ForeignKey('User', models.DO_NOTHING, db_column='approvedById', related_name='role_approvedbyid_set', blank=True, null=True)
+    userId = models.ForeignKey('User', models.DO_NOTHING, db_column='userId', related_name='role_userid_set', blank=True, null=True)
+    organizationId = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'role'
-        unique_together = (('userid', 'organizationid'),)
+        unique_together = (('userId', 'organizationId'),)
 
 
 class SavedSearch(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
     name = models.CharField()
-    searchterm = models.CharField(db_column='searchTerm')  # Field name made lowercase.
-    sortdirection = models.CharField(db_column='sortDirection')  # Field name made lowercase.
-    sortfield = models.CharField(db_column='sortField')  # Field name made lowercase.
+    searchTerm = models.CharField(db_column='searchTerm')
+    sortDirection = models.CharField(db_column='sortDirection')
+    sortField = models.CharField(db_column='sortField')
     count = models.IntegerField()
     filters = models.JSONField()
-    searchpath = models.CharField(db_column='searchPath')  # Field name made lowercase.
-    createvulnerabilities = models.BooleanField(db_column='createVulnerabilities')  # Field name made lowercase.
-    vulnerabilitytemplate = models.JSONField(db_column='vulnerabilityTemplate')  # Field name made lowercase.
-    createdbyid = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)  # Field name made lowercase.
+    searchPath = models.CharField(db_column='searchPath')
+    createVulnerabilities = models.BooleanField(db_column='createVulnerabilities')
+    vulnerabilityTemplate = models.JSONField(db_column='vulnerabilityTemplate')
+    createdById = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -297,17 +303,17 @@ class SavedSearch(models.Model):
 
 class Scan(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
     name = models.CharField()
-    arguments = models.TextField()  # This field type is a guess.
+    arguments = models.JSONField()
     frequency = models.IntegerField()
-    lastrun = models.DateTimeField(db_column='lastRun', blank=True, null=True)  # Field name made lowercase.
-    isgranular = models.BooleanField(db_column='isGranular')  # Field name made lowercase.
-    isusermodifiable = models.BooleanField(db_column='isUserModifiable', blank=True, null=True)  # Field name made lowercase.
-    issinglescan = models.BooleanField(db_column='isSingleScan')  # Field name made lowercase.
-    manualrunpending = models.BooleanField(db_column='manualRunPending')  # Field name made lowercase.
-    createdbyid = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)  # Field name made lowercase.
+    lastRun = models.DateTimeField(db_column='lastRun', blank=True, null=True)
+    isGranular = models.BooleanField(db_column='isGranular')
+    isUserModifiable = models.BooleanField(db_column='isUserModifiable', blank=True, null=True)
+    isSingleScan = models.BooleanField(db_column='isSingleScan')
+    manualRunPending = models.BooleanField(db_column='manualRunPending')
+    createdBy = models.ForeignKey('User', models.DO_NOTHING, db_column='createdById', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -315,40 +321,40 @@ class Scan(models.Model):
 
 
 class ScanOrganizationsOrganization(models.Model):
-    scanid = models.OneToOneField(Scan, models.DO_NOTHING, db_column='scanId', primary_key=True)  # Field name made lowercase. The composite primary key (scanId, organizationId) found, that is not supported. The first column is selected.
-    organizationid = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId')  # Field name made lowercase.
+    scanId = models.OneToOneField(Scan, models.DO_NOTHING, db_column='scanId', primary_key=True) # The composite primary key (scanId, organizationId) found, that is not supported. The first column is selected.
+    organizationId = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId')
 
     class Meta:
         managed = False
         db_table = 'scan_organizations_organization'
-        unique_together = (('scanid', 'organizationid'),)
+        unique_together = (('scanId', 'organizationId'),)
 
 
 class ScanTagsOrganizationTag(models.Model):
-    scanid = models.OneToOneField(Scan, models.DO_NOTHING, db_column='scanId', primary_key=True)  # Field name made lowercase. The composite primary key (scanId, organizationTagId) found, that is not supported. The first column is selected.
-    organizationtagid = models.ForeignKey(OrganizationTag, models.DO_NOTHING, db_column='organizationTagId')  # Field name made lowercase.
+    scanId = models.OneToOneField(Scan, models.DO_NOTHING, db_column='scanId', primary_key=True) # The composite primary key (scanId, organizationTagId) found, that is not supported. The first column is selected.
+    organizationTagId = models.ForeignKey(OrganizationTag, models.DO_NOTHING, db_column='organizationTagId')
 
     class Meta:
         managed = False
         db_table = 'scan_tags_organization_tag'
-        unique_together = (('scanid', 'organizationtagid'),)
+        unique_together = (('scanId', 'organizationTagId'),)
 
 
 class ScanTask(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
     status = models.TextField()
     type = models.TextField()
-    fargatetaskarn = models.TextField(db_column='fargateTaskArn', blank=True, null=True)  # Field name made lowercase.
+    fargateTaskArn = models.TextField(db_column='fargateTaskArn', blank=True, null=True)
     input = models.TextField(blank=True, null=True)
     output = models.TextField(blank=True, null=True)
-    requestedat = models.DateTimeField(db_column='requestedAt', blank=True, null=True)  # Field name made lowercase.
-    startedat = models.DateTimeField(db_column='startedAt', blank=True, null=True)  # Field name made lowercase.
-    finishedat = models.DateTimeField(db_column='finishedAt', blank=True, null=True)  # Field name made lowercase.
-    queuedat = models.DateTimeField(db_column='queuedAt', blank=True, null=True)  # Field name made lowercase.
-    organizationid = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId', blank=True, null=True)  # Field name made lowercase.
-    scanid = models.ForeignKey(Scan, models.DO_NOTHING, db_column='scanId', blank=True, null=True)  # Field name made lowercase.
+    requestedAt = models.DateTimeField(db_column='requestedAt', blank=True, null=True)
+    startedAt = models.DateTimeField(db_column='startedAt', blank=True, null=True)
+    finishedAt = models.DateTimeField(db_column='finishedAt', blank=True, null=True)
+    queuedAt = models.DateTimeField(db_column='queuedAt', blank=True, null=True)
+    organizationId = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId', blank=True, null=True)
+    scanId = models.ForeignKey(Scan, models.DO_NOTHING, db_column='scanId', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -356,37 +362,37 @@ class ScanTask(models.Model):
 
 
 class ScanTaskOrganizationsOrganization(models.Model):
-    scantaskid = models.OneToOneField(ScanTask, models.DO_NOTHING, db_column='scanTaskId', primary_key=True)  # Field name made lowercase. The composite primary key (scanTaskId, organizationId) found, that is not supported. The first column is selected.
-    organizationid = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId')  # Field name made lowercase.
+    scanTaskId = models.OneToOneField(ScanTask, models.DO_NOTHING, db_column='scanTaskId', primary_key=True) # The composite primary key (scanTaskId, organizationId) found, that is not supported. The first column is selected.
+    organizationId = models.ForeignKey(Organization, models.DO_NOTHING, db_column='organizationId')
 
     class Meta:
         managed = False
         db_table = 'scan_task_organizations_organization'
-        unique_together = (('scantaskid', 'organizationid'),)
+        unique_together = (('scanTaskId', 'organizationId'),)
 
 
 class Service(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    servicesource = models.TextField(db_column='serviceSource', blank=True, null=True)  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    serviceSource = models.TextField(db_column='serviceSource', blank=True, null=True)
     port = models.IntegerField()
     service = models.CharField(blank=True, null=True)
-    lastseen = models.DateTimeField(db_column='lastSeen', blank=True, null=True)  # Field name made lowercase.
+    lastSeen = models.DateTimeField(db_column='lastSeen', blank=True, null=True)
     banner = models.TextField(blank=True, null=True)
     products = models.JSONField()
-    censysmetadata = models.JSONField(db_column='censysMetadata')  # Field name made lowercase.
-    censysipv4results = models.JSONField(db_column='censysIpv4Results')  # Field name made lowercase.
-    intrigueidentresults = models.JSONField(db_column='intrigueIdentResults')  # Field name made lowercase.
-    shodanresults = models.JSONField(db_column='shodanResults')  # Field name made lowercase.
-    wappalyzerresults = models.JSONField(db_column='wappalyzerResults')  # Field name made lowercase.
-    domainid = models.ForeignKey(Domain, models.DO_NOTHING, db_column='domainId', blank=True, null=True)  # Field name made lowercase.
-    discoveredbyid = models.ForeignKey(Scan, models.DO_NOTHING, db_column='discoveredById', blank=True, null=True)  # Field name made lowercase.
+    censysMetadata = models.JSONField(db_column='censysMetadata')
+    censysIpv4Results = models.JSONField(db_column='censysIpv4Results')
+    intrigueIdentResults = models.JSONField(db_column='intrigueIdentResults')
+    shodanResults = models.JSONField(db_column='shodanResults')
+    wappalyzerResults = models.JSONField(db_column='wappalyzerResults')
+    domainId = models.ForeignKey(Domain, models.DO_NOTHING, db_column='domainId', blank=True, null=True)
+    discoveredById = models.ForeignKey(Scan, models.DO_NOTHING, db_column='discoveredById', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'service'
-        unique_together = (('port', 'domainid'),)
+        unique_together = (('port', 'domainId'),)
 
 
 class TypeormMetadata(models.Model):
@@ -404,23 +410,23 @@ class TypeormMetadata(models.Model):
 
 class User(models.Model):
     id = models.UUIDField(primary_key=True)
-    cognitoid = models.CharField(db_column='cognitoId', unique=True, blank=True, null=True)  # Field name made lowercase.
-    logingovid = models.CharField(db_column='loginGovId', unique=True, blank=True, null=True)  # Field name made lowercase.
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    firstname = models.CharField(db_column='firstName')  # Field name made lowercase.
-    lastname = models.CharField(db_column='lastName')  # Field name made lowercase.
-    fullname = models.CharField(db_column='fullName')  # Field name made lowercase.
+    cognitoId = models.CharField(db_column='cognitoId', unique=True, blank=True, null=True)
+    loginGovId = models.CharField(db_column='loginGovId', unique=True, blank=True, null=True)
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    firstName = models.CharField(db_column='firstName')
+    lastName = models.CharField(db_column='lastName')
+    fullName = models.CharField(db_column='fullName')
     email = models.CharField(unique=True)
-    invitepending = models.BooleanField(db_column='invitePending')  # Field name made lowercase.
-    loginblockedbymaintenance = models.BooleanField(db_column='loginBlockedByMaintenance')  # Field name made lowercase.
-    dateacceptedterms = models.DateTimeField(db_column='dateAcceptedTerms', blank=True, null=True)  # Field name made lowercase.
-    acceptedtermsversion = models.TextField(db_column='acceptedTermsVersion', blank=True, null=True)  # Field name made lowercase.
-    lastloggedin = models.DateTimeField(db_column='lastLoggedIn', blank=True, null=True)  # Field name made lowercase.
-    usertype = models.TextField(db_column='userType')  # Field name made lowercase.
-    regionid = models.CharField(db_column='regionId', blank=True, null=True)  # Field name made lowercase.
+    invitePending = models.BooleanField(db_column='invitePending')
+    loginBlockedByMaintenance = models.BooleanField(db_column='loginBlockedByMaintenance')
+    dateAcceptedTerms = models.DateTimeField(db_column='dateAcceptedTerms', blank=True, null=True)
+    acceptedTermsVersion = models.TextField(db_column='acceptedTermsVersion', blank=True, null=True)
+    lastLoggedIn = models.DateTimeField(db_column='lastLoggedIn', blank=True, null=True)
+    userType = models.TextField(db_column='userType')
+    regionId = models.CharField(db_column='regionId', blank=True, null=True)
     state = models.CharField(blank=True, null=True)
-    oktaid = models.CharField(db_column='oktaId', unique=True, blank=True, null=True)  # Field name made lowercase.
+    oktaId = models.CharField(db_column='oktaId', unique=True, blank=True, null=True)
 
     class Meta:
         managed = False
@@ -429,9 +435,9 @@ class User(models.Model):
 
 class Vulnerability(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    lastseen = models.DateTimeField(db_column='lastSeen', blank=True, null=True)  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    lastSeen = models.DateTimeField(db_column='lastSeen', blank=True, null=True)
     title = models.CharField()
     cve = models.TextField(blank=True, null=True)
     cwe = models.TextField(blank=True, null=True)
@@ -440,39 +446,39 @@ class Vulnerability(models.Model):
     references = models.JSONField()
     cvss = models.DecimalField(max_digits=65535, decimal_places=65535, blank=True, null=True)
     severity = models.TextField(blank=True, null=True)
-    needspopulation = models.BooleanField(db_column='needsPopulation')  # Field name made lowercase.
+    needsPopulation = models.BooleanField(db_column='needsPopulation')
     state = models.CharField()
     substate = models.CharField()
     source = models.CharField()
     notes = models.CharField()
     actions = models.JSONField()
-    structureddata = models.JSONField(db_column='structuredData')  # Field name made lowercase.
-    iskev = models.BooleanField(db_column='isKev', blank=True, null=True)  # Field name made lowercase.
-    kevresults = models.JSONField(db_column='kevResults', blank=True, null=True)  # Field name made lowercase.
-    domainid = models.ForeignKey(Domain, models.DO_NOTHING, db_column='domainId', blank=True, null=True)  # Field name made lowercase.
-    serviceid = models.ForeignKey(Service, models.DO_NOTHING, db_column='serviceId', blank=True, null=True)  # Field name made lowercase.
+    structuredData = models.JSONField(db_column='structuredData')
+    isKev = models.BooleanField(db_column='isKev', blank=True, null=True)
+    kevResults = models.JSONField(db_column='kevResults', blank=True, null=True)
+    domainId = models.ForeignKey(Domain, models.DO_NOTHING, db_column='domainId', blank=True, null=True)
+    serviceId = models.ForeignKey(Service, models.DO_NOTHING, db_column='serviceId', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'vulnerability'
-        unique_together = (('domainid', 'title'),)
+        unique_together = (('domainId', 'title'),)
 
 
 class Webpage(models.Model):
     id = models.UUIDField(primary_key=True)
-    createdat = models.DateTimeField(db_column='createdAt')  # Field name made lowercase.
-    updatedat = models.DateTimeField(db_column='updatedAt')  # Field name made lowercase.
-    syncedat = models.DateTimeField(db_column='syncedAt', blank=True, null=True)  # Field name made lowercase.
-    lastseen = models.DateTimeField(db_column='lastSeen', blank=True, null=True)  # Field name made lowercase.
-    s3key = models.CharField(db_column='s3Key', blank=True, null=True)  # Field name made lowercase.
+    createdAt = models.DateTimeField(db_column='createdAt')
+    updatedAt = models.DateTimeField(db_column='updatedAt')
+    syncedAt = models.DateTimeField(db_column='syncedAt', blank=True, null=True)
+    lastSeen = models.DateTimeField(db_column='lastSeen', blank=True, null=True)
+    s3key = models.CharField(db_column='s3Key', blank=True, null=True)
     url = models.CharField()
     status = models.DecimalField(max_digits=65535, decimal_places=65535)
-    responsesize = models.DecimalField(db_column='responseSize', max_digits=65535, decimal_places=65535, blank=True, null=True)  # Field name made lowercase.
+    responseSize = models.DecimalField(db_column='responseSize', max_digits=65535, decimal_places=65535, blank=True, null=True)
     headers = models.JSONField()
-    domainid = models.ForeignKey(Domain, models.DO_NOTHING, db_column='domainId', blank=True, null=True)  # Field name made lowercase.
-    discoveredbyid = models.ForeignKey(Scan, models.DO_NOTHING, db_column='discoveredById', blank=True, null=True)  # Field name made lowercase.
+    domainId = models.ForeignKey(Domain, models.DO_NOTHING, db_column='domainId', blank=True, null=True)
+    discoveredById = models.ForeignKey(Scan, models.DO_NOTHING, db_column='discoveredById', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'webpage'
-        unique_together = (('url', 'domainid'),)
+        unique_together = (('url', 'domainId'),)
