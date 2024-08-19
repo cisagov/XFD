@@ -155,7 +155,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   const showUsersRegionDisabled = useMemo(() => {
     return (
       (userLevel === STANDARD_USER ||
-        !REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS) &&
+        (!REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS && userLevel !== GLOBAL_ADMIN)) &&
       user?.regionId
     );
   }, [user?.regionId, userLevel]);

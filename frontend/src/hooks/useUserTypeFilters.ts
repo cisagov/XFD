@@ -3,7 +3,7 @@ import { GLOBAL_ADMIN, REGIONAL_ADMIN, STANDARD_USER } from './useUserLevel';
 import { GLOBAL_VIEW } from 'context/userStateUtils';
 import { OrganizationShallow } from 'components/OrganizationSearch';
 
-export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = true;
+export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = false;
 
 interface Filter {
   field: string;
