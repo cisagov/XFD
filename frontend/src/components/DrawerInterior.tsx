@@ -15,8 +15,7 @@ import {
   FormControlLabel,
   Checkbox,
   ListItem,
-  FormGroup,
-  Icon
+  FormGroup
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -71,7 +70,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   const { apiGet, apiDelete } = useAuthContext();
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchCount, setSavedSearchCount] = useState(0);
-  const history = useHistory();
   const location = useLocation();
 
   useEffect(() => {
@@ -97,25 +95,44 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       console.log(e);
     }
   };
+  console.log('searchTerm:', searchTerm);
+  console.log('location.pathname:', location.pathname);
+  const displaySavedSearch = (id: string) => {
+    const savedSearch = savedSearches.find((search) => search.id === id);
+    if (savedSearch) {
+      localStorage.setItem('savedSearch', JSON.stringify(savedSearch));
+      setSearchTerm(savedSearch.searchTerm, {
+        shouldClearFilters: false,
+        autocompleteResults: false
+      });
+    }
 
-  // const applySavedSearch = () => {
-  //   // localStorage.setItem('savedSearch', JSON.stringify(searchTerm));
-  //   console.log('Saved Search:', searchTerm);
-  //   console.log('saved searches:', savedSearches);
-  //   setSearchTerm(searchTerm, {
-  //     shouldClearFilters: false,
-  //     autocompleteResults: false
-  //   });
-  //   if (location.pathname !== '/inventory')
-  //     history.push('/inventory?q=' + searchTerm);
+    // Apply the filters
+    savedSearch?.filters?.forEach((filter) => {
+      filter.values.forEach((value) => {
+        addFilter(filter.field, value, 'any');
+      });
+    });
+  };
+  console.log('filters', filters);
+  //need to revert filters to default state
+  const revertSearch = () => {
+    setSearchTerm('', {
+      shouldClearFilters: true,
+      autocompleteResults: false
+    });
+  };
 
-  //   // Apply the filters
-  //   filters.forEach((filter) => {
-  //     filter.values.forEach((value: string) => {
-  //       addFilter(filter.field, value, 'any');
-  //     });
-  //   });
-  // };
+  const toggleSavedSearches = (id: string) => {
+    const savedSearch = savedSearches.find((search) => search.id === id);
+    if (savedSearch) {
+      if (searchTerm === savedSearch.searchTerm) {
+        revertSearch();
+      } else {
+        displaySavedSearch(id);
+      }
+    }
+  };
 
   const filtersByColumn = useMemo(
     () =>
@@ -167,8 +184,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           initialValue={searchTerm}
           value={searchTerm}
           onChange={(value) => {
-            if (location.pathname !== '/inventory')
-              history.push('/inventory?q=' + value);
             setSearchTerm(value, {
               shouldClearFilters: false,
               autocompleteResults: false
@@ -406,31 +421,14 @@ export const DrawerInterior: React.FC<Props> = (props) => {
                     control={<Checkbox />}
                     label={search.name}
                     sx={{ padding: '0px' }}
-                    onChange={() => {
-                      localStorage.setItem(
-                        'savedSearch',
-                        JSON.stringify(search)
-                      );
-                      setSearchTerm(search.searchTerm, {
-                        shouldClearFilters: false,
-                        autocompleteResults: false
-                      });
-                      if (location.pathname !== '/inventory')
-                        history.push('/inventory?q=' + search.searchTerm);
-
-                      // Apply the filters
-                      search.filters.forEach((filter) => {
-                        filter.values.forEach((value) => {
-                          addFilter(filter.field, value, 'any');
-                        });
-                      });
-                    }}
+                    onChange={() => toggleSavedSearches(search.id)}
+                    checked={searchTerm === search.searchTerm}
                   />
                 </FormGroup>
                 <IconButton
                   aria-label="Delete"
                   title="Delete Search"
-                  onClick={() => deleteSearch(search.id.toString())}
+                  onClick={() => deleteSearch(search.id)}
                 >
                   <Delete />
                 </IconButton>
@@ -462,10 +460,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
                           shouldClearFilters: false,
                           autocompleteResults: false
                         });
-                        if (location.pathname !== '/inventory')
-                          history.push(
-                            '/inventory?q=' + cellValues.row.searchTerm
-                          );
 
                         // Apply the filters
                         cellValues.row.filters.forEach((filter) => {
