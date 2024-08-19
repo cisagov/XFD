@@ -5,12 +5,10 @@ import {
   Autocomplete,
   Button,
   Chip,
-  createFilterOptions,
   DialogTitle,
   DialogContent,
   DialogActions,
   FormControlLabel,
-  Grid,
   MenuItem,
   Select,
   Switch,
@@ -18,10 +16,12 @@ import {
   Typography
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
-import { STATE_OPTIONS } from '../../constants/constants';
+import {
+  STATE_ABBREVIATED_OPTIONS,
+  STATE_OPTIONS
+} from '../../constants/constants';
 import { useAuthContext } from 'context';
 
-const classes = orgFormStyles.classes;
 const StyledDialog = orgFormStyles.StyledDialog;
 
 interface AutocompleteType extends Partial<OrganizationTag> {
@@ -33,10 +33,21 @@ export interface OrganizationFormValues {
   rootDomains: string;
   ipBlocks: string;
   isPassive: boolean;
-  tags: OrganizationTag[];
+  tags: { name: string }[];
   stateName?: string | null | undefined;
   acronym?: string | null;
+  state?: string | null;
 }
+
+const getStateAbbreviation = (stateName: string | null): string | undefined => {
+  if (stateName) {
+    const index = STATE_OPTIONS.indexOf(stateName);
+    if (index !== -1) {
+      return STATE_ABBREVIATED_OPTIONS[index];
+    }
+  }
+  return '';
+};
 
 export const OrganizationForm: React.FC<{
   organization?: Organization;
@@ -45,7 +56,18 @@ export const OrganizationForm: React.FC<{
   onSubmit: (values: Object) => Promise<void>;
   type: string;
   parent?: Organization;
-}> = ({ organization, onSubmit, type, open, setOpen, parent }) => {
+  chosenTags: string[];
+  setChosenTags: Function;
+}> = ({
+  organization,
+  onSubmit,
+  type,
+  open,
+  setOpen,
+  parent,
+  chosenTags,
+  setChosenTags
+}) => {
   const defaultValues = () => ({
     name: organization ? organization.name : '',
     rootDomains: organization ? organization.rootDomains.join(', ') : '',
@@ -56,6 +78,14 @@ export const OrganizationForm: React.FC<{
     acronym: organization ? organization.acronym : ''
   });
 
+  const [values, setValues] = useState<OrganizationFormValues>(defaultValues);
+  const [tags, setTags] = useState<AutocompleteType[]>([]);
+  const [formErrors, setFormErrors] = useState({
+    name: false,
+    acronym: false,
+    rootDomains: false,
+    stateName: false
+  });
   const { apiGet } = useAuthContext();
 
   const fetchTags = useCallback(async () => {
@@ -71,14 +101,20 @@ export const OrganizationForm: React.FC<{
     fetchTags();
   }, [fetchTags]);
 
-  const [values, setValues] = useState<OrganizationFormValues>(defaultValues);
-  const [tagValue, setTagValue] = React.useState<AutocompleteType | null>(null);
-  const filter = createFilterOptions<AutocompleteType>();
-  const [tags, setTags] = useState<AutocompleteType[]>([]);
-  const [chosenTags, setChosenTags] = useState<AutocompleteType[]>([]);
   const onTextChange: React.ChangeEventHandler<
     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
   > = (e) => onChange(e.target.name, e.target.value);
+
+  const validateForm = (values: OrganizationFormValues) => {
+    const newFormErrors = {
+      name: values.name.trim() === '',
+      acronym: values.acronym?.trim() === '',
+      rootDomains: values.rootDomains.trim() === '',
+      stateName: values.stateName?.trim() === ''
+    };
+    setFormErrors(newFormErrors);
+    return !Object.values(newFormErrors).some((error) => error);
+  };
 
   const onChange = (name: string, value: any) => {
     setValues((values) => ({
@@ -89,7 +125,16 @@ export const OrganizationForm: React.FC<{
   const handleStateChange = (event: SelectChangeEvent<string | null>) => {
     setValues((values) => ({
       ...values,
-      [event.target.name]: event.target.value
+      [event.target.name]: event.target.value,
+      state: getStateAbbreviation(event.target.value)
+    }));
+  };
+
+  const handleTagChange = (event: any, newValue: string[]) => {
+    setChosenTags(newValue);
+    setValues((prevValues) => ({
+      ...prevValues,
+      tags: newValue.map((tag) => ({ name: tag }))
     }));
   };
 
@@ -100,6 +145,7 @@ export const OrganizationForm: React.FC<{
       }
     }
   };
+
   return (
     <StyledDialog
       open={open}
@@ -125,6 +171,8 @@ export const OrganizationForm: React.FC<{
           fullWidth
           value={values.name}
           onChange={onTextChange}
+          error={formErrors.name}
+          helperText={formErrors.name && 'Organization Name is required'}
         />
         Organization Acronym
         <TextField
@@ -139,11 +187,13 @@ export const OrganizationForm: React.FC<{
           fullWidth
           value={values.acronym}
           onChange={onTextChange}
+          error={formErrors.acronym}
+          helperText={formErrors.acronym && 'Organization Acronym is required'}
         />
         Root Domains
         <TextField
           sx={textFieldStyling}
-          placeholder="Enter Root Domains"
+          placeholder="Enter Root Domains, comma separated"
           size="small"
           margin="dense"
           id="rootDomains"
@@ -152,11 +202,15 @@ export const OrganizationForm: React.FC<{
           fullWidth
           value={values.rootDomains}
           onChange={onTextChange}
+          error={formErrors.rootDomains}
+          helperText={
+            formErrors.rootDomains && 'At least one Root Domain is required'
+          }
         />
         IP Blocks
         <TextField
           sx={textFieldStyling}
-          placeholder="Enter IP Blocks"
+          placeholder="Enter IP Blocks, comma separated"
           size="small"
           margin="dense"
           id="ipBlocks"
@@ -179,8 +233,13 @@ export const OrganizationForm: React.FC<{
           renderValue={
             values.stateName !== ''
               ? undefined
-              : () => <Typography color="#bdbdbd">Select your State</Typography>
+              : () => (
+                  <Typography color="#bdbdbd">
+                    Select a US State or Territory
+                  </Typography>
+                )
           }
+          error={formErrors.stateName}
         >
           {STATE_OPTIONS.map((stateName: string, index: number) => (
             <MenuItem key={index} value={stateName}>
@@ -188,105 +247,44 @@ export const OrganizationForm: React.FC<{
             </MenuItem>
           ))}
         </Select>
-        {/* TODO: Fix Tag selection issues. */}
-        <Typography mt={1}>Tags</Typography>
+        {formErrors.stateName && (
+          <Typography pl={2} variant="caption" color="error.main">
+            Organization State is required
+            <br />
+          </Typography>
+        )}
+        <Autocomplete
+          sx={{ mt: 1 }}
+          multiple
+          options={tags
+            .map((option) => option.name)
+            .filter((name): name is string => name !== undefined)}
+          freeSolo
+          value={chosenTags}
+          onChange={handleTagChange}
+          renderTags={(value: readonly string[], getTagProps) =>
+            value.map((option: string, index: number) => {
+              const { key, ...tagProps } = getTagProps({ index });
+              return (
+                <Chip
+                  variant="outlined"
+                  label={option}
+                  key={key}
+                  {...tagProps}
+                />
+              );
+            })
+          }
+          renderInput={(params) => (
+            <TextField {...params} placeholder="Select or add tags" />
+          )}
+        />
         <Typography variant="caption">
-          Select an existing tag or add a new one.
+          Select an existing tag or type and press enter to add a new one.
         </Typography>
-        <span>
-          {chosenTags &&
-            chosenTags.length > 0 &&
-            chosenTags.map((value: AutocompleteType, index: number) => (
-              <Chip
-                className={classes.chip}
-                key={index}
-                label={typeof value === 'string' ? value : value.name}
-                onDelete={() => {
-                  const tagIndex = chosenTags?.indexOf(value);
-                  if (tagIndex >= 0) {
-                    chosenTags?.splice(tagIndex, 1);
-                    setChosenTags([...chosenTags]);
-                  }
-                }}
-              ></Chip>
-            ))}
-        </span>
-        <Grid container>
-          <Grid item xs={10}>
-            <Autocomplete
-              value={tagValue}
-              onInputChange={(event, newValue) => {
-                if (typeof newValue === 'string') {
-                  setTagValue({
-                    name: newValue
-                  });
-                } else {
-                  setTagValue(newValue);
-                }
-              }}
-              filterOptions={(options, params) => {
-                const filtered = filter(options, params);
-                // Suggest the creation of a new value
-                if (
-                  params.inputValue !== '' &&
-                  !filtered.find(
-                    (tag) =>
-                      tag.name?.toLowerCase() ===
-                      params.inputValue.toLowerCase()
-                  )
-                ) {
-                  filtered.push({
-                    name: params.inputValue,
-                    title: `Add "${params.inputValue}"`
-                  });
-                }
-                return filtered;
-              }}
-              selectOnFocus
-              clearOnBlur
-              handleHomeEndKeys
-              options={tags.filter((i) => !chosenTags.includes(i))}
-              getOptionLabel={(option) => {
-                if (typeof option === 'string') {
-                  return option;
-                }
-                return (option as AutocompleteType).name ?? '';
-              }}
-              renderOption={(props, option, { selected }) => {
-                if (option.title) return option.title;
-                return option.name ?? '';
-              }}
-              fullWidth
-              freeSolo
-              renderInput={(params) => (
-                <TextField {...params} variant="outlined" />
-              )}
-            />
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              style={{
-                maxWidth: '100%',
-                maxHeight: '100%',
-                minWidth: '100%',
-                minHeight: '100%'
-              }}
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                if (chosenTags && tagValue) {
-                  if (chosenTags.indexOf({ title: tagValue.title }) === -1) {
-                    setChosenTags((e) => [...e, tagValue]);
-                  }
-                }
-                setTagValue(null);
-              }}
-            >
-              Add
-            </Button>
-          </Grid>
-        </Grid>
+        <br />
         <FormControlLabel
+          sx={{ mt: 1 }}
           control={
             <Switch
               checked={values.isPassive}
@@ -308,6 +306,9 @@ export const OrganizationForm: React.FC<{
           variant="contained"
           color="primary"
           onClick={async () => {
+            if (!validateForm(values)) {
+              return;
+            }
             await onSubmit({
               rootDomains:
                 values.rootDomains === ''
@@ -321,8 +322,9 @@ export const OrganizationForm: React.FC<{
                   : values.ipBlocks.split(',').map((ip) => ip.trim()),
               name: values.name,
               stateName: values.stateName,
+              state: values.state,
               isPassive: values.isPassive,
-              tags: chosenTags,
+              tags: values.tags,
               acronym: values.acronym,
               parent: parent ? parent.id : undefined
             });
