@@ -126,13 +126,6 @@ resources:
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
-    HibpQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-hibp-queue
-        VisibilityTimeout: 18000  # 5 hours
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
     IntelxQueue:
       Type: AWS::SQS::Queue
       Properties:
@@ -163,4 +156,3 @@ plugins:
   - serverless-domain-manager
   - serverless-webpack
   - serverless-dotenv-plugin
-  - serverless-python-requirements

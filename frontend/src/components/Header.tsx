@@ -29,7 +29,6 @@ const classes = {
   link: `${PREFIX}-link`,
   userLink: `${PREFIX}-userLink`,
   lgNav: `${PREFIX}-lgNav`,
-  mobileNav: `${PREFIX}-mobileNav`,
   selectOrg: `${PREFIX}-selectOrg`,
   option: `${PREFIX}-option`
 };
@@ -106,9 +105,6 @@ const Root = styled('div')(({ theme }) => ({
     }
   },
 
-  [`.${classes.mobileNav}`]: {
-    padding: `${theme.spacing(2)} ${theme.spacing()}px`
-  },
   [`.${classes.selectOrg}`]: {
     border: '1px solid #FFFFFF',
     borderRadius: '5px',
@@ -342,11 +338,12 @@ export const Header: React.FC<HeaderProps> = ({
           }
         }}
       >
-        <List className={classes.mobileNav}>
+        <List sx={{ p: 2 }}>
           {drawerItems.map(({ title, path }) => (
             <React.Fragment key={title.toString()}>
               {path && (
                 <ListItem
+                  sx={{ color: 'white' }}
                   exact
                   component={NavLink}
                   to={path}
