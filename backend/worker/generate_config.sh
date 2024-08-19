@@ -12,9 +12,6 @@ port=5432
 [shodan]
 key1=${PE_SHODAN_API_KEYS}
 
-[hibp]
-key=${HIBP_API_KEY}
-
 [pe_api]
 pe_api_key=${PE_API_KEY}
 pe_api_url=https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/
