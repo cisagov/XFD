@@ -3,7 +3,7 @@
 exports[`Header component matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="css-1ioelfd"
+    class="css-r5wyex"
   >
     <header
       class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionStatic css-1twrj82-MuiPaper-root-MuiAppBar-root"
@@ -20,6 +20,7 @@ exports[`Header component matches snapshot 1`] = `
             type="button"
           />
           <button
+            aria-label="Open filter drawer"
             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-78trlr-MuiButtonBase-root-MuiIconButton-root"
             tabindex="0"
             type="button"

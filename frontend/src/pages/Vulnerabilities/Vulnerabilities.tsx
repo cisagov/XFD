@@ -164,7 +164,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
 
   const fetchVulnerabilities = useCallback(
     async (query: Query<Vulnerability>) => {
-      setIsLoading(true);
       try {
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
@@ -224,6 +223,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   }, [fetchVulnerabilities]);
 
   useEffect(() => {
+    setIsLoading(true);
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
@@ -461,7 +461,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
             <Typography>
               Displaying {state.title} vulnerabilities.{' '}
-              <Button onClick={() => fetchVulnerabilities}>
+              <Button onClick={resetVulnerabilities}>
                 Reset Vulnerabilities
               </Button>
             </Typography>
@@ -478,7 +478,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Vulnerabilities!</Alert>
             </Paper>
-            {/* <Stack direction="row" spacing={2} justifyContent="end"> */}
             <Button
               onClick={resetVulnerabilities}
               variant="contained"
@@ -487,7 +486,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             >
               Retry
             </Button>
-            {/* </Stack> */}
           </Stack>
         ) : isLoading === false && loadingError === false ? (
           <Paper elevation={2} sx={{ width: '90%' }}>

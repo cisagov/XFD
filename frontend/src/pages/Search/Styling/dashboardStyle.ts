@@ -27,10 +27,8 @@ export const Root = styled('div')(() => ({
     display: 'flex',
     flexFlow: 'column nowrap',
     alignItems: 'stretch',
-    // justifyContent: 'center',
-    margin: '0'
-    // height: 'calc(100% - 72px)'
-    // overflowY: 'hidden'
+    margin: '0',
+    height: '100%'
   },
 
   [`& .${classes.contentWrapper}`]: {

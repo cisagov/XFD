@@ -165,6 +165,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       />
       <Box
         position="relative"
+        height="calc(100% - 32px - 32px - 46px - 10px)"
         maxHeight="100%"
         width="100%"
         display="flex"
@@ -187,11 +188,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             }
             existingSavedSearch={search}
           />
-          {noResults && (
-            <NoResults
-              message={"We don't see any results that match your criteria."}
-            ></NoResults>
-          )}
           <Box
             height="100%"
             flexDirection="column"
@@ -204,14 +200,28 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             padding="0 0 2rem 0"
             sx={{ overflowY: 'auto' }}
           >
-            {results.map((result) => (
-              <ResultCard
-                key={result.id.raw}
-                {...result}
-                onDomainSelected={(id) => setSelectedDomain(id)}
-                selected={result.id.raw === selectedDomain}
-              />
-            ))}
+            {noResults ? (
+              <Box
+                display="flex"
+                flex="1"
+                alignItems="center"
+                justifyContent="center"
+                height="100%"
+              >
+                <NoResults
+                  message={"We don't see any results that match your criteria."}
+                ></NoResults>
+              </Box>
+            ) : (
+              results.map((result) => (
+                <ResultCard
+                  key={result.id.raw}
+                  {...result}
+                  onDomainSelected={(id) => setSelectedDomain(id)}
+                  selected={result.id.raw === selectedDomain}
+                />
+              ))
+            )}
           </Box>
         </Box>
       </Box>

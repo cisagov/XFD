@@ -57,9 +57,6 @@ const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
     }),
     [theme.breakpoints.up('lg')]: {
       marginLeft: 0
-    },
-    [theme.breakpoints.down('lg')]: {
-      marginLeft: 0
     }
   })
 }));
@@ -169,24 +166,20 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                 height: '100vh'
               }}
             >
-              {userLevel > 0 &&
-              matchPath(
-                [
-                  '/',
-                  '/inventory',
-                  '/inventory/domains',
-                  '/inventory/vulnerabilities'
-                ],
-                pathname
-              ) ? (
+              {userLevel > 0 ? (
                 <FilterDrawerV2
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   isMobile={isMobile}
                 />
               ) : (
-                <Drawer sx={{ width: drawerWidth }} variant="persistent">
-                  <Box sx={{ width: drawerWidth }} />
+                <Drawer
+                  variant="persistent"
+                  id="dummy-drawer-does-not-offer-functionality"
+                  sx={{ width: drawerWidth }}
+                  PaperProps={{ style: { position: 'unset' } }}
+                >
+                  <Box width={drawerWidth} />
                 </Drawer>
               )}
               <Main open={isFilterDrawerOpen} user={!!user}>
@@ -210,13 +203,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                 >
                   {children}
                 </Box>
-
-                {/* <div className="main-content" id="main-content" tabIndex={-1} />
-                {pathname === '/inventory' ? (
-                  children
-                ) : (
-                  <div className={classes.content}>{children}</div>
-                )} */}
 
                 <CrossfeedFooter />
               </Main>
