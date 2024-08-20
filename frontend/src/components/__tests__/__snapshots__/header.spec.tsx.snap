@@ -20,6 +20,7 @@ exports[`Header component matches snapshot 1`] = `
             type="button"
           />
           <button
+            aria-label="Open filter drawer"
             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-78trlr-MuiButtonBase-root-MuiIconButton-root"
             tabindex="0"
             type="button"
