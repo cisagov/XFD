@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Filters, SortingRule } from 'react-table';
 import { Query } from 'types';
 import { useAuthContext } from 'context';
 import { Vulnerability } from 'types';
@@ -16,7 +15,12 @@ import {
   Stack,
   Typography
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridFilterItem,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -95,14 +99,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const vulnerabilitiesSearch = useCallback(
     async ({
       filters,
-      sort,
       page,
       pageSize = PAGE_SIZE,
       doExport = false,
       groupBy = undefined
     }: {
-      filters: Filters<Vulnerability>;
-      sort: SortingRule<Vulnerability>[];
+      filters: GridFilterItem[];
       page: number;
       pageSize?: number;
       doExport?: boolean;
@@ -116,7 +118,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           .reduce(
             (accum, next) => ({
               ...accum,
-              [next.id]: next.value
+              [next.field]: next.value
             }),
             {}
           );
@@ -146,8 +148,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           {
             body: {
               page,
-              sort: sort[0]?.id ?? 'createdAt',
-              order: sort[0]?.desc ? 'DESC' : 'ASC',
               filters: tableFilters,
               pageSize,
               groupBy
@@ -168,7 +168,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       try {
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
-          sort: query.sort,
           page: query.page,
           pageSize: query.pageSize ?? PAGE_SIZE,
           groupBy
@@ -198,41 +197,42 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const history = useHistory();
   const location = useLocation();
   const state = location.state as LocationState;
-  const [initialFilters, setInitialFilters] = useState<Filters<Vulnerability>>(
+  const [initialFilters, setInitialFilters] = useState<GridFilterItem[]>(
     state?.title
       ? [
           {
-            id: 'title',
-            value: state.title
+            field: 'title',
+            value: state.title,
+            operator: 'contains'
           }
         ]
       : state?.domain
       ? [
           {
-            id: 'domain',
-            value: state.domain
+            field: 'domain',
+            value: state.domain,
+            operator: 'contains'
           }
         ]
       : []
   );
-  const [filters, setFilters] = useState<Filters<Vulnerability>>([]);
+  const [filters, setFilters] = useState(initialFilters);
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: PAGE_SIZE,
     pageCount: 0,
-    sort: [],
-    filters: initialFilters ? initialFilters : filters
+    filters: filters
   });
 
-  const [filterModel] = useState(
-    initialFilters.map((filter) => ({
-      field: filter.id,
-      operatorValue: 'contains',
-      value: filter.value
+  const [filterModel, setFilterModel] = useState({
+    items: filters.map((filter) => ({
+      id: filter.id,
+      field: filter.field,
+      value: filter.value,
+      operator: filter.operator
     }))
-  );
-
+  });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const resetVulnerabilities = useCallback(() => {
@@ -240,7 +240,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
-      sort: [],
       filters: []
     });
   }, [fetchVulnerabilities]);
@@ -250,7 +249,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
-      sort: [],
       filters: initialFilters
     });
   }, [fetchVulnerabilities, initialFilters]);
@@ -479,18 +477,6 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         ]}
       ></Subnav>
       <br></br>
-      {/* {initialFilters.length > 0 && (
-        <Box mt={3} display="flex" justifyContent="center">
-          <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
-            <Typography>
-              Displaying {state.title || state.domain} vulnerabilities.{' '}
-              <Button onClick={resetVulnerabilities}>
-                Reset Vulnerabilities
-              </Button>
-            </Typography>
-          </Paper>
-        </Box>
-      )} */}
       <Box mb={3} mt={3} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
@@ -523,27 +509,26 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
                 fetchVulnerabilities({
                   page: model.page + 1,
                   pageSize: model.pageSize,
-                  sort: paginationModel.sort,
                   filters: paginationModel.filters
                 });
               }}
               filterMode="server"
-              filterModel={{
-                items: filterModel.map((item) => ({
-                  ...item,
-                  operator: 'contains'
-                }))
-              }}
+              filterModel={filterModel}
               onFilterModelChange={(model) => {
                 const filters = model.items.map((item) => ({
-                  id: item.field,
-                  value: item.value
+                  id: item.id,
+                  field: item.field,
+                  value: item.value,
+                  operator: item.operator
                 }));
                 setFilters(filters);
+                setFilterModel((prevFilterModel) => ({
+                  ...prevFilterModel,
+                  items: filters
+                }));
                 fetchVulnerabilities({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
-                  sort: paginationModel.sort,
                   filters: filters
                 });
               }}
