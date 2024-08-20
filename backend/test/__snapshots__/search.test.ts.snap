@@ -74,6 +74,11 @@ Object {
   },
   "query": Object {
     "bool": Object {
+      "filter": Object {
+        "term": Object {
+          "non_existent_field": "",
+        },
+      },
       "must": Array [
         Object {
           "match": Object {
@@ -207,6 +212,11 @@ Object {
   },
   "query": Object {
     "bool": Object {
+      "filter": Object {
+        "term": Object {
+          "non_existent_field": "",
+        },
+      },
       "must": Array [
         Object {
           "match": Object {
