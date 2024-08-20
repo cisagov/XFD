@@ -114,10 +114,6 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
-        "name": "HIBP_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.hibp_api_key.arn}"
-      },
-      {
         "name": "PE_SHODAN_API_KEYS",
         "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
       },

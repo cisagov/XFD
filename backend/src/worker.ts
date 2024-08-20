@@ -11,7 +11,6 @@ import { handler as cveSync } from './tasks/cve-sync';
 import { handler as dnstwist } from './tasks/dnstwist';
 import { handler as dotgov } from './tasks/dotgov';
 import { handler as findomain } from './tasks/findomain';
-import { handler as hibp } from './tasks/hibp';
 import { handler as intrigueIdent } from './tasks/intrigue-ident';
 import { handler as lookingGlass } from './tasks/lookingGlass';
 import { handler as portscanner } from './tasks/portscanner';
@@ -50,7 +49,6 @@ async function main() {
     dnstwist,
     dotgov,
     findomain,
-    hibp,
     intrigueIdent,
     lookingGlass,
     portscanner,

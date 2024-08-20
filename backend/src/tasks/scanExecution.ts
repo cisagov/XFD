@@ -5,14 +5,7 @@ import { integer } from 'aws-sdk/clients/cloudfront';
 const ecs = new AWS.ECS();
 let docker: any;
 const QUEUE_URL = process.env.QUEUE_URL!;
-const SCAN_LIST = [
-  'dnstwist',
-  'hibp',
-  'intelx',
-  'cybersixgill',
-  'shodan',
-  'xpanse'
-];
+const SCAN_LIST = ['dnstwist', 'intelx', 'cybersixgill', 'shodan', 'xpanse'];
 
 if (process.env.IS_LOCAL) {
   const Docker = require('dockerode');
@@ -145,7 +138,6 @@ async function startLocalContainers(
           `CENSYS_API_SECRET=${process.env.CENSYS_API_SECRET}`,
           `WORKER_USER_AGENT=${process.env.WORKER_USER_AGENT}`,
           `SHODAN_API_KEY=${process.env.SHODAN_API_KEY}`,
-          `HIBP_API_KEY=${process.env.HIBP_API_KEY}`,
           `SIXGILL_CLIENT_ID=${process.env.SIXGILL_CLIENT_ID}`,
           `SIXGILL_CLIENT_SECRET=${process.env.SIXGILL_CLIENT_SECRET}`,
           `INTELX_API_KEY=${process.env.INTELX_API_KEY}`,
@@ -227,7 +219,7 @@ export const handler: Handler = async (event) => {
       await startDesiredTasks(scanType, desiredCount);
     } else {
       console.log(
-        'Shodan, DNSTwist, HIBP, IntelX, Xpanse, and Cybersixgill are the only script types available right now. Must be all lowercase.'
+        'Shodan, DNSTwist, IntelX, Xpanse, and Cybersixgill are the only script types available right now. Must be all lowercase.'
       );
     }
   } catch (error) {

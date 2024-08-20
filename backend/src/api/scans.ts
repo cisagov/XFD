@@ -128,15 +128,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     description:
       'Open source tool that integrates passive APIs in order to discover target subdomains'
   },
-  hibp: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    cpu: '2048',
-    memory: '16384',
-    description:
-      'Finds emails that have appeared in breaches related to a given domain'
-  },
   intrigueIdent: {
     type: 'fargate',
     isPassive: true,
