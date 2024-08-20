@@ -63,8 +63,7 @@ async function main() {
     test: async () => {
       await connectToDatabase();
       console.log('test');
-    },
-    testProxy
+    }
   }[scanName];
   if (!scanFn) {
     throw new Error('Invalid scan name ' + scanName);

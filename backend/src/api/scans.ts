@@ -208,12 +208,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     global: true,
     description: 'Not a real scan, used to test'
   },
-  testProxy: {
-    type: 'fargate',
-    isPassive: false,
-    global: true,
-    description: 'Not a real scan, used to test proxy'
-  },
   trustymail: {
     type: 'fargate',
     isPassive: true,
