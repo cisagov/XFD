@@ -84,4 +84,3 @@ The search query is built by the [buildRequest](https://github.com/cisagov/cross
 Search results are individual domains, but they may contain snippets of webpage bodies if they contain the webpage content. For example:
 
 ![search result](./img/search result.png)
-
