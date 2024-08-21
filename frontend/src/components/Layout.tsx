@@ -29,7 +29,9 @@ const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
 const STANDARD_USER = 1;
 
-const Main = styled('main', { shouldForwardProp: (prop) => prop !== 'open' })<{
+const Main = styled('main', {
+  shouldForwardProp: (prop) => prop !== 'open' && prop !== 'user'
+})<{
   open?: boolean;
   user?: boolean;
 }>(({ theme, open, user }) => ({
@@ -187,7 +189,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
                 />
-
                 <Box
                   display="block"
                   position="relative"
@@ -203,7 +204,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                 >
                   {children}
                 </Box>
-
                 <CrossfeedFooter />
               </Main>
             </div>
