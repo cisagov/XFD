@@ -71,6 +71,12 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
   //Custom Bar Layer to allow for top to bottom tab navigation
   const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
     const reversedBars = [...bars].reverse();
+    const filteredVulnTableLink =
+      '/inventory/vulnerabilities?sort=createdAt&desc=false';
+    const filteredVulnTableLinkHandler = (
+      filteredVulnTableLink: string,
+      domain: string
+    ) => history.push(filteredVulnTableLink, { domain: domain });
     return reversedBars.map((bar) => (
       <Tooltip
         arrow
@@ -101,8 +107,9 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
           } in Domain:${' '}
           ${bar.data.indexValue}`}
             onClick={() => {
-              history.push(
-                `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
+              filteredVulnTableLinkHandler(
+                filteredVulnTableLink,
+                bar.data.indexValue
               );
             }}
           />
