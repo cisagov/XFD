@@ -15,11 +15,6 @@ exports[`Header component matches snapshot 1`] = `
           class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-hyum1k-MuiToolbar-root"
         >
           <button
-            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-mz6jko-MuiButtonBase-root-MuiIconButton-root"
-            tabindex="0"
-            type="button"
-          />
-          <button
             aria-label="Open filter drawer"
             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-78trlr-MuiButtonBase-root-MuiIconButton-root"
             tabindex="0"
@@ -41,9 +36,6 @@ exports[`Header component matches snapshot 1`] = `
               class="MuiTouchRipple-root css-8je8zh-MuiTouchRipple-root"
             />
           </button>
-          <span
-            class="MuiTouchRipple-root css-8je8zh-MuiTouchRipple-root"
-          />
           <img
             alt="Cybersecurity and Infrastructure Security Agency Logo"
             class="Header-1cisaLogo"
