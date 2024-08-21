@@ -22,19 +22,22 @@ async function globalSetup(config: FullConfig) {
 
   //Log in with credentials.
   await page.goto(String(process.env.PW_XFD_URL));
+  await page.getByTestId('button').click();
   await page
-    .getByPlaceholder('Enter your email address')
+    .getByLabel('Username (Email)')
+    .fill(String(process.env.PW_XFD_USERNAME));
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page
+    .getByLabel('Email address')
     .fill(String(process.env.PW_XFD_USERNAME));
   await page
-    .getByPlaceholder('Enter your password')
+    .getByLabel('Password', { exact: true })
     .fill(String(process.env.PW_XFD_PASSWORD));
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page
-    .getByPlaceholder('Enter code from your authenticator app')
-    .fill(totp.generate());
-  await page.getByRole('button', { name: 'Confirm' }).click();
+  await page.getByLabel('One-time code').fill(totp.generate());
+  await page.getByRole('button', { name: 'Submit' }).click();
   //Wait for storageState to write to json file for other tests to use.
-  await page.waitForTimeout(1000);
+  await page.waitForTimeout(7000);
   await page.context().storageState({ path: authFile });
   await page.close();
 }
