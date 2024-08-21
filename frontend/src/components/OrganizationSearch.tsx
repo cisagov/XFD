@@ -167,7 +167,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     },
     [regionFilterValues]
   );
-
   return (
     <>
       <Divider />

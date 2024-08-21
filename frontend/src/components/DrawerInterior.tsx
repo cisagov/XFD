@@ -33,7 +33,6 @@ import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../context/SearchProvider';
 import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
-import { useHistory, useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
 
 interface Props {
@@ -44,6 +43,7 @@ interface Props {
   clearFilters: ContextType['clearFilters'];
   searchTerm: ContextType['searchTerm'];
   setSearchTerm: ContextType['setSearchTerm'];
+  initialFilters: any[];
 }
 
 const FiltersApplied: React.FC = () => {
@@ -65,12 +65,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     facets,
     clearFilters,
     searchTerm,
-    setSearchTerm
+    setSearchTerm,
+    initialFilters
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchCount, setSavedSearchCount] = useState(0);
-  const location = useLocation();
 
   useEffect(() => {
     const fetchSearches = async () => {
@@ -95,32 +95,36 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       console.log(e);
     }
   };
-  console.log('searchTerm:', searchTerm);
-  console.log('location.pathname:', location.pathname);
   const displaySavedSearch = (id: string) => {
     const savedSearch = savedSearches.find((search) => search.id === id);
     if (savedSearch) {
       localStorage.setItem('savedSearch', JSON.stringify(savedSearch));
       setSearchTerm(savedSearch.searchTerm, {
-        shouldClearFilters: false,
+        shouldClearFilters: true,
         autocompleteResults: false
       });
     }
 
-    // Apply the filters
     savedSearch?.filters?.forEach((filter) => {
       filter.values.forEach((value) => {
         addFilter(filter.field, value, 'any');
       });
     });
   };
-  console.log('filters', filters);
-  //need to revert filters to default state
+  const restoreInitialFilters = () => {
+    initialFilters.forEach((filter) => {
+      filter.values.forEach((value: string) => {
+        addFilter(filter.field, value, 'any');
+      });
+    });
+  };
+
   const revertSearch = () => {
     setSearchTerm('', {
       shouldClearFilters: true,
       autocompleteResults: false
     });
+    restoreInitialFilters();
   };
 
   const toggleSavedSearches = (id: string) => {

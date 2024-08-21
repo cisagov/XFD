@@ -75,6 +75,8 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 
   const { regions } = useStaticsContext();
 
+  const [initialFilters, setInitialFilters] = useState<any[]>([]);
+
   const theme = useTheme();
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = usePersistentState(
     'isFilterDrawerOpen',
@@ -139,6 +141,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
       filter.values.forEach((val) => {
         addFilter(filter.field, val, filter.type);
       });
+      setInitialFilters(initialFiltersForUser);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regions, user]);
@@ -171,6 +174,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   isMobile={isMobile}
+                  initialFilters={initialFilters}
                 />
               ) : (
                 <Drawer
