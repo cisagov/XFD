@@ -20,11 +20,9 @@ import { handler as savedSearch } from './tasks/saved-search';
 import { handler as searchSync } from './tasks/search-sync-domains';
 import { handler as shodan } from './tasks/shodan';
 import { handler as sslyze } from './tasks/sslyze';
-import { handler as testProxy } from './tasks/test-proxy';
 import { handler as trustymail } from './tasks/trustymail';
 import { handler as vulnSync } from './tasks/vuln-sync';
 import { handler as vulnScanningSync } from './tasks/vs_sync';
-import { handler as webscraper } from './tasks/webscraper';
 import { handler as xpanseSync } from './tasks/xpanse-sync';
 import { SCAN_SCHEMA } from './api/scans';
 
@@ -65,9 +63,7 @@ async function main() {
     test: async () => {
       await connectToDatabase();
       console.log('test');
-    },
-    testProxy,
-    webscraper
+    }
   }[scanName];
   if (!scanFn) {
     throw new Error('Invalid scan name ' + scanName);
