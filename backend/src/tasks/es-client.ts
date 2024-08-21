@@ -1,5 +1,5 @@
 import { Client } from '@elastic/elasticsearch';
-import { Domain, Organization, Webpage } from '../models';
+import { Domain, Organization } from '../models';
 
 export const DOMAINS_INDEX = 'domains-5';
 export const ORGANIZATIONS_INDEX = 'organizations-1';

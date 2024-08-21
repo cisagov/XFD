@@ -3,18 +3,13 @@ import {
   IsOptional,
   IsObject,
   IsUUID,
-  isUUID,
   IsArray
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Domain, connectToDatabase, Vulnerability, Service } from '../models';
 import { validateBody, wrapHandler } from './helpers';
 import { SelectQueryBuilder } from 'typeorm';
-import {
-  isGlobalViewAdmin,
-  getOrgMemberships,
-  getTagOrganizations
-} from './auth';
+import { getTagOrganizations } from './auth';
 
 interface Point {
   id: string;
