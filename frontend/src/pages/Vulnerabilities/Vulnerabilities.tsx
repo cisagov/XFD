@@ -58,6 +58,7 @@ export interface VulnerabilityRow {
 
 interface LocationState {
   domain: any;
+  severity: string;
   title: string;
 }
 
@@ -197,6 +198,29 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const history = useHistory();
   const location = useLocation();
   const state = location.state as LocationState;
+  // const paramsArray = [
+  //   [
+  //     {
+  //       field: 'title',
+  //       value: state.title,
+  //       operator: 'contains'
+  //     }
+  //   ],
+  //   [
+  //     {
+  //       field: 'domain',
+  //       value: state.domain,
+  //       operator: 'contains'
+  //     }
+  //   ],
+  //   [
+  //     {
+  //       field: 'severity',
+  //       value: state.severity,
+  //       operator: 'contains'
+  //     }
+  //   ]
+  // ];
   const [initialFilters, setInitialFilters] = useState<GridFilterItem[]>(
     state?.title
       ? [
@@ -211,6 +235,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           {
             field: 'domain',
             value: state.domain,
+            operator: 'contains'
+          }
+        ]
+      : state?.severity
+      ? [
+          {
+            field: 'severity',
+            value: state.severity,
             operator: 'contains'
           }
         ]
