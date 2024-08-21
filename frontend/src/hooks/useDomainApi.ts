@@ -18,14 +18,14 @@ export const useDomainApi = (showAll?: boolean) => {
   const { currentOrganization, apiPost, apiGet } = useAuthContext();
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
-      const { page, sort, filters, pageSize = PAGE_SIZE } = query;
+      const { page, filters, pageSize = PAGE_SIZE } = query;
 
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
           (accum, next) => ({
             ...accum,
-            [next.id]: next.value
+            [next.field]: next.value
           }),
           {}
         );
@@ -42,8 +42,6 @@ export const useDomainApi = (showAll?: boolean) => {
           body: {
             pageSize,
             page,
-            sort: sort[0]?.id ?? 'name',
-            order: sort[0]?.desc ? 'DESC' : 'ASC',
             filters: tableFilters
           }
         }
