@@ -72,7 +72,6 @@ export const Domains: React.FC = () => {
     page: 0,
     pageSize: PAGE_SIZE,
     pageCount: 0,
-    sort: [],
     filters: filters
   });
 
