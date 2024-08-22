@@ -13,9 +13,9 @@ import {
   Button,
   List,
   FormControlLabel,
-  Checkbox,
   ListItem,
-  FormGroup
+  FormGroup,
+  Radio
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import {
@@ -429,10 +429,11 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               >
                 <FormGroup>
                   <FormControlLabel
-                    control={<Checkbox />}
+                    control={<Radio />}
                     label={search.name}
                     sx={{ padding: '0px' }}
-                    onChange={() => toggleSavedSearches(search.id)}
+                    value={search.id}
+                    onClick={() => toggleSavedSearches(search.id)}
                     checked={isSavedSearchActive(search.id)}
                   />
                 </FormGroup>
