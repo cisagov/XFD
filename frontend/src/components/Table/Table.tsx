@@ -1,6 +1,6 @@
 import React, { useEffect, useImperativeHandle } from 'react';
 import { Table as UsaTable } from '@trussworks/react-uswds';
-import { Query } from 'types';
+import { OrgQuery } from 'types/org-query';
 import {
   useTable,
   useExpanded,
@@ -25,7 +25,7 @@ interface TableProps<T extends object> {
   initialFilterBy?: Filters<T>;
   pageCount?: number;
   pageSize?: number;
-  fetchData?: (query: Query<T>) => void;
+  fetchData?: (query: OrgQuery<T>) => void;
   disableFilters?: boolean;
   renderPagination?: (table: TableInstance<T>) => JSX.Element;
   renderExpanded?: (row: Row<T>) => JSX.Element;
