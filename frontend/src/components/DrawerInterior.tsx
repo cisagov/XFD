@@ -128,7 +128,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     restoreInitialFilters();
   };
   const toggleSavedSearches = (id: string) => {
-    const savedSearch = savedSearches.find((search) => search.id === id);
+    const savedSearch = savedSearches.filter((search) => search.id === id);
     if (savedSearch) {
       if (!isSavedSearchActive(id)) {
         displaySavedSearch(id);
@@ -139,12 +139,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   };
 
   const isSavedSearchActive = (id: string) => {
-    const savedSearch = savedSearches.find((search) => search.id === id);
-    console.log('savedSearch', savedSearch);
-    if (savedSearch) {
-      return savedSearch.searchTerm === searchTerm;
-    }
-    return false;
+    const activeSearch = JSON.parse(
+      localStorage.getItem('savedSearch') || '{}'
+    );
+    return activeSearch.id === id;
   };
 
   const filtersByColumn = useMemo(
