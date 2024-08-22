@@ -53,7 +53,7 @@ describe('stats', () => {
     await connection.close();
   });
   describe('get', () => {
-    it('get by org user should return only domains from that org', async () => {
+    it('get by orgs user should return only domains from those orgs', async () => {
       const organization = await Organization.create({
         name: 'test-' + Math.random(),
         rootDomains: ['test-' + Math.random()],
@@ -99,6 +99,11 @@ describe('stats', () => {
             ]
           })
         )
+        .send({
+          filters: {
+            organizations: [organization.id]
+          }
+        })
         .expect(200);
       expect(response.body.result).toMatchSnapshot(standard);
       expect(response.body.result.domains.numVulnerabilities[0].id).toEqual(
