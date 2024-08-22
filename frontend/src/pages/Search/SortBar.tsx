@@ -5,7 +5,8 @@ import {
   FormControl,
   MenuItem,
   SelectProps,
-  IconButton
+  IconButton,
+  Button
 } from '@mui/material';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
@@ -85,9 +86,9 @@ export const SortBar: React.FC<Props> = (props) => {
       {children}
       <div>
         {saveSearch && (
-          <button onClick={saveSearch}>
+          <Button variant="contained" onClick={saveSearch}>
             {existingSavedSearch ? 'Update Saved Search' : 'Save Search'}
-          </button>
+          </Button>
         )}
       </div>
     </Root>
