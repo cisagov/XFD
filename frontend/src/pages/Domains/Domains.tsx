@@ -10,7 +10,7 @@ import { Alert, Button, IconButton, Paper } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import { differenceInCalendarDays, parseISO, set } from 'date-fns';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
 
 const PAGE_SIZE = 15;
 

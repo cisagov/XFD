@@ -158,7 +158,7 @@ describe('stats', () => {
           })
         )
         .send({
-          filters: { organization: organization.id }
+          filters: { organizations: [organization.id] }
         })
         .expect(200);
       expect(response.body.result).toMatchSnapshot(standard);

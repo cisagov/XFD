@@ -10,6 +10,7 @@ import { IsArray, IsInt, IsOptional, IsString, IsUUID } from 'class-validator';
 import { Domain } from 'domain';
 import S3Client from '../tasks/s3-client';
 import * as Papa from 'papaparse';
+import { Type } from 'class-transformer';
 
 class SearchBody {
   @IsInt()
@@ -29,6 +30,22 @@ class SearchBody {
 
   @IsArray()
   filters: { field: string; values: any[]; type: string }[];
+
+  // {
+  //   "field": "organization.Id",
+  //   "values": [
+  //       1,
+  //       2,
+  //       3
+
+  //   ],
+  //   "type": "any"
+  // },
+
+  @IsOptional()
+  @IsArray()
+  @Type(() => IsUUID)
+  organizationIds: string[];
 
   @IsOptional()
   @IsUUID()

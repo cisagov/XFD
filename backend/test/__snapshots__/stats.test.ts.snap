@@ -122,7 +122,7 @@ Object {
         "value": 1,
       },
     ],
-    "total": 1,
+    "total": 2,
   },
   "vulnerabilities": Object {
     "byOrg": Array [

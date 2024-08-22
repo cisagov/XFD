@@ -71,11 +71,20 @@ export function buildRequest(
     sortField
   } = state;
 
+  const orgsInFilters = filters.find(
+    (filter) => filter.field === 'organizationId'
+  );
+  const refinedFilters = orgsInFilters
+    ? filters.filter((filter) => filter.field !== 'organizationId')
+    : filters;
+
+  const shouldReturnNoResults = Object.keys(filters).length === 0;
+
   const sort = buildSort(sortDirection, sortField);
   const match = buildMatch(searchTerm);
   const size = resultsPerPage;
   const from = buildFrom(current, resultsPerPage);
-  const filter = buildRequestFilter(filters);
+  const filter = buildRequestFilter(refinedFilters, shouldReturnNoResults);
 
   let query: any = {
     bool: {
@@ -109,16 +118,18 @@ export function buildRequest(
           }
         }
       ],
-      ...(filter && { filter })
+      ...{ filter }
     }
   };
-  if (!options.matchAllOrganizations) {
+  if (orgsInFilters) {
     query = {
       bool: {
         must: [
           {
             terms: {
-              'organization.id.keyword': options.organizationIds
+              'organization.id.keyword': orgsInFilters.values.map(
+                (org) => org.id
+              )
             }
           },
           query
