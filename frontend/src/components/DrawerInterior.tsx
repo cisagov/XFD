@@ -124,18 +124,27 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       shouldClearFilters: true,
       autocompleteResults: false
     });
+    localStorage.removeItem('savedSearch');
     restoreInitialFilters();
   };
-
   const toggleSavedSearches = (id: string) => {
     const savedSearch = savedSearches.find((search) => search.id === id);
     if (savedSearch) {
-      if (searchTerm === savedSearch.searchTerm) {
-        revertSearch();
-      } else {
+      if (!isSavedSearchActive(id)) {
         displaySavedSearch(id);
+      } else {
+        revertSearch();
       }
     }
+  };
+
+  const isSavedSearchActive = (id: string) => {
+    const savedSearch = savedSearches.find((search) => search.id === id);
+    console.log('savedSearch', savedSearch);
+    if (savedSearch) {
+      return savedSearch.searchTerm === searchTerm;
+    }
+    return false;
   };
 
   const filtersByColumn = useMemo(
@@ -426,7 +435,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
                     label={search.name}
                     sx={{ padding: '0px' }}
                     onChange={() => toggleSavedSearches(search.id)}
-                    checked={searchTerm === search.searchTerm}
+                    checked={isSavedSearchActive(search.id)}
                   />
                 </FormGroup>
                 <IconButton
