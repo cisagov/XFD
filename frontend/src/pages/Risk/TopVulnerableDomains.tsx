@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import { Chip, Tooltip } from '@mui/material';
+import { Chip, Pagination, Tooltip } from '@mui/material';
 import { Point, VulnSeverities } from './Risk';
 import { useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
@@ -12,7 +12,6 @@ import {
   getAllVulnColor
 } from './utils';
 import * as RiskStyles from './style';
-import { Pagination } from '@mui/lab';
 
 const TopVulnerableDomains = (props: { data: Point[] }) => {
   const history = useHistory();

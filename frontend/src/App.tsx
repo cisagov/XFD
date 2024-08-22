@@ -24,7 +24,6 @@ import {
   OktaCallback,
   RegionUsers,
   Reports,
-  Risk,
   Organization,
   Organizations,
   SearchPage,
@@ -34,13 +33,15 @@ import {
   Vulnerabilities,
   Vulnerability
 } from 'pages';
-import { Layout, RouteGuard } from 'components';
+import { LayoutWithSearch, RouteGuard } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
 import { RSCDashboard } from 'components/ReadySetCyber/RSCDashboard';
 import { RSCDetail } from 'components/ReadySetCyber/RSCDetail';
 import { RSCLogin } from 'components/ReadySetCyber/RSCLogin';
 import { RSCAuthLoginCreate } from 'components/ReadySetCyber/RSCAuthLoginCreate';
+import { RiskWithSearch } from 'pages/Risk/Risk';
+import { StaticsContextProvider } from 'context/StaticsContextProvider';
 
 API.configure({
   endpoints: [
@@ -92,136 +93,142 @@ const App: React.FC = () => (
       <CFThemeProvider>
         <AuthContextProvider>
           <Authenticator.Provider>
-            <SearchProvider>
-              <Layout>
-                <LinkTracker />
-                <Switch>
-                  <RouteGuard
-                    exact
-                    path="/"
-                    render={() => <Redirect to="/inventory" />}
-                    unauth={AuthLogin}
-                    component={Risk}
-                  />
-                  <Route
-                    exact
-                    path="/login-gov-callback"
-                    component={LoginGovCallback}
-                  />
-                  <Route exact path="/okta-callback" component={OktaCallback} />
-                  <Route
-                    exact
-                    path="/create-account"
-                    component={AuthCreateAccount}
-                  />
-                  <Route exact path="/terms" component={TermsOfUse} />
-                  <RouteGuard
-                    exact
-                    path="/inventory"
-                    component={SearchPage}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard
-                    path="/inventory/domain/:domainId"
-                    component={Domain}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard path="/inventory/domains" component={Domains} />
-                  <RouteGuard
-                    path="/inventory/vulnerabilities"
-                    exact
-                    component={Vulnerabilities}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard
-                    path="/inventory/vulnerabilities/grouped"
-                    component={(props) => (
-                      <Vulnerabilities {...props} groupBy="title" />
-                    )}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard
-                    path="/inventory/vulnerability/:vulnerabilityId"
-                    component={Vulnerability}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard
-                    path="/feeds"
-                    component={Feeds}
-                    permissions={['globalView']}
-                  />
-                  <RouteGuard
-                    path="/reports"
-                    component={Reports}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard path="/admin-tools" component={AdminTools} />
-                  <RouteGuard
-                    path="/organizations/:organizationId"
-                    component={Organization}
-                    permissions={['globalView', 'regionalAdmin']}
-                  />
-                  <RouteGuard
-                    path="/organizations"
-                    component={Organizations}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard
-                    path="/users"
-                    component={Users}
-                    permissions={['globalView', 'regionalAdmin']}
-                  />
-                  <RouteGuard
-                    path="/settings"
-                    component={Settings}
-                    permissions={['globalView', 'regionalAdmin', 'standard']}
-                  />
-                  <RouteGuard
-                    path="/region-admin-dashboard"
-                    component={RegionUsers}
-                    permissions={['regionalAdmin', 'globalView']}
-                  />
-                  <RouteGuard
-                    exact
-                    path="/readysetcyber"
-                    render={() => <Redirect to="/readysetcyber/dashboard" />}
-                    unauth={RSCLogin}
-                    component={RSCDashboard}
-                  />
-                  <RouteGuard
-                    exact
-                    path="/readysetcyber/create-account"
-                    render={() => <Redirect to="/readysetcyber/dashboard" />}
-                    unauth={RSCAuthLoginCreate}
-                    component={RSCDashboard}
-                  />
-                  <RouteGuard
-                    exact
-                    path="/readysetcyber/dashboard"
-                    component={RSCDashboard}
-                    render={() => <Redirect to="/readysetcyber/dashboard" />}
-                    permissions={[
-                      'globalView',
-                      'readySetCyber',
-                      'regionalAdmin',
-                      'standard'
-                    ]}
-                    unauth={RSCLogin}
-                  />
-                  <RouteGuard
-                    path="/readysetcyber/result/:id"
-                    component={RSCDetail}
-                    permissions={[
-                      'globalView',
-                      'readySetCyber',
-                      'regionalAdmin',
-                      'standard'
-                    ]}
-                    unauth={RSCLogin}
-                  />
-                </Switch>
-              </Layout>
-            </SearchProvider>
+            <StaticsContextProvider>
+              <SearchProvider>
+                <LayoutWithSearch>
+                  <LinkTracker />
+                  <Switch>
+                    <RouteGuard
+                      exact
+                      path="/"
+                      render={() => <Redirect to="/inventory" />}
+                      unauth={AuthLogin}
+                      component={RiskWithSearch}
+                    />
+                    <Route
+                      exact
+                      path="/login-gov-callback"
+                      component={LoginGovCallback}
+                    />
+                    <Route
+                      exact
+                      path="/okta-callback"
+                      component={OktaCallback}
+                    />
+                    <Route
+                      exact
+                      path="/create-account"
+                      component={AuthCreateAccount}
+                    />
+                    <Route exact path="/terms" component={TermsOfUse} />
+                    <RouteGuard
+                      exact
+                      path="/inventory"
+                      component={SearchPage}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard
+                      path="/inventory/domain/:domainId"
+                      component={Domain}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard path="/inventory/domains" component={Domains} />
+                    <RouteGuard
+                      path="/inventory/vulnerabilities"
+                      exact
+                      component={Vulnerabilities}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard
+                      path="/inventory/vulnerabilities/grouped"
+                      component={(props) => (
+                        <Vulnerabilities {...props} groupBy="title" />
+                      )}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard
+                      path="/inventory/vulnerability/:vulnerabilityId"
+                      component={Vulnerability}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard
+                      path="/feeds"
+                      component={Feeds}
+                      permissions={['globalView']}
+                    />
+                    <RouteGuard
+                      path="/reports"
+                      component={Reports}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard path="/admin-tools" component={AdminTools} />
+                    <RouteGuard
+                      path="/organizations/:organizationId"
+                      component={Organization}
+                      permissions={['globalView', 'regionalAdmin']}
+                    />
+                    <RouteGuard
+                      path="/organizations"
+                      component={Organizations}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard
+                      path="/users"
+                      component={Users}
+                      permissions={['globalView', 'regionalAdmin']}
+                    />
+                    <RouteGuard
+                      path="/settings"
+                      component={Settings}
+                      permissions={['globalView', 'regionalAdmin', 'standard']}
+                    />
+                    <RouteGuard
+                      path="/region-admin-dashboard"
+                      component={RegionUsers}
+                      permissions={['regionalAdmin', 'globalView']}
+                    />
+                    <RouteGuard
+                      exact
+                      path="/readysetcyber"
+                      render={() => <Redirect to="/readysetcyber/dashboard" />}
+                      unauth={RSCLogin}
+                      component={RSCDashboard}
+                    />
+                    <RouteGuard
+                      exact
+                      path="/readysetcyber/create-account"
+                      render={() => <Redirect to="/readysetcyber/dashboard" />}
+                      unauth={RSCAuthLoginCreate}
+                      component={RSCDashboard}
+                    />
+                    <RouteGuard
+                      exact
+                      path="/readysetcyber/dashboard"
+                      component={RSCDashboard}
+                      render={() => <Redirect to="/readysetcyber/dashboard" />}
+                      permissions={[
+                        'globalView',
+                        'readySetCyber',
+                        'regionalAdmin',
+                        'standard'
+                      ]}
+                      unauth={RSCLogin}
+                    />
+                    <RouteGuard
+                      path="/readysetcyber/result/:id"
+                      component={RSCDetail}
+                      permissions={[
+                        'globalView',
+                        'readySetCyber',
+                        'regionalAdmin',
+                        'standard'
+                      ]}
+                      unauth={RSCLogin}
+                    />
+                  </Switch>
+                </LayoutWithSearch>
+              </SearchProvider>
+            </StaticsContextProvider>
           </Authenticator.Provider>
         </AuthContextProvider>
       </CFThemeProvider>
