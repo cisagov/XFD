@@ -84,11 +84,3 @@ The search query is built by the [buildRequest](https://github.com/cisagov/cross
 Search results are individual domains, but they may contain snippets of webpage bodies if they contain the webpage content. For example:
 
 ![search result](./img/search result.png)
-
-### Webpage scraping
-
-Webpage scraping is done by the `webscraper` scan. This scan uses the `scrapy` Python library to follow and scrape all links, observing
-rate limits and respecting robots.txt as well.
-
-When a webpage is scraped, basic information such as the URL and status code are stored in the database through the `Webpage` model. However,
-webpage contents and headers are not stored in the database; instead, they are directly uploaded to Elasticsearch.

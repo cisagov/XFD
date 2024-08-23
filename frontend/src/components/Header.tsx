@@ -1,24 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { FC, useEffect, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { NavLink, Link, useHistory } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Toolbar,
   IconButton,
   Drawer,
   ListItem,
-  List,
-  TextField
+  List
 } from '@mui/material';
-import { Menu as MenuIcon } from '@mui/icons-material';
+import { ChevronLeft, FilterAlt, Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
-import { useRouteMatch } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import logo from '../assets/cyhydashboard.svg';
 import cisaLogo from '../assets/cisaSeal.svg';
-import { Autocomplete } from '@mui/material';
-import { Organization, OrganizationTag } from 'types';
 import { UserMenu } from './UserMenu';
+import { matchPath } from 'utils/matchPath';
 
 const PREFIX = 'Header';
 
@@ -157,23 +154,20 @@ interface MenuItemType {
   exact: boolean;
 }
 
-export const Header: React.FC = () => {
-  const history = useHistory();
-  const {
-    currentOrganization,
-    setOrganization,
-    showAllOrganizations,
-    setShowAllOrganizations,
-    setShowMaps,
-    user,
-    logout,
-    apiGet
-  } = useAuthContext();
+interface HeaderProps {
+  isFilterDrawerOpen: boolean;
+  setIsFilterDrawerOpen: (isFilterDrawerOpen: boolean) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({
+  isFilterDrawerOpen,
+  setIsFilterDrawerOpen
+}) => {
+  const { pathname } = useLocation();
+  const { user, logout } = useAuthContext();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [tags, setTags] = useState<OrganizationTag[]>([]);
 
   let drawerItems: NavItemType[] = [];
   const toggleDrawer = (newOpen: boolean) => () => {
@@ -193,26 +187,6 @@ export const Header: React.FC = () => {
       userLevel = REGIONAL_ADMIN;
     }
   }
-
-  const fetchOrganizations = useCallback(async () => {
-    try {
-      const rows = await apiGet<Organization[]>('/v2/organizations/');
-      let tags: OrganizationTag[] = [];
-      if (userLevel === GLOBAL_ADMIN) {
-        tags = await apiGet<OrganizationTag[]>('/organizations/tags');
-        await setTags(tags as OrganizationTag[]);
-      }
-      await setOrganizations(rows);
-    } catch (e) {
-      console.log(e);
-    }
-  }, [apiGet, setOrganizations, userLevel]);
-
-  useEffect(() => {
-    if (userLevel > 0) {
-      fetchOrganizations();
-    }
-  }, [fetchOrganizations, userLevel]);
 
   const navItems: NavItemType[] = [
     {
@@ -271,7 +245,7 @@ export const Header: React.FC = () => {
     }
   ];
 
-  const orgPageMatch = useRouteMatch('/organizations/:id');
+  // const orgPageMatch = useRouteMatch('/organizations/:id');
 
   const desktopNavItems: JSX.Element[] = navItems.map((item) => (
     <NavItem key={item.title.toString()} {...item} />
@@ -298,23 +272,19 @@ export const Header: React.FC = () => {
     drawerItems = [...navItems, ...userMenuItems];
   }
 
-  const organizationDropdownOptions: Array<{ name: string }> = useMemo(() => {
-    if (userLevel === GLOBAL_ADMIN) {
-      return [{ name: 'All Organizations' }].concat(organizations);
-    }
-    if (userLevel === REGIONAL_ADMIN) {
-      return organizations.filter((item) => {
-        return item.regionId === user?.regionId;
-      });
-    }
-    return [];
-  }, [user, organizations, userLevel]);
-
   return (
     <Root>
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
+            {matchPath(['/', '/inventory'], pathname) && user ? (
+              <FilterDrawerButton
+                open={isFilterDrawerOpen}
+                setOpen={setIsFilterDrawerOpen}
+              />
+            ) : (
+              <></>
+            )}
             <img
               src={cisaLogo}
               className={classes.cisaLogo}
@@ -332,90 +302,7 @@ export const Header: React.FC = () => {
             )}
             <div className={classes.spacing} />
             {userLevel > 0 && (
-              <>
-                {organizations.length > 1 && (
-                  <Autocomplete
-                    isOptionEqualToValue={(option, value) =>
-                      option?.name === value?.name
-                    }
-                    options={
-                      userLevel === GLOBAL_ADMIN
-                        ? [...tags, ...organizationDropdownOptions]
-                        : organizationDropdownOptions
-                    }
-                    autoComplete={false}
-                    className={classes.selectOrg}
-                    classes={{
-                      option: classes.option
-                    }}
-                    value={
-                      showAllOrganizations
-                        ? { name: 'All Organizations' }
-                        : currentOrganization ?? undefined
-                    }
-                    filterOptions={(options, state) => {
-                      // If already selected, show all
-                      if (
-                        options.find(
-                          (option) =>
-                            option?.name.toLowerCase() ===
-                            state.inputValue.toLowerCase()
-                        )
-                      ) {
-                        return options;
-                      }
-                      return options.filter(
-                        (option) =>
-                          option?.name
-                            .toLowerCase()
-                            .includes(state.inputValue.toLowerCase())
-                      );
-                    }}
-                    disableClearable
-                    blurOnSelect
-                    selectOnFocus
-                    getOptionLabel={(option) => option!.name}
-                    renderOption={(props, option) => (
-                      <li {...props}>{option!.name}</li>
-                    )}
-                    onChange={(
-                      event: any,
-                      value: Organization | { name: string } | undefined
-                    ) => {
-                      if (value && 'id' in value) {
-                        setOrganization(value);
-                        setShowAllOrganizations(false);
-                        if (value.name === 'Election') {
-                          setShowMaps(true);
-                        } else {
-                          setShowMaps(false);
-                        }
-                        // Check if we're on an organization page and, if so, update it to the new organization
-                        if (orgPageMatch !== null) {
-                          if (!tags.find((e) => e.id === value.id)) {
-                            history.push(`/organizations/${value.id}`);
-                          }
-                        }
-                      } else {
-                        setShowAllOrganizations(true);
-                        setShowMaps(false);
-                      }
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        variant="outlined"
-                        inputProps={{
-                          ...params.inputProps,
-                          id: 'autocomplete-input',
-                          autoComplete: 'new-password' // disable autocomplete and autofill
-                        }}
-                      />
-                    )}
-                  />
-                )}
-                {!isMobile && <UserMenu userMenuItems={userMenuItems} />}
-              </>
+              <>{!isMobile && <UserMenu userMenuItems={userMenuItems} />}</>
             )}
             {user && isMobile && (
               <IconButton
@@ -462,5 +349,25 @@ export const Header: React.FC = () => {
         </List>
       </Drawer>
     </Root>
+  );
+};
+
+interface FilterDrawerButtonProps {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}
+
+const FilterDrawerButton: FC<FilterDrawerButtonProps> = ({ open, setOpen }) => {
+  return (
+    <IconButton
+      onClick={() => setOpen(!open)}
+      aria-label={open ? 'Close filter drawer' : 'Open filter drawer'}
+    >
+      {open ? (
+        <ChevronLeft style={{ color: 'white' }} />
+      ) : (
+        <FilterAlt style={{ color: 'white' }} />
+      )}
+    </IconButton>
   );
 };

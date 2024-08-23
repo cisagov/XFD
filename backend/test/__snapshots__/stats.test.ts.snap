@@ -98,7 +98,7 @@ Object {
 }
 `;
 
-exports[`stats get get by org user should return only domains from that org 1`] = `
+exports[`stats get get by orgs user should return only domains from those orgs 1`] = `
 Object {
   "domains": Object {
     "numVulnerabilities": Array [

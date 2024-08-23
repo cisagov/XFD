@@ -275,10 +275,8 @@ export const ScanTasksView: React.FC = () => {
     'searchSync',
     'cve',
     'dotgov',
-    'webscraper',
     'intrigueIdent',
     'shodan',
-    'hibp',
     'lookingGlass',
     'dnstwist',
     'rootDomainSync'
