@@ -111,6 +111,15 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
                 bar.data.indexValue
               );
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                filteredVulnTableLinkHandler(
+                  filteredVulnTableLink,
+                  bar.data.indexValue
+                );
+              }
+            }}
           />
         </g>
       </Tooltip>

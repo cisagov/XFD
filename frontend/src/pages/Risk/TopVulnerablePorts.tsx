@@ -43,6 +43,15 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
               );
               window.location.reload();
             }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                history.push(
+                  `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
+                );
+                window.location.reload();
+              }
+            }}
           />
         </g>
       </Tooltip>
