@@ -23,7 +23,12 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
       setRegions(
         results
           .map((region: { regionId: string }) => region.regionId)
-          .sort((a: string, b: string) => a.localeCompare(b))
+          .sort((a: string, b: string) => {
+            if (parseInt(a) < parseInt(b)) {
+              return -1;
+            }
+            return 1;
+          })
       );
     } catch (e) {
       console.log(e);

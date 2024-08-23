@@ -96,11 +96,7 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
   }, [filters]);
 
   return (
-    <Root
-      sx={{
-        marginTop: 1
-      }}
-    >
+    <Root>
       {filtersByColumn.map((filter, idx) => (
         <Chip
           key={idx}
