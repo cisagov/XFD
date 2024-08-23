@@ -169,7 +169,9 @@ class DomainSearch {
  *    - Domains
  */
 export const list = wrapHandler(async (event) => {
+  console.log('Hello, list handler');
   if (!isGlobalViewAdmin(event) && getOrgMemberships(event).length === 0) {
+    console.log('returning no results');
     return {
       statusCode: 200,
       body: JSON.stringify({

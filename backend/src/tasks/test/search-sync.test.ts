@@ -1,4 +1,7 @@
-import { handler as searchSync, DOMAIN_CHUNK_SIZE } from '../search-sync';
+import {
+  handler as searchSync,
+  DOMAIN_CHUNK_SIZE
+} from '../search-sync-domains';
 import {
   connectToDatabase,
   Organization,
