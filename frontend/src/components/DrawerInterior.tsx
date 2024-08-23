@@ -4,7 +4,6 @@ import {
   Accordion as MuiAccordion,
   AccordionSummary as MuiAccordionSummary,
   IconButton,
-  Paper,
   Divider,
   Stack,
   Toolbar,
@@ -17,7 +16,6 @@ import {
   FormGroup,
   Radio
 } from '@mui/material';
-import { DataGrid } from '@mui/x-data-grid';
 import {
   classes,
   StyledWrapper
@@ -28,6 +26,7 @@ import {
   FiberManualRecordRounded
 } from '@mui/icons-material';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import SaveIcon from '@mui/icons-material/Save';
 import { SearchBar } from 'components';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../context/SearchProvider';
@@ -70,12 +69,8 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
 
-  const {
-    savedSearches,
-    setSavedSearches,
-    savedSearchCount,
-    setSavedSearchCount
-  } = useSavedSearchContext();
+  const { savedSearches, setSavedSearches, setSavedSearchCount } =
+    useSavedSearchContext();
 
   const deleteSearch = async (id: string) => {
     try {
@@ -408,143 +403,55 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </AccordionDetails>
         </Accordion>
       )}
+      <Toolbar sx={{ justifyContent: 'center' }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Typography variant="h6" component="h3">
+            Saved Searches
+          </Typography>
+          <SaveIcon />
+        </Stack>
+      </Toolbar>
+      <Divider />
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMore />}>
           <Typography>Saved Searches</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          <List>
-            {savedSearches.map((search) => (
-              <ListItem
-                key={search.id}
-                sx={{ justifyContent: 'space-between', padding: '0px' }}
-              >
-                <FormGroup>
-                  <FormControlLabel
-                    control={<Radio />}
-                    label={search.name}
-                    sx={{ padding: '0px' }}
-                    value={search.id}
-                    onClick={() => toggleSavedSearches(search.id)}
-                    checked={isSavedSearchActive(search.id)}
-                  />
-                </FormGroup>
-                <IconButton
-                  aria-label="Delete"
-                  title="Delete Search"
-                  onClick={() => deleteSearch(search.id)}
+          {savedSearches.length > 0 ? (
+            <List>
+              {savedSearches.map((search) => (
+                <ListItem
+                  key={search.id}
+                  sx={{ justifyContent: 'space-between', padding: '0px' }}
                 >
-                  <Delete />
-                </IconButton>
+                  <FormGroup>
+                    <FormControlLabel
+                      control={<Radio />}
+                      label={search.name}
+                      sx={{ padding: '0px' }}
+                      value={search.id}
+                      onClick={() => toggleSavedSearches(search.id)}
+                      checked={isSavedSearchActive(search.id)}
+                    />
+                  </FormGroup>
+                  <IconButton
+                    aria-label="Delete"
+                    title="Delete Search"
+                    onClick={() => deleteSearch(search.id)}
+                  >
+                    <Delete />
+                  </IconButton>
+                </ListItem>
+              ))}
+            </List>
+          ) : (
+            <List>
+              <ListItem sx={{ alignItems: 'center', justifyContent: 'center' }}>
+                No Saved Searches
               </ListItem>
-            ))}
-          </List>
-          <Paper elevation={2} style={{ width: '15em' }}>
-            {savedSearches.length > 0 ? (
-              <DataGrid
-                density="compact"
-                key={'Data Grid'}
-                rows={savedSearches.map((search) => ({ ...search }))}
-                rowCount={savedSearchCount}
-                columns={[
-                  {
-                    field: 'name',
-                    headerName: 'Name',
-                    flex: 1,
-                    width: 100,
-                    description: 'Name',
-                    renderCell: (cellValues) => {
-                      const applyFilter = () => {
-                        // if (clearFilters) clearFilters();
-                        localStorage.setItem(
-                          'savedSearch',
-                          JSON.stringify(cellValues.row)
-                        );
-                        setSearchTerm(cellValues.row.searchTerm, {
-                          shouldClearFilters: false,
-                          autocompleteResults: false
-                        });
-
-                        // Apply the filters
-                        cellValues.row.filters.forEach((filter) => {
-                          filter.values.forEach((value: string) => {
-                            addFilter(filter.field, value, 'any');
-                          });
-                        });
-                      };
-                      return (
-                        <div
-                          aria-label={cellValues.row.name}
-                          title={`Saved Search: ${cellValues.row.name}`}
-                          tabIndex={0}
-                          onClick={applyFilter}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              applyFilter();
-                            }
-                          }}
-                          style={{
-                            cursor: 'pointer',
-                            textAlign: 'left',
-                            width: '100%'
-                          }}
-                        >
-                          {cellValues.value}
-                        </div>
-                      );
-                    }
-                  },
-                  {
-                    field: 'actions',
-                    headerName: '',
-                    flex: 0.1,
-                    renderCell: (cellValues) => {
-                      const searchId = cellValues.id.toString();
-                      return (
-                        <div style={{ display: 'flexbox', textAlign: 'end' }}>
-                          <IconButton
-                            aria-label="Delete"
-                            title="Delete Search"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSearch(searchId);
-                            }}
-                            tabIndex={0}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                deleteSearch(searchId);
-                              }
-                            }}
-                          >
-                            <Delete />
-                          </IconButton>
-                        </div>
-                      );
-                    }
-                  }
-                ]}
-                initialState={{
-                  pagination: {
-                    paginationModel: {
-                      pageSize: 5
-                    }
-                  }
-                }}
-                pageSizeOptions={[5, 10]}
-                disableRowSelectionOnClick
-                sx={{
-                  disableColumnfilter: 'true',
-                  '& .MuiDataGrid-row:hover': {
-                    cursor: 'pointer'
-                  }
-                }}
-              />
-            ) : (
-              <div>No Saved Searches</div>
-            )}
-          </Paper>
+            </List>
+          )}
         </AccordionDetails>
-        {/* </Accordion> */}
       </Accordion>
     </StyledWrapper>
   );
