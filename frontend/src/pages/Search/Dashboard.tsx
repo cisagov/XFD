@@ -72,6 +72,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   const { savedSearches } = useSavedSearchContext();
 
+  const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
+
   const search:
     | (SavedSearch & {
         editing?: boolean;
@@ -103,7 +105,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   > = (e) => onChange(e.target.name, e.target.value);
 
   const onChange = (name: string, value: any) => {
-    if (name === 'name' && savedSearchNames.includes(value)) {
+    if (savedSearchNames.includes(value)) {
       alert('Search name already exists');
       return;
     }
@@ -195,6 +197,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
                 : undefined
             }
             existingSavedSearch={search}
+            advancedFiltersReq={advanceFiltersReq}
           />
           <Box
             height="100%"
