@@ -31,6 +31,7 @@ import {
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
 import { useAuthContext } from 'context';
+import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { FilterTags } from './FilterTags';
 import { SavedSearch, Vulnerability } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
@@ -69,6 +70,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     currentOrganization
   } = useAuthContext();
 
+  const { savedSearches } = useSavedSearchContext();
+
   const search:
     | (SavedSearch & {
         editing?: boolean;
@@ -93,12 +96,17 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           createVulnerabilities: false
         }
   );
+  const savedSearchNames = savedSearches.map((search) => search.name);
 
   const onTextChange: React.ChangeEventHandler<
     HTMLInputElement | HTMLSelectElement
   > = (e) => onChange(e.target.name, e.target.value);
 
   const onChange = (name: string, value: any) => {
+    if (name === 'name' && savedSearchNames.includes(value)) {
+      alert('Search name already exists');
+      return;
+    }
     setSavedSearchValues((values) => ({
       ...values,
       [name]: value
