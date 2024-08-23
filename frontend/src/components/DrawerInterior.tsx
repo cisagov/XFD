@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   AccordionDetails,
   Accordion as MuiAccordion,
@@ -31,8 +31,8 @@ import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { SearchBar } from 'components';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../context/SearchProvider';
-import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from '../context';
+import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 
 interface Props {
@@ -69,21 +69,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     initialFilters
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
-  const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
-  const [savedSearchCount, setSavedSearchCount] = useState(0);
 
-  useEffect(() => {
-    const fetchSearches = async () => {
-      try {
-        const response = await apiGet('/saved-searches');
-        setSavedSearches(response.result);
-        setSavedSearchCount(response.result.length);
-      } catch (error) {
-        console.error('Error fetching searches:', error);
-      }
-    };
-    fetchSearches();
-  }, [apiGet]);
+  const {
+    savedSearches,
+    setSavedSearches,
+    savedSearchCount,
+    setSavedSearchCount
+  } = useSavedSearchContext();
 
   const deleteSearch = async (id: string) => {
     try {
@@ -106,7 +98,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     }
 
     savedSearch?.filters?.forEach((filter) => {
-      filter.values.forEach((value) => {
+      filter.values.forEach((value: string) => {
         addFilter(filter.field, value, 'any');
       });
     });
@@ -475,7 +467,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
 
                         // Apply the filters
                         cellValues.row.filters.forEach((filter) => {
-                          filter.values.forEach((value) => {
+                          filter.values.forEach((value: string) => {
                             addFilter(filter.field, value, 'any');
                           });
                         });
