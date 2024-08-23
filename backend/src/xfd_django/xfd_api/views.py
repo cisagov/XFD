@@ -1,17 +1,26 @@
+"""
+This module defines the API endpoints for the FastAPI application.
 
+It includes endpoints for:
+- Healthcheck
+- Retrieving all API keys
+- Retrieving all organizations
 
-from django.shortcuts import render
-from fastapi import (
-    APIRouter,
-    Depends,
-    HTTPException,
-    Security,
+Endpoints:
+    - healthcheck: Returns the health status of the application.
+    - get_api_keys: Retrieves all API keys.
+    - read_orgs: Retrieves all organizations.
 
-)
-from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
+Dependencies:
+    - fastapi
+    - .auth
+    - .models
+"""
+# Third-Party Libraries
+from fastapi import APIRouter, Depends, HTTPException
+
 from .auth import get_current_active_user
 from .models import ApiKey, Organization, User
-from typing import Any, List, Optional, Union
 
 api_router = APIRouter()
 
@@ -42,17 +51,18 @@ async def get_api_keys():
         return [
             {
                 "id": api_key.id,
-                "created_at": api_key.createdat,
-                "updated_at": api_key.updatedat,
-                "last_used": api_key.lastused,
-                "hashed_key": api_key.hashedkey,
-                "last_four": api_key.lastfour,
-                "user_id": api_key.userid.id if api_key.userid else None,
+                "created_at": api_key.createdAt,
+                "updated_at": api_key.updatedAt,
+                "last_used": api_key.lastUsed,
+                "hashed_key": api_key.hashedKey,
+                "last_four": api_key.lastFour,
+                "user_id": api_key.userId.id if api_key.userId else None,
             }
             for api_key in api_keys
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @api_router.post(
     "/test-orgs",
@@ -68,21 +78,25 @@ def read_orgs(current_user: User = Depends(get_current_active_user)):
                 "id": organization.id,
                 "name": organization.name,
                 "acronym": organization.acronym,
-                "root_domains": organization.rootdomains,
-                "ip_blocks": organization.ipblocks,
-                "is_passive": organization.ispassive,
+                "root_domains": organization.rootDomains,
+                "ip_blocks": organization.ipBlocks,
+                "is_passive": organization.isPassive,
                 "country": organization.country,
                 "state": organization.state,
-                "region_id": organization.regionid,
-                "state_fips": organization.statefips,
-                "state_name": organization.statename,
+                "region_id": organization.regionId,
+                "state_fips": organization.stateFips,
+                "state_name": organization.stateName,
                 "county": organization.county,
-                "county_fips": organization.countyfips,
+                "county_fips": organization.countyFips,
                 "type": organization.type,
-                "parent_id": organization.parentid.id if organization.parentid else None,
-                "created_by_id": organization.createdbyid.id if organization.createdbyid else None,
-                "created_at": organization.createdat,
-                "updated_at": organization.updatedat,
+                "parent_id": organization.parentId.id
+                if organization.parentId
+                else None,
+                "created_by_id": organization.createdById.id
+                if organization.createdById
+                else None,
+                "created_at": organization.createdAt,
+                "updated_at": organization.updatedAt,
             }
             for organization in organizations
         ]
