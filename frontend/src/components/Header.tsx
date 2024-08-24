@@ -277,22 +277,14 @@ export const Header: React.FC<HeaderProps> = ({
       <AppBar position="static" elevation={0}>
         <div className={classes.inner}>
           <Toolbar>
-            <IconButton
-              sx={{
-                width: 40,
-                height: 40
-              }}
-              onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
-            >
-              {matchPath(['/', '/inventory'], pathname) && user ? (
-                <FilterDrawerButton
-                  open={isFilterDrawerOpen}
-                  setOpen={setIsFilterDrawerOpen}
-                />
-              ) : (
-                <></>
-              )}
-            </IconButton>
+            {matchPath(['/', '/inventory'], pathname) && user ? (
+              <FilterDrawerButton
+                open={isFilterDrawerOpen}
+                setOpen={setIsFilterDrawerOpen}
+              />
+            ) : (
+              <></>
+            )}
             <img
               src={cisaLogo}
               className={classes.cisaLogo}

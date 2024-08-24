@@ -1,11 +1,4 @@
-import {
-  Domain,
-  connectToDatabase,
-  Vulnerability,
-  Webpage,
-  Organization
-} from '../models';
-import { CommandOptions } from './ecs-client';
+import { Organization } from '../models';
 import { In } from 'typeorm';
 import ESClient from './es-client';
 import { chunk } from 'lodash';

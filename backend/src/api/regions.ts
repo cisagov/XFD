@@ -1,4 +1,4 @@
-import { connectToDatabase, Organization } from '../models';
+import { connectToDatabase } from '../models';
 import { wrapHandler } from './helpers';
 import { getManager } from 'typeorm';
 

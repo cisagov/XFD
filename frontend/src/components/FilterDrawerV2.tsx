@@ -75,7 +75,7 @@ export const FilterDrawer: FC<
     <Drawer
       open={isFilterDrawerOpen}
       variant={isMobile ? 'temporary' : 'persistent'}
-      keepMounted={isMobile}
+      ModalProps={{ keepMounted: isMobile }}
       onClose={() => setIsFilterDrawerOpen(false)}
       sx={{
         width: drawerWidth,

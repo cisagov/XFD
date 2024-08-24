@@ -93,7 +93,6 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     padding: '20px 30px'
   },
   [`& .${classesRisk.header}`]: {
-    height: '60px',
     backgroundColor: '#F8F9FA',
     top: 0,
     width: '100%',
