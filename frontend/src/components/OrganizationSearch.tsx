@@ -1,5 +1,10 @@
-/* eslint-disable prettier/prettier */
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, {
+  useCallback,
+  useMemo,
+  useState,
+  useEffect,
+  useRef
+} from 'react';
 import { useAuthContext } from 'context';
 //Are we still using this?
 // import  {OrganizationTag} from 'types';
@@ -61,6 +66,8 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   const { setShowMaps, user, apiPost } = useAuthContext();
 
   const { regions } = useStaticsContext();
+
+  const selectionRef = useRef(null);
 
   //Are we still using this?
   // const [tags, setTags] = useState<OrganizationTag[]>([]);
@@ -129,9 +136,8 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     }
   };
 
-  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newSearchTerm = e.target.value;
-    setSearchTerm(newSearchTerm);
+  const handleTextChange = (v: string) => {
+    setSearchTerm(v);
   };
 
   const handleChange = (v: string) => {
@@ -168,6 +174,24 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     },
     [regionFilterValues]
   );
+
+  const handleAddOrganization = (org: OrganizationShallow) => {
+    if (org) {
+      const exists = organizationsInFilters?.find((o) => o.id === org.id);
+      if (exists) {
+        removeFilter(ORGANIZATION_FILTER_KEY, org, 'any');
+      } else {
+        addFilter(ORGANIZATION_FILTER_KEY, org, 'any');
+      }
+      setSearchTerm('');
+      if (org.name === 'Election') {
+        setShowMaps(true);
+      } else {
+        setShowMaps(false);
+      }
+    } else {
+    }
+  };
 
   return (
     <>
@@ -219,14 +243,29 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
           {/* Need to reconcile type issues caused by adding freeSolo prop */}
           {userLevel !== STANDARD_USER ? (
             <Autocomplete
-              onInputChange={(_, v) => handleChange(v)}
+              onInputChange={(e, v) => {
+                if (e && e.type === 'change') {
+                  handleTextChange(v);
+                }
+              }}
+              inputValue={searchTerm}
               // freeSolo
               disableClearable
+              disablePortal
               options={orgResults}
+              onChange={(e, v) => {
+                handleAddOrganization(v);
+                return;
+              }}
+              disableCloseOnSelect
               getOptionLabel={(option) => option.name}
               renderOption={(params, option) => {
                 return (
-                  <li {...params} key={option.id}>
+                  <li
+                    {...params}
+                    key={option.id}
+                    onClick={() => handleAddOrganization(option)}
+                  >
                     {option.name}
                   </li>
                 );
@@ -234,34 +273,8 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
               isOptionEqualToValue={(option, value) =>
                 option?.name === value?.name
               }
-              onChange={(event, value) => {
-                if (value) {
-                  const exists = organizationsInFilters?.find(
-                    (org) => org.id === value.id
-                  );
-                  if (exists) {
-                    // setSelectedOrgs(selectedOrgs.filter((org) => org.id !== value.id))
-                    removeFilter(ORGANIZATION_FILTER_KEY, value, 'any');
-                  } else {
-                    // setSelectedOrgs([...selectedOrgs, value])
-                    addFilter(ORGANIZATION_FILTER_KEY, value, 'any');
-                  }
-                  setSearchTerm('');
-                  if (value.name === 'Election') {
-                    setShowMaps(true);
-                  } else {
-                    setShowMaps(false);
-                  }
-                } else {
-                }
-              }}
               renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Search Organizations"
-                  value={searchTerm}
-                  onChange={handleTextChange}
-                />
+                <TextField {...params} label="Search Organizations" />
               )}
             />
           ) : (
@@ -275,7 +288,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
                     <FormControlLabel
                       sx={{ padding: '0px' }}
                       disabled={userLevel === STANDARD_USER}
-                      label={org.name}
+                      label={org?.name}
                       control={<Checkbox />}
                       checked={true}
                       onChange={() => {
