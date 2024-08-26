@@ -8,7 +8,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
-  Box,
   Checkbox,
   Divider,
   FormControlLabel,
@@ -18,7 +17,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { AssignmentInd, ExpandMore } from '@mui/icons-material';
+import { ExpandMore } from '@mui/icons-material';
 import { debounce } from 'utils/debounce';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
@@ -170,18 +169,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     [regionFilterValues]
   );
 
-  const userAssociatedOrgs = useMemo(() => {
-    if (!user) return [];
-    return user.roles.map((role) => {
-      return {
-        name: role?.organization?.name,
-        id: role?.organization?.id,
-        regionId: role?.organization?.regionId,
-        rootDomains: role?.organization?.rootDomains
-      };
-    });
-  }, [user]);
-
   return (
     <>
       <Divider />
@@ -283,40 +270,13 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
           )}
           <List sx={{ width: '100%' }}>
             {organizationsInFilters?.map((org) => {
-              const userIsAssociated = userAssociatedOrgs.find((userOrg) => {
-                if (userOrg.name === org.name && userOrg.id === org.id) {
-                  return true;
-                }
-                return false;
-              });
               return (
                 <ListItem key={org.id} sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
                       sx={{ padding: '0px' }}
                       disabled={userLevel === STANDARD_USER}
-                      label={
-                        <Box
-                          aria-label={`Organization checkbox label ${org.name} checked`}
-                          display="flex"
-                          flexDirection="row"
-                          alignItems="center"
-                        >
-                          <Typography>{org?.name}</Typography>
-                          {userIsAssociated ? (
-                            <AssignmentInd
-                              sx={{
-                                height: 18,
-                                width: 18,
-                                color: 'grey',
-                                marginLeft: 2
-                              }}
-                            />
-                          ) : (
-                            <></>
-                          )}
-                        </Box>
-                      }
+                      label={org.name}
                       control={<Checkbox />}
                       checked={true}
                       onChange={() => {
@@ -360,28 +320,7 @@ const RegionItem: React.FC<RegionItemProps> = ({
       <FormGroup>
         <FormControlLabel
           control={<Checkbox />}
-          label={
-            <Box
-              aria-label={`Region checkbox label ${region} checked`}
-              display="flex"
-              flexDirection="row"
-              alignItems="center"
-            >
-              <Typography>{`Region ${region}`}</Typography>
-              {userIsAssociated ? (
-                <AssignmentInd
-                  sx={{
-                    height: 18,
-                    width: 18,
-                    color: 'grey',
-                    marginLeft: 2
-                  }}
-                />
-              ) : (
-                <></>
-              )}
-            </Box>
-          }
+          label={`Region ${region}`}
           checked={checked}
           onChange={() => {
             handleChange(region);
