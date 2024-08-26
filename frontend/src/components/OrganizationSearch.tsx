@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAuthContext } from 'context';
 //Are we still using this?
@@ -7,6 +8,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
+  Box,
   Checkbox,
   Divider,
   FormControlLabel,
@@ -16,7 +18,12 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { ExpandMore } from '@mui/icons-material';
+import {
+  AccountCircle,
+  AssignmentInd,
+  ExpandMore,
+  PersonOutline
+} from '@mui/icons-material';
 import { debounce } from 'utils/debounce';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
@@ -168,6 +175,18 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     [regionFilterValues]
   );
 
+  const userAssociatedOrgs = useMemo(() => {
+    if (!user) return [];
+    return user.roles.map((role) => {
+      return {
+        name: role?.organization?.name,
+        id: role?.organization?.id,
+        regionId: role?.organization?.regionId,
+        rootDomains: role?.organization?.rootDomains
+      };
+    });
+  }, [user]);
+
   return (
     <>
       <Divider />
@@ -196,6 +215,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
               regions.map((region) => {
                 return (
                   <RegionItem
+                    userIsAssociated={user?.regionId === region}
                     key={`region-item-${region}`}
                     handleChange={handleCheckboxChange}
                     regionId={region}
@@ -268,13 +288,42 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
           )}
           <List sx={{ width: '100%' }}>
             {organizationsInFilters?.map((org) => {
+              const userIsAssociated = userAssociatedOrgs.find((userOrg) => {
+                if (userOrg.name === org.name && userOrg.id === org.id) {
+                  return true;
+                }
+                return false;
+              });
+
+              console.log(userIsAssociated, org.name);
               return (
                 <ListItem key={org.id} sx={{ padding: '0px' }}>
                   <FormGroup>
                     <FormControlLabel
                       sx={{ padding: '0px' }}
                       disabled={userLevel === STANDARD_USER}
-                      label={org?.name}
+                      label={
+                        <Box
+                          aria-label={`Organization checkbox label ${org.name} checked`}
+                          display="flex"
+                          flexDirection="row"
+                          alignItems="center"
+                        >
+                          <Typography>{org?.name}</Typography>
+                          {userIsAssociated ? (
+                            <AssignmentInd
+                              sx={{
+                                height: 18,
+                                width: 18,
+                                color: 'grey',
+                                marginLeft: 2
+                              }}
+                            />
+                          ) : (
+                            <></>
+                          )}
+                        </Box>
+                      }
                       control={<Checkbox />}
                       checked={true}
                       onChange={() => {
@@ -304,19 +353,42 @@ interface RegionItemProps {
   regionId: string;
   handleChange: (regionId: string) => void;
   checked: boolean;
+  userIsAssociated: boolean;
 }
 
 const RegionItem: React.FC<RegionItemProps> = ({
   regionId: region,
   handleChange,
-  checked
+  checked,
+  userIsAssociated
 }) => {
   return (
     <ListItem sx={{ padding: '0px' }} key={`region-filter-item-${region}`}>
       <FormGroup>
         <FormControlLabel
           control={<Checkbox />}
-          label={`Region ${region}`}
+          label={
+            <Box
+              aria-label={`Region checkbox label ${region} checked`}
+              display="flex"
+              flexDirection="row"
+              alignItems="center"
+            >
+              <Typography>{`Region ${region}`}</Typography>
+              {userIsAssociated ? (
+                <AssignmentInd
+                  sx={{
+                    height: 18,
+                    width: 18,
+                    color: 'grey',
+                    marginLeft: 2
+                  }}
+                />
+              ) : (
+                <></>
+              )}
+            </Box>
+          }
           checked={checked}
           onChange={() => {
             handleChange(region);
