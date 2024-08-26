@@ -197,7 +197,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
               regions.map((region) => {
                 return (
                   <RegionItem
-                    userIsAssociated={user?.regionId === region}
                     key={`region-item-${region}`}
                     handleChange={handleCheckboxChange}
                     regionId={region}
@@ -306,14 +305,12 @@ interface RegionItemProps {
   regionId: string;
   handleChange: (regionId: string) => void;
   checked: boolean;
-  userIsAssociated: boolean;
 }
 
 const RegionItem: React.FC<RegionItemProps> = ({
   regionId: region,
   handleChange,
-  checked,
-  userIsAssociated
+  checked
 }) => {
   return (
     <ListItem sx={{ padding: '0px' }} key={`region-filter-item-${region}`}>
