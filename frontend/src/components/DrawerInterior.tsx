@@ -427,11 +427,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
                 >
                   <FormGroup>
                     <FormControlLabel
-                      control={<Radio />}
+                      control={
+                        <Radio onClick={() => toggleSavedSearches(search.id)} />
+                      }
                       label={search.name}
                       sx={{ padding: '0px' }}
                       value={search.id}
-                      onClick={() => toggleSavedSearches(search.id)}
                       checked={isSavedSearchActive(search.id)}
                     />
                   </FormGroup>
