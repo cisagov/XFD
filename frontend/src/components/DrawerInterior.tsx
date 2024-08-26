@@ -78,6 +78,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
+      localStorage.removeItem('savedSearch');
     } catch (e) {
       console.log(e);
     }
