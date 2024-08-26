@@ -1,10 +1,4 @@
-import React, {
-  useCallback,
-  useMemo,
-  useState,
-  useEffect,
-  useRef
-} from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAuthContext } from 'context';
 //Are we still using this?
 // import  {OrganizationTag} from 'types';
@@ -23,7 +17,6 @@ import {
   Typography
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
-import { debounce } from 'utils/debounce';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
 
@@ -67,12 +60,11 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
 
   const { regions } = useStaticsContext();
 
-  const selectionRef = useRef(null);
-
   //Are we still using this?
   // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
+  const [isOpen, setIsOpen] = useState(false);
 
   let userLevel = 0;
   if (user && user.isRegistered) {
@@ -140,9 +132,9 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     setSearchTerm(v);
   };
 
-  const handleChange = (v: string) => {
-    debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
-  };
+  // const handleChange = (v: string) => {
+  //   debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
+  // };
 
   useEffect(() => {
     searchOrganizations(searchTerm, regionFilterValues ?? []);
@@ -184,6 +176,7 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
         addFilter(ORGANIZATION_FILTER_KEY, org, 'any');
       }
       setSearchTerm('');
+      setIsOpen(false);
       if (org.name === 'Election') {
         setShowMaps(true);
       } else {
@@ -251,13 +244,15 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
               inputValue={searchTerm}
               // freeSolo
               disableClearable
-              disablePortal
+              open={isOpen}
+              onOpen={() => {
+                setIsOpen(true);
+              }}
               options={orgResults}
               onChange={(e, v) => {
                 handleAddOrganization(v);
                 return;
               }}
-              disableCloseOnSelect
               getOptionLabel={(option) => option.name}
               renderOption={(params, option) => {
                 return (
