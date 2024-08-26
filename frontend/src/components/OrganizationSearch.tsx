@@ -18,12 +18,7 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import {
-  AccountCircle,
-  AssignmentInd,
-  ExpandMore,
-  PersonOutline
-} from '@mui/icons-material';
+import { AssignmentInd, ExpandMore } from '@mui/icons-material';
 import { debounce } from 'utils/debounce';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
@@ -294,8 +289,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
                 }
                 return false;
               });
-
-              console.log(userIsAssociated, org.name);
               return (
                 <ListItem key={org.id} sx={{ padding: '0px' }}>
                   <FormGroup>
