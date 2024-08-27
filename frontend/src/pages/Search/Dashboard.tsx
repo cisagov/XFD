@@ -31,7 +31,7 @@ import {
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
 import { useAuthContext } from 'context';
-import { useSavedSearchContext } from 'context/SavedSearchContext';
+// import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { FilterTags } from './FilterTags';
 import { SavedSearch, Vulnerability } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
@@ -70,7 +70,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     currentOrganization
   } = useAuthContext();
 
-  const { savedSearches } = useSavedSearchContext();
+  // Could be used for validation purposes in new dialogue
+  // const { savedSearches } = useSavedSearchContext();
 
   const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
 
@@ -98,17 +99,12 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           createVulnerabilities: false
         }
   );
-  const savedSearchNames = savedSearches.map((search) => search.name);
 
   const onTextChange: React.ChangeEventHandler<
     HTMLInputElement | HTMLSelectElement
   > = (e) => onChange(e.target.name, e.target.value);
 
   const onChange = (name: string, value: any) => {
-    if (savedSearchNames.includes(value)) {
-      alert('Search name already exists');
-      return;
-    }
     setSavedSearchValues((values) => ({
       ...values,
       [name]: value
@@ -293,7 +289,9 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           Export Results
         </Button>
       </Paper>
-
+      {
+        // To-do: Implement a new MUI based Save Search Dialog to replace the existing USWDS based Modal.
+      }
       <Modal ref={modalRef} id="modal">
         <ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>
         <FormGroup>
