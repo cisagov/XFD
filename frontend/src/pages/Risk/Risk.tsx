@@ -54,7 +54,7 @@ let colorScale = scaleLinear<string>()
   .domain([0, 1])
   .range(['#c7e8ff', '#135787']);
 
-const Risk: React.FC<ContextType & {}> = ({ filters }) => {
+const Risk: React.FC<ContextType & {}> = ({ filters, addFilter }) => {
   const { showMaps, user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
