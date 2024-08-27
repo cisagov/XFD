@@ -8,7 +8,7 @@ import React, {
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
-import { Header, GovBanner } from 'components';
+import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
@@ -24,7 +24,6 @@ import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
-import { HeaderV2 } from './HeaderV2';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -187,10 +186,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
               )}
               <Main open={isFilterDrawerOpen} user={!!user}>
                 <Header
-                  isFilterDrawerOpen={isFilterDrawerOpen}
-                  setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-                />
-                <HeaderV2
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
                 />

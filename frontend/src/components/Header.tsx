@@ -49,7 +49,7 @@ interface HeaderProps {
   setIsFilterDrawerOpen: (isFilterDrawerOpen: boolean) => void;
 }
 
-export const HeaderV2: React.FC<HeaderProps> = ({
+export const Header: React.FC<HeaderProps> = ({
   isFilterDrawerOpen,
   setIsFilterDrawerOpen
 }) => {
