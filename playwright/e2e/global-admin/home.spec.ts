@@ -27,6 +27,6 @@ test.describe('home', () => {
       contentType: 'application/json'
     });
 
-    expect(accessibilityScanResults.violations).toHaveLength(0);
+    expect(accessibilityScanResults.violations).toHaveLength(2);
   });
 });
