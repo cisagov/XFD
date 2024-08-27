@@ -1,6 +1,8 @@
 {
   "author": "",
   "dependencies": {
+    "@axe-core/playwright": "^4.9.1",
+    "axe-core": "^4.9.1",
     "dotenv": "^16.4.5",
     "otpauth": "^9.2.2"
   },

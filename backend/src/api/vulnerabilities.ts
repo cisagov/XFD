@@ -122,8 +122,8 @@ class VulnerabilitySearch {
       });
     }
     if (this.filters?.severity) {
-      qs.andWhere('vulnerability.severity=:severity', {
-        severity: this.filters.severity
+      qs.andWhere('vulnerability.severity ILIKE :severity', {
+        severity: `%${this.filters.severity}%`
       });
     }
     if (this.filters?.cpe) {

@@ -4,35 +4,48 @@ import { Point } from './Risk';
 import { useHistory } from 'react-router-dom';
 import { getSingleColor } from './utils';
 import * as RiskStyles from './style';
-import { Paper } from '@mui/material';
+import { Paper, Tooltip } from '@mui/material';
 
 const TopVulnerablePorts = (props: { data: Point[] }) => {
   const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
     const reversedBars = [...bars].reverse();
     return reversedBars.map((bar) => (
-      <g key={bar.key}>
-        <rect
-          role="button"
-          key={bar.key}
-          x={bar.x}
-          y={bar.y}
-          width={bar.width}
-          height={bar.height}
-          fill={bar.color}
-          tabIndex={0}
-          aria-label={`Port - ${bar.data.indexValue}: ${bar.data.value}`}
-          onClick={(e) => {
-            console.log('clicked label value: ', bar);
-            history.push(
-              `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
-            );
-            window.location.reload();
-          }}
-        />
-        <title>
-          Port - {bar.data.indexValue}: {bar.data.value}
-        </title>
-      </g>
+      <Tooltip
+        title={
+          <span>
+            {bar.data.value} domains with vulnerabilities on port{' '}
+            {bar.data.indexValue}
+          </span>
+        }
+        placement="right"
+        arrow
+        key={bar.key}
+      >
+        <g key={bar.key}>
+          <rect
+            role="button"
+            key={bar.key}
+            x={bar.x}
+            y={bar.y}
+            width={bar.width}
+            height={bar.height}
+            fill={bar.color}
+            tabIndex={0}
+            aria-label={`${
+              bar.data.value
+            }${' '}domains with vulnerabilities on port${' '}
+            ${bar.data.indexValue}`}
+            //To-do: Fix onClick so that User is routed to Inventory page with Port # pre-selected as a filter
+            onClick={() => {
+              console.log('clicked label value: ', bar);
+              history.push(
+                `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
+              );
+              window.location.reload();
+            }}
+          />
+        </g>
+      </Tooltip>
     ));
   };
   const history = useHistory();
@@ -64,13 +77,6 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
                 }
               }
             }}
-            onClick={(event) => {
-              console.log('clicked label value: ', event.data.label);
-              history.push(
-                `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${event.data.label}_n&filters[0][type]=any`
-              );
-              window.location.reload();
-            }}
             padding={0.5}
             colors={getSingleColor}
             borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
@@ -96,7 +102,6 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
             }}
             animate={true}
             ariaLabel={'Top Vulnerable Ports - y-axis: Port, x-axis: Count'}
-            barAriaLabel={(d) => `Port - ${d.indexValue}: ${d.value}`}
             enableGridX={true}
             enableGridY={false}
             enableLabel={false}

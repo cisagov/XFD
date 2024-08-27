@@ -1,6 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { classesVulns, Root } from './vulnerabilitiesStyle';
 import { Filters, SortingRule } from 'react-table';
 import { Query } from 'types';
 import { useAuthContext } from 'context';
@@ -67,9 +66,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     useAuthContext();
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
+  const [loadingError, setLoadingError] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
+      setIsLoading(true);
       try {
         const res = await apiPut<Vulnerability>(
           '/vulnerabilities/' + vulnerabilities[index].id,
@@ -153,6 +155,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         );
       } catch (e) {
         console.error(e);
+        setLoadingError(true);
         return;
       }
     },
@@ -183,6 +186,9 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         }));
       } catch (e) {
         console.error(e);
+        setLoadingError(true);
+      } finally {
+        setIsLoading(false);
       }
     },
     [vulnerabilitiesSearch, groupBy]
@@ -217,6 +223,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   }, [fetchVulnerabilities]);
 
   useEffect(() => {
+    setIsLoading(true);
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
@@ -438,89 +445,85 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       }
     }
   ];
-  // TODO: Get server side filtering and client side filtering to work together or replace one.
 
   return (
-    <Root>
-      <div className={classesVulns.contentWrapper}>
-        <Subnav
-          items={[
-            { title: 'Search Results', path: '/inventory', exact: true },
-            { title: 'All Domains', path: '/inventory/domains' },
-            { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
-          ]}
-        ></Subnav>
-        <br></br>
-        {initialFilters.length > 0 && (
-          <Box mt={3} display="flex" justifyContent="center">
-            <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
-              <Typography>
-                Displaying {state.title} vulnerabilities.{' '}
-                <Button onClick={resetVulnerabilities}>
-                  Reset Vulnerabilities
-                </Button>
-              </Typography>
-            </Paper>
-          </Box>
-        )}
-        <Box mb={3} mt={3} display="flex" justifyContent="center">
-          {vulnerabilities?.length === 0 ? (
-            <Stack spacing={2}>
-              <Paper elevation={2}>
-                <Alert severity="warning">
-                  {' '}
-                  Unable to load vulnerabilities.
-                </Alert>
-              </Paper>
-              <Stack direction="row" spacing={2} justifyContent="end">
-                <Button
-                  onClick={resetVulnerabilities}
-                  variant="contained"
-                  color="primary"
-                  sx={{ width: 'fit-content' }}
-                >
-                  Retry
-                </Button>
-              </Stack>
-            </Stack>
-          ) : (
-            <Paper elevation={2} sx={{ width: '90%' }}>
-              <DataGrid
-                rows={vulRows}
-                rowCount={totalResults}
-                columns={vulCols}
-                slots={{ toolbar: CustomToolbar }}
-                paginationMode="server"
-                paginationModel={paginationModel}
-                onPaginationModelChange={(model) => {
-                  fetchVulnerabilities({
-                    page: model.page + 1,
-                    pageSize: model.pageSize,
-                    sort: paginationModel.sort,
-                    filters: paginationModel.filters
-                  });
-                }}
-                filterMode="server"
-                onFilterModelChange={(model) => {
-                  const filters = model.items.map((item) => ({
-                    id: item.field,
-                    value: item.value
-                  }));
-                  setFilters(filters);
-                  fetchVulnerabilities({
-                    page: paginationModel.page + 1,
-                    pageSize: paginationModel.pageSize,
-                    sort: paginationModel.sort,
-                    filters: filters
-                  });
-                }}
-                pageSizeOptions={[15, 30, 50, 100]}
-              />
-            </Paper>
-          )}
+    <Box>
+      <Subnav
+        items={[
+          { title: 'Search Results', path: '/inventory', exact: true },
+          { title: 'All Domains', path: '/inventory/domains' },
+          { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
+        ]}
+      ></Subnav>
+      <br></br>
+      {initialFilters.length > 0 && (
+        <Box mt={3} display="flex" justifyContent="center">
+          <Paper elevation={2} sx={{ width: '90%', px: 1 }}>
+            <Typography>
+              Displaying {state.title} vulnerabilities.{' '}
+              <Button onClick={resetVulnerabilities}>
+                Reset Vulnerabilities
+              </Button>
+            </Typography>
+          </Paper>
         </Box>
-      </div>
-    </Root>
+      )}
+      <Box mb={3} mt={3} display="flex" justifyContent="center">
+        {isLoading ? (
+          <Paper elevation={2}>
+            <Alert severity="info">Loading Vulnerabilities..</Alert>
+          </Paper>
+        ) : isLoading === false && loadingError === true ? (
+          <Stack direction="row" spacing={2}>
+            <Paper elevation={2}>
+              <Alert severity="warning">Error Loading Vulnerabilities!</Alert>
+            </Paper>
+            <Button
+              onClick={resetVulnerabilities}
+              variant="contained"
+              color="primary"
+              sx={{ width: 'fit-content' }}
+            >
+              Retry
+            </Button>
+          </Stack>
+        ) : isLoading === false && loadingError === false ? (
+          <Paper elevation={2} sx={{ width: '90%' }}>
+            <DataGrid
+              rows={vulRows}
+              rowCount={totalResults}
+              columns={vulCols}
+              slots={{ toolbar: CustomToolbar }}
+              paginationMode="server"
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => {
+                fetchVulnerabilities({
+                  page: model.page + 1,
+                  pageSize: model.pageSize,
+                  sort: paginationModel.sort,
+                  filters: paginationModel.filters
+                });
+              }}
+              filterMode="server"
+              onFilterModelChange={(model) => {
+                const filters = model.items.map((item) => ({
+                  id: item.field,
+                  value: item.value
+                }));
+                setFilters(filters);
+                fetchVulnerabilities({
+                  page: paginationModel.page + 1,
+                  pageSize: paginationModel.pageSize,
+                  sort: paginationModel.sort,
+                  filters: filters
+                });
+              }}
+              pageSizeOptions={[15, 30, 50, 100]}
+            />
+          </Paper>
+        ) : null}
+      </Box>
+    </Box>
   );
 };
 

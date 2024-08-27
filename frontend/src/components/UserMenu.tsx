@@ -3,6 +3,7 @@ import { useHistory } from 'react-router-dom';
 import { Box, Button, Menu, MenuItem } from '@mui/material';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { useAuthContext } from 'context';
 
 interface MenuItemType {
   title: string;
@@ -18,6 +19,7 @@ interface Props {
 
 export const UserMenu: React.FC<Props> = (props) => {
   const { userMenuItems } = props;
+  const { user } = useAuthContext();
   const history = useHistory();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -31,7 +33,16 @@ export const UserMenu: React.FC<Props> = (props) => {
     handleClose();
     history.push(path);
   };
-
+  const filteredMenuItems = userMenuItems.filter((item) => {
+    const userType = user?.userType;
+    const userAccessLevel = item.users ?? 0;
+    return (
+      userType === 'globalAdmin' ||
+      ((userType === 'regionalAdmin' || userType === 'globalView') &&
+        userAccessLevel <= 2) ||
+      userAccessLevel <= 1
+    );
+  });
   return (
     <Box ml={2}>
       <Button
@@ -43,7 +54,7 @@ export const UserMenu: React.FC<Props> = (props) => {
         My Account
       </Button>
       <Menu anchorEl={anchorEl} open={open} onClose={handleClose}>
-        {userMenuItems.map((item, index) => (
+        {filteredMenuItems.map((item, index) => (
           <MenuItem
             key={index}
             onClick={

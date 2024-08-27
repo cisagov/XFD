@@ -63,6 +63,9 @@ export const SortBar: React.FC<Props> = (props) => {
             value={sortField}
             onChange={onSetSortField}
             classes={{ select: classes.selectInp }}
+            sx={{
+              paddingLeft: 1
+            }}
           >
             <MenuItem classes={{ root: classes.option }} value="name">
               Domain Name
