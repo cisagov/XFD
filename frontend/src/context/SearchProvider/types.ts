@@ -1,14 +1,10 @@
 export interface ContextType {
-  addFilter(
-    name: string,
-    value: string,
-    filterType: 'all' | 'any' | 'none'
-  ): void;
+  addFilter(name: string, value: any, filterType: 'all' | 'any' | 'none'): void;
   clearFilters: any;
   saveSearch: any;
   removeFilter(
     name: string,
-    value: string,
+    value: any,
     filterType: 'all' | 'any' | 'none'
   ): void;
   setSearchTerm(s: string, opts?: any): void;
