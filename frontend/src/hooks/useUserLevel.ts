@@ -28,7 +28,7 @@ export const useUserLevel: () => UserLevel = () => {
   if (user && user.isRegistered) {
     if (user.userType === 'standard') {
       userLevel = STANDARD_USER;
-      formattedUserType = 'Standard';
+      formattedUserType = 'Standard User';
     } else if (user.userType === 'globalAdmin') {
       userLevel = GLOBAL_ADMIN;
       formattedUserType = 'Global Admin';

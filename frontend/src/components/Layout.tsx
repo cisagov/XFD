@@ -186,10 +186,10 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                 </Drawer>
               )}
               <Main open={isFilterDrawerOpen} user={!!user}>
-                {/* <Header
+                <Header
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-                /> */}
+                />
                 <HeaderV2
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
