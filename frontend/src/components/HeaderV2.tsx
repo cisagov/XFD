@@ -8,7 +8,8 @@ import {
   Drawer,
   ListItem,
   List,
-  Box
+  Box,
+  Typography
 } from '@mui/material';
 import { ChevronLeft, FilterAlt, Menu as MenuIcon } from '@mui/icons-material';
 import { NavItem } from './NavItem';
@@ -17,6 +18,8 @@ import logo from '../assets/cyhydashboard.svg';
 import cisaLogo from '../assets/cisaSeal.svg';
 import { UserMenu } from './UserMenu';
 import { matchPath } from 'utils/matchPath';
+import { display, useTheme } from '@mui/system';
+import { useUserLevel } from 'hooks/useUserLevel';
 
 const PREFIX = 'Header';
 
@@ -161,12 +164,13 @@ interface HeaderProps {
   setIsFilterDrawerOpen: (isFilterDrawerOpen: boolean) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export const HeaderV2: React.FC<HeaderProps> = ({
   isFilterDrawerOpen,
   setIsFilterDrawerOpen
 }) => {
   const { pathname } = useLocation();
   const { user, logout } = useAuthContext();
+  const theme = useTheme();
 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
@@ -176,19 +180,7 @@ export const Header: React.FC<HeaderProps> = ({
     setDrawerOpen(newOpen);
   };
 
-  let userLevel = 0;
-  if (user && user.isRegistered) {
-    if (user.userType === 'standard') {
-      userLevel = STANDARD_USER;
-    } else if (user.userType === 'globalAdmin') {
-      userLevel = GLOBAL_ADMIN;
-    } else if (
-      user.userType === 'regionalAdmin' ||
-      user.userType === 'globalView'
-    ) {
-      userLevel = REGIONAL_ADMIN;
-    }
-  }
+  const { userLevel, formattedUserType } = useUserLevel();
 
   const navItems: NavItemType[] = [
     {
@@ -277,48 +269,108 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <Root>
       <AppBar position="static" elevation={0}>
-        <div className={classes.inner}>
-          <Toolbar>
-            {matchPath(['/', '/inventory'], pathname) && user ? (
-              <FilterDrawerButton
-                open={isFilterDrawerOpen}
-                setOpen={setIsFilterDrawerOpen}
-              />
-            ) : (
-              <></>
-            )}
-            <img
-              src={cisaLogo}
-              className={classes.cisaLogo}
-              alt="Cybersecurity and Infrastructure Security Agency Logo"
-            />
-            <Link to="/">
+        <Box
+          maxWidth="1440px"
+          display="flex"
+          width="100%"
+          height="100%"
+          margin="0 auto"
+          flexWrap="wrap"
+          alignItems="center"
+        >
+          <Toolbar sx={{ width: '100%', display: 'flex' }}>
+            <Box
+              display="flex"
+              flexDirection="row"
+              width="100%"
+              alignItems="center"
+            >
+              {matchPath(['/', '/inventory'], pathname) && user ? (
+                <FilterDrawerButton
+                  open={isFilterDrawerOpen}
+                  setOpen={setIsFilterDrawerOpen}
+                />
+              ) : (
+                <></>
+              )}
               <img
-                src={logo}
-                className={classes.logo}
-                alt="CyHy Dashboard Icon Navigate Home"
+                src={cisaLogo}
+                style={{
+                  height: 40,
+                  marginRight: theme.spacing(1)
+                }}
+                alt="Cybersecurity and Infrastructure Security Agency Logo"
               />
-            </Link>
-            {!isMobile && (
-              <div className={classes.lgNav}>{desktopNavItems.slice()}</div>
-            )}
-            <div className={classes.spacing} />
-            {userLevel > 0 && (
-              <>{!isMobile && <UserMenu userMenuItems={userMenuItems} />}</>
-            )}
-            {user && isMobile && (
-              <IconButton
-                edge="start"
-                className={classes.menuButton}
-                aria-label="toggle mobile menu"
-                color="inherit"
-                onClick={toggleDrawer(true)}
+              <Link
+                to="/"
+                style={{ width: 'min-content', height: 'min-content' }}
               >
-                <MenuIcon />
-              </IconButton>
-            )}
+                <img
+                  src={logo}
+                  style={{
+                    width: 175,
+                    maxWidth: 175,
+                    padding: theme.spacing(),
+                    paddingLeft: 0,
+                    [theme.breakpoints.down('xl')]: {
+                      display: 'flex'
+                    }
+                  }}
+                  alt="CyHy Dashboard Icon Navigate Home"
+                />
+              </Link>
+              {!isMobile && (
+                <Box
+                  display="flex"
+                  width="max-content"
+                  sx={{
+                    [theme.breakpoints.down('sm')]: {
+                      display: 'flex'
+                    }
+                  }}
+                >
+                  {desktopNavItems.slice()}
+                </Box>
+              )}
+            </Box>
+            <Box
+              textTransform="uppercase"
+              display="flex"
+              width="auto"
+              minWidth="max-content"
+            >
+              {user && userLevel > 1 ? (
+                <Typography>{formattedUserType}</Typography>
+              ) : (
+                <></>
+              )}
+            </Box>
+            <Box
+              display="flex"
+              flexDirection="row"
+              width="100%"
+              justifyContent="end"
+            >
+              {userLevel > 0 && (
+                <>{!isMobile && <UserMenu userMenuItems={userMenuItems} />}</>
+              )}
+              {user && isMobile && (
+                <IconButton
+                  edge="start"
+                  style={{
+                    marginLeft: theme.spacing(2),
+                    display: 'flex'
+                  }}
+                  aria-label="toggle mobile menu"
+                  color="inherit"
+                  onClick={toggleDrawer(true)}
+                >
+                  <MenuIcon />
+                </IconButton>
+              )}
+            </Box>
           </Toolbar>
-        </div>
+        </Box>
       </AppBar>
       <Drawer
         anchor="right"
@@ -341,7 +393,6 @@ export const Header: React.FC<HeaderProps> = ({
                   exact
                   component={NavLink}
                   to={path}
-                  activeClassName={classes.activeMobileLink}
                 >
                   {title}
                 </ListItem>

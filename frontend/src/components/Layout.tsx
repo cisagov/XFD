@@ -24,6 +24,7 @@ import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
+import { HeaderV2 } from './HeaderV2';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -185,7 +186,11 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                 </Drawer>
               )}
               <Main open={isFilterDrawerOpen} user={!!user}>
-                <Header
+                {/* <Header
+                  isFilterDrawerOpen={isFilterDrawerOpen}
+                  setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+                /> */}
+                <HeaderV2
                   isFilterDrawerOpen={isFilterDrawerOpen}
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
                 />
