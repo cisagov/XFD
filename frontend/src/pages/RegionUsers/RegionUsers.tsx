@@ -45,7 +45,7 @@ export const RegionUsers: React.FC = () => {
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
   const regionalAdminId = user?.regionId;
-  const { userLevel, formattedUserType } = useUserLevel();
+  const { formattedUserType } = useUserLevel();
   const getOrgsURL = `/organizations/regionId/`;
   const getUsersURL = `/v2/users?invitePending=`;
   const pendingCols: GridColDef[] = [
