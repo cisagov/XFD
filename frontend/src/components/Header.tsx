@@ -188,10 +188,7 @@ export const Header: React.FC<HeaderProps> = ({
                 }}
                 alt="Cybersecurity and Infrastructure Security Agency Logo"
               />
-              <Link
-                to="/"
-                style={{ width: 'min-content', height: 'min-content' }}
-              >
+              <Link to="/" style={{ width: 'min-content', height: '30px' }}>
                 <img
                   src={logo}
                   style={{
