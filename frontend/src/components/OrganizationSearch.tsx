@@ -7,6 +7,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
+  Button,
   Checkbox,
   Divider,
   FormControlLabel,
@@ -250,18 +251,41 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
               }}
               options={orgResults}
               onChange={(e, v) => {
-                handleAddOrganization(v);
+                setTimeout(() => {
+                  handleAddOrganization(v);
+                }, 250);
                 return;
               }}
               getOptionLabel={(option) => option.name}
+              ListboxProps={{
+                sx: {
+                  ':active': {
+                    bgcolor: 'transparent'
+                  }
+                }
+              }}
               renderOption={(params, option) => {
                 return (
-                  <li
-                    {...params}
-                    key={option.id}
-                    onClick={() => handleAddOrganization(option)}
-                  >
-                    {option.name}
+                  <li style={{ pointerEvents: 'none', padding: 0 }}>
+                    <Button
+                      sx={{
+                        pointerEvents: 'auto',
+                        height: '100%',
+                        width: '100%',
+                        display: 'flex',
+                        justifyContent: 'start',
+                        fontWeight: 400,
+                        color: 'black',
+                        textTransform: 'none'
+                      }}
+                      onClick={() =>
+                        setTimeout(() => {
+                          handleAddOrganization(option);
+                        }, 250)
+                      }
+                    >
+                      {option.name}
+                    </Button>
                   </li>
                 );
               }}
@@ -269,7 +293,11 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
                 option?.name === value?.name
               }
               renderInput={(params) => (
-                <TextField {...params} label="Search Organizations" />
+                <TextField
+                  {...params}
+                  label="Search Organizations"
+                  onBlur={() => setIsOpen(false)}
+                />
               )}
             />
           ) : (
