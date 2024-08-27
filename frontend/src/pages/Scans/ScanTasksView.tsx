@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Query, Scan } from 'types';
-import { ScanTask } from 'types';
+import { OrgQuery } from 'types/org-query';
+import { Scan, ScanTask } from 'types';
 import { useAuthContext } from 'context';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
@@ -117,7 +117,7 @@ export const ScanTasksView: React.FC = () => {
   const PAGE_SIZE = 15;
 
   const fetchScanTasks = useCallback(
-    async (query: Query<ScanTask>) => {
+    async (query: OrgQuery<ScanTask>) => {
       const { page, sort, filters } = query;
       try {
         const tableFilters: {
