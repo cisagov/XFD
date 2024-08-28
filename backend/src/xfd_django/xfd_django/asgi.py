@@ -7,7 +7,10 @@ For more information on this file, see
 https://docs.djangoproject.com/en/4.1/howto/deployment/asgi/
 """
 
+# Standard Python Libraries
 import os
+
+# Third-Party Libraries
 import django
 from django.apps import apps
 from django.conf import settings
@@ -22,11 +25,13 @@ django.setup()
 # Ensure apps are populated
 apps.populate(settings.INSTALLED_APPS)
 
-# Import views after Django setup
-from xfd_api.views import api_router
 
 def get_application() -> FastAPI:
     """get_application function."""
+    # Import views after Django setup
+    # Third-Party Libraries
+    from xfd_api.views import api_router
+
     app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
     app.add_middleware(
         CORSMiddleware,
@@ -37,6 +42,7 @@ def get_application() -> FastAPI:
     )
     app.include_router(api_router)
     return app
+
 
 app = get_application()
 handler = Mangum(app)
