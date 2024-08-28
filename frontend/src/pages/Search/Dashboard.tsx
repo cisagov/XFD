@@ -59,8 +59,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     noResults
   } = props;
 
-  console.log('search term', searchTerm);
-
   const [selectedDomain, setSelectedDomain] = useState('');
   const [resultsScrolled] = useState(false);
   const {
