@@ -28,6 +28,38 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
       return t;
     }
   },
+  'vulnerabilities.severity': {
+    labelAccessor: (t) => {
+      return 'Severity';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
+  ip: {
+    labelAccessor: (t) => {
+      return 'IP';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
+  name: {
+    labelAccessor: (t) => {
+      return 'Name';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
+  fromRootDomain: {
+    labelAccessor: (t) => {
+      return 'Root Domain(s)';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
   organizationId: {
     labelAccessor: (t) => {
       return 'Organization';
