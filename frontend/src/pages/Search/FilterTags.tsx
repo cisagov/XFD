@@ -15,6 +15,7 @@ interface FieldToLabelMap {
   [key: string]: {
     labelAccessor: (t: any) => any;
     filterValueAccssor: (t: any) => any;
+    overrideRemove?: (t: any) => void;
   };
 }
 
@@ -33,6 +34,14 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
     },
     filterValueAccssor: (t) => {
       return t.name;
+    }
+  },
+  query: {
+    labelAccessor: (t) => {
+      return 'Query';
+    },
+    filterValueAccssor(t) {
+      return t;
     }
   },
   'services.port': {
@@ -56,6 +65,7 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
 type FlatFilters = {
   field: string;
   label: string;
+  onClear?: () => void;
   value: any;
   values: any[];
   type: 'all' | 'none' | 'any';
@@ -113,6 +123,11 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
             </>
           }
           onDelete={() => {
+            if (filter.onClear) {
+              console.log('custom clear');
+              filter.onClear();
+              return;
+            }
             filter.values.forEach((val) => {
               removeFilter(filter.field, val, filter.type);
             });

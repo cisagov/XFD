@@ -7,6 +7,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
+  Box,
   Checkbox,
   Divider,
   FormControlLabel,
@@ -20,6 +21,8 @@ import { ExpandMore } from '@mui/icons-material';
 import { debounce } from 'utils/debounce';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
+import { SearchBar } from './SearchBar';
+import { useHistory, useLocation } from 'react-router-dom';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -50,12 +53,16 @@ interface OrganizationSearchProps {
     filterType: 'all' | 'any' | 'none'
   ) => void;
   filters: any[];
+  setSearchTerm: (s: string, opts?: any) => void;
+  searchTerm: string;
 }
 
 export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   addFilter,
   removeFilter,
-  filters
+  filters,
+  searchTerm: domainSearchTerm,
+  setSearchTerm: setDomainSearchTerm
 }) => {
   const { setShowMaps, user, apiPost } = useAuthContext();
 
@@ -167,10 +174,30 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     },
     [regionFilterValues]
   );
+  const history = useHistory();
+  const location = useLocation();
 
   return (
     <>
       <Divider />
+      <Box padding={2}>
+        <SearchBar
+          initialValue={domainSearchTerm}
+          value={domainSearchTerm}
+          onChange={(value) => {
+            if (location.pathname !== '/inventory') {
+              history.push(`/inventory?q=${value}`);
+              setDomainSearchTerm(value, {
+                shouldClearFilters: false,
+                refresh: true
+              });
+            }
+            setDomainSearchTerm(value, {
+              shouldClearFilters: false
+            });
+          }}
+        />
+      </Box>
       <Accordion
         expanded={userLevel === STANDARD_USER ? true : undefined}
         defaultExpanded

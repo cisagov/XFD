@@ -23,7 +23,6 @@ import {
   FiberManualRecordRounded
 } from '@mui/icons-material';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import { SearchBar } from 'components';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../context/SearchProvider';
 import { SavedSearch } from '../types/saved-search';
@@ -59,7 +58,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     removeFilter,
     facets,
     clearFilters,
-    searchTerm,
     setSearchTerm
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
@@ -137,20 +135,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
         </Stack>
       </Toolbar>
       <Divider />
-      <div className={classes.header}>
-        <SearchBar
-          initialValue={searchTerm}
-          value={searchTerm}
-          onChange={(value) => {
-            if (location.pathname !== '/inventory')
-              history.push('/inventory?q=' + value);
-            setSearchTerm(value, {
-              shouldClearFilters: false,
-              autocompleteResults: false
-            });
-          }}
-        />
-      </div>
       {clearFilters && (
         <Box display="flex" width="100%" justifyContent="center">
           <Button onClick={clearFilters}>Clear All Filters</Button>
