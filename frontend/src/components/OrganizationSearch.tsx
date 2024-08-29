@@ -1,7 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAuthContext } from 'context';
-//Are we still using this?
-// import  {OrganizationTag} from 'types';
 import {
   Accordion,
   AccordionDetails,
@@ -128,10 +126,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   const handleTextChange = (v: string) => {
     setSearchTerm(v);
   };
-
-  // const handleChange = (v: string) => {
-  //   debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
-  // };
 
   useEffect(() => {
     searchOrganizations(searchTerm, regionFilterValues ?? []);
