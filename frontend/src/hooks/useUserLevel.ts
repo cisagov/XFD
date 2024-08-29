@@ -32,12 +32,12 @@ export const useUserLevel: () => UserLevel = () => {
     } else if (user.userType === 'globalAdmin') {
       userLevel = GLOBAL_ADMIN;
       formattedUserType = 'Global Admin';
-    } else if (
-      user.userType === 'regionalAdmin' ||
-      user.userType === 'globalView'
-    ) {
+    } else if (user.userType === 'regionalAdmin') {
       userLevel = REGIONAL_ADMIN;
       formattedUserType = 'Regional Admin';
+    } else if (user.userType === 'globalView') {
+      userLevel = REGIONAL_ADMIN;
+      formattedUserType = 'Global View';
     }
   }
   return {
