@@ -7,8 +7,7 @@ import {
   FormControl,
   MenuItem,
   SelectProps,
-  IconButton,
-  Button
+  IconButton
 } from '@mui/material';
 import { ArrowUpward, ArrowDownward, Save } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
