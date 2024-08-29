@@ -59,9 +59,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   const { setShowMaps, user, apiPost } = useAuthContext();
 
   const { regions } = useStaticsContext();
-
-  //Are we still using this?
-  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isOpen, setIsOpen] = useState(false);

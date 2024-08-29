@@ -23,10 +23,10 @@ import {
 import {
   Delete,
   ExpandMore,
-  FiberManualRecordRounded
+  FiberManualRecordRounded,
+  FilterAlt,
+  Save
 } from '@mui/icons-material';
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import SaveIcon from '@mui/icons-material/Save';
 import { SearchBar } from 'components';
 import { TaggedArrayInput, FacetFilter } from 'components';
 import { ContextType } from '../context/SearchProvider';
@@ -174,7 +174,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <Typography variant="h6" component="h3">
             Advanced Filters
           </Typography>
-          <FilterAltIcon />
+          <FilterAlt />
         </Stack>
       </Toolbar>
       <Divider />
@@ -409,7 +409,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <Typography variant="h6" component="h3">
             Saved Searches
           </Typography>
-          <SaveIcon />
+          <Save />
         </Stack>
       </Toolbar>
       <Divider />
