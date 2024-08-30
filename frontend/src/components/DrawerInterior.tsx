@@ -27,8 +27,7 @@ import {
   FilterAlt,
   Save
 } from '@mui/icons-material';
-import { SearchBar } from 'components';
-import { TaggedArrayInput, FacetFilter } from 'components';
+import { FacetFilter, SearchBar, TaggedArrayInput } from 'components';
 import { ContextType } from '../context/SearchProvider';
 import { useAuthContext } from '../context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
