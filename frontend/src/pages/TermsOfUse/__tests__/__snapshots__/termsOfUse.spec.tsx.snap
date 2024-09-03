@@ -18,7 +18,13 @@ exports[`matches admin snapshot 1`] = `
         CyHy Dashboard is a free, self-service tool offered by the Department of Homeland Security’s Cybersecurity and Infrastructure Security Agency (CISA). Using both passive and active processes, CyHy Dashboard can continuously evaluate the cybersecurity posture of your public-facing, internet-accessible network assets for vulnerabilities or configuration issues.
       </p>
       <p>
-        CyHy Dashboard supports two types of users for your organization: administrative users or view-only users. Administrative users can add/delete domains for their organization, schedule and disable scans for their organization, and invite others to create CyHy Dashboard accounts to have access to the organization’s data. View-only users can only view data provided to or collected by CyHy Dashboard.
+        CyHy Dashboard supports two types of users for your organization: administrative users or view-only users. 
+        <span
+          style="font-weight: 600; text-decoration: underline;"
+        >
+          Administrative users can add/delete domains for their organization, schedule and disable scans for their organization, and invite others to create CyHy Dashboard accounts to have access to the organization’s data.
+        </span>
+         View-only users can only view data provided to or collected by CyHy Dashboard.
       </p>
       <p>
         Once you create a CyHy Dashboard administrator account, input the Internet Protocol (IP) addresses or domains to be continuously evaluated, and select the scanning/evaluation protocols to be used, CyHy Dashboard will collect data about the sites you specified from multiple publicly-available resources, including through active interactions with your sites, if that option is selected by you. CyHy Dashboard will also examine any publicly-available, internet-accessible resources that appear to be related or otherwise associated with IPs or domains you have provided us to evaluate, presenting you with a list of those related sites for your awareness.
@@ -137,7 +143,13 @@ exports[`matches user snapshot 1`] = `
         CyHy Dashboard is a free, self-service tool offered by the Department of Homeland Security’s Cybersecurity and Infrastructure Security Agency (CISA). Using both passive and active processes, CyHy Dashboard can continuously evaluate the cybersecurity posture of your public-facing, internet-accessible network assets for vulnerabilities or configuration issues.
       </p>
       <p>
-        CyHy Dashboard supports two types of users for your organization: administrative users or view-only users. Administrative users can add/delete domains for their organization, schedule and disable scans for their organization, and invite others to create CyHy Dashboard accounts to have access to the organization’s data. View-only users can only view data provided to or collected by CyHy Dashboard.
+        CyHy Dashboard supports two types of users for your organization: administrative users or view-only users. 
+        <span
+          style="font-weight: 600; text-decoration: underline;"
+        >
+          Administrative users can add/delete domains for their organization, schedule and disable scans for their organization, and invite others to create CyHy Dashboard accounts to have access to the organization’s data.
+        </span>
+         View-only users can only view data provided to or collected by CyHy Dashboard.
       </p>
       <p>
         By creating a CyHy Dashboard view only account and using this service, you request CISA’s technical assistance to detect vulnerabilities and configuration issues through CyHy Dashboard and agree to the following:
