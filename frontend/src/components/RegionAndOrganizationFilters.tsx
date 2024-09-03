@@ -38,7 +38,7 @@ export interface OrganizationShallow {
   rootDomains: string[];
 }
 
-interface OrganizationSearchProps {
+interface RegionAndOrganizationFiltersProps {
   addFilter: (
     name: string,
     value: any,
@@ -52,11 +52,9 @@ interface OrganizationSearchProps {
   filters: any[];
 }
 
-export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
-  addFilter,
-  removeFilter,
-  filters
-}) => {
+export const RegionAndOrganizationFilters: React.FC<
+  RegionAndOrganizationFiltersProps
+> = ({ addFilter, removeFilter, filters }) => {
   const { setShowMaps, user, apiPost } = useAuthContext();
 
   const { regions } = useStaticsContext();

@@ -25,7 +25,7 @@ import {
   ORGANIZATION_FILTER_KEY,
   OrganizationShallow,
   REGION_FILTER_KEY
-} from 'components/OrganizationSearch';
+} from 'components/RegionAndOrganizationFilters';
 import { withSearch } from '@elastic/react-search-ui';
 
 export interface Point {
