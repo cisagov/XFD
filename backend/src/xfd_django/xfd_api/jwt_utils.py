@@ -23,6 +23,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 
 User = get_user_model()
 SECRET_KEY = settings.SECRET_KEY
+JWT_ALGORITHM = "RS256"
 
 
 def create_jwt_token(user):

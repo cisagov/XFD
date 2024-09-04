@@ -17,12 +17,25 @@ Dependencies:
     - .models
 """
 # Third-Party Libraries
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 
-from .auth import get_current_active_user
+from .auth import get_current_active_user, get_jwt_from_code, handle_cognito_callback
 from .models import ApiKey, Organization, User
 
 api_router = APIRouter()
+
+
+@api_router.get("/notifications")
+async def notifications():
+    """ """
+    return []
+
+
+@api_router.get("/notifications/508-banner")
+async def notification_banner():
+    """ """
+    return ""
 
 
 # Healthcheck endpoint
@@ -102,3 +115,109 @@ def read_orgs(current_user: User = Depends(get_current_active_user)):
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/auth/login")
+async def login_endpoint():
+    print(f"Returning auth/login response")
+    # result = await get_login_gov()
+    # return JSONResponse(content=result)
+
+
+@api_router.post("/auth/callback")
+async def callback_endpoint(request: Request):
+    body = request.json()
+    print(f"body: {body}")
+    # try:
+    #     if os.getenv("USE_COGNITO"):
+    #         token, user = await handle_cognito_callback(body)
+    #     else:
+    #         user_info = await handle_callback(body)
+    #         user = await update_or_create_user(user_info)
+    #         token = create_jwt_token(user)
+    #     return JSONResponse(content={"token": token, "user": user})
+    # except Exception as error:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
+    #     ) from error
+
+
+@api_router.post("/auth/okta-callback")
+async def callback(request: Request):
+    print(f"Request from /auth/okta-callback: {str(request)}")
+    body = await request.json()
+    print(f"Request json from callback: {str(request)}")
+    print(f"Request json from callback: {body}")
+    print(f"Body type: {type(body)}")
+    code = body.get("code")
+    print(f"Code: {code}")
+    # if not code:
+    #     return HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Code not found in request body",
+    #     )
+    jwt_data = await get_jwt_from_code(code)
+    print(f"JWT TOKEN: {jwt_data}")
+    # try:
+    #     token_endpoint = f"https://{domain}/oauth2/token"
+    #     token_data = (
+    #         f"grant_type=authorization_code&client_id={client_id}&code={code}"
+    #         f"&redirect_uri={callback_url}&scope=openid"
+    #     )
+
+    #     response = requests.post(
+    #         token_endpoint,
+    #         headers={'Content-Type': 'application/x-www-form-urlencoded'},
+    #         data=token_data
+    #     )
+
+    #     # Assuming the response is in JSON format
+    #     response_json = response.json()
+    #     id_token = response_json.get('id_token')
+    #     access_token = response_json.get('access_token')
+    #     refresh_token = response_json.get('refresh_token')
+
+    #     print(f"id_token: {id_token}")
+    #     print(f"access_token: {access_token}")
+    #     print(f"refresh_token: {refresh_token}")
+
+    #     # return JSONResponse(content={"token": access_token, "user": user}, status_code=status.HTTP_200_OK)
+    #     return response_json
+    # except HTTPException as e:
+    #     raise HTTPException(status_code=e.status_code, detail=e.detail)
+
+
+# @api_router.get("/users/me", response_model=User)
+# async def get_me(request: Request):
+#     user = get_current_active_user(request)
+#     return user
+
+# @api_router.post("/users/me/acceptTerms")
+# async def accept_terms(request: Request):
+#     user = await get_current_active_user(request)
+#     user = get_object_or_404(User, id=user_id)
+#     body = await request.json()
+
+#     if not body:
+#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request body")
+
+#     user.dateAcceptedTerms = datetime.utcnow()
+#     user.acceptedTermsVersion = body.get('version')
+#     user.save()
+
+#     return JSONResponse(content=user.to_dict(), status_code=status.HTTP_200_OK)
+
+
+@api_router.get("/users/me")
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
+# @api_router.post("/users/me/acceptTerms")
+# async def accept_terms(
+#     version: str, current_user: User = Depends(get_current_active_user)
+# ):
+#     current_user.date_accepted_terms = datetime.utcnow()
+#     current_user.accepted_terms_version = version
+#     current_user.save()
+#     return current_user
