@@ -118,7 +118,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const validateForm = (values: UserFormValues) => {
-    const nameRegex = /^[A-Za-z\s]+$/;
+    const nameRegex = /^[A-Za-z\s-']+$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const newFormErrors = {
       firstName:
@@ -134,7 +134,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const validateField = (name: string, value: string) => {
-    const nameRegex = /^[A-Za-z\s]+$/;
+    const nameRegex = /^[A-Za-z\s-']+$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     switch (name) {
       case 'firstName':
