@@ -1,7 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAuthContext } from 'context';
-//Are we still using this?
-// import  {OrganizationTag} from 'types';
 import {
   Accordion,
   AccordionDetails,
@@ -58,9 +56,6 @@ export const RegionAndOrganizationFilters: React.FC<
   const { setShowMaps, user, apiPost } = useAuthContext();
 
   const { regions } = useStaticsContext();
-
-  //Are we still using this?
-  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -130,10 +125,6 @@ export const RegionAndOrganizationFilters: React.FC<
   const handleTextChange = (v: string) => {
     setSearchTerm(v);
   };
-
-  // const handleChange = (v: string) => {
-  //   debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
-  // };
 
   useEffect(() => {
     searchOrganizations(searchTerm, regionFilterValues ?? []);

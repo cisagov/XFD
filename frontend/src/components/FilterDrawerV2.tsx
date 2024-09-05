@@ -18,6 +18,7 @@ export const FilterDrawer: FC<
     isFilterDrawerOpen: boolean;
     isMobile: boolean;
     setIsFilterDrawerOpen: (isOpen: boolean) => void;
+    initialFilters: any[];
   }
 > = (props) => {
   const {
@@ -30,7 +31,8 @@ export const FilterDrawer: FC<
     clearFilters,
     searchTerm,
     setSearchTerm,
-    filters
+    filters,
+    initialFilters
   } = props;
   const { pathname } = useLocation();
 
@@ -61,6 +63,7 @@ export const FilterDrawer: FC<
           clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
           searchTerm={searchTerm}
           setSearchTerm={setSearchTerm}
+          initialFilters={initialFilters}
         />
       ) : (
         <></>

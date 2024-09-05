@@ -36,14 +36,6 @@ export const Root = styled('div')(({ theme }) => ({
     boxShadow: ({ isFixed }: Props) =>
       isFixed ? '0px 1px 2px rgba(0, 0, 0, 0.15)' : 'none',
     transition: 'box-shadow 0.3s linear',
-    '& button': {
-      outline: 'standard',
-      border: 'none',
-      color: '#4e4e4e',
-      background: 'none',
-      cursor: 'pointer',
-      textDecoration: 'underline'
-    },
     '& *:focus': {
       outline: 'standard'
     },

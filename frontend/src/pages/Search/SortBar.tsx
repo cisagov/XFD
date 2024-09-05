@@ -5,7 +5,8 @@ import {
   FormControl,
   MenuItem,
   SelectProps,
-  IconButton
+  IconButton,
+  Button
 } from '@mui/material';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
@@ -19,6 +20,7 @@ interface Props {
   isFixed: boolean;
   existingSavedSearch?: SavedSearch;
   children?: React.ReactNode;
+  advancedFiltersReq?: boolean;
 }
 
 export const SortBar: React.FC<Props> = (props) => {
@@ -28,7 +30,8 @@ export const SortBar: React.FC<Props> = (props) => {
     setSort,
     saveSearch,
     children,
-    existingSavedSearch
+    existingSavedSearch,
+    advancedFiltersReq
   } = props;
 
   const toggleDirection = () => {
@@ -85,9 +88,13 @@ export const SortBar: React.FC<Props> = (props) => {
       {children}
       <div>
         {saveSearch && (
-          <button onClick={saveSearch}>
+          <Button
+            variant="contained"
+            onClick={saveSearch}
+            disabled={!advancedFiltersReq}
+          >
             {existingSavedSearch ? 'Update Saved Search' : 'Save Search'}
-          </button>
+          </Button>
         )}
       </div>
     </Root>
