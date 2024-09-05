@@ -190,6 +190,8 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
                   setIsFilterDrawerOpen={setIsFilterDrawerOpen}
                 />
                 <Box
+                  id="main-content"
+                  tabIndex={-1}
                   display="block"
                   position="relative"
                   flex="1"
