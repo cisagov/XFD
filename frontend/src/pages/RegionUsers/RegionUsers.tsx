@@ -15,6 +15,7 @@ import {
 import DoneIcon from '@mui/icons-material/Done';
 import { CheckCircleOutline as CheckIcon } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
+import { useUserLevel } from 'hooks/useUserLevel';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -44,6 +45,7 @@ export const RegionUsers: React.FC = () => {
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
   const regionalAdminId = user?.regionId;
+  const { formattedUserType } = useUserLevel();
   const getOrgsURL = `/organizations/regionId/`;
   const getUsersURL = `/v2/users?invitePending=`;
   const pendingCols: GridColDef[] = [
@@ -399,8 +401,7 @@ export const RegionUsers: React.FC = () => {
       >
         <Box sx={{ m: 'auto', maxWidth: '1500px', px: 2, py: 5 }}>
           <Typography variant="h1" style={{ fontSize: '2.125rem' }}>
-            {user?.userType === 'regionalAdmin' && `Region ${regionalAdminId} `}
-            User Registration Dashboard
+            {`${formattedUserType} Dashboard`}
           </Typography>
           <br />
           <Typography
