@@ -287,7 +287,7 @@ exports[`Layout component matches snapshot 1`] = `
                 class="MuiGrid-root MuiGrid-container Footer-footerContainer css-11lq3yg-MuiGrid-root"
               >
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerLogo css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerLogo css-2shs9e-MuiGrid-root"
                 >
                   <a
                     class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways css-smdm7r-MuiTypography-root-MuiLink-root"
@@ -300,7 +300,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </a>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <a
                     class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
@@ -310,7 +310,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </a>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <p>
                     <a
@@ -323,7 +323,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </p>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <p>
                     <a
@@ -335,7 +335,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </p>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <p>
                     <a

@@ -31,6 +31,7 @@ import {
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
 import { useAuthContext } from 'context';
+// import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { FilterTags } from './FilterTags';
 import { SavedSearch, Vulnerability } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
@@ -68,6 +69,11 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     showAllOrganizations,
     currentOrganization
   } = useAuthContext();
+
+  // Could be used for validation purposes in new dialogue
+  // const { savedSearches } = useSavedSearchContext();
+
+  const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
 
   const search:
     | (SavedSearch & {
@@ -201,6 +207,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
                 : undefined
             }
             existingSavedSearch={search}
+            advancedFiltersReq={advanceFiltersReq}
           />
           <Box
             height="100%"
@@ -296,7 +303,9 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           Export Results
         </Button>
       </Paper>
-
+      {
+        // To-do: Implement a new MUI based Save Search Dialog to replace the existing USWDS based Modal.
+      }
       <Modal ref={modalRef} id="modal">
         <ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>
         <FormGroup>

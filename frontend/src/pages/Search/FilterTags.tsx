@@ -15,9 +15,23 @@ interface FieldToLabelMap {
   [key: string]: {
     labelAccessor: (t: any) => any;
     filterValueAccssor: (t: any) => any;
-    overrideRemove?: (t: any) => void;
+    trimAfter?: number;
   };
 }
+
+type EllipsisPastIndex<T> = (source: T[], index: number | null) => T[];
+
+const ellipsisPastIndex: EllipsisPastIndex<string> = (source, index) => {
+  const DEFAULT_INDEX = 3;
+  if (index === null || index === 0) {
+    return source.slice(0, DEFAULT_INDEX);
+  } else if (source.length > index + 1) {
+    const remainder = source.length - index - 1;
+    return [...source.slice(0, index + 1), `...+${remainder}`];
+  } else {
+    return source;
+  }
+};
 
 const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
   'organization.regionId': {
@@ -26,7 +40,8 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
     },
     filterValueAccssor: (t) => {
       return t;
-    }
+    },
+    trimAfter: 10
   },
   'vulnerabilities.severity': {
     labelAccessor: (t) => {
@@ -66,7 +81,8 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
     },
     filterValueAccssor: (t) => {
       return t.name;
-    }
+    },
+    trimAfter: 2
   },
   query: {
     labelAccessor: (t) => {
@@ -82,7 +98,8 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
     },
     filterValueAccssor(t) {
       return t;
-    }
+    },
+    trimAfter: 6
   },
   'vulnerabilities.cve': {
     labelAccessor: (t) => {
@@ -90,7 +107,8 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
     },
     filterValueAccssor(t) {
       return t;
-    }
+    },
+    trimAfter: 3
   }
 };
 
@@ -119,9 +137,12 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
     return filters.reduce((acc, nextFilter) => {
       const fieldAccessors = FIELD_TO_LABEL_MAP[nextFilter.field] ?? null;
       const value = fieldAccessors
-        ? nextFilter.values
-            .map((item: any) => fieldAccessors.filterValueAccssor(item))
-            .join(', ')
+        ? ellipsisPastIndex(
+            nextFilter.values.map((item: any) =>
+              fieldAccessors.filterValueAccssor(item)
+            ),
+            fieldAccessors.trimAfter ? fieldAccessors.trimAfter - 1 : null
+          ).join(', ')
         : nextFilter.values.join(', ');
       const label = fieldAccessors
         ? fieldAccessors.labelAccessor(nextFilter)
@@ -138,11 +159,7 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
   }, [filters]);
 
   return (
-    <Root
-      sx={{
-        marginTop: 1
-      }}
-    >
+    <Root>
       {filtersByColumn.map((filter, idx) => (
         <Chip
           key={idx}
