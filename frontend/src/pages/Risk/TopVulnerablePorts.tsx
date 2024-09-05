@@ -5,59 +5,82 @@ import { useHistory } from 'react-router-dom';
 import { getSingleColor } from './utils';
 import * as RiskStyles from './style';
 import { Paper, Tooltip } from '@mui/material';
+import { ContextType } from 'context';
+import { withSearch } from '@elastic/react-search-ui';
 
-const TopVulnerablePorts = (props: { data: Point[] }) => {
-  const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
-    const reversedBars = [...bars].reverse();
-    return reversedBars.map((bar) => (
-      <Tooltip
-        title={
-          <span>
-            {bar.data.value} domains with vulnerabilities on port{' '}
-            {bar.data.indexValue}
-          </span>
-        }
-        placement="right"
-        arrow
-        key={bar.key}
-      >
-        <g key={bar.key}>
-          <rect
-            role="button"
-            key={bar.key}
-            x={bar.x}
-            y={bar.y}
-            width={bar.width}
-            height={bar.height}
-            fill={bar.color}
-            tabIndex={0}
-            aria-label={`${
-              bar.data.value
-            }${' '}domains with vulnerabilities on port${' '}
-            ${bar.data.indexValue}`}
-            //To-do: Fix onClick so that User is routed to Inventory page with Port # pre-selected as a filter
-            onClick={() => {
-              console.log('clicked label value: ', bar);
-              history.push(
-                `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
-              );
-              window.location.reload();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                history.push(
-                  `/inventory?filters[0][field]=services.port&filters[0][values][0]=n_${bar.data.indexValue}_n&filters[0][type]=any`
-                );
-                window.location.reload();
-              }
-            }}
-          />
-        </g>
-      </Tooltip>
-    ));
-  };
+const CustomBarLayer = ({
+  bars,
+  addFilter,
+  removeFilter,
+  filters
+}: {
+  bars: any[];
+  [key: string]: any;
+  addFilter: ContextType['addFilter'];
+  removeFilter: ContextType['removeFilter'];
+  filters: any[];
+}) => {
+  const reversedBars = [...bars].reverse();
   const history = useHistory();
+
+  return reversedBars.map((bar) => (
+    <Tooltip
+      title={
+        <span>
+          {bar.data.value} domains with vulnerabilities on port{' '}
+          {bar.data.indexValue}
+        </span>
+      }
+      placement="right"
+      arrow
+      key={bar.key}
+    >
+      <g key={bar.key}>
+        <rect
+          role="button"
+          key={bar.key}
+          x={bar.x}
+          y={bar.y}
+          width={bar.width}
+          height={bar.height}
+          fill={bar.color}
+          tabIndex={0}
+          aria-label={`${
+            bar.data.value
+          }${' '}domains with vulnerabilities on port${' '}
+          ${bar.data.indexValue}`}
+          onClick={() => {
+            const servicesPort = filters.find(
+              (filter) => filter.field === 'services.port'
+            );
+            if (servicesPort) {
+              removeFilter(
+                'services.port',
+                parseInt(servicesPort.values[0], 10),
+                'any'
+              );
+              addFilter('services.port', parseInt(bar.data.indexValue), 'any');
+              history.push('/inventory');
+            } else {
+              addFilter('services.port', parseInt(bar.data.indexValue), 'any');
+              history.push('/inventory');
+            }
+          }}
+        />
+      </g>
+    </Tooltip>
+  ));
+};
+
+const CustomBarLayerWithSearch = withSearch(
+  ({ addFilter, filters, removeFilter }: ContextType) => ({
+    addFilter,
+    filters,
+    removeFilter
+  })
+)(CustomBarLayer);
+
+export const TopVulnerablePorts = (props: { data: Point[] }) => {
   const { data } = props;
   const { cardRoot, cardSmall, header, chartSmall } = RiskStyles.classesRisk;
   const dataVal = data
@@ -73,7 +96,7 @@ const TopVulnerablePorts = (props: { data: Point[] }) => {
           <ResponsiveBar
             data={dataVal as any}
             keys={['Port']}
-            layers={['grid', 'axes', CustomBarLayer]}
+            layers={['grid', 'axes', CustomBarLayerWithSearch]}
             indexBy="label"
             margin={{ top: 30, right: 40, bottom: 75, left: 100 }}
             theme={{
