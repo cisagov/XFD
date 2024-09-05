@@ -7,18 +7,26 @@ import {
   DialogTitle,
   TextField,
   Button,
-  Box,
-  Checkbox
+  Box
 } from '@mui/material/';
+import { SavedSearch } from 'types';
 
 interface SaveSearchModalProps {
   open: boolean;
+  handleSave: (FormData: Partial<SavedSearch>) => void; //TODO
   handleClose: () => void;
+  savedSearchValues: Partial<SavedSearch>; //TODO
+  setSavedSearchValues: React.Dispatch<
+    React.SetStateAction<Partial<SavedSearch>>
+  >; //TODO
 }
 
 export default function SaveSearchModal({
   open,
-  handleClose
+  handleClose,
+  handleSave,
+  savedSearchValues,
+  setSavedSearchValues
 }: SaveSearchModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const triggerButtonRef = useRef<HTMLButtonElement>(null);
@@ -29,13 +37,9 @@ export default function SaveSearchModal({
     }
   }, [open]);
 
-  const [checked, setChecked] = useState(false);
-
-  const handleCheck = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setChecked(event.target.checked);
-  };
-
+  // TODO
   const handleCloseModal = () => {
+    console.log('closing modal: ', dialogRef);
     handleClose();
     // TODO: Focus on the trigger button when the modal closes
     // if (triggerButtonRef.current) {
@@ -43,11 +47,20 @@ export default function SaveSearchModal({
     // }
   };
 
-  useEffect(() => {
-    if (!open) {
-      setChecked(false);
-    }
-  }, [open, setChecked]);
+  // TODO
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setSavedSearchValues((prevValues) => ({
+      ...prevValues,
+      [name]: value
+    }));
+  };
+  // TODO
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    handleSave(savedSearchValues);
+    handleClose();
+  };
 
   return (
     <>
@@ -57,14 +70,15 @@ export default function SaveSearchModal({
         onClose={handleCloseModal}
         PaperProps={{
           component: 'form',
-          onSubmit: (event: React.FormEvent<HTMLFormElement>) => {
-            event.preventDefault();
-            const formData = new FormData(event.currentTarget);
-            const formJson = Object.fromEntries((formData as any).entries());
-            const savedSearch = formJson;
-            console.log(savedSearch);
-            handleCloseModal();
-          },
+          onSubmit: handleSubmit,
+          // (event: React.FormEvent<HTMLFormElement>) => {
+          //   event.preventDefault();
+          //   const formData = new FormData(event.currentTarget);
+          //   const formJson = Object.fromEntries((formData as any).entries());
+          //   const savedSearch = formJson;
+          //   console.log(savedSearch);
+          //   handleCloseModal();
+          // }
           style: { width: '30%', minWidth: '300px' }
         }}
         aria-labelledby="dialog-title"
@@ -73,7 +87,7 @@ export default function SaveSearchModal({
       >
         <DialogTitle id="dialog-title">Save Search</DialogTitle>
         <DialogContent>
-          <Box paddingBottom={'2em'}>
+          <Box paddingBottom={'1em'}>
             <DialogContentText id="dialog-description">
               Name Your Search
             </DialogContentText>
@@ -87,18 +101,21 @@ export default function SaveSearchModal({
               type="text"
               fullWidth
               variant="outlined"
+              value={savedSearchValues.name}
+              onChange={handleChange}
               inputProps={{
                 'aria-label': 'Enter a name for your saved search'
               }}
             />
           </Box>
+          {/* TODO:
+              Not sure if necessary at this point
+          */}
           {/* <DialogContentText id="checkbox-description">
             When a result is found:
-          </DialogContentText> */}
-          {/* TODO:
-              Not sure of functionality at this point
-          */}
-          {/* <Box display="flex" alignItems="center">
+          </DialogContentText>
+
+          <Box display="flex" alignItems="center">
               <Checkbox
                 id="create-vulnerability-checkbox"
                 name='createVulnerability'

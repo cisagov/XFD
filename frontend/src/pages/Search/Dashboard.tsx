@@ -31,13 +31,14 @@ import {
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
 import { useAuthContext } from 'context';
-// import { useSavedSearchContext } from 'context/SavedSearchContext';
+import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { FilterTags } from './FilterTags';
 import { SavedSearch, Vulnerability } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
 import { useHistory } from 'react-router-dom';
+import SaveSearchModal from '../../components/SaveSearchModal/SaveSearchModal';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -70,10 +71,39 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     currentOrganization
   } = useAuthContext();
 
+  // TODO: New handleSave
+  const handleSave = async (formData: Partial<SavedSearch>) => {
+    const body = {
+      ...formData,
+      searchTerm,
+      filters,
+      count: totalResults,
+      searchPath: window.location.search,
+      sortField,
+      sortDirection
+    };
+
+    try {
+      if (formData.id) {
+        await apiPut(`/saved-searches/${formData.id}`, { body });
+      } else {
+        await apiPost('/saved-searches/', { body });
+      }
+      history.push('/inventory');
+      window.location.reload();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Could be used for validation purposes in new dialogue
-  // const { savedSearches } = useSavedSearchContext();
+  const { savedSearches } = useSavedSearchContext();
 
   const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
+  const [open, setOpen] = useState(false);
+  const handleClose = () => {
+    setOpen(false);
+  };
 
   const search:
     | (SavedSearch & {
@@ -194,6 +224,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             }
             existingSavedSearch={search}
             advancedFiltersReq={advanceFiltersReq}
+            modalOpen={open}
+            handleCloseModal={handleClose}
           />
           <Box
             height="100%"
@@ -292,130 +324,13 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       {
         // To-do: Implement a new MUI based Save Search Dialog to replace the existing USWDS based Modal.
       }
-      <Modal ref={modalRef} id="modal">
-        <ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>
-        <FormGroup>
-          <Label htmlFor="name">Name Your Search</Label>
-          <TextInput
-            required
-            id="name"
-            name="name"
-            type="text"
-            value={savedSearchValues.name}
-            onChange={onTextChange}
-          />
-          <p>When a new result is found:</p>
-          {/* <FormControlLabel
-                  control={
-                    <Checkbox
-                      // checked={gilad}
-                      // onChange={handleChange}
-                      name="email"
-                    />
-                  }
-                  label="Email me"
-                /> */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={savedSearchValues.createVulnerabilities}
-                onChange={(e) => onChange(e.target.name, e.target.checked)}
-                id="createVulnerabilities"
-                name="createVulnerabilities"
-              />
-            }
-            label="Create a vulnerability"
-          />
-          {savedSearchValues.createVulnerabilities && (
-            <>
-              <Label htmlFor="title">Title</Label>
-              <TextInput
-                required
-                id="title"
-                name="title"
-                type="text"
-                value={savedSearchValues.vulnerabilityTemplate.title}
-                onChange={onVulnerabilityTemplateChange}
-              />
-              <Label htmlFor="description">Description</Label>
-              <TextareaAutosize
-                required
-                id="description"
-                name="description"
-                style={{ padding: 10 }}
-                minRows={2}
-                value={savedSearchValues.vulnerabilityTemplate.description}
-                onChange={onVulnerabilityTemplateChange}
-              />
-              <Label htmlFor="description">Severity</Label>
-              <Dropdown
-                id="severity"
-                name="severity"
-                onChange={onVulnerabilityTemplateChange}
-                value={
-                  savedSearchValues.vulnerabilityTemplate.severity as string
-                }
-                style={{ display: 'inline-block', width: '150px' }}
-              >
-                <option value="None">None</option>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </Dropdown>
-            </>
-          )}
-          {/* <h3>Collaborators</h3>
-                <p>
-                  Collaborators can view vulnerabilities, and domains within
-                  this search. Adding a team will make all members
-                  collaborators.
-                </p>
-                <button className={classes.addButton} >
-                  <AddCircleOutline></AddCircleOutline> ADD
-                </button> */}
-        </FormGroup>
-        <ModalFooter>
-          <ButtonGroup>
-            <ModalToggleButton
-              modalRef={modalRef}
-              closer
-              onClick={async () => {
-                const body = {
-                  body: {
-                    ...savedSearchValues,
-                    searchTerm,
-                    filters,
-                    count: totalResults,
-                    searchPath: window.location.search,
-                    sortField,
-                    sortDirection
-                  }
-                };
-                if (search) {
-                  await apiPut('/saved-searches/' + search.id, body);
-                  history.push('/inventory');
-                  window.location.reload();
-                } else {
-                  await apiPost('/saved-searches/', body);
-                  history.push('/inventory');
-                  window.location.reload();
-                }
-              }}
-            >
-              Save
-            </ModalToggleButton>
-            <ModalToggleButton
-              modalRef={modalRef}
-              closer
-              unstyled
-              className="padding-105 text-center"
-            >
-              Cancel
-            </ModalToggleButton>
-          </ButtonGroup>
-        </ModalFooter>
-      </Modal>
+      <SaveSearchModal
+        open={open}
+        handleClose={handleClose}
+        handleSave={handleSave}
+        savedSearchValues={savedSearchValues}
+        setSavedSearchValues={setSavedSearchValues}
+      />
     </Root>
   );
 };
@@ -465,3 +380,133 @@ export const Dashboard = withSearch(
     noResults
   })
 )(DashboardUI);
+
+{
+  /* <Modal ref={modalRef} id="modal">
+<ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>
+<FormGroup>
+  <Label htmlFor="name">Name Your Search</Label>
+  <TextInput
+    required
+    id="name"
+    name="name"
+    type="text"
+    value={savedSearchValues.name}
+    onChange={onTextChange}
+  />
+  <p>When a new result is found:</p>
+  {/* <FormControlLabel
+          control={
+            <Checkbox
+              // checked={gilad}
+              // onChange={handleChange}
+              name="email"
+            />
+          }
+          label="Email me"
+        />
+  <FormControlLabel
+    control={
+      <Checkbox
+        checked={savedSearchValues.createVulnerabilities}
+        onChange={(e) => onChange(e.target.name, e.target.checked)}
+        id="createVulnerabilities"
+        name="createVulnerabilities"
+      />
+    }
+    label="Create a vulnerability"
+  />
+  {savedSearchValues.createVulnerabilities && (
+    <>
+      <Label htmlFor="title">Title</Label>
+      <TextInput
+        required
+        id="title"
+        name="title"
+        type="text"
+        value={savedSearchValues.vulnerabilityTemplate.title}
+        onChange={onVulnerabilityTemplateChange}
+      />
+      <Label htmlFor="description">Description</Label>
+      <TextareaAutosize
+        required
+        id="description"
+        name="description"
+        style={{ padding: 10 }}
+        minRows={2}
+        value={savedSearchValues.vulnerabilityTemplate.description}
+        onChange={onVulnerabilityTemplateChange}
+      />
+      <Label htmlFor="description">Severity</Label>
+      <Dropdown
+        id="severity"
+        name="severity"
+        onChange={onVulnerabilityTemplateChange}
+        value={
+          savedSearchValues.vulnerabilityTemplate.severity as string
+        }
+        style={{ display: 'inline-block', width: '150px' }}
+      >
+        <option value="None">None</option>
+        <option value="Low">Low</option>
+        <option value="Medium">Medium</option>
+        <option value="High">High</option>
+        <option value="Critical">Critical</option>
+      </Dropdown>
+    </>
+  )}
+  {/* <h3>Collaborators</h3>
+        <p>
+          Collaborators can view vulnerabilities, and domains within
+          this search. Adding a team will make all members
+          collaborators.
+        </p>
+        <button className={classes.addButton} >
+          <AddCircleOutline></AddCircleOutline> ADD
+        </button> */
+}
+{
+  /*}
+</FormGroup>
+<ModalFooter>
+  <ButtonGroup>
+    <ModalToggleButton
+      modalRef={modalRef}
+      closer
+      onClick={async () => {
+        const body = {
+          body: {
+            ...savedSearchValues,
+            searchTerm,
+            filters,
+            count: totalResults,
+            searchPath: window.location.search,
+            sortField,
+            sortDirection
+          }
+        };
+        if (search) {
+          await apiPut('/saved-searches/' + search.id, body);
+          history.push('/inventory');
+          window.location.reload();
+        } else {
+          await apiPost('/saved-searches/', body);
+          history.push('/inventory');
+          window.location.reload();
+        }
+      }}
+    >
+      Save
+    </ModalToggleButton>
+    <ModalToggleButton
+      modalRef={modalRef}
+      closer
+      unstyled
+      className="padding-105 text-center"
+    >
+      Cancel
+    </ModalToggleButton>
+  </ButtonGroup>
+</ModalFooter>
+</Modal> */
+}
