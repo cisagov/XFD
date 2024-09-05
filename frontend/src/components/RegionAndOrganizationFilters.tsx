@@ -5,6 +5,7 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
+  Box,
   Button,
   Checkbox,
   Divider,
@@ -18,6 +19,8 @@ import {
 import { ExpandMore } from '@mui/icons-material';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
+import { SearchBar } from './SearchBar';
+import { useHistory, useLocation } from 'react-router-dom';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -48,11 +51,19 @@ interface RegionAndOrganizationFiltersProps {
     filterType: 'all' | 'any' | 'none'
   ) => void;
   filters: any[];
+  setSearchTerm: (s: string, opts?: any) => void;
+  searchTerm: string;
 }
 
 export const RegionAndOrganizationFilters: React.FC<
   RegionAndOrganizationFiltersProps
-> = ({ addFilter, removeFilter, filters }) => {
+> = ({
+  addFilter,
+  removeFilter,
+  filters,
+  searchTerm: domainSearchTerm,
+  setSearchTerm: setDomainSearchTerm
+}) => {
   const { setShowMaps, user, apiPost } = useAuthContext();
 
   const { regions } = useStaticsContext();
@@ -156,6 +167,8 @@ export const RegionAndOrganizationFilters: React.FC<
     },
     [regionFilterValues]
   );
+  const history = useHistory();
+  const location = useLocation();
 
   const handleAddOrganization = (org: OrganizationShallow) => {
     if (org) {
@@ -179,6 +192,24 @@ export const RegionAndOrganizationFilters: React.FC<
   return (
     <>
       <Divider />
+      <Box padding={2}>
+        <SearchBar
+          initialValue={domainSearchTerm}
+          value={domainSearchTerm}
+          onChange={(value) => {
+            if (location.pathname !== '/inventory') {
+              history.push(`/inventory?q=${value}`);
+              setDomainSearchTerm(value, {
+                shouldClearFilters: false,
+                refresh: true
+              });
+            }
+            setDomainSearchTerm(value, {
+              shouldClearFilters: false
+            });
+          }}
+        />
+      </Box>
       <Accordion
         expanded={userLevel === STANDARD_USER ? true : undefined}
         defaultExpanded

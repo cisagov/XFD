@@ -50,6 +50,8 @@ export const FilterDrawer: FC<
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}
+        setSearchTerm={setSearchTerm}
+        searchTerm={searchTerm}
       />
       {matchPath(
         ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
