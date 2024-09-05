@@ -22,9 +22,6 @@ interface Props {
   existingSavedSearch?: SavedSearch;
   children?: React.ReactNode;
   advancedFiltersReq?: boolean;
-  setModalOpen?: React.Dispatch<React.SetStateAction<boolean>>; // TODO
-  modalOpen?: boolean; //TODO
-  handleCloseModal?: () => void;
 }
 
 export const SortBar: React.FC<Props> = (props) => {
@@ -35,25 +32,10 @@ export const SortBar: React.FC<Props> = (props) => {
     saveSearch,
     children,
     existingSavedSearch,
-    advancedFiltersReq,
-    setModalOpen,
-    modalOpen,
-    handleCloseModal
+    advancedFiltersReq
   } = props;
 
   const [open, setOpen] = useState(false);
-
-  // TODO - Handle Ooen Modal
-  const handleClickOpen = () => {
-    setOpen(true);
-    // setModalOpen && setModalOpen(true);
-  };
-  // TODO - Handle Close Modal
-  const handleClose = () => {
-    setOpen(false);
-
-    handleCloseModal && handleCloseModal();
-  };
 
   const toggleDirection = () => {
     setSort(sortField, sortDirection === 'asc' ? 'desc' : 'asc');
@@ -79,10 +61,6 @@ export const SortBar: React.FC<Props> = (props) => {
             <ArrowUpward />
           )}
         </IconButton>
-        <Button variant="outlined" onClick={handleClickOpen}>
-          Open Save Search Modal
-        </Button>
-
         <span id="sort-by-label">Sort by: </span>
         <FormControl className={classes.openFields}>
           <Select
@@ -111,7 +89,7 @@ export const SortBar: React.FC<Props> = (props) => {
         </FormControl>
       </div>
       {children}
-      <div>
+      {/* <div>
         {saveSearch && (
           <Button
             variant="contained"
@@ -121,7 +99,7 @@ export const SortBar: React.FC<Props> = (props) => {
             {existingSavedSearch ? 'Update Saved Search' : 'Save Search'}
           </Button>
         )}
-      </div>
+      </div> */}
       {/* <SaveSearchModal open={open} handleClose={handleClose} /> */}
     </Root>
   );

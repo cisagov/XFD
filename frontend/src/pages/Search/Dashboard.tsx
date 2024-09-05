@@ -105,6 +105,10 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     setOpen(false);
   };
 
+  const handleOpen = () => {
+    setOpen(true);
+  };
+
   const search:
     | (SavedSearch & {
         editing?: boolean;
@@ -217,16 +221,15 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             sortDirection={sortDirection}
             setSort={setSort}
             isFixed={resultsScrolled}
-            saveSearch={
-              filters.length > 0 || searchTerm
-                ? () => modalRef.current?.toggleModal(undefined, true)
-                : undefined
-            }
+            // saveSearch={
+            //   filters.length > 0 || searchTerm
+            //     ? () => modalRef.current?.toggleModal(undefined, true)
+            //     : undefined
+            // }
             existingSavedSearch={search}
             advancedFiltersReq={advanceFiltersReq}
-            modalOpen={open}
-            handleCloseModal={handleClose}
           />
+          <SaveSearchModal props={props} />
           <Box
             height="100%"
             flexDirection="column"
@@ -324,13 +327,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       {
         // To-do: Implement a new MUI based Save Search Dialog to replace the existing USWDS based Modal.
       }
-      <SaveSearchModal
-        open={open}
-        handleClose={handleClose}
-        handleSave={handleSave}
-        savedSearchValues={savedSearchValues}
-        setSavedSearchValues={setSavedSearchValues}
-      />
     </Root>
   );
 };
