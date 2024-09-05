@@ -73,7 +73,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   // Could be used for validation purposes in new dialogue
   // const { savedSearches } = useSavedSearchContext();
 
-  const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
+  const advanceFiltersReq = filters.length > 1 || searchTerm !== ''; //Prevents a user from saving a search without advanced filters
 
   const search:
     | (SavedSearch & {
