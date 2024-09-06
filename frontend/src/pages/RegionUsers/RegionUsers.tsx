@@ -319,17 +319,15 @@ export const RegionUsers: React.FC = () => {
   };
 
   const removeOrgFromUser = useCallback(
-    (orgId: String, roleId: String): Promise<boolean> => {
-      return apiPost(`/organizations/${orgId}/roles/${roleId}/remove`, {
+    (orgId: String, roleId: String) => {
+      apiPost(`/organizations/${orgId}/roles/${roleId}/remove`, {
         body: {}
       }).then(
         (res) => {
           console.log(res);
-          return true;
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });
-          return false;
         }
       );
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -353,13 +351,8 @@ export const RegionUsers: React.FC = () => {
         // If the user now has a different org than before, remove the previous org.
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
         // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
-        success = await removeOrgFromUser(
-          originalOrgId,
-          selectedUser.roles[0].id
-        );
-        if (success) {
-          success = await addOrgToUser(selectedUser.id, selectedOrgId);
-        }
+        removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
+        success = await addOrgToUser(selectedUser.id, selectedOrgId);
         // If the previous operation was successful or if the user had no previous org,
         // add the user to the selected org which then also updates the user.
       } else {
