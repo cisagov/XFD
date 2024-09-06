@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { classes, Root } from './Styling/dashboardStyle';
 import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
@@ -73,7 +73,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   // Could be used for validation purposes in new dialogue
   // const { savedSearches } = useSavedSearchContext();
 
-  const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
+  const advanceFiltersReq = filters.length > 1 || searchTerm !== ''; //Prevents a user from saving a search without advanced filters
 
   const search:
     | (SavedSearch & {
@@ -120,11 +120,9 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   useEffect(() => {
     if (props.location.search === '') {
       // Search on initial load
-      setSearchTerm('', { shouldClearFilters: false });
     }
     return () => {
       localStorage.removeItem('savedSearch');
-      setSearchTerm('', { shouldClearFilters: false });
     };
   }, [setSearchTerm, props.location.search]);
 
@@ -157,6 +155,22 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
   };
 
+  const filtersToDisplay = useMemo(() => {
+    if (searchTerm !== '') {
+      return [
+        ...filters,
+        {
+          field: 'query',
+          values: [searchTerm],
+          onClear: () => setSearchTerm('', { shouldClearFilters: false })
+        }
+      ];
+    }
+    return filters;
+  }, [filters, searchTerm, setSearchTerm]);
+
+  console.log(filtersToDisplay);
+
   return (
     <Root className={classes.root}>
       <Subnav
@@ -181,7 +195,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         justifyContent="center"
       >
         <Box width="90%" height="100%" display="flex" flexDirection="column">
-          <FilterTags filters={filters} removeFilter={removeFilter} />
+          <FilterTags filters={filtersToDisplay} removeFilter={removeFilter} />
           <SortBar
             sortField={sortField}
             sortDirection={sortDirection}
