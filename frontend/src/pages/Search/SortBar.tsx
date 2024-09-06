@@ -1,15 +1,13 @@
-import React, { useState } from 'react';
-import SaveSearchModal from '../../components/SaveSearchModal/SaveSearchModal';
+import React from 'react';
 import { classes, Root } from './Styling/sortBarStyle';
 import {
-  Button,
   Select,
   FormControl,
   MenuItem,
   SelectProps,
   IconButton
 } from '@mui/material';
-import { ArrowUpward, ArrowDownward, Save } from '@mui/icons-material';
+import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
 import { SavedSearch } from 'types';
 
@@ -29,13 +27,13 @@ export const SortBar: React.FC<Props> = (props) => {
     sortField,
     sortDirection,
     setSort,
-    saveSearch,
-    children,
-    existingSavedSearch,
-    advancedFiltersReq
+    // saveSearch,
+    children
+    // existingSavedSearch,
+    // advancedFiltersReq
   } = props;
 
-  const [open, setOpen] = useState(false);
+  // const [open, setOpen] = useState(false);
 
   const toggleDirection = () => {
     setSort(sortField, sortDirection === 'asc' ? 'desc' : 'asc');

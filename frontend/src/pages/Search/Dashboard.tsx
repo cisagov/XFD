@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { classes, Root } from './Styling/dashboardStyle';
 import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
@@ -9,36 +9,21 @@ import {
   Select,
   MenuItem,
   Typography,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  TextareaAutosize,
-  ButtonGroup,
-  Box
+  Box,
+  Stack
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
-import {
-  Modal,
-  TextInput,
-  Label,
-  Dropdown,
-  ModalFooter,
-  ModalHeading,
-  ModalRef
-} from '@trussworks/react-uswds';
-import { ModalToggleButton } from 'components';
 import { useAuthContext } from 'context';
-import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { FilterTags } from './FilterTags';
 import { SavedSearch, Vulnerability } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
 import { useHistory } from 'react-router-dom';
-import SaveSearchModal from '../../components/SaveSearchModal/SaveSearchModal';
+import { SaveSearchModal } from '../../components/SaveSearchModal/SaveSearchModal';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -65,49 +50,13 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   const [resultsScrolled] = useState(false);
   const {
     apiPost,
-    apiPut,
+    // apiPut,
     setLoading,
     showAllOrganizations,
     currentOrganization
   } = useAuthContext();
 
-  // TODO: New handleSave
-  const handleSave = async (formData: Partial<SavedSearch>) => {
-    const body = {
-      ...formData,
-      searchTerm,
-      filters,
-      count: totalResults,
-      searchPath: window.location.search,
-      sortField,
-      sortDirection
-    };
-
-    try {
-      if (formData.id) {
-        await apiPut(`/saved-searches/${formData.id}`, { body });
-      } else {
-        await apiPost('/saved-searches/', { body });
-      }
-      history.push('/inventory');
-      window.location.reload();
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
-  // Could be used for validation purposes in new dialogue
-  const { savedSearches } = useSavedSearchContext();
-
   const advanceFiltersReq = filters.length > 1; //Prevents a user from saving a search without advanced filters
-  const [open, setOpen] = useState(false);
-  const handleClose = () => {
-    setOpen(false);
-  };
-
-  const handleOpen = () => {
-    setOpen(true);
-  };
 
   const search:
     | (SavedSearch & {
@@ -117,39 +66,24 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     ? JSON.parse(localStorage.getItem('savedSearch')!)
     : undefined;
 
-  const history = useHistory();
-  const modalRef = useRef<ModalRef>(null);
-  const [savedSearchValues, setSavedSearchValues] = useState<
-    Partial<SavedSearch> & {
-      name: string;
-      vulnerabilityTemplate: Partial<Vulnerability>;
-    }
-  >(
-    search
-      ? search
-      : {
-          name: '',
-          vulnerabilityTemplate: {},
-          createVulnerabilities: false
-        }
-  );
+  // const history = useHistory();
 
-  const onTextChange: React.ChangeEventHandler<
-    HTMLInputElement | HTMLSelectElement
-  > = (e) => onChange(e.target.name, e.target.value);
+  // const onTextChange: React.ChangeEventHandler<
+  //   HTMLInputElement | HTMLSelectElement
+  // > = (e) => onChange(e.target.name, e.target.value);
 
-  const onChange = (name: string, value: any) => {
-    setSavedSearchValues((values) => ({
-      ...values,
-      [name]: value
-    }));
-  };
+  // const onChange = (name: string, value: any) => {
+  //   setSavedSearchValues((values) => ({
+  //     ...values,
+  //     [name]: value
+  //   }));
+  // };
 
-  const onVulnerabilityTemplateChange = (e: any) => {
-    (savedSearchValues.vulnerabilityTemplate as any)[e.target.name] =
-      e.target.value;
-    setSavedSearchValues(savedSearchValues);
-  };
+  // const onVulnerabilityTemplateChange = (e: any) => {
+  //   (savedSearchValues.vulnerabilityTemplate as any)[e.target.name] =
+  //     e.target.value;
+  //   setSavedSearchValues(savedSearchValues);
+  // };
 
   useEffect(() => {
     if (props.location.search === '') {
@@ -216,20 +150,30 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       >
         <Box width="90%" height="100%" display="flex" flexDirection="column">
           <FilterTags filters={filters} removeFilter={removeFilter} />
-          <SortBar
-            sortField={sortField}
-            sortDirection={sortDirection}
-            setSort={setSort}
-            isFixed={resultsScrolled}
-            // saveSearch={
-            //   filters.length > 0 || searchTerm
-            //     ? () => modalRef.current?.toggleModal(undefined, true)
-            //     : undefined
-            // }
-            existingSavedSearch={search}
-            advancedFiltersReq={advanceFiltersReq}
-          />
-          <SaveSearchModal props={props} />
+          <Stack spacing={2} direction="row" alignItems="center">
+            <SortBar
+              sortField={sortField}
+              sortDirection={sortDirection}
+              setSort={setSort}
+              isFixed={resultsScrolled}
+              // saveSearch={
+              //   filters.length > 0 || searchTerm
+              //     ? () => modalRef.current?.toggleModal(undefined, true)
+              //     : undefined
+              // }
+              existingSavedSearch={search}
+              advancedFiltersReq={advanceFiltersReq}
+            />
+            <SaveSearchModal
+              search={search}
+              searchTerm={''}
+              setSearchTerm={setSearchTerm}
+              filters={filters}
+              totalResults={0}
+              sortField={''}
+              sortDirection={''}
+            />
+          </Stack>
           <Box
             height="100%"
             flexDirection="column"

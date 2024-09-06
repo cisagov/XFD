@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
+import { useSavedSearchContext } from 'context/SavedSearchContext';
 import {
   Dialog,
   DialogActions,
@@ -12,16 +13,21 @@ import {
 } from '@mui/material/';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
-import { useBeforeunload } from 'react-beforeunload';
-
-import { useSavedSearchContext } from '../../context/SavedSearchContext';
+import { Vulnerability } from 'types';
 
 interface SaveSearchModalProps {
-  props: any;
+  search: any;
+  searchTerm: string;
+  setSearchTerm: any;
+  filters: any;
+  totalResults: number;
+  sortField: string;
+  sortDirection: string;
 }
 
-export default function SaveSearchModal(props: any) {
+export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
+    search,
     searchTerm,
     setSearchTerm,
     filters,
@@ -32,39 +38,41 @@ export default function SaveSearchModal(props: any) {
   const [open, setOpen] = useState(false);
 
   const { apiPost, apiPut } = useAuthContext();
-
-  const search:
-    | (SavedSearch & {
-        editing?: boolean;
-      })
-    | undefined = localStorage.getItem('savedSearch')
-    ? JSON.parse(localStorage.getItem('savedSearch')!)
-    : undefined;
   const history = useHistory();
+
+  // Could be used for validation purposes in new dialogue
+  // const { savedSearches } = useSavedSearchContext();
+
   const [savedSearchValues, setSavedSearchValues] = useState<
     Partial<SavedSearch> & {
       name: string;
-      // vulnerabilityTemplate: Partial<Vulnerability>;
+      vulnerabilityTemplate: Partial<Vulnerability>;
     }
   >(
     search
       ? search
       : {
-          name: ''
-          // vulnerabilityTemplate: {},
-          // createVulnerabilities: false
+          name: '',
+          vulnerabilityTemplate: {},
+          createVulnerabilities: false
         }
   );
 
-  // const onTextChange: React.ChangeEventHandler<
-  //   HTMLInputElement | HTMLSelectElement
-  // > = (e) => handleChange(e.target.name, e.target.value);
+  const onTextChange: React.ChangeEventHandler<
+    HTMLInputElement | HTMLSelectElement
+  > = (e) => handleChange(e.target.name, e.target.value);
 
   const handleChange = (name: string, value: any) => {
     setSavedSearchValues((values) => ({
       ...values,
       [name]: value
     }));
+  };
+
+  const onVulnerabilityTemplateChange = (e: any) => {
+    (savedSearchValues.vulnerabilityTemplate as any)[e.target.name] =
+      e.target.value;
+    setSavedSearchValues(savedSearchValues);
   };
 
   // TODO: Need to verify if needed
@@ -97,8 +105,6 @@ export default function SaveSearchModal(props: any) {
     };
 
     try {
-      console.log('Search: ', props.location.search);
-
       if (search) {
         // TODO: verify search is being passed properly
         await apiPut('/saved-searches/' + search.id, body);
@@ -138,7 +144,9 @@ export default function SaveSearchModal(props: any) {
 
   return (
     <>
-      <Button onClick={handleOpenModal}>Open Modal</Button>
+      <Button variant="outlined" onClick={handleOpenModal}>
+        Open Modal
+      </Button>
       <Dialog
         open={open}
         onClose={handleCloseModal}
@@ -189,4 +197,4 @@ export default function SaveSearchModal(props: any) {
       </Dialog>
     </>
   );
-}
+};
