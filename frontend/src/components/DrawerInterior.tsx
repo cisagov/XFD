@@ -27,7 +27,7 @@ import {
   FilterAlt,
   Save
 } from '@mui/icons-material';
-import { FacetFilter, SearchBar, TaggedArrayInput } from 'components';
+import { FacetFilter, TaggedArrayInput } from 'components';
 import { ContextType } from '../context/SearchProvider';
 import { useAuthContext } from '../context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
@@ -62,7 +62,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     removeFilter,
     facets,
     clearFilters,
-    searchTerm,
     setSearchTerm,
     initialFilters
   } = props;
@@ -177,18 +176,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
         </Stack>
       </Toolbar>
       <Divider />
-      <div className={classes.header}>
-        <SearchBar
-          initialValue={searchTerm}
-          value={searchTerm}
-          onChange={(value) => {
-            setSearchTerm(value, {
-              shouldClearFilters: false,
-              autocompleteResults: false
-            });
-          }}
-        />
-      </div>
+
       {clearFilters && (
         <Box display="flex" width="100%" justifyContent="center">
           <Button onClick={clearFilters}>Clear All Filters</Button>
