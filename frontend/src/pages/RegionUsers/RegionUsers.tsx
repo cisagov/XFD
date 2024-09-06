@@ -319,13 +319,10 @@ export const RegionUsers: React.FC = () => {
   };
 
   const removeOrgFromUser = useCallback(
-    (): Promise<boolean> => {
-      return apiPost(
-        `/organizations/${selectedUser.roles[0].organization.id}/roles/${selectedUser.roles[0].id}/remove`,
-        {
-          body: {}
-        }
-      ).then(
+    (orgId: String, roleId: String): Promise<boolean> => {
+      return apiPost(`/organizations/${orgId}/roles/${roleId}/remove`, {
+        body: {}
+      }).then(
         (res) => {
           console.log(res);
           return true;
@@ -341,24 +338,29 @@ export const RegionUsers: React.FC = () => {
 
   const handleApproveConfirmClick = async () => {
     try {
-      const userHasOrg = selectedUser.roles.length > 0;
-      const userHasSameOrg =
-        userHasOrg && selectedUser.roles[0].organization.id === selectedOrg[0];
+      const userHadOrg = selectedUser.roles.length > 0;
+      const originalOrgId = userHadOrg
+        ? selectedUser.roles[0].organization.id
+        : '';
+      const selectedOrgId = selectedOrg[0];
       let success = false;
       // If the user's org was already added and not modified, only update the user.
-      if (userHasOrg && userHasSameOrg) {
+      if (originalOrgId === selectedOrgId) {
         success = await updateUser(
           selectedUser.id,
           selectedUser.roles[0].organization.name
         );
       } else {
         // If the user now has a different org than before, remove the previous org.
-        if (userHasOrg && !userHasSameOrg) {
-          success = await removeOrgFromUser();
+        if (originalOrgId !== selectedOrgId) {
+          success = await removeOrgFromUser(
+            selectedOrgId.toString(),
+            selectedUser.roles[0].id
+          );
         }
         // If the previous operation was successful or if the user had no previous org,
         // add the user to the selected org which then also updates the user.
-        if (success || !userHasOrg) {
+        if (success || !userHadOrg) {
           success = await addOrgToUser(selectedUser.id, selectedOrg[0]);
         }
       }
