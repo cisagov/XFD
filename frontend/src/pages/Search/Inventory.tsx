@@ -169,8 +169,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     return filters;
   }, [filters, searchTerm, setSearchTerm]);
 
-  console.log(filtersToDisplay);
-
   return (
     <Root className={classes.root}>
       <Subnav
