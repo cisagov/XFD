@@ -342,26 +342,26 @@ export const RegionUsers: React.FC = () => {
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
         : '';
-      const selectedOrgId = selectedOrg[0];
+      const selectedOrgId = selectedOrg[0].toString();
       let success = false;
       // If the user's org was already added and not modified, only update the user.
-      if (originalOrgId === selectedOrgId) {
+      if (userHadOrg && originalOrgId === selectedOrgId) {
         success = await updateUser(
           selectedUser.id,
           selectedUser.roles[0].organization.name
         );
       } else {
         // If the user now has a different org than before, remove the previous org.
-        if (originalOrgId !== selectedOrgId) {
+        if (userHadOrg && originalOrgId !== selectedOrgId) {
           success = await removeOrgFromUser(
-            selectedOrgId.toString(),
+            selectedOrgId,
             selectedUser.roles[0].id
           );
         }
         // If the previous operation was successful or if the user had no previous org,
         // add the user to the selected org which then also updates the user.
         if (success || !userHadOrg) {
-          success = await addOrgToUser(selectedUser.id, selectedOrg[0]);
+          success = await addOrgToUser(selectedUser.id, selectedOrgId);
         }
       }
       if (success) {
