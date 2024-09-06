@@ -1,12 +1,12 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useAuthContext } from 'context';
-//Are we still using this?
-// import  {OrganizationTag} from 'types';
 import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
+  Box,
+  Button,
   Checkbox,
   Divider,
   FormControlLabel,
@@ -19,6 +19,8 @@ import {
 import { ExpandMore } from '@mui/icons-material';
 import { useStaticsContext } from 'context/StaticsContext';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
+import { SearchBar } from './SearchBar';
+import { useHistory, useLocation } from 'react-router-dom';
 
 const GLOBAL_ADMIN = 3;
 const REGIONAL_ADMIN = 2;
@@ -37,7 +39,7 @@ export interface OrganizationShallow {
   rootDomains: string[];
 }
 
-interface OrganizationSearchProps {
+interface RegionAndOrganizationFiltersProps {
   addFilter: (
     name: string,
     value: any,
@@ -49,19 +51,22 @@ interface OrganizationSearchProps {
     filterType: 'all' | 'any' | 'none'
   ) => void;
   filters: any[];
+  setSearchTerm: (s: string, opts?: any) => void;
+  searchTerm: string;
 }
 
-export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
+export const RegionAndOrganizationFilters: React.FC<
+  RegionAndOrganizationFiltersProps
+> = ({
   addFilter,
   removeFilter,
-  filters
+  filters,
+  searchTerm: domainSearchTerm,
+  setSearchTerm: setDomainSearchTerm
 }) => {
   const { setShowMaps, user, apiPost } = useAuthContext();
 
   const { regions } = useStaticsContext();
-
-  //Are we still using this?
-  // const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -132,10 +137,6 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     setSearchTerm(v);
   };
 
-  // const handleChange = (v: string) => {
-  //   debounce(searchOrganizations(v, regionFilterValues ?? []) as any, 400);
-  // };
-
   useEffect(() => {
     searchOrganizations(searchTerm, regionFilterValues ?? []);
   }, [searchOrganizations, searchTerm, regionFilterValues]);
@@ -166,6 +167,8 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
     },
     [regionFilterValues]
   );
+  const history = useHistory();
+  const location = useLocation();
 
   const handleAddOrganization = (org: OrganizationShallow) => {
     if (org) {
@@ -189,6 +192,24 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
   return (
     <>
       <Divider />
+      <Box padding={2}>
+        <SearchBar
+          initialValue={domainSearchTerm}
+          value={domainSearchTerm}
+          onChange={(value) => {
+            if (location.pathname !== '/inventory') {
+              history.push(`/inventory?q=${value}`);
+              setDomainSearchTerm(value, {
+                shouldClearFilters: false,
+                refresh: true
+              });
+            }
+            setDomainSearchTerm(value, {
+              shouldClearFilters: false
+            });
+          }}
+        />
+      </Box>
       <Accordion
         expanded={userLevel === STANDARD_USER ? true : undefined}
         defaultExpanded
@@ -250,18 +271,41 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
               }}
               options={orgResults}
               onChange={(e, v) => {
-                handleAddOrganization(v);
+                setTimeout(() => {
+                  handleAddOrganization(v);
+                }, 250);
                 return;
               }}
               getOptionLabel={(option) => option.name}
+              ListboxProps={{
+                sx: {
+                  ':active': {
+                    bgcolor: 'transparent'
+                  }
+                }
+              }}
               renderOption={(params, option) => {
                 return (
-                  <li
-                    {...params}
-                    key={option.id}
-                    onClick={() => handleAddOrganization(option)}
-                  >
-                    {option.name}
+                  <li style={{ pointerEvents: 'none', padding: 0 }}>
+                    <Button
+                      sx={{
+                        pointerEvents: 'auto',
+                        height: '100%',
+                        width: '100%',
+                        display: 'flex',
+                        justifyContent: 'start',
+                        fontWeight: 400,
+                        color: 'black',
+                        textTransform: 'none'
+                      }}
+                      onClick={() =>
+                        setTimeout(() => {
+                          handleAddOrganization(option);
+                        }, 250)
+                      }
+                    >
+                      {option.name}
+                    </Button>
                   </li>
                 );
               }}
@@ -269,7 +313,11 @@ export const OrganizationSearch: React.FC<OrganizationSearchProps> = ({
                 option?.name === value?.name
               }
               renderInput={(params) => (
-                <TextField {...params} label="Search Organizations" />
+                <TextField
+                  {...params}
+                  label="Search Organizations"
+                  onBlur={() => setIsOpen(false)}
+                />
               )}
             />
           ) : (

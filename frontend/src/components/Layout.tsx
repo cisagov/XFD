@@ -8,7 +8,7 @@ import React, {
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
-import { Header, GovBanner } from 'components';
+import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';

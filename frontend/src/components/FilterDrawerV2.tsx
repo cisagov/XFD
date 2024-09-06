@@ -4,7 +4,7 @@ import { withSearch } from '@elastic/react-search-ui';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import { DrawerInterior } from './DrawerInterior';
-import { OrganizationSearch } from './OrganizationSearch';
+import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
 import { matchPath } from 'utils/matchPath';
 import { useLocation } from 'react-router-dom';
@@ -46,10 +46,12 @@ export const FilterDrawer: FC<
           <FilterAltIcon />
         </Stack>
       </Toolbar>
-      <OrganizationSearch
+      <RegionAndOrganizationFilters
         addFilter={addFilter}
         removeFilter={removeFilter}
         filters={filters}
+        setSearchTerm={setSearchTerm}
+        searchTerm={searchTerm}
       />
       {matchPath(
         ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],

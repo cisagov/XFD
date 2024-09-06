@@ -43,6 +43,38 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
     },
     trimAfter: 10
   },
+  'vulnerabilities.severity': {
+    labelAccessor: (t) => {
+      return 'Severity';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
+  ip: {
+    labelAccessor: (t) => {
+      return 'IP';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
+  name: {
+    labelAccessor: (t) => {
+      return 'Name';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
+  fromRootDomain: {
+    labelAccessor: (t) => {
+      return 'Root Domain(s)';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
+  },
   organizationId: {
     labelAccessor: (t) => {
       return 'Organization';
@@ -51,6 +83,14 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
       return t.name;
     },
     trimAfter: 2
+  },
+  query: {
+    labelAccessor: (t) => {
+      return 'Query';
+    },
+    filterValueAccssor(t) {
+      return t;
+    }
   },
   'services.port': {
     labelAccessor: (t) => {
@@ -75,6 +115,7 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
 type FlatFilters = {
   field: string;
   label: string;
+  onClear?: () => void;
   value: any;
   values: any[];
   type: 'all' | 'none' | 'any';
@@ -131,6 +172,11 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
             </>
           }
           onDelete={() => {
+            if (filter.onClear) {
+              console.log('custom clear');
+              filter.onClear();
+              return;
+            }
             filter.values.forEach((val) => {
               removeFilter(filter.field, val, filter.type);
             });
