@@ -23,12 +23,11 @@ import {
 import {
   Delete,
   ExpandMore,
-  FiberManualRecordRounded
+  FiberManualRecordRounded,
+  FilterAlt,
+  Save
 } from '@mui/icons-material';
-import FilterAltIcon from '@mui/icons-material/FilterAlt';
-import SaveIcon from '@mui/icons-material/Save';
-import { SearchBar } from 'components';
-import { TaggedArrayInput, FacetFilter } from 'components';
+import { FacetFilter, TaggedArrayInput } from 'components';
 import { ContextType } from '../context/SearchProvider';
 import { useAuthContext } from '../context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
@@ -63,7 +62,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     removeFilter,
     facets,
     clearFilters,
-    searchTerm,
     setSearchTerm,
     initialFilters
   } = props;
@@ -174,22 +172,11 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <Typography variant="h6" component="h3">
             Advanced Filters
           </Typography>
-          <FilterAltIcon />
+          <FilterAlt />
         </Stack>
       </Toolbar>
       <Divider />
-      <div className={classes.header}>
-        <SearchBar
-          initialValue={searchTerm}
-          value={searchTerm}
-          onChange={(value) => {
-            setSearchTerm(value, {
-              shouldClearFilters: false,
-              autocompleteResults: false
-            });
-          }}
-        />
-      </div>
+
       {clearFilters && (
         <Box display="flex" width="100%" justifyContent="center">
           <Button onClick={clearFilters}>Clear All Filters</Button>
@@ -409,7 +396,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <Typography variant="h6" component="h3">
             Saved Searches
           </Typography>
-          <SaveIcon />
+          <Save />
         </Stack>
       </Toolbar>
       <Divider />

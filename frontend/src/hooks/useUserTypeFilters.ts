@@ -1,7 +1,7 @@
 import { AuthContextType } from 'context';
 import { GLOBAL_ADMIN, REGIONAL_ADMIN, STANDARD_USER } from './useUserLevel';
 import { GLOBAL_VIEW } from 'context/userStateUtils';
-import { OrganizationShallow } from 'components/OrganizationSearch';
+import { OrganizationShallow } from 'components/RegionAndOrganizationFilters';
 
 export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = false;
 
