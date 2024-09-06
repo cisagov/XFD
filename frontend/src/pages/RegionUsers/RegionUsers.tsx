@@ -142,7 +142,7 @@ export const RegionUsers: React.FC = () => {
       if (row.roles.length > 0) {
         selectOrg([row.roles[0].organization.id]);
       }
-      setErrorStates({ ...errorStates, getOrgsError: '' });
+      setErrorStates({ ...errorStates, getOrgsError: '', getUpdateError: '' });
     } catch (e: any) {
       setErrorStates({ ...errorStates, getOrgsError: e.message });
     }
@@ -354,10 +354,12 @@ export const RegionUsers: React.FC = () => {
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
         // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
         success = await removeOrgFromUser(
-          selectedOrgId,
+          originalOrgId,
           selectedUser.roles[0].id
         );
-        success = await addOrgToUser(selectedUser.id, selectedOrgId);
+        if (success) {
+          success = await addOrgToUser(selectedUser.id, selectedOrgId);
+        }
         // If the previous operation was successful or if the user had no previous org,
         // add the user to the selected org which then also updates the user.
       } else {
