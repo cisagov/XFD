@@ -234,10 +234,7 @@ app.post('/auth/okta-callback', async (req, res) => {
             oktaId: oktaId,
             firstName: decodedToken.given_name,
             lastName: decodedToken.family_name,
-            invitePending: true,
-            // TODO: Replace these default Region/State values with user selection
-            state: 'Virginia',
-            regionId: '3'
+            invitePending: true
           });
           await user.save();
         } else {
