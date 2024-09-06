@@ -14,6 +14,7 @@ import {
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Vulnerability } from 'types';
+import { Save } from '@mui/icons-material';
 
 interface SaveSearchModalProps {
   search: any;
@@ -144,8 +145,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   return (
     <>
-      <Button variant="outlined" onClick={handleOpenModal}>
-        Open Modal
+      <Button variant="contained" onClick={handleOpenModal} endIcon={<Save />}>
+        Save Search
       </Button>
       <Dialog
         open={open}

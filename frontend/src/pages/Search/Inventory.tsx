@@ -39,7 +39,6 @@ import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
 import { useHistory } from 'react-router-dom';
-import { Save } from '@mui/icons-material';
 import { SaveSearchModal } from 'components/SaveSearchModal/SaveSearchModal';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
@@ -199,7 +198,12 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       >
         <Box width="90%" height="100%" display="flex" flexDirection="column">
           <FilterTags filters={filtersToDisplay} removeFilter={removeFilter} />
-          <Stack spacing={2} direction="row" alignItems="center">
+          <Stack
+            spacing={2}
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+          >
             <SortBar
               sortField={sortField}
               sortDirection={sortDirection}
