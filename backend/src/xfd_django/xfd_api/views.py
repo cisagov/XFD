@@ -20,7 +20,7 @@ Dependencies:
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 
-from .auth import get_current_active_user, get_jwt_from_code, handle_cognito_callback
+from .auth import get_current_active_user, get_jwt_from_code, handle_cognito_callback, process_user
 from .models import ApiKey, Organization, User
 
 api_router = APIRouter()
@@ -156,8 +156,13 @@ async def callback(request: Request):
     #         status_code=status.HTTP_400_BAD_REQUEST,
     #         detail="Code not found in request body",
     #     )
-    jwt_data = await get_jwt_from_code(code)
-    print(f"JWT TOKEN: {jwt_data}")
+    decoded_token = await get_jwt_from_code(code)
+
+    print(f"Decoded TOKEN: {decoded_token}")
+    access_token = decoded_token.get("access_token")
+    refresh_token = decoded_token.get("refresh_token")
+
+    return await process_user(decoded_token, access_token, refresh_token, db)
     # try:
     #     token_endpoint = f"https://{domain}/oauth2/token"
     #     token_data = (

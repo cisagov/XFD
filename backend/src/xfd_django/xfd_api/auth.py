@@ -22,6 +22,7 @@ Dependencies:
 from datetime import datetime
 from hashlib import sha256
 import os
+import json
 from re import A
 
 # Third-Party Libraries
@@ -30,6 +31,7 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 import jwt
 import requests
+from starlette.responses import JSONResponse
 
 # from .jwt_utils import decode_jwt_token
 from xfd_api.jwt_utils import JWT_ALGORITHM, create_jwt_token, decode_jwt_token
@@ -162,17 +164,128 @@ def get_current_active_user(
     return user
 
 
+# async def get_jwt_from_code(auth_code: str):
+#     domain = os.getenv("REACT_APP_COGNITO_DOMAIN")
+#     client_id = os.getenv("REACT_APP_COGNITO_CLIENT_ID")
+#     callback_url = os.getenv("REACT_APP_COGNITO_CALLBACK_URL")
+#     # callback_url = "http%3A%2F%2Flocalhost%2Fokta-callback"
+#     # scope = "openid email profile"
+#     scope = "openid"
+#     authorize_token_url = f"https://{domain}/oauth2/token"
+#     # logging.debug(f"Authorize token url: {authorize_token_url}")
+#     print(f"Authorize token url: {authorize_token_url}")
+#     # authorize_token_body = f"grant_type=authorization_code&client_id={client_id}&code={auth_code}&redirect_uri={callback_url}&scope={scope}"
+#     authorize_token_body = {
+#         "grant_type": "authorization_code",
+#         "client_id": client_id,
+#         "code": auth_code,
+#         "redirect_uri": callback_url,
+#         "scope": scope,
+#     }
+#     # logging.debug(f"Authorize token body: {authorize_token_body}")
+#     print(f"Authorize token body: {authorize_token_body}")
+
+#     headers = {
+#         "Content-Type": "application/x-www-form-urlencoded",
+#     }
+
+#     try:
+#         response = requests.post(
+#             authorize_token_url, headers=headers, data=authorize_token_body
+#         )
+#     except Exception as e:
+#         print(f"requests error: {e}")
+#     token_response = response.json()
+#     print(f"oauth2/token response: {token_response}")
+
+#     token_response = response.json()
+#     print(f"token response: {token_response}")
+#     id_token = token_response.get("id_token")
+#     print(f"ID token: {id_token}")
+#     # access_token = token_response.get("token_token")
+#     # refresh_token = token_response.get("refresh_token")
+#     decoded_token = jwt.decode(id_token, options={"verify_signature": False})
+#     print(f"decoded token: {decoded_token}")
+#     # decoded_token = jwt.decode(id_token, algorithms=JWT_ALGORITHM, audience=client_id)
+#     # decoded_token = jwt.decode(id_token, algorithms=["RS256"], audience=client_id)
+#     # print(f"decoded token: {decoded_token}")
+#     return {json.dumps(decoded_token)}
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+
+
+async def process_user(decoded_token, access_token, refresh_token, db: Session):
+    # Connect to the database
+    # await connect_to_database()
+
+    # Find the user by email
+    user = User.objects.filter(email=decoded_token["email"]).first()
+
+    if not user:
+        # Create a new user if they don't exist
+        user = User(
+            email=decoded_token["email"],
+            okta_id=decoded_token["sub"],  # assuming oktaId is in decoded_token
+            first_name=decoded_token.get("given_name"),
+            last_name=decoded_token.get("family_name"),
+            invite_pending=True,
+            # state="Virginia",  # Hardcoded for now
+            # region_id="3"  # Hardcoded region
+        )
+        user.save()
+    else:
+        # Update user if they already exist
+        user.okta_id = decoded_token["sub"]
+        user.last_logged_in = datetime.now()
+        user.save()
+
+    # Create response object
+    response = JSONResponse({"message": "User processed"})
+
+    # Set cookies for access token and refresh token
+    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True)
+    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True)
+
+    # If user exists, generate a signed JWT token
+    if user:
+        if not JWT_SECRET:
+            raise HTTPException(status_code=500, detail="JWT_SECRET is not defined")
+
+        # Generate JWT token
+        signed_token = jwt.encode(
+            {"id": user.id, "email": user.email, "exp": datetime.utcnow() + timedelta(minutes=14)},
+            JWT_SECRET,
+            algorithm="HS256"
+        )
+
+        # Set JWT token as a cookie
+        response.set_cookie(key="id_token", value=signed_token, httponly=True, secure=True)
+
+        # Return the response with token and user info
+        return JSONResponse(
+            {
+                "token": signed_token,
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "state": user.state,
+                    "region_id": user.region_id,
+                }
+            }
+        )
+    else:
+        raise HTTPException(status_code=400, detail="User not found")
+
+
 async def get_jwt_from_code(auth_code: str):
     domain = os.getenv("REACT_APP_COGNITO_DOMAIN")
     client_id = os.getenv("REACT_APP_COGNITO_CLIENT_ID")
     callback_url = os.getenv("REACT_APP_COGNITO_CALLBACK_URL")
-    # callback_url = "http%3A%2F%2Flocalhost%2Fokta-callback"
-    # scope = "openid email profile"
     scope = "openid"
     authorize_token_url = f"https://{domain}/oauth2/token"
-    # logging.debug(f"Authorize token url: {authorize_token_url}")
-    print(f"Authorize token url: {authorize_token_url}")
-    # authorize_token_body = f"grant_type=authorization_code&client_id={client_id}&code={auth_code}&redirect_uri={callback_url}&scope={scope}"
+
     authorize_token_body = {
         "grant_type": "authorization_code",
         "client_id": client_id,
@@ -180,8 +293,6 @@ async def get_jwt_from_code(auth_code: str):
         "redirect_uri": callback_url,
         "scope": scope,
     }
-    # logging.debug(f"Authorize token body: {authorize_token_body}")
-    print(f"Authorize token body: {authorize_token_body}")
 
     headers = {
         "Content-Type": "application/x-www-form-urlencoded",
@@ -193,20 +304,24 @@ async def get_jwt_from_code(auth_code: str):
         )
     except Exception as e:
         print(f"requests error: {e}")
+        return None
+
     token_response = response.json()
     print(f"oauth2/token response: {token_response}")
 
-    token_response = response.json()
-    print(f"token response: {token_response}")
     id_token = token_response.get("id_token")
-    print(f"ID token: {id_token}")
-    # access_token = token_response.get("token_token")
-    # refresh_token = token_response.get("refresh_token")
+    if id_token is None:
+        print("ID token not found in the response.")
+        return None
 
-    # decoded_token = jwt.decode(id_token, algorithms=JWT_ALGORITHM, audience=client_id)
-    decoded_token = jwt.decode(id_token, algorithms=["RS256"], audience=client_id)
+    # Convert the id_token to bytes
+    id_token_bytes = id_token.encode('utf-8')
+
+    # Decode the token without verifying the signature (if needed)
+    decoded_token = jwt.decode(id_token_bytes, options={"verify_signature": False})
+
     print(f"decoded token: {decoded_token}")
-    return {"resp": True}
+    return json.dumps(decoded_token)
 
 
 async def handle_cognito_callback(body):
