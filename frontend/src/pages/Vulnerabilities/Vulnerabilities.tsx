@@ -269,7 +269,11 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     kev: vuln.isKev ? 'Yes' : 'No',
     domain: vuln.domain.name,
     domainId: vuln.domain.id,
-    product: vuln.cpe ?? 'N/A',
+    product: vuln.cpe
+      ? vuln.cpe
+      : vuln.service.products
+      ? vuln.service.products[0].cpe || 'N/A'
+      : 'N/A',
     createdAt: `${differenceInCalendarDays(
       Date.now(),
       parseISO(vuln.createdAt)
