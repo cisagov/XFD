@@ -14,7 +14,8 @@ import {
   FormGroup,
   TextareaAutosize,
   ButtonGroup,
-  Box
+  Box,
+  Stack
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
@@ -38,6 +39,8 @@ import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
 import { useHistory } from 'react-router-dom';
+import { Save } from '@mui/icons-material';
+import { SaveSearchModal } from 'components/SaveSearchModal/SaveSearchModal';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -196,19 +199,30 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       >
         <Box width="90%" height="100%" display="flex" flexDirection="column">
           <FilterTags filters={filtersToDisplay} removeFilter={removeFilter} />
-          <SortBar
-            sortField={sortField}
-            sortDirection={sortDirection}
-            setSort={setSort}
-            isFixed={resultsScrolled}
-            saveSearch={
-              filters.length > 0 || searchTerm
-                ? () => modalRef.current?.toggleModal(undefined, true)
-                : undefined
-            }
-            existingSavedSearch={search}
-            advancedFiltersReq={advanceFiltersReq}
-          />
+          <Stack spacing={2} direction="row" alignItems="center">
+            <SortBar
+              sortField={sortField}
+              sortDirection={sortDirection}
+              setSort={setSort}
+              isFixed={resultsScrolled}
+              saveSearch={
+                filters.length > 0 || searchTerm
+                  ? () => modalRef.current?.toggleModal(undefined, true)
+                  : undefined
+              }
+              existingSavedSearch={search}
+              advancedFiltersReq={advanceFiltersReq}
+            />
+            <SaveSearchModal
+              search={undefined}
+              searchTerm={''}
+              setSearchTerm={undefined}
+              filters={undefined}
+              totalResults={0}
+              sortField={''}
+              sortDirection={''}
+            />
+          </Stack>
           <Box
             height="100%"
             flexDirection="column"
