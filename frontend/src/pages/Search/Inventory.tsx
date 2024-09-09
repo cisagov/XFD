@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { classes, Root } from './Styling/dashboardStyle';
 import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
