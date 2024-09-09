@@ -19,7 +19,7 @@ import { Save } from '@mui/icons-material';
 interface SaveSearchModalProps {
   search: any;
   searchTerm: string;
-  setSearchTerm: any;
+  // setSearchTerm: any;
   filters: any;
   totalResults: number;
   sortField: string;
@@ -30,14 +30,16 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
     search,
     searchTerm,
-    setSearchTerm,
+    // setSearchTerm,
     filters,
     totalResults,
     sortField,
     sortDirection
   } = props;
   const [open, setOpen] = useState(false);
-
+  const [formErrors, setFormErrors] = useState({
+    name: false
+  });
   const { apiPost, apiPut } = useAuthContext();
   const history = useHistory();
 
@@ -59,38 +61,20 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         }
   );
 
-  const onTextChange: React.ChangeEventHandler<
-    HTMLInputElement | HTMLSelectElement
-  > = (e) => handleChange(e.target.name, e.target.value);
-
   const handleChange = (name: string, value: any) => {
     setSavedSearchValues((values) => ({
       ...values,
       [name]: value
     }));
+
+    if (name === 'name') {
+      const isValid = validation(value);
+      setFormErrors((prev) => ({
+        ...prev,
+        name: !isValid
+      }));
+    }
   };
-
-  const onVulnerabilityTemplateChange = (e: any) => {
-    (savedSearchValues.vulnerabilityTemplate as any)[e.target.name] =
-      e.target.value;
-    setSavedSearchValues(savedSearchValues);
-  };
-
-  // TODO: Need to verify if needed
-  // useEffect(() => {
-  //   if (props.location.search === '') {
-  //     // Search on initial load
-  //     setSearchTerm('', { shouldClearFilters: false });
-  //   }
-  //   return () => {
-  //     localStorage.removeItem('savedSearch');
-  //     setSearchTerm('', { shouldClearFilters: false });
-  //   };
-  // }, [setSearchTerm, props.location.search]);
-
-  // useBeforeunload((event) => {
-  //   localStorage.removeItem('savedSearch');
-  // });
 
   const handleSave = async (savedSearchValues: Partial<SavedSearch>) => {
     const body = {
@@ -119,28 +103,28 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     }
   };
 
-  // TODO
   const handleCloseModal = () => {
     setOpen(false);
   };
   const handleOpenModal = () => {
     setOpen(true);
   };
-  // TODO
-  // const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const { name, value } = e.target;
-  //   setSavedSearchValues((prevValues) => ({
-  //     ...prevValues,
-  //     [name]: value
-  //   }));
-  // };
-  // TODO
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log(props);
+
+    if (formErrors.name) {
+      return;
+    }
     handleSave(savedSearchValues);
     handleCloseModal();
+  };
+
+  // Validate Saved Search Name
+  const validation = (name: string): boolean => {
+    const nameRegex = /^(?=.*[A-Za-z0-9])[A-Za-z0-9\s\'\-]+$/;
+    return nameRegex.test(name);
   };
 
   return (
@@ -154,14 +138,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         PaperProps={{
           component: 'form',
           onSubmit: handleSubmit,
-          // (event: React.FormEvent<HTMLFormElement>) => {
-          //   event.preventDefault();
-          //   const formData = new FormData(event.currentTarget);
-          //   const formJson = Object.fromEntries((formData as any).entries());
-          //   const savedSearch = formJson;
-          //   console.log(savedSearch);
-          //   handleCloseModal();
-          // }
           style: { width: '30%', minWidth: '300px' }
         }}
         aria-labelledby="dialog-title"
@@ -188,6 +164,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               inputProps={{
                 'aria-label': 'Enter a name for your saved search'
               }}
+              error={formErrors.name}
+              helperText={
+                formErrors.name && 'Name is required and must be alphanumeric.'
+              }
             />
           </Box>
         </DialogContent>

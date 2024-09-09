@@ -218,11 +218,11 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
               advancedFiltersReq={advanceFiltersReq}
             />
             <SaveSearchModal
-              search={undefined}
-              searchTerm={''}
-              setSearchTerm={undefined}
-              filters={undefined}
-              totalResults={0}
+              search={search}
+              searchTerm={searchTerm}
+              // setSearchTerm={searchTerm}
+              filters={filters}
+              totalResults={totalResults}
               sortField={''}
               sortDirection={''}
             />
