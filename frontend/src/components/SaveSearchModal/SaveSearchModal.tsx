@@ -15,7 +15,6 @@ import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Vulnerability } from 'types';
 import { Save } from '@mui/icons-material';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 
 interface SaveSearchModalProps {
   search: any;
@@ -38,7 +37,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     advancedFiltersReq
   } = props;
   const [open, setOpen] = useState(false);
-  const [dialogeOpen, setDialogeOpen] = useState(false);
+  const [dialogeOpen, setDialogOpen] = useState(false);
   const [formErrors, setFormErrors] = useState({
     name: false,
     duplicate: false
@@ -46,7 +45,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const { apiPost, apiPut } = useAuthContext();
   const history = useHistory();
   const { savedSearches } = useSavedSearchContext();
-
   const [savedSearchValues, setSavedSearchValues] = useState<
     Partial<SavedSearch> & {
       name: string;
@@ -97,34 +95,23 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   };
 
   const handleDialogClose = () => {
-    setDialogeOpen(false);
+    setDialogOpen(false);
   };
-  // const confirmUpdate = () => {
-  //   return (
-  //     <ConfirmDialog
-  //       isOpen={dialogeOpen}
-  //       title="Update Saved Search"
-  //       content="Are you sure you want to update this saved search?"
-  //       onCancel={handleDialogClose}
-  //       onConfirm={() => {
-  //         handleSave(savedSearchValues);
-  //       }}
-  //     />
-  //   );
-  // };
+
   const handleClick = () => {
     if (search) {
+      // Check if saved search already exists
       const savedSearchItem = localStorage.getItem('savedSearch');
       if (savedSearchItem) {
         const savedSearchName = JSON.parse(savedSearchItem);
         savedSearchValues.name = savedSearchName.name;
       }
-      handleSave(savedSearchValues);
-      // console.log(savedSearchValues);
+      setDialogOpen(true); // Open dialog to confirm update
     } else {
       handleOpenModal();
     }
   };
+
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log(props);
@@ -138,7 +125,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   // Validate Saved Search Name
   const validation = (name: string): boolean => {
-    const nameRegex = /^(?=.*[A-Za-z0-9])[A-Za-z0-9\s\'\-]+$/;
+    const nameRegex = /^(?=.*[A-Za-z0-9])[A-Za-z0-9\s'-]+$/;
     return nameRegex.test(name);
   };
 
@@ -167,9 +154,43 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         onClick={handleClick}
         endIcon={<Save />}
         disabled={!advancedFiltersReq}
+        aria-label={search ? 'Update Saved Search' : 'Save Search'}
       >
         {search ? 'Update Saved Search' : 'Save Search'}
       </Button>
+      <Dialog
+        open={dialogeOpen}
+        onClose={() => setDialogOpen(false)}
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-description"
+      >
+        <DialogTitle id="confirm-dialog-title">Update Saved Search</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="confirm-dialog-description">
+            Are you sure you want to update this saved search?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDialogClose} color="primary">
+            No
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              try {
+                handleSave(savedSearchValues);
+                setDialogOpen(false);
+              } catch (e) {
+                console.error(e);
+              }
+            }}
+            color="primary"
+            autoFocus
+          >
+            Yes
+          </Button>
+        </DialogActions>
+      </Dialog>
       <Dialog
         open={open}
         onClose={handleCloseModal}
@@ -216,8 +237,13 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogActions>
           <Button onClick={handleCloseModal}>Cancel</Button>
           <Button
+            variant="contained"
             type="submit"
-            disabled={formErrors.name || formErrors.duplicate}
+            disabled={
+              formErrors.name ||
+              formErrors.duplicate ||
+              !savedSearchValues.name.trim()
+            }
           >
             Save
           </Button>
