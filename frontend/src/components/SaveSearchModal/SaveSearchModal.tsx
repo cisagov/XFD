@@ -38,13 +38,14 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   } = props;
   const [open, setOpen] = useState(false);
   const [formErrors, setFormErrors] = useState({
-    name: false
+    name: false,
+    duplicate: false
   });
   const { apiPost, apiPut } = useAuthContext();
   const history = useHistory();
 
   // Could be used for validation purposes in new dialogue
-  // const { savedSearches } = useSavedSearchContext();
+  const { savedSearches } = useSavedSearchContext();
 
   const [savedSearchValues, setSavedSearchValues] = useState<
     Partial<SavedSearch> & {
@@ -69,9 +70,12 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     if (name === 'name') {
       const isValid = validation(value);
+      const isDuplicate = savedSearches.some((search) => search.name === value);
+
       setFormErrors((prev) => ({
         ...prev,
-        name: !isValid
+        name: !isValid,
+        duplicate: isDuplicate
       }));
     }
   };
@@ -166,14 +170,28 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               }}
               error={formErrors.name}
               helperText={
-                formErrors.name && 'Name is required and must be alphanumeric.'
+                formErrors.name
+                  ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
+                  : formErrors.duplicate
+                  ? 'This name is already taken. Please choose a different name.'
+                  : ''
               }
             />
           </Box>
+          {/* <Button onClick={() => {
+            savedSearches.map((search) => {
+            console.log(search.name);
+            });
+          }}> Press</Button> */}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseModal}>Cancel</Button>
-          <Button type="submit">Save</Button>
+          <Button
+            type="submit"
+            disabled={formErrors.name || formErrors.duplicate}
+          >
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
     </>
