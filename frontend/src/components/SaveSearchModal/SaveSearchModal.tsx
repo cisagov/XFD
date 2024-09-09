@@ -13,7 +13,6 @@ import {
 } from '@mui/material/';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
-import { Vulnerability } from 'types';
 import { Save } from '@mui/icons-material';
 
 interface SaveSearchModalProps {
@@ -42,23 +41,12 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     name: false,
     duplicate: false
   });
-  const { apiPost, apiPut } = useAuthContext();
-  const history = useHistory();
-  const { savedSearches } = useSavedSearchContext();
+  const { apiGet, apiPost, apiPut } = useAuthContext();
+  const { savedSearches, setSavedSearches, setSavedSearchCount } =
+    useSavedSearchContext();
   const [savedSearchValues, setSavedSearchValues] = useState<
-    Partial<SavedSearch> & {
-      name: string;
-      vulnerabilityTemplate: Partial<Vulnerability>;
-    }
-  >(
-    search
-      ? search
-      : {
-          name: '',
-          vulnerabilityTemplate: {},
-          createVulnerabilities: false
-        }
-  );
+    Partial<SavedSearch> & { name: string }
+  >(search ? search : { name: '' });
 
   // API call to save/update saved searches
   const handleSave = async (savedSearchValues: Partial<SavedSearch>) => {
@@ -80,8 +68,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       } else {
         await apiPost('/saved-searches/', body);
       }
-      history.push('/inventory');
-      window.location.reload();
+      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      setSavedSearches(updatedSearches.result); // Update the saved searches
+      setSavedSearchCount(updatedSearches.result.length); // Update the count
+      localStorage.removeItem('savedSearch');
     } catch (e) {
       console.error(e);
     }
@@ -100,12 +90,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   const handleClick = () => {
     if (search) {
-      // Check if saved search already exists
-      const savedSearchItem = localStorage.getItem('savedSearch');
-      if (savedSearchItem) {
-        const savedSearchName = JSON.parse(savedSearchItem);
-        savedSearchValues.name = savedSearchName.name;
-      }
+      savedSearchValues.name = search.name;
       setDialogOpen(true); // Open dialog to confirm update
     } else {
       handleOpenModal();
@@ -114,7 +99,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    console.log(props);
 
     if (formErrors.name) {
       return;
