@@ -62,24 +62,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         }
   );
 
-  const handleChange = (name: string, value: any) => {
-    setSavedSearchValues((values) => ({
-      ...values,
-      [name]: value
-    }));
-
-    if (name === 'name') {
-      const isValid = validation(value);
-      const isDuplicate = savedSearches.some((search) => search.name === value);
-
-      setFormErrors((prev) => ({
-        ...prev,
-        name: !isValid,
-        duplicate: isDuplicate
-      }));
-    }
-  };
-
+  // API call to save/update saved searches
   const handleSave = async (savedSearchValues: Partial<SavedSearch>) => {
     const body = {
       body: {
@@ -116,19 +99,19 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const handleDialogClose = () => {
     setDialogeOpen(false);
   };
-  const confirmUpdate = () => {
-    return (
-      <ConfirmDialog
-        isOpen={dialogeOpen}
-        title="Update Saved Search"
-        content="Are you sure you want to update this saved search?"
-        onCancel={handleDialogClose}
-        onConfirm={() => {
-          handleSave(savedSearchValues);
-        }}
-      />
-    );
-  };
+  // const confirmUpdate = () => {
+  //   return (
+  //     <ConfirmDialog
+  //       isOpen={dialogeOpen}
+  //       title="Update Saved Search"
+  //       content="Are you sure you want to update this saved search?"
+  //       onCancel={handleDialogClose}
+  //       onConfirm={() => {
+  //         handleSave(savedSearchValues);
+  //       }}
+  //     />
+  //   );
+  // };
   const handleClick = () => {
     if (search) {
       const savedSearchItem = localStorage.getItem('savedSearch');
@@ -157,6 +140,24 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const validation = (name: string): boolean => {
     const nameRegex = /^(?=.*[A-Za-z0-9])[A-Za-z0-9\s\'\-]+$/;
     return nameRegex.test(name);
+  };
+
+  const handleChange = (name: string, value: any) => {
+    setSavedSearchValues((values) => ({
+      ...values,
+      [name]: value
+    }));
+    // Validation check for valid characters and duplicate names
+    if (name === 'name') {
+      const isValid = validation(value);
+      const isDuplicate = savedSearches.some((search) => search.name === value);
+
+      setFormErrors((prev) => ({
+        ...prev,
+        name: !isValid,
+        duplicate: isDuplicate
+      }));
+    }
   };
 
   return (

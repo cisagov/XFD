@@ -15,7 +15,6 @@ interface Props {
   sortField: ContextType['sortField'];
   sortDirection?: ContextType['sortDirection'];
   setSort: ContextType['setSort'];
-  saveSearch?(): void;
   isFixed: boolean;
   existingSavedSearch?: SavedSearch;
   children?: React.ReactNode;

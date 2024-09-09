@@ -9,11 +9,6 @@ import {
   Select,
   MenuItem,
   Typography,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  TextareaAutosize,
-  ButtonGroup,
   Box,
   Stack
 } from '@mui/material';
@@ -21,24 +16,12 @@ import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
-import {
-  Modal,
-  TextInput,
-  Label,
-  Dropdown,
-  ModalFooter,
-  ModalHeading,
-  ModalRef
-} from '@trussworks/react-uswds';
-import { ModalToggleButton } from 'components';
 import { useAuthContext } from 'context';
-// import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { FilterTags } from './FilterTags';
-import { SavedSearch, Vulnerability } from 'types';
+import { SavedSearch } from 'types';
 import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
-import { useHistory } from 'react-router-dom';
 import { SaveSearchModal } from 'components/SaveSearchModal/SaveSearchModal';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
@@ -67,9 +50,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   const { apiPost, setLoading, showAllOrganizations, currentOrganization } =
     useAuthContext();
 
-  // Could be used for validation purposes in new dialogue
-  // const { savedSearches } = useSavedSearchContext();
-
   const advanceFiltersReq = filters.length > 1 || searchTerm !== ''; //Prevents a user from saving a search without advanced filters
 
   const search:
@@ -79,23 +59,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     | undefined = localStorage.getItem('savedSearch')
     ? JSON.parse(localStorage.getItem('savedSearch')!)
     : undefined;
-
-  const history = useHistory();
-  const modalRef = useRef<ModalRef>(null);
-  const [savedSearchValues, setSavedSearchValues] = useState<
-    Partial<SavedSearch> & {
-      name: string;
-      vulnerabilityTemplate: Partial<Vulnerability>;
-    }
-  >(
-    search
-      ? search
-      : {
-          name: '',
-          vulnerabilityTemplate: {},
-          createVulnerabilities: false
-        }
-  );
 
   useEffect(() => {
     if (props.location.search === '') {
@@ -293,9 +256,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           Export Results
         </Button>
       </Paper>
-      {
-        // To-do: Implement a new MUI based Save Search Dialog to replace the existing USWDS based Modal.
-      }
     </Root>
   );
 };
