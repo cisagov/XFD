@@ -15,36 +15,36 @@ import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Vulnerability } from 'types';
 import { Save } from '@mui/icons-material';
+import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 
 interface SaveSearchModalProps {
   search: any;
   searchTerm: string;
-  // setSearchTerm: any;
   filters: any;
   totalResults: number;
   sortField: string;
   sortDirection: string;
+  advancedFiltersReq?: boolean;
 }
 
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
     search,
     searchTerm,
-    // setSearchTerm,
     filters,
     totalResults,
     sortField,
-    sortDirection
+    sortDirection,
+    advancedFiltersReq
   } = props;
   const [open, setOpen] = useState(false);
+  const [dialogeOpen, setDialogeOpen] = useState(false);
   const [formErrors, setFormErrors] = useState({
     name: false,
     duplicate: false
   });
   const { apiPost, apiPut } = useAuthContext();
   const history = useHistory();
-
-  // Could be used for validation purposes in new dialogue
   const { savedSearches } = useSavedSearchContext();
 
   const [savedSearchValues, setSavedSearchValues] = useState<
@@ -95,7 +95,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     try {
       if (search) {
-        // TODO: verify search is being passed properly
         await apiPut('/saved-searches/' + search.id, body);
       } else {
         await apiPost('/saved-searches/', body);
@@ -114,6 +113,35 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     setOpen(true);
   };
 
+  const handleDialogClose = () => {
+    setDialogeOpen(false);
+  };
+  const confirmUpdate = () => {
+    return (
+      <ConfirmDialog
+        isOpen={dialogeOpen}
+        title="Update Saved Search"
+        content="Are you sure you want to update this saved search?"
+        onCancel={handleDialogClose}
+        onConfirm={() => {
+          handleSave(savedSearchValues);
+        }}
+      />
+    );
+  };
+  const handleClick = () => {
+    if (search) {
+      const savedSearchItem = localStorage.getItem('savedSearch');
+      if (savedSearchItem) {
+        const savedSearchName = JSON.parse(savedSearchItem);
+        savedSearchValues.name = savedSearchName.name;
+      }
+      handleSave(savedSearchValues);
+      // console.log(savedSearchValues);
+    } else {
+      handleOpenModal();
+    }
+  };
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     console.log(props);
@@ -133,8 +161,13 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   return (
     <>
-      <Button variant="contained" onClick={handleOpenModal} endIcon={<Save />}>
-        Save Search
+      <Button
+        variant="contained"
+        onClick={handleClick}
+        endIcon={<Save />}
+        disabled={!advancedFiltersReq}
+      >
+        {search ? 'Update Saved Search' : 'Save Search'}
       </Button>
       <Dialog
         open={open}
@@ -178,11 +211,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               }
             />
           </Box>
-          {/* <Button onClick={() => {
-            savedSearches.map((search) => {
-            console.log(search.name);
-            });
-          }}> Press</Button> */}
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseModal}>Cancel</Button>

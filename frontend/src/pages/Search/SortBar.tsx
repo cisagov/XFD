@@ -23,17 +23,7 @@ interface Props {
 }
 
 export const SortBar: React.FC<Props> = (props) => {
-  const {
-    sortField,
-    sortDirection,
-    setSort,
-    // saveSearch,
-    children
-    // existingSavedSearch,
-    // advancedFiltersReq
-  } = props;
-
-  // const [open, setOpen] = useState(false);
+  const { sortField, sortDirection, setSort, children } = props;
 
   const toggleDirection = () => {
     setSort(sortField, sortDirection === 'asc' ? 'desc' : 'asc');
@@ -87,18 +77,6 @@ export const SortBar: React.FC<Props> = (props) => {
         </FormControl>
       </div>
       {children}
-      {/* <div>
-        {saveSearch && (
-          <Button
-            variant="contained"
-            onClick={handleClickOpen}
-            disabled={!advancedFiltersReq}
-          >
-            {existingSavedSearch ? 'Update Saved Search' : 'Save Search'}
-          </Button>
-        )}
-      </div> */}
-      {/* <SaveSearchModal open={open} handleClose={handleClose} /> */}
     </Root>
   );
 };
