@@ -28,6 +28,7 @@ import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import fetch from 'node-fetch';
 import * as searchOrganizations from './organizationSearch';
+import { Logger, RecordMessage } from '../tools/loggingMiddleware';
 
 const sanitizer = require('sanitizer');
 
@@ -43,27 +44,35 @@ if (
   setInterval(() => scheduler({}, {} as any, () => null), 30000);
 }
 
-const handlerToExpress = (handler) => async (req, res) => {
-  const { statusCode, body } = await handler(
-    {
-      pathParameters: req.params,
-      query: req.query,
-      requestContext: req.requestContext,
-      body: JSON.stringify(req.body || '{}'),
-      headers: req.headers,
-      path: req.originalUrl
-    },
-    {}
-  );
-  try {
-    const parsedBody = JSON.parse(sanitizer.sanitize(body));
-    res.status(statusCode).json(parsedBody);
-  } catch (e) {
-    // Not a JSON body
-    res.setHeader('content-type', 'text/plain');
-    res.status(statusCode).send(sanitizer.sanitize(body));
-  }
-};
+const handlerToExpress =
+  (handler, message?: RecordMessage, action?: string) => async (req, res) => {
+    const logger = new Logger(req);
+    const { statusCode, body } = await handler(
+      {
+        pathParameters: req.params,
+        query: req.query,
+        requestContext: req.requestContext,
+        body: JSON.stringify(req.body || '{}'),
+        headers: req.headers,
+        path: req.originalUrl
+      },
+      {}
+    );
+    try {
+      const parsedBody = JSON.parse(sanitizer.sanitize(body));
+      res.status(200).json(parsedBody);
+      if (message && action) {
+        logger.record(action, 'success', message);
+      }
+    } catch (e) {
+      // Not a JSON body
+      res.setHeader('content-type', 'text/plain');
+      res.status(statusCode).send(sanitizer.sanitize(body));
+      if (message && action) {
+        logger.record(action, 'fail', message);
+      }
+    }
+  };
 
 const app = express();
 
@@ -181,8 +190,15 @@ app.post('/auth/okta-callback', async (req, res) => {
   const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID;
   const callbackUrl = process.env.REACT_APP_COGNITO_CALLBACK_URL;
   const domain = process.env.REACT_APP_COGNITO_DOMAIN;
+  const logger = new Logger(req);
 
   if (!code) {
+    logger.record('USER LOGIN', 'fail', (req, user) => {
+      return {
+        timestamp: new Date(),
+        trace: console.trace()
+      };
+    });
     return res.status(400).json({ message: 'Missing authorization code' });
   }
 
@@ -268,6 +284,13 @@ app.post('/auth/okta-callback', async (req, res) => {
 
           res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
 
+          logger.record('USER LOGIN', 'success', (req, user) => {
+            return {
+              timestamp: new Date(),
+              stuff: 'hello',
+              userId: user?.data?.id
+            };
+          });
           return res.status(200).json({
             token: signedToken,
             user: user
@@ -671,7 +694,17 @@ authenticatedRoute.post(
 authenticatedRoute.put(
   '/users/:userId/register/approve',
   checkGlobalAdminOrRegionAdmin,
-  handlerToExpress(users.registrationApproval)
+  handlerToExpress(
+    users.registrationApproval,
+    (req, user) => {
+      return {
+        timestamp: new Date(),
+        trace: console.trace(),
+        userId: user?.data?.id
+      };
+    },
+    'APPROVE USER'
+  )
 );
 
 authenticatedRoute.put(
