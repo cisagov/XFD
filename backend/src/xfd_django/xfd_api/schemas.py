@@ -107,6 +107,19 @@ class Organization(BaseModel):
     type: Optional[str]
 
 
+class RoleSchema(BaseModel):
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    role: str
+    approved: bool
+    organizationId: Optional[UUID]
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
+
+
 class SearchBody(BaseModel):
     current: int
     resultsPerPage: int
@@ -118,7 +131,7 @@ class SearchBody(BaseModel):
     tagId: Optional[UUID]
 
 
-class User(BaseModel):
+class UserSchema(BaseModel):
     id: UUID
     cognitoId: Optional[str]
     loginGovId: Optional[str]
@@ -131,12 +144,24 @@ class User(BaseModel):
     invitePending: bool
     loginBlockedByMaintenance: bool
     dateAcceptedTerms: Optional[datetime]
-    acceptedTermsVersion: Optional[datetime]
+    acceptedTermsVersion: Optional[str]
     lastLoggedIn: Optional[datetime]
     userType: str
     regionId: Optional[str]
     state: Optional[str]
     oktaId: Optional[str]
+    roles: Optional[List[RoleSchema]] = []
+
+    @classmethod
+    def from_orm(cls, obj):
+        # Convert roles to a list of RoleSchema before passing to Pydantic
+        user_dict = obj.__dict__.copy()
+        user_dict["roles"] = [RoleSchema.from_orm(role) for role in obj.roles.all()]
+        return cls(**user_dict)
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class Vulnerability(BaseModel):
