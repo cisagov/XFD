@@ -58,19 +58,25 @@ const handlerToExpress =
       },
       {}
     );
-    try {
-      const parsedBody = JSON.parse(sanitizer.sanitize(body));
-      res.status(200).json(parsedBody);
+    // Add additional status codes that we may return for succesfull requests
+    if (statusCode === 200) {
       if (message && action) {
         logger.record(action, 'success', message);
       }
-    } catch (e) {
-      // Not a JSON body
-      res.setHeader('content-type', 'text/plain');
-      res.status(statusCode).send(sanitizer.sanitize(body));
+    } else {
       if (message && action) {
         logger.record(action, 'fail', message);
       }
+    }
+
+    try {
+      const parsedBody = JSON.parse(sanitizer.sanitize(body));
+      res.status(200).json(parsedBody);
+    } catch (e) {
+      // Not a JSON body
+      console.log('Error?', e);
+      res.setHeader('content-type', 'text/plain');
+      res.status(statusCode).send(sanitizer.sanitize(body));
     }
   };
 
@@ -644,8 +650,19 @@ authenticatedRoute.delete(
 );
 authenticatedRoute.post(
   '/v2/organizations/:organizationId/users',
-  handlerToExpress(organizations.addUserV2)
+  handlerToExpress(
+    organizations.addUserV2,
+    (req, user) => {
+      return {
+        timestamp: new Date(),
+        userId: user?.data?.id,
+        updatePayload: req.body
+      };
+    },
+    'UPDATE USER'
+  )
 );
+
 authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/approve',
   handlerToExpress(organizations.approveRole)
@@ -697,10 +714,11 @@ authenticatedRoute.put(
   handlerToExpress(
     users.registrationApproval,
     (req, user) => {
+      console.log('here', req.params);
       return {
         timestamp: new Date(),
-        trace: console.trace(),
-        userId: user?.data?.id
+        userId: user?.data?.id,
+        userToApprove: req.params.userId
       };
     },
     'APPROVE USER'
