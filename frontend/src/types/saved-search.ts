@@ -1,5 +1,5 @@
 import { User } from './user';
-import { Vulnerability } from './vulnerability';
+// import { Vulnerability } from './vulnerability';
 
 export interface SavedSearch {
   id: string;
