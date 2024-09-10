@@ -41,8 +41,17 @@ export class SavedSearch extends BaseEntity {
 
   @Column()
   searchPath: string;
+  // TODO: Add this back if we have the ability to create vulnerabilities from search results
+  // @Column({
+  //   default: false
+  // })
+  // createVulnerabilities: boolean;
 
-  // Content of vulnerability when search is configured to create vulnerabilities from results
+  // // Content of vulnerability when search is configured to create vulnerabilities from results
+  // @Column({ type: 'jsonb', default: '{}' })
+  // vulnerabilityTemplate: Partial<Vulnerability> & {
+  //   title: string;
+  // };
 
   @ManyToOne((type) => User, {
     onDelete: 'SET NULL',
