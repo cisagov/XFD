@@ -13,9 +13,6 @@ export const SavedSearchContextProvider: React.FC<
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchCount, setSavedSearchCount] = useState<number>(0);
   const [activeSearchId, setActiveSearchId] = useState<string>('');
-  const [selectedSearch, setSelectedSearch] = useState<SavedSearch | null>(
-    null
-  );
   const { apiGet, user } = useAuthContext();
 
   const fetchSearches = useCallback(async () => {
@@ -52,8 +49,6 @@ export const SavedSearchContextProvider: React.FC<
         setSavedSearchCount,
         activeSearchId,
         setActiveSearchId,
-        selectedSearch,
-        setSelectedSearch,
         activeSearch
       }}
     >

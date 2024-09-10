@@ -13,6 +13,7 @@ import {
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Save } from '@mui/icons-material';
+import { act } from 'react-dom/test-utils';
 
 interface SaveSearchModalProps {
   searchTerm: string;
@@ -114,7 +115,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       [textInputName]: textInput
     }));
     // Validation check for valid characters and duplicate names
-    if (textInputName === 'name') {
+    if (textInputName === 'name' && textInput !== activeSearch?.name) {
       const isValid = validation(textInput);
       const isDuplicate = savedSearches.some(
         (search) => search.name === textInput
@@ -193,6 +194,11 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 console.error(e);
               }
             }}
+            disabled={
+              formErrors.name ||
+              formErrors.duplicate ||
+              !savedSearchValues.name.trim()
+            }
             color="primary"
             autoFocus
           >

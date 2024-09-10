@@ -8,8 +8,6 @@ export interface SavedSearchContextType {
   setSavedSearchCount: (savedSearchCount: number) => void;
   activeSearchId: string;
   setActiveSearchId: (activeSearchId: string) => void;
-  selectedSearch: SavedSearch | null;
-  setSelectedSearch: (selectedSearch: SavedSearch | null) => void;
   activeSearch: SavedSearch | undefined;
 }
 
