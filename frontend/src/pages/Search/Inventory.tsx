@@ -18,8 +18,6 @@ import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
 import { useAuthContext } from 'context';
 import { FilterTags } from './FilterTags';
-import { SavedSearch } from 'types';
-import { useBeforeunload } from 'react-beforeunload';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
 import { SaveSearchModal } from 'components/SaveSearchModal/SaveSearchModal';
@@ -51,27 +49,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     useAuthContext();
 
   const advanceFiltersReq = filters.length > 1 || searchTerm !== ''; //Prevents a user from saving a search without advanced filters
-
-  const search:
-    | (SavedSearch & {
-        editing?: boolean;
-      })
-    | undefined = localStorage.getItem('savedSearch')
-    ? JSON.parse(localStorage.getItem('savedSearch')!)
-    : undefined;
-
-  useEffect(() => {
-    if (props.location.search === '') {
-      // Search on initial load
-    }
-    return () => {
-      localStorage.removeItem('savedSearch');
-    };
-  }, [setSearchTerm, props.location.search]);
-
-  useBeforeunload((event) => {
-    localStorage.removeItem('savedSearch');
-  });
 
   const fetchDomainsExport = async (): Promise<string> => {
     try {
@@ -150,11 +127,9 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
               sortDirection={sortDirection}
               setSort={setSort}
               isFixed={resultsScrolled}
-              existingSavedSearch={search}
               advancedFiltersReq={advanceFiltersReq}
             />
             <SaveSearchModal
-              search={search}
               searchTerm={searchTerm}
               filters={filters}
               totalResults={totalResults}

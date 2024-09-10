@@ -15,7 +15,6 @@ import { useAuthContext } from '../../context';
 import { Save } from '@mui/icons-material';
 
 interface SaveSearchModalProps {
-  search: any;
   searchTerm: string;
   filters: any;
   totalResults: number;
@@ -26,7 +25,6 @@ interface SaveSearchModalProps {
 
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
-    search,
     searchTerm,
     filters,
     totalResults,
@@ -46,7 +44,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const [savedSearchValues, setSavedSearchValues] = useState<
     Partial<SavedSearch> & { name: string }
   >(activeSearch ? activeSearch : { name: '' });
-
   // API call to save/update saved searches
   const handleSave = async (savedSearchValues: Partial<SavedSearch>) => {
     const body = {
@@ -62,8 +59,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     };
 
     try {
-      if (search) {
-        await apiPut('/saved-searches/' + search.id, body);
+      if (activeSearch) {
+        await apiPut('/saved-searches/' + activeSearch.id, body);
       } else {
         await apiPost('/saved-searches/', body);
       }
@@ -111,15 +108,17 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     return nameRegex.test(name);
   };
 
-  const handleChange = (name: string, value: any) => {
-    setSavedSearchValues((values) => ({
-      ...values,
-      [name]: value
+  const handleChange = (textInputName: string, textInput: string) => {
+    setSavedSearchValues((inputValues) => ({
+      ...inputValues,
+      [textInputName]: textInput
     }));
     // Validation check for valid characters and duplicate names
-    if (name === 'name') {
-      const isValid = validation(value);
-      const isDuplicate = savedSearches.some((search) => search.name === value);
+    if (textInputName === 'name') {
+      const isValid = validation(textInput);
+      const isDuplicate = savedSearches.some(
+        (search) => search.name === textInput
+      );
 
       setFormErrors((prev) => ({
         ...prev,
@@ -145,16 +144,44 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         onClose={() => setDialogOpen(false)}
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
+        PaperProps={{
+          component: 'form',
+          onSubmit: handleSubmit,
+          style: { width: '30%', minWidth: '300px' }
+        }}
       >
         <DialogTitle id="confirm-dialog-title">Update Saved Search</DialogTitle>
         <DialogContent>
           <DialogContentText id="confirm-dialog-description">
-            Are you sure you want to update this saved search?
+            <TextField
+              autoFocus
+              required
+              margin="dense"
+              id="name"
+              name="name"
+              placeholder={activeSearch?.name}
+              type="text"
+              fullWidth
+              variant="outlined"
+              value={savedSearchValues.name}
+              onChange={(e) => handleChange(e.target.name, e.target.value)}
+              inputProps={{
+                'aria-label': 'Enter a name for your saved search'
+              }}
+              error={formErrors.name}
+              helperText={
+                formErrors.name
+                  ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
+                  : formErrors.duplicate
+                  ? 'This name is already taken. Please choose a different name.'
+                  : ''
+              }
+            />
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDialogClose} color="primary">
-            No
+            Cancel
           </Button>
           <Button
             variant="contained"
@@ -169,7 +196,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             color="primary"
             autoFocus
           >
-            Yes
+            Save
           </Button>
         </DialogActions>
       </Dialog>

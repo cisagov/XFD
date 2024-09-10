@@ -9,14 +9,12 @@ import {
 } from '@mui/material';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
-import { SavedSearch } from 'types';
 
 interface Props {
   sortField: ContextType['sortField'];
   sortDirection?: ContextType['sortDirection'];
   setSort: ContextType['setSort'];
   isFixed: boolean;
-  existingSavedSearch?: SavedSearch;
   children?: React.ReactNode;
   advancedFiltersReq?: boolean;
 }
