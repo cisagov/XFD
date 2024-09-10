@@ -41,11 +41,11 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     duplicate: false
   });
   const { apiGet, apiPost, apiPut } = useAuthContext();
-  const { savedSearches, setSavedSearches, setSavedSearchCount } =
+  const { savedSearches, setSavedSearches, setSavedSearchCount, activeSearch } =
     useSavedSearchContext();
   const [savedSearchValues, setSavedSearchValues] = useState<
     Partial<SavedSearch> & { name: string }
-  >(search ? search : { name: '' });
+  >(activeSearch ? activeSearch : { name: '' });
 
   // API call to save/update saved searches
   const handleSave = async (savedSearchValues: Partial<SavedSearch>) => {
@@ -87,8 +87,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   };
 
   const handleClick = () => {
-    if (search) {
-      savedSearchValues.name = search.name;
+    if (activeSearch) {
+      savedSearchValues.name = activeSearch.name;
       setDialogOpen(true); // Open dialog to confirm update
     } else {
       handleOpenModal();
@@ -136,9 +136,9 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         onClick={handleClick}
         endIcon={<Save />}
         disabled={!advancedFiltersReq}
-        aria-label={search ? 'Update Saved Search' : 'Save Search'}
+        aria-label={activeSearch ? 'Update Saved Search' : 'Save Search'}
       >
-        {search ? 'Update Saved Search' : 'Save Search'}
+        {activeSearch ? 'Update Saved Search' : 'Save Search'}
       </Button>
       <Dialog
         open={dialogeOpen}

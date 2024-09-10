@@ -67,10 +67,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
 
-  const { savedSearches, setSavedSearches, setSavedSearchCount } =
-    useSavedSearchContext();
-
-  const [activeSearch, setActiveSearch] = React.useState<string>('');
+  const {
+    savedSearches,
+    setSavedSearches,
+    setSavedSearchCount,
+    activeSearchId,
+    setActiveSearchId
+  } = useSavedSearchContext();
 
   const deleteSearch = async (id: string) => {
     try {
@@ -97,7 +100,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
         addFilter(filter.field, value, 'any');
       });
     });
-    setActiveSearch(id);
+    setActiveSearchId(id);
   };
   const restoreInitialFilters = () => {
     initialFilters.forEach((filter) => {
@@ -113,7 +116,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       autocompleteResults: false
     });
     restoreInitialFilters();
-    setActiveSearch('');
+    setActiveSearchId('');
   };
   const toggleSavedSearches = (id: string) => {
     const savedSearch = savedSearches.filter((search) => search.id === id);
@@ -128,7 +131,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   };
 
   const isSavedSearchActive = (id: string): boolean => {
-    return activeSearch === id;
+    return activeSearchId === id;
   };
 
   const filtersByColumn = useMemo(
