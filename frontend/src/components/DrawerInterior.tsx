@@ -70,6 +70,8 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   const { savedSearches, setSavedSearches, setSavedSearchCount } =
     useSavedSearchContext();
 
+  const [activeSearch, setActiveSearch] = React.useState<string>('');
+
   const deleteSearch = async (id: string) => {
     try {
       await apiDelete(`/saved-searches/${id}`, { body: {} });
@@ -84,7 +86,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   const displaySavedSearch = (id: string) => {
     const savedSearch = savedSearches.find((search) => search.id === id);
     if (savedSearch) {
-      localStorage.setItem('savedSearch', JSON.stringify(savedSearch));
       setSearchTerm(savedSearch.searchTerm, {
         shouldClearFilters: true,
         autocompleteResults: false
@@ -96,6 +97,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
         addFilter(filter.field, value, 'any');
       });
     });
+    setActiveSearch(id);
   };
   const restoreInitialFilters = () => {
     initialFilters.forEach((filter) => {
@@ -110,11 +112,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       shouldClearFilters: true,
       autocompleteResults: false
     });
-    localStorage.removeItem('savedSearch');
     restoreInitialFilters();
+    setActiveSearch('');
   };
   const toggleSavedSearches = (id: string) => {
     const savedSearch = savedSearches.filter((search) => search.id === id);
+
     if (savedSearch) {
       if (!isSavedSearchActive(id)) {
         displaySavedSearch(id);
@@ -124,11 +127,8 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     }
   };
 
-  const isSavedSearchActive = (id: string) => {
-    const activeSearch = JSON.parse(
-      localStorage.getItem('savedSearch') || '{}'
-    );
-    return activeSearch.id === id;
+  const isSavedSearchActive = (id: string): boolean => {
+    return activeSearch === id;
   };
 
   const filtersByColumn = useMemo(
