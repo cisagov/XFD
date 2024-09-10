@@ -3,7 +3,7 @@
 # from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
@@ -191,8 +191,9 @@ class Role(BaseModel):
     createdAt: datetime
     updatedAt: datetime
     role: str
-    createdBy: Optional[Any]
-    approvedBy: Optional[Any]
+    approved: bool
+    createdById: Optional[Any]
+    approvedById: Optional[Any]
     userId: Optional[Any]
     organizationId: Optional[Any]
 
@@ -281,12 +282,24 @@ class User(BaseModel):
     invitePending: bool
     loginBlockedByMaintenance: bool
     dateAcceptedTerms: Optional[datetime]
-    acceptedTermsVersion: Optional[datetime]
+    acceptedTermsVersion: Optional[str]
     lastLoggedIn: Optional[datetime]
     userType: str
     regionId: Optional[str]
     state: Optional[str]
     oktaId: Optional[str]
+    roles: Optional[List[Role]] = []
+
+    @classmethod
+    def from_orm(cls, obj):
+        # Convert roles to a list of RoleSchema before passing to Pydantic
+        user_dict = obj.__dict__.copy()
+        user_dict["roles"] = [Role.from_orm(role) for role in obj.roles.all()]
+        return cls(**user_dict)
+
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class Vulnerability(BaseModel):

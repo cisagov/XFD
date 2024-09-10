@@ -428,9 +428,9 @@ class Role(models.Model):
     )
     userId = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        on_delete=models.CASCADE,
         db_column="userId",
-        related_name="role_userid_set",
+        related_name="roles",
         blank=True,
         null=True,
     )
