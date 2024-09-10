@@ -13,7 +13,6 @@ import {
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Save } from '@mui/icons-material';
-import { act } from 'react-dom/test-utils';
 
 interface SaveSearchModalProps {
   searchTerm: string;
@@ -33,8 +32,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     sortDirection,
     advancedFiltersReq
   } = props;
-  const [open, setOpen] = useState(false);
-  const [dialogeOpen, setDialogOpen] = useState(false);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [formErrors, setFormErrors] = useState({
     name: false,
     duplicate: false
@@ -74,20 +73,20 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   };
 
   const handleCloseModal = () => {
-    setOpen(false);
+    setSaveDialogOpen(false);
   };
   const handleOpenModal = () => {
-    setOpen(true);
+    setSaveDialogOpen(true);
   };
 
   const handleDialogClose = () => {
-    setDialogOpen(false);
+    setUpdateDialogOpen(false);
   };
 
-  const handleClick = () => {
+  const handleUpdate = () => {
     if (activeSearch) {
       savedSearchValues.name = activeSearch.name;
-      setDialogOpen(true); // Open dialog to confirm update
+      setUpdateDialogOpen(true); // Open dialog to confirm update
     } else {
       handleOpenModal();
     }
@@ -133,7 +132,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     <>
       <Button
         variant="contained"
-        onClick={handleClick}
+        onClick={handleUpdate}
         endIcon={<Save />}
         disabled={!advancedFiltersReq}
         aria-label={activeSearch ? 'Update Saved Search' : 'Save Search'}
@@ -141,8 +140,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         {activeSearch ? 'Update Saved Search' : 'Save Search'}
       </Button>
       <Dialog
-        open={dialogeOpen}
-        onClose={() => setDialogOpen(false)}
+        open={updateDialogOpen}
+        onClose={() => setUpdateDialogOpen(false)}
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
         PaperProps={{
@@ -189,7 +188,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             onClick={() => {
               try {
                 handleSave(savedSearchValues);
-                setDialogOpen(false);
+                setUpdateDialogOpen(false);
               } catch (e) {
                 console.error(e);
               }
@@ -207,7 +206,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         </DialogActions>
       </Dialog>
       <Dialog
-        open={open}
+        open={saveDialogOpen}
         onClose={handleCloseModal}
         PaperProps={{
           component: 'form',

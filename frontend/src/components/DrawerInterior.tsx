@@ -134,6 +134,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     return activeSearchId === id;
   };
 
+  const ascendingSavedSearches = savedSearches.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  console.log(ascendingSavedSearches);
+
   const filtersByColumn = useMemo(
     () =>
       filters.reduce(
@@ -408,9 +414,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <Typography>Saved Searches</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {savedSearches.length > 0 ? (
+          {ascendingSavedSearches.length > 0 ? (
             <List>
-              {savedSearches.map((search) => (
+              {ascendingSavedSearches.map((search) => (
                 <ListItem
                   key={search.id}
                   sx={{ justifyContent: 'space-between', padding: '0px' }}
