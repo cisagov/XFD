@@ -13,6 +13,6 @@ export interface SavedSearch {
   searchPath: string;
   sortField: string;
   sortDirection: string;
-  createVulnerabilities: boolean;
-  vulnerabilityTemplate: Partial<Vulnerability>;
+  // createVulnerabilities: boolean;
+  // vulnerabilityTemplate: Partial<Vulnerability>;
 }
