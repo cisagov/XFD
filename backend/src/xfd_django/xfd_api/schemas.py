@@ -1,15 +1,38 @@
+"""Schemas.py."""
 # Third-Party Libraries
 # from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel, EmailStr, Field, Json
+from pydantic import BaseModel, Json
+
+
+class Assessment(BaseModel):
+    """Assessment schema."""
+
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    rscId: str
+    type: str
+    userId: Optional[Any]
+
+
+class Category(BaseModel):
+    """Category schema."""
+
+    id: UUID
+    name: str
+    number: str
+    shortName: Optional[str]
 
 
 class Cpe(BaseModel):
+    """Cpe schema."""
+
     id: UUID
     name: Optional[str]
     version: Optional[str]
@@ -18,6 +41,8 @@ class Cpe(BaseModel):
 
 
 class Cve(BaseModel):
+    """Cve schema."""
+
     id: UUID
     name: Optional[str]
     publishedAt: datetime
@@ -47,6 +72,8 @@ class Cve(BaseModel):
 
 
 class Domain(BaseModel):
+    """Domain schema."""
+
     id: UUID
     createdAt: datetime
     updatedAt: datetime
@@ -69,6 +96,8 @@ class Domain(BaseModel):
 
 
 class DomainFilters(BaseModel):
+    """DomainFilters schema."""
+
     ports: Optional[str] = None
     service: Optional[str] = None
     reverseName: Optional[str] = None
@@ -80,6 +109,8 @@ class DomainFilters(BaseModel):
 
 
 class DomainSearch(BaseModel):
+    """DomainSearch schema."""
+
     page: int = 1
     sort: str
     order: str
@@ -87,7 +118,23 @@ class DomainSearch(BaseModel):
     pageSize: Optional[int] = None
 
 
+class Notification(BaseModel):
+    """Notification schema."""
+
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    startDatetime: Optional[datetime]
+    endDateTime: Optional[datetime]
+    maintenanceType: Optional[str]
+    status: Optional[str]
+    updatedBy: datetime
+    message: Optional[str]
+
+
 class Organization(BaseModel):
+    """Organization schema."""
+
     id: UUID
     createdAt: datetime
     updatedAt: datetime
@@ -107,7 +154,88 @@ class Organization(BaseModel):
     type: Optional[str]
 
 
+class Question(BaseModel):
+    """Question schema."""
+
+    id: UUID
+    name: str
+    description: str
+    longForm: str
+    number: str
+    categoryId: Optional[Any]
+
+
+class Resource(BaseModel):
+    """Resource schema."""
+
+    id: UUID
+    description: str
+    name: str
+    type: str
+    url: str
+
+
+class Response(BaseModel):
+    """Response schema."""
+
+    id: UUID
+    selection: str
+    assessmentId: Optional[Any]
+    questionId: Optional[Any]
+
+
+class Role(BaseModel):
+    """Role schema."""
+
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    role: str
+    createdBy: Optional[Any]
+    approvedBy: Optional[Any]
+    userId: Optional[Any]
+    organizationId: Optional[Any]
+
+
+class Scan(BaseModel):
+    """Scan schema."""
+
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    name: str
+    arguments: Any
+    frequency: int
+    lastRun: Optional[datetime]
+    isGranular: bool
+    isUserModifiable: Optional[bool]
+    isSingleScan: bool
+    manualRunPending: bool
+    createdBy: Optional[Any]
+
+
+class ScanTask(BaseModel):
+    """ScanTask schema."""
+
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    status: str
+    type: str
+    fargateTaskArn: Optional[str]
+    input: Optional[str]
+    output: Optional[str]
+    requestedAt: Optional[datetime]
+    startedAt: Optional[datetime]
+    finishedAt: Optional[datetime]
+    queuedAt: Optional[datetime]
+    organizationId: Optional[Any]
+    scanId: Optional[Any]
+
+
 class SearchBody(BaseModel):
+    """SearchBody schema."""
+
     current: int
     resultsPerPage: int
     searchTerm: str
@@ -118,7 +246,29 @@ class SearchBody(BaseModel):
     tagId: Optional[UUID]
 
 
+class Service(BaseModel):
+    """Service schema."""
+
+    id: UUID
+    createdAt: datetime
+    updatedAt: datetime
+    serviceSource: Optional[str]
+    port: int
+    service: Optional[str]
+    lastSeen: Optional[datetime]
+    banner: Optional[str]
+    products: Json[Any]
+    censysMetadata: Json[Any]
+    censysIpv4Results: Json[Any]
+    shodanResults: Json[Any]
+    wappalyzerResults: Json[Any]
+    domainId: Optional[Any]
+    discoveredById: Optional[Any]
+
+
 class User(BaseModel):
+    """User schema."""
+
     id: UUID
     cognitoId: Optional[str]
     loginGovId: Optional[str]
@@ -140,6 +290,8 @@ class User(BaseModel):
 
 
 class Vulnerability(BaseModel):
+    """Vulnerability schema."""
+
     id: UUID
     createdAt: datetime
     updatedAt: datetime
@@ -165,6 +317,8 @@ class Vulnerability(BaseModel):
 
 
 class VulnerabilityFilters(BaseModel):
+    """VulnerabilityFilters schema."""
+
     id: Optional[UUID]
     title: Optional[str]
     domain: Optional[str]
@@ -178,6 +332,8 @@ class VulnerabilityFilters(BaseModel):
 
 
 class VulnerabilitySearch(BaseModel):
+    """VulnerabilitySearch schema."""
+
     page: int
     sort: Optional[str]
     order: str
