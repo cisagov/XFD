@@ -74,6 +74,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   const handleCloseModal = () => {
     setSaveDialogOpen(false);
+    savedSearchValues.name = '';
   };
   const handleOpenModal = () => {
     setSaveDialogOpen(true);
