@@ -61,11 +61,11 @@ const handlerToExpress =
     // Add additional status codes that we may return for succesfull requests
     if (statusCode === 200) {
       if (message && action) {
-        logger.record(action, 'success', message);
+        logger.record(action, 'success', message, body);
       }
     } else {
       if (message && action) {
-        logger.record(action, 'fail', message);
+        logger.record(action, 'fail', message, body);
       }
     }
 
@@ -684,7 +684,21 @@ authenticatedRoute.post(
   handlerToExpress(organizations.checkDomainVerification)
 );
 authenticatedRoute.post('/stats', handlerToExpress(stats.get));
-authenticatedRoute.post('/users', handlerToExpress(users.invite));
+authenticatedRoute.post(
+  '/users',
+  handlerToExpress(
+    users.invite,
+    (req, user, responseBody) => {
+      return {
+        timestamp: new Date(),
+        userId: user.data?.id,
+        invitePayload: req.body,
+        createdUserRecord: responseBody
+      };
+    },
+    'USER INVITED'
+  )
+);
 authenticatedRoute.get('/users', handlerToExpress(users.list));
 authenticatedRoute.delete('/users/:userId', handlerToExpress(users.del));
 authenticatedRoute.get(

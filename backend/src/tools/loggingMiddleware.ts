@@ -23,7 +23,11 @@ type RecordPayload = object & {
 };
 
 export type RecordMessage =
-  | ((request: Request, user: LoggerUserState) => RecordPayload)
+  | ((
+      request: Request,
+      user: LoggerUserState,
+      responseBody?: object
+    ) => RecordPayload)
   | RecordPayload;
 
 export class Logger {
@@ -40,7 +44,8 @@ export class Logger {
   async record(
     action: string,
     result: 'success' | 'fail',
-    messageOrCB: RecordMessage | undefined
+    messageOrCB: RecordMessage | undefined,
+    responseBody?: object | string
   ) {
     try {
       if (!this.user.ready && this.user.attempts > 0) {
@@ -52,12 +57,17 @@ export class Logger {
         this.logRep = logRepository;
       }
 
+      const parsedResponseBody =
+        typeof responseBody === 'string'
+          ? JSON.parse(responseBody)
+          : responseBody;
+
       const payload =
         typeof messageOrCB === 'function'
-          ? messageOrCB(this.request, this.user)
+          ? messageOrCB(this.request, this.user, parsedResponseBody)
           : messageOrCB;
       const logRecord = await this.logRep.create({
-        payload: JSON.stringify(payload),
+        payload: payload as object,
         createdAt: payload?.timestamp,
         result: result,
         eventType: action
