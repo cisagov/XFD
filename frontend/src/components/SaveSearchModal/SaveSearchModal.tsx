@@ -316,8 +316,19 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               formErrors.duplicate ||
               !savedSearchValues.name.trim()
             }
-            onKeyDown={() => {
-              handleSubmit;
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                try {
+                  if (formErrors.name) {
+                    return;
+                  }
+                  handleSave(savedSearchValues);
+                  handleCloseModal();
+                } catch (e) {
+                  console.error(e);
+                }
+              }
             }}
             aria-label="Save the search"
             color="primary"
