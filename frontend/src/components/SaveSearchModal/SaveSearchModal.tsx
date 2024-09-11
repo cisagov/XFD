@@ -81,6 +81,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
   const handleDialogClose = () => {
     setUpdateDialogOpen(false);
+    savedSearchValues.name = '';
   };
 
   const handleUpdate = () => {
@@ -189,6 +190,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               try {
                 handleSave(savedSearchValues);
                 setUpdateDialogOpen(false);
+                savedSearchValues.name = '';
               } catch (e) {
                 console.error(e);
               }
