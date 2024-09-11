@@ -51,6 +51,9 @@ export const handler = async (commandOptions: CommandOptions) => {
     search.count = hits;
     search.save();
 
+    // The following properties are deprecated due to the refactor of the Save Search Modal.
+    // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+    // These properties are kept here for reference and will be removed in future versions.
     // if (search.createVulnerabilities) {
     //   const results = await fetchAllResults(filters, restrictions);
     //   const vulnerabilities: Vulnerability[] = results.map((domain) =>

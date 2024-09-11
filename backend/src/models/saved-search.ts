@@ -41,8 +41,9 @@ export class SavedSearch extends BaseEntity {
 
   @Column()
   searchPath: string;
-  // TODO: Add this back if we have the ability to create vulnerabilities from search results
-  // @Column({
+  // The following properties are deprecated due to the refactor of the Save Search Modal.
+  // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+  // These properties are kept here for reference and will be removed in future versions.  // @Column({
   //   default: false
   // })
   // createVulnerabilities: boolean;

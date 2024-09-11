@@ -46,6 +46,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {}
         })
@@ -105,6 +108,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {}
         };
@@ -128,6 +134,9 @@ describe('saved-search', () => {
           .expect(200);
         expect(response.body.name).toEqual(body.name);
         expect(response.body.searchTerm).toEqual(body.searchTerm);
+        // The following properties are deprecated due to the refactor of the Save Search Modal.
+        // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+        // These properties are kept here for reference and will be removed in future versions.
         // expect(response.body.createVulnerabilities).toEqual(
         //   body.createVulnerabilities
         // );
@@ -153,6 +162,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user
@@ -180,6 +192,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {}
         };
@@ -207,6 +222,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {}
         }).save();
@@ -235,6 +253,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user
@@ -272,6 +293,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user
@@ -309,6 +333,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user
@@ -336,6 +363,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {}
         }).save();
@@ -371,6 +401,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user
@@ -384,6 +417,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user1
@@ -412,6 +448,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {}
         }).save();
@@ -440,6 +479,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user
@@ -477,6 +519,9 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: [],
+          // The following properties are deprecated due to the refactor of the Save Search Modal.
+          // The Create Vulnerabilities functionality has been removed as it is no longer needed.
+          // These properties are kept here for reference and will be removed in future versions.
           // createVulnerabilities: false,
           // vulnerabilityTemplate: {},
           createdBy: user1
