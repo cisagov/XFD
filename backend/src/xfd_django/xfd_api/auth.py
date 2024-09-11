@@ -19,10 +19,11 @@ Dependencies:
     - .models
 """
 # Standard Python Libraries
-from datetime import datetime
+from datetime import datetime, timedelta
 from hashlib import sha256
 import os
 import json
+from urllib.parse import urlencode
 from re import A
 
 # Third-Party Libraries
@@ -132,36 +133,75 @@ def get_user_by_api_key(api_key: str):
         return None
 
 
-# TODO: Uncomment the token and if not user token once the JWT from OKTA is working
-def get_current_active_user(
-    api_key: str = Security(api_key_header),
-    # token: str = Depends(oauth2_scheme),
-):
-    """
-    Ensure the current user is authenticated and active.
+# # TODO: Uncomment the token and if not user token once the JWT from OKTA is working
+# def get_current_active_user(
+#     api_key: str = Security(api_key_header),
+#     # token: str = Depends(oauth2_scheme),
+# ):
+#     """
+#     Ensure the current user is authenticated and active.
 
-    Args:
-        api_key (str): The API key.
+#     Args:
+#         api_key (str): The API key.
 
-    Raises:
-        HTTPException: If the user is not authenticated.
+#     Raises:
+#         HTTPException: If the user is not authenticated.
 
-    Returns:
-        User: The authenticated user object.
-    """
-    user = None
-    if api_key:
-        user = get_user_by_api_key(api_key)
-    # if not user and token:
-    #     user = decode_jwt_token(token)
-    if user is None:
-        print("User not authenticated")
+#     Returns:
+#         User: The authenticated user object.
+#     """
+#     user = None
+#     if api_key:
+#         user = get_user_by_api_key(api_key)
+#     # if not user and token:
+#     #     user = decode_jwt_token(token)
+#     if user is None:
+#         print("User not authenticated")
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid authentication credentials",
+#         )
+#     print(f"Authenticated user: {user.id}")
+#     return user
+
+def get_current_active_user(token: str = Depends(oauth2_scheme)):
+    try:
+        print(f"Token received: {token}")
+        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        print(f"Payload decoded: {payload}")
+        user_id = payload.get("id")
+        if user_id is None:
+            print("No user ID found in token")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # Fetch the user by ID from the database
+        user = User.objects.get(id=user_id)
+        print(f"User found: {user}")
+        if user is None:
+            print("User not found")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user
+    except jwt.ExpiredSignatureError:
+        print("Token has expired")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials",
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    print(f"Authenticated user: {user.id}")
-    return user
+    except jwt.InvalidTokenError:
+        print("Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 
 # async def get_jwt_from_code(auth_code: str):
@@ -214,7 +254,7 @@ def get_current_active_user(
 JWT_SECRET = os.getenv("JWT_SECRET")
 
 
-async def process_user(decoded_token, access_token, refresh_token, db: Session):
+async def process_user(decoded_token, access_token, refresh_token):
     # Connect to the database
     # await connect_to_database()
 
@@ -245,6 +285,7 @@ async def process_user(decoded_token, access_token, refresh_token, db: Session):
     # Set cookies for access token and refresh token
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True)
     response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True)
+    print(f"Response output: {str(response.headers)}")
 
     # If user exists, generate a signed JWT token
     if user:
@@ -253,7 +294,7 @@ async def process_user(decoded_token, access_token, refresh_token, db: Session):
 
         # Generate JWT token
         signed_token = jwt.encode(
-            {"id": user.id, "email": user.email, "exp": datetime.utcnow() + timedelta(minutes=14)},
+            {"id": str(user.id), "email": user.email, "exp": datetime.utcnow() + timedelta(minutes=14)},
             JWT_SECRET,
             algorithm="HS256"
         )
@@ -266,12 +307,12 @@ async def process_user(decoded_token, access_token, refresh_token, db: Session):
             {
                 "token": signed_token,
                 "user": {
-                    "id": user.id,
+                    "id": str(user.id),
                     "email": user.email,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
+                    "firstName": user.firstName,
+                    "lastName": user.lastName,
                     "state": user.state,
-                    "region_id": user.region_id,
+                    "regionId": user.regionId,
                 }
             }
         )
@@ -300,7 +341,7 @@ async def get_jwt_from_code(auth_code: str):
 
     try:
         response = requests.post(
-            authorize_token_url, headers=headers, data=authorize_token_body
+            authorize_token_url, headers=headers, data=urlencode(authorize_token_body)
         )
     except Exception as e:
         print(f"requests error: {e}")
@@ -310,6 +351,8 @@ async def get_jwt_from_code(auth_code: str):
     print(f"oauth2/token response: {token_response}")
 
     id_token = token_response.get("id_token")
+    access_token = token_response.get("access_token")
+    refresh_token = token_response.get("refresh_token")
     if id_token is None:
         print("ID token not found in the response.")
         return None
@@ -321,7 +364,12 @@ async def get_jwt_from_code(auth_code: str):
     decoded_token = jwt.decode(id_token_bytes, options={"verify_signature": False})
 
     print(f"decoded token: {decoded_token}")
-    return json.dumps(decoded_token)
+    return {
+        'refresh_token': refresh_token,
+        'id_token': id_token,
+        'access_token': access_token,
+        'decoded_token': decoded_token
+    }
 
 
 async def handle_cognito_callback(body):

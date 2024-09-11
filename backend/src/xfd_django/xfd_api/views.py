@@ -17,7 +17,7 @@ Dependencies:
     - .models
 """
 # Third-Party Libraries
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import JSONResponse
 
 from .auth import get_current_active_user, get_jwt_from_code, handle_cognito_callback, process_user
@@ -156,13 +156,18 @@ async def callback(request: Request):
     #         status_code=status.HTTP_400_BAD_REQUEST,
     #         detail="Code not found in request body",
     #     )
-    decoded_token = await get_jwt_from_code(code)
+    jwt_data = await get_jwt_from_code(code)
+    print(f"JWT Data: {jwt_data}")
+    if jwt_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid authorization code or failed to retrieve tokens",
+        )
+    access_token = jwt_data.get("access_token")
+    refresh_token = jwt_data.get("refresh_token")
+    decoded_token = jwt_data.get("decoded_token")
 
-    print(f"Decoded TOKEN: {decoded_token}")
-    access_token = decoded_token.get("access_token")
-    refresh_token = decoded_token.get("refresh_token")
-
-    return await process_user(decoded_token, access_token, refresh_token, db)
+    return await process_user(decoded_token, access_token, refresh_token)
     # try:
     #     token_endpoint = f"https://{domain}/oauth2/token"
     #     token_data = (
