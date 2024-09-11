@@ -145,17 +145,20 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       <Dialog
         open={updateDialogOpen}
         onClose={() => setUpdateDialogOpen(false)}
-        aria-labelledby="confirm-dialog-title"
-        aria-describedby="confirm-dialog-description"
+        aria-label="Save Search form"
+        aria-labelledby="save-search-form-title"
+        aria-describedby="save-search-form-description"
         PaperProps={{
           component: 'form',
           onSubmit: handleSubmit,
           style: { width: '30%', minWidth: '300px' }
         }}
       >
-        <DialogTitle id="confirm-dialog-title">Update Saved Search</DialogTitle>
+        <DialogTitle id="update-saved-search-title">
+          Update Saved Search
+        </DialogTitle>
         <DialogContent>
-          <DialogContentText id="confirm-dialog-description">
+          <DialogContentText id="update-saved-search-description">
             <TextField
               autoFocus
               required
@@ -202,6 +205,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 }
               }
             }}
+            aria-label="Cancel and close the dialog"
           >
             Cancel
           </Button>
@@ -236,6 +240,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             }}
             color="primary"
             autoFocus
+            aria-label="Save the search"
           >
             Save
           </Button>
@@ -249,7 +254,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
           onSubmit: handleSubmit,
           style: { width: '30%', minWidth: '300px' }
         }}
-        aria-labelledby="dialog-title"
+        aria-label="Save Search"
+        aria-labelledby="save-search-dialog-title"
         aria-describedby="dialog-description"
       >
         <DialogTitle id="dialog-title">Save Search</DialogTitle>
