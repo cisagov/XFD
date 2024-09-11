@@ -138,8 +138,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     a.name.localeCompare(b.name)
   );
 
-  console.log(ascendingSavedSearches);
-
   const filtersByColumn = useMemo(
     () =>
       filters.reduce(
