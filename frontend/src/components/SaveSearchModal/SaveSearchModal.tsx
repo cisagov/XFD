@@ -133,6 +133,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   return (
     <>
       <Button
+        tabIndex={0}
         variant="contained"
         onClick={handleUpdate}
         endIcon={<Save />}
@@ -170,6 +171,11 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               inputProps={{
                 'aria-label': 'Enter a name for your saved search'
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                }
+              }}
               error={formErrors.name}
               helperText={
                 formErrors.name
@@ -182,10 +188,25 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleDialogClose} color="primary">
+          <Button
+            tabIndex={0}
+            onClick={handleDialogClose}
+            color="primary"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                try {
+                  handleDialogClose();
+                } catch (e) {
+                  console.error(e);
+                }
+              }
+            }}
+          >
             Cancel
           </Button>
           <Button
+            tabIndex={0}
             variant="contained"
             onClick={() => {
               try {
@@ -201,6 +222,18 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               formErrors.duplicate ||
               !savedSearchValues.name.trim()
             }
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                try {
+                  handleSave(savedSearchValues);
+                  setUpdateDialogOpen(false);
+                  savedSearchValues.name = '';
+                } catch (e) {
+                  console.error(e);
+                }
+              }
+            }}
             color="primary"
             autoFocus
           >
@@ -240,6 +273,11 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               inputProps={{
                 'aria-label': 'Enter a name for your saved search'
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                }
+              }}
               error={formErrors.name}
               helperText={
                 formErrors.name
@@ -252,8 +290,25 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseModal}>Cancel</Button>
           <Button
+            tabIndex={0}
+            onClick={handleCloseModal}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                try {
+                  handleCloseModal();
+                } catch (e) {
+                  console.error(e);
+                }
+              }
+            }}
+            aria-label="Cancel and close the dialog"
+          >
+            Cancel
+          </Button>
+          <Button
+            tabIndex={0}
             variant="contained"
             type="submit"
             disabled={
@@ -261,6 +316,11 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               formErrors.duplicate ||
               !savedSearchValues.name.trim()
             }
+            onKeyDown={() => {
+              handleSubmit;
+            }}
+            aria-label="Save the search"
+            color="primary"
           >
             Save
           </Button>
