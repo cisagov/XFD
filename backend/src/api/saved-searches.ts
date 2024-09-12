@@ -61,16 +61,6 @@ class NewSavedSearch {
 
   @IsArray()
   filters: { field: string; values: any[]; type: string }[];
-
-  // The following properties are deprecated due to the refactor of the Save Search Modal.
-  // The Create Vulnerabilities functionality has been removed as it is no longer needed.
-  // These properties are kept here for reference and will be removed in future versions.
-  // @IsBoolean()
-  // createVulnerabilities: boolean;
-
-  // @IsObject()
-  // @IsOptional()
-  // vulnerabilityTemplate: Partial<Vulnerability>;
 }
 
 const PAGE_SIZE = 20;

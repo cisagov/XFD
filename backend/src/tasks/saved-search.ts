@@ -50,24 +50,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     const hits: number = searchResults.body.hits.total.value;
     search.count = hits;
     search.save();
-
-    // The following properties are deprecated due to the refactor of the Save Search Modal.
-    // The Create Vulnerabilities functionality has been removed as it is no longer needed.
-    // These properties are kept here for reference and will be removed in future versions.
-    // if (search.createVulnerabilities) {
-    //   const results = await fetchAllResults(filters, restrictions);
-    //   const vulnerabilities: Vulnerability[] = results.map((domain) =>
-    //     plainToClass(Vulnerability, {
-    //       domain: domain,
-    //       lastSeen: new Date(Date.now()),
-    //       ...search.vulnerabilityTemplate,
-    //       state: 'open',
-    //       source: 'saved-search',
-    //       needsPopulation: false
-    //     })
-    //   );
-    //   await saveVulnerabilitiesToDb(vulnerabilities, false);
-    // }
   }
 
   console.log(`Saved search finished for ${savedSearches.length} searches`);
