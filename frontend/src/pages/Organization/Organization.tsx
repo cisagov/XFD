@@ -6,15 +6,10 @@ import {
   Organization as OrganizationType,
   Role,
   ScanTask,
-  Scan,
-  ScanSchema,
   OrganizationTag,
   PendingDomain
 } from 'types';
-import { Column } from 'react-table';
-import { Table } from 'components';
-// @ts-ignore:next-line
-import { formatDistanceToNow, parseISO } from 'date-fns';
+
 import {
   Box,
   Breadcrumbs,
@@ -37,13 +32,12 @@ import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { ChevronRight } from '@mui/icons-material';
 import { Autocomplete } from '@mui/material';
 import { createFilterOptions } from '@mui/material/useAutocomplete';
-import { OrganizationList } from 'components/OrganizationList';
 import OrgMembers from './OrgMembers';
+import OrgScanHistory from './OrgScanHistory';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
 }
-
 export const Organization: React.FC = () => {
   const { apiGet, apiPut, apiPost, user, setFeedbackMessage } =
     useAuthContext();
@@ -52,8 +46,6 @@ export const Organization: React.FC = () => {
   const [tags, setTags] = useState<AutocompleteType[]>([]);
   const [userRoles, setUserRoles] = useState<Role[]>([]);
   const [scanTasks, setScanTasks] = useState<ScanTask[]>([]);
-  const [scans, setScans] = useState<Scan[]>([]);
-  const [scanSchema, setScanSchema] = useState<ScanSchema>({});
   const [tabValue, setTabValue] = React.useState('1');
   const [tagValue, setTagValue] = React.useState<AutocompleteType | null>(null);
   const [inputValue, setInputValue] = React.useState('');
@@ -67,114 +59,8 @@ export const Organization: React.FC = () => {
   const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
     setTabValue(newValue);
   };
-  const dateAccessor = (date?: string) => {
-    return !date || new Date(date).getTime() === new Date(0).getTime()
-      ? 'None'
-      : `${formatDistanceToNow(parseISO(date))} ago`;
-  };
 
   const organizationClasses = OrganizationStyles.organizationClasses;
-
-  const scanColumns: Column<Scan>[] = [
-    {
-      Header: 'Name',
-      accessor: 'name',
-      width: 150,
-      id: 'name',
-      disableFilters: true
-    },
-    {
-      Header: 'Description',
-      accessor: ({ name }) => scanSchema[name] && scanSchema[name].description,
-      width: 200,
-      minWidth: 200,
-      id: 'description',
-      disableFilters: true
-    },
-    {
-      Header: 'Mode',
-      accessor: ({ name }) =>
-        scanSchema[name] && scanSchema[name].isPassive ? 'Passive' : 'Active',
-      width: 150,
-      minWidth: 150,
-      id: 'mode',
-      disableFilters: true
-    },
-    {
-      Header: 'Action',
-      id: 'action',
-      maxWidth: 100,
-      Cell: ({ row }: { row: { index: number } }) => {
-        if (!organization) return null;
-        const enabled = organization.granularScans.find(
-          (scan) => scan.id === scans[row.index].id
-        );
-        return (
-          <Button
-            type="button"
-            onClick={() => {
-              updateScan(scans[row.index], !enabled);
-            }}
-          >
-            {enabled ? 'Disable' : 'Enable'}
-          </Button>
-        );
-      },
-      disableFilters: true
-    }
-  ];
-
-  const scanTaskColumns: Column<ScanTask>[] = [
-    {
-      Header: 'ID',
-      accessor: 'id',
-      disableFilters: true
-    },
-    {
-      Header: 'Status',
-      accessor: 'status',
-      disableFilters: true
-    },
-    {
-      Header: 'Type',
-      accessor: 'type',
-      disableFilters: true
-    },
-    {
-      Header: 'Name',
-      accessor: ({ scan }) => scan?.name,
-      disableFilters: true
-    },
-    {
-      Header: 'Created At',
-      accessor: ({ createdAt }) => dateAccessor(createdAt),
-      disableFilters: true,
-      disableSortBy: true
-    },
-    {
-      Header: 'Requested At',
-      accessor: ({ requestedAt }) => dateAccessor(requestedAt),
-      disableFilters: true,
-      disableSortBy: true
-    },
-    {
-      Header: 'Started At',
-      accessor: ({ startedAt }) => dateAccessor(startedAt),
-      disableFilters: true,
-      disableSortBy: true
-    },
-    {
-      Header: 'Finished At',
-      accessor: ({ finishedAt }) => dateAccessor(finishedAt),
-      disableFilters: true,
-      disableSortBy: true
-    },
-    {
-      Header: 'Output',
-      accessor: 'output',
-      disableFilters: true
-    }
-  ];
 
   const fetchOrganization = useCallback(async () => {
     try {
@@ -195,28 +81,6 @@ export const Organization: React.FC = () => {
     }
   }, [apiGet, setOrganization, organizationId]);
 
-  const fetchScans = useCallback(async () => {
-    try {
-      const response = await apiGet<{
-        scans: Scan[];
-        schema: ScanSchema;
-      }>('/granularScans/');
-      let { scans } = response;
-      const { schema } = response;
-
-      if (user?.userType !== 'globalAdmin')
-        scans = scans.filter(
-          (scan) =>
-            scan.name !== 'censysIpv4' && scan.name !== 'censysCertificates'
-        );
-
-      setScans(scans);
-      setScanSchema(schema);
-    } catch (e) {
-      console.error(e);
-    }
-  }, [apiGet, user]);
-
   const updateOrganization = async (body: any) => {
     try {
       const org = await apiPut('/organizations/' + organization?.id, {
@@ -233,35 +97,6 @@ export const Organization: React.FC = () => {
           e.status === 422
             ? 'Error updating organization'
             : e.message ?? e.toString(),
-        type: 'error'
-      });
-      console.error(e);
-    }
-  };
-
-  const updateScan = async (scan: Scan, enabled: boolean) => {
-    try {
-      if (!organization) return;
-      await apiPost(
-        `/organizations/${organization?.id}/granularScans/${scan.id}/update`,
-        {
-          body: {
-            enabled
-          }
-        }
-      );
-      setOrganization({
-        ...organization,
-        granularScans: enabled
-          ? organization.granularScans.concat([scan])
-          : organization.granularScans.filter(
-              (granularScan) => granularScan.id !== scan.id
-            )
-      });
-    } catch (e: any) {
-      setFeedbackMessage({
-        message:
-          e.status === 422 ? 'Error updating scan' : e.message ?? e.toString(),
         type: 'error'
       });
       console.error(e);
@@ -289,7 +124,7 @@ export const Organization: React.FC = () => {
       console.error(e);
     }
   };
-
+  console.log(organization);
   const checkDomainVerification = async (domain: string) => {
     try {
       if (!organization) return;
@@ -644,6 +479,7 @@ export const Organization: React.FC = () => {
       </Grid>
     </Paper>,
     <React.Fragment key={1}>
+      <h2>Org Members</h2>
       <OrgMembers
         organization={organization}
         userRoles={userRoles}
@@ -651,12 +487,11 @@ export const Organization: React.FC = () => {
       />
     </React.Fragment>,
     <React.Fragment key={2}>
-      <OrganizationList parent={organization}></OrganizationList>
-    </React.Fragment>,
-    <React.Fragment key={3}>
-      <Table<Scan> columns={scanColumns} data={scans} fetchData={fetchScans} />
-      <h2>Organization Scan History</h2>
-      <Table<ScanTask> columns={scanTaskColumns} data={scanTasks} />
+      <OrgScanHistory
+        organization={organization}
+        setOrganization={setOrganization}
+        scanTasks={scanTasks}
+      />
     </React.Fragment>
   ];
 
