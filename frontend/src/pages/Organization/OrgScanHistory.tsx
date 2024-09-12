@@ -17,13 +17,13 @@ interface OrganizationScan extends Partial<OrganizationType> {
   granularScans: any;
 }
 
-type OrgMemberProps = {
+type OrgScanHistoryProps = {
   organization: OrganizationScan;
   setOrganization: Function;
   scanTasks: ScanTask[];
 };
 
-export const OrgScanHistory: React.FC<OrgMemberProps> = ({
+export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
   organization,
   setOrganization,
   scanTasks
