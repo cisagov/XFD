@@ -5,7 +5,6 @@ import {
   OrganizationTag,
   PendingDomain
 } from 'types';
-
 import {
   Chip,
   Button,
@@ -217,7 +216,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         fullWidth
       >
         <DialogTitle id="form-dialog-title">
-          Add {dialog.label && dialog.label.slice(0, -1)}
+          Add {dialog.label && dialog.label.slice(0, -1)}(s)
         </DialogTitle>
         <DialogContent>
           {dialog.type === 'tags' ? (
@@ -282,7 +281,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                 configuration and click Verify.
               </DialogContentText>
               <TextField
-                style={{ width: '100%' }}
+                sx={{ width: '100%' }}
                 value={
                   organization.pendingDomains.find(
                     (domain) => domain.name === inputValue
@@ -312,7 +311,9 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                 margin="dense"
                 id="name"
                 inputProps={{ maxLength: 255 }}
-                label={dialog.label && dialog.label.slice(0, -1)}
+                placeholder={
+                  dialog.label && 'Enter ' + dialog.label.slice(0, -1) + '(s)'
+                }
                 type="text"
                 fullWidth
                 onChange={(e) => setInputValue(e.target.value)}
@@ -388,17 +389,14 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         </DialogActions>
       </Dialog>
       <Grid container spacing={1} p={3}>
-        <Grid item xs={12}>
+        <Grid item xs={12} mb={3}>
           <TextField
+            fullWidth
             value={organization.name}
             disabled
             variant="standard"
             InputProps={{
-              sx: {
-                fontSize: '25px',
-                fontWeight: 400,
-                mb: 2
-              }
+              sx: { fontSize: '18px', fontWeight: 400 }
             }}
           ></TextField>
         </Grid>
@@ -432,7 +430,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             </Grid>
           </Grid>
         </Grid>
-        <Grid item xs={12} mt={1}>
+        <Grid item xs={12} mt={2}>
           <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
             Cancel
           </Button>
