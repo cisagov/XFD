@@ -1,6 +1,4 @@
 import React from 'react';
-import * as OrganizationStyles from './style';
-import { Link } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import {
   Organization as OrganizationType,
@@ -58,7 +56,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     stage?: number;
     domainVerificationStatusMessage?: string;
   }>({ open: false });
-  const organizationClasses = OrganizationStyles.organizationClasses;
 
   const updateOrganization = async (body: any) => {
     try {
@@ -158,7 +155,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             <Grid item mb={1} key={index}>
               <Chip
                 color={'primary'}
-                className={organizationClasses.chip}
                 label={typeof value === 'string' ? value : value.name}
                 onDelete={() => {
                   organization[props.type].splice(index, 1);
@@ -171,8 +167,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           organization.pendingDomains.map((domain, index: number) => (
             <Grid item mb={1} key={index}>
               <Chip
-                className={organizationClasses.chip}
-                style={{ backgroundColor: '#C4C4C4' }}
+                sx={{ backgroundColor: '#C4C4C4' }}
                 label={domain.name + ' (verification pending)'}
                 onDelete={() => {
                   organization.pendingDomains.splice(index, 1);
@@ -399,7 +394,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             disabled
             variant="standard"
             InputProps={{
-              className: organizationClasses.orgName
+              sx: {
+                fontSize: '25px',
+                fontWeight: 400,
+                mb: 2
+              }
             }}
           ></TextField>
         </Grid>
@@ -433,20 +432,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             </Grid>
           </Grid>
         </Grid>
-        <Grid item xs={12}>
-          <Link to={`/organizations`}>
-            <Button
-              variant="outlined"
-              style={{ marginRight: '10px', color: '#565C65' }}
-            >
-              Cancel
-            </Button>
-          </Link>
-          <Button
-            variant="contained"
-            onClick={updateOrganization}
-            style={{ background: '#565C65', color: 'white' }}
-          >
+        <Grid item xs={12} mt={1}>
+          <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={updateOrganization}>
             Save
           </Button>
         </Grid>
