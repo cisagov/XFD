@@ -195,10 +195,7 @@ export const Header: React.FC<HeaderProps> = ({
                     width: 175,
                     maxWidth: 175,
                     padding: theme.spacing(),
-                    paddingLeft: 0,
-                    [theme.breakpoints.down('xl')]: {
-                      display: 'flex'
-                    }
+                    paddingLeft: 0
                   }}
                   alt="CyHy Dashboard Icon Navigate Home"
                 />

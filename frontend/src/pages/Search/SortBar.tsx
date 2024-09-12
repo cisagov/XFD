@@ -49,7 +49,6 @@ export const SortBar: React.FC<Props> = (props) => {
         <span id="sort-by-label">Sort by: </span>
         <FormControl className={classes.openFields}>
           <Select
-            disableUnderline
             labelId="sort-by-label"
             value={sortField}
             onChange={onSetSortField}

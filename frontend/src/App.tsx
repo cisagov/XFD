@@ -3,7 +3,6 @@ import {
   BrowserRouter as Router,
   Switch,
   Route,
-  Redirect,
   useLocation
 } from 'react-router-dom';
 import { API, Auth } from 'aws-amplify';
@@ -103,7 +102,6 @@ const App: React.FC = () => (
                       <RouteGuard
                         exact
                         path="/"
-                        render={() => <Redirect to="/inventory" />}
                         unauth={AuthLogin}
                         component={RiskWithSearch}
                       />
@@ -227,18 +225,12 @@ const App: React.FC = () => (
                       <RouteGuard
                         exact
                         path="/readysetcyber"
-                        render={() => (
-                          <Redirect to="/readysetcyber/dashboard" />
-                        )}
                         unauth={RSCLogin}
                         component={RSCDashboard}
                       />
                       <RouteGuard
                         exact
                         path="/readysetcyber/create-account"
-                        render={() => (
-                          <Redirect to="/readysetcyber/dashboard" />
-                        )}
                         unauth={RSCAuthLoginCreate}
                         component={RSCDashboard}
                       />
@@ -246,9 +238,6 @@ const App: React.FC = () => (
                         exact
                         path="/readysetcyber/dashboard"
                         component={RSCDashboard}
-                        render={() => (
-                          <Redirect to="/readysetcyber/dashboard" />
-                        )}
                         permissions={[
                           'globalView',
                           'readySetCyber',
