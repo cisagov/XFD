@@ -261,6 +261,8 @@ CyHy Dashboard access instructions:
 5. You will be prompted to enable MFA. Scan the QR code with an authenticator app on your phone, such as Microsoft Authenticator. Enter the MFA code you see after scanning.
 6. After configuring your account, you will be redirected to CyHy Dashboard.
 
+After activating your CyHy Dashboard account, you may receive a survey from the CyHy Continuous Improvement Team, within a few weeks, regarding your experience. Please share your feedback, level of satisfaction with the enrollment, onboarding processes, and overall experience. Your input and participation are crucial to shaping the success of the CyHy Dashboard.
+
 For more information on using CyHy Dashboard, view the CyHy Dashboard user guide at https://docs.crossfeed.cyber.dhs.gov/user-guide/quickstart/.
 
 If you encounter any difficulties, please feel free to reply to this email (or send an email to ${
