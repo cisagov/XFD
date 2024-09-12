@@ -70,13 +70,10 @@ describe('saved-search', () => {
           searchTerm: '',
           searchPath: '',
           filters: []
-          // createVulnerabilities: false,
-          // vulnerabilityTemplate: {}
         };
         const search = await SavedSearch.create(body).save();
         body.name = 'test-' + Math.random();
         body.searchTerm = '123';
-        // body.createVulnerabilities = true;
         const response = await request(app)
           .put(`/saved-searches/${search.id}`)
           .set(
