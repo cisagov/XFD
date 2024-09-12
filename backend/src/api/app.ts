@@ -700,7 +700,19 @@ authenticatedRoute.post(
   )
 );
 authenticatedRoute.get('/users', handlerToExpress(users.list));
-authenticatedRoute.delete('/users/:userId', handlerToExpress(users.del));
+authenticatedRoute.delete(
+  '/users/:userId',
+  handlerToExpress(
+    users.del,
+    (req, user, res) => {
+      console.log(req.params);
+      return {
+        timestamp: new Date()
+      };
+    },
+    'USER REMOVED'
+  )
+);
 authenticatedRoute.get(
   '/users/state/:state',
   handlerToExpress(users.getByState)
