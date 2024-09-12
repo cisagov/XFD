@@ -6,6 +6,9 @@ export interface SavedSearchContextType {
   setSavedSearches: (savedSearches: SavedSearch[]) => void;
   savedSearchCount: number;
   setSavedSearchCount: (savedSearchCount: number) => void;
+  activeSearchId: string;
+  setActiveSearchId: (activeSearchId: string) => void;
+  activeSearch: SavedSearch | undefined;
 }
 
 export const SavedSearchContext = React.createContext<SavedSearchContextType>(

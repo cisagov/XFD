@@ -12,6 +12,7 @@ export const SavedSearchContextProvider: React.FC<
 > = ({ children }) => {
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [savedSearchCount, setSavedSearchCount] = useState<number>(0);
+  const [activeSearchId, setActiveSearchId] = useState<string>('');
   const { apiGet, user } = useAuthContext();
 
   const fetchSearches = useCallback(async () => {
@@ -23,6 +24,10 @@ export const SavedSearchContextProvider: React.FC<
       console.log(e);
     }
   }, [apiGet, setSavedSearches, setSavedSearchCount]);
+
+  const activeSearch = useMemo(() => {
+    return savedSearches.find((search) => search.id === activeSearchId);
+  }, [activeSearchId, savedSearches]);
 
   useEffect(() => {
     if (user) fetchSearches();
@@ -41,7 +46,10 @@ export const SavedSearchContextProvider: React.FC<
         savedSearches: memoizedSavedSearches,
         setSavedSearches,
         savedSearchCount: memoizedSavedSearchCount,
-        setSavedSearchCount
+        setSavedSearchCount,
+        activeSearchId,
+        setActiveSearchId,
+        activeSearch
       }}
     >
       {children}
