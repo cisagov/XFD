@@ -6,6 +6,8 @@ import {
   PendingDomain
 } from 'types';
 import {
+  Alert,
+  Autocomplete,
   Chip,
   Button,
   Dialog,
@@ -18,8 +20,9 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import { Autocomplete } from '@mui/material';
+import { CheckCircleOutline } from '@mui/icons-material';
 import { createFilterOptions } from '@mui/material/useAutocomplete';
+import InfoDialog from 'components/Dialog/InfoDialog';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -55,6 +58,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     stage?: number;
     domainVerificationStatusMessage?: string;
   }>({ open: false });
+  const [isSaveDisabled, setIsSaveDisabled] = React.useState(true);
+  const [infoDialogOpen, setInfoDialogOpen] = React.useState(false);
 
   const updateOrganization = async (body: any) => {
     try {
@@ -66,6 +71,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message: 'Organization successfully updated',
         type: 'success'
       });
+      setInfoDialogOpen(true);
     } catch (e: any) {
       setFeedbackMessage({
         message:
@@ -158,6 +164,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                 onDelete={() => {
                   organization[props.type].splice(index, 1);
                   setOrganization({ ...organization });
+                  setIsSaveDisabled(false);
                 }}
               ></Chip>
             </Grid>
@@ -367,6 +374,9 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                     ...inputValue.split(',').map((e) => e.trim())
                   );
                   setOrganization({ ...organization });
+                  if (organization.rootDomains.length !== 0) {
+                    setIsSaveDisabled(false);
+                  }
                 }
               } else {
                 if (tagValue) {
@@ -388,6 +398,20 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+      <InfoDialog
+        isOpen={infoDialogOpen}
+        handleClick={() => {
+          setInfoDialogOpen(false);
+          setIsSaveDisabled(true);
+        }}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">Success </Typography>}
+        content={
+          <Typography variant="body1">
+            {organization.name} was successfully updated.
+          </Typography>
+        }
+      />
       <Grid container spacing={1} p={3}>
         <Grid item xs={12} mb={3}>
           <TextField
@@ -424,17 +448,31 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                     ...organization,
                     isPassive: event.target.checked
                   });
+                  if (!organization.isPassive) {
+                    setIsSaveDisabled(false);
+                  }
                 }}
                 color="primary"
               />
             </Grid>
           </Grid>
         </Grid>
+        {organization.rootDomains.length === 0 && (
+          <Grid item xs={12}>
+            <Alert severity="error">
+              An organization must have at least one Root Domain.
+            </Alert>
+          </Grid>
+        )}
         <Grid item xs={12} mt={2}>
           <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
             Cancel
           </Button>
-          <Button variant="contained" onClick={updateOrganization}>
+          <Button
+            variant="contained"
+            onClick={updateOrganization}
+            disabled={organization.rootDomains.length === 0 || isSaveDisabled}
+          >
             Save
           </Button>
         </Grid>
