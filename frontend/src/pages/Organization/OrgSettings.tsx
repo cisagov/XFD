@@ -414,7 +414,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               <>
                 <Public sx={{ color: 'gray' }} />
                 <Typography variant="body1" color="gray">
-                  Region {organization && organization.regionId}
+                  Region {organization.regionId}
                 </Typography>
               </>
             )}
@@ -422,8 +422,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               <>
                 <Place sx={{ color: 'gray' }} />
                 <Typography variant="body1" color="gray">
-                  {organization &&
-                    (organization.stateName || organization.state)}
+                  {organization.stateName || organization.state}
                 </Typography>
               </>
             )}
