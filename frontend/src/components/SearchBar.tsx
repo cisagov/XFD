@@ -87,7 +87,7 @@ interface Props
   initialValue: string;
 }
 
-const defaultPlaceholder = 'Search for Domain or IP';
+const defaultPlaceholder = 'Search by Domain or IP';
 
 type Timer = ReturnType<typeof setTimeout>;
 
