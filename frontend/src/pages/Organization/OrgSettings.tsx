@@ -16,11 +16,12 @@ import {
   DialogContentText,
   DialogTitle,
   Grid,
+  Stack,
   Switch,
   TextField,
   Typography
 } from '@mui/material';
-import { CheckCircleOutline } from '@mui/icons-material';
+import { CheckCircleOutline, Place, Public } from '@mui/icons-material';
 import InfoDialog from 'components/Dialog/InfoDialog';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
@@ -396,7 +397,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         }
       />
       <Grid container spacing={1} p={3}>
-        <Grid item xs={12} mb={3}>
+        <Grid item xs={12}>
           <TextField
             fullWidth
             value={organization.name}
@@ -406,6 +407,27 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               sx: { fontSize: '18px', fontWeight: 400 }
             }}
           ></TextField>
+        </Grid>
+        <Grid item xs={12} mt={2} mb={1}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            {organization.regionId && (
+              <>
+                <Public sx={{ color: 'gray' }} />
+                <Typography variant="body1" color="gray">
+                  Region {organization && organization.regionId}
+                </Typography>
+              </>
+            )}
+            {(organization.stateName || organization.state) && (
+              <>
+                <Place sx={{ color: 'gray' }} />
+                <Typography variant="body1" color="gray">
+                  {organization &&
+                    (organization.stateName || organization.state)}
+                </Typography>
+              </>
+            )}
+          </Stack>
         </Grid>
         <Grid item xs={12}>
           <ListInput label="Root Domains" type="rootDomains"></ListInput>
