@@ -3,7 +3,6 @@
 exports[`saved-search create create by user should succeed 1`] = `
 Object {
   "count": 3,
-  "createVulnerabilities": false,
   "createdAt": Any<String>,
   "createdBy": Object {
     "id": Any<String>,
@@ -16,6 +15,5 @@ Object {
   "sortDirection": "",
   "sortField": "",
   "updatedAt": Any<String>,
-  "vulnerabilityTemplate": Object {},
 }
 `;

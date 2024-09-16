@@ -67,8 +67,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
 
-  const { savedSearches, setSavedSearches, setSavedSearchCount } =
-    useSavedSearchContext();
+  const {
+    savedSearches,
+    setSavedSearches,
+    setSavedSearchCount,
+    activeSearchId,
+    setActiveSearchId
+  } = useSavedSearchContext();
 
   const deleteSearch = async (id: string) => {
     try {
@@ -84,7 +89,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
   const displaySavedSearch = (id: string) => {
     const savedSearch = savedSearches.find((search) => search.id === id);
     if (savedSearch) {
-      localStorage.setItem('savedSearch', JSON.stringify(savedSearch));
       setSearchTerm(savedSearch.searchTerm, {
         shouldClearFilters: true,
         autocompleteResults: false
@@ -96,6 +100,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
         addFilter(filter.field, value, 'any');
       });
     });
+    setActiveSearchId(id);
   };
   const restoreInitialFilters = () => {
     initialFilters.forEach((filter) => {
@@ -110,11 +115,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       shouldClearFilters: true,
       autocompleteResults: false
     });
-    localStorage.removeItem('savedSearch');
     restoreInitialFilters();
+    setActiveSearchId('');
   };
   const toggleSavedSearches = (id: string) => {
     const savedSearch = savedSearches.filter((search) => search.id === id);
+
     if (savedSearch) {
       if (!isSavedSearchActive(id)) {
         displaySavedSearch(id);
@@ -124,12 +130,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     }
   };
 
-  const isSavedSearchActive = (id: string) => {
-    const activeSearch = JSON.parse(
-      localStorage.getItem('savedSearch') || '{}'
-    );
-    return activeSearch.id === id;
+  const isSavedSearchActive = (id: string): boolean => {
+    return activeSearchId === id;
   };
+
+  const ascendingSavedSearches = savedSearches.sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   const filtersByColumn = useMemo(
     () =>
@@ -405,9 +412,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <Typography>Saved Searches</Typography>
         </AccordionSummary>
         <AccordionDetails>
-          {savedSearches.length > 0 ? (
+          {ascendingSavedSearches.length > 0 ? (
             <List>
-              {savedSearches.map((search) => (
+              {ascendingSavedSearches.map((search) => (
                 <ListItem
                   key={search.id}
                   sx={{ justifyContent: 'space-between', padding: '0px' }}

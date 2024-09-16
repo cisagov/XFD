@@ -50,21 +50,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     const hits: number = searchResults.body.hits.total.value;
     search.count = hits;
     search.save();
-
-    if (search.createVulnerabilities) {
-      const results = await fetchAllResults(filters, restrictions);
-      const vulnerabilities: Vulnerability[] = results.map((domain) =>
-        plainToClass(Vulnerability, {
-          domain: domain,
-          lastSeen: new Date(Date.now()),
-          ...search.vulnerabilityTemplate,
-          state: 'open',
-          source: 'saved-search',
-          needsPopulation: false
-        })
-      );
-      await saveVulnerabilitiesToDb(vulnerabilities, false);
-    }
   }
 
   console.log(`Saved search finished for ${savedSearches.length} searches`);
