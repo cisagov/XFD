@@ -68,9 +68,9 @@ def get_user_by_api_key(api_key: str):
     hashed_key = sha256(api_key.encode()).hexdigest()
     try:
         api_key_instance = ApiKey.objects.get(hashedKey=hashed_key)
-        api_key_instance.lastused = timezone.now()
+        api_key_instance.lastUsed = timezone.now()
         api_key_instance.save(update_fields=["lastUsed"])
-        return api_key_instance.userid
+        return api_key_instance.userId
     except ApiKey.DoesNotExist:
         print("API Key not found")
         return None

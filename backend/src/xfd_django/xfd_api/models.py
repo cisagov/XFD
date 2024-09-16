@@ -8,6 +8,8 @@
 # Feel free to rename the models, but don't rename db_table values or field names.
 # Third-Party Libraries
 from django.db import models
+from django.contrib.postgres.fields import ArrayField, JSONField
+import uuid
 
 
 class ApiKey(models.Model):
@@ -245,19 +247,15 @@ class Notification(models.Model):
 class Organization(models.Model):
     """The Organization model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
-    acronym = models.CharField(unique=True, blank=True, null=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
+    acronym = models.CharField(unique=True, blank=True, null=True, max_length=255)
     name = models.CharField()
-    rootDomains = models.TextField(
-        db_column="rootDomains"
-    )  # This field type is a guess.
-    ipBlocks = models.TextField(db_column="ipBlocks")  # This field type is a guess.
+    rootDomains = ArrayField(models.CharField(max_length=255), db_column="rootDomains")
+    ipBlocks = ArrayField(models.CharField(max_length=255), db_column="ipBlocks")
     isPassive = models.BooleanField(db_column="isPassive")
-    pendingDomains = models.TextField(
-        db_column="pendingDomains"
-    )  # This field type is a guess.
+    pendingDomains = models.TextField(db_column="pendingDomains", default=list)
     country = models.CharField(blank=True, null=True)
     state = models.CharField(blank=True, null=True)
     regionId = models.CharField(db_column="regionId", blank=True, null=True)
@@ -272,6 +270,9 @@ class Organization(models.Model):
     createdById = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
+    # Relationships with other models (Scan, OrganizationTag)
+    granularScans = models.ManyToManyField('Scan', related_name="organizations", through='ScanOrganizationsOrganization')
+    tags = models.ManyToManyField('OrganizationTag', related_name="organizations", through='ScanTagsOrganizationTag')
 
     class Meta:
         """The meta class for Organization."""
@@ -283,9 +284,9 @@ class Organization(models.Model):
 class OrganizationTag(models.Model):
     """The OrganizationTag model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     name = models.CharField(unique=True)
 
     class Meta:
@@ -298,14 +299,15 @@ class OrganizationTag(models.Model):
 class OrganizationTagOrganizationsOrganization(models.Model):
     """The OrganizationTagOrganizationsOrganization model."""
 
-    organizationTagId = models.OneToOneField(
+    organizationTagId = models.ForeignKey(
         OrganizationTag,
-        models.DO_NOTHING,
-        db_column="organizationTagId",
-        primary_key=True,
-    )  # The composite primary key (organizationTagId, organizationId) found, that is not supported. The first column is selected.
+        on_delete=models.CASCADE,
+        db_column="organizationTagId"
+    )
     organizationId = models.ForeignKey(
-        Organization, models.DO_NOTHING, db_column="organizationId"
+        Organization,
+        on_delete=models.CASCADE,
+        db_column="organizationId"
     )
 
     class Meta:
@@ -314,6 +316,7 @@ class OrganizationTagOrganizationsOrganization(models.Model):
         managed = False
         db_table = "organization_tag_organizations_organization"
         unique_together = (("organizationTagId", "organizationId"),)
+        auto_created = True
 
 
 class QueryResultCache(models.Model):
@@ -479,22 +482,24 @@ class SavedSearch(models.Model):
 class Scan(models.Model):
     """The Scan model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     name = models.CharField()
-    arguments = models.JSONField()
+    arguments = models.TextField() # JSON in the database but fails: the JSON object must be str, bytes or bytearray, not dict 
     frequency = models.IntegerField()
     lastRun = models.DateTimeField(db_column="lastRun", blank=True, null=True)
-    isGranular = models.BooleanField(db_column="isGranular")
+    isGranular = models.BooleanField(db_column="isGranular", default=False)
     isUserModifiable = models.BooleanField(
-        db_column="isUserModifiable", blank=True, null=True
+        db_column="isUserModifiable", blank=True, null=True, default=False
     )
-    isSingleScan = models.BooleanField(db_column="isSingleScan")
-    manualRunPending = models.BooleanField(db_column="manualRunPending")
+    isSingleScan = models.BooleanField(db_column="isSingleScan", default=False)
+    manualRunPending = models.BooleanField(db_column="manualRunPending", default=False)
     createdBy = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
+    tags = models.ManyToManyField('OrganizationTag', through='ScanTagsOrganizationTag', related_name='scans')
+    organizations = models.ManyToManyField('Organization', through='ScanOrganizationsOrganization', related_name='scans')
 
     class Meta:
         """The Meta class for Scan."""
@@ -506,37 +511,26 @@ class Scan(models.Model):
 class ScanOrganizationsOrganization(models.Model):
     """The ScanOrganizationsOrganization model."""
 
-    scanId = models.OneToOneField(
-        Scan, models.DO_NOTHING, db_column="scanId", primary_key=True
-    )  # The composite primary key (scanId, organizationId) found, that is not supported. The first column is selected.
-    organizationId = models.ForeignKey(
-        Organization, models.DO_NOTHING, db_column="organizationId"
-    )
+    scanId = models.ForeignKey('Scan', on_delete=models.CASCADE, db_column="scanId", primary_key=True)
+    organizationId = models.ForeignKey('Organization', on_delete=models.CASCADE, db_column="organizationId", primary_key=True)
 
     class Meta:
-        """The Meta class for ScanOrganizationsOrganization."""
-
-        managed = False
         db_table = "scan_organizations_organization"
         unique_together = (("scanId", "organizationId"),)
+        # Do not create an id column automatically, treat both columns as composite primary keys
+        auto_created = True
 
 
 class ScanTagsOrganizationTag(models.Model):
-    """The ScanTagsOrganizationTag model."""
+    """Intermediary model for the Many-to-Many relationship between Scan and OrganizationTag."""
 
-    scanId = models.OneToOneField(
-        Scan, models.DO_NOTHING, db_column="scanId", primary_key=True
-    )  # The composite primary key (scanId, organizationTagId) found, that is not supported. The first column is selected.
-    organizationTagId = models.ForeignKey(
-        OrganizationTag, models.DO_NOTHING, db_column="organizationTagId"
-    )
+    scanId = models.ForeignKey('Scan', on_delete=models.CASCADE, db_column="scanId", primary_key=True)
+    organizationTagId = models.ForeignKey('OrganizationTag', on_delete=models.CASCADE, db_column="organizationTagId", primary_key=True)
 
     class Meta:
-        """The Meta class for ScanTagsOrganizationTag."""
-
-        managed = False
         db_table = "scan_tags_organization_tag"
         unique_together = (("scanId", "organizationTagId"),)
+        auto_created = True
 
 
 class ScanTask(models.Model):

@@ -57,55 +57,55 @@ services:
     depends_on:
       - db
       
-  minio:
-    image: bitnami/minio:2020.9.26
-    user: root
-    command: 'minio server /data'
-    networks:
-      - backend
-    volumes:
-      - ./minio-data:/data
-    ports:
-      - 9000:9000
-    environment:
-      - MINIO_ACCESS_KEY=aws_access_key
-      - MINIO_SECRET_KEY=aws_secret_key
-    logging:
-      driver: json-file
+  # minio:
+  #   image: bitnami/minio:2020.9.26
+  #   user: root
+  #   command: 'minio server /data'
+  #   networks:
+  #     - backend
+  #   volumes:
+  #     - ./minio-data:/data
+  #   ports:
+  #     - 9000:9000
+  #   environment:
+  #     - MINIO_ACCESS_KEY=aws_access_key
+  #     - MINIO_SECRET_KEY=aws_secret_key
+  #   logging:
+  #     driver: json-file
 
-  docs:
-    build:
-      context: ./
-      dockerfile: ./Dockerfile.docs
-    volumes:
-      - ./docs/src:/app/docs/src
-      - ./docs/gatsby-browser.js:/app/docs/gatsby-browser.js
-      - ./docs/gatsby-config.js:/app/docs/gatsby-config.js
-      - ./docs/gatsby-node.js:/app/docs/gatsby-node.js
-    ports:
-      - '4000:4000'
-      - '44475:44475'
+  # docs:
+  #   build:
+  #     context: ./
+  #     dockerfile: ./Dockerfile.docs
+  #   volumes:
+  #     - ./docs/src:/app/docs/src
+  #     - ./docs/gatsby-browser.js:/app/docs/gatsby-browser.js
+  #     - ./docs/gatsby-config.js:/app/docs/gatsby-config.js
+  #     - ./docs/gatsby-node.js:/app/docs/gatsby-node.js
+  #   ports:
+  #     - '4000:4000'
+  #     - '44475:44475'
 
-  es:
-    image: docker.elastic.co/elasticsearch/elasticsearch:7.9.0
-    environment:
-      - discovery.type=single-node
-      - bootstrap.memory_lock=true
-      - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
-    command: ['elasticsearch', '-Elogger.level=WARN']
-    networks:
-      - backend
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-    volumes:
-      - es-data:/usr/share/elasticsearch/data
-    ports:
-      - 9200:9200
-      - 9300:9300
-    logging:
-      driver: none
+  # es:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:7.9.0
+  #   environment:
+  #     - discovery.type=single-node
+  #     - bootstrap.memory_lock=true
+  #     - 'ES_JAVA_OPTS=-Xms512m -Xmx512m'
+  #   command: ['elasticsearch', '-Elogger.level=WARN']
+  #   networks:
+  #     - backend
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #   volumes:
+  #     - es-data:/usr/share/elasticsearch/data
+  #   ports:
+  #     - 9200:9200
+  #     - 9300:9300
+  #   logging:
+  #     driver: none
 
   # kib:
   #   image: docker.elastic.co/kibana/kibana:7.9.0
@@ -118,48 +118,48 @@ services:
   #     ELASTICSEARCH_HOSTS: http://es:9200
   #     LOGGING_QUIET: 'true'
 
-  matomodb:
-    image: mariadb:10.6
-    command: --max-allowed-packet=64MB
-    networks:
-      - backend
-    volumes:
-      - ./matomo-db-data:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=password
-    logging:
-      driver: none
+  # matomodb:
+  #   image: mariadb:10.6
+  #   command: --max-allowed-packet=64MB
+  #   networks:
+  #     - backend
+  #   volumes:
+  #     - ./matomo-db-data:/var/lib/mysql
+  #   environment:
+  #     - MYSQL_ROOT_PASSWORD=password
+  #   logging:
+  #     driver: none
 
-  matomo:
-    image: matomo:3.14.1
-    user: root
-    networks:
-      - backend
-    volumes:
-      - ./matomo-data:/var/www/html
-    environment:
-      - MATOMO_DATABASE_HOST=matomodb
-      - MATOMO_DATABASE_ADAPTER=mysql
-      - MATOMO_DATABASE_TABLES_PREFIX=matomo_
-      - MATOMO_DATABASE_USERNAME=root
-      - MATOMO_DATABASE_PASSWORD=password
-      - MATOMO_DATABASE_DBNAME=matomo
-      - MATOMO_GENERAL_PROXY_URI_HEADER=1
-      - MATOMO_GENERAL_ASSUME_SECURE_PROTOCOL=1
-    logging:
-      driver: none
-  rabbitmq:
-    image: 'rabbitmq:3.8-management'
-    ports:
-      - '5672:5672'  # RabbitMQ default port
-      - '15672:15672'  # RabbitMQ management plugin
-    networks:
-      - backend
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
+  # matomo:
+  #   image: matomo:3.14.1
+  #   user: root
+  #   networks:
+  #     - backend
+  #   volumes:
+  #     - ./matomo-data:/var/www/html
+  #   environment:
+  #     - MATOMO_DATABASE_HOST=matomodb
+  #     - MATOMO_DATABASE_ADAPTER=mysql
+  #     - MATOMO_DATABASE_TABLES_PREFIX=matomo_
+  #     - MATOMO_DATABASE_USERNAME=root
+  #     - MATOMO_DATABASE_PASSWORD=password
+  #     - MATOMO_DATABASE_DBNAME=matomo
+  #     - MATOMO_GENERAL_PROXY_URI_HEADER=1
+  #     - MATOMO_GENERAL_ASSUME_SECURE_PROTOCOL=1
+  #   logging:
+  #     driver: none
+  # rabbitmq:
+  #   image: 'rabbitmq:3.8-management'
+  #   ports:
+  #     - '5672:5672'  # RabbitMQ default port
+  #     - '15672:15672'  # RabbitMQ management plugin
+  #   networks:
+  #     - backend
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: guest
+  #     RABBITMQ_DEFAULT_PASS: guest
+  #   volumes:
+  #     - rabbitmq-data:/var/lib/rabbitmq
 
 volumes:
   postgres-data:
