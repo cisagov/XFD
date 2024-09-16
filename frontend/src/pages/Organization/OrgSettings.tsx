@@ -1,27 +1,26 @@
 import React from 'react';
 import { useAuthContext } from 'context';
 import {
+  PendingDomain,
   Organization as OrganizationType,
-  OrganizationTag,
-  PendingDomain
+  OrganizationTag
 } from 'types';
 import {
   Alert,
   Autocomplete,
-  Chip,
   Button,
+  Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
   Grid,
-  Switch as SwitchInput,
+  Switch,
   TextField,
   Typography
 } from '@mui/material';
 import { CheckCircleOutline } from '@mui/icons-material';
-import { createFilterOptions } from '@mui/material/useAutocomplete';
 import InfoDialog from 'components/Dialog/InfoDialog';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
@@ -49,7 +48,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
   tags
 }) => {
   const { apiPut, apiPost, user, setFeedbackMessage } = useAuthContext();
-  const [tagValue, setTagValue] = React.useState<AutocompleteType | null>(null);
   const [inputValue, setInputValue] = React.useState('');
   const [dialog, setDialog] = React.useState<{
     open: boolean;
@@ -60,6 +58,9 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
   }>({ open: false });
   const [isSaveDisabled, setIsSaveDisabled] = React.useState(true);
   const [infoDialogOpen, setInfoDialogOpen] = React.useState(false);
+  const [chosenTags, setChosenTags] = React.useState<string[]>(
+    organization.tags ? organization.tags.map((tag) => tag.name) : []
+  );
 
   const updateOrganization = async (body: any) => {
     try {
@@ -142,7 +143,14 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     }
   };
 
-  const filter = createFilterOptions<AutocompleteType>();
+  const handleTagChange = (event: any, newValue: any) => {
+    setChosenTags(newValue);
+    setOrganization((prevValues: any) => ({
+      ...prevValues,
+      tags: newValue.map((tag: any) => ({ name: tag }))
+    }));
+    setIsSaveDisabled(false);
+  };
 
   const ListInput = (props: {
     type: 'rootDomains' | 'ipBlocks' | 'tags';
@@ -164,6 +172,10 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                 onDelete={() => {
                   organization[props.type].splice(index, 1);
                   setOrganization({ ...organization });
+                  if (chosenTags.length > 0) {
+                    chosenTags.splice(index, 1);
+                    setChosenTags(chosenTags);
+                  }
                   setIsSaveDisabled(false);
                 }}
               ></Chip>
@@ -229,55 +241,33 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           {dialog.type === 'tags' ? (
             <>
               <DialogContentText>
-                Select an existing tag or add a new one.
+                Select or deselect an existing tag or type and press enter to
+                add a new one.
               </DialogContentText>
               <Autocomplete
-                value={tagValue}
-                onChange={(event, newValue) => {
-                  if (typeof newValue === 'string') {
-                    setTagValue({
-                      name: newValue
-                    });
-                  } else {
-                    setTagValue(newValue);
-                  }
-                }}
-                filterOptions={(options, params) => {
-                  const filtered = filter(options, params);
-                  // Suggest the creation of a new value
-                  if (
-                    params.inputValue !== '' &&
-                    !filtered.find(
-                      (tag) =>
-                        tag.name?.toLowerCase() ===
-                        params.inputValue.toLowerCase()
-                    )
-                  ) {
-                    filtered.push({
-                      name: params.inputValue,
-                      title: `Add "${params.inputValue}"`
-                    });
-                  }
-                  return filtered;
-                }}
-                selectOnFocus
-                clearOnBlur
-                handleHomeEndKeys
-                options={tags}
-                getOptionLabel={(option) => {
-                  if (typeof option === 'string') {
-                    return option;
-                  }
-                  return (option as AutocompleteType).name ?? '';
-                }}
-                renderOption={(props, option) => {
-                  if (option.title) return option.title;
-                  return option.name ?? '';
-                }}
-                fullWidth
+                value={chosenTags}
+                onChange={handleTagChange}
+                renderTags={(value: readonly string[], getTagProps) =>
+                  value.map((option: string, index: number) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        variant="outlined"
+                        label={option}
+                        key={key}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                sx={{ mt: 1 }}
+                multiple
+                options={tags
+                  .map((option) => option.name)
+                  .filter((name): name is string => name !== undefined)}
                 freeSolo
                 renderInput={(params) => (
-                  <TextField {...params} variant="outlined" />
+                  <TextField {...params} placeholder="Select or add tags" />
                 )}
               />
             </>
@@ -378,16 +368,9 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                     setIsSaveDisabled(false);
                   }
                 }
-              } else {
-                if (tagValue) {
-                  if (!organization.tags) organization.tags = [];
-                  organization.tags.push(tagValue as any);
-                  setOrganization({ ...organization });
-                }
               }
               setDialog({ open: false });
               setInputValue('');
-              setTagValue(null);
             }}
           >
             {dialog.type === 'rootDomains' && user?.userType !== 'globalAdmin'
@@ -441,7 +424,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               <Typography variant="body2">Passive Mode</Typography>
             </Grid>
             <Grid item ml={-1}>
-              <SwitchInput
+              <Switch
                 checked={organization.isPassive}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                   setOrganization({
