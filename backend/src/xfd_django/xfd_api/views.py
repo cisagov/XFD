@@ -27,7 +27,17 @@ from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 # from .schemas import Cpe
 from . import schemas
 from .auth import get_current_active_user
-from .models import ApiKey, Cpe, Cve, Domain, Organization, Role, User, Vulnerability
+from .models import (
+    ApiKey,
+    Assessment,
+    Cpe,
+    Cve,
+    Domain,
+    Organization,
+    Role,
+    User,
+    Vulnerability,
+)
 from .schemas import Role as RoleSchema
 from .schemas import User as UserSchema
 
@@ -113,6 +123,42 @@ def read_orgs(current_user: User = Depends(get_current_active_user)):
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# TODO: Uncomment checks for current_user once authentication is implemented
+@api_router.get(
+    "/assessments",
+    #  current_user: User = Depends(get_current_active_user),
+    tags=["ReadySetCyber"],
+)
+async def list_assessments():
+    """
+    Lists all assessments for the logged-in user.
+
+    Args:
+        current_user (User): The current authenticated user.
+
+    Raises:
+        HTTPException: If the user is not authorized or assessments are not found.
+
+    Returns:
+        List[Assessment]: A list of assessments for the logged-in user.
+    """
+    # Ensure the user is authenticated
+    # if not current_user:
+    #     raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Query the database for assessments belonging to the current user
+    # assessments = Assessment.objects.filter(user=current_user)
+    assessments = (
+        Assessment.objects.all()
+    )  # TODO: Remove this line once filtering by user is implemented
+
+    # Return assessments if found, or raise a 404 error if none exist
+    if not assessments.exists():
+        raise HTTPException(status_code=404, detail="No assessments found")
+
+    return list(assessments)
 
 
 @api_router.post("/search")
