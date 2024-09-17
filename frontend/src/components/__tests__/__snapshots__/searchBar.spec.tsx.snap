@@ -22,7 +22,7 @@ exports[`matches snapshot 1`] = `
       <form>
         <input
           class="SearchBar-inp"
-          placeholder="Search a domain, vuln, port, service, IP"
+          placeholder="Search by Domain or IP"
           value=""
         />
       </form>
