@@ -200,12 +200,12 @@ app.post('/auth/okta-callback', async (req, res) => {
   const logger = new Logger(req);
 
   if (!code) {
-    logger.record('USER LOGIN', 'fail', (req, user) => {
-      return {
-        timestamp: new Date(),
-        trace: console.trace()
-      };
-    });
+    // logger.record('USER LOGIN', 'fail', (req, user) => {
+    //   return {
+    //     timestamp: new Date(),
+    //     trace: console.trace()
+    //   };
+    // });
     return res.status(400).json({ message: 'Missing authorization code' });
   }
 
@@ -288,13 +288,13 @@ app.post('/auth/okta-callback', async (req, res) => {
 
           res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
 
-          logger.record('USER LOGIN', 'success', (req, us) => {
-            console.log('HERE', { req, us });
-            return {
-              timestamp: new Date(),
-              userId: user?.id
-            };
-          });
+          // logger.record('USER LOGIN', 'success', (req, us) => {
+          //   console.log('HERE', { req, us });
+          //   return {
+          //     timestamp: new Date(),
+          //     userId: user?.id
+          //   };
+          // });
           return res.status(200).json({
             token: signedToken,
             user: user
@@ -526,7 +526,10 @@ const checkGlobalAdminOrRegionAdmin = async (
 // needing to sign the terms of service yet
 const authenticatedNoTermsRoute = express.Router();
 authenticatedNoTermsRoute.use(checkUserLoggedIn);
-authenticatedNoTermsRoute.get('/users/me', handlerToExpress(users.me));
+authenticatedNoTermsRoute.get(
+  '/users/me',
+  handlerToExpress(users.me, (req, user, res) => {}, 'USER ME DATA')
+);
 authenticatedNoTermsRoute.post(
   '/users/me/acceptTerms',
   handlerToExpress(users.acceptTerms)

@@ -22,7 +22,7 @@ export const AdminTools: React.FC = () => {
               <Tab label="Scans" value="1" />
               <Tab label="Scan History" value="2" />
               <Tab label="Notifications" value="3" />
-              <Tab label="Logs" value="4" />
+              <Tab label="User Logs" value="4" />
             </TabList>
           </Box>
           <TabPanel value="1">
