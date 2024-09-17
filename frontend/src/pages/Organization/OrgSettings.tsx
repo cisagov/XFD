@@ -236,14 +236,18 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         fullWidth
       >
         <DialogTitle id="form-dialog-title">
-          Add {dialog.label && dialog.label.slice(0, -1)}(s)
+          {dialog.type === 'tags' ? 'Update ' : 'Add '}
+          {dialog.label && dialog.label.slice(0, -1)}(s)
         </DialogTitle>
         <DialogContent>
           {dialog.type === 'tags' ? (
             <>
               <DialogContentText>
-                Select or deselect an existing tag or type and press enter to
-                add a new one.
+                Use the dropdown to select or deselect existing tags.
+                <br />
+                -- OR --
+                <br />
+                Type and then press enter to add a new tag.
               </DialogContentText>
               <Autocomplete
                 value={chosenTags}
@@ -374,11 +378,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               setInputValue('');
             }}
           >
-            {dialog.type === 'rootDomains' && user?.userType !== 'globalAdmin'
-              ? dialog.stage === 0
-                ? 'Next'
-                : 'Verify'
-              : 'Add'}
+            {dialog.type === 'tags' ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
