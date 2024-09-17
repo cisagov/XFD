@@ -23,11 +23,13 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 import os
 import json
+import uuid
 from urllib.parse import urlencode
-from re import A
 
 # Third-Party Libraries
 from django.utils import timezone
+from django.conf import settings
+from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 import jwt
@@ -40,6 +42,19 @@ from xfd_api.models import ApiKey, User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+
+
+def user_to_dict(user):
+    user_dict = model_to_dict(user)  # Convert model to dict
+    # Convert any UUID fields to strings
+    if isinstance(user_dict.get('id'), uuid.UUID):
+        user_dict['id'] = str(user_dict['id'])
+    for key, val in user_dict.items():
+        if isinstance(val, datetime):
+            user_dict[key] = str(val)
+    return user_dict
 
 
 async def update_or_create_user(user_info):
@@ -150,20 +165,6 @@ def get_user_by_api_key(api_key: str):
 #     Returns:
 #         User: The authenticated user object.
 #     """
-#     user = None
-#     if api_key:
-#         user = get_user_by_api_key(api_key)
-#     # if not user and token:
-#     #     user = decode_jwt_token(token)
-#     if user is None:
-#         print("User not authenticated")
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid authentication credentials",
-#         )
-#     print(f"Authenticated user: {user.id}")
-#     return user
-
 def get_current_active_user(token: str = Depends(oauth2_scheme)):
     try:
         print(f"Token received: {token}")
@@ -204,73 +205,18 @@ def get_current_active_user(token: str = Depends(oauth2_scheme)):
         )
 
 
-# async def get_jwt_from_code(auth_code: str):
-#     domain = os.getenv("REACT_APP_COGNITO_DOMAIN")
-#     client_id = os.getenv("REACT_APP_COGNITO_CLIENT_ID")
-#     callback_url = os.getenv("REACT_APP_COGNITO_CALLBACK_URL")
-#     # callback_url = "http%3A%2F%2Flocalhost%2Fokta-callback"
-#     # scope = "openid email profile"
-#     scope = "openid"
-#     authorize_token_url = f"https://{domain}/oauth2/token"
-#     # logging.debug(f"Authorize token url: {authorize_token_url}")
-#     print(f"Authorize token url: {authorize_token_url}")
-#     # authorize_token_body = f"grant_type=authorization_code&client_id={client_id}&code={auth_code}&redirect_uri={callback_url}&scope={scope}"
-#     authorize_token_body = {
-#         "grant_type": "authorization_code",
-#         "client_id": client_id,
-#         "code": auth_code,
-#         "redirect_uri": callback_url,
-#         "scope": scope,
-#     }
-#     # logging.debug(f"Authorize token body: {authorize_token_body}")
-#     print(f"Authorize token body: {authorize_token_body}")
-
-#     headers = {
-#         "Content-Type": "application/x-www-form-urlencoded",
-#     }
-
-#     try:
-#         response = requests.post(
-#             authorize_token_url, headers=headers, data=authorize_token_body
-#         )
-#     except Exception as e:
-#         print(f"requests error: {e}")
-#     token_response = response.json()
-#     print(f"oauth2/token response: {token_response}")
-
-#     token_response = response.json()
-#     print(f"token response: {token_response}")
-#     id_token = token_response.get("id_token")
-#     print(f"ID token: {id_token}")
-#     # access_token = token_response.get("token_token")
-#     # refresh_token = token_response.get("refresh_token")
-#     decoded_token = jwt.decode(id_token, options={"verify_signature": False})
-#     print(f"decoded token: {decoded_token}")
-#     # decoded_token = jwt.decode(id_token, algorithms=JWT_ALGORITHM, audience=client_id)
-#     # decoded_token = jwt.decode(id_token, algorithms=["RS256"], audience=client_id)
-#     # print(f"decoded token: {decoded_token}")
-#     return {json.dumps(decoded_token)}
-
-JWT_SECRET = os.getenv("JWT_SECRET")
-
-
 async def process_user(decoded_token, access_token, refresh_token):
-    # Connect to the database
-    # await connect_to_database()
-
     # Find the user by email
     user = User.objects.filter(email=decoded_token["email"]).first()
 
     if not user:
-        # Create a new user if they don't exist
+        # Create a new user if they don't exist from Okta fields in SAML Response
         user = User(
             email=decoded_token["email"],
-            okta_id=decoded_token["sub"],  # assuming oktaId is in decoded_token
+            okta_id=decoded_token["sub"],
             first_name=decoded_token.get("given_name"),
             last_name=decoded_token.get("family_name"),
             invite_pending=True,
-            # state="Virginia",  # Hardcoded for now
-            # region_id="3"  # Hardcoded region
         )
         user.save()
     else:
@@ -279,13 +225,13 @@ async def process_user(decoded_token, access_token, refresh_token):
         user.last_logged_in = datetime.now()
         user.save()
 
-    # Create response object
-    response = JSONResponse({"message": "User processed"})
+    # # Create response object
+    # response = JSONResponse({"message": "User processed"})
 
-    # Set cookies for access token and refresh token
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True)
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True)
-    print(f"Response output: {str(response.headers)}")
+    # # Set cookies for access token and refresh token
+    # response.set_cookie(key="access_token", value=access_token, httponly=True, secure=True)
+    # response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=True)
+    # print(f"Response output: {str(response.headers)}")
 
     # If user exists, generate a signed JWT token
     if user:
@@ -300,22 +246,38 @@ async def process_user(decoded_token, access_token, refresh_token):
         )
 
         # Set JWT token as a cookie
-        response.set_cookie(key="id_token", value=signed_token, httponly=True, secure=True)
+        # response.set_cookie(key="id_token", value=signed_token, httponly=True, secure=True)
 
         # Return the response with token and user info
-        return JSONResponse(
-            {
-                "token": signed_token,
-                "user": {
-                    "id": str(user.id),
-                    "email": user.email,
-                    "firstName": user.firstName,
-                    "lastName": user.lastName,
-                    "state": user.state,
-                    "regionId": user.regionId,
-                }
-            }
-        )
+        # return JSONResponse(
+        #     {
+        #         "token": signed_token,
+        #         "user": {
+        #             "id": str(user.id),
+        #             "email": user.email,
+        #             "firstName": user.firstName,
+        #             "lastName": user.lastName,
+        #             "state": user.state,
+        #             "regionId": user.regionId,
+        #         }
+        #     }
+        # )
+
+        process_resp = {
+            "token": signed_token,
+            "user": user_to_dict(user)
+            # "user": {
+            #     "id": str(user.id),
+            #     "email": user.email,
+            #     "firstName": user.firstName,
+            #     "lastName": user.lastName,
+            #     "state": user.state,
+            #     "regionId": user.regionId,
+            # }
+        }
+        print(f"Process resp: {process_resp}")
+        return process_resp
+
     else:
         raise HTTPException(status_code=400, detail="User not found")
 
