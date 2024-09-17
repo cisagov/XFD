@@ -5,6 +5,7 @@ import ScansView from 'pages/Scans/ScansView';
 import ScanTasksView from 'pages/Scans/ScanTasksView';
 import { Box, Container, Tab } from '@mui/material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
+import { Logs } from 'components/Logs/Logs';
 
 export const AdminTools: React.FC = () => {
   const [value, setValue] = React.useState('1');
@@ -21,6 +22,7 @@ export const AdminTools: React.FC = () => {
               <Tab label="Scans" value="1" />
               <Tab label="Scan History" value="2" />
               <Tab label="Notifications" value="3" />
+              <Tab label="Logs" value="4" />
             </TabList>
           </Box>
           <TabPanel value="1">
@@ -32,6 +34,9 @@ export const AdminTools: React.FC = () => {
           </TabPanel>
           <TabPanel value="3">
             <Notifications />
+          </TabPanel>
+          <TabPanel value="4">
+            <Logs />
           </TabPanel>
         </TabContext>
       </Box>

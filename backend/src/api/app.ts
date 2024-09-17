@@ -13,6 +13,7 @@ import * as search from './search';
 import * as vulnerabilities from './vulnerabilities';
 import * as organizations from './organizations';
 import * as scans from './scans';
+import * as logs from './logs';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
@@ -28,7 +29,7 @@ import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import fetch from 'node-fetch';
 import * as searchOrganizations from './organizationSearch';
-import { Logger, RecordMessage } from '../tools/loggingMiddleware';
+import { Logger, RecordMessage } from '../tools/logger';
 
 const sanitizer = require('sanitizer');
 
@@ -287,11 +288,11 @@ app.post('/auth/okta-callback', async (req, res) => {
 
           res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
 
-          logger.record('USER LOGIN', 'success', (req, user) => {
+          logger.record('USER LOGIN', 'success', (req, us) => {
+            console.log('HERE', { req, us });
             return {
               timestamp: new Date(),
-              stuff: 'hello',
-              userId: user?.data?.id
+              userId: user?.id
             };
           });
           return res.status(200).json({
@@ -590,6 +591,7 @@ authenticatedRoute.delete(
   handlerToExpress(savedSearches.del)
 );
 authenticatedRoute.get('/scans', handlerToExpress(scans.list));
+authenticatedRoute.get('/logs', handlerToExpress(logs.list));
 authenticatedRoute.get('/granularScans', handlerToExpress(scans.listGranular));
 authenticatedRoute.post('/scans', handlerToExpress(scans.create));
 authenticatedRoute.get('/scans/:scanId', handlerToExpress(scans.get));
