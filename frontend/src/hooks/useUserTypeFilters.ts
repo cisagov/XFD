@@ -5,6 +5,8 @@ import { OrganizationShallow } from 'components/RegionAndOrganizationFilters';
 
 export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = false;
 
+export const ORGANIZATION_EXCLUSIONS = ['dhs region'];
+
 interface Filter {
   field: string;
   values: Array<any>;
@@ -26,14 +28,24 @@ export const useUserTypeFilters: UseUserTypeFilters = (
 
   const userOrgs: OrganizationShallow[] =
     userRoles.length > 0
-      ? userRoles.map((role) => {
-          return {
-            name: role?.organization?.name ?? '',
-            id: role?.organization?.id ?? '',
-            regionId: role?.organization?.regionId ?? '',
-            rootDomains: role?.organization?.rootDomains ?? []
-          };
-        })
+      ? userRoles
+          .filter((role) => {
+            let exclude = false;
+            ORGANIZATION_EXCLUSIONS.forEach((item) => {
+              if (role.organization.name.toLowerCase().includes(item)) {
+                exclude = true;
+              }
+            });
+            return !exclude;
+          })
+          .map((role) => {
+            return {
+              name: role?.organization?.name ?? '',
+              id: role?.organization?.id ?? '',
+              regionId: role?.organization?.regionId ?? '',
+              rootDomains: role?.organization?.rootDomains ?? []
+            };
+          })
       : [];
 
   const userRegions = user?.regionId ? [user?.regionId] : [];

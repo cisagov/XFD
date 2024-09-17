@@ -18,7 +18,10 @@ import {
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
 import { useStaticsContext } from 'context/StaticsContext';
-import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
+import {
+  ORGANIZATION_EXCLUSIONS,
+  REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS
+} from 'hooks/useUserTypeFilters';
 import { SearchBar } from './SearchBar';
 import { useHistory, useLocation } from 'react-router-dom';
 
@@ -96,8 +99,18 @@ export const RegionAndOrganizationFilters: React.FC<
           }
         });
         const orgs = results.body.hits.hits.map((hit) => hit._source);
+        // Filter out organizations that match the exclusions
+        const refinedOrgs = orgs.filter((org) => {
+          let exlude = false;
+          ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+            if (org.name.toLowerCase().includes(exc)) {
+              exlude = true;
+            }
+          });
+          return !exlude;
+        });
         // Filter out organizations that are already in the filters
-        const filteredOrgs = orgs.filter(
+        const filteredOrgs = refinedOrgs.filter(
           (org) =>
             !filters.find(
               (filter) =>
