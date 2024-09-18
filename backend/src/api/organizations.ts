@@ -859,7 +859,7 @@ export const getRegion = async (organizationId: string) => {
  *
  */
 export const getAllV2 = wrapHandler(async (event) => {
-  if (!isRegionalAdmin(event)) return Unauthorized;
+  if (!isGlobalViewAdmin(event) && !isRegionalAdmin(event)) return Unauthorized;
   const filterParams = {};
 
   if (event.query && event.query.state) {

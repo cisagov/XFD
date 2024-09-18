@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
-import { Alert, Box, Button, IconButton, Paper } from '@mui/material';
+import { Button, IconButton, Paper, Typography } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
-import { Add } from '@mui/icons-material';
+import { Add, CheckCircleOutline } from '@mui/icons-material';
 import { OrganizationForm } from 'components/OrganizationForm';
 import { useAuthContext } from 'context';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import InfoDialog from 'components/Dialog/InfoDialog';
 
 export const OrganizationList: React.FC<{
   parent?: Organization;
@@ -15,6 +16,8 @@ export const OrganizationList: React.FC<{
   const { apiPost, apiGet, setFeedbackMessage, user } = useAuthContext();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [chosenTags, setChosenTags] = useState<string[]>([]);
   const history = useHistory();
   const regionId = user?.regionId;
 
@@ -67,6 +70,7 @@ export const OrganizationList: React.FC<{
         body
       });
       setOrganizations(organizations.concat(org));
+      setInfoDialogOpen(true);
     } catch (e: any) {
       setFeedbackMessage({
         message:
@@ -75,6 +79,7 @@ export const OrganizationList: React.FC<{
             : e.message ?? e.toString(),
         type: 'error'
       });
+      setChosenTags([]);
       console.error(e);
     }
   };
@@ -107,20 +112,16 @@ export const OrganizationList: React.FC<{
   );
 
   return (
-    <Box mb={3}>
-      <Paper elevation={0}>
-        {organizations?.length === 0 ? (
-          <Alert severity="warning">Unable to load organizations.</Alert>
-        ) : (
-          <DataGrid
-            rows={organizations}
-            columns={orgCols}
-            slots={{ toolbar: CustomToolbar }}
-            slotProps={{
-              toolbar: { children: addOrgButton }
-            }}
-          />
-        )}
+    <>
+      <Paper elevation={2} sx={{ width: '100%' }}>
+        <DataGrid
+          rows={organizations}
+          columns={orgCols}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: { children: addOrgButton }
+          }}
+        />
       </Paper>
       <OrganizationForm
         onSubmit={onSubmit}
@@ -128,7 +129,23 @@ export const OrganizationList: React.FC<{
         setOpen={setDialogOpen}
         type="create"
         parent={parent}
+        chosenTags={chosenTags}
+        setChosenTags={setChosenTags}
       ></OrganizationForm>
-    </Box>
+      <InfoDialog
+        isOpen={infoDialogOpen}
+        handleClick={() => {
+          setInfoDialogOpen(false);
+          setChosenTags([]);
+        }}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">Success </Typography>}
+        content={
+          <Typography variant="body1">
+            The new organization was successfully added.
+          </Typography>
+        }
+      />
+    </>
   );
 };

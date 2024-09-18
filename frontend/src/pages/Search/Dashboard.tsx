@@ -13,11 +13,11 @@ import {
   FormControlLabel,
   FormGroup,
   TextareaAutosize,
-  ButtonGroup
+  ButtonGroup,
+  Box
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
-import { FilterDrawerWithSearch } from './FilterDrawer';
 import { ContextType } from '../../context/SearchProvider';
 import { SortBar } from './SortBar';
 import {
@@ -47,11 +47,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     resultsPerPage,
     setResultsPerPage,
     filters,
-    addFilter,
     removeFilter,
     results,
-    facets,
-    clearFilters,
     sortDirection,
     sortField,
     setSort,
@@ -63,7 +60,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
   } = props;
 
   const [selectedDomain, setSelectedDomain] = useState('');
-  const [resultsScrolled, setResultsScrolled] = useState(false);
+  const [resultsScrolled] = useState(false);
   const {
     apiPost,
     apiPut,
@@ -114,27 +111,14 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     setSavedSearchValues(savedSearchValues);
   };
 
-  const handleResultScroll = (e: React.UIEvent<HTMLElement>) => {
-    if (e.currentTarget.scrollTop > 0) {
-      setResultsScrolled(true);
-    } else {
-      setResultsScrolled(false);
-    }
-  };
-
-  // Update Search Term when a saved search is selected
-  const updateSearchTerm = (term: string) => {
-    setSearchTerm(term);
-  };
-
   useEffect(() => {
     if (props.location.search === '') {
       // Search on initial load
-      setSearchTerm('');
+      setSearchTerm('', { shouldClearFilters: false });
     }
     return () => {
       localStorage.removeItem('savedSearch');
-      setSearchTerm('');
+      setSearchTerm('', { shouldClearFilters: false });
     };
   }, [setSearchTerm, props.location.search]);
 
@@ -169,117 +153,135 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   return (
     <Root className={classes.root}>
-      <FilterDrawerWithSearch
-        addFilter={addFilter}
-        removeFilter={removeFilter}
-        filters={filters}
-        facets={facets}
-        clearFilters={filters.length > 0 ? () => clearFilters([]) : undefined}
-        updateSearchTerm={updateSearchTerm}
-        searchTerm={searchTerm}
-        setSearchTerm={setSearchTerm}
+      <Subnav
+        items={[
+          { title: 'Search Results', path: '/inventory', exact: true },
+          { title: 'All Domains', path: '/inventory/domains' },
+          { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
+        ]}
+        styles={{
+          paddingLeft: '0%'
+        }}
       />
-      <div className={classes.contentWrapper}>
-        <Subnav
-          items={[
-            { title: 'Search Results', path: '/inventory', exact: true },
-            { title: 'All Domains', path: '/inventory/domains' },
-            { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
-          ]}
-          styles={{
-            paddingLeft: '0%'
-          }}
-        />
-        <FilterTags filters={filters} removeFilter={removeFilter} />
-        <SortBar
-          sortField={sortField}
-          sortDirection={sortDirection}
-          setSort={setSort}
-          isFixed={resultsScrolled}
-          saveSearch={
-            filters.length > 0 || searchTerm
-              ? () => modalRef.current?.toggleModal(undefined, true)
-              : undefined
-          }
-          existingSavedSearch={search}
-        />
-        {noResults && (
-          <NoResults
-            message={"We don't see any results that match your criteria."}
-          ></NoResults>
-        )}
-        <div className={classes.content}>
-          <div className={classes.panel} onScroll={handleResultScroll}>
-            {results.map((result) => (
-              <ResultCard
-                key={result.id.raw}
-                {...result}
-                onDomainSelected={(id) => setSelectedDomain(id)}
-                selected={result.id.raw === selectedDomain}
-              />
-            ))}
-          </div>
-        </div>
-        <Paper classes={{ root: classes.pagination }}>
-          <span>
-            <strong>
-              {(totalResults === 0
-                ? 0
-                : (current - 1) * resultsPerPage + 1
-              ).toLocaleString()}{' '}
-              -{' '}
-              {Math.min(
-                (current - 1) * resultsPerPage + resultsPerPage,
-                totalResults
-              ).toLocaleString()}
-            </strong>{' '}
-            of <strong>{totalResults.toLocaleString()}</strong>
-          </span>
-          <Pagination
-            count={totalPages}
-            page={current}
-            onChange={(_, page) => setCurrent(page)}
-            color="primary"
-            size="small"
-          />
-          <FormControl
-            variant="outlined"
-            className={classes.pageSize}
-            size="small"
-          >
-            <Typography id="results-per-page-label">
-              Results per page:
-            </Typography>
-            <Select
-              id="teststa"
-              labelId="results-per-page-label"
-              value={resultsPerPage}
-              onChange={(e) => setResultsPerPage(e.target.value as number)}
-            >
-              {[15, 45, 90].map((perPage) => (
-                <MenuItem key={perPage} value={perPage}>
-                  {perPage}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button
-            variant="outlined"
-            className={classes.exportButton}
-            onClick={() =>
-              exportCSV(
-                {
-                  name: 'domains',
-                  getDataToExport: fetchDomainsExport
-                },
-                setLoading
-              )
+      <Box
+        position="relative"
+        height="calc(100% - 32px - 32px - 46px - 10px)"
+        maxHeight="100%"
+        width="100%"
+        display="flex"
+        flexWrap="nowrap"
+        flexDirection="column"
+        alignItems="center"
+        justifyContent="center"
+      >
+        <Box width="90%" height="100%" display="flex" flexDirection="column">
+          <FilterTags filters={filters} removeFilter={removeFilter} />
+          <SortBar
+            sortField={sortField}
+            sortDirection={sortDirection}
+            setSort={setSort}
+            isFixed={resultsScrolled}
+            saveSearch={
+              filters.length > 0 || searchTerm
+                ? () => modalRef.current?.toggleModal(undefined, true)
+                : undefined
             }
+            existingSavedSearch={search}
+          />
+          <Box
+            height="100%"
+            flexDirection="column"
+            flexWrap="nowrap"
+            gap="1rem"
+            alignItems="stretch"
+            display="flex"
+            // overflow="scroll"
+            position="relative"
+            padding="0 0 2rem 0"
+            sx={{ overflowY: 'auto' }}
           >
-            Export Results
-          </Button>
-        </Paper>
-      </div>
+            {noResults ? (
+              <Box
+                display="flex"
+                flex="1"
+                alignItems="center"
+                justifyContent="center"
+                height="100%"
+              >
+                <NoResults
+                  message={"We don't see any results that match your criteria."}
+                ></NoResults>
+              </Box>
+            ) : (
+              results.map((result) => (
+                <ResultCard
+                  key={result.id.raw}
+                  {...result}
+                  onDomainSelected={(id) => setSelectedDomain(id)}
+                  selected={result.id.raw === selectedDomain}
+                />
+              ))
+            )}
+          </Box>
+        </Box>
+      </Box>
+      <Paper className={classes.pagination}>
+        <span>
+          <strong>
+            {(totalResults === 0
+              ? 0
+              : (current - 1) * resultsPerPage + 1
+            ).toLocaleString()}{' '}
+            -{' '}
+            {Math.min(
+              (current - 1) * resultsPerPage + resultsPerPage,
+              totalResults
+            ).toLocaleString()}
+          </strong>{' '}
+          of <strong>{totalResults.toLocaleString()}</strong>
+        </span>
+        <Pagination
+          count={totalPages}
+          page={current}
+          onChange={(_, page) => setCurrent(page)}
+          color="primary"
+          size="small"
+        />
+        <FormControl
+          variant="outlined"
+          className={classes.pageSize}
+          size="small"
+        >
+          <Typography id="results-per-page-label">Results per page:</Typography>
+          <Select
+            id="teststa"
+            labelId="results-per-page-label"
+            value={resultsPerPage}
+            onChange={(e) => setResultsPerPage(e.target.value as number)}
+          >
+            {[15, 45, 90].map((perPage) => (
+              <MenuItem key={perPage} value={perPage}>
+                {perPage}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button
+          variant="outlined"
+          className={classes.exportButton}
+          onClick={() =>
+            exportCSV(
+              {
+                name: 'domains',
+                getDataToExport: fetchDomainsExport
+              },
+              setLoading
+            )
+          }
+        >
+          Export Results
+        </Button>
+      </Paper>
 
       <Modal ref={modalRef} id="modal">
         <ModalHeading>{search ? 'Update Search' : 'Save Search'}</ModalHeading>

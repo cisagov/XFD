@@ -1,30 +1,30 @@
+# Standard Python Libraries
+import json
 import os
 import secrets
+
+# Third-Party Libraries
 import jwt
 import requests
-import json
 
-
-discovery_url = os.getenv("LOGIN_GOV_BASE_URL") + "/.well-known/openid-configuration"
+discovery_url = (
+    os.getenv("LOGIN_GOV_BASE_URL", "") + "/.well-known/openid-configuration"
+)
 
 # Load JWK Set (JSON Web Key Set)
 try:
-    jwk_set = {
-        "keys": [json.loads(os.getenv("LOGIN_GOV_JWT_KEY", "{}"))]
-    }
-except Exception as e:
-    print(f"Error: {e}")
-    jwk_set = {
-        "keys": [{}]
-    }
+    jwk_set = {"keys": [json.loads(os.getenv("LOGIN_GOV_JWT_KEY", ""))]}
+except Exception as error:
+    print(f"Error: {error}")
+    jwk_set = {"keys": [{}]}
 
 # OpenID Connect Client Configuration
 client_options = {
     "client_id": os.getenv("LOGIN_GOV_ISSUER"),
     "token_endpoint_auth_method": "private_key_jwt",
     "id_token_signed_response_alg": "RS256",
-    "redirect_uris": [os.getenv("LOGIN_GOV_REDIRECT_URI")],
-    "token_endpoint": os.getenv("LOGIN_GOV_BASE_URL") + "/api/openid_connect/token",
+    "redirect_uris": [os.getenv("LOGIN_GOV_REDIRECT_URI", "")],
+    "token_endpoint": os.getenv("LOGIN_GOV_BASE_URL", "") + "/api/openid_connect/token",
 }
 
 
@@ -73,8 +73,8 @@ def callback(body):
             "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
             "client_assertion": jwt.encode(
                 {"alg": "RS256"}, jwk_set["keys"][0], algorithm="RS256"
-            )
-        }
+            ),
+        },
     )
 
     token_response_data = token_response.json()

@@ -1,14 +1,9 @@
 import React, { useCallback, useEffect } from 'react';
 import { parse } from 'query-string';
 import { useAuthContext } from 'context';
-import { User } from 'types';
 import { useHistory } from 'react-router-dom';
 
 type OktaCallbackResponse = any;
-// {
-//   body: any;
-//   // user: User;
-// };
 
 export const OktaCallback: React.FC = () => {
   const { apiPost, login } = useAuthContext();

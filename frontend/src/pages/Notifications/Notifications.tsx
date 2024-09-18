@@ -654,7 +654,6 @@ export const Notifications: React.FC = () => {
               }
               severity="info"
               role="alert"
-              aria-label="an information alert banner to display an information alert icon and text"
             >
               There is no active maintenance notification at this time. To make
               a notification active, add a new one or update an inactive one.
@@ -679,7 +678,6 @@ export const Notifications: React.FC = () => {
               }
               severity="info"
               role="alert"
-              aria-label="an information alert banner to display an information alert icon and text"
             >
               There are no inactive maintenance notifications at this time. The
               unused inactive notifications will be shown here.

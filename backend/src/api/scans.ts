@@ -208,12 +208,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     global: true,
     description: 'Not a real scan, used to test'
   },
-  testProxy: {
-    type: 'fargate',
-    isPassive: false,
-    global: true,
-    description: 'Not a real scan, used to test proxy'
-  },
   trustymail: {
     type: 'fargate',
     isPassive: true,
@@ -237,15 +231,6 @@ export const SCAN_SCHEMA: ScanSchema = {
     memory: '4096',
     description:
       'Open source tool that fingerprints web technologies based on HTTP responses'
-  },
-  webscraper: {
-    type: 'fargate',
-    isPassive: true,
-    global: true,
-    numChunks: 3,
-    cpu: '1024',
-    memory: '4096',
-    description: 'Scrapes all webpages on a given domain, respecting robots.txt'
   },
   xpanseSync: {
     type: 'fargate',

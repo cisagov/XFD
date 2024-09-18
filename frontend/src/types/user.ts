@@ -48,3 +48,35 @@ export const initializeUser: User = {
   organizations: [],
   isRegistered: null
 };
+
+export type UserFormValues = {
+  id?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  userType:
+    | 'standard'
+    | 'globalView'
+    | 'globalAdmin'
+    | 'regionalAdmin'
+    | 'readySetCyber';
+  state: string;
+  regionId: string;
+  orgName: string;
+  orgId: string;
+  originalOrgId: string;
+  originalRoleId: string;
+};
+
+export const initialUserFormValues: UserFormValues = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  userType: 'standard',
+  state: '',
+  regionId: '',
+  orgName: '',
+  orgId: '',
+  originalOrgId: '',
+  originalRoleId: ''
+};

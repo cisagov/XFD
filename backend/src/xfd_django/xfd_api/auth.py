@@ -20,89 +20,106 @@ Dependencies:
 """
 # Standard Python Libraries
 from datetime import datetime, timedelta
+import hashlib
 from hashlib import sha256
 import os
-import json
-import uuid
 from urllib.parse import urlencode
 
 # Third-Party Libraries
-from django.utils import timezone
 from django.conf import settings
-from django.forms.models import model_to_dict
-from fastapi import Depends, HTTPException, Security, status
+from django.utils import timezone
+from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 import jwt
+from jwt import ExpiredSignatureError, InvalidTokenError
 import requests
-from starlette.responses import JSONResponse
-
-# from .jwt_utils import decode_jwt_token
-from xfd_api.jwt_utils import JWT_ALGORITHM, create_jwt_token, decode_jwt_token
+from xfd_api.helpers import user_to_dict
 from xfd_api.models import ApiKey, User
+
+# JWT_ALGORITHM = "RS256"
+JWT_SECRET = os.getenv("JWT_SECRET")
+SECRET_KEY = settings.SECRET_KEY
+JWT_ALGORITHM = "HS256"
+JWT_TIMEOUT_HOURS = 4
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
-JWT_SECRET = os.getenv("JWT_SECRET")
+
+def create_jwt_token(user):
+    """
+    Create a JWT token for a given user.
+
+    Args:
+        user (User): The user object for whom the token is created.
+
+    Returns:
+        str: The encoded JWT token.
+    """
+    payload = {
+        "id": str(user.id),
+        "email": user.email,
+        "exp": datetime.utcnow() + timedelta(hours=JWT_TIMEOUT_HOURS),
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def user_to_dict(user):
-    user_dict = model_to_dict(user)  # Convert model to dict
-    # Convert any UUID fields to strings
-    if isinstance(user_dict.get('id'), uuid.UUID):
-        user_dict['id'] = str(user_dict['id'])
-    for key, val in user_dict.items():
-        if isinstance(val, datetime):
-            user_dict[key] = str(val)
-    return user_dict
+def decode_jwt_token(token):
+    """
+    Decode a JWT token to retrieve the user.
 
+    Args:
+        token (str): The JWT token to decode.
 
-async def update_or_create_user(user_info):
+    Returns:
+        User: The user object decoded from the token, or None if invalid or expired.
+    """
     try:
-        user, created = User.objects.get_or_create(email=user_info["email"])
-        if created:
-            user.cognitoId = user_info["sub"]
-            user.firstName = ""
-            user.lastName = ""
-            user.type = "standard"
-            user.save()
-        else:
-            if user.cognitoId != user_info["sub"]:
-                user.cognitoId = user_info["sub"]
-            user.lastLoggedIn = datetime.utcnow()
-            user.save()
+        payload = jwt.decode(token, JWT_SECRET, algorithm=JWT_ALGORITHM)
+        user = User.objects.get(id=payload["id"])
         return user
-    except Exception as e:
-        print(f"Error : {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
-        ) from e
+    except (ExpiredSignatureError, InvalidTokenError, User.DoesNotExist):
+        return None
 
 
-async def get_user_info_from_cognito(token):
-    jwks_url = f"https://cognito-idp.us-east-1.amazonaws.com/{os.getenv('REACT_APP_USER_POOL_ID')}/.well-known/jwks.json"
-    response = requests.get(jwks_url)
-    print(f"response from get_user_info_from_cognito: {str(response.json())}")
-    response.raise_for_status()  # Ensure we raise an HTTPError for bad responses
-    jwks = response.json()
+def hash_key(key: str) -> str:
+    """
+    Helper to hash API key.
 
-    unverified_header = jwt.get_unverified_header(token)
-    print(f"response from get_user_info_from_cognito: {str(response)}")
-    rsa_key = {}
-    for key in jwks["keys"]:
-        if key["kid"] == unverified_header["kid"]:
-            rsa_key = {
-                "kty": key["kty"],
-                "kid": key["kid"],
-                "use": key["use"],
-                "n": key["n"],
-                "e": key["e"],
-            }
-    public_key = jwt.algorithms.RSAAlgorithm.from_jwk(rsa_key)
-    print(f"get_user_info_from+cognito public key: {str(public_key)}")
+    Returns:
+        str: hashed API key value
+    """
+    return hashlib.sha256(key.encode()).hexdigest()
 
-    user_info = decode_jwt_token(token)
-    return user_info
+
+# TODO: Confirm still needed
+# async def get_user_info_from_cognito(token):
+#     """
+#     Get user info from cognito
+
+#     Args:
+#         token (_type_): _description_
+
+#     Returns:
+#         _type_: _description_
+#     """
+#     jwks_url = f"https://cognito-idp.us-east-1.amazonaws.com/{os.getenv('REACT_APP_USER_POOL_ID')}/.well-known/jwks.json"
+#     response = requests.get(jwks_url)
+#     jwks = response.json()
+#     unverified_header = jwt.get_unverified_header(token)
+
+#     for key in jwks["keys"]:
+#         if key["kid"] == unverified_header["kid"]:
+#             rsa_key = {
+#                 "kty": key["kty"],
+#                 "kid": key["kid"],
+#                 "use": key["use"],
+#                 "n": key["n"],
+#                 "e": key["e"],
+#             }
+
+#     user_info = decode_jwt_token(token)
+#     return user_info
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -148,29 +165,26 @@ def get_user_by_api_key(api_key: str):
         return None
 
 
-# # TODO: Uncomment the token and if not user token once the JWT from OKTA is working
-# def get_current_active_user(
-#     api_key: str = Security(api_key_header),
-#     # token: str = Depends(oauth2_scheme),
-# ):
-#     """
-#     Ensure the current user is authenticated and active.
-
-#     Args:
-#         api_key (str): The API key.
-
-#     Raises:
-#         HTTPException: If the user is not authenticated.
-
-#     Returns:
-#         User: The authenticated user object.
-#     """
+# TODO: enable usage of X-API-KEY header if needed
+# adding arg api_key: str = Security(api_key_header),
 def get_current_active_user(token: str = Depends(oauth2_scheme)):
+    """
+    Ensure the current user is authenticated and active.
+
+    Args:
+        token (str): The Authorization token header.
+
+    Raises:
+        HTTPException: If the user is not authenticated.
+
+    Returns:
+        User: The authenticated user object.
+    """
     try:
-        print(f"Token received: {token}")
-        payload = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-        print(f"Payload decoded: {payload}")
+        # Decode token in Authorization header to get user
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("id")
+
         if user_id is None:
             print("No user ID found in token")
             raise HTTPException(
@@ -213,16 +227,17 @@ async def process_user(decoded_token, access_token, refresh_token):
         # Create a new user if they don't exist from Okta fields in SAML Response
         user = User(
             email=decoded_token["email"],
-            okta_id=decoded_token["sub"],
-            first_name=decoded_token.get("given_name"),
-            last_name=decoded_token.get("family_name"),
-            invite_pending=True,
+            oktaId=decoded_token["sub"],
+            firstName=decoded_token.get("given_name"),
+            lastName=decoded_token.get("family_name"),
+            userType="standard",
+            invitePending=True,
         )
         user.save()
     else:
-        # Update user if they already exist
-        user.okta_id = decoded_token["sub"]
-        user.last_logged_in = datetime.now()
+        # Update user oktaId (legacy users) and login time
+        user.oktaId = decoded_token["sub"]
+        user.lastLoggedIn = datetime.now()
         user.save()
 
     # # Create response object
@@ -240,9 +255,13 @@ async def process_user(decoded_token, access_token, refresh_token):
 
         # Generate JWT token
         signed_token = jwt.encode(
-            {"id": str(user.id), "email": user.email, "exp": datetime.utcnow() + timedelta(minutes=14)},
+            {
+                "id": str(user.id),
+                "email": user.email,
+                "exp": datetime.utcnow() + timedelta(hours=JWT_TIMEOUT_HOURS),
+            },
             JWT_SECRET,
-            algorithm="HS256"
+            algorithm=JWT_ALGORITHM,
         )
 
         # Set JWT token as a cookie
@@ -250,18 +269,6 @@ async def process_user(decoded_token, access_token, refresh_token):
 
         # Return the response with token and user info
         # return JSONResponse(
-        #     {
-        #         "token": signed_token,
-        #         "user": {
-        #             "id": str(user.id),
-        #             "email": user.email,
-        #             "firstName": user.firstName,
-        #             "lastName": user.lastName,
-        #             "state": user.state,
-        #             "regionId": user.regionId,
-        #         }
-        #     }
-        # )
 
         process_resp = {
             "token": signed_token,
@@ -275,7 +282,7 @@ async def process_user(decoded_token, access_token, refresh_token):
             #     "regionId": user.regionId,
             # }
         }
-        print(f"Process resp: {process_resp}")
+        print(f"process_resp: {process_resp}")
         return process_resp
 
     else:
@@ -283,68 +290,62 @@ async def process_user(decoded_token, access_token, refresh_token):
 
 
 async def get_jwt_from_code(auth_code: str):
-    domain = os.getenv("REACT_APP_COGNITO_DOMAIN")
-    client_id = os.getenv("REACT_APP_COGNITO_CLIENT_ID")
-    callback_url = os.getenv("REACT_APP_COGNITO_CALLBACK_URL")
-    scope = "openid"
-    authorize_token_url = f"https://{domain}/oauth2/token"
-
-    authorize_token_body = {
-        "grant_type": "authorization_code",
-        "client_id": client_id,
-        "code": auth_code,
-        "redirect_uri": callback_url,
-        "scope": scope,
-    }
-
-    headers = {
-        "Content-Type": "application/x-www-form-urlencoded",
-    }
-
     try:
+        callback_url = os.getenv("REACT_APP_COGNITO_CALLBACK_URL")
+        client_id = os.getenv("REACT_APP_COGNITO_CLIENT_ID")
+        domain = os.getenv("REACT_APP_COGNITO_DOMAIN")
+        scope = "openid"
+        authorize_token_url = f"https://{domain}/oauth2/token"
+        authorize_token_body = {
+            "grant_type": "authorization_code",
+            "client_id": client_id,
+            "code": auth_code,
+            "redirect_uri": callback_url,
+            "scope": scope,
+        }
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded",
+        }
+
+        # Make Oauth2/token request with code
         response = requests.post(
             authorize_token_url, headers=headers, data=urlencode(authorize_token_body)
         )
-    except Exception as e:
-        print(f"requests error: {e}")
-        return None
+        token_response = response.json()
+        print(f"oauth2/token response: {token_response}")
 
-    token_response = response.json()
-    print(f"oauth2/token response: {token_response}")
+        # Convert the id_token to bytes
+        id_token = token_response["id_token"].encode("utf-8")
+        access_token = token_response.get("access_token")
+        refresh_token = token_response.get("refresh_token")
 
-    id_token = token_response.get("id_token")
-    access_token = token_response.get("access_token")
-    refresh_token = token_response.get("refresh_token")
-    if id_token is None:
-        print("ID token not found in the response.")
-        return None
+        # Decode the token without verifying the signature (if needed)
+        decoded_token = jwt.decode(id_token, options={"verify_signature": False})
+        print(f"decoded token: {decoded_token}")
 
-    # Convert the id_token to bytes
-    id_token_bytes = id_token.encode('utf-8')
+        return {
+            "refresh_token": refresh_token,
+            "id_token": id_token,
+            "access_token": access_token,
+            "decoded_token": decoded_token,
+        }
 
-    # Decode the token without verifying the signature (if needed)
-    decoded_token = jwt.decode(id_token_bytes, options={"verify_signature": False})
-
-    print(f"decoded token: {decoded_token}")
-    return {
-        'refresh_token': refresh_token,
-        'id_token': id_token,
-        'access_token': access_token,
-        'decoded_token': decoded_token
-    }
-
-
-async def handle_cognito_callback(body):
-    try:
-        print(f"handle_cognito_callback body input: {str(body)}")
-        user_info = await get_user_info_from_cognito(body["token"])
-        print(f"handle_cognito_callback user_info: {str(user_info)}")
-        user = await update_or_create_user(user_info)
-        token = create_jwt_token(user)
-        print(f"handle_cognito_callback token: {str(token)}")
-        return token, user
     except Exception as error:
-        print(f"Error : {str(error)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
-        ) from error
+        print(f"get_jwt_from_code post error: {error}")
+        pass
+
+
+# async def handle_cognito_callback(body):
+#     try:
+#         print(f"handle_cognito_callback body input: {str(body)}")
+#         user_info = await get_user_info_from_cognito(body["token"])
+#         print(f"handle_cognito_callback user_info: {str(user_info)}")
+#         user = await update_or_create_user(user_info)
+#         token = create_jwt_token(user)
+#         print(f"handle_cognito_callback token: {str(token)}")
+#         return token, user
+#     except Exception as error:
+#         print(f"Error : {str(error)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
+#         ) from error
