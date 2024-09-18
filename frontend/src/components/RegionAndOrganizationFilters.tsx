@@ -299,7 +299,10 @@ export const RegionAndOrganizationFilters: React.FC<
               }}
               renderOption={(params, option) => {
                 return (
-                  <li style={{ pointerEvents: 'none', padding: 0 }}>
+                  <li
+                    style={{ pointerEvents: 'none', padding: 0 }}
+                    key={option.id}
+                  >
                     <Button
                       sx={{
                         pointerEvents: 'auto',
