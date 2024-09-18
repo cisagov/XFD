@@ -11,6 +11,8 @@ from fastapi import (
     status,
 )
 from fastapi_limiter import FastAPILimiter
+from pydantic import BaseModel, UUID4, Field, ConfigDict
+from uuid import UUID
 from redis import asyncio as aioredis
 from . import schemas
 from typing import Any, List, Optional, Union
@@ -250,7 +252,7 @@ async def get_Stats(domain_id: str, redis_client=Depends(get_redis_client)):
 @api_router.get(
     "/domain/{domain_id}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=List[schemas.Domain],
+    response_model=schemas.Domain,
     tags=["Get domain by id"],
 )
 async def get_domain_by_id(domain_id: str):
@@ -260,8 +262,15 @@ async def get_domain_by_id(domain_id: str):
         object: a single Domain object.
     """
     try:
-        domains = list(Domain.objects.filter(id=domain_id))
+        # Fetch the Domain object
+        # domain = Domain.objects.filter('organizationId').get(
+        #     id=domain_id)
+        domain = Domain.objects.get(id=domain_id)
 
-        return domains
+
+        return domain  # Return the mapped Pydantic model instance
+
+    except Domain.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Domain not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

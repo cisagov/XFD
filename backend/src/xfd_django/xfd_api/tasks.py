@@ -5,7 +5,7 @@ from lib2to3.pgen2.tokenize import printtoken
 import redis
 import django
 from django.db.models import Count
-from xfd_api.models import Service
+from xfd_api.models import Service, Domain
 from django.conf import settings  # Import settings after setting DJANGO_SETTINGS_MODULE
 
 # Set the Django settings module environment variable
@@ -30,6 +30,41 @@ def populate_Statscache(event, context):
 
         # Populate Elasticache with data
         for item in services:
+            the_id = str(item.id)  # Convert UUID to string
+            redis_client.set(the_id, item.value)  # Store the 'value' in Redis
+
+        return {"status": "success", "message": "Cache populated successfully."}
+
+    except redis.RedisError as redis_error:
+        return {"status": "error",
+                "message": "Failed to populate cache due to Redis error."}
+
+    except django.db.DatabaseError as db_error:
+        return {"status": "error",
+                "message": "Failed to populate cache due to database error."}
+
+    except Exception as e:
+        return {"status": "error",
+                "message": "An unexpected error occurred while populating the cache."}
+
+def populate_Portscache(event, context):
+    try:
+        # Connect to Redis Elasticache
+        redis_client = redis.StrictRedis(host=settings.ELASTICACHE_ENDPOINT,
+                                         port=6379, db=0)
+
+        # Fetch data from Django models
+        ports = (
+            Service.objects
+            .filter(
+                domain__isnull=False)  # Equivalent to INNER JOIN on the domain
+            .values('port')  # Select 'port' as id
+            .annotate(value=Count('port'))  # Count the occurrences of each port
+            .order_by('-value')  # Order by the count value in descending order
+        )
+
+        # Populate Elasticache with data
+        for item in ports:
             the_id = str(item.id)  # Convert UUID to string
             redis_client.set(the_id, item.value)  # Store the 'value' in Redis
 
