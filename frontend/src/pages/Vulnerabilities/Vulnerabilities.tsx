@@ -27,6 +27,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
+import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 
 export interface ApiResponse {
   result: Vulnerability[];
@@ -68,13 +69,13 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   children?: React.ReactNode;
   groupBy?: string;
 }) => {
-  const { currentOrganization, apiPost, apiPut, showAllOrganizations } =
-    useAuthContext();
+  const { currentOrganization, apiPost, apiPut } = useAuthContext();
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  // TO-DO
+  // Implement regional rollup for vulnerabilities view to allow for proper vunl drilldown from dashboard
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
       setIsLoading(true);
@@ -135,10 +136,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             tableFilters['substate'] = substate.toLowerCase().replace(' ', '-');
           delete tableFilters['state'];
         }
-        if (!showAllOrganizations && currentOrganization) {
-          if ('rootDomains' in currentOrganization)
-            tableFilters['organization'] = currentOrganization.id;
-          else tableFilters['tag'] = currentOrganization.id;
+        let userOrgIsExcluded = false;
+        ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+          if (currentOrganization?.name.toLowerCase().includes(exc)) {
+            userOrgIsExcluded = true;
+          }
+        });
+        if (currentOrganization && !userOrgIsExcluded) {
+          tableFilters['organization'] = currentOrganization.id;
         }
         if (tableFilters['isKev']) {
           // Convert string to boolean filter.
@@ -161,7 +166,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         return;
       }
     },
-    [apiPost, currentOrganization, showAllOrganizations]
+    [apiPost, currentOrganization]
   );
 
   const fetchVulnerabilities = useCallback(
