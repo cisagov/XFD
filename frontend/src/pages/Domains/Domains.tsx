@@ -43,7 +43,8 @@ export const Domains: React.FC = () => {
       operator: filter.operator
     }))
   });
-
+  // TO-DO
+  // Implement regional rollup on domains view to allow for proper domain drilldown from dashboard
   const fetchDomains = useCallback(
     async (q: Query<Domain>) => {
       try {

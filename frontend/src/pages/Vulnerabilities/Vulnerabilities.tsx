@@ -74,7 +74,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const [totalResults, setTotalResults] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  // TO-DO
+  // Implement regional rollup for vulnerabilities view to allow for proper vunl drilldown from dashboard
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
       setIsLoading(true);
