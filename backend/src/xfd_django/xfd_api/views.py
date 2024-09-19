@@ -25,7 +25,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
 # from .schemas import Cpe
-from . import schemas
+from . import schema_models
 from .auth import get_current_active_user
 from .models import (
     ApiKey,
@@ -38,8 +38,14 @@ from .models import (
     User,
     Vulnerability,
 )
+from .schemas import Cpe as CpeSchema
+from .schemas import Cve as CveSchema
+from .schemas import Domain as DomainSchema
+from .schemas import DomainFilters, DomainSearch
+from .schemas import Organization as OrganizationSchema
 from .schemas import Role as RoleSchema
 from .schemas import User as UserSchema
+from .schemas import Vulnerability as VulnerabilitySchema
 
 api_router = APIRouter()
 
@@ -86,7 +92,7 @@ async def get_api_keys():
 @api_router.post(
     "/test-orgs",
     dependencies=[Depends(get_current_active_user)],
-    response_model=List[schemas.Organization],
+    response_model=List[OrganizationSchema],
     tags=["List of all Organizations"],
 )
 def read_orgs(current_user: User = Depends(get_current_active_user)):
@@ -174,7 +180,7 @@ async def export_search():
 @api_router.get(
     "/cpes/{cpe_id}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=schemas.Cpe,
+    response_model=CpeSchema,
     tags=["Get cpe by id"],
 )
 async def get_cpes_by_id(cpe_id):
@@ -193,7 +199,7 @@ async def get_cpes_by_id(cpe_id):
 @api_router.get(
     "/cves/{cve_id}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=schemas.Cve,
+    response_model=CveSchema,
     tags=["Get cve by id"],
 )
 async def get_cves_by_id(cve_id):
@@ -212,7 +218,7 @@ async def get_cves_by_id(cve_id):
 @api_router.get(
     "/cves/name/{cve_name}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=schemas.Cve,
+    response_model=CveSchema,
     tags=["Get cve by name"],
 )
 async def get_cves_by_name(cve_name):
@@ -229,7 +235,7 @@ async def get_cves_by_name(cve_name):
 
 
 @api_router.post("/domain/search")
-async def search_domains(domain_search: schemas.DomainSearch):
+async def search_domains(domain_search: DomainSearch):
     try:
         pass
     except Exception as e:
@@ -247,7 +253,7 @@ async def export_domains():
 @api_router.get(
     "/domain/{domain_id}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=List[schemas.Domain],
+    response_model=DomainSchema,
     tags=["Get domain by id"],
 )
 async def get_domain_by_id(domain_id: str):
@@ -257,9 +263,10 @@ async def get_domain_by_id(domain_id: str):
         object: a single Domain object.
     """
     try:
-        domains = list(Domain.objects.filter(id=domain_id))
-
-        return domains
+        domain = Domain.objects.get(id=domain_id)
+        return domain
+    except Domain.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Domain not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -283,7 +290,7 @@ async def export_vulnerabilities():
 @api_router.get(
     "/vulnerabilities/{vulnerabilityId}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=schemas.Vulnerability,
+    response_model=VulnerabilitySchema,
     tags="Get vulnerability by id",
 )
 async def get_vulnerability_by_id(vuln_id):
@@ -302,10 +309,10 @@ async def get_vulnerability_by_id(vuln_id):
 @api_router.put(
     "/vulnerabilities/{vulnerabilityId}",
     # dependencies=[Depends(get_current_active_user)],
-    response_model=schemas.Vulnerability,
+    response_model=VulnerabilitySchema,
     tags="Update vulnerability",
 )
-async def update_vulnerability(vuln_id, data: schemas.Vulnerability):
+async def update_vulnerability(vuln_id, data: VulnerabilitySchema):
     """
     Update vulnerability by id.
 
