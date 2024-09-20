@@ -266,6 +266,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       filters: initialFilters
     });
   }, [fetchVulnerabilities, initialFilters]);
+  console.log('Vulner: ', vulnerabilities);
 
   const vulRows: VulnerabilityRow[] = vulnerabilities.map((vuln) => ({
     id: vuln.id,
@@ -276,7 +277,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     domainId: vuln.domain.id,
     product: vuln.cpe
       ? vuln.cpe
-      : vuln.service.products
+      : vuln?.service?.products
       ? vuln.service.products[0].cpe || 'N/A'
       : 'N/A',
     createdAt: `${differenceInCalendarDays(
