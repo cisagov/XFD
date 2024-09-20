@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
 import { useAuthContext } from 'context';
-import { Vulnerability } from 'types';
+import { Vulnerability as VulnerabilityType } from 'types';
 import { Subnav } from 'components';
 import {
   Alert,
@@ -45,17 +45,25 @@ export const stateMap: { [key: string]: string } = {
   remediated: 'Remediated'
 };
 
-export interface VulnerabilityRow {
+export interface LooseVulnerabilityRow {
   id: string;
   title: string;
   severity: string;
   kev: string;
-  domain: string;
-  domainId: string;
+  domain: string | undefined;
+  domainId: string | undefined;
   product: string;
   createdAt: string;
   state: string;
 }
+
+type Nullable<T> = {
+  [P in keyof T]: T[P] | null;
+};
+
+type VulnerabilityRow = Nullable<LooseVulnerabilityRow>;
+
+type Vulnerability = Nullable<VulnerabilityType>;
 
 interface LocationState {
   domain: any;
@@ -272,17 +280,19 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     title: vuln.title,
     severity: vuln.severity ?? 'N/A',
     kev: vuln.isKev ? 'Yes' : 'No',
-    domain: vuln.domain.name,
-    domainId: vuln.domain.id,
+    domain: vuln?.domain?.name,
+    domainId: vuln?.domain?.id,
     product: vuln.cpe
       ? vuln.cpe
-      : vuln.service.products
-      ? vuln.service.products[0].cpe || 'N/A'
+      : vuln?.service?.products
+      ? vuln?.service.products[0].cpe || 'N/A'
       : 'N/A',
-    createdAt: `${differenceInCalendarDays(
-      Date.now(),
-      parseISO(vuln.createdAt)
-    )} days`,
+    createdAt: vuln?.createdAt
+      ? `${differenceInCalendarDays(
+          Date.now(),
+          parseISO(vuln?.createdAt)
+        )} days`
+      : '',
     state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
   }));
 
