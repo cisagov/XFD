@@ -26,6 +26,13 @@ from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
 # from .schemas import Cpe
 from . import schema_models
+from .api_methods.api_keys import get_api_keys
+from .api_methods.cpe import get_cpes_by_id
+from .api_methods.cve import get_cves_by_id, get_cves_by_name
+from .api_methods.domain import get_domain_by_id
+from .api_methods.organization import get_organizations, read_orgs
+from .api_methods.user import get_users
+from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
 from .models import ApiKey, Cpe, Cve, Domain, Organization, Role, User, Vulnerability
 from .schemas import Cpe as CpeSchema
@@ -41,7 +48,7 @@ api_router = APIRouter()
 
 
 # Healthcheck endpoint
-@api_router.get("/healthcheck")
+@api_router.get("/healthcheck", tags=["Testing"])
 async def healthcheck():
     """
     Healthcheck endpoint.
@@ -52,73 +59,37 @@ async def healthcheck():
     return {"status": "ok2"}
 
 
-@api_router.get("/test-apikeys")
-async def get_api_keys():
+@api_router.get("/test-apikeys", tags=["Testing"])
+async def call_get_api_keys():
     """
     Get all API keys.
 
     Returns:
         list: A list of all API keys.
     """
-    try:
-        api_keys = ApiKey.objects.all()
-        # return api_keys
-        return [
-            {
-                "id": api_key.id,
-                "createdAt": api_key.createdAt,
-                "updatedAt": api_key.updatedAt,
-                "lastUsed": api_key.lastUsed,
-                "hashedKey": api_key.hashedKey,
-                "lastFour": api_key.lastFour,
-                "userId": api_key.userId.id if api_key.userId else None,
-            }
-            for api_key in api_keys
-        ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_api_keys()
 
 
 @api_router.post(
     "/test-orgs",
-    dependencies=[Depends(get_current_active_user)],
+    # dependencies=[Depends(get_current_active_user)],
     response_model=List[OrganizationSchema],
-    tags=["List of all Organizations"],
+    tags=["Organizations", "Testing"],
 )
-def read_orgs(current_user: User = Depends(get_current_active_user)):
-    """Call API endpoint to get all organizations.
-    Returns:
-        list: A list of all organizations.
+async def call_read_orgs():
     """
-    try:
-        organizations = Organization.objects.all()
-        return [
-            {
-                "id": organization.id,
-                "name": organization.name,
-                "acronym": organization.acronym,
-                "rootDomains": organization.rootDomains,
-                "ipBlocks": organization.ipBlocks,
-                "isPassive": organization.isPassive,
-                "country": organization.country,
-                "state": organization.state,
-                "regionId": organization.regionId,
-                "stateFips": organization.stateFips,
-                "stateName": organization.stateName,
-                "county": organization.county,
-                "countyFips": organization.countyFips,
-                "type": organization.type,
-                "parentId": organization.parentId.id if organization.parentId else None,
-                "createdById": organization.createdById.id
-                if organization.createdById
-                else None,
-                "createdAt": organization.createdAt,
-                "updatedAt": organization.updatedAt,
-            }
-            for organization in organizations
-        ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    List all organizations with query parameters.
+    Args:
+        state (Optional[List[str]]): List of states to filter organizations by.
+        regionId (Optional[List[str]]): List of region IDs to filter organizations by.
+
+    Raises:
+        HTTPException: If the user is not authorized or no organizations are found.
+
+    Returns:
+        List[Organizations]: A list of organizations matching the filter criteria.
+    """
+    return read_orgs()
 
 
 @api_router.post("/search")
@@ -135,38 +106,30 @@ async def export_search():
     "/cpes/{cpe_id}",
     # dependencies=[Depends(get_current_active_user)],
     response_model=CpeSchema,
-    tags=["Get cpe by id"],
+    tags=["Cpe"],
 )
-async def get_cpes_by_id(cpe_id):
+async def call_get_cpes_by_id(cpe_id):
     """
     Get Cpe by id.
     Returns:
         object: a single Cpe object.
     """
-    try:
-        cpe = Cpe.objects.get(id=cpe_id)
-        return cpe
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_cpes_by_id(cpe_id)
 
 
 @api_router.get(
     "/cves/{cve_id}",
     # dependencies=[Depends(get_current_active_user)],
     response_model=CveSchema,
-    tags=["Get cve by id"],
+    tags=["Cve"],
 )
-async def get_cves_by_id(cve_id):
+async def call_get_cves_by_id(cve_id):
     """
     Get Cve by id.
     Returns:
         object: a single Cve object.
     """
-    try:
-        cve = Cve.objects.get(id=cve_id)
-        return cve
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_cves_by_id(cve_id)
 
 
 @api_router.get(
@@ -175,17 +138,13 @@ async def get_cves_by_id(cve_id):
     response_model=CveSchema,
     tags=["Get cve by name"],
 )
-async def get_cves_by_name(cve_name):
+async def call_get_cves_by_name(cve_name):
     """
     Get Cve by name.
     Returns:
         object: a single Cpe object.
     """
-    try:
-        cve = Cve.objects.get(name=cve_name)
-        return cve
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_cves_by_name(cve_name)
 
 
 @api_router.post("/domain/search")
@@ -210,19 +169,13 @@ async def export_domains():
     response_model=DomainSchema,
     tags=["Get domain by id"],
 )
-async def get_domain_by_id(domain_id: str):
+async def call_get_domain_by_id(domain_id: str):
     """
     Get domain by id.
     Returns:
         object: a single Domain object.
     """
-    try:
-        domain = Domain.objects.get(id=domain_id)
-        return domain
-    except Domain.DoesNotExist:
-        raise HTTPException(status_code=404, detail="Domain not found.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_domain_by_id(domain_id)
 
 
 @api_router.post("/vulnerabilities/search")
@@ -247,17 +200,13 @@ async def export_vulnerabilities():
     response_model=VulnerabilitySchema,
     tags="Get vulnerability by id",
 )
-async def get_vulnerability_by_id(vuln_id):
+async def call_get_vulnerability_by_id(vuln_id):
     """
     Get vulnerability by id.
     Returns:
         object: a single Vulnerability object.
     """
-    try:
-        vulnerability = Vulnerability.objects.get(id=vuln_id)
-        return vulnerability
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_vulnerability_by_id(vuln_id)
 
 
 @api_router.put(
@@ -266,35 +215,30 @@ async def get_vulnerability_by_id(vuln_id):
     response_model=VulnerabilitySchema,
     tags="Update vulnerability",
 )
-async def update_vulnerability(vuln_id, data: VulnerabilitySchema):
+async def call_update_vulnerability(vuln_id, data: VulnerabilitySchema):
     """
     Update vulnerability by id.
 
     Returns:
         object: a single vulnerability object that has been modified.
     """
-    try:
-        vulnerability = Vulnerability.objects.get(id=vuln_id)
-        vulnerability = data
-        vulnerability.save()
-        return vulnerability
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return update_vulnerability(vuln_id, data)
 
 
 @api_router.get(
     "/v2/users",
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
+    tags=["User"],
 )
-async def get_users(
+async def call_get_users(
     state: Optional[List[str]] = Query(None),
     regionId: Optional[List[str]] = Query(None),
     invitePending: Optional[List[str]] = Query(None),
     # current_user: User = Depends(is_regional_admin)
 ):
     """
-    Retrieve a list of users based on optional filter parameters.
+    Call get_users()
 
     Args:
         state (Optional[List[str]]): List of states to filter users by.
@@ -308,23 +252,29 @@ async def get_users(
     Returns:
         List[User]: A list of users matching the filter criteria.
     """
-    # if not current_user:
-    #     raise HTTPException(status_code=401, detail="Unauthorized")
+    return get_users(state, regionId, invitePending)
 
-    # Prepare filter parameters
-    filter_params = {}
-    if state:
-        filter_params["state__in"] = state
-    if regionId:
-        filter_params["regionId__in"] = regionId
-    if invitePending:
-        filter_params["invitePending__in"] = invitePending
 
-    # Query users with filter parameters and prefetch related roles
-    users = User.objects.filter(**filter_params).prefetch_related("roles")
+@api_router.get(
+    "/organizations",
+    # response_model=List[OrganizationSchema],
+    # dependencies=[Depends(get_current_active_user)],
+    tags=["Organizations"],
+)
+async def call_get_organizations(
+    state: Optional[List[str]] = Query(None),
+    regionId: Optional[List[str]] = Query(None),
+):
+    """
+    List all organizations with query parameters.
+    Args:
+        state (Optional[List[str]]): List of states to filter organizations by.
+        regionId (Optional[List[str]]): List of region IDs to filter organizations by.
 
-    if not users.exists():
-        raise HTTPException(status_code=404, detail="No users found")
+    Raises:
+        HTTPException: If the user is not authorized or no organizations are found.
 
-    # Return the Pydantic models directly by calling from_orm
-    return [UserSchema.from_orm(user) for user in users]
+    Returns:
+        List[Organizations]: A list of organizations matching the filter criteria.
+    """
+    return get_organizations(state, regionId)
