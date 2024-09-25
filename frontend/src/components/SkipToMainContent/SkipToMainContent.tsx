@@ -12,21 +12,19 @@ export const SkipToMainContent: React.FC = () => {
 
   return (
     <Box sx={{ paddingLeft: 1 }}>
-      <Tooltip title="Skip to main content" placement="right">
-        <Button
-          aria-label="Skip to main content"
-          variant="text"
-          tabIndex={0}
-          onClick={handleClick}
-          sx={{
-            outline: 'true',
-            fontSize: '0.6rem',
-            padding: 0
-          }}
-        >
-          Skip to main content
-        </Button>
-      </Tooltip>
+      <Button
+        aria-label="Skip to main content"
+        variant="text"
+        tabIndex={0}
+        onClick={handleClick}
+        sx={{
+          outline: 'true',
+          fontSize: '0.6rem',
+          padding: 0
+        }}
+      >
+        Skip to main content
+      </Button>
     </Box>
   );
 };
