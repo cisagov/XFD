@@ -1,5 +1,5 @@
-from .models import Scan, Organization, OrganizationTag, ScanTagsOrganizationTag, ScanOrganizationsOrganization
-from .schemas import ScanSchema
+from .models import Scan, Organization, OrganizationTag
+from .schemas import ScanSchema, CreateScan
 from django.db import transaction
 from fastapi import HTTPException
 from django.http import JsonResponse
@@ -192,85 +192,112 @@ SCAN_SCHEMA = {
 def list_scans():
     """List scans."""
     try:
-        # Fetch scans
-        scans = Scan.objects.all().values()
-
-        # Convert scans and related tags to dict format
-        scan_list = []
-        for scan in scans:
-            related_tags = OrganizationTag.objects.filter(
-                scantagsorganizationtag__scanId=scan['id']
-            ).values()
-
-            # Add tags to each scan
-            scan['tags'] = list(related_tags)
-            scan_list.append(scan)
+        # Fetch scans and prefetch related tags
+        scans = Scan.objects.prefetch_related('tags').all()
 
         # Fetch all organizations
-        organizations = list(Organization.objects.values('id', 'name'))
+        organizations = Organization.objects.values('id', 'name')
 
-        # Return everything as a JSON response
+        # Convert to list of dicts with related tags
+        scan_list = []
+        for scan in scans:
+            scan_data = {
+                'id': scan.id,
+                'createdAt': scan.createdAt,
+                'updatedAt': scan.updatedAt,
+                'name': scan.name,
+                'arguments': scan.arguments,
+                'frequency': scan.frequency,
+                'lastRun': scan.lastRun,
+                'isGranular': scan.isGranular,
+                'isUserModifiable': scan.isUserModifiable,
+                'isSingleScan': scan.isSingleScan,
+                'manualRunPending': scan.manualRunPending,
+                'tags': [
+                    {
+                        'id': tag.id,
+                        'createdAt': tag.createdAt,
+                        'updatedAt': tag.updatedAt,
+                        'name': tag.name
+                    } for tag in scan.tags.all()
+                ]
+            }
+            scan_list.append(scan_data)
+
+        # Return response with scans, schema, and organizations
         response = {
             'scans': scan_list,
-            'schema': SCAN_SCHEMA,  # Add your predefined SCAN_SCHEMA here
-            'organizations': organizations
+            'schema': SCAN_SCHEMA,
+            'organizations': list(organizations)
         }
+
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def list_granular_scans():
+    """List user-modifiable granular scans."""
+    try:
+        # Fetch scans that match the criteria (isGranular, isUserModifiable, isSingleScan)
+        scans = Scan.objects.filter(
+            isGranular=True,
+            isUserModifiable=True,
+            isSingleScan=False
+        ).values('id', 'name', 'isUserModifiable')
+
+        # Prepare the response
+        response = {
+            'scans': list(scans),
+            'schema': SCAN_SCHEMA  # Predefined schema
+        }
+
         return response
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def list_granular_scans():
-    """
-    List all granular scans that can be modified by users.
-    """
-    try:
-        scans = Scan.objects.filter(
-            isGranular=True, isUserModifiable=True, isSingleScan=False
-        )
-        return {"scans": list(scans), 'schema': SCAN_SCHEMA}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-def create_scan(scan_data: Scan, current_user):
+def create_scan(scan_data: CreateScan, current_user):
     """
     Create a new scan.
     """
     try:
+
+        # TODO: Check if the user is a GlobalWriteAdmin. Create function in auth.py
+
         # Create the scan instance using **scan_data.dict()
         scan_data_dict = scan_data.dict(exclude_unset=True, exclude={"organizations", "frequencyUnit", "tags"})
         scan_data_dict['createdBy'] = current_user
         print(scan_data_dict)
         
         # Create scan using the dictionary unpacking
-        scan = Scan.objects.create(**scan_data_dict)
+        # scan = Scan.objects.create(**scan_data_dict)
 
         print("added Scan")
-        print(scan)
+        # print(scan)
         # Link organizations
-        if scan_data.organizations:
-            for org_id in scan_data.organizations:
-                organization, created = Organization.objects.get_or_create(id=org_id)
-                print(f"Linked Organization {organization}")
-                ScanOrganizationsOrganization.objects.create(
-                    scanId=scan,
-                    organizationId=organization
-                )
+        # if scan_data.organizations:
+        #     for org_id in scan_data.organizations:
+        #         organization, created = Organization.objects.get_or_create(id=org_id)
+        #         print(f"Linked Organization {organization}")
+        #         ScanOrganizationsOrganization.objects.create(
+        #             scanId=scan,
+        #             organizationId=organization
+        #         )
         
-        # Link tags
-        if scan_data.tags:
-            for tag_data in scan_data.tags:
-                tag, created = OrganizationTag.objects.get_or_create(id=tag_data.id)
-                print(f"Linked Tag {tag}")
-                ScanTagsOrganizationTag.objects.create(
-                    scanId=scan,
-                    organizationTagId=tag
-                )
+        # # Link tags
+        # if scan_data.tags:
+        #     for tag_data in scan_data.tags:
+        #         tag, created = OrganizationTag.objects.get_or_create(id=tag_data.id)
+        #         print(f"Linked Tag {tag}")
+        #         ScanTagsOrganizationTag.objects.create(
+        #             scanId=scan,
+        #             organizationTagId=tag
+        #         )
 
-        # Return the saved scan
-        return scan
+        # # Return the saved scan
+        # return scan
     
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Organization not found")

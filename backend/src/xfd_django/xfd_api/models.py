@@ -271,8 +271,9 @@ class Organization(models.Model):
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
     # Relationships with other models (Scan, OrganizationTag)
-    granularScans = models.ManyToManyField('Scan', related_name="organizations", through='ScanOrganizationsOrganization')
-    tags = models.ManyToManyField('OrganizationTag', related_name="organizations", through='ScanTagsOrganizationTag')
+    granularScans = models.ManyToManyField('Scan', related_name='organizations', db_table="scan_organizations_organization")
+    tags = models.ManyToManyField('OrganizationTag', related_name='organizations', db_table="organization_tag_organizations_organization")
+    allScanTasks = models.ManyToManyField('ScanTask', related_name='organizations', db_table="organization_tag_organizations_organization")
 
     class Meta:
         """The meta class for Organization."""
@@ -288,35 +289,14 @@ class OrganizationTag(models.Model):
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     name = models.CharField(unique=True)
+    organizations = models.ManyToManyField('Organization', related_name='tags', db_table="organization_tag_organizations_organization")
+    scans = models.ManyToManyField('Scan', related_name='tags', db_table="scan_tags_organization_tag")
 
     class Meta:
         """The Meta class for OrganizationTag."""
 
         managed = False
         db_table = "organization_tag"
-
-
-class OrganizationTagOrganizationsOrganization(models.Model):
-    """The OrganizationTagOrganizationsOrganization model."""
-
-    organizationTagId = models.ForeignKey(
-        OrganizationTag,
-        on_delete=models.CASCADE,
-        db_column="organizationTagId"
-    )
-    organizationId = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        db_column="organizationId"
-    )
-
-    class Meta:
-        """The Meta class for OrganizationTagOrganizationsOrganization."""
-
-        managed = False
-        db_table = "organization_tag_organizations_organization"
-        unique_together = (("organizationTagId", "organizationId"),)
-        auto_created = True
 
 
 class QueryResultCache(models.Model):
@@ -486,7 +466,7 @@ class Scan(models.Model):
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     name = models.CharField()
-    arguments = models.TextField() # JSON in the database but fails: the JSON object must be str, bytes or bytearray, not dict 
+    arguments = models.TextField(default='{}') # JSON in the database but fails: the JSON object must be str, bytes or bytearray, not dict 
     frequency = models.IntegerField()
     lastRun = models.DateTimeField(db_column="lastRun", blank=True, null=True)
     isGranular = models.BooleanField(db_column="isGranular", default=False)
@@ -498,8 +478,8 @@ class Scan(models.Model):
     createdBy = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
-    tags = models.ManyToManyField('OrganizationTag', through='ScanTagsOrganizationTag', related_name='scans')
-    organizations = models.ManyToManyField('Organization', through='ScanOrganizationsOrganization', related_name='scans')
+    tags = models.ManyToManyField('OrganizationTag', related_name='scans', db_table="scan_tags_organization_tag")
+    organizations = models.ManyToManyField('Organization', related_name='scans', db_table="scan_organizations_organization")
 
     class Meta:
         """The Meta class for Scan."""
@@ -508,29 +488,29 @@ class Scan(models.Model):
         db_table = "scan"
 
 
-class ScanOrganizationsOrganization(models.Model):
-    """The ScanOrganizationsOrganization model."""
+# class ScanOrganizationsOrganization(models.Model):
+#     """The ScanOrganizationsOrganization model."""
 
-    scanId = models.ForeignKey('Scan', on_delete=models.CASCADE, db_column="scanId", primary_key=True)
-    organizationId = models.ForeignKey('Organization', on_delete=models.CASCADE, db_column="organizationId", primary_key=True)
+#     scanId = models.ForeignKey('Scan', on_delete=models.CASCADE, db_column="scanId", primary_key=True)
+#     organizationId = models.ForeignKey('Organization', on_delete=models.CASCADE, db_column="organizationId", primary_key=True)
 
-    class Meta:
-        db_table = "scan_organizations_organization"
-        unique_together = (("scanId", "organizationId"),)
-        # Do not create an id column automatically, treat both columns as composite primary keys
-        auto_created = True
+#     class Meta:
+#         db_table = "scan_organizations_organization"
+#         unique_together = (("scanId", "organizationId"),)
+#         # Do not create an id column automatically, treat both columns as composite primary keys
+#         auto_created = True
 
 
-class ScanTagsOrganizationTag(models.Model):
-    """Intermediary model for the Many-to-Many relationship between Scan and OrganizationTag."""
+# class ScanTagsOrganizationTag(models.Model):
+#     """Intermediary model for the Many-to-Many relationship between Scan and OrganizationTag."""
 
-    scanId = models.ForeignKey('Scan', on_delete=models.CASCADE, db_column="scanId", primary_key=True)
-    organizationTagId = models.ForeignKey('OrganizationTag', on_delete=models.CASCADE, db_column="organizationTagId", primary_key=True)
+#     scanId = models.ForeignKey('Scan', on_delete=models.CASCADE, db_column="scanId", primary_key=True)
+#     organizationTagId = models.ForeignKey('OrganizationTag', on_delete=models.CASCADE, db_column="organizationTagId", primary_key=True)
 
-    class Meta:
-        db_table = "scan_tags_organization_tag"
-        unique_together = (("scanId", "organizationTagId"),)
-        auto_created = True
+#     class Meta:
+#         db_table = "scan_tags_organization_tag"
+#         unique_together = (("scanId", "organizationTagId"),)
+#         auto_created = True
 
 
 class ScanTask(models.Model):
@@ -566,22 +546,22 @@ class ScanTask(models.Model):
         db_table = "scan_task"
 
 
-class ScanTaskOrganizationsOrganization(models.Model):
-    """The ScanTaskOrganizationsOrganization model."""
+# class ScanTaskOrganizationsOrganization(models.Model):
+#     """The ScanTaskOrganizationsOrganization model."""
 
-    scanTaskId = models.OneToOneField(
-        ScanTask, models.DO_NOTHING, db_column="scanTaskId", primary_key=True
-    )  # The composite primary key (scanTaskId, organizationId) found, that is not supported. The first column is selected.
-    organizationId = models.ForeignKey(
-        Organization, models.DO_NOTHING, db_column="organizationId"
-    )
+#     scanTaskId = models.OneToOneField(
+#         ScanTask, models.DO_NOTHING, db_column="scanTaskId", primary_key=True
+#     )  # The composite primary key (scanTaskId, organizationId) found, that is not supported. The first column is selected.
+#     organizationId = models.ForeignKey(
+#         Organization, models.DO_NOTHING, db_column="organizationId"
+#     )
 
-    class Meta:
-        """The Meta class for ScanTaskOrganizationsOrganization."""
+#     class Meta:
+#         """The Meta class for ScanTaskOrganizationsOrganization."""
 
-        managed = False
-        db_table = "scan_task_organizations_organization"
-        unique_together = (("scanTaskId", "organizationId"),)
+#         managed = False
+#         db_table = "scan_task_organizations_organization"
+#         unique_together = (("scanTaskId", "organizationId"),)
 
 
 class Service(models.Model):
