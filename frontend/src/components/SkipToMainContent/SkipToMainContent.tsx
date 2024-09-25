@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Tooltip } from '@mui/material';
+import { Box, Button } from '@mui/material';
 
 export const SkipToMainContent: React.FC = () => {
   const handleClick = (event: any) => {
