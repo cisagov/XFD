@@ -20,7 +20,6 @@ exports[`Layout component matches snapshot 1`] = `
           <button
             aria-label="Skip to main content"
             class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-1a47txt-MuiButtonBase-root-MuiButton-root"
-            data-mui-internal-clone-element="true"
             tabindex="0"
             type="button"
           >
@@ -275,9 +274,12 @@ exports[`Layout component matches snapshot 1`] = `
             HEADER
           </div>
           <div
-            class="MuiBox-root css-1ycota"
+            class="main-content"
             id="main-content"
             tabindex="-1"
+          />
+          <div
+            class="MuiBox-root css-1ycota"
           />
           <div
             class="css-1ycjho2"
