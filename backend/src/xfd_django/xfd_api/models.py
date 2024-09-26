@@ -1,10 +1,12 @@
 """ Django ORM models."""
 
 
-# Third-Party Libraries
-from django.db import models
-from django.contrib.postgres.fields import ArrayField, JSONField
+# Standard Python Libraries
 import uuid
+
+# Third-Party Libraries
+from django.contrib.postgres.fields import ArrayField, JSONField
+from django.db import models
 
 
 class ApiKey(models.Model):
@@ -267,9 +269,19 @@ class Organization(models.Model):
     )
     # TODO: Consider geting rid of this, don't need Many To Many in both tables
     # Relationships with other models (Scan, OrganizationTag)
-    granularScans = models.ManyToManyField('Scan', related_name='organizations', db_table="scan_organizations_organization")
-    tags = models.ManyToManyField('OrganizationTag', related_name='organizations', db_table="organization_tag_organizations_organization")
-    allScanTasks = models.ManyToManyField('ScanTask', related_name='organizations', db_table="scan_task_organizations_organization")
+    granularScans = models.ManyToManyField(
+        "Scan", related_name="organizations", db_table="scan_organizations_organization"
+    )
+    tags = models.ManyToManyField(
+        "OrganizationTag",
+        related_name="organizations",
+        db_table="organization_tag_organizations_organization",
+    )
+    allScanTasks = models.ManyToManyField(
+        "ScanTask",
+        related_name="organizations",
+        db_table="scan_task_organizations_organization",
+    )
 
     class Meta:
         """The meta class for Organization."""
@@ -285,8 +297,14 @@ class OrganizationTag(models.Model):
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     name = models.CharField(unique=True)
-    organizations = models.ManyToManyField('Organization', related_name='tags', db_table="organization_tag_organizations_organization")
-    scans = models.ManyToManyField('Scan', related_name='tags', db_table="scan_tags_organization_tag")
+    organizations = models.ManyToManyField(
+        "Organization",
+        related_name="tags",
+        db_table="organization_tag_organizations_organization",
+    )
+    scans = models.ManyToManyField(
+        "Scan", related_name="tags", db_table="scan_tags_organization_tag"
+    )
 
     class Meta:
         """The Meta class for OrganizationTag."""
@@ -462,7 +480,9 @@ class Scan(models.Model):
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     name = models.CharField()
-    arguments = models.TextField(default='{}') # JSON in the database but fails: the JSON object must be str, bytes or bytearray, not dict 
+    arguments = models.TextField(
+        default="{}"
+    )  # JSON in the database but fails: the JSON object must be str, bytes or bytearray, not dict
     frequency = models.IntegerField()
     lastRun = models.DateTimeField(db_column="lastRun", blank=True, null=True)
     isGranular = models.BooleanField(db_column="isGranular", default=False)
@@ -474,8 +494,12 @@ class Scan(models.Model):
     createdBy = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
-    tags = models.ManyToManyField('OrganizationTag', related_name='scans', db_table="scan_tags_organization_tag")
-    organizations = models.ManyToManyField('Organization', related_name='scans', db_table="scan_organizations_organization")
+    tags = models.ManyToManyField(
+        "OrganizationTag", related_name="scans", db_table="scan_tags_organization_tag"
+    )
+    organizations = models.ManyToManyField(
+        "Organization", related_name="scans", db_table="scan_organizations_organization"
+    )
 
     class Meta:
         """The Meta class for Scan."""
@@ -500,13 +524,13 @@ class ScanTask(models.Model):
     finishedAt = models.DateTimeField(db_column="finishedAt", blank=True, null=True)
     queuedAt = models.DateTimeField(db_column="queuedAt", blank=True, null=True)
     scanId = models.ForeignKey(
-        Scan, 
-        on_delete=models.DO_NOTHING, 
-        db_column="scanId", 
-        blank=True, 
-        null=True
+        Scan, on_delete=models.DO_NOTHING, db_column="scanId", blank=True, null=True
     )
-    organizations = models.ManyToManyField('Organization', related_name='allScanTasks', db_table="scan_task_organizations_organization")
+    organizations = models.ManyToManyField(
+        "Organization",
+        related_name="allScanTasks",
+        db_table="scan_task_organizations_organization",
+    )
 
     class Meta:
         """The Meta class for ScanTask."""

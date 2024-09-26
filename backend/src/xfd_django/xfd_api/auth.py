@@ -1,9 +1,5 @@
 """Authentication utilities for the FastAPI application."""
 
-# cisagov Libraries
-from .jwt_utils import decode_jwt_token
-from .models import ApiKey
-
 # Standard Python Libraries
 from hashlib import sha256
 
@@ -11,6 +7,9 @@ from hashlib import sha256
 from django.utils import timezone
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
+
+from .jwt_utils import decode_jwt_token
+from .models import ApiKey
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
@@ -65,9 +64,11 @@ def is_global_write_admin(current_user) -> bool:
     """Check if the user has global write admin permissions."""
     return current_user and current_user.userType == "globalAdmin"
 
+
 def is_global_view_admin(current_user) -> bool:
-    """Check if the user has global view permissions. """
+    """Check if the user has global view permissions."""
     return current_user and current_user.userType in ["globalView", "globalAdmin"]
+
 
 def is_regional_admin(current_user) -> bool:
     """Check if the user has regional admin permissions."""
@@ -135,4 +136,3 @@ def is_regional_admin(current_user) -> bool:
 #     """
 #     current_user = request.state.user
 #     return current_user.id if current_user else None
-

@@ -1,9 +1,5 @@
 """Schemas to support Scan endpoints."""
 
-# cisagov Libraries
-from .organization_tag import OrganizationalTags
-from.organization import Organization
-
 # Standard Python Libraries
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -12,8 +8,13 @@ from uuid import UUID
 # Third-Party Libraries
 from pydantic import BaseModel
 
+from .organization import Organization
+from .organization_tag import OrganizationalTags
+
+
 class Scan(BaseModel):
     """Scan schema reflecting model."""
+
     id: UUID
     createdAt: datetime
     updatedAt: datetime
@@ -28,10 +29,11 @@ class Scan(BaseModel):
     tags: Optional[List[OrganizationalTags]] = []
     organizations: Optional[List[Organization]] = []
 
+
 class ScanSchema(BaseModel):
     """Scan type schema."""
-    
-    type: str = 'fargate' # Only 'fargate' is supported
+
+    type: str = "fargate"  # Only 'fargate' is supported
     description: str
 
     # Whether scan is passive (not allowed to hit the domain).
@@ -53,29 +55,39 @@ class ScanSchema(BaseModel):
     # chunkNumber and numChunks parameters specified in commandOptions.
     numChunks: Optional[int] = None
 
+
 class GranularScan(BaseModel):
     """Granular scan model."""
+
     id: UUID
     name: str
     isUserModifiable: Optional[bool]
 
+
 class GetScansResponseModel(BaseModel):
     """Get Scans response model."""
+
     scans: List[Scan]
     schema: Dict[str, Any]
     organizations: List[Dict[str, Any]]
 
+
 class GetGranularScansResponseModel(BaseModel):
     """Get Scans response model."""
+
     scans: List[GranularScan]
     schema: Dict[str, Any]
 
+
 class IdSchema(BaseModel):
     """Schema for ID objects."""
+
     id: UUID
+
 
 class NewScan(BaseModel):
     """Create Scan Schema."""
+
     name: str
     arguments: Any
     organizations: Optional[List[UUID]]
@@ -85,8 +97,10 @@ class NewScan(BaseModel):
     isUserModifiable: Optional[bool]
     isSingleScan: bool
 
+
 class CreateScanResponseModel(BaseModel):
     """Create Scan Schema."""
+
     name: str
     arguments: Any
     frequency: int
@@ -97,14 +111,18 @@ class CreateScanResponseModel(BaseModel):
     tags: Optional[List[IdSchema]]
     organizations: Optional[List[IdSchema]]
 
+
 class GetScanResponseModel(BaseModel):
     """Get Scans response model."""
+
     scan: Scan
     schema: Dict[str, Any]
     organizations: List[Dict[str, Any]]
 
+
 class GenericMessageResponseModel(BaseModel):
     """Get Scans response model."""
+
     status: str
     message: str
 

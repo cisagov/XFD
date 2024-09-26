@@ -17,13 +17,13 @@ Dependencies:
     - .models
 """
 
-# cisagov Libraries
-from .auth import get_current_active_user
-from .models import Assessment, User
-# TODO: I think all our import should be like this blow
-from .api_methods import scan
-from .schema_models import scan as scanSchema
+# Standard Python Libraries
+from typing import List, Optional
 
+# Third-Party Libraries
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from .api_methods import scan
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
@@ -32,26 +32,20 @@ from .api_methods.organization import get_organizations, read_orgs
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
-
+from .models import Assessment, User
+from .schema_models import scan as scanSchema
 from .schema_models.assessment import Assessment
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
-from .schema_models.domain import DomainSearch
 from .schema_models.domain import Domain as DomainSchema
+from .schema_models.domain import DomainSearch
 from .schema_models.organization import Organization as OrganizationSchema
-
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
-# Standard Python Libraries
-from typing import List, Optional
-
-# Third-Party Libraries
-from fastapi import APIRouter, Depends, HTTPException, Query
-
-
 # Define API router
 api_router = APIRouter()
+
 
 # Healthcheck endpoint
 @api_router.get("/healthcheck", tags=["Testing"])
@@ -321,9 +315,11 @@ async def call_get_organizations(
     """
     return get_organizations(state, regionId)
 
+
 # ========================================
 #   Scan Endpoints
 # ========================================
+
 
 @api_router.get(
     "/scans",
@@ -356,7 +352,7 @@ async def list_granular_scans(current_user: User = Depends(get_current_active_us
 async def create_scan(
     scan_data: scanSchema.NewScan, current_user: User = Depends(get_current_active_user)
 ):
-    """ Create a new scan."""
+    """Create a new scan."""
     return scan.create_scan(scan_data, current_user)
 
 
@@ -364,7 +360,7 @@ async def create_scan(
     "/scans/{scan_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=scanSchema.GetScanResponseModel,
-    tags=["Scans"]
+    tags=["Scans"],
 )
 async def get_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
     """Get a scan by its ID. User must be authenticated."""
@@ -375,7 +371,7 @@ async def get_scan(scan_id: str, current_user: User = Depends(get_current_active
     "/scans/{scan_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=scanSchema.CreateScanResponseModel,
-    tags=["Scans"]
+    tags=["Scans"],
 )
 async def update_scan(
     scan_id: str,
@@ -390,7 +386,7 @@ async def update_scan(
     "/scans/{scan_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=scanSchema.GenericMessageResponseModel,
-    tags=["Scans"]
+    tags=["Scans"],
 )
 async def delete_scan(
     scan_id: str, current_user: User = Depends(get_current_active_user)
@@ -403,7 +399,7 @@ async def delete_scan(
     "/scans/{scan_id}/run",
     dependencies=[Depends(get_current_active_user)],
     response_model=scanSchema.GenericMessageResponseModel,
-    tags=["Scans"]
+    tags=["Scans"],
 )
 async def run_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
     """Manually run a scan by its ID"""
@@ -411,9 +407,7 @@ async def run_scan(scan_id: str, current_user: User = Depends(get_current_active
 
 
 @api_router.post(
-    "/scheduler/invoke",
-    dependencies=[Depends(get_current_active_user)],
-    tags=["Scans"]
+    "/scheduler/invoke", dependencies=[Depends(get_current_active_user)], tags=["Scans"]
 )
 async def invoke_scheduler(current_user: User = Depends(get_current_active_user)):
     """Manually invoke the scan scheduler."""
