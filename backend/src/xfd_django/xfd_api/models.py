@@ -207,7 +207,7 @@ class Domain(models.Model):
 
         db_table = "domain"
         managed = False  # This ensures Django does not manage the table
-        unique_together = (("name", "organization"),)  # Unique constraint
+        unique_together = (("name", "organizationId"),)  # Unique constraint
 
     def save(self, *args, **kwargs):
         self.name = self.name.lower()
