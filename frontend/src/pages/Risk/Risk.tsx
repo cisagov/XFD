@@ -102,6 +102,7 @@ const Risk: React.FC<ContextType & {}> = ({ filters, addFilter }) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [riskFilters]
   );
 

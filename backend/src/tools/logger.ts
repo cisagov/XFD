@@ -58,7 +58,8 @@ export class Logger {
       }
 
       const parsedResponseBody =
-        typeof responseBody === 'string'
+        typeof responseBody === 'string' &&
+        responseBody !== 'User registration approved.'
           ? JSON.parse(responseBody)
           : responseBody;
 

@@ -526,10 +526,7 @@ const checkGlobalAdminOrRegionAdmin = async (
 // needing to sign the terms of service yet
 const authenticatedNoTermsRoute = express.Router();
 authenticatedNoTermsRoute.use(checkUserLoggedIn);
-authenticatedNoTermsRoute.get(
-  '/users/me',
-  handlerToExpress(users.me, (req, user, res) => {}, 'USER ME DATA')
-);
+authenticatedNoTermsRoute.get('/users/me', handlerToExpress(users.me));
 authenticatedNoTermsRoute.post(
   '/users/me/acceptTerms',
   handlerToExpress(users.acceptTerms)
@@ -594,7 +591,7 @@ authenticatedRoute.delete(
   handlerToExpress(savedSearches.del)
 );
 authenticatedRoute.get('/scans', handlerToExpress(scans.list));
-authenticatedRoute.get('/logs', handlerToExpress(logs.list));
+authenticatedRoute.post('/logs/search', handlerToExpress(logs.list));
 authenticatedRoute.get('/granularScans', handlerToExpress(scans.listGranular));
 authenticatedRoute.post('/scans', handlerToExpress(scans.create));
 authenticatedRoute.get('/scans/:scanId', handlerToExpress(scans.get));
@@ -661,7 +658,7 @@ authenticatedRoute.post(
         updatePayload: req.body
       };
     },
-    'UPDATE USER'
+    'USER UPDATE'
   )
 );
 
@@ -669,6 +666,8 @@ authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/approve',
   handlerToExpress(organizations.approveRole)
 );
+
+// TO-DO Add logging => /users => user has an org and you change them to a new organization
 authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/remove',
   handlerToExpress(organizations.removeRole)
@@ -698,7 +697,7 @@ authenticatedRoute.post(
         createdUserRecord: responseBody
       };
     },
-    'USER INVITED'
+    'USER INVITE'
   )
 );
 authenticatedRoute.get('/users', handlerToExpress(users.list));
@@ -712,7 +711,7 @@ authenticatedRoute.delete(
         timestamp: new Date()
       };
     },
-    'USER REMOVED'
+    'USER DENY/REMOVE'
   )
 );
 authenticatedRoute.get(
@@ -749,7 +748,7 @@ authenticatedRoute.put(
         userToApprove: req.params.userId
       };
     },
-    'APPROVE USER'
+    'USER APPROVE'
   )
 );
 
