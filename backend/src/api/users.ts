@@ -635,13 +635,13 @@ export const registrationApproval = wrapHandler(async (event) => {
   }
 
   // Send email notification
-  // await sendRegistrationApprovedEmail(
-  //   user.email,
-  //   'CyHy Dashboard Registration Approved',
-  //   user.firstName,
-  //   user.lastName,
-  //   'crossfeed_approval_notification.html'
-  // );
+  await sendRegistrationApprovedEmail(
+    user.email,
+    'CyHy Dashboard Registration Approved',
+    user.firstName,
+    user.lastName,
+    'crossfeed_approval_notification.html'
+  );
 
   // TODO: Handle Response Output
   return {

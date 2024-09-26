@@ -197,15 +197,8 @@ app.post('/auth/okta-callback', async (req, res) => {
   const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID;
   const callbackUrl = process.env.REACT_APP_COGNITO_CALLBACK_URL;
   const domain = process.env.REACT_APP_COGNITO_DOMAIN;
-  const logger = new Logger(req);
 
   if (!code) {
-    // logger.record('USER LOGIN', 'fail', (req, user) => {
-    //   return {
-    //     timestamp: new Date(),
-    //     trace: console.trace()
-    //   };
-    // });
     return res.status(400).json({ message: 'Missing authorization code' });
   }
 
@@ -288,13 +281,6 @@ app.post('/auth/okta-callback', async (req, res) => {
 
           res.cookie('id_token', signedToken, { httpOnly: true, secure: true });
 
-          // logger.record('USER LOGIN', 'success', (req, us) => {
-          //   console.log('HERE', { req, us });
-          //   return {
-          //     timestamp: new Date(),
-          //     userId: user?.id
-          //   };
-          // });
           return res.status(200).json({
             token: signedToken,
             user: user
