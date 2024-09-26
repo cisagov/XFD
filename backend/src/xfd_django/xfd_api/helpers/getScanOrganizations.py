@@ -1,5 +1,11 @@
-from typing import List
+"""Get scan organizations methods."""
+
+# cisagov Libraries
 from ..models import Organization, Scan
+
+# Standard Python Libraries
+from typing import List
+
 
 def get_scan_organizations(scan: Scan) -> List[Organization]:
     """

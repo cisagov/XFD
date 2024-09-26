@@ -348,8 +348,6 @@ export const update = wrapHandler(async (event) => {
  *    - Scans
  */
 export const create = wrapHandler(async (event) => {
-  console.log(event);
-  console.log(event.body);
   if (!isGlobalWriteAdmin(event)) return Unauthorized;
   await connectToDatabase();
   const body = await validateBody(NewScan, event.body);

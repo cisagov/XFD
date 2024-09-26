@@ -111,15 +111,6 @@ const ScansView: React.FC = () => {
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      // Log the body to the console for testing
-      console.log('Full Request Body:', {
-        ...body,
-        organizations: body.organizations
-          ? body.organizations.map((e) => e.value)
-          : [],
-        tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
-      });
-
       const scan = await apiPost('/scans', {
         body: {
           ...body,
