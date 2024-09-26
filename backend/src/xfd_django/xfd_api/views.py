@@ -272,25 +272,17 @@ async def call_update_vulnerability(vuln_id, data: VulnerabilitySchema):
 
 
 @api_router.get(
-    "/v2/users",
+    "/users/{regionId}",
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
     tags=["User"],
 )
-async def call_get_users(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-    invitePending: Optional[List[str]] = Query(None),
-    # current_user: User = Depends(is_regional_admin)
-):
+async def call_get_users(regionId):
     """
     Call get_users()
 
     Args:
-        state (Optional[List[str]]): List of states to filter users by.
-        regionId (Optional[List[str]]): List of region IDs to filter users by.
-        invitePending (Optional[List[str]]): List of invite pending statuses to filter users by.
-        current_user (User): The current authenticated user, must be a regional admin.
+        regionId: Region IDs to filter users by.
 
     Raises:
         HTTPException: If the user is not authorized or no users are found.
@@ -298,24 +290,20 @@ async def call_get_users(
     Returns:
         List[User]: A list of users matching the filter criteria.
     """
-    return get_users(state, regionId, invitePending)
+    return get_users(regionId)
 
 
 @api_router.get(
-    "/organizations",
-    # response_model=List[OrganizationSchema],
+    "/organizations/{regionId}",
+    response_model=List[OrganizationSchema],
     # dependencies=[Depends(get_current_active_user)],
-    tags=["Organizations"],
+    tags=["Organization"],
 )
-async def call_get_organizations(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-):
+async def call_get_organizations(regionId):
     """
     List all organizations with query parameters.
     Args:
-        state (Optional[List[str]]): List of states to filter organizations by.
-        regionId (Optional[List[str]]): List of region IDs to filter organizations by.
+        regionId : Region IDs to filter organizations by.
 
     Raises:
         HTTPException: If the user is not authorized or no organizations are found.
@@ -323,4 +311,4 @@ async def call_get_organizations(
     Returns:
         List[Organizations]: A list of organizations matching the filter criteria.
     """
-    return get_organizations(state, regionId)
+    return get_organizations(regionId)

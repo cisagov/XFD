@@ -3,7 +3,7 @@
 # from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
@@ -18,10 +18,10 @@ class Organization(BaseModel):
     updatedAt: datetime
     acronym: Optional[str]
     name: str
-    rootDomains: str
-    ipBlocks: str
+    rootDomains: List[str]
+    ipBlocks: List[str]
     isPassive: bool
-    pendingDomains: str
+    pendingDomains: List[str]
     country: Optional[str]
     state: Optional[str]
     regionId: Optional[str]
