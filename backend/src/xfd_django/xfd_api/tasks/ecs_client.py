@@ -1,8 +1,15 @@
-import os
+"""AWS Elastic Container Service Client."""
+
+# cisagov Libraries
+from ..schema_models.scan import SCAN_SCHEMA
+
+# Standard Python Libraries
 import json
+import os
+
+# Third-Party Libraries
 import boto3
 import docker
-from ..schemas import SCAN_SCHEMA
 
 
 def to_snake_case(input_str):
@@ -12,6 +19,7 @@ def to_snake_case(input_str):
 
 class ECSClient:
     def __init__(self, is_local=None):
+        """Initialize."""
         # Determine if we're running locally or using ECS
         self.is_local = is_local or os.getenv('IS_OFFLINE') or os.getenv('IS_LOCAL')
         self.docker = docker.from_env() if self.is_local else None

@@ -23,7 +23,7 @@ from .auth import get_current_active_user
 from .models import ApiKey, Cpe, Cve, Domain, Organization, Role, User, Vulnerability
 from .schemas import Role as RoleSchema
 from .schemas import User as UserSchema
-from .api_methods import scans
+from .api_methods import scan
 from .schema_models import scan as scanSchema
 
 # Standard Python Libraries
@@ -316,7 +316,7 @@ async def get_users(
 )
 async def list_scans(current_user: User = Depends(get_current_active_user)):
     """Retrieve a list of all scans."""
-    return scans.list_scans(current_user)
+    return scan.list_scans(current_user)
 
 
 @api_router.get(
@@ -327,7 +327,7 @@ async def list_scans(current_user: User = Depends(get_current_active_user)):
 )
 async def list_granular_scans(current_user: User = Depends(get_current_active_user)):
     """Retrieve a list of granular scans. User must be authenticated."""
-    return scans.list_granular_scans(current_user)
+    return scan.list_granular_scans(current_user)
 
 
 @api_router.post(
@@ -337,10 +337,10 @@ async def list_granular_scans(current_user: User = Depends(get_current_active_us
     tags=["Scans"],
 )
 async def create_scan(
-    scan_data: schemas.NewScan, current_user: User = Depends(get_current_active_user)
+    scan_data: scanSchema.NewScan, current_user: User = Depends(get_current_active_user)
 ):
     """ Create a new scan."""
-    return scans.create_scan(scan_data, current_user)
+    return scan.create_scan(scan_data, current_user)
 
 
 @api_router.get(
@@ -351,7 +351,7 @@ async def create_scan(
 )
 async def get_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
     """Get a scan by its ID. User must be authenticated."""
-    return scans.get_scan(scan_id, current_user)
+    return scan.get_scan(scan_id, current_user)
 
 
 @api_router.put(
@@ -366,7 +366,7 @@ async def update_scan(
     current_user: User = Depends(get_current_active_user),
 ):
     """Update a scan by its ID."""
-    return scans.update_scan(scan_id, scan_data, current_user)
+    return scan.update_scan(scan_id, scan_data, current_user)
 
 
 @api_router.delete(
@@ -379,7 +379,7 @@ async def delete_scan(
     scan_id: str, current_user: User = Depends(get_current_active_user)
 ):
     """Delete a scan by its ID."""
-    return scans.delete_scan(scan_id, current_user)
+    return scan.delete_scan(scan_id, current_user)
 
 
 @api_router.post(
@@ -390,7 +390,7 @@ async def delete_scan(
 )
 async def run_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
     """Manually run a scan by its ID"""
-    return scans.run_scan(scan_id, current_user)
+    return scan.run_scan(scan_id, current_user)
 
 
 @api_router.post(
@@ -400,5 +400,5 @@ async def run_scan(scan_id: str, current_user: User = Depends(get_current_active
 )
 async def invoke_scheduler(current_user: User = Depends(get_current_active_user)):
     """Manually invoke the scan scheduler."""
-    response = await scans.invoke_scheduler(current_user)
+    response = await scan.invoke_scheduler(current_user)
     return response

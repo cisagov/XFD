@@ -1,17 +1,27 @@
-import os
-from django.utils import timezone
-from ..models import Scan, Organization, ScanTask
+"""Scheduler method containing AWS Lambda handler."""
+
+
+# cisagov Libraries
 from .ecs_client import ECSClient
-from ..schemas import SCAN_SCHEMA
 from ..helpers.getScanOrganizations import get_scan_organizations
+from ..models import Scan, Organization, ScanTask
+from ..schema_models.scan import SCAN_SCHEMA
+
+# Standard Python Libraries
 from itertools import islice
+import os
+
+# Third-Party Libraries
+from django.utils import timezone
 
 def chunk(iterable, size):
+    """Chunk a list into a nested list."""
     it = iter(iterable)
     return iter(lambda: list(islice(it, size)), [])
 
 class Scheduler:
     def __init__(self):
+        """Initialize."""
         self.ecs = ECSClient()
         self.num_existing_tasks = 0
         self.num_launched_tasks = 0
@@ -22,6 +32,7 @@ class Scheduler:
         self.orgs_per_scan_task = 1
 
     async def initialize(self, scans, organizations, queued_scan_tasks, orgs_per_scan_task):
+        """Initialize."""
         self.scans = scans
         self.organizations = organizations
         self.queued_scan_tasks = queued_scan_tasks
@@ -32,6 +43,7 @@ class Scheduler:
         print(f'Number of queued scan tasks: {len(self.queued_scan_tasks)}')
 
     async def launch_single_scan_task(self, organizations=None, scan=None, chunk_number=None, num_chunks=None, scan_task=None):
+        """Launch single scan."""
         organizations = organizations or []
         scan_schema = SCAN_SCHEMA.get(scan.name, {})
         task_type = getattr(scan_schema, 'type', None)
@@ -92,6 +104,7 @@ class Scheduler:
         scan_task.save()
 
     async def launch_scan_task(self, organizations=None, scan=None):
+        """Launch scan task."""
         organizations = organizations or []
         
         scan_schema = SCAN_SCHEMA.get(scan.name, None)
@@ -118,9 +131,11 @@ class Scheduler:
             await self.launch_single_scan_task(organizations=organizations, scan=scan)
 
     def reached_scan_limit(self):
+        """Check scan limit."""
         return (self.num_existing_tasks + self.num_launched_tasks) >= self.max_concurrent_tasks
 
     async def run(self):
+        """Run scheduler."""
         for scan in self.scans:
             prev_num_launched_tasks = self.num_launched_tasks
 
@@ -145,10 +160,12 @@ class Scheduler:
                 scan.save()
 
     async def run_queued(self):
+        """Run queued scans."""
         for scan_task in self.queued_scan_tasks:
             await self.launch_single_scan_task(scan_task=scan_task, scan=scan_task.scan)
 
     def should_run_scan(self, scan, organization=None):
+        """Check if the scan should run."""
         scan_schema = SCAN_SCHEMA.get(scan.name, {})
         is_passive = getattr(scan_schema, 'isPassive', False)
         global_scan = getattr(scan_schema, 'global_scan', False)

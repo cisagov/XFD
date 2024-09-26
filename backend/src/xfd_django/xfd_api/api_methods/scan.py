@@ -3,7 +3,7 @@
 # cisagov Libraries
 from ..auth import is_global_write_admin, is_global_view_admin
 from ..models import Scan, Organization, OrganizationTag
-from ..schemas import SCAN_SCHEMA, NewScan
+from ..schema_models.scan import SCAN_SCHEMA, NewScan
 from ..tasks.lambda_client import LambdaClient
 
 # Standard Python Libraries

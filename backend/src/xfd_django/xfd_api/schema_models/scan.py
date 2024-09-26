@@ -25,8 +25,8 @@ class Scan(BaseModel):
     isUserModifiable: Optional[bool]
     isSingleScan: bool
     manualRunPending: bool
-    tags: Optional[List[OrganizationalTags]]
-    organizations: Optional[List[Organization]]
+    tags: Optional[List[OrganizationalTags]] = []
+    organizations: Optional[List[Organization]] = []
 
 class ScanSchema(BaseModel):
     """Scan type schema."""

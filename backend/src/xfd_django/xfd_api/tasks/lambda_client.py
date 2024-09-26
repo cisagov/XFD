@@ -1,9 +1,18 @@
-import os
-import boto3
+"""AWS Lambda Client."""
+
+# cisagov Libraries
 from .scheduler import handler as scheduler
+
+# Standard Python Libraries
+import os
+
+# Third-Party Libraries
+import boto3
+
 
 class LambdaClient:
     def __init__(self):
+        """Initialize."""
         # Determine if running locally or not
         self.is_local = os.getenv('IS_OFFLINE') or os.getenv('IS_LOCAL')
         if not self.is_local:
