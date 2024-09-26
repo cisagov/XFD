@@ -57,7 +57,7 @@ services:
       - ./.env
     depends_on:
       - db
-      
+
   minio:
     image: bitnami/minio:2020.9.26
     user: root
