@@ -1,6 +1,7 @@
 import { Query, Domain } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
+import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
 
 export interface DomainQuery extends Query<Domain> {
   showAll?: boolean;
@@ -19,7 +20,6 @@ export const useDomainApi = (showAll?: boolean) => {
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
       const { page, filters, pageSize = PAGE_SIZE } = query;
-
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
@@ -29,12 +29,17 @@ export const useDomainApi = (showAll?: boolean) => {
           }),
           {}
         );
-
-      if (!showAll && currentOrganization) {
-        if ('rootDomains' in currentOrganization)
-          tableFilters['organization'] = currentOrganization.id;
-        else tableFilters['tag'] = currentOrganization.id;
+      let userOrgIsExcluded = false;
+      ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+        if (currentOrganization?.name.toLowerCase().includes(exc)) {
+          userOrgIsExcluded = true;
+        }
+      });
+      if (currentOrganization && !userOrgIsExcluded) {
+        tableFilters['organization'] = currentOrganization.id;
       }
+
+      console.log('filters here', tableFilters);
 
       const { result, count, url } = await apiPost<ApiResponse>(
         doExport ? '/domain/export' : '/domain/search',
@@ -54,7 +59,7 @@ export const useDomainApi = (showAll?: boolean) => {
         pageCount: Math.ceil(count / pageSize)
       };
     },
-    [apiPost, showAll, currentOrganization]
+    [apiPost, currentOrganization]
   );
 
   const getDomain = useCallback(

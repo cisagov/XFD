@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
 import { useAuthContext } from 'context';
-import { Vulnerability } from 'types';
+import { Vulnerability as VulnerabilityType } from 'types';
 import { Subnav } from 'components';
 import {
   Alert,
@@ -27,6 +27,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
+import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 
 export interface ApiResponse {
   result: Vulnerability[];
@@ -44,17 +45,25 @@ export const stateMap: { [key: string]: string } = {
   remediated: 'Remediated'
 };
 
-export interface VulnerabilityRow {
+export interface LooseVulnerabilityRow {
   id: string;
   title: string;
   severity: string;
   kev: string;
-  domain: string;
-  domainId: string;
+  domain: string | undefined;
+  domainId: string | undefined;
   product: string;
   createdAt: string;
   state: string;
 }
+
+type Nullable<T> = {
+  [P in keyof T]: T[P] | null;
+};
+
+type VulnerabilityRow = Nullable<LooseVulnerabilityRow>;
+
+type Vulnerability = Nullable<VulnerabilityType>;
 
 interface LocationState {
   domain: any;
@@ -68,13 +77,13 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   children?: React.ReactNode;
   groupBy?: string;
 }) => {
-  const { currentOrganization, apiPost, apiPut, showAllOrganizations } =
-    useAuthContext();
+  const { currentOrganization, apiPost, apiPut } = useAuthContext();
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  // TO-DO
+  // Implement regional rollup for vulnerabilities view to allow for proper vunl drilldown from dashboard
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
       setIsLoading(true);
@@ -135,10 +144,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             tableFilters['substate'] = substate.toLowerCase().replace(' ', '-');
           delete tableFilters['state'];
         }
-        if (!showAllOrganizations && currentOrganization) {
-          if ('rootDomains' in currentOrganization)
-            tableFilters['organization'] = currentOrganization.id;
-          else tableFilters['tag'] = currentOrganization.id;
+        let userOrgIsExcluded = false;
+        ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+          if (currentOrganization?.name.toLowerCase().includes(exc)) {
+            userOrgIsExcluded = true;
+          }
+        });
+        if (currentOrganization && !userOrgIsExcluded) {
+          tableFilters['organization'] = currentOrganization.id;
         }
         if (tableFilters['isKev']) {
           // Convert string to boolean filter.
@@ -161,7 +174,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         return;
       }
     },
-    [apiPost, currentOrganization, showAllOrganizations]
+    [apiPost, currentOrganization]
   );
 
   const fetchVulnerabilities = useCallback(
@@ -267,17 +280,19 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     title: vuln.title,
     severity: vuln.severity ?? 'N/A',
     kev: vuln.isKev ? 'Yes' : 'No',
-    domain: vuln.domain.name,
-    domainId: vuln.domain.id,
+    domain: vuln?.domain?.name,
+    domainId: vuln?.domain?.id,
     product: vuln.cpe
       ? vuln.cpe
-      : vuln.service.products
-      ? vuln.service.products[0].cpe || 'N/A'
+      : vuln?.service?.products
+      ? vuln?.service.products[0].cpe || 'N/A'
       : 'N/A',
-    createdAt: `${differenceInCalendarDays(
-      Date.now(),
-      parseISO(vuln.createdAt)
-    )} days`,
+    createdAt: vuln?.createdAt
+      ? `${differenceInCalendarDays(
+          Date.now(),
+          parseISO(vuln?.createdAt)
+        )} days`
+      : '',
     state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
   }));
 

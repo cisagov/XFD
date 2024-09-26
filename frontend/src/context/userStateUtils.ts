@@ -1,5 +1,6 @@
 import { Organization, OrganizationTag } from 'types';
 import { AuthUser, CurrentOrganization } from './AuthContext';
+import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 
 const currentTermsVersion = process.env.REACT_APP_TERMS_VERSION;
 
@@ -9,6 +10,7 @@ export const getExtendedOrg = (
 ) => {
   const current: CurrentOrganization | null =
     org ?? user?.roles[0]?.organization ?? null;
+  if (current && ORGANIZATION_EXCLUSIONS.includes(current?.name)) return null;
   return current;
 };
 
