@@ -29,6 +29,3 @@ class Organization(BaseModel):
     county: Optional[str]
     countyFips: Optional[int]
     type: Optional[str]
-
-    class Config:
-        orm_mode = True
