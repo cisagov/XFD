@@ -111,6 +111,16 @@ export class Domain extends BaseEntity {
   })
   cloudHosted: boolean;
 
+  @Column({
+    default: false
+  })
+  fromCidr: boolean;
+
+  @Column({
+    default: false
+  })
+  isFceb: boolean;
+  
   /** SSL Certificate information  */
   @Column({
     type: 'jsonb',
