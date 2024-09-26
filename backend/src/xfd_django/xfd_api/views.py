@@ -17,6 +17,15 @@ Dependencies:
     - .models
 """
 
+# cisagov Libraries
+from . import schemas
+from .auth import get_current_active_user
+from .models import ApiKey, Cpe, Cve, Domain, Organization, Role, User, Vulnerability
+from .schemas import Role as RoleSchema
+from .schemas import User as UserSchema
+from .api_methods import scans
+from .schema_models import scan as scanSchema
+
 # Standard Python Libraries
 from typing import Any, List, Optional, Union
 
@@ -25,13 +34,6 @@ from django.shortcuts import render
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
-# from .schemas import Cpe
-from . import schemas
-from .auth import get_current_active_user
-from .models import ApiKey, Cpe, Cve, Domain, Organization, Role, User, Vulnerability
-from .schemas import Role as RoleSchema
-from .schemas import User as UserSchema
-from . import scans
 
 api_router = APIRouter()
 
@@ -302,118 +304,101 @@ async def get_users(
     return [UserSchema.from_orm(user) for user in users]
 
 
-##############################################################################
+# ========================================
+#   Scan Endpoints
+# ========================================
+
 @api_router.get(
     "/scans",
     dependencies=[Depends(get_current_active_user)],
-    response_model=schemas.GetScansResponseModel,
+    response_model=scanSchema.GetScansResponseModel,
     tags=["Scans"],
 )
 async def list_scans(current_user: User = Depends(get_current_active_user)):
     """Retrieve a list of all scans."""
-    return scans.list_scans()
+    return scans.list_scans(current_user)
 
 
 @api_router.get(
     "/granularScans",
     dependencies=[Depends(get_current_active_user)],
-    # response_model=schemas.GetGranularScansResponseModel,
+    response_model=scanSchema.GetGranularScansResponseModel,
     tags=["Scans"],
 )
 async def list_granular_scans(current_user: User = Depends(get_current_active_user)):
     """Retrieve a list of granular scans. User must be authenticated."""
-    return scans.list_granular_scans()
+    return scans.list_granular_scans(current_user)
 
 
 @api_router.post(
     "/scans",
     dependencies=[Depends(get_current_active_user)],
-    # response_model=schemas.CreateScanResponseModel,
+    response_model=scanSchema.CreateScanResponseModel,
     tags=["Scans"],
 )
 async def create_scan(
-    scan_data: schemas.CreateScan, current_user: User = Depends(get_current_active_user)
+    scan_data: schemas.NewScan, current_user: User = Depends(get_current_active_user)
 ):
     """ Create a new scan."""
     return scans.create_scan(scan_data, current_user)
 
 
-@api_router.get("/scans/{scan_id}", response_model=schemas.Scan)
+@api_router.get(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetScanResponseModel,
+    tags=["Scans"]
+)
 async def get_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
-    """
-    Endpoint to retrieve a scan by its ID. User must be authenticated.
-
-    Args:
-        scan_id (str): The ID of the scan to retrieve.
-        current_user (User): The authenticated user, injected via Depends.
-
-    Returns:
-        The scan object.
-    """
-    return scans.get_scan(scan_id)
+    """Get a scan by its ID. User must be authenticated."""
+    return scans.get_scan(scan_id, current_user)
 
 
-@api_router.put("/scans/{scan_id}", response_model=schemas.Scan)
+@api_router.put(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.CreateScanResponseModel,
+    tags=["Scans"]
+)
 async def update_scan(
     scan_id: str,
-    scan_data: schemas.Scan,
+    scan_data: scanSchema.NewScan,
     current_user: User = Depends(get_current_active_user),
 ):
-    """
-    Endpoint to update a scan by its ID. User must be authenticated.
-
-    Args:
-        scan_id (str): The ID of the scan to update.
-        scan_data (ScanUpdate): The updated scan data.
-        current_user (User): The authenticated user, injected via Depends.
-
-    Returns:
-        The updated scan object.
-    """
-    return scans.update_scan(scan_id, scan_data)
+    """Update a scan by its ID."""
+    return scans.update_scan(scan_id, scan_data, current_user)
 
 
-@api_router.delete("/scans/{scan_id}")
+@api_router.delete(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GenericMessageResponseModel,
+    tags=["Scans"]
+)
 async def delete_scan(
     scan_id: str, current_user: User = Depends(get_current_active_user)
 ):
-    """
-    Endpoint to delete a scan by its ID. User must be authenticated.
-
-    Args:
-        scan_id (str): The ID of the scan to delete.
-        current_user (User): The authenticated user, injected via Depends.
-
-    Returns:
-        A confirmation message.
-    """
-    return scans.delete_scan(scan_id)
+    """Delete a scan by its ID."""
+    return scans.delete_scan(scan_id, current_user)
 
 
-@api_router.post("/scans/{scan_id}/run")
+@api_router.post(
+    "/scans/{scan_id}/run",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GenericMessageResponseModel,
+    tags=["Scans"]
+)
 async def run_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
-    """
-    Endpoint to manually run a scan by its ID. User must be authenticated.
-
-    Args:
-        scan_id (str): The ID of the scan to run.
-        current_user (User): The authenticated user, injected via Depends.
-
-    Returns:
-        A confirmation message that the scan has been triggered.
-    """
-    return scans.run_scan(scan_id)
+    """Manually run a scan by its ID"""
+    return scans.run_scan(scan_id, current_user)
 
 
-@api_router.post("/scheduler/invoke")
+@api_router.post(
+    "/scheduler/invoke",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Scans"]
+)
 async def invoke_scheduler(current_user: User = Depends(get_current_active_user)):
-    """
-    Endpoint to manually invoke the scan scheduler. User must be authenticated.
-
-    Args:
-        current_user (User): The authenticated user, injected via Depends.
-
-    Returns:
-        A confirmation message that the scheduler was invoked.
-    """
-    return scans.invoke_scheduler()
+    """Manually invoke the scan scheduler."""
+    response = await scans.invoke_scheduler(current_user)
+    return response

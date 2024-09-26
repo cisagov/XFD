@@ -206,84 +206,6 @@ class OrganizationalTags(BaseModel):
     updatedAt: datetime
     name: str
 
-class Scan(BaseModel):
-    """Scan schema."""
-    id: UUID
-    createdAt: datetime
-    updatedAt: datetime
-    name: str
-    arguments: Any
-    frequency: int
-    lastRun: Optional[datetime]
-    isGranular: bool
-    isUserModifiable: Optional[bool]
-    isSingleScan: bool
-    manualRunPending: bool
-    createdBy_id: Optional[Any]
-    tags: Optional[List[OrganizationalTags]]
-
-class ScanSchema(BaseModel):
-    """Scan type schema."""
-    
-    type: str = 'fargate' # Only 'fargate' is supported
-    description: str
-
-    # Whether scan is passive (not allowed to hit the domain).
-    isPassive: bool
-
-    # Whether scan is global. Global scans run once for all organizations, as opposed
-    # to non-global scans, which are run for each organization.
-    global_scan: bool
-
-    # CPU and memory for the scan. See this page for more information:
-    # https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-cpu-memory-error.html
-    cpu: Optional[str] = None
-    memory: Optional[str] = None
-
-    # A scan is "chunked" if its work is divided and run in parallel by multiple workers.
-    # To make a scan chunked, make sure it is a global scan and specify the "numChunks" variable,
-    # which corresponds to the number of workers that will be created to run the task.
-    # Chunked scans can only be run on scans whose implementation takes into account the
-    # chunkNumber and numChunks parameters specified in commandOptions.
-    numChunks: Optional[int] = None
-
-class GetScansResponseModel(BaseModel):
-    """Get Scans response model."""
-    scans: List[Scan]
-    schema: Dict[str, Any]
-    organizations: List[Dict[str, Any]]
-
-class GetGranularScansResponseModel(BaseModel):
-    """Get Scans response model."""
-    scans: List[Scan]
-    schema: Dict[str, Any]
-
-class IdSchema(BaseModel):
-    """Schema for ID objects."""
-    id: UUID
-
-class CreateScan(BaseModel):
-    """Create Scan Schema."""
-    name: str
-    arguments: Any
-    organizations: Optional[List[UUID]]
-    tags: Optional[List[IdSchema]]
-    frequency: int
-    frequencyUnit: str
-    isGranular: bool
-    isUserModifiable: Optional[bool]
-    isSingleScan: bool
-
-class CreateScanResponseModel(BaseModel):
-    """Create Scan Schema."""
-    name: str
-    arguments: Any
-    frequency: int
-    isGranular: bool
-    isUserModifiable: Optional[bool]
-    isSingleScan: bool
-    createdBy: Optional[Any]
-
 
 class ScanTask(BaseModel):
     """ScanTask schema."""
@@ -302,7 +224,6 @@ class ScanTask(BaseModel):
     queuedAt: Optional[datetime]
     organizationId: Optional[Any]
     scanId: Optional[Any]
-
 
 class SearchBody(BaseModel):
     """SearchBody schema."""

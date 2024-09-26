@@ -270,10 +270,11 @@ class Organization(models.Model):
     createdById = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
+    # TODO: Get rid of this, don't need Many To Many in both tables
     # Relationships with other models (Scan, OrganizationTag)
     granularScans = models.ManyToManyField('Scan', related_name='organizations', db_table="scan_organizations_organization")
     tags = models.ManyToManyField('OrganizationTag', related_name='organizations', db_table="organization_tag_organizations_organization")
-    allScanTasks = models.ManyToManyField('ScanTask', related_name='organizations', db_table="organization_tag_organizations_organization")
+    allScanTasks = models.ManyToManyField('ScanTask', related_name='organizations', db_table="scan_task_organizations_organization")
 
     class Meta:
         """The meta class for Organization."""
@@ -516,9 +517,9 @@ class Scan(models.Model):
 class ScanTask(models.Model):
     """The ScanTask model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
     status = models.TextField()
     type = models.TextField()
     fargateTaskArn = models.TextField(db_column="fargateTaskArn", blank=True, null=True)
@@ -528,16 +529,14 @@ class ScanTask(models.Model):
     startedAt = models.DateTimeField(db_column="startedAt", blank=True, null=True)
     finishedAt = models.DateTimeField(db_column="finishedAt", blank=True, null=True)
     queuedAt = models.DateTimeField(db_column="queuedAt", blank=True, null=True)
-    organizationId = models.ForeignKey(
-        Organization,
-        models.DO_NOTHING,
-        db_column="organizationId",
-        blank=True,
-        null=True,
-    )
     scanId = models.ForeignKey(
-        Scan, models.DO_NOTHING, db_column="scanId", blank=True, null=True
+        Scan, 
+        on_delete=models.DO_NOTHING, 
+        db_column="scanId", 
+        blank=True, 
+        null=True
     )
+    organizations = models.ManyToManyField('Organization', related_name='allScanTasks', db_table="scan_task_organizations_organization")
 
     class Meta:
         """The Meta class for ScanTask."""

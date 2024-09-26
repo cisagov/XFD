@@ -106,3 +106,80 @@ def get_current_active_user(
         )
     print(f"Authenticated user: {user.id}")
     return user
+
+
+def is_global_write_admin(current_user) -> bool:
+    """Check if the user has global write admin permissions."""
+    return current_user and current_user.userType == "globalAdmin"
+
+def is_global_view_admin(current_user) -> bool:
+    """Check if the user has global view permissions. """
+    return current_user and current_user.userType in ["globalView", "globalAdmin"]
+
+def is_regional_admin(current_user) -> bool:
+    """Check if the user has regional admin permissions."""
+    return current_user and current_user.userType in ["regionalAdmin", "globalAdmin"]
+
+
+# TODO: Below is a template of what these could be nut isn't tested
+# RECREATE ALL THE FUNCTIONS IN AUTH.TS
+
+# async def is_regional_admin_for_organization(request: Request, organization_id: str) -> bool:
+#     """
+#     Check if the user is a regional admin and if the organization belongs to their region.
+
+#     Args:
+#         request (Request): The FastAPI request object.
+#         organization_id (str): The ID of the organization.
+
+#     Returns:
+#         bool: True if the user is a regional admin for the organization, False otherwise.
+#     """
+#     current_user = request.state.user
+#     if not current_user or current_user.userType not in ["REGIONAL_ADMIN", "GLOBAL_ADMIN"]:
+#         return False
+
+#     user_region = current_user.regionId
+#     organization_region = await get_region(organization_id)
+
+#     return user_region == organization_region
+
+# def is_org_admin(request: Request, organization_id: str) -> bool:
+#     """
+#     Check if the user is an admin of the given organization.
+
+#     Args:
+#         request (Request): The FastAPI request object.
+#         organization_id (str): The ID of the organization.
+
+#     Returns:
+#         bool: True if the user is an admin of the organization, False otherwise.
+#     """
+#     current_user = request.state.user
+#     if not current_user:
+#         return False
+
+#     # Check if the user is a global admin
+#     if current_user.userType == "GLOBAL_ADMIN":
+#         return True
+
+#     # Check if the user is an admin for the given organization
+#     for role in current_user.roles:
+#         if role.organization.id == organization_id and role.role == 'admin':
+#             return True
+
+#     return False
+
+# def get_user_id(request: Request) -> str:
+#     """
+#     Returns the user's ID.
+
+#     Args:
+#         request (Request): The FastAPI request object.
+
+#     Returns:
+#         str: The ID of the current user.
+#     """
+#     current_user = request.state.user
+#     return current_user.id if current_user else None
+
