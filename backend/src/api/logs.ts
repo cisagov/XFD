@@ -146,9 +146,7 @@ const filterResultQueryset = async (qs: SelectQueryBuilder<Log>, filters) => {
 
   if (filters?.timestamp) {
     const timestampCondition = generateDateCondition(filters?.timestamp);
-    let date;
     try {
-      date = new Date(filters?.timestamp?.value);
     } catch (error) {}
     qs.andWhere(timestampCondition, {
       timestamp: new Date(filters?.timestamp?.value)
