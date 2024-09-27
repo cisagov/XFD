@@ -23,7 +23,7 @@ import * as reports from './reports';
 import * as savedSearches from './saved-searches';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { User, UserType, connectToDatabase } from '../models';
+import { Organization, User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
@@ -637,14 +637,28 @@ authenticatedRoute.post(
   '/v2/organizations/:organizationId/users',
   handlerToExpress(
     organizations.addUserV2,
-    (req, user) => {
+    async (req, user) => {
+      const orgId = req?.params?.organizationId;
+      const userId = req?.body?.userId;
+      const role = req?.body?.role;
+      if (orgId && userId) {
+        const orgRecord = await Organization.findOne({ where: { id: orgId } });
+        const userRecord = await User.findOne({ where: { id: userId } });
+        return {
+          timestamp: new Date(),
+          userPerformedAssignment: user?.data?.id,
+          organization: orgRecord,
+          role: role,
+          user: userRecord
+        };
+      }
       return {
         timestamp: new Date(),
         userId: user?.data?.id,
         updatePayload: req.body
       };
     },
-    'USER UPDATE'
+    'USER ASSIGNED'
   )
 );
 
@@ -675,7 +689,17 @@ authenticatedRoute.post(
   '/users',
   handlerToExpress(
     users.invite,
-    (req, user, responseBody) => {
+    async (req, user, responseBody) => {
+      const userId = user?.data?.id;
+      if (userId) {
+        const userRecord = await User.findOne({ where: { id: userId } });
+        return {
+          timestamp: new Date(),
+          userPerformedInvite: userRecord,
+          invitePayload: req.body,
+          createdUserRecord: responseBody
+        };
+      }
       return {
         timestamp: new Date(),
         userId: user.data?.id,
@@ -691,7 +715,19 @@ authenticatedRoute.delete(
   '/users/:userId',
   handlerToExpress(
     users.del,
-    (req, user, res) => {
+    async (req, user, res) => {
+      const userId = req?.params?.userId;
+      const userPerformedRemovalId = user?.data?.id;
+      if (userId && userPerformedRemovalId) {
+        const userPerformdRemovalRecord = await User.findOne({
+          where: { id: userPerformedRemovalId }
+        });
+        return {
+          timestamp: new Date(),
+          userPerformedRemoval: userPerformdRemovalRecord,
+          userRemoved: userId
+        };
+      }
       return {
         timestamp: new Date(),
         userPerformedRemoval: user.data?.id,
@@ -727,7 +763,7 @@ authenticatedRoute.put(
   checkGlobalAdminOrRegionAdmin,
   handlerToExpress(
     users.registrationApproval,
-    (req, user) => {
+    async (req, user) => {
       return {
         timestamp: new Date(),
         userId: user?.data?.id,

@@ -27,7 +27,7 @@ export type RecordMessage =
       request: Request,
       user: LoggerUserState,
       responseBody?: object
-    ) => RecordPayload)
+    ) => Promise<RecordPayload>)
   | RecordPayload;
 
 export class Logger {
@@ -65,7 +65,7 @@ export class Logger {
 
       const payload =
         typeof messageOrCB === 'function'
-          ? messageOrCB(this.request, this.user, parsedResponseBody)
+          ? await messageOrCB(this.request, this.user, parsedResponseBody)
           : messageOrCB;
       const logRecord = await this.logRep.create({
         payload: payload as object,
