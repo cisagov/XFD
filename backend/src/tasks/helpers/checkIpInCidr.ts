@@ -32,8 +32,7 @@ export default async (
         where: { id: org.parent.id },
         relations: ['sectors']
       });
-      console.log('parent');
-      console.log(parentOrg);
+      
       return parentOrg ? await isOrganizationExecutive(parentOrg) : false;
     }
     return false;
