@@ -55,12 +55,7 @@ export const TermsOfUse: React.FC = () => {
         issues.
       </p>
       <p>
-        CyHy Dashboard supports two types of users for your organization:
-        administrative users or view-only users. Administrative users can
-        add/delete domains for their organization, schedule and disable scans
-        for their organization, and invite others to create CyHy Dashboard
-        accounts to have access to the organization’s data. View-only users can
-        only view data provided to or collected by CyHy Dashboard.
+        Users can only view data provided to or collected by CyHy Dashboard.
       </p>
       {maximumRole === 'admin' && (
         <p>
