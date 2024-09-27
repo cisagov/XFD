@@ -1,5 +1,4 @@
 import { Organization } from './organization';
-import { Vulnerability } from './vulnerability';
 import { Scan } from './scan';
 
 export interface Product {
@@ -80,6 +79,43 @@ export interface Webpage {
   url: string;
   status: number;
   responseSize: number | null;
+}
+
+export interface Vulnerability {
+  id: string;
+  domain: Domain;
+  createdAt: string;
+  lastSeen: string | null;
+  title: string;
+  cve: string | null;
+  isKev?: string;
+  cwe: string | null;
+  cpe: string | null;
+  description: string;
+  cvss: number | null;
+  severity: string | null;
+  state: string;
+  source: string;
+  structuredData: { [x: string]: any };
+  substate: string;
+  notes: string;
+  actions: {
+    type: 'state-change' | 'comment';
+    state?: string;
+    substate?: string;
+    value?: string;
+    automatic: boolean;
+    userId: string | null;
+    userName: string | null;
+    date: string;
+  }[];
+  references: {
+    url: string;
+    name: string;
+    source: string;
+    tags: string[];
+  }[];
+  service: Service;
 }
 
 export interface Domain {
