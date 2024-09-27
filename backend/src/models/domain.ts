@@ -120,7 +120,7 @@ export class Domain extends BaseEntity {
     default: false
   })
   isFceb: boolean;
-  
+
   /** SSL Certificate information  */
   @Column({
     type: 'jsonb',
