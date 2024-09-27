@@ -24,7 +24,7 @@ import { useDomainApi } from 'hooks';
 import { DefinitionList } from './DefinitionList';
 // @ts-ignore:next-line
 import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { Webpage } from 'types/webpage';
+import { Webpage } from 'types/domain';
 import { useAuthContext } from 'context';
 import { Stack } from '@mui/system';
 

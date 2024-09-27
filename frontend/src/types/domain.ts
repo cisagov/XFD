@@ -1,6 +1,6 @@
 import { Organization } from './organization';
 import { Vulnerability } from './vulnerability';
-import { Webpage } from './webpage';
+import { Scan } from './scan';
 
 export interface Product {
   // Common name
@@ -66,6 +66,20 @@ export interface Service {
   products: Product[];
   productSource: string | null;
   serviceSource: string | null;
+}
+
+export interface Webpage {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  syncedAt: Date | null;
+  domain: Domain;
+  discoveredBy: Scan;
+  lastSeen: Date | null;
+  s3Key: string | null;
+  url: string;
+  status: number;
+  responseSize: number | null;
 }
 
 export interface Domain {
