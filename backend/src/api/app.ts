@@ -74,7 +74,7 @@ const handlerToExpress =
       const parsedBody = JSON.parse(sanitizer.sanitize(body));
       res.status(200).json(parsedBody);
     } catch (e) {
-      // Not a JSON body
+      // Not valid JSON - may be a string response.
       console.log('Error?', e);
       res.setHeader('content-type', 'text/plain');
       res.status(statusCode).send(sanitizer.sanitize(body));
@@ -692,9 +692,10 @@ authenticatedRoute.delete(
   handlerToExpress(
     users.del,
     (req, user, res) => {
-      console.log(req.params);
       return {
-        timestamp: new Date()
+        timestamp: new Date(),
+        userPerformedRemoval: user.data?.id,
+        userRemoved: req.params.userId
       };
     },
     'USER DENY/REMOVE'
@@ -727,7 +728,6 @@ authenticatedRoute.put(
   handlerToExpress(
     users.registrationApproval,
     (req, user) => {
-      console.log('here', req.params);
       return {
         timestamp: new Date(),
         userId: user?.data?.id,

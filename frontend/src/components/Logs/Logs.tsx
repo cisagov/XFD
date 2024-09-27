@@ -3,7 +3,8 @@ import {
   DialogContent,
   DialogTitle,
   Icon,
-  IconButton
+  IconButton,
+  Paper
 } from '@mui/material';
 import { Box } from '@mui/system';
 import {
@@ -162,41 +163,43 @@ export const Logs: FC<LogsProps> = () => {
 
   return (
     <Box>
-      <DataGrid
-        rows={logs.result}
-        columns={logCols}
-        filterMode="server"
-        slots={{
-          toolbar: CustomToolbar
-        }}
-        slotProps={{ toolbar: { multifilter: true } }}
-        onFilterModelChange={(model) => {
-          setFilters(model.items);
-        }}
-      />
-      <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        scroll="paper"
-        fullWidth
-        maxWidth="lg"
-      >
-        <DialogTitle>Payload Details</DialogTitle>
-        <DialogContent>
-          <Box
-            sx={{
-              fontSize: '12px',
-              padding: 2,
-              margin: 0,
-              backgroundColor: 'black',
-              color: 'white',
-              width: '100%'
-            }}
-          >
-            <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>
-          </Box>
-        </DialogContent>
-      </Dialog>
+      <Paper elevation={2} sx={{ width: '100%' }}>
+        <DataGrid
+          rows={logs.result}
+          columns={logCols}
+          filterMode="server"
+          slots={{
+            toolbar: CustomToolbar
+          }}
+          slotProps={{ toolbar: { multifilter: true } }}
+          onFilterModelChange={(model) => {
+            setFilters(model.items);
+          }}
+        />
+        <Dialog
+          open={openDialog}
+          onClose={() => setOpenDialog(false)}
+          scroll="paper"
+          fullWidth
+          maxWidth="lg"
+        >
+          <DialogTitle>Payload Details</DialogTitle>
+          <DialogContent>
+            <Box
+              sx={{
+                fontSize: '12px',
+                padding: 2,
+                margin: 0,
+                backgroundColor: 'black',
+                color: 'white',
+                width: '100%'
+              }}
+            >
+              <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>
+            </Box>
+          </DialogContent>
+        </Dialog>
+      </Paper>
     </Box>
   );
 };
