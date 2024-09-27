@@ -41,7 +41,7 @@ export const handler = async (commandOptions: CommandOptions) => {
   }
 
   qs.andWhere(
-    'domain.isFceb = true OR (domain.isFceb = false AND domain.FromCidr = true)'
+    'domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true)'
   );
 
   const domainIds = (await qs.getMany()).map((e) => e.id);

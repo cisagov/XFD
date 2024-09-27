@@ -5,8 +5,9 @@ import { Organization, connectToDatabase } from '../models';
 
 
 export const handler = async (commandOptions: CommandOptions) => {
-    await connectToDatabase()
-    const organizations = await Organization.find({ relations: ['domains'] });
+    const db_connection = await connectToDatabase()
+    const organization_repo = db_connection.getRepository(Organization);
+    const organizations = await organization_repo.find({ relations: ['domains'] });
 
     for (const organization of organizations) {
         for (const domain of organization.domains) {

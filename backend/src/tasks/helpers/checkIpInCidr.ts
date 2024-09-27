@@ -1,22 +1,40 @@
 import { getRepository } from 'typeorm';
-import { Cidr, DL_Organization,connectToDatalake } from '../../models';
+import { Cidr, DL_Organization,connectToDatalake2 } from '../../models';
 
 export default async (ip: string, acronym: string): Promise<{ isInCidr: boolean; isExecutive: boolean }> => {
-    await connectToDatalake()
+    // await connectToDatalake2()
     // const cidrRepository = getRepository(Cidr);
     // const organizationRepository = getRepository(DL_Organization);
 
     // Find the organization by acronym
-    const organization = await DL_Organization.findOne({
+    const mdl_connection = await connectToDatalake2()
+    const mdl_organization_repo = mdl_connection.getRepository(DL_Organization);
+    const organization = await mdl_organization_repo.findOne({
         where: { acronym },
-        relations: ['cidrs','sectors'],
+        relations: ['cidrs','sectors','parent'],
     });
 
     if (!organization) {
-        throw new Error(`Organization with acronym ${acronym} not found.`);
+        return {isInCidr:false, isExecutive: false}
     }
 
-    const isExecutive = organization.sectors.some(sector => sector.acronym === 'EXECUTIVE');
+    const isOrganizationExecutive = async (org: DL_Organization): Promise<boolean> => {
+        if (org.sectors.some(sector => sector.acronym === 'EXECUTIVE')) {
+            return true;
+        }
+        if (org.parent) {
+            const parentOrg = await mdl_organization_repo.findOne({
+                where: { id: org.parent.id },
+                relations: ['sectors'],
+            });
+            console.log('parent')
+            console.log(parentOrg)
+            return parentOrg ? await isOrganizationExecutive(parentOrg) : false;
+        }
+        return false;
+    };
+
+    const isExecutive = await isOrganizationExecutive(organization);
 
     // Get CIDRs related to the organization
     const cidrs = organization.cidrs.map(cidr => cidr.network);
@@ -26,12 +44,13 @@ export default async (ip: string, acronym: string): Promise<{ isInCidr: boolean;
     }
 
     // Check if the IP is in any of the CIDRs
-    const result = await Cidr
+    const mdl_cidr_repo = mdl_connection.getRepository(Cidr);
+    const result = await mdl_cidr_repo
         .createQueryBuilder('cidr')
-        .where('cidr.cidr >>= :ip', { ip })
+        .where('cidr.network >>= :ip', { ip })
         .andWhere('cidr.id IN (:...cidrIds)', { cidrIds: organization.cidrs.map(cidr => cidr.id) })
         .getCount();
 
-        
+
     return { isInCidr: result > 0, isExecutive };
 }
