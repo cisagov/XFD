@@ -50,7 +50,6 @@ export const RSCRegisterForm: React.FC<{
       );
       const data = await response.json();
       // Handle the response data here
-      console.log(data);
       return data;
     } catch (error) {
       // Handle any errors here
