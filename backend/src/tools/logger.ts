@@ -101,14 +101,13 @@ export class Logger {
   // Constructor takes a request and sets it to a class variable
   constructor(req: Request) {
     this.request = req;
-    this.logId = '123123123123';
     const authToken = req.headers.authorization;
     if (authToken) {
       const tokenPayload = decode(
         authToken as string
       ) as unknown as AccessTokenPayload;
       this.token = tokenPayload;
-      User.findOne({ id: this.token.id }).then((user) => {
+      User.findOne({ id: this?.token?.id }).then((user) => {
         if (user) {
           this.user = { data: user, ready: true, attempts: 0 };
         }
