@@ -1,15 +1,13 @@
 import { Request } from 'express';
-import { decode } from 'jsonwebtoken';
-import { User } from '../models';
-import { attempt, unescape } from 'lodash';
+import * as jwt from 'jsonwebtoken';
+import { ApiKey, User } from '../models';
 import { Log } from '../models/log';
 import { getRepository, Repository } from 'typeorm';
+import { UserToken } from 'src/api/auth';
+import { createHash } from 'crypto';
 
 type AccessTokenPayload = {
   id: string;
-  email: string;
-  iat: string;
-  exp: string;
 };
 
 type LoggerUserState = {
@@ -25,7 +23,7 @@ type RecordPayload = object & {
 export type RecordMessage =
   | ((
       request: Request,
-      user: LoggerUserState,
+      token: AccessTokenPayload | undefined,
       responseBody?: object
     ) => Promise<RecordPayload>)
   | RecordPayload;
@@ -48,13 +46,13 @@ export class Logger {
     responseBody?: object | string
   ) {
     try {
-      if (!this.user.ready && this.user.attempts > 0) {
-        await this.fetchUser();
-      }
-
       if (!this.logRep) {
         const logRepository = getRepository(Log);
         this.logRep = logRepository;
+      }
+
+      if (!this.token) {
+        await this.parseToken();
       }
 
       const parsedResponseBody =
@@ -65,8 +63,9 @@ export class Logger {
 
       const payload =
         typeof messageOrCB === 'function'
-          ? await messageOrCB(this.request, this.user, parsedResponseBody)
+          ? await messageOrCB(this.request, this.token, parsedResponseBody)
           : messageOrCB;
+
       const logRecord = await this.logRep.create({
         payload: payload as object,
         createdAt: payload?.timestamp,
@@ -80,41 +79,34 @@ export class Logger {
     }
   }
 
-  async fetchUser() {
-    if (this.token) {
-      const user = await User.findOne({ id: this.token.id });
-      if (user) {
-        this.user = {
-          data: user,
-          ready: true,
-          attempts: 0
-        };
+  async parseToken() {
+    const authToken = this.request.headers.authorization;
+    // Test if API key, e.g. a 32 digit hex string
+    if (authToken && /^[A-Fa-f0-9]{32}$/.test(authToken ?? '')) {
+      const apiKey = await ApiKey.findOne(
+        {
+          hashedKey: createHash('sha256').update(authToken).digest('hex')
+        },
+        { relations: ['user'] }
+      );
+      if (!apiKey) throw 'Invalid API key';
+      this.token = { id: apiKey.user.id };
+      apiKey.lastUsed = new Date();
+      apiKey.save();
+    } else {
+      if (authToken) {
+        const parsedUserFromJwt = jwt.verify(
+          authToken,
+          process.env.JWT_SECRET!
+        ) as UserToken;
+        this.token = { id: parsedUserFromJwt.id };
       }
-      this.user = {
-        data: undefined,
-        ready: false,
-        attempts: this.user.attempts + 1
-      };
     }
   }
 
   // Constructor takes a request and sets it to a class variable
   constructor(req: Request) {
     this.request = req;
-    const authToken = req.headers.authorization;
-    if (authToken) {
-      const tokenPayload = decode(
-        authToken as string
-      ) as unknown as AccessTokenPayload;
-      this.token = tokenPayload;
-      if (this?.token?.id) {
-        User.findOne({ id: this?.token?.id }).then((user) => {
-          if (user) {
-            this.user = { data: user, ready: true, attempts: 0 };
-          }
-        });
-      }
-    }
   }
 }
 
