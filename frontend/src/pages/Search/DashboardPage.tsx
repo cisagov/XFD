@@ -1,1 +1,1 @@
-export { Dashboard as SearchPage } from './Dashboard';
+export { Dashboard as SearchPage } from './Inventory';

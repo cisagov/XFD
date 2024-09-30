@@ -20,7 +20,6 @@ exports[`Layout component matches snapshot 1`] = `
           <button
             aria-label="Skip to main content"
             class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-1a47txt-MuiButtonBase-root-MuiButton-root"
-            data-mui-internal-clone-element="true"
             tabindex="0"
             type="button"
           >
@@ -72,6 +71,36 @@ exports[`Layout component matches snapshot 1`] = `
               <hr
                 class="MuiDivider-root MuiDivider-fullWidth css-9mgopn-MuiDivider-root"
               />
+              <div
+                class="MuiBox-root css-19midj6"
+              >
+                <div
+                  class="SearchBar-wrapper css-1ysk2k2"
+                >
+                  <div
+                    class="SearchBar-inner MuiBox-root css-0"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium SearchBar-icon css-i4bv87-MuiSvgIcon-root"
+                      data-testid="SearchOutlinedIcon"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
+                      />
+                    </svg>
+                    <form>
+                      <input
+                        class="SearchBar-inp"
+                        placeholder="Search by Domain or IP"
+                        value=""
+                      />
+                    </form>
+                  </div>
+                </div>
+              </div>
               <div
                 class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation1 MuiAccordion-root MuiAccordion-rounded Mui-expanded MuiAccordion-gutters css-1elwnq4-MuiPaper-root-MuiAccordion-root"
               >
@@ -245,6 +274,11 @@ exports[`Layout component matches snapshot 1`] = `
             HEADER
           </div>
           <div
+            class="main-content"
+            id="main-content"
+            tabindex="-1"
+          />
+          <div
             class="MuiBox-root css-1ycota"
           />
           <div
@@ -257,7 +291,7 @@ exports[`Layout component matches snapshot 1`] = `
                 class="MuiGrid-root MuiGrid-container Footer-footerContainer css-11lq3yg-MuiGrid-root"
               >
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerLogo css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerLogo css-2shs9e-MuiGrid-root"
                 >
                   <a
                     class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways css-smdm7r-MuiTypography-root-MuiLink-root"
@@ -270,7 +304,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </a>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <a
                     class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-smdm7r-MuiTypography-root-MuiLink-root"
@@ -280,7 +314,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </a>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <p>
                     <a
@@ -293,7 +327,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </p>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <p>
                     <a
@@ -305,7 +339,7 @@ exports[`Layout component matches snapshot 1`] = `
                   </p>
                 </div>
                 <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-6vomyv-MuiGrid-root"
+                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-2shs9e-MuiGrid-root"
                 >
                   <p>
                     <a

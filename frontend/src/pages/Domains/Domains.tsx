@@ -35,7 +35,16 @@ export const Domains: React.FC = () => {
   const [filters, setFilters] = useState<Query<Domain>['filters']>([]);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
+  const [filterModel, setFilterModel] = useState({
+    items: filters.map((filter) => ({
+      id: filter.id,
+      field: filter.field,
+      value: filter.value,
+      operator: filter.operator
+    }))
+  });
+  // TO-DO
+  // Implement regional rollup on domains view to allow for proper domain drilldown from dashboard
   const fetchDomains = useCallback(
     async (q: Query<Domain>) => {
       try {
@@ -64,7 +73,6 @@ export const Domains: React.FC = () => {
     page: 0,
     pageSize: PAGE_SIZE,
     pageCount: 0,
-    sort: [],
     filters: filters
   });
 
@@ -73,7 +81,6 @@ export const Domains: React.FC = () => {
     fetchDomains({
       page: 1,
       pageSize: PAGE_SIZE,
-      sort: [],
       filters: []
     });
   }, [fetchDomains]);
@@ -182,21 +189,26 @@ export const Domains: React.FC = () => {
                 fetchDomains({
                   page: model.page + 1,
                   pageSize: model.pageSize,
-                  sort: paginationModel.sort,
                   filters: paginationModel.filters
                 });
               }}
               filterMode="server"
+              filterModel={filterModel}
               onFilterModelChange={(model) => {
                 const filters = model.items.map((item) => ({
                   id: item.field,
-                  value: item.value
+                  field: item.field,
+                  value: item.value,
+                  operator: item.operator
                 }));
                 setFilters(filters);
+                setFilterModel((prevFilterModel) => ({
+                  ...prevFilterModel,
+                  items: filters
+                }));
                 fetchDomains({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
-                  sort: paginationModel.sort,
                   filters: filters
                 });
               }}

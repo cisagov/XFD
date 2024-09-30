@@ -19,6 +19,7 @@ export * from './service';
 export * from './user';
 export * from './vulnerability';
 export * from './webpage';
+export * from './log';
 // Mini data lake models
 export * from './mini_data_lake/cert_scans';
 export * from './mini_data_lake/cidrs';
