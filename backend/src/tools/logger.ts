@@ -107,11 +107,13 @@ export class Logger {
         authToken as string
       ) as unknown as AccessTokenPayload;
       this.token = tokenPayload;
-      User.findOne({ id: this?.token?.id }).then((user) => {
-        if (user) {
-          this.user = { data: user, ready: true, attempts: 0 };
-        }
-      });
+      if (this?.token?.id) {
+        User.findOne({ id: this?.token?.id }).then((user) => {
+          if (user) {
+            this.user = { data: user, ready: true, attempts: 0 };
+          }
+        });
+      }
     }
   }
 }
