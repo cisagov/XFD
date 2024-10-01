@@ -40,10 +40,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     qs.where('organization.id=:org', { org: organizationId });
   }
 
-  qs.andWhere(
-    'domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true)'
-  );
-
   const domainIds = (await qs.getMany()).map((e) => e.id);
   console.log(`Got ${domainIds.length} domains.`);
   if (domainIds.length) {
