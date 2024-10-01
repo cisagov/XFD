@@ -128,7 +128,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=password
     logging:
-      driver: none
+      driver: "json-file"
 
   matomo:
     image: matomo:3.14.1
