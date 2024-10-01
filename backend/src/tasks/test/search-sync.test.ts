@@ -35,6 +35,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -59,6 +60,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -84,6 +86,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -109,6 +112,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -133,6 +137,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -165,6 +170,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -191,6 +197,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-10-10')
     }).save();
 
@@ -209,6 +216,7 @@ describe('search_sync', () => {
     const domain = await Domain.create({
       name: 'cisa.gov',
       organization,
+      isFceb: true,
       syncedAt: new Date('9999-09-19T19:57:32.346Z'),
       updatedAt: new Date('9999-09-20T19:57:32.346Z')
     }).save();
@@ -257,6 +265,7 @@ describe('search_sync', () => {
         Domain.create({
           name: 'cisa-' + Math.random() + '.gov',
           organization,
+          isFceb: true,
           syncedAt: new Date('9999-09-19T19:57:32.346Z'),
           updatedAt: new Date('9999-09-20T19:57:32.346Z')
         }).save()

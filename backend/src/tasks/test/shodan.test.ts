@@ -207,7 +207,9 @@ describe('shodan', () => {
           updatedAt: null,
           createdAt: null,
           syncedAt: null,
-          name: null
+          name: null,
+          isFceb: null,
+          fromCidr: null
         }))
     ).toMatchSnapshot();
     expect(domains.filter((e) => !e.organization).length).toEqual(0);
