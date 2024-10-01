@@ -23,6 +23,7 @@ import { handler as sslyze } from './tasks/sslyze';
 import { handler as trustymail } from './tasks/trustymail';
 import { handler as vulnSync } from './tasks/vuln-sync';
 import { handler as vulnScanningSync } from './tasks/vs_sync';
+import { handler as flagFloatingIps } from './tasks/flagFloatingIps';
 import { handler as xpanseSync } from './tasks/xpanse-sync';
 import { SCAN_SCHEMA } from './api/scans';
 
@@ -47,6 +48,7 @@ async function main() {
     dnstwist,
     dotgov,
     findomain,
+    flagFloatingIps,
     intrigueIdent,
     lookingGlass,
     portscanner,
