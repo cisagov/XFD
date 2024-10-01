@@ -32,7 +32,7 @@ export default async (
         where: { id: org.parent.id },
         relations: ['sectors']
       });
-      
+
       return parentOrg ? await isOrganizationExecutive(parentOrg) : false;
     }
     return false;
