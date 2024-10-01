@@ -36,7 +36,7 @@ class Domain(BaseModel):
     class Config:
         """Domain base schema config."""
 
-        orm_mode = True
+        from_attributes = True
         validate_assignment = True
 
 
@@ -52,6 +52,9 @@ class DomainFilters(BaseModel):
     vulnerabilities: Optional[str] = None
     tag: Optional[str] = None
 
+    class Config:
+        from_attributes = True
+
 
 class DomainSearch(BaseModel):
     """DomainSearch schema."""
@@ -61,3 +64,6 @@ class DomainSearch(BaseModel):
     order: str
     filters: Optional[DomainFilters]
     pageSize: Optional[int] = None
+
+    class Config:
+        from_attributes = True

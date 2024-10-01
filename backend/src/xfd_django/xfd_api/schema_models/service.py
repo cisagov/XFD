@@ -28,3 +28,6 @@ class Service(BaseModel):
     wappalyzerResults: Json[Any]
     domainId: Optional[Any]
     discoveredById: Optional[Any]
+
+    class Config:
+        from_attributes = True

@@ -26,6 +26,9 @@ class Scan(BaseModel):
     manualRunPending: bool
     createdBy: Optional[Any]
 
+    class Config:
+        from_attributes = True
+
 
 class ScanTask(BaseModel):
     """ScanTask schema."""
@@ -44,3 +47,6 @@ class ScanTask(BaseModel):
     queuedAt: Optional[datetime]
     organizationId: Optional[Any]
     scanId: Optional[Any]
+
+    class Config:
+        from_attributes = True

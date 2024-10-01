@@ -59,7 +59,7 @@ def create_jwt_token(user):
     payload = {
         "id": str(user.id),
         "email": user.email,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_TIMEOUT_HOURS),
+        "exp": datetime.now(datetime.timezone.utc) + timedelta(hours=JWT_TIMEOUT_HOURS),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -194,7 +194,7 @@ def get_current_active_user(token: str = Depends(oauth2_scheme)):
             )
         # Fetch the user by ID from the database
         user = User.objects.get(id=user_id)
-        print(f"User found: {user}")
+        print(f"User found: {user_to_dict(user)}")
         if user is None:
             print("User not found")
             raise HTTPException(

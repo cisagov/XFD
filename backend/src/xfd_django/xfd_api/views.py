@@ -17,26 +17,26 @@ Dependencies:
     - .models
 """
 # Standard Python Libraries
-import hashlib
-import secrets
 from typing import List, Optional
-import uuid
 
 # Third-Party Libraries
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from fastapi.responses import JSONResponse
-from pydantic import model_serializer
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from .auth import get_current_active_user, get_jwt_from_code, process_user
-from .login_gov import login
-from .models import ApiKey, Cpe, Cve, Domain, Organization, User, Vulnerability
-from .schemas import Cpe as CpeSchema
-from .schemas import Cve as CveSchema
-from .schemas import Domain as DomainSchema
-from .schemas import DomainSearch
-from .schemas import Organization as OrganizationSchema
-from .schemas import User as UserSchema
-from .schemas import Vulnerability as VulnerabilitySchema
+from .api_methods import api_key as api_key_methods
+from .api_methods import auth as auth_methods
+from .api_methods import notification as notification_methods
+from .auth import get_current_active_user
+from .login_gov import callback, login
+from .models import Cpe, Cve, Domain, Organization, User, Vulnerability
+from .schema_models.api_key import ApiKey as ApiKeySchema
+from .schema_models.cpe import Cpe as CpeSchema
+from .schema_models.cve import Cve as CveSchema
+from .schema_models.domain import Domain as DomainSchema
+from .schema_models.domain import DomainSearch
+from .schema_models.notification import Notification as NotificationSchema
+from .schema_models.organization import Organization as OrganizationSchema
+from .schema_models.user import User as UserSchema
+from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
 api_router = APIRouter()
 
@@ -256,8 +256,52 @@ async def update_vulnerability(vuln_id, data: VulnerabilitySchema):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+######################
+# Auth
+######################
+
+
+# Okta Callback
+@api_router.post("/auth/okta-callback", tags=["auth"])
+async def okta_callback(request: Request):
+    """Handle Okta Callback."""
+    return auth_methods.handle_okta_callback(request)
+
+
+# Login
+@api_router.get("/login", tags=["auth"])
+async def login_route():
+    """Handle V1 Login."""
+    return login()
+
+
+# V1 Callback
+@api_router.post("/auth/callback", tags=["auth"])
+async def callback_route(request: Request):
+    """Handle V1 Callback."""
+    body = await request.json()
+    try:
+        user_info = callback(body)
+        return user_info
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+######################
+# Users
+######################
+
+
+# GET Current User
+@api_router.get("/users/me", tags=["users"])
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
+# V2 GET Users
 @api_router.get(
     "/v2/users",
+    tags=["users"],
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
 )
@@ -304,191 +348,6 @@ async def get_users(
     return [UserSchema.from_orm(user) for user in users]
 
 
-@api_router.get("/login")
-async def login_route():
-    login_data = login()
-    return login_data
-
-
-@api_router.post("/auth/callback")
-async def callback_route(request: Request):
-    body = await request.json()
-    try:
-        user_info = callback(body)
-        return user_info
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-# @api_router.post("/auth/callback")
-# async def callback_endpoint(request: Request):
-#     body = request.json()
-#     print(f"body: {body}")
-# try:
-#     if os.getenv("USE_COGNITO"):
-#         token, user = await handle_cognito_callback(body)
-#     else:
-#         user_info = await handle_callback(body)
-#         user = await update_or_create_user(user_info)
-#         token = create_jwt_token(user)
-#     return JSONResponse(content={"token": token, "user": user})
-# except Exception as error:
-#     raise HTTPException(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
-#     ) from error
-
-
-@api_router.post("/auth/okta-callback")
-async def callback(request: Request):
-    print(f"Request from /auth/okta-callback: {str(request)}")
-    body = await request.json()
-    print(f"Request json from callback: {str(request)}")
-    print(f"Request json from callback: {body}")
-    print(f"Body type: {type(body)}")
-    code = body.get("code")
-    print(f"Code: {code}")
-    if not code:
-        return HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Code not found in request body",
-        )
-    jwt_data = await get_jwt_from_code(code)
-    print(f"JWT Data: {jwt_data}")
-    if jwt_data is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid authorization code or failed to retrieve tokens",
-        )
-    access_token = jwt_data.get("access_token")
-    refresh_token = jwt_data.get("refresh_token")
-    decoded_token = jwt_data.get("decoded_token")
-
-    resp = await process_user(decoded_token, access_token, refresh_token)
-    token = resp.get("token")
-
-    # print(f"Response from process_user: {json.dumps(resp)}")
-    # Response(status_code=200, set("crossfeed-token", resp.get("token"))
-    # return json.dumps(resp)
-    # Create a JSONResponse object to return the response and set the cookie
-    response = JSONResponse(
-        content={"message": "User authenticated", "data": resp, "token": token}
-    )
-    response.body = resp
-    # response.body = resp
-    response.set_cookie(key="token", value=token)
-
-    # Set the 'crossfeed-token' cookie
-    response.set_cookie(
-        key="crossfeed-token",
-        value=token,
-        # httponly=True,  # This makes the cookie inaccessible to JavaScript
-        # secure=True,    # Ensures the cookie is only sent over HTTPS
-        # samesite="Lax"  # Restricts when cookies are sent, adjust as necessary (e.g., "Strict" or "None")
-    )
-    return response
-
-
-# @api_router.post("/auth/login")
-# async def login_endpoint():
-#     print(f"Returning auth/login response")
-#     # result = await get_login_gov()
-#     # return JSONResponse(content=result)
-
-
-# @api_router.get("/login")
-# async def login_route():
-#     login_data = login()
-#     return login_data
-
-
-# @api_router.post("/auth/callback")
-# async def callback_route(request: Request):
-#     body = await request.json()
-#     try:
-#         user_info = callback(body)
-#         return user_info
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-
-# @api_router.post("/auth/callback")
-# async def callback_endpoint(request: Request):
-#     body = request.json()
-#     print(f"body: {body}")
-# try:
-#     if os.getenv("USE_COGNITO"):
-#         token, user = await handle_cognito_callback(body)
-#     else:
-#         user_info = await handle_callback(body)
-#         user = await update_or_create_user(user_info)
-#         token = create_jwt_token(user)
-#     return JSONResponse(content={"token": token, "user": user})
-# except Exception as error:
-#     raise HTTPException(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
-#     ) from error
-
-
-# @api_router.post("/auth/okta-callback")
-# async def callback(request: Request):
-#     print(f"Request from /auth/okta-callback: {str(request)}")
-#     body = await request.json()
-#     print(f"Request json from callback: {str(request)}")
-#     print(f"Request json from callback: {body}")
-#     print(f"Body type: {type(body)}")
-#     code = body.get("code")
-#     print(f"Code: {code}")
-#     if not code:
-#         return HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Code not found in request body",
-#         )
-#     jwt_data = await get_jwt_from_code(code)
-#     print(f"JWT Data: {jwt_data}")
-#     if jwt_data is None:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Invalid authorization code or failed to retrieve tokens",
-#         )
-#     access_token = jwt_data.get("access_token")
-#     refresh_token = jwt_data.get("refresh_token")
-#     decoded_token = jwt_data.get("decoded_token")
-
-#     resp = await process_user(decoded_token, access_token, refresh_token)
-#     token = resp.get("token")
-
-#     # print(f"Response from process_user: {json.dumps(resp)}")
-#     # Response(status_code=200, set("crossfeed-token", resp.get("token"))
-#     # return json.dumps(resp)
-#     # Create a JSONResponse object to return the response and set the cookie
-#     response = JSONResponse(content={"message": "User authenticated", "data": resp, "token": token})
-#     response.body = resp
-#     # response.body = resp
-#     response.set_cookie(key="token", value=token)
-
-#     # Set the 'crossfeed-token' cookie
-#     response.set_cookie(
-#         key="crossfeed-token",
-#         value=token,
-#         # httponly=True,  # This makes the cookie inaccessible to JavaScript
-#         # secure=True,    # Ensures the cookie is only sent over HTTPS
-#         # samesite="Lax"  # Restricts when cookies are sent, adjust as necessary (e.g., "Strict" or "None")
-#     )
-
-#     return response
-
-
-# @api_router.get("/users/me", response_model=User)
-# async def get_me(request: Request):
-#     user = get_current_active_user(request)
-#     return user
-
-
-@api_router.get("/users/me")
-async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    return current_user
-
-
 # @api_router.post("/users/me/acceptTerms")
 # async def accept_terms(request: Request):
 #     user = await get_current_active_user(request)
@@ -496,153 +355,109 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 #     body = await request.json()
 
 #     if not body:
-#         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request body")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request body"
+#         )
 
 #     user.dateAcceptedTerms = datetime.utcnow()
-#     user.acceptedTermsVersion = body.get('version')
+#     user.acceptedTermsVersion = body.get("version")
 #     user.save()
 
 #     return JSONResponse(content=user.to_dict(), status_code=status.HTTP_200_OK)
-#
-#
-# @api_router.post("/users/me/acceptTerms")
-# async def accept_terms(
-#     version: str, current_user: User = Depends(get_current_active_user)
-# ):
-#     current_user.date_accepted_terms = datetime.utcnow()
-#     current_user.accepted_terms_version = version
-#     current_user.save()
-#     return current_user
 
 
-# POST /apikeys/generate
-@api_router.post("/api-keys")
-async def generate_api_key(current_user: User = Depends(get_current_active_user)):
-    """
-    Generate API key for user
-
-    Args:
-        current_user (User, optional): _description_. Defaults to Depends(get_current_active_user).
-
-    Returns:
-        dict: ApiKey model dict
-    """
-    # Generate a random 16-byte API key
-    key = secrets.token_hex(16)
-
-    # Hash the API key
-    hashed_key = hashlib.sha256(key.encode()).hexdigest()
-
-    # Create the ApiKey record in the database
-    api_key = ApiKey.objects.create(
-        id=uuid.uuid4(),
-        hashedKey=hashed_key,
-        lastFour=key[-4:],  # Store the last four characters of the key
-        userId=current_user,
-    )
-
-    # Return the API key to the user (Do NOT store the plain key in the database)
-    return {
-        "id": api_key.id,
-        "status": "success",
-        "api_key": key,
-        "last_four": api_key.lastFour,
-    }
+######################
+# API-Keys
+######################
 
 
-# DELETE /apikeys/{keyId}
-@api_router.delete("/api-keys/{key_id}")
+# POST
+@api_router.post("/api-keys", response_model=ApiKeySchema, tags=["api-keys"])
+async def create_api_key(current_user: User = Depends(get_current_active_user)):
+    """Create api key."""
+    return api_key_methods.post(current_user)
+
+
+# DELETE
+@api_router.delete("/api-keys/{id}", tags=["api-keys"])
 async def delete_api_key(
-    key_id: str, current_user: User = Depends(get_current_active_user)
+    id: str, current_user: User = Depends(get_current_active_user)
 ):
-    try:
-        # Validate that key_id is a valid UUID
-        uuid.UUID(key_id)
-    except ValueError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Invalid API Key ID"
-        )
-
-    # Try to find the ApiKey by key_id and current user
-    try:
-        api_key = ApiKey.objects.get(id=key_id, userId=current_user)
-    except ApiKey.DoesNotExist:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="API Key not found"
-        )
-
-    # Delete the API Key
-    api_key.delete()
-    return {"status": "success", "message": "API Key deleted successfully"}
+    """Delete api key by id."""
+    return api_key_methods.delete(id, current_user)
 
 
-@api_router.get("/api-keys")
-async def get_api_keys():
-    """
-    Get all API keys.
-
-    Returns:
-        list: A list of all API keys.
-    """
-    try:
-        api_keys = ApiKey.objects.all()
-        return [
-            {
-                "id": api_key.id,
-                "created_at": api_key.createdAt,
-                "updated_at": api_key.updatedAt,
-                "last_used": api_key.lastUsed,
-                "hashed_key": api_key.hashedKey,
-                "last_four": api_key.lastFour,
-                "user_id": api_key.userId.id if api_key.userId else None,
-            }
-            for api_key in api_keys
-        ]
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
+# GET ALL
+@api_router.get("/api-keys", response_model=List[ApiKeySchema], tags=["api-keys"])
+async def get_all_api_keys(current_user: User = Depends(get_current_active_user)):
+    """Get all api keys."""
+    return api_key_methods.get_all(current_user)
 
 
-@api_router.post("/notifications")
-async def create_notification():
-    """
-    Create Notification
-    """
+# GET BY ID
+@api_router.get("/api-keys/{id}", response_model=ApiKeySchema, tags=["api-keys"])
+async def get_api_key(id: str, current_user: User = Depends(get_current_active_user)):
+    """Get api key by id."""
+    return api_key_methods.get_by_id(id, current_user)
+
+
+#########################
+#     Notifications
+#########################
+
+
+# POST
+@api_router.post(
+    "/notifications", response_model=NotificationSchema, tags=["notifications"]
+)
+async def create_notification(current_user: User = Depends(get_current_active_user)):
+    """Create notification key."""
+    # return notification_handler.post(current_user)
     return []
 
 
-@api_router.get("/notifications")
-async def get_all_notifications():
-    """
-    Get All Notifications
-    """
-    return []
+# DELETE
+@api_router.delete(
+    "/notifications/{id}", response_model=NotificationSchema, tags=["notifications"]
+)
+async def delete_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete notification by id."""
+    return notification_methods.delete(id, current_user)
 
 
-@api_router.get("/notifications/{id}")
-async def get_notification():
-    """
-    Get Notification by id
-    """
-    return []
+# GET ALL
+@api_router.get(
+    "/notifications", response_model=List[NotificationSchema], tags=["notifications"]
+)
+async def get_all_notifications(current_user: User = Depends(get_current_active_user)):
+    """Get all notifications."""
+    return notification_methods.get_all(current_user)
 
 
-@api_router.put("/notifications/{id}")
-async def update_notifications():
-    """
-    Update Notification
-    """
-    return []
+# GET BY ID
+@api_router.get(
+    "/notifications/{id}", response_model=NotificationSchema, tags=["notifications"]
+)
+async def get_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Get notification by id."""
+    return notification_methods.get_by_id(id, current_user)
 
 
-@api_router.delete("/notifications/{id}")
-async def delete_notifications():
-    """
-    Delete Notification
-    """
-    return []
+# UPDATE BY ID
+@api_router.put("/notifications/{id}", tags=["notifications"])
+async def update_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Update notification key by id."""
+    return notification_methods.delete(id, current_user)
 
 
-@api_router.get("/notifications/508-banner")
-async def notification_banner():
-    """ """
-    return ""
+# GET 508 Banner
+@api_router.get("/notifications/508-banner", tags=["notifications"])
+async def get_508_banner(current_user: User = Depends(get_current_active_user)):
+    """Get notification by id."""
+    return notification_methods.get_508_banner(current_user)

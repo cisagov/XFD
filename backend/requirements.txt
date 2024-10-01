@@ -4,5 +4,7 @@ fastapi==0.111.0
 mangum==0.17.0
 psycopg2-binary
 PyJWT
+pytest
+pytest-django
 requests==2.32.3
 uvicorn==0.30.1

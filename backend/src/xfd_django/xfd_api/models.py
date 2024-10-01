@@ -245,7 +245,7 @@ class Notification(models.Model):
 class Organization(models.Model):
     """The Organization model."""
 
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, serialize=True)
     createdAt = models.DateTimeField(db_column="createdAt")
     updatedAt = models.DateTimeField(db_column="updatedAt")
     acronym = models.CharField(unique=True, blank=True, null=True)

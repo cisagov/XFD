@@ -33,7 +33,7 @@ def random_string(length):
     return secrets.token_hex(length // 2)
 
 
-# 1. Login function that returns authorization URL, state, and nonce
+# Login function that returns authorization URL, state, and nonce
 def login():
     """Equivalent function to initiate OpenID Connect login."""
     # Fetch OpenID Connect configuration
@@ -55,7 +55,7 @@ def login():
     return {"url": authorization_url, "state": state, "nonce": nonce}
 
 
-# 2. Callback function to exchange authorization code for tokens and user info
+# Callback function to exchange authorization code for tokens and user info
 def callback(body):
     """Equivalent function to handle OpenID Connect callback."""
     config_response = requests.get(discovery_url)
@@ -86,6 +86,7 @@ def callback(body):
 
     # Decode the ID token without verifying the signature (optional depending on your security model)
     decoded_token = jwt.decode(id_token, options={"verify_signature": False})
+    print(f"Decoded Token from login_gov: {decoded_token}")
     return decoded_token
 
 

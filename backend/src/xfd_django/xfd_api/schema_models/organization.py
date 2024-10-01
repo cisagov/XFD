@@ -30,3 +30,6 @@ class Organization(BaseModel):
     county: Optional[str]
     countyFips: Optional[int]
     type: Optional[str]
+
+    class Config:
+        from_attributes = True
