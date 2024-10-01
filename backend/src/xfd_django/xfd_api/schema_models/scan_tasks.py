@@ -21,6 +21,7 @@ class ScanTaskSearch(BaseModel):
     order: str
     filters: Any
 
+
 class ScanTaskList(BaseModel):
     """Single scan-task schema."""
 
@@ -39,11 +40,13 @@ class ScanTaskList(BaseModel):
     scan: Optional[Scan]
     organization: Optional[List[Organization]] = []
 
+
 class ScanTaskListResponse(BaseModel):
     """Scan-task list schema."""
 
     result: List[ScanTaskList]
     count: int
+
 
 class GenericResponse(BaseModel):
     """Generic scan task response."""

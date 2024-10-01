@@ -24,8 +24,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import UUID4
 
-from .api_methods import scan
-from .api_methods import scan_tasks
+from .api_methods import scan, scan_tasks
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
@@ -430,7 +429,8 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     tags=["Scan Tasks"],
 )
 async def list_scan_tasks(
-    search_data: scanTaskSchema.ScanTaskSearch, current_user: User = Depends(get_current_active_user)
+    search_data: scanTaskSchema.ScanTaskSearch,
+    current_user: User = Depends(get_current_active_user),
 ):
     """List scan tasks based on filters."""
     return scan_tasks.list_scan_tasks(search_data, current_user)
