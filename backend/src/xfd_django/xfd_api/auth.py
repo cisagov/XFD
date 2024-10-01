@@ -81,7 +81,11 @@ def get_tag_organizations(current_user, tag_id: str) -> list[str]:
         return []
 
     # Fetch the OrganizationTag and its related organizations
-    tag = OrganizationTag.objects.prefetch_related("organizations").filter(id=tag_id).first()
+    try:
+        tag = OrganizationTag.objects.prefetch_related("organizations").filter(id=tag_id).first()
+    except Exception:
+        return []
+
     if tag:
         # Return a list of organization IDs
         return [org.id for org in tag.organizations.all()]

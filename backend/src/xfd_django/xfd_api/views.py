@@ -22,8 +22,10 @@ from typing import List, Optional
 
 # Third-Party Libraries
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import UUID4
 
 from .api_methods import scan
+from .api_methods import scan_tasks
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
@@ -34,6 +36,7 @@ from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerabi
 from .auth import get_current_active_user
 from .models import Assessment, User
 from .schema_models import scan as scanSchema
+from .schema_models import scan_tasks as scanTaskSchema
 from .schema_models.assessment import Assessment
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
@@ -413,3 +416,46 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     """Manually invoke the scan scheduler."""
     response = await scan.invoke_scheduler(current_user)
     return response
+
+
+# ========================================
+#   Scan Task Endpoints
+# ========================================
+
+
+@api_router.post(
+    "/scan-tasks/search",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanTaskSchema.ScanTaskListResponse,
+    tags=["Scan Tasks"],
+)
+async def list_scan_tasks(
+    search_data: scanTaskSchema.ScanTaskSearch, current_user: User = Depends(get_current_active_user)
+):
+    """List scan tasks based on filters."""
+    return scan_tasks.list_scan_tasks(search_data, current_user)
+
+
+@api_router.post(
+    "/scan-tasks/{scan_task_id}/kill",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Scan Tasks"],
+)
+async def kill_scan_tasks(
+    scan_task_id: UUID4, current_user: User = Depends(get_current_active_user)
+):
+    """Kill a scan task."""
+    return scan_tasks.kill_scan_task(scan_task_id, current_user)
+
+
+@api_router.get(
+    "/scan-tasks/{scan_task_id}/logs",
+    dependencies=[Depends(get_current_active_user)],
+    # response_model=scanTaskSchema.GenericResponse,
+    tags=["Scan Tasks"],
+)
+async def get_scan_task_logs(
+    scan_task_id: UUID4, current_user: User = Depends(get_current_active_user)
+):
+    """Get logs from a particular scan task."""
+    return scan_tasks.get_scan_task_logs(scan_task_id, current_user)
