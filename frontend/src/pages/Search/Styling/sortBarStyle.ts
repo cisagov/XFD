@@ -30,20 +30,12 @@ export const Root = styled('div')(({ theme }) => ({
     flexFlow: 'row nowrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: '0.2rem 1rem 0.5rem 1rem',
+    padding: '0',
     color: '#4e4e4e',
     margin: '0.5rem 0',
     boxShadow: ({ isFixed }: Props) =>
       isFixed ? '0px 1px 2px rgba(0, 0, 0, 0.15)' : 'none',
     transition: 'box-shadow 0.3s linear',
-    '& button': {
-      outline: 'standard',
-      border: 'none',
-      color: '#4e4e4e',
-      background: 'none',
-      cursor: 'pointer',
-      textDecoration: 'underline'
-    },
     '& *:focus': {
       outline: 'standard'
     },

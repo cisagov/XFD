@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import classes from './Risk.module.scss';
 import { Card, CardContent, Grid, Paper, Typography } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
@@ -7,7 +7,7 @@ import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityBarChart from './VulnerabilityBarChart';
 import * as RiskStyles from './style';
 import { getSeverityColor, offsets, severities } from './utils';
-import { useAuthContext } from 'context';
+import { ContextType, useAuthContext } from 'context';
 import { geoCentroid } from 'd3-geo';
 import {
   ComposableMap,
@@ -21,6 +21,12 @@ import { scaleLinear } from 'd3-scale';
 import { Vulnerability } from 'types';
 import { Stats } from 'types/stats';
 import { UpdateStateForm } from 'components/Register';
+import {
+  ORGANIZATION_FILTER_KEY,
+  OrganizationShallow,
+  REGION_FILTER_KEY
+} from 'components/RegionAndOrganizationFilters';
+import { withSearch } from '@elastic/react-search-ui';
 
 export interface Point {
   id: string;
@@ -48,9 +54,8 @@ let colorScale = scaleLinear<string>()
   .domain([0, 1])
   .range(['#c7e8ff', '#135787']);
 
-const Risk: React.FC = (props) => {
-  const { currentOrganization, showAllOrganizations, showMaps, user, apiPost } =
-    useAuthContext();
+const Risk: React.FC<ContextType & {}> = ({ filters, addFilter }) => {
+  const { showMaps, user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
@@ -63,18 +68,32 @@ const Risk: React.FC = (props) => {
 
   // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
+  const riskFilters = useMemo(() => {
+    const regionFilters = filters.find(
+      (filter) => filter.field === REGION_FILTER_KEY
+    );
+    const organizationFilters = filters.find(
+      (filter) => filter.field === ORGANIZATION_FILTER_KEY
+    );
+    return {
+      regions:
+        regionFilters && regionFilters.values.length > 0
+          ? regionFilters.values
+          : [],
+      organizations:
+        organizationFilters && organizationFilters.values.length > 0
+          ? organizationFilters.values.map(
+              (item: OrganizationShallow) => item.id
+            )
+          : []
+    };
+  }, [filters]);
+
   const fetchStats = useCallback(
     async (orgId?: string) => {
       const { result } = await apiPost<ApiResponse>('/stats', {
         body: {
-          filters:
-            (!orgId && showAllOrganizations) || !currentOrganization
-              ? {}
-              : orgId || 'rootDomains' in currentOrganization
-              ? {
-                  organization: orgId ? orgId : currentOrganization?.id
-                }
-              : { tag: currentOrganization.id }
+          filters: riskFilters
         }
       });
       const max = Math.max(...result.vulnerabilities.byOrg.map((p) => p.value));
@@ -83,12 +102,13 @@ const Risk: React.FC = (props) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [showAllOrganizations, apiPost, currentOrganization]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [riskFilters]
   );
 
   useEffect(() => {
     fetchStats();
-  }, [fetchStats]);
+  }, [fetchStats, riskFilters]);
 
   useEffect(() => {
     if (user) {
@@ -108,7 +128,7 @@ const Risk: React.FC = (props) => {
     findFn: (geo: any) => Point | undefined;
     type: string;
   }) => (
-    <Paper elevation={0} className={cardRoot}>
+    <Paper elevation={0}>
       <div className={classes.chart}>
         <div className={header}>
           <h2>{title}</h2>
@@ -330,5 +350,25 @@ const Risk: React.FC = (props) => {
     </Grid>
   );
 };
+
+export const RiskWithSearch = withSearch(
+  ({
+    addFilter,
+    removeFilter,
+    filters,
+    facets,
+    clearFilters,
+    searchTerm,
+    setSearchTerm
+  }: ContextType) => ({
+    addFilter,
+    removeFilter,
+    filters,
+    facets,
+    clearFilters,
+    searchTerm,
+    setSearchTerm
+  })
+)(Risk);
 
 export default Risk;

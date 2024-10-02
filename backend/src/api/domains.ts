@@ -34,6 +34,10 @@ class DomainFilters {
 
   @IsString()
   @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
   reverseName?: string;
 
   @IsString()
@@ -85,6 +89,11 @@ class DomainSearch {
     if (this.filters?.reverseName) {
       qs.andWhere('domain.name ILIKE :name', {
         name: `%${this.filters?.reverseName}%`
+      });
+    }
+    if (this.filters?.name) {
+      qs.andWhere('domain.name ILIKE :name', {
+        name: `%${this.filters?.name}%`
       });
     }
     if (this.filters?.ip) {
@@ -161,6 +170,7 @@ class DomainSearch {
  */
 export const list = wrapHandler(async (event) => {
   if (!isGlobalViewAdmin(event) && getOrgMemberships(event).length === 0) {
+    console.log('returning no results');
     return {
       statusCode: 200,
       body: JSON.stringify({

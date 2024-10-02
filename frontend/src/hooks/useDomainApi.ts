@@ -1,6 +1,7 @@
 import { Query, Domain } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
+import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
 
 export interface DomainQuery extends Query<Domain> {
   showAll?: boolean;
@@ -18,23 +19,27 @@ export const useDomainApi = (showAll?: boolean) => {
   const { currentOrganization, apiPost, apiGet } = useAuthContext();
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
-      const { page, sort, filters, pageSize = PAGE_SIZE } = query;
-
+      const { page, filters, pageSize = PAGE_SIZE } = query;
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
           (accum, next) => ({
             ...accum,
-            [next.id]: next.value
+            [next.field]: next.value
           }),
           {}
         );
-
-      if (!showAll && currentOrganization) {
-        if ('rootDomains' in currentOrganization)
-          tableFilters['organization'] = currentOrganization.id;
-        else tableFilters['tag'] = currentOrganization.id;
+      let userOrgIsExcluded = false;
+      ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+        if (currentOrganization?.name.toLowerCase().includes(exc)) {
+          userOrgIsExcluded = true;
+        }
+      });
+      if (currentOrganization && !userOrgIsExcluded) {
+        tableFilters['organization'] = currentOrganization.id;
       }
+
+      console.log('filters here', tableFilters);
 
       const { result, count, url } = await apiPost<ApiResponse>(
         doExport ? '/domain/export' : '/domain/search',
@@ -42,8 +47,6 @@ export const useDomainApi = (showAll?: boolean) => {
           body: {
             pageSize,
             page,
-            sort: sort[0]?.id ?? 'name',
-            order: sort[0]?.desc ? 'DESC' : 'ASC',
             filters: tableFilters
           }
         }
@@ -56,7 +59,7 @@ export const useDomainApi = (showAll?: boolean) => {
         pageCount: Math.ceil(count / pageSize)
       };
     },
-    [apiPost, showAll, currentOrganization]
+    [apiPost, currentOrganization]
   );
 
   const getDomain = useCallback(

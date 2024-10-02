@@ -11,12 +11,12 @@ interface SearchProviderProps {
   children: React.ReactNode;
 }
 export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
-  const { apiPost, currentOrganization, showAllOrganizations } =
-    useAuthContext();
+  const { apiPost } = useAuthContext();
 
   const config = {
     debug: false,
     alwaysSearchOnInitialLoad: false,
+    trackUrlState: false,
     initialState: {
       resultsPerPage: 15,
       sortField: 'name',
@@ -66,11 +66,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         sortDirection,
         sortField
       };
-      if (!showAllOrganizations && currentOrganization) {
-        if ('rootDomains' in currentOrganization)
-          body.organizationId = currentOrganization.id;
-        else body.tagId = currentOrganization.id;
-      }
+
       const responseJson = await apiPost<ApiResponse>('/search', {
         body
       });
@@ -85,7 +81,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   return (
     <ESProvider
       config={config}
-      key={`es-provider-${currentOrganization?.name}-${showAllOrganizations}`}
+      // key={`es-provider-${currentOrganization?.name}-${showAllOrganizations}`}
     >
       {children}
     </ESProvider>

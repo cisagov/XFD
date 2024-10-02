@@ -62,7 +62,7 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     '& h3': {
       textAlign: 'center'
     },
-    overflow: 'hidden'
+    overflow: 'auto'
   },
   [`& .${classesRisk.chartSmall}`]: {
     height: '85%'
@@ -93,7 +93,6 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     padding: '20px 30px'
   },
   [`& .${classesRisk.header}`]: {
-    height: '60px',
     backgroundColor: '#F8F9FA',
     top: 0,
     width: '100%',
@@ -132,6 +131,7 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     position: 'relative',
     flex: '1',
     width: '100%',
+    height: '100%',
     display: 'flex',
     flexFlow: 'row nowrap',
     alignItems: 'stretch',

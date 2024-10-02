@@ -17,7 +17,7 @@ import { handler as portscanner } from './tasks/portscanner';
 import { handler as rootDomainSync } from './tasks/rootDomainSync';
 import { handler as rscSync } from './tasks/rscSync';
 import { handler as savedSearch } from './tasks/saved-search';
-import { handler as searchSync } from './tasks/search-sync';
+import { handler as searchSync } from './tasks/search-sync-domains';
 import { handler as shodan } from './tasks/shodan';
 import { handler as sslyze } from './tasks/sslyze';
 import { handler as trustymail } from './tasks/trustymail';

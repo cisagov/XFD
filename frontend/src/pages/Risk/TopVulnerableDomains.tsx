@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import { Chip, Tooltip } from '@mui/material';
+import { Chip, Pagination, Tooltip } from '@mui/material';
 import { Point, VulnSeverities } from './Risk';
 import { useState } from 'react';
 import { Link, useHistory } from 'react-router-dom';
@@ -12,7 +12,6 @@ import {
   getAllVulnColor
 } from './utils';
 import * as RiskStyles from './style';
-import { Pagination } from '@mui/lab';
 
 const TopVulnerableDomains = (props: { data: Point[] }) => {
   const history = useHistory();
@@ -71,6 +70,11 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
   //Custom Bar Layer to allow for top to bottom tab navigation
   const CustomBarLayer = ({ bars }: { bars: any[]; [key: string]: any }) => {
     const reversedBars = [...bars].reverse();
+    const filteredVulnTableLink = '/inventory/vulnerabilities';
+    const filteredVulnTableLinkHandler = (
+      filteredVulnTableLink: string,
+      domain: string
+    ) => history.push(filteredVulnTableLink, { domain: domain });
     return reversedBars.map((bar) => (
       <Tooltip
         arrow
@@ -101,9 +105,19 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
           } in Domain:${' '}
           ${bar.data.indexValue}`}
             onClick={() => {
-              history.push(
-                `/inventory/vulnerabilities?domain=${bar.data.label}&severity=${bar.data.id}`
+              filteredVulnTableLinkHandler(
+                filteredVulnTableLink,
+                bar.data.indexValue
               );
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                filteredVulnTableLinkHandler(
+                  filteredVulnTableLink,
+                  bar.data.indexValue
+                );
+              }
             }}
           />
         </g>

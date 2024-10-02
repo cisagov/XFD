@@ -13,15 +13,17 @@ import * as search from './search';
 import * as vulnerabilities from './vulnerabilities';
 import * as organizations from './organizations';
 import * as scans from './scans';
+import * as logs from './logs';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
+import * as regions from './regions';
 import * as apiKeys from './api-keys';
 import * as reports from './reports';
 import * as savedSearches from './saved-searches';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { User, UserType, connectToDatabase } from '../models';
+import { Organization, User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
@@ -551,6 +553,10 @@ authenticatedRoute.post('/api-keys', handlerToExpress(apiKeys.generate));
 authenticatedRoute.delete('/api-keys/:keyId', handlerToExpress(apiKeys.del));
 
 authenticatedRoute.post('/search', handlerToExpress(search.search));
+authenticatedRoute.post(
+  '/search/organizations',
+  handlerToExpress(searchOrganizations.searchOrganizations)
+);
 authenticatedRoute.post('/search/export', handlerToExpress(search.export_));
 authenticatedRoute.get('/cpes/:id', handlerToExpress(cpes.get));
 authenticatedRoute.get('/cves/:id', handlerToExpress(cves.get));
@@ -592,6 +598,7 @@ authenticatedRoute.delete(
   handlerToExpress(savedSearches.del)
 );
 authenticatedRoute.get('/scans', handlerToExpress(scans.list));
+authenticatedRoute.post('/logs/search', handlerToExpress(logs.list));
 authenticatedRoute.get('/granularScans', handlerToExpress(scans.listGranular));
 authenticatedRoute.post('/scans', handlerToExpress(scans.create));
 authenticatedRoute.get('/scans/:scanId', handlerToExpress(scans.get));
@@ -629,6 +636,7 @@ authenticatedRoute.get(
   '/organizations/regionId/:regionId',
   handlerToExpress(organizations.getByRegionId)
 );
+authenticatedRoute.get('/regions', handlerToExpress(regions.getAll));
 authenticatedRoute.post(
   '/organizations',
   handlerToExpress(organizations.create)
@@ -648,12 +656,39 @@ authenticatedRoute.delete(
 );
 authenticatedRoute.post(
   '/v2/organizations/:organizationId/users',
-  handlerToExpress(organizations.addUserV2)
+  handlerToExpress(
+    organizations.addUserV2,
+    async (req, user) => {
+      const orgId = req?.params?.organizationId;
+      const userId = req?.body?.userId;
+      const role = req?.body?.role;
+      if (orgId && userId) {
+        const orgRecord = await Organization.findOne({ where: { id: orgId } });
+        const userRecord = await User.findOne({ where: { id: userId } });
+        return {
+          timestamp: new Date(),
+          userPerformedAssignment: user?.data?.id,
+          organization: orgRecord,
+          role: role,
+          user: userRecord
+        };
+      }
+      return {
+        timestamp: new Date(),
+        userId: user?.data?.id,
+        updatePayload: req.body
+      };
+    },
+    'USER ASSIGNED'
+  )
 );
+
 authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/approve',
   handlerToExpress(organizations.approveRole)
 );
+
+// TO-DO Add logging => /users => user has an org and you change them to a new organization
 authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/remove',
   handlerToExpress(organizations.removeRole)
@@ -671,9 +706,58 @@ authenticatedRoute.post(
   handlerToExpress(organizations.checkDomainVerification)
 );
 authenticatedRoute.post('/stats', handlerToExpress(stats.get));
-authenticatedRoute.post('/users', handlerToExpress(users.invite));
+authenticatedRoute.post(
+  '/users',
+  handlerToExpress(
+    users.invite,
+    async (req, user, responseBody) => {
+      const userId = user?.data?.id;
+      if (userId) {
+        const userRecord = await User.findOne({ where: { id: userId } });
+        return {
+          timestamp: new Date(),
+          userPerformedInvite: userRecord,
+          invitePayload: req.body,
+          createdUserRecord: responseBody
+        };
+      }
+      return {
+        timestamp: new Date(),
+        userId: user.data?.id,
+        invitePayload: req.body,
+        createdUserRecord: responseBody
+      };
+    },
+    'USER INVITE'
+  )
+);
 authenticatedRoute.get('/users', handlerToExpress(users.list));
-authenticatedRoute.delete('/users/:userId', handlerToExpress(users.del));
+authenticatedRoute.delete(
+  '/users/:userId',
+  handlerToExpress(
+    users.del,
+    async (req, user, res) => {
+      const userId = req?.params?.userId;
+      const userPerformedRemovalId = user?.data?.id;
+      if (userId && userPerformedRemovalId) {
+        const userPerformdRemovalRecord = await User.findOne({
+          where: { id: userPerformedRemovalId }
+        });
+        return {
+          timestamp: new Date(),
+          userPerformedRemoval: userPerformdRemovalRecord,
+          userRemoved: userId
+        };
+      }
+      return {
+        timestamp: new Date(),
+        userPerformedRemoval: user.data?.id,
+        userRemoved: req.params.userId
+      };
+    },
+    'USER DENY/REMOVE'
+  )
+);
 authenticatedRoute.get(
   '/users/state/:state',
   handlerToExpress(users.getByState)
@@ -698,7 +782,17 @@ authenticatedRoute.post(
 authenticatedRoute.put(
   '/users/:userId/register/approve',
   checkGlobalAdminOrRegionAdmin,
-  handlerToExpress(users.registrationApproval)
+  handlerToExpress(
+    users.registrationApproval,
+    async (req, user) => {
+      return {
+        timestamp: new Date(),
+        userId: user?.data?.id,
+        userToApprove: req.params.userId
+      };
+    },
+    'USER APPROVE'
+  )
 );
 
 authenticatedRoute.put(

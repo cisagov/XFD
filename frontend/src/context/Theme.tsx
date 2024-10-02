@@ -2,13 +2,31 @@ import React from 'react';
 import {
   createTheme,
   ThemeProvider,
-  Theme,
   StyledEngineProvider
 } from '@mui/material/styles';
 
 declare module '@mui/material/styles' {
-  // eslint-disable-next-line @typescript-eslint/no-empty-interface
-  interface DefaultTheme extends Theme {}
+  interface Palette {
+    disabled: Palette['primary'];
+  }
+
+  interface PaletteOptions {
+    disabled?: PaletteOptions['primary'];
+  }
+
+  interface BreakpointOverrides {
+    mds: true;
+  }
+  interface BreakpointsOptions {
+    values: {
+      xs: number;
+      sm: number;
+      mds: number;
+      md: number;
+      lg: number;
+      xl: number;
+    };
+  }
 }
 
 const theme = createTheme({
@@ -21,12 +39,17 @@ const theme = createTheme({
     },
     background: {
       default: '#EFF1F5'
+    },
+    disabled: {
+      main: '#BDBDBD', // Set your desired disabled color here
+      contrastText: '#FFFFFF' // Optional: define text color for the disabled state
     }
   },
   breakpoints: {
     values: {
       xs: 0,
       sm: 600,
+      mds: 750,
       md: 960,
       lg: 1330,
       xl: 1920

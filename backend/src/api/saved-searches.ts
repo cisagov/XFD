@@ -61,13 +61,6 @@ class NewSavedSearch {
 
   @IsArray()
   filters: { field: string; values: any[]; type: string }[];
-
-  @IsBoolean()
-  createVulnerabilities: boolean;
-
-  @IsObject()
-  @IsOptional()
-  vulnerabilityTemplate: Partial<Vulnerability>;
 }
 
 const PAGE_SIZE = 20;
