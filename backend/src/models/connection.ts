@@ -210,7 +210,8 @@ const connectDb = async (logging?: boolean) => {
       VwMostCommonVulns,
       VwSeverityStats,
       VwDomainStats,
-      VwOrgStats
+      VwOrgStats,
+      Webpage
     ],
     synchronize: false,
     name: 'default',
