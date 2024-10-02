@@ -79,7 +79,17 @@ export class Scan extends BaseEntity {
       onUpdate: 'CASCADE'
     }
   )
-  @JoinTable()
+  @JoinTable({
+    name: 'scan_organizations_organization',
+    joinColumn: {
+      name: 'scan_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'organization_id',
+      referencedColumnName: 'id'
+    }
+  })
   organizations: Organization[];
 
   /**
@@ -90,7 +100,17 @@ export class Scan extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  @JoinTable()
+  @JoinTable({
+    name: 'scan_tags_organization_tag',
+    joinColumn: {
+      name: 'scan_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'organizationtag_id',
+      referencedColumnName: 'id'
+    }
+  })
   tags: OrganizationTag[];
 
   @ManyToOne((type) => User, {

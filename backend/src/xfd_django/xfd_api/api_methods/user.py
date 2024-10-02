@@ -9,7 +9,7 @@ from typing import List, Optional
 from fastapi import HTTPException, Query
 
 from ..models import User
-from ..schemas import User as UserSchema
+from ..schema_models.user import User as UserSchema
 
 
 def get_users(regionId):

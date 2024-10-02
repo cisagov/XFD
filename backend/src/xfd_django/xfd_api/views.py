@@ -16,44 +16,34 @@ Dependencies:
     - .auth
     - .models
 """
+
 # Standard Python Libraries
-from typing import Any, List, Optional, Union
+from typing import List, Optional
 
 # Third-Party Libraries
-from django.shortcuts import render
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
-# from .schemas import Cpe
-from . import schema_models
+from .api_methods import scan
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
-from .api_methods.domain import get_domain_by_id
+from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
-from .models import (
-    ApiKey,
-    Assessment,
-    Cpe,
-    Cve,
-    Domain,
-    Organization,
-    Role,
-    User,
-    Vulnerability,
-)
-from .schemas import Cpe as CpeSchema
-from .schemas import Cve as CveSchema
-from .schemas import Domain as DomainSchema
-from .schemas import DomainFilters, DomainSearch
-from .schemas import Organization as OrganizationSchema
-from .schemas import Role as RoleSchema
-from .schemas import User as UserSchema
-from .schemas import Vulnerability as VulnerabilitySchema
+from .models import Assessment, User
+from .schema_models import scan as scanSchema
+from .schema_models.assessment import Assessment
+from .schema_models.cpe import Cpe as CpeSchema
+from .schema_models.cve import Cve as CveSchema
+from .schema_models.domain import Domain as DomainSchema
+from .schema_models.domain import DomainSearch
+from .schema_models.organization import Organization as OrganizationSchema
+from .schema_models.user import User as UserSchema
+from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
+# Define API router
 api_router = APIRouter()
 
 
@@ -193,16 +183,21 @@ async def call_get_cves_by_name(cve_name):
     return get_cves_by_name(cve_name)
 
 
-@api_router.post("/domain/search")
-async def search_domains(domain_search: DomainSearch):
+@api_router.post(
+    "/domain/search",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[DomainSchema],
+    tags=["Domains"],
+)
+async def call_search_domains(domain_search: DomainSearch):
     try:
-        pass
+        return search_domains(domain_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @api_router.post("/domain/export")
-async def export_domains():
+async def call_export_domains():
     try:
         pass
     except Exception as e:
@@ -312,3 +307,102 @@ async def call_get_organizations(regionId):
         List[Organizations]: A list of organizations matching the filter criteria.
     """
     return get_organizations(regionId)
+
+
+# ========================================
+#   Scan Endpoints
+# ========================================
+
+
+@api_router.get(
+    "/scans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetScansResponseModel,
+    tags=["Scans"],
+)
+async def list_scans(current_user: User = Depends(get_current_active_user)):
+    """Retrieve a list of all scans."""
+    return scan.list_scans(current_user)
+
+
+@api_router.get(
+    "/granularScans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetGranularScansResponseModel,
+    tags=["Scans"],
+)
+async def list_granular_scans(current_user: User = Depends(get_current_active_user)):
+    """Retrieve a list of granular scans. User must be authenticated."""
+    return scan.list_granular_scans(current_user)
+
+
+@api_router.post(
+    "/scans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.CreateScanResponseModel,
+    tags=["Scans"],
+)
+async def create_scan(
+    scan_data: scanSchema.NewScan, current_user: User = Depends(get_current_active_user)
+):
+    """Create a new scan."""
+    return scan.create_scan(scan_data, current_user)
+
+
+@api_router.get(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetScanResponseModel,
+    tags=["Scans"],
+)
+async def get_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get a scan by its ID. User must be authenticated."""
+    return scan.get_scan(scan_id, current_user)
+
+
+@api_router.put(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.CreateScanResponseModel,
+    tags=["Scans"],
+)
+async def update_scan(
+    scan_id: str,
+    scan_data: scanSchema.NewScan,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update a scan by its ID."""
+    return scan.update_scan(scan_id, scan_data, current_user)
+
+
+@api_router.delete(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GenericMessageResponseModel,
+    tags=["Scans"],
+)
+async def delete_scan(
+    scan_id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete a scan by its ID."""
+    return scan.delete_scan(scan_id, current_user)
+
+
+@api_router.post(
+    "/scans/{scan_id}/run",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GenericMessageResponseModel,
+    tags=["Scans"],
+)
+async def run_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
+    """Manually run a scan by its ID"""
+    return scan.run_scan(scan_id, current_user)
+
+
+@api_router.post(
+    "/scheduler/invoke", dependencies=[Depends(get_current_active_user)], tags=["Scans"]
+)
+async def invoke_scheduler(current_user: User = Depends(get_current_active_user)):
+    """Manually invoke the scan scheduler."""
+    response = await scan.invoke_scheduler(current_user)
+    return response

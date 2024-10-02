@@ -44,7 +44,17 @@ export class ScanTask extends BaseEntity {
       onUpdate: 'CASCADE'
     }
   )
-  @JoinTable()
+  @JoinTable({
+    name: 'scan_task_organizations_organization',
+    joinColumn: {
+      name: 'scantask_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'organization_id',
+      referencedColumnName: 'id'
+    }
+  })
   organizations: Organization[];
 
   @ManyToOne((type) => Scan, (scan) => scan.scanTasks, {

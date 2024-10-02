@@ -7,7 +7,7 @@ Domain API.
 from fastapi import HTTPException
 
 from ..models import Domain
-from ..schemas import DomainFilters, DomainSearch
+from ..schema_models.domain import DomainFilters, DomainSearch
 
 
 def get_domain_by_id(domain_id: str):
@@ -34,15 +34,13 @@ def search_domains(domain_search: DomainSearch):
         object: a list of Domain objects
     """
     try:
-        domains = Domain.objects.filter(domain_search)
-        return domains
+        pass
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
 def export_domains(domain_search: DomainSearch):
     try:
-        domains = Domain.objects.filter(domain_search)
-        # TODO Continue developing export logic
+        pass
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

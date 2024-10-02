@@ -1,17 +1,16 @@
-"""Organization schema."""
-# Third-Party Libraries
-# from pydantic.types import UUID1, UUID
+"""Schemas to support Organization endpoints."""
+
 # Standard Python Libraries
 from datetime import datetime
 from typing import List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel
+from pydantic import BaseModel, Json
 
 
 class Organization(BaseModel):
-    """Organization schema."""
+    """Organization schema reflecting model."""
 
     id: UUID
     createdAt: datetime
@@ -21,7 +20,7 @@ class Organization(BaseModel):
     rootDomains: List[str]
     ipBlocks: List[str]
     isPassive: bool
-    pendingDomains: List[str]
+    pendingDomains: Optional[List[dict]]
     country: Optional[str]
     state: Optional[str]
     regionId: Optional[str]

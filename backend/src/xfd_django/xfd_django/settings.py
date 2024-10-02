@@ -36,7 +36,12 @@ SECRET_KEY = "django-insecure-255j80npx26z%x0@-7p@(qs9(yvtuuln#xuhxt_x$bbevvxnm!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = [".execute-api.us-east-1.amazonaws.com", 'https://api.staging-cd.crossfeed.cyber.dhs.gov', 'http://localhost:3000', 'http://localhost']
+ALLOWED_HOSTS = [
+    ".execute-api.us-east-1.amazonaws.com",
+    "https://api.staging-cd.crossfeed.cyber.dhs.gov",
+    "http://localhost:3000",
+    "http://localhost",
+]
 
 MESSAGE_TAGS = {
     messages.DEBUG: "alert-secondary",

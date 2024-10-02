@@ -33,11 +33,10 @@ class Domain(BaseModel):
     discoveredById_id: Optional[UUID]
     organizationId_id: Optional[UUID]
 
-    class Config:
-        """Domain base schema config."""
-
-        orm_mode = True
-        validate_assignment = True
+    model_config = {
+        """Organization base schema schema config.""" "from_attributes": True,
+        "validate_assignment": True,
+    }
 
 
 class DomainFilters(BaseModel):

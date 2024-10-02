@@ -9,7 +9,6 @@ from typing import List, Optional
 from fastapi import HTTPException, Query
 
 from ..models import Organization
-from ..schemas import Organization as OrganizationSchema
 
 
 def read_orgs():
