@@ -161,16 +161,19 @@ describe('shodan', () => {
       await Domain.create({
         name: 'first_file_testdomain1',
         ip: '153.126.148.60',
+        isFceb: true,
         organization
       }).save(),
       await Domain.create({
         name: 'first_file_testdomain2',
         ip: '31.134.10.156',
+        isFceb: true,
         organization
       }).save(),
       await Domain.create({
         name: 'first_file_testdomain12',
         ip: '1.1.1.1',
+        isFceb: true,
         organization
       }).save()
     ];

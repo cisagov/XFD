@@ -21,6 +21,7 @@ describe('getAllDomains', () => {
     const domain = await Domain.create({
       name,
       ip,
+      isFceb: true,
       organization
     }).save();
     const domains = await getAllDomains();
@@ -57,6 +58,7 @@ describe('getAllDomains', () => {
     const domain = await Domain.create({
       name,
       ip,
+      isFceb: true,
       organization: organization
     }).save();
     const name2 = Math.random() + '';
@@ -64,6 +66,7 @@ describe('getAllDomains', () => {
     const domain2 = await Domain.create({
       name: name2,
       ip: ip2,
+      isFceb: true,
       organization: organization2
     }).save();
     const name3 = Math.random() + '';
@@ -71,6 +74,7 @@ describe('getAllDomains', () => {
     const domain3 = await Domain.create({
       name: name3,
       ip: ip3,
+      isFceb: true,
       organization: organization3
     }).save();
     const domains = await getAllDomains([organization.id, organization2.id]);
