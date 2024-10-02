@@ -130,21 +130,12 @@ export const get = wrapHandler(async (event) => {
   const MAX_RESULTS = 50;
 
   const services = await performQuery(
-<<<<<<< HEAD
     VwServiceStats.createQueryBuilder('stat')
       .select('service as id, sum(stat.count) as value')
-=======
-    Service.createQueryBuilder('service')
-      .innerJoinAndSelect('service.domain', 'domain')
-      .innerJoin('domain.organization', 'organization')
-      .where('service IS NOT NULL')
-      .select('service as id, count(*) as value')
->>>>>>> develop
       .groupBy('service')
       .orderBy('value', 'DESC')
   );
   const ports = await performQuery(
-<<<<<<< HEAD
     VwPortsStats.createQueryBuilder('stat')
       .select('port as id, sum(stat.count) as value')
       .groupBy('port')
@@ -154,52 +145,19 @@ export const get = wrapHandler(async (event) => {
     VwNumVulns.createQueryBuilder('stat')
       .select('"domainSeverity" as id, sum(stat.count) as value')
       .groupBy('"domainSeverity"')
-=======
-    Domain.createQueryBuilder('domain')
-      .innerJoinAndSelect('domain.services', 'services')
-      .innerJoin('domain.organization', 'organization')
-      .select('services.port as id, count(*) as value')
-      .groupBy('services.port')
-      .orderBy('value', 'DESC')
-  );
-  const numVulnerabilities = await performQuery(
-    Domain.createQueryBuilder('domain')
-      .innerJoinAndSelect('domain.vulnerabilities', 'vulnerabilities')
-      .innerJoin('domain.organization', 'organization')
-      .andWhere("vulnerabilities.state = 'open'")
-      .select(
-        "CONCAT(domain.name, '|', vulnerabilities.severity) as id, count(*) as value"
-      )
-      .groupBy('vulnerabilities.severity, domain.id')
->>>>>>> develop
       .orderBy('value', 'DESC')
       .limit(MAX_RESULTS)
   );
   const latestVulnerabilities = await (
     await filterQuery(
-<<<<<<< HEAD
       VwLatestVulns.createQueryBuilder('stat')
         .orderBy('stat.createdAt', 'ASC')
-=======
-      Vulnerability.createQueryBuilder('vulnerability')
-        .leftJoinAndSelect('vulnerability.domain', 'domain')
-        .innerJoin('domain.organization', 'organization')
-        .andWhere("vulnerability.state = 'open'")
-        .orderBy('vulnerability.createdAt', 'ASC')
->>>>>>> develop
         .limit(MAX_RESULTS)
     )
   ).getMany();
   const mostCommonVulnerabilities = await (
     await filterQuery(
-<<<<<<< HEAD
       VwMostCommonVulns.createQueryBuilder('stat')
-=======
-      Vulnerability.createQueryBuilder('vulnerability')
-        .leftJoinAndSelect('vulnerability.domain', 'domain')
-        .innerJoin('domain.organization', 'organization')
-        .andWhere("vulnerability.state = 'open'")
->>>>>>> develop
         .select(
           'stat.title, stat.description, stat.severity, sum(stat.count) as count'
         )
@@ -209,7 +167,6 @@ export const get = wrapHandler(async (event) => {
     )
   ).getRawMany();
   const severity = await performQuery(
-<<<<<<< HEAD
     VwSeverityStats.createQueryBuilder('stat')
       .select('stat.severity as id, sum(stat.count) as value')
       .groupBy('stat.severity')
@@ -217,20 +174,6 @@ export const get = wrapHandler(async (event) => {
   );
   const total = await performQuery(
     VwDomainStats.createQueryBuilder('stat').select('sum(stat.count) as value')
-=======
-    Vulnerability.createQueryBuilder('vulnerability')
-      .leftJoinAndSelect('vulnerability.domain', 'domain')
-      .innerJoin('domain.organization', 'organization')
-      .andWhere("vulnerability.state = 'open'")
-      .select('vulnerability.severity as id, count(*) as value')
-      .groupBy('vulnerability.severity')
-      .orderBy('vulnerability.severity', 'ASC')
-  );
-  const total = await performQuery(
-    Domain.createQueryBuilder('domain')
-      .select('count(*) as value')
-      .innerJoin('domain.organization', 'organization')
->>>>>>> develop
   );
   const byOrg = (
     await (
