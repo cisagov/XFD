@@ -36,7 +36,7 @@ from .auth import get_current_active_user
 from .models import Assessment, User
 from .schema_models import scan as scanSchema
 from .schema_models import scan_tasks as scanTaskSchema
-from .schema_models.assessment import Assessment
+from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
