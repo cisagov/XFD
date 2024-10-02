@@ -154,10 +154,6 @@ class DomainSearch {
       });
     }
 
-    qs.andWhere(
-      'domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true)'
-    );
-
     await this.filterResultQueryset(qs, event);
     return qs.getManyAndCount();
   }
