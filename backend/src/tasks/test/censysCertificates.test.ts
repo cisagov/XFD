@@ -40,61 +40,73 @@ describe('censys certificates', () => {
     await Domain.create({
       name: 'first_file_testdomain1',
       ip: '153.126.148.60',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'subdomain.first_file_testdomain2.gov',
       ip: '31.134.10.156',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain3.gov',
       ip: '153.126.148.61',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'subdomain.first_file_testdomain4.gov',
       ip: '85.24.146.152',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain5',
       ip: '45.79.207.117',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain6',
       ip: '156.249.159.119',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain7',
       ip: '221.10.15.220',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain8',
       ip: '81.141.166.145',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain9',
       ip: '24.65.82.187',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain10',
       ip: '52.74.149.117',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain11',
       ip: '31.134.10.156',
+      isFceb: true,
       organization
     }).save();
     await Domain.create({
       name: 'first_file_testdomain12',
       ip: '1.1.1.1',
+      isFceb: true,
       organization
     }).save();
   });

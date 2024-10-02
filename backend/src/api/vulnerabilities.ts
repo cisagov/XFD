@@ -173,6 +173,10 @@ class VulnerabilitySearch {
       .leftJoinAndSelect('domain.organization', 'organization')
       .leftJoinAndSelect('vulnerability.service', 'service');
 
+    qs.andWhere(
+      '(domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true))'
+    );
+
     if (groupBy) {
       qs = qs
         .groupBy('title, cve, "isKev", description, severity')
