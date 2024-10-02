@@ -80,12 +80,12 @@ export class Logger {
   }
 
   async parseToken() {
-    const atoak = this.request.headers.authorization;
+    const authToken = this.request.headers.authorization;
     // Test if API key, e.g. a 32 digit hex string
-    if (atoak && /^[A-Fa-f0-9]{32}$/.test(atoak ?? '')) {
+    if (authToken && /^[A-Fa-f0-9]{32}$/.test(authToken ?? '')) {
       const apiKey = await ApiKey.findOne(
         {
-          hashedKey: createHash('sha256').update(atoak).digest('hex')
+          hashedKey: createHash('sha256').update(authToken).digest('hex')
         },
         { relations: ['user'] }
       );
@@ -94,12 +94,14 @@ export class Logger {
       apiKey.lastUsed = new Date();
       apiKey.save();
     } else {
-      if (atoak) {
+      if (authToken) {
         const parsedUserFromJwt = jwt.verify(
-          atoak,
+          authToken,
           process.env.JWT_SECRET!
         ) as UserToken;
         this.token = { id: parsedUserFromJwt.id };
+      } else {
+        return 'Missing token/api key';
       }
     }
   }
