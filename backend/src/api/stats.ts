@@ -105,6 +105,10 @@ export const get = wrapHandler(async (event) => {
       });
     }
 
+    qs.andWhere(
+      'domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true)'
+    );
+
     // Handles the case where no orgs and no regions are set, and we pull stats for a region that will never exist
     if (
       search.filters?.organizations?.length === 0 &&
