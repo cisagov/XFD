@@ -80,28 +80,41 @@ export class Logger {
   }
 
   async parseToken() {
-    const atoapk = this.request.headers.authorization;
-    // Test if API key, e.g. a 32 digit hex string
-    if (atoapk && /^[A-Fa-f0-9]{32}$/.test(atoapk ?? '')) {
+    const authorizationHeader = this.request.headers.authorization;
+
+    if (!authorizationHeader) {
+      throw 'Missing token/api key';
+    }
+
+    if (/^[A-Fa-f0-9]{32}$/.test(authorizationHeader)) {
+      // API Key Logic
+      const hashedKey = createHash('sha256')
+        .update(authorizationHeader)
+        .digest('hex');
       const apiKey = await ApiKey.findOne(
-        {
-          hashedKey: createHash('sha256').update(atoapk).digest('hex')
-        },
+        { hashedKey },
         { relations: ['user'] }
       );
-      if (!apiKey) throw 'Invalid API key';
-      this.token = { id: apiKey.user.id };
+
+      if (!apiKey) {
+        throw 'Invalid API key';
+      }
+
+      // Update last used and assign token
       apiKey.lastUsed = new Date();
-      apiKey.save();
+      await apiKey.save();
+
+      this.token = { id: apiKey.user.id };
     } else {
-      if (atoapk) {
+      // JWT Logic
+      try {
         const parsedUserFromJwt = jwt.verify(
-          atoapk,
+          authorizationHeader,
           process.env.JWT_SECRET!
         ) as UserToken;
         this.token = { id: parsedUserFromJwt.id };
-      } else {
-        return 'Missing token/api key';
+      } catch (err) {
+        throw 'Invalid JWT token';
       }
     }
   }
