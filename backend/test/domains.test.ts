@@ -41,6 +41,7 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Service.create({
@@ -62,6 +63,7 @@ describe('domains', () => {
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -90,10 +92,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -117,10 +121,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -147,10 +153,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -178,10 +186,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -213,10 +223,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -238,10 +250,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name: name + '-1',
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization
       }).save();
       const response = await request(app)
@@ -264,10 +278,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name: name + '-1',
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization
       }).save();
       const response = await request(app)
@@ -291,10 +307,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -317,10 +335,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -344,10 +364,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -371,10 +393,12 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       await Domain.create({
         name: name + '-2',
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -398,6 +422,7 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization
       }).save();
       const webpage = await Webpage.create({
@@ -421,6 +446,7 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
@@ -438,6 +464,7 @@ describe('domains', () => {
       const name = 'test-' + Math.random();
       const domain = await Domain.create({
         name,
+        isFceb: true,
         organization: organization2
       }).save();
       const response = await request(app)
