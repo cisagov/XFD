@@ -316,6 +316,40 @@ async def call_get_organizations(
     return get_organizations(state, regionId)
 
 
+# TODO: Typescript endpoints for reference, not implemented in FastAPI.
+# Remove after implementation
+# authenticatedRoute.get('/saved-searches', handlerToExpress(savedSearches.list));
+# authenticatedRoute.post(
+#   '/saved-searches',
+#   handlerToExpress(savedSearches.create)
+# );
+# authenticatedRoute.get(
+#   '/saved-searches/:searchId',
+#   handlerToExpress(savedSearches.get)
+# );
+# authenticatedRoute.put(
+#   '/saved-searches/:searchId',
+#   handlerToExpress(savedSearches.update)
+# );
+# authenticatedRoute.delete(
+#   '/saved-searches/:searchId',
+#   handlerToExpress(savedSearches.del)
+# );
+
+# ========================================
+#   Saved Search  Endpoints
+# ========================================
+
+
+# @api_router.get(
+#     "/saved-searches",
+#     dependencies=[Depends(get_current_active_user)],
+#     response_model=savedSearchSchema.GetSavedSearchesResponseModel,
+#     tags=["Saved Searches"],
+
+# )
+
+
 # ========================================
 #   Scan Endpoints
 # ========================================
