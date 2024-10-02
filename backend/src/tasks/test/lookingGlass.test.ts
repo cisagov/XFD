@@ -422,16 +422,19 @@ describe('lookingGlass', () => {
       await Domain.create({
         name: '1.123.135.123',
         ip: '1.123.135.123',
+        isFceb: true,
         organization
       }).save(),
       await Domain.create({
         name: '100.123.100.123',
         ip: '100.123.100.123',
+        isFceb: true,
         organization
       }).save(),
       await Domain.create({
         name: '123.123.123.123',
         ip: '123.123.123.123',
+        isFceb: true,
         organization
       }).save()
     ];

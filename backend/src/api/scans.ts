@@ -128,6 +128,13 @@ export const SCAN_SCHEMA: ScanSchema = {
     description:
       'Open source tool that integrates passive APIs in order to discover target subdomains'
   },
+  flagFloatingIps: {
+    type: 'fargate',
+    isPassive: true,
+    global: true,
+    description:
+      'Loops through all domains and determines if their associated IP can be found in a report Cidr block.'
+  },
   intrigueIdent: {
     type: 'fargate',
     isPassive: true,
