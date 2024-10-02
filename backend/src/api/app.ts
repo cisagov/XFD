@@ -47,7 +47,6 @@ if (
 
 const handlerToExpress =
   (handler, message?: RecordMessage, action?: string) => async (req, res) => {
-    const logger = new Logger(req);
     const { statusCode, body } = await handler(
       {
         pathParameters: req.params,
@@ -60,12 +59,12 @@ const handlerToExpress =
       {}
     );
     // Add additional status codes that we may return for succesfull requests
-    if (statusCode === 200) {
-      if (message && action) {
+
+    if (message && action) {
+      const logger = new Logger(req);
+      if (statusCode === 200) {
         logger.record(action, 'success', message, body);
-      }
-    } else {
-      if (message && action) {
+      } else {
         logger.record(action, 'fail', message, body);
       }
     }
@@ -637,7 +636,7 @@ authenticatedRoute.post(
   '/v2/organizations/:organizationId/users',
   handlerToExpress(
     organizations.addUserV2,
-    async (req, user) => {
+    async (req, token) => {
       const orgId = req?.params?.organizationId;
       const userId = req?.body?.userId;
       const role = req?.body?.role;
@@ -646,7 +645,7 @@ authenticatedRoute.post(
         const userRecord = await User.findOne({ where: { id: userId } });
         return {
           timestamp: new Date(),
-          userPerformedAssignment: user?.data?.id,
+          userPerformedAssignment: token?.id,
           organization: orgRecord,
           role: role,
           user: userRecord
@@ -654,7 +653,7 @@ authenticatedRoute.post(
       }
       return {
         timestamp: new Date(),
-        userId: user?.data?.id,
+        userId: token?.id,
         updatePayload: req.body
       };
     },
@@ -689,8 +688,8 @@ authenticatedRoute.post(
   '/users',
   handlerToExpress(
     users.invite,
-    async (req, user, responseBody) => {
-      const userId = user?.data?.id;
+    async (req, token, responseBody) => {
+      const userId = token?.id;
       if (userId) {
         const userRecord = await User.findOne({ where: { id: userId } });
         return {
@@ -702,7 +701,7 @@ authenticatedRoute.post(
       }
       return {
         timestamp: new Date(),
-        userId: user.data?.id,
+        userId: token?.id,
         invitePayload: req.body,
         createdUserRecord: responseBody
       };
@@ -715,9 +714,9 @@ authenticatedRoute.delete(
   '/users/:userId',
   handlerToExpress(
     users.del,
-    async (req, user, res) => {
+    async (req, token, res) => {
       const userId = req?.params?.userId;
-      const userPerformedRemovalId = user?.data?.id;
+      const userPerformedRemovalId = token?.id;
       if (userId && userPerformedRemovalId) {
         const userPerformdRemovalRecord = await User.findOne({
           where: { id: userPerformedRemovalId }
@@ -730,7 +729,7 @@ authenticatedRoute.delete(
       }
       return {
         timestamp: new Date(),
-        userPerformedRemoval: user.data?.id,
+        userPerformedRemoval: token?.id,
         userRemoved: req.params.userId
       };
     },
@@ -763,10 +762,10 @@ authenticatedRoute.put(
   checkGlobalAdminOrRegionAdmin,
   handlerToExpress(
     users.registrationApproval,
-    async (req, user) => {
+    async (req, token) => {
       return {
         timestamp: new Date(),
-        userId: user?.data?.id,
+        userId: token?.id,
         userToApprove: req.params.userId
       };
     },
