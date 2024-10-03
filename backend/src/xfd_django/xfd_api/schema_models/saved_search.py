@@ -19,7 +19,7 @@ class SavedSearch(BaseModel):
     search_term: str
     search_path: str
     filters: Json[Any]
-    create_vulnerabilities: bool
+    create_vulnerabilities: Optional[bool]
     vulnerability_template: Optional[Json[Any]]
     created_by: UUID
     created_at: datetime

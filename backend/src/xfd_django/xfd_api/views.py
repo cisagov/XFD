@@ -29,10 +29,11 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import get_domain_by_id
 from .api_methods.organization import get_organizations, read_orgs
+from .api_methods.saved_search import list_saved_searches
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
-from .models import Assessment, User
+from .models import Assessment, SavedSearch, User
 from .schema_models import scan as scanSchema
 from .schema_models.assessment import Assessment
 from .schema_models.cpe import Cpe as CpeSchema
@@ -341,13 +342,56 @@ async def call_get_organizations(
 # ========================================
 
 
-# @api_router.get(
-#     "/saved-searches",
-#     dependencies=[Depends(get_current_active_user)],
-#     response_model=savedSearchSchema.GetSavedSearchesResponseModel,
-#     tags=["Saved Searches"],
+@api_router.post(
+    "/saved-searches",
+    tags=["Testing"],
+)
+async def create_saved_search():
+    """Create a new saved search."""
+    return {"status": "ok"}
 
-# )
+
+@api_router.get(
+    "/saved-searches",
+    # dependencies=[Depends(get_current_active_user)],
+    # response_model=savedSearchSchema.GetSavedSearchesResponseModel,
+    tags=["Testing"],
+)
+async def call_list_saved_searches():
+    """Retrieve a list of all saved searches."""
+    return {"status": "ok"}
+
+
+@api_router.get(
+    "/saved-searches/{saved_search_id}",
+    tags=["Testing"],
+)
+async def get_saved_search(saved_search_id: str):
+    """Retrieve a saved search by its ID."""
+    return {"status": "ok"}
+
+
+@api_router.put(
+    "/saved-searches/{saved_search_id}",
+    tags=["Testing"],
+)
+async def update_saved_search(saved_search_id: str):
+    """Update a saved search by its ID."""
+    return {"status": "ok"}
+
+
+@api_router.delete(
+    "/saved-searches/{saved_search_id}",
+    tags=["Testing"],
+)
+async def delete_saved_search(saved_search_id: str):
+    """Delete a saved search by its ID."""
+    return {"status": "ok"}
+
+
+# async def call_list_saved_searches(current_user: User = Depends(get_current_active_user)):
+#     """Retrieve a list of all saved searches."""
+#     return list_saved_searches(current_user)
 
 
 # ========================================
