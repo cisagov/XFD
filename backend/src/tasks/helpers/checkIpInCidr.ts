@@ -1,10 +1,7 @@
 import { getRepository } from 'typeorm';
 import { Cidr, DL_Organization, connectToDatalake2 } from '../../models';
 
-export default async (
-  ip: string,
-  acronym: string
-): Promise<boolean> => {
+export default async (ip: string, acronym: string): Promise<boolean> => {
   // Connect to the database
   const mdl_connection = await connectToDatalake2();
   const mdl_organization_repo = mdl_connection.getRepository(DL_Organization);

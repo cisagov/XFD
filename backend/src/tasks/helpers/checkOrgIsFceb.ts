@@ -16,7 +16,9 @@ export default async (acronym: string): Promise<boolean> => {
     return false; // Return false if the organization is not found
   }
 
-  const isOrganizationExecutive = async (org: DL_Organization): Promise<boolean> => {
+  const isOrganizationExecutive = async (
+    org: DL_Organization
+  ): Promise<boolean> => {
     // Check if the current organization has the EXECUTIVE sector
     if (org.sectors.some((sector) => sector.acronym === 'EXECUTIVE')) {
       return true;

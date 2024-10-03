@@ -9,13 +9,12 @@ export const handler = async (commandOptions: CommandOptions) => {
   const organization_repo = db_connection.getRepository(Organization);
 
   const organizations = await organization_repo.find({
-    where: {id: organizationId},
+    where: { id: organizationId },
     relations: ['domains']
   });
 
-
   for (const organization of organizations) {
-    console.log('Running on ', organizationName)
+    console.log('Running on ', organizationName);
     const isExecutive = await checkOrgIsFceb(organization.acronym);
 
     if (isExecutive) {
@@ -24,13 +23,15 @@ export const handler = async (commandOptions: CommandOptions) => {
         domain.isFceb = true;
         await domain.save(); // Save each domain
       }
-    }
-    else{
+    } else {
       for (const domain of organization.domains) {
         if (domain.ip) {
           // Set fromCidr field based on the check
-          domain.fromCidr = await checkIpInCidr(domain.ip, organization.acronym);;
-    
+          domain.fromCidr = await checkIpInCidr(
+            domain.ip,
+            organization.acronym
+          );
+
           // Optionally save domain if its fromCidr value has changed
           await domain.save(); // Save the domain
         }
