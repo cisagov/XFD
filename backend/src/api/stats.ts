@@ -89,7 +89,7 @@ export const get = wrapHandler(async (event) => {
       search.filters?.organizations.length > 0
     ) {
       console.log('adding org filter -> ?');
-      qs.andWhere('domain."organizationId" IN (:...orgs)', {
+      qs.andWhere('stat."organizationId" IN (:...orgs)', {
         orgs: search.filters?.organizations
       });
     }
@@ -100,21 +100,17 @@ export const get = wrapHandler(async (event) => {
     }
 
     if (search.filters?.regions && search.filters.regions.length > 0) {
-      qs.andWhere('"organization"."regionId" IN (:...regions)', {
+      qs.andWhere('"stat"."regionId" IN (:...regions)', {
         regions: search.filters.regions
       });
     }
-
-    qs.andWhere(
-      '(domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true))'
-    );
 
     // Handles the case where no orgs and no regions are set, and we pull stats for a region that will never exist
     if (
       search.filters?.organizations?.length === 0 &&
       search.filters?.regions?.length === 0
     ) {
-      qs.andWhere('organization."regionId" IN (:...regions)', {
+      qs.andWhere('stat."regionId" IN (:...regions)', {
         regions: ['FORCEEMPTY']
       });
     }
@@ -135,20 +131,22 @@ export const get = wrapHandler(async (event) => {
 
   const services = await performQuery(
     VwServiceStats.createQueryBuilder('stat')
-      .select('service as id, sum(stat.count) as value')
-      .groupBy('service')
+      .select('service as id, sum(stat.count) as value, stat."regionId"')
+      .groupBy('service, stat."regionId"')
       .orderBy('value', 'DESC')
   );
   const ports = await performQuery(
     VwPortsStats.createQueryBuilder('stat')
-      .select('port as id, sum(stat.count) as value')
-      .groupBy('port')
+      .select('port as id, sum(stat.count) as value, stat."regionId"')
+      .groupBy('port, stat."regionId"')
       .orderBy('value', 'DESC')
   );
   const numVulnerabilities = await performQuery(
     VwNumVulns.createQueryBuilder('stat')
-      .select('"domainSeverity" as id, sum(stat.count) as value')
-      .groupBy('"domainSeverity"')
+      .select(
+        '"domainSeverity" as id, sum(stat.count) as value, stat."regionId"'
+      )
+      .groupBy('"domainSeverity", stat."regionId"')
       .orderBy('value', 'DESC')
       .limit(MAX_RESULTS)
   );
@@ -163,17 +161,17 @@ export const get = wrapHandler(async (event) => {
     await filterQuery(
       VwMostCommonVulns.createQueryBuilder('stat')
         .select(
-          'stat.title, stat.description, stat.severity, sum(stat.count) as count'
+          'stat.title, stat.description, stat.severity, sum(stat.count) as count, stat."regionId"'
         )
-        .groupBy('stat.title, stat.description, stat.severity')
+        .groupBy('stat.title, stat.description, stat.severity, stat."regionId"')
         .orderBy('count', 'DESC')
         .limit(MAX_RESULTS)
     )
   ).getRawMany();
   const severity = await performQuery(
     VwSeverityStats.createQueryBuilder('stat')
-      .select('stat.severity as id, sum(stat.count) as value')
-      .groupBy('stat.severity')
+      .select('stat.severity as id, sum(stat.count) as value, stat."regionId"')
+      .groupBy('stat.severity, stat."regionId"')
       .orderBy('stat.severity', 'ASC')
   );
   const total = await performQuery(
@@ -183,7 +181,7 @@ export const get = wrapHandler(async (event) => {
     await (
       await filterQuery(
         VwOrgStats.createQueryBuilder('stat')
-          .select('stat.name as id, "orgId", count as value')
+          .select('stat.name as id, "orgId", count as value, stat."regionId"')
           .orderBy('value', 'DESC')
       )
     ).getRawMany()
