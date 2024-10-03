@@ -285,7 +285,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
     product: vuln.cpe
       ? vuln.cpe
       : (vuln.service && vuln.service.products && vuln.service.products.length > 0 && vuln.service.products[0].cpe)
-      ? (vuln.service.products[0].cpe)
+      ? (vuln.service.products[0].cpe || 'N/A')
       : 'N/A',
     createdAt: vuln?.createdAt
       ? `${differenceInCalendarDays(
