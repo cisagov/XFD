@@ -309,11 +309,13 @@ export const RegionAndOrganizationFilters: React.FC<
                         height: '100%',
                         width: '100%',
                         display: 'flex',
-                        justifyContent: 'left',
+                        textAlign: 'left',
+                        justifyContent: 'start',
                         fontWeight: 400,
                         color: 'black',
                         textTransform: 'none'
                       }}
+                      id="search-org-button"
                       onClick={() =>
                         setTimeout(() => {
                           handleAddOrganization(option);
