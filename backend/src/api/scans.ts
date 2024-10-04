@@ -132,6 +132,8 @@ export const SCAN_SCHEMA: ScanSchema = {
     type: 'fargate',
     isPassive: true,
     global: true,
+    cpu: '4096',
+    memory: '30720',
     description:
       'Loops through all domains and determines if their associated IP can be found in a report Cidr block.'
   },
@@ -181,7 +183,7 @@ export const SCAN_SCHEMA: ScanSchema = {
     isPassive: true,
     global: true,
     cpu: '4096',
-    memory: '32768',
+    memory: '30720',
     description:
       'Syncs records with Elasticsearch so that they appear in search results.'
   },
