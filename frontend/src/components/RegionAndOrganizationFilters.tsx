@@ -309,7 +309,7 @@ export const RegionAndOrganizationFilters: React.FC<
                         height: '100%',
                         width: '100%',
                         display: 'flex',
-                        justifyContent: 'start',
+                        justifyContent: 'left',
                         fontWeight: 400,
                         color: 'black',
                         textTransform: 'none'
