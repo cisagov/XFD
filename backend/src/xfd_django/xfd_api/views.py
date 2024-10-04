@@ -18,7 +18,7 @@ Dependencies:
 """
 
 # Standard Python Libraries
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 # Third-Party Libraries
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -358,8 +358,10 @@ async def create_saved_search():
     tags=["Testing"],
 )
 async def call_list_saved_searches():
+    saved_searches = SavedSearch.objects.all()
+
     """Retrieve a list of all saved searches."""
-    return {"status": "ok"}
+    return list(saved_searches)
 
 
 @api_router.get(
