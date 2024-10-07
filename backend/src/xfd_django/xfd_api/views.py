@@ -196,10 +196,14 @@ async def call_search_domains(domain_search: DomainSearch):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@api_router.post("/domain/export")
-async def call_export_domains():
+@api_router.post(
+    "/domain/export",
+    # dependencies=[Depends(get_current_active_user)],
+    tags=["Domains"],
+)
+async def call_export_domains(domain_search: DomainSearch):
     try:
-        pass
+        return export_domains(domain_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
