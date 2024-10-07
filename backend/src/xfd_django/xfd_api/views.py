@@ -29,7 +29,7 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import get_domain_by_id
 from .api_methods.organization import get_organizations, read_orgs
-from .api_methods.saved_search import list_saved_searches
+from .api_methods.saved_search import get_saved_search, list_saved_searches
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
@@ -41,6 +41,7 @@ from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
 from .schema_models.domain import DomainSearch
 from .schema_models.organization import Organization as OrganizationSchema
+from .schema_models.saved_search import SavedSearch as savedSearchSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
@@ -351,26 +352,26 @@ async def create_saved_search():
     return {"status": "ok"}
 
 
+# Get all existing saved searches is implemented in the following function
 @api_router.get(
     "/saved-searches",
     # dependencies=[Depends(get_current_active_user)],
-    # response_model=savedSearchSchema.GetSavedSearchesResponseModel,
+    # response_model=savedSearchSchema,
     tags=["Testing"],
 )
 async def call_list_saved_searches():
-    saved_searches = SavedSearch.objects.all()
-
     """Retrieve a list of all saved searches."""
-    return list(saved_searches)
+    return list_saved_searches()
 
 
+# Get individual saved search is implemented in the following function
 @api_router.get(
     "/saved-searches/{saved_search_id}",
     tags=["Testing"],
 )
-async def get_saved_search(saved_search_id: str):
+async def call_get_saved_search(saved_search_id: str):
     """Retrieve a saved search by its ID."""
-    return {"status": "ok"}
+    return get_saved_search(saved_search_id)
 
 
 @api_router.put(

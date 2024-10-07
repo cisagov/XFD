@@ -31,42 +31,45 @@ PAGE_SIZE = 20
 #     return JsonResponse({"status": "Created", "search": search.id}, status=201)
 
 
-def list_saved_searches(request):
+def list_saved_searches():
     """List all saved searches."""
     try:
-        page_size = int(request.GET.get("pageSize", PAGE_SIZE))
-        page = int(request.GET.get("page", 1))
-        searches = SavedSearch.objects.filter(created_by=request.user)
-        total_count = searches.count()
-        searches = searches[(page - 1) * page_size : page * page_size]
-        data = list(searches.values())
-        return JsonResponse({"result": data, "count": total_count}, safe=False)
+        saved_searches = SavedSearch.objects.all()
+        count = saved_searches.count()
+        for search in saved_searches:
+            print(str(search.id))
+        return {"saved_searches": list(saved_searches), "Saved Search Count": count}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
 
-# def get_saved_search(request, search_id):
-#     if not uuid.UUID(search_id):
-#         raise HTTPException({"error": "Invalid UUID"}, status=404)
+def get_saved_search(search_id):
+    if not uuid.UUID(search_id):
+        raise HTTPException({"error": "Invalid UUID"}, status=404)
 
-#     try:
-#         search = SavedSearch.objects.get(id=search_id, created_by=request.user)
-#         data = {
-#             "id": str(search.id),
-#             "name": search.name,
-#             "count": search.count,
-#             "sort_direction": search.sort_direction,
-#             "sort_field": search.sort_field,
-#             "search_term": search.search_term,
-#             "search_path": search.search_path,
-#             "filters": search.filters,
-#             "create_vulnerabilities": search.create_vulnerabilities,
-#             "vulnerability_template": search.vulnerability_template,
-#             "created_by": search.created_by.id,
-#         }
-#         return JsonResponse(data)
-#     except SavedSearch.DoesNotExist as e:
-#         raise HTTPException(status_code=404, detail=str(e))
+    try:
+        saved_search = SavedSearch.objects.all()
+        for search in saved_search:
+            if str(search.id) == search_id:
+                return search
+
+        # search = SavedSearch.objects.get(id=search_id, created_by=request.user)
+        # data = {
+        #     "id": str(search.id),
+        #     "name": search.name,
+        #     "count": search.count,
+        #     "sort_direction": search.sort_direction,
+        #     "sort_field": search.sort_field,
+        #     "search_term": search.search_term,
+        #     "search_path": search.search_path,
+        #     "filters": search.filters,
+        #     "create_vulnerabilities": search.create_vulnerabilities,
+        #     "vulnerability_template": search.vulnerability_template,
+        #     "created_by": search.created_by.id,
+        # }
+        # return JsonResponse(data)
+    except SavedSearch.DoesNotExist as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # def update_saved_search(request, search_id):
