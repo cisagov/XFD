@@ -35,7 +35,7 @@ from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerabi
 from .auth import get_current_active_user
 from .models import Assessment, SavedSearch, User
 from .schema_models import scan as scanSchema
-from .schema_models.assessment import Assessment
+from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema

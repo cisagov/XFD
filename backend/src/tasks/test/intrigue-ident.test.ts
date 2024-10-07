@@ -261,6 +261,7 @@ describe('intrigue ident', () => {
     const domain = await Domain.create({
       organization,
       name: 'www.cisa.gov',
+      isFceb: true,
       ip: '0.0.0.0'
     }).save();
     let service = await Service.create({
