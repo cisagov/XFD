@@ -507,8 +507,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
         ]}
       ></Subnav>
-      <br></br>
-      <Box mb={3} mt={3} display="flex" justifyContent="center">
+      <Box mb={3} mt={5} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
             <Alert severity="info">Loading Vulnerabilities..</Alert>
