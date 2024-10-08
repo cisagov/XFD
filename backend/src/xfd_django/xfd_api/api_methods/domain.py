@@ -135,6 +135,7 @@ def export_domains(domain_search: DomainSearch):
             paginator = Paginator(results, domain_search.pageSize)
 
             return paginator.get_page(domain_search.page)
+            # TODO: Implement S3 client methods after collab with entire team.
             # return export_to_csv(paginator, domains, "testing", True)
         else:
             raise ValueError("DomainFilters cannot be NoneType")
