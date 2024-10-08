@@ -1,6 +1,6 @@
 import React, { useEffect, useImperativeHandle } from 'react';
 import { Table as UsaTable } from '@trussworks/react-uswds';
-import { OrgQuery } from 'types/org-query';
+import { OrgQuery } from 'types';
 import {
   useTable,
   useExpanded,

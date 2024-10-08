@@ -27,7 +27,7 @@ from .api_methods import scan
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
-from .api_methods.domain import get_domain_by_id
+from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
 from .api_methods.saved_search import get_saved_search, list_saved_searches
 from .api_methods.user import get_users
@@ -185,18 +185,27 @@ async def call_get_cves_by_name(cve_name):
     return get_cves_by_name(cve_name)
 
 
-@api_router.post("/domain/search")
-async def search_domains(domain_search: DomainSearch):
+@api_router.post(
+    "/domain/search",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[DomainSchema],
+    tags=["Domains"],
+)
+async def call_search_domains(domain_search: DomainSearch):
     try:
-        pass
+        return search_domains(domain_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@api_router.post("/domain/export")
-async def export_domains():
+@api_router.post(
+    "/domain/export",
+    # dependencies=[Depends(get_current_active_user)],
+    tags=["Domains"],
+)
+async def call_export_domains(domain_search: DomainSearch):
     try:
-        pass
+        return export_domains(domain_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -264,25 +273,17 @@ async def call_update_vulnerability(vuln_id, data: VulnerabilitySchema):
 
 
 @api_router.get(
-    "/v2/users",
+    "/users/{regionId}",
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
     tags=["User"],
 )
-async def call_get_users(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-    invitePending: Optional[List[str]] = Query(None),
-    # current_user: User = Depends(is_regional_admin)
-):
+async def call_get_users(regionId):
     """
     Call get_users()
 
     Args:
-        state (Optional[List[str]]): List of states to filter users by.
-        regionId (Optional[List[str]]): List of region IDs to filter users by.
-        invitePending (Optional[List[str]]): List of invite pending statuses to filter users by.
-        current_user (User): The current authenticated user, must be a regional admin.
+        regionId: Region IDs to filter users by.
 
     Raises:
         HTTPException: If the user is not authorized or no users are found.
@@ -290,24 +291,20 @@ async def call_get_users(
     Returns:
         List[User]: A list of users matching the filter criteria.
     """
-    return get_users(state, regionId, invitePending)
+    return get_users(regionId)
 
 
 @api_router.get(
-    "/organizations",
-    # response_model=List[OrganizationSchema],
+    "/organizations/{regionId}",
+    response_model=List[OrganizationSchema],
     # dependencies=[Depends(get_current_active_user)],
-    tags=["Organizations"],
+    tags=["Organization"],
 )
-async def call_get_organizations(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-):
+async def call_get_organizations(regionId):
     """
     List all organizations with query parameters.
     Args:
-        state (Optional[List[str]]): List of states to filter organizations by.
-        regionId (Optional[List[str]]): List of region IDs to filter organizations by.
+        regionId : Region IDs to filter organizations by.
 
     Raises:
         HTTPException: If the user is not authorized or no organizations are found.
@@ -315,7 +312,7 @@ async def call_get_organizations(
     Returns:
         List[Organizations]: A list of organizations matching the filter criteria.
     """
-    return get_organizations(state, regionId)
+    return get_organizations(regionId)
 
 
 # TODO: Typescript endpoints for reference, not implemented in FastAPI.

@@ -17,6 +17,7 @@
     "@elastic/react-search-ui-views": "^1.20.2",
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@fontsource/roboto": "^5.1.0",
     "@jonkoops/matomo-tracker-react": "^0.7.0",
     "@mui/icons-material": "^5.14.1",
     "@mui/lab": "^5.0.0-alpha.135",

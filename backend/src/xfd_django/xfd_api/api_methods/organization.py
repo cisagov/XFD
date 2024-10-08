@@ -48,16 +48,11 @@ def read_orgs():
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def get_organizations(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-):
+def get_organizations(regionId):
     """
     List all organizations with query parameters.
     Args:
-        state (Optional[List[str]]): List of states to filter organizations by.
-        regionId (Optional[List[str]]): List of region IDs to filter organizations by.
-
+        regionId : region IDs to filter organizations by.
     Raises:
         HTTPException: If the user is not authorized or no organizations are found.
 
@@ -65,20 +60,8 @@ def get_organizations(
         List[Organizations]: A list of organizations matching the filter criteria.
     """
 
-    # if not current_user:
-    #     raise HTTPException(status_code=401, detail="Unauthorized")
-
-    # Prepare filter parameters
-    filter_params = {}
-    if state:
-        filter_params["state__in"] = state
-    if regionId:
-        filter_params["regionId__in"] = regionId
-
-    organizations = Organization.objects.filter(**filter_params)
-
-    if not organizations.exists():
-        raise HTTPException(status_code=404, detail="No organizations found")
-
-    # Return the Pydantic models directly by calling from_orm
-    return organizations
+    try:
+        organizations = Organization.objects.filter(regionId=regionId)
+        return organizations
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

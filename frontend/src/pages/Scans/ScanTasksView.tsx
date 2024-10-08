@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { OrgQuery } from 'types/org-query';
+import { OrgQuery } from 'types';
 import { Scan, ScanTask } from 'types';
 import { useAuthContext } from 'context';
 // @ts-ignore:next-line
