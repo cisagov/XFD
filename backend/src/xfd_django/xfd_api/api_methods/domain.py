@@ -10,7 +10,7 @@ import csv
 from django.core.paginator import Paginator
 from fastapi import HTTPException
 
-from ..helpers.s3_client import export_to_csv
+from ..helpers.filter_helpers import sort_direction
 from ..models import Domain, Organization, Service, Vulnerability
 from ..schema_models.domain import DomainFilters, DomainSearch
 
@@ -79,25 +79,6 @@ def get_domain_by_id(domain_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def sort_direction(sort, order):
-    """
-    Adds the sort direction modifier.
-    If sort =
-        ASC - return order field unmodified to sort in ascending order.
-        DSC - returns & prepend '-' to the order field to sort in descending order.
-    """
-    try:
-        # Fetch all domains in list
-        if sort == "ASC":
-            return order
-        elif sort == "DSC":
-            return "-" + order
-        else:
-            raise ValueError
-    except ValueError as e:
-        raise HTTPException(status_code=500, detail="Invalid sort direction supplied")
-
-
 def search_domains(domain_search: DomainSearch):
     """
     List domains by search filter
@@ -108,7 +89,6 @@ def search_domains(domain_search: DomainSearch):
     """
     try:
         # Fetch all domains in list
-        sort_direction(domain_search.sort, domain_search.order)
 
         domains = Domain.objects.all().order_by(
             sort_direction(domain_search.sort, domain_search.order)
