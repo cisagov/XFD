@@ -162,8 +162,8 @@ export const Logs: FC<LogsProps> = () => {
   }, [filters]);
 
   return (
-    <Box>
-      <Paper elevation={2} sx={{ width: '100%' }}>
+    <Box display="flex">
+      <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
         <DataGrid
           rows={logs.result}
           columns={logCols}
@@ -175,31 +175,35 @@ export const Logs: FC<LogsProps> = () => {
           onFilterModelChange={(model) => {
             setFilters(model.items);
           }}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 15 } }
+          }}
+          pageSizeOptions={[15, 30, 50, 100]}
         />
-        <Dialog
-          open={openDialog}
-          onClose={() => setOpenDialog(false)}
-          scroll="paper"
-          fullWidth
-          maxWidth="lg"
-        >
-          <DialogTitle>Payload Details</DialogTitle>
-          <DialogContent>
-            <Box
-              sx={{
-                fontSize: '12px',
-                padding: 2,
-                margin: 0,
-                backgroundColor: 'black',
-                color: 'white',
-                width: '100%'
-              }}
-            >
-              <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>
-            </Box>
-          </DialogContent>
-        </Dialog>
       </Paper>
+      <Dialog
+        open={openDialog}
+        onClose={() => setOpenDialog(false)}
+        scroll="paper"
+        fullWidth
+        maxWidth="lg"
+      >
+        <DialogTitle>Payload Details</DialogTitle>
+        <DialogContent>
+          <Box
+            sx={{
+              fontSize: '12px',
+              padding: 2,
+              margin: 0,
+              backgroundColor: 'black',
+              color: 'white',
+              width: '100%'
+            }}
+          >
+            <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };
