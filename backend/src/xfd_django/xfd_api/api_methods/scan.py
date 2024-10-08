@@ -1,4 +1,4 @@
-"""API methods to support Scan enpoints."""
+"""API methods to support Scan endpoints."""
 
 # Standard Python Libraries
 import os

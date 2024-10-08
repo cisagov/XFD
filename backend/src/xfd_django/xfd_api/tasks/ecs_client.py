@@ -145,13 +145,15 @@ class ECSClient:
         )
         return response
 
-    async def get_logs(self, fargate_task_arn):
+    def get_logs(self, fargate_task_arn):
         """Gets logs for a specific Fargate or Docker task."""
         if self.is_local:
+            # Retrieve logs as bytes from the Docker container
             log_stream = self.docker.containers.get(fargate_task_arn).logs(
                 stdout=True, stderr=True, timestamps=True
             )
-            return "".join(line[8:] for line in log_stream.split("\n"))
+            # Process and return the logs
+            return "\n".join(line for line in log_stream.decode("utf-8").splitlines())
         else:
             log_stream_name = f"worker/main/{fargate_task_arn.split('/')[-1]}"
             response = self.cloudwatch_logs.get_log_events(
