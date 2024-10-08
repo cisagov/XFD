@@ -80,10 +80,16 @@ def get_domain_by_id(domain_id: str):
 
 
 def sort_direction(sort, order):
+    """
+    Adds the sort direction modifier.
+    If sort =
+        ASC - return order field unmodified to sort in ascending order.
+        DSC - returns & prepend '-' to the order field to sort in descending order.
+    """
     try:
         # Fetch all domains in list
         if sort == "ASC":
-            return sort
+            return order
         elif sort == "DSC":
             return "-" + order
         else:
@@ -128,7 +134,8 @@ def export_domains(domain_search: DomainSearch):
             results = filter_domains(domains, domain_search.filters)
             paginator = Paginator(results, domain_search.pageSize)
 
-            return export_to_csv(paginator, domains, "testing", True)
+            return paginator.get_page(domain_search.page)
+            # return export_to_csv(paginator, domains, "testing", True)
         else:
             raise ValueError("DomainFilters cannot be NoneType")
     except Exception as e:
