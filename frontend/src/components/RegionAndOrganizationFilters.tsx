@@ -120,7 +120,11 @@ export const RegionAndOrganizationFilters: React.FC<
                 )
             )
         );
-        setOrgResults(filteredOrgs);
+        // Sort filtered orgs by name
+        const sortedOrgs = filteredOrgs.sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        setOrgResults(sortedOrgs);
       } catch (e) {
         console.log(e);
       }
