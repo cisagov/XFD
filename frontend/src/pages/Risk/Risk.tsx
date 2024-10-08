@@ -18,8 +18,7 @@ import {
   Annotation
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
-import { Vulnerability } from 'types';
-import { Stats } from 'types/stats';
+import { Stats, Vulnerability } from 'types';
 import { UpdateStateForm } from 'components/Register';
 import {
   ORGANIZATION_FILTER_KEY,

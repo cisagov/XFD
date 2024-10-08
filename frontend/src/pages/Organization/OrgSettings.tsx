@@ -295,9 +295,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               />
               {dialog.domainVerificationStatusMessage && (
                 <>
-                  <br></br>
-                  <br></br>
-                  <DialogContentText>
+                  <DialogContentText mt={4}>
                     {dialog.domainVerificationStatusMessage}
                   </DialogContentText>
                 </>
