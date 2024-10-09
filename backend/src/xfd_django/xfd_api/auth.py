@@ -216,7 +216,6 @@ def get_current_active_user(
     user = None
     if api_key:
         user = get_user_by_api_key(api_key)
-        return user
     else:
         try:
             # Decode token in Authorization header to get user
