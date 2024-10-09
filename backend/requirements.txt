@@ -5,6 +5,7 @@ django
 docker
 fastapi==0.111.0
 mangum==0.17.0
+minio
 psycopg2-binary
 PyJWT
 pytest
