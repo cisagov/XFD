@@ -1,7 +1,6 @@
 boto3
 cryptography==38.0.0
 django
-django
 docker
 fastapi==0.111.0
 mangum==0.17.0

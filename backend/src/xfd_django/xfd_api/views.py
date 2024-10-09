@@ -330,7 +330,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     # dependencies=[Depends(get_current_active_user)],
     tags=["users"],
 )
-async def async def call_get_users(
+async def call_get_users(
     state: Optional[List[str]] = Query(None),
     regionId: Optional[List[str]] = Query(None),
     invitePending: Optional[List[str]] = Query(None),
@@ -367,7 +367,7 @@ async def async def call_get_users(
         raise HTTPException(status_code=404, detail="No users found")
 
     # Return the Pydantic models directly by calling from_orm
-    return [UserSchema.from_orm(user) for user in users]
+    return [UserSchema.model_validate(user) for user in users]
 
 
 ######################
@@ -389,7 +389,6 @@ async def delete_api_key(
 ):
     """Delete api key by id."""
     return api_key_methods.delete(id, current_user)
-    return get_users(regionId)
 
 
 @api_router.get(
