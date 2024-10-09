@@ -2,10 +2,10 @@ import {
   Dialog,
   DialogContent,
   DialogTitle,
-  Icon,
   IconButton,
   Paper
 } from '@mui/material';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Box } from '@mui/system';
 import {
   DataGrid,
@@ -149,7 +149,7 @@ export const Logs: FC<LogsProps> = () => {
               setDialogDetails(cellValues.row);
             }}
           >
-            <Icon>info</Icon>
+            <OpenInNewIcon />
           </IconButton>
         );
       }
