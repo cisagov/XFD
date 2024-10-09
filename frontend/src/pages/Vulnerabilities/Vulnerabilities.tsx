@@ -527,7 +527,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             </Button>
           </Stack>
         ) : isLoading === false && loadingError === false ? (
-          <Paper elevation={2} sx={{ width: '90%' }}>
+          <Paper elevation={2} sx={{ width: '90%', minHeight: '200px' }}>
             <DataGrid
               rows={vulRows}
               rowCount={totalResults}

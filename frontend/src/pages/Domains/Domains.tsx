@@ -176,7 +176,7 @@ export const Domains: React.FC = () => {
             </Button>
           </Stack>
         ) : isLoading === false && loadingError === false ? (
-          <Paper elevation={2} sx={{ width: '90%' }}>
+          <Paper elevation={2} sx={{ width: '90%', minHeight: '200px' }}>
             <DataGrid
               rows={domRows}
               rowCount={totalResults}

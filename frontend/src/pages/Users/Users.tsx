@@ -315,7 +315,7 @@ export const Users: React.FC = () => {
               </Button>
             </Stack>
           ) : isLoading === false && loadingError === false ? (
-            <Paper elevation={2} sx={{ width: '100%' }}>
+            <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
               <DataGrid
                 rows={users}
                 columns={userCols}
