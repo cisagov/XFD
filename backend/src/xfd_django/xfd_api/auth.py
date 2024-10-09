@@ -1,23 +1,5 @@
-"""
-This module provides authentication utilities for the FastAPI application.
+"""Authentication utilities for the FastAPI application."""
 
-It includes functions to:
-- Decode JWT tokens and retrieve the current user.
-- Retrieve a user by their API key.
-- Ensure the current user is authenticated and active.
-
-Functions:
-    - get_current_user: Decodes a JWT token to retrieve the current user.
-    - get_user_by_api_key: Retrieves a user by their API key.
-    - get_current_active_user: Ensures the current user is authenticated and active.
-
-Dependencies:
-    - fastapi
-    - django
-    - hashlib
-    - .jwt_utils
-    - .models
-"""
 # Standard Python Libraries
 from datetime import datetime, timedelta
 import hashlib
@@ -30,7 +12,7 @@ import uuid
 from django.conf import settings
 from django.forms.models import model_to_dict
 from django.utils import timezone
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
@@ -193,15 +175,7 @@ def hash_key(key: str) -> str:
 
 # TODO: Confirm still needed
 async def get_user_info_from_cognito(token):
-    """
-    Get user info from cognito
-
-    Args:
-        token (_type_): _description_
-
-    Returns:
-        _type_: _description_
-    """
+    """Get user info from cognito."""
     jwks_url = f"https://cognito-idp.us-east-1.amazonaws.com/{os.getenv('REACT_APP_USER_POOL_ID')}/.well-known/jwks.json"
     response = requests.get(jwks_url)
     jwks = response.json()
@@ -221,101 +195,65 @@ async def get_user_info_from_cognito(token):
     return user_info
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)):
-    """
-    Decode a JWT token to retrieve the current user.
-
-    Args:
-        token (str): The JWT token.
-
-    Raises:
-        HTTPException: If the token is invalid or expired.
-
-    Returns:
-        User: The user object decoded from the token.
-    """
-    user = decode_jwt_token(token)
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-        )
-    return user
-
-
 def get_user_by_api_key(api_key: str):
-    """
-    Retrieve a user by their API key.
-
-    Args:
-        api_key (str): The API key.
-
-    Returns:
-        User: The user object associated with the API key, or None if not found.
-    """
+    """Get a user by their API key."""
     hashed_key = sha256(api_key.encode()).hexdigest()
     try:
         api_key_instance = ApiKey.objects.get(hashedKey=hashed_key)
-        api_key_instance.lastused = timezone.now()
+        api_key_instance.lastUsed = timezone.now()
         api_key_instance.save(update_fields=["lastUsed"])
-        return api_key_instance.userid
+        return api_key_instance.userId
     except ApiKey.DoesNotExist:
         print("API Key not found")
         return None
 
 
-# TODO: enable usage of X-API-KEY header if needed
-# adding arg api_key: str = Security(api_key_header),
-def get_current_active_user(token: str = Depends(oauth2_scheme)):
-    """
-    Ensure the current user is authenticated and active.
+def get_current_active_user(
+    api_key: str = Security(api_key_header),
+    token: str = Depends(oauth2_scheme),
+):
+    """Ensure the current user is authenticated and active."""
+    user = None
+    if api_key:
+        user = get_user_by_api_key(api_key)
+        return user
+    else:
+        try:
+            # Decode token in Authorization header to get user
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_id = payload.get("id")
 
-    Args:
-        token (str): The Authorization token header.
-
-    Raises:
-        HTTPException: If the user is not authenticated.
-
-    Returns:
-        User: The authenticated user object.
-    """
-    try:
-        # Decode token in Authorization header to get user
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = payload.get("id")
-
-        if user_id is None:
-            print("No user ID found in token")
+            if user_id is None:
+                print("No user ID found in token")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            # Fetch the user by ID from the database
+            user = User.objects.get(id=user_id)
+            print(f"User found: {user_to_dict(user)}")
+        except jwt.ExpiredSignatureError:
+            print("Token has expired")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has expired",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        except jwt.InvalidTokenError:
+            print("Invalid token")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        # Fetch the user by ID from the database
-        user = User.objects.get(id=user_id)
-        print(f"User found: {user_to_dict(user)}")
-        if user is None:
-            print("User not found")
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        return user
-    except jwt.ExpiredSignatureError:
-        print("Token has expired")
+    if user is None:
+        print("User not authenticated")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Invalid authentication credentials"
         )
-    except jwt.InvalidTokenError:
-        print("Invalid token")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    return user
 
 
 async def process_user(decoded_token, access_token, refresh_token):

@@ -323,19 +323,13 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
 
-# V2 GET Users
 @api_router.get(
     "/users/{regionId}",
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
-    tags=["users"],
+    tags=["User"],
 )
-async def call_get_users(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-    invitePending: Optional[List[str]] = Query(None),
-    # current_user: User = Depends(is_regional_admin)
-):
+async def call_get_users(regionId):
     """
     Call get_users()
 
@@ -348,26 +342,7 @@ async def call_get_users(
     Returns:
         List[User]: A list of users matching the filter criteria.
     """
-    # if not current_user:
-    #     raise HTTPException(status_code=401, detail="Unauthorized")
-
-    # Prepare filter parameters
-    filter_params = {}
-    if state:
-        filter_params["state__in"] = state
-    if regionId:
-        filter_params["regionId__in"] = regionId
-    if invitePending:
-        filter_params["invitePending__in"] = invitePending
-
-    # Query users with filter parameters and prefetch related roles
-    users = User.objects.filter(**filter_params).prefetch_related("roles")
-
-    if not users.exists():
-        raise HTTPException(status_code=404, detail="No users found")
-
-    # Return the Pydantic models directly by calling from_orm
-    return [UserSchema.model_validate(user) for user in users]
+    return get_users(regionId)
 
 
 ######################
