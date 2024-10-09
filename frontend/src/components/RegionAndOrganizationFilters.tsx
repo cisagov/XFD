@@ -304,6 +304,7 @@ export const RegionAndOrganizationFilters: React.FC<
               renderOption={(params, option) => {
                 return (
                   <li
+                    {...params}
                     style={{ pointerEvents: 'none', padding: 0 }}
                     key={option.id}
                   >
