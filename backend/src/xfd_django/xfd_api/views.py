@@ -41,6 +41,7 @@ from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerabi
 from .auth import get_current_active_user
 from .login_gov import callback, login
 from .models import Assessment, User
+from .schema_models import scan as scanSchema
 from .schema_models.api_key import ApiKey as ApiKeySchema
 from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
@@ -486,3 +487,102 @@ async def update_notification(
 async def get_508_banner(current_user: User = Depends(get_current_active_user)):
     """Get notification by id."""
     return notification_methods.get_508_banner(current_user)
+
+
+# ========================================
+#   Scan Endpoints
+# ========================================
+
+
+@api_router.get(
+    "/scans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetScansResponseModel,
+    tags=["Scans"],
+)
+async def list_scans(current_user: User = Depends(get_current_active_user)):
+    """Retrieve a list of all scans."""
+    return scan.list_scans(current_user)
+
+
+@api_router.get(
+    "/granularScans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetGranularScansResponseModel,
+    tags=["Scans"],
+)
+async def list_granular_scans(current_user: User = Depends(get_current_active_user)):
+    """Retrieve a list of granular scans. User must be authenticated."""
+    return scan.list_granular_scans(current_user)
+
+
+@api_router.post(
+    "/scans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.CreateScanResponseModel,
+    tags=["Scans"],
+)
+async def create_scan(
+    scan_data: scanSchema.NewScan, current_user: User = Depends(get_current_active_user)
+):
+    """Create a new scan."""
+    return scan.create_scan(scan_data, current_user)
+
+
+@api_router.get(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GetScanResponseModel,
+    tags=["Scans"],
+)
+async def get_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get a scan by its ID. User must be authenticated."""
+    return scan.get_scan(scan_id, current_user)
+
+
+@api_router.put(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.CreateScanResponseModel,
+    tags=["Scans"],
+)
+async def update_scan(
+    scan_id: str,
+    scan_data: scanSchema.NewScan,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Update a scan by its ID."""
+    return scan.update_scan(scan_id, scan_data, current_user)
+
+
+@api_router.delete(
+    "/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GenericMessageResponseModel,
+    tags=["Scans"],
+)
+async def delete_scan(
+    scan_id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete a scan by its ID."""
+    return scan.delete_scan(scan_id, current_user)
+
+
+@api_router.post(
+    "/scans/{scan_id}/run",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanSchema.GenericMessageResponseModel,
+    tags=["Scans"],
+)
+async def run_scan(scan_id: str, current_user: User = Depends(get_current_active_user)):
+    """Manually run a scan by its ID"""
+    return scan.run_scan(scan_id, current_user)
+
+
+@api_router.post(
+    "/scheduler/invoke", dependencies=[Depends(get_current_active_user)], tags=["Scans"]
+)
+async def invoke_scheduler(current_user: User = Depends(get_current_active_user)):
+    """Manually invoke the scan scheduler."""
+    response = await scan.invoke_scheduler(current_user)
+    return response

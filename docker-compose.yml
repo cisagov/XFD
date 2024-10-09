@@ -1,5 +1,5 @@
 ---
-# version: '3.4'
+version: '3.4'
 
 services:
   db:
@@ -129,7 +129,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=password
     logging:
-      driver: "json-file"
+      driver: none
 
   matomo:
     image: matomo:3.14.1

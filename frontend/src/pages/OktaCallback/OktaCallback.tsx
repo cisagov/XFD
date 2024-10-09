@@ -1,9 +1,13 @@
 import React, { useCallback, useEffect } from 'react';
 import { parse } from 'query-string';
 import { useAuthContext } from 'context';
+import { User } from 'types';
 import { useHistory } from 'react-router-dom';
 
-type OktaCallbackResponse = any;
+type OktaCallbackResponse = {
+  token: string;
+  user: User;
+};
 
 export const OktaCallback: React.FC = () => {
   const { apiPost, login } = useAuthContext();
@@ -12,6 +16,8 @@ export const OktaCallback: React.FC = () => {
   const handleOktaCallback = useCallback(async () => {
     const { code } = parse(window.location.search);
     console.log('Code: ', code);
+    const nonce = localStorage.getItem('nonce');
+    console.log('Nonce: ', nonce);
 
     try {
       // Pass request to backend callback endpoint
@@ -20,21 +26,17 @@ export const OktaCallback: React.FC = () => {
         {
           body: {
             code: code
-          },
-          headers: {
-            'Content-Type': 'application/json'
           }
         }
       );
+      console.log('Response: ', response);
+      console.log('token ', response.token);
 
-      console.log('Response: ', response.body);
-      console.log('token ', response.body.token);
-      const nonce = localStorage.getItem('nonce');
-      console.log('Nonce: ', nonce);
       // Login
-      login(response.token);
+      await login(response.token);
+
       // Storage Management
-      localStorage.setItem('token', response.body.token);
+      localStorage.setItem('token', response.token);
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
 
