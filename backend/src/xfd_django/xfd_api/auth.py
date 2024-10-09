@@ -251,7 +251,7 @@ def get_current_active_user(
         print("User not authenticated")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication credentials"
+            detail="Invalid authentication credentials",
         )
     return user
 
