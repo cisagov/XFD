@@ -33,7 +33,17 @@ export class OrganizationTag extends BaseEntity {
     onDelete: 'CASCADE',
     onUpdate: 'CASCADE'
   })
-  @JoinTable()
+  @JoinTable({
+    name: 'organization_tag_organizations_organization',
+    joinColumn: {
+      name: 'organizationtag_id',
+      referencedColumnName: 'id'
+    },
+    inverseJoinColumn: {
+      name: 'organization_id',
+      referencedColumnName: 'id'
+    }
+  })
   organizations: Organization[];
 
   /**

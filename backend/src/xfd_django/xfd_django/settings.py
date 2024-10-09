@@ -37,10 +37,10 @@ SECRET_KEY = "django-insecure-255j80npx26z%x0@-7p@(qs9(yvtuuln#xuhxt_x$bbevvxnm!
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    "http://localhost",
-    "http://localhost:3000",
     ".execute-api.us-east-1.amazonaws.com",
     "https://api.staging-cd.crossfeed.cyber.dhs.gov",
+    "http://localhost:3000",
+    "http://localhost",
 ]
 
 MESSAGE_TAGS = {

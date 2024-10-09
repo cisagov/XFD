@@ -48,6 +48,7 @@ services:
       dockerfile: ./Dockerfile.python
     volumes:
       - ./backend:/app/src
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
       - backend
     ports:

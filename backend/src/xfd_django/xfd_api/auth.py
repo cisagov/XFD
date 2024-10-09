@@ -24,17 +24,20 @@ import hashlib
 from hashlib import sha256
 import os
 from urllib.parse import urlencode
+import uuid
 
 # Third-Party Libraries
 from django.conf import settings
+from django.forms.models import model_to_dict
 from django.utils import timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 import jwt
 from jwt import ExpiredSignatureError, InvalidTokenError
 import requests
-from xfd_api.helpers import user_to_dict
-from xfd_api.models import ApiKey, User
+
+# from .helpers import user_to_dict
+from .models import ApiKey, OrganizationTag, User
 
 # JWT_ALGORITHM = "RS256"
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -44,6 +47,26 @@ JWT_TIMEOUT_HOURS = 4
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+
+def user_to_dict(user):
+    """Takes a user model object from django and
+    sanitizes fields for output.
+
+    Args:
+        user (django model): Django User model object
+
+    Returns:
+        dict: Returns sanitized and formated dict
+    """
+    user_dict = model_to_dict(user)  # Convert model to dict
+    # Convert any UUID fields to strings
+    if isinstance(user_dict.get("id"), uuid.UUID):
+        user_dict["id"] = str(user_dict["id"])
+    for key, val in user_dict.items():
+        if isinstance(val, datetime):
+            user_dict[key] = str(val)
+    return user_dict
 
 
 def create_jwt_token(user):
@@ -120,6 +143,82 @@ def hash_key(key: str) -> str:
 
 #     user_info = decode_jwt_token(token)
 #     return user_info
+
+
+# def create_jwt_token(user):
+#     """
+#     Create a JWT token for a given user.
+
+#     Args:
+#         user (User): The user object for whom the token is created.
+
+#     Returns:
+#         str: The encoded JWT token.
+#     """
+#     payload = {
+#         "id": str(user.id),
+#         "email": user.email,
+#         "exp": datetime.now(datetime.timezone.utc) + timedelta(hours=JWT_TIMEOUT_HOURS),
+#     }
+#     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+# def decode_jwt_token(token):
+#     """
+#     Decode a JWT token to retrieve the user.
+
+#     Args:
+#         token (str): The JWT token to decode.
+
+#     Returns:
+#         User: The user object decoded from the token, or None if invalid or expired.
+#     """
+#     try:
+#         payload = jwt.decode(token, JWT_SECRET, algorithm=JWT_ALGORITHM)
+#         user = User.objects.get(id=payload["id"])
+#         return user
+#     except (ExpiredSignatureError, InvalidTokenError, User.DoesNotExist):
+#         return None
+
+
+# def hash_key(key: str) -> str:
+#     """
+#     Helper to hash API key.
+
+#     Returns:
+#         str: hashed API key value
+#     """
+#     return hashlib.sha256(key.encode()).hexdigest()
+
+
+# TODO: Confirm still needed
+async def get_user_info_from_cognito(token):
+    """
+    Get user info from cognito
+
+    Args:
+        token (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
+    jwks_url = f"https://cognito-idp.us-east-1.amazonaws.com/{os.getenv('REACT_APP_USER_POOL_ID')}/.well-known/jwks.json"
+    response = requests.get(jwks_url)
+    jwks = response.json()
+    unverified_header = jwt.get_unverified_header(token)
+
+    for key in jwks["keys"]:
+        if key["kid"] == unverified_header["kid"]:
+            rsa_key = {
+                "kty": key["kty"],
+                "kid": key["kid"],
+                "use": key["use"],
+                "n": key["n"],
+                "e": key["e"],
+            }
+
+    user_info = decode_jwt_token(token)
+    return user_info
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -335,6 +434,7 @@ async def get_jwt_from_code(auth_code: str):
         pass
 
 
+# TODO: determine if we still need.
 # async def handle_cognito_callback(body):
 #     try:
 #         print(f"handle_cognito_callback body input: {str(body)}")
@@ -349,3 +449,59 @@ async def get_jwt_from_code(auth_code: str):
 #         raise HTTPException(
 #             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(error)
 #         ) from error
+
+
+# # TODO: Uncomment the token and if not user token once the JWT from OKTA is working
+# def get_current_active_user(
+#     api_key: str = Security(api_key_header),
+#     # token: str = Depends(oauth2_scheme),
+# ):
+#     """Ensure the current user is authenticated and active."""
+#     user = None
+#     if api_key:
+#         user = get_user_by_api_key(api_key)
+#     # if not user and token:
+#     #     user = decode_jwt_token(token)
+#     if user is None:
+#         print("User not authenticated")
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid authentication credentials",
+#         )
+#     print(f"Authenticated user: {user.id}")
+#     return user
+
+
+def is_global_write_admin(current_user) -> bool:
+    """Check if the user has global write admin permissions."""
+    return current_user and current_user.userType == "globalAdmin"
+
+
+def is_global_view_admin(current_user) -> bool:
+    """Check if the user has global view permissions."""
+    return current_user and current_user.userType in ["globalView", "globalAdmin"]
+
+
+def is_regional_admin(current_user) -> bool:
+    """Check if the user has regional admin permissions."""
+    return current_user and current_user.userType in ["regionalAdmin", "globalAdmin"]
+
+
+def get_tag_organizations(current_user, tag_id: str) -> list[str]:
+    """Returns the organizations belonging to a tag, if the user can access the tag."""
+    # Check if the user is a global view admin
+    if not is_global_view_admin(current_user):
+        return []
+
+    # Fetch the OrganizationTag and its related organizations
+    tag = (
+        OrganizationTag.objects.prefetch_related("organizations")
+        .filter(id=tag_id)
+        .first()
+    )
+    if tag:
+        # Return a list of organization IDs
+        return [org.id for org in tag.organizations.all()]
+
+    # Return an empty list if tag is not found
+    return []

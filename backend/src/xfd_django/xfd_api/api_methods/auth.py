@@ -1,4 +1,7 @@
 """Auth API logic"""
+# Standard Python Libraries
+import json
+
 # Third-Party Libraries
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse

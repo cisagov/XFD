@@ -16,33 +16,49 @@ Dependencies:
     - .auth
     - .models
 """
+
 # Standard Python Libraries
 from typing import List, Optional
 
 # Third-Party Libraries
+from django.shortcuts import render
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
+# from .schemas import Cpe
+from . import schema_models
 from .api_methods import api_key as api_key_methods
 from .api_methods import auth as auth_methods
 from .api_methods import notification as notification_methods
+from .api_methods import scan
+from .api_methods.api_keys import get_api_keys
+from .api_methods.cpe import get_cpes_by_id
+from .api_methods.cve import get_cves_by_id, get_cves_by_name
+from .api_methods.domain import get_domain_by_id
+from .api_methods.organization import get_organizations, read_orgs
+from .api_methods.user import get_users
+from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
 from .login_gov import callback, login
-from .models import Cpe, Cve, Domain, Organization, User, Vulnerability
+from .models import Assessment, User
 from .schema_models.api_key import ApiKey as ApiKeySchema
+from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
-from .schema_models.domain import DomainSearch
+from .schema_models.domain import DomainFilters, DomainSearch
 from .schema_models.notification import Notification as NotificationSchema
 from .schema_models.organization import Organization as OrganizationSchema
+from .schema_models.role import Role as RoleSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
+# Define API router
 api_router = APIRouter()
 
 
 # Healthcheck endpoint
-@api_router.get("/healthcheck")
+@api_router.get("/healthcheck", tags=["Testing"])
 async def healthcheck():
     """
     Healthcheck endpoint.
@@ -53,46 +69,73 @@ async def healthcheck():
     return {"status": "ok2"}
 
 
-@api_router.get(
-    "/test-orgs",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=List[OrganizationSchema],
-    tags=["List of all Organizations"],
-)
-def read_orgs(current_user: User = Depends(get_current_active_user)):
-    """Call API endpoint to get all organizations.
-    Returns:
-        list: A list of all organizations.
+@api_router.get("/test-apikeys", tags=["Testing"])
+async def call_get_api_keys():
     """
-    try:
-        organizations = Organization.objects.all()
-        return [
-            {
-                "id": organization.id,
-                "name": organization.name,
-                "acronym": organization.acronym,
-                "rootDomains": organization.rootDomains,
-                "ipBlocks": organization.ipBlocks,
-                "isPassive": organization.isPassive,
-                "country": organization.country,
-                "state": organization.state,
-                "regionId": organization.regionId,
-                "stateFips": organization.stateFips,
-                "stateName": organization.stateName,
-                "county": organization.county,
-                "countyFips": organization.countyFips,
-                "type": organization.type,
-                "parentId": organization.parentId.id if organization.parentId else None,
-                "createdById": organization.createdById.id
-                if organization.createdById
-                else None,
-                "createdAt": organization.createdAt,
-                "updatedAt": organization.updatedAt,
-            }
-            for organization in organizations
-        ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    Get all API keys.
+
+    Returns:
+        list: A list of all API keys.
+    """
+    return get_api_keys()
+
+
+@api_router.post(
+    "/test-orgs",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[OrganizationSchema],
+    tags=["Organizations", "Testing"],
+)
+async def call_read_orgs():
+    """
+    List all organizations with query parameters.
+    Args:
+        state (Optional[List[str]]): List of states to filter organizations by.
+        regionId (Optional[List[str]]): List of region IDs to filter organizations by.
+
+    Raises:
+        HTTPException: If the user is not authorized or no organizations are found.
+
+    Returns:
+        List[Organizations]: A list of organizations matching the filter criteria.
+    """
+    return read_orgs()
+
+
+# TODO: Uncomment checks for current_user once authentication is implemented
+@api_router.get(
+    "/assessments",
+    #  current_user: User = Depends(get_current_active_user),
+    tags=["ReadySetCyber"],
+)
+async def list_assessments():
+    """
+    Lists all assessments for the logged-in user.
+
+    Args:
+        current_user (User): The current authenticated user.
+
+    Raises:
+        HTTPException: If the user is not authorized or assessments are not found.
+
+    Returns:
+        List[Assessment]: A list of assessments for the logged-in user.
+    """
+    # Ensure the user is authenticated
+    # if not current_user:
+    #     raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # Query the database for assessments belonging to the current user
+    # assessments = Assessment.objects.filter(user=current_user)
+    assessments = (
+        Assessment.objects.all()
+    )  # TODO: Remove this line once filtering by user is implemented
+
+    # Return assessments if found, or raise a 404 error if none exist
+    if not assessments.exists():
+        raise HTTPException(status_code=404, detail="No assessments found")
+
+    return list(assessments)
 
 
 @api_router.post("/search")
@@ -109,38 +152,30 @@ async def export_search():
     "/cpes/{cpe_id}",
     # dependencies=[Depends(get_current_active_user)],
     response_model=CpeSchema,
-    tags=["Get cpe by id"],
+    tags=["Cpe"],
 )
-async def get_cpes_by_id(cpe_id):
+async def call_get_cpes_by_id(cpe_id):
     """
     Get Cpe by id.
     Returns:
         object: a single Cpe object.
     """
-    try:
-        cpe = Cpe.objects.get(id=cpe_id)
-        return cpe
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_cpes_by_id(cpe_id)
 
 
 @api_router.get(
     "/cves/{cve_id}",
     # dependencies=[Depends(get_current_active_user)],
     response_model=CveSchema,
-    tags=["Get cve by id"],
+    tags=["Cve"],
 )
-async def get_cves_by_id(cve_id):
+async def call_get_cves_by_id(cve_id):
     """
     Get Cve by id.
     Returns:
         object: a single Cve object.
     """
-    try:
-        cve = Cve.objects.get(id=cve_id)
-        return cve
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_cves_by_id(cve_id)
 
 
 @api_router.get(
@@ -149,17 +184,13 @@ async def get_cves_by_id(cve_id):
     response_model=CveSchema,
     tags=["Get cve by name"],
 )
-async def get_cves_by_name(cve_name):
+async def call_get_cves_by_name(cve_name):
     """
     Get Cve by name.
     Returns:
         object: a single Cpe object.
     """
-    try:
-        cve = Cve.objects.get(name=cve_name)
-        return cve
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_cves_by_name(cve_name)
 
 
 @api_router.post("/domain/search")
@@ -184,19 +215,13 @@ async def export_domains():
     response_model=DomainSchema,
     tags=["Get domain by id"],
 )
-async def get_domain_by_id(domain_id: str):
+async def call_get_domain_by_id(domain_id: str):
     """
     Get domain by id.
     Returns:
         object: a single Domain object.
     """
-    try:
-        domain = Domain.objects.get(id=domain_id)
-        return domain
-    except Domain.DoesNotExist:
-        raise HTTPException(status_code=404, detail="Domain not found.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_domain_by_id(domain_id)
 
 
 @api_router.post("/vulnerabilities/search")
@@ -221,17 +246,13 @@ async def export_vulnerabilities():
     response_model=VulnerabilitySchema,
     tags="Get vulnerability by id",
 )
-async def get_vulnerability_by_id(vuln_id):
+async def call_get_vulnerability_by_id(vuln_id):
     """
     Get vulnerability by id.
     Returns:
         object: a single Vulnerability object.
     """
-    try:
-        vulnerability = Vulnerability.objects.get(id=vuln_id)
-        return vulnerability
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return get_vulnerability_by_id(vuln_id)
 
 
 @api_router.put(
@@ -240,20 +261,14 @@ async def get_vulnerability_by_id(vuln_id):
     response_model=VulnerabilitySchema,
     tags="Update vulnerability",
 )
-async def update_vulnerability(vuln_id, data: VulnerabilitySchema):
+async def call_update_vulnerability(vuln_id, data: VulnerabilitySchema):
     """
     Update vulnerability by id.
 
     Returns:
         object: a single vulnerability object that has been modified.
     """
-    try:
-        vulnerability = Vulnerability.objects.get(id=vuln_id)
-        vulnerability = data
-        vulnerability.save()
-        return vulnerability
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    return update_vulnerability(vuln_id, data)
 
 
 ######################
@@ -265,7 +280,7 @@ async def update_vulnerability(vuln_id, data: VulnerabilitySchema):
 @api_router.post("/auth/okta-callback", tags=["auth"])
 async def okta_callback(request: Request):
     """Handle Okta Callback."""
-    return auth_methods.handle_okta_callback(request)
+    return await auth_methods.handle_okta_callback(request)
 
 
 # Login
@@ -301,18 +316,18 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 # V2 GET Users
 @api_router.get(
     "/v2/users",
-    tags=["users"],
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
+    tags=["users"],
 )
-async def get_users(
+async def call_get_users(
     state: Optional[List[str]] = Query(None),
     regionId: Optional[List[str]] = Query(None),
     invitePending: Optional[List[str]] = Query(None),
     # current_user: User = Depends(is_regional_admin)
 ):
     """
-    Retrieve a list of users based on optional filter parameters.
+    Call get_users()
 
     Args:
         state (Optional[List[str]]): List of states to filter users by.
@@ -346,24 +361,6 @@ async def get_users(
 
     # Return the Pydantic models directly by calling from_orm
     return [UserSchema.from_orm(user) for user in users]
-
-
-# @api_router.post("/users/me/acceptTerms")
-# async def accept_terms(request: Request):
-#     user = await get_current_active_user(request)
-#     user = get_object_or_404(User, id=user_id)
-#     body = await request.json()
-
-#     if not body:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid request body"
-#         )
-
-#     user.dateAcceptedTerms = datetime.utcnow()
-#     user.acceptedTermsVersion = body.get("version")
-#     user.save()
-
-#     return JSONResponse(content=user.to_dict(), status_code=status.HTTP_200_OK)
 
 
 ######################
