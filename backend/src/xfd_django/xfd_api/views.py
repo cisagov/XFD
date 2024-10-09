@@ -329,7 +329,12 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     # dependencies=[Depends(get_current_active_user)],
     tags=["users"],
 )
-async def call_get_users(regionId):
+async def async def call_get_users(
+    state: Optional[List[str]] = Query(None),
+    regionId: Optional[List[str]] = Query(None),
+    invitePending: Optional[List[str]] = Query(None),
+    # current_user: User = Depends(is_regional_admin)
+):
     """
     Call get_users()
 
