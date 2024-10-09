@@ -22,3 +22,6 @@ class Notification(BaseModel):
     status: Optional[str]
     updatedBy: datetime
     message: Optional[str]
+
+    class Config:
+        from_attributes = True
