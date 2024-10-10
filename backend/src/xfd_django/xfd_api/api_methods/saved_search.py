@@ -36,9 +36,28 @@ def list_saved_searches():
     try:
         saved_searches = SavedSearch.objects.all()
         count = saved_searches.count()
+        saved_search_list = []
         for search in saved_searches:
-            print(str(search.id))
-        return {"saved_searches": list(saved_searches), "Saved Search Count": count}
+            print(str(saved_search_list))
+            response = {
+                "id": str(search.id),
+                "name": search.name,
+                "count": search.count,
+                "sort_direction": search.sortDirection,
+                "sort_field": search.sortField,
+                "search_term": search.searchTerm,
+                "search_path": search.searchPath,
+                "filters": search.filters,
+                "create_vulnerabilities": search.createVulnerabilities,
+                "vulnerability_template": search.vulnerabilityTemplate,
+                "created_by": {
+                    "id": search.createdById.id,
+                    "user_name": search.createdById.fullName,
+                },
+            }
+            saved_search_list.append(response)
+
+        return {"saved_searches": list(saved_search_list), "Saved Search Count": count}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -99,16 +118,16 @@ def get_saved_search(search_id):
 #     return JsonResponse({"status": "Updated", "search": search.id}, status=200)
 
 
-# def delete_saved_search(request, search_id):
-#     """Delete saved search by id."""
-#     if not uuid.UUID(search_id):
-#         raise HTTPException(status_code=404, detail={"error": "Invalid UUID"})
+def delete_saved_search(search_id):
+    """Delete saved search by id."""
+    if not uuid.UUID(search_id):
+        raise HTTPException(status_code=404, detail={"error": "Invalid UUID"})
 
-#     try:
-#         search = SavedSearch.objects.get(id=search_id, created_by=request.user)
-#         search.delete()
-#         return JsonResponse(
-#             {"status": "success", "message": f"Saved search id:{search_id} deleted."}
-#         )
-#     except SavedSearch.DoesNotExist as e:
-#         raise HTTPException(status_code=404, detail=str(e))
+    try:
+        search = SavedSearch.objects.get(id=search_id)
+        search.delete()
+        return JsonResponse(
+            {"status": "success", "message": f"Saved search id:{search_id} deleted."}
+        )
+    except SavedSearch.DoesNotExist as e:
+        raise HTTPException(status_code=404, detail=str(e))

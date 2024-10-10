@@ -74,6 +74,7 @@ def is_regional_admin(current_user) -> bool:
     """Check if the user has regional admin permissions."""
     return current_user and current_user.userType in ["regionalAdmin", "globalAdmin"]
 
+
 def get_tag_organizations(current_user, tag_id: str) -> list[str]:
     """Returns the organizations belonging to a tag, if the user can access the tag."""
     # Check if the user is a global view admin
@@ -81,15 +82,17 @@ def get_tag_organizations(current_user, tag_id: str) -> list[str]:
         return []
 
     # Fetch the OrganizationTag and its related organizations
-    tag = OrganizationTag.objects.prefetch_related("organizations").filter(id=tag_id).first()
+    tag = (
+        OrganizationTag.objects.prefetch_related("organizations")
+        .filter(id=tag_id)
+        .first()
+    )
     if tag:
         # Return a list of organization IDs
         return [org.id for org in tag.organizations.all()]
 
     # Return an empty list if tag is not found
     return []
-
-
 
 
 # TODO: Below is a template of what these could be nut isn't tested

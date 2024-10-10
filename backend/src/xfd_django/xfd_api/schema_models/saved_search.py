@@ -32,7 +32,6 @@ class SavedSearchFilters(BaseModel):
     sort_field: Optional[str]
     search_term: Optional[str]
     search_path: Optional[str]
-    create_vulnerabilities: Optional[bool]
     created_by: Optional[UUID]
 
 

@@ -29,7 +29,11 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
-from .api_methods.saved_search import get_saved_search, list_saved_searches
+from .api_methods.saved_search import (
+    delete_saved_search,
+    get_saved_search,
+    list_saved_searches,
+)
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
@@ -340,6 +344,7 @@ async def call_get_organizations(regionId):
 # ========================================
 
 
+# TODO: Implement the following functions
 @api_router.post(
     "/saved-searches",
     tags=["Testing"],
@@ -371,6 +376,7 @@ async def call_get_saved_search(saved_search_id: str):
     return get_saved_search(saved_search_id)
 
 
+# TODO: Implement the following functions
 @api_router.put(
     "/saved-searches/{saved_search_id}",
     tags=["Testing"],
@@ -380,18 +386,14 @@ async def update_saved_search(saved_search_id: str):
     return {"status": "ok"}
 
 
+# Delete saved search is implemented in the following function
 @api_router.delete(
     "/saved-searches/{saved_search_id}",
     tags=["Testing"],
 )
-async def delete_saved_search(saved_search_id: str):
+async def call_delete_saved_search(saved_search_id: str):
     """Delete a saved search by its ID."""
-    return {"status": "ok"}
-
-
-# async def call_list_saved_searches(current_user: User = Depends(get_current_active_user)):
-#     """Retrieve a list of all saved searches."""
-#     return list_saved_searches(current_user)
+    return delete_saved_search(saved_search_id)
 
 
 # ========================================
