@@ -323,13 +323,6 @@ export const matchesUserRegion = (
 
 /** Checks if the current user is allowed to access (modify) a user with id userId */
 export const canAccessUser = (event: APIGatewayProxyEvent, userId?: string) => {
-  if (
-    userId &&
-    (userId === getUserId(event) ||
-      isGlobalWriteAdmin(event) ||
-      isRegionalAdmin(event))
-  );
-
   return (
     userId &&
     (userId === getUserId(event) ||
