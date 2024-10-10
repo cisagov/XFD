@@ -131,9 +131,9 @@ export const SCAN_SCHEMA: ScanSchema = {
   flagFloatingIps: {
     type: 'fargate',
     isPassive: true,
-    global: false,
-    cpu: '1024',
-    memory: '8192',
+    global: true,
+    cpu: '4096',
+    memory: '30720',
     description:
       'Loops through all domains and determines if their associated IP can be found in a report Cidr block.'
   },

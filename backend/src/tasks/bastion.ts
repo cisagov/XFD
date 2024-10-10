@@ -3,6 +3,7 @@ import { connectToDatabase, User, connectToDatalake } from '../models';
 import ESClient from '../tasks/es-client';
 const AWS = require('aws-sdk');
 const s3 = new AWS.S3({ region: 'us-gov-east-1' });
+import { handler as searchSyncOrgs } from './search-sync-orgs';
 
 export const handler: Handler = async (event) => {
   if (event.mode === 'db') {
@@ -32,6 +33,16 @@ export const handler: Handler = async (event) => {
       const client = new ESClient();
       await client.deleteAll();
       console.log('Index successfully deleted');
+    } else {
+      console.log('Query not found: ' + event.query);
+    }
+    if (event.query === 'update') {
+      const connection = await connectToDatabase(true);
+      const client = new ESClient();
+      await searchSyncOrgs();
+      await client.syncDomainsIndex();
+      await client.syncOrganizationsIndex();
+      console.log('Index successfully updated');
     } else {
       console.log('Query not found: ' + event.query);
     }
