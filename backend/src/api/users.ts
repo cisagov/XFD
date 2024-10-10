@@ -33,7 +33,8 @@ import {
   isGlobalViewAdmin,
   isRegionalAdmin,
   isOrgAdmin,
-  isGlobalWriteAdmin
+  isGlobalWriteAdmin,
+  matchesUserRegion
 } from './auth';
 import { fetchAssessmentsByUser } from '../tasks/rscSync';
 
@@ -918,6 +919,8 @@ export const updateV2 = wrapHandler(async (event) => {
   if (!user) {
     return NotFound;
   }
+
+  if (!matchesUserRegion(event, user.regionId)) return Unauthorized;
 
   if (body.state) {
     body.regionId = REGION_STATE_MAP[body.state];
