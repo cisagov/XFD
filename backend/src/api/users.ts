@@ -33,7 +33,8 @@ import {
   isGlobalViewAdmin,
   isRegionalAdmin,
   isOrgAdmin,
-  isGlobalWriteAdmin
+  isGlobalWriteAdmin,
+  matchesUserRegion
 } from './auth';
 import { fetchAssessmentsByUser } from '../tasks/rscSync';
 
@@ -633,6 +634,9 @@ export const registrationApproval = wrapHandler(async (event) => {
     return NotFound;
   }
 
+  // Check if authorizer's region matches the user's
+  if (!matchesUserRegion(event, user.regionId)) return Unauthorized;
+
   // Send email notification
   await sendRegistrationApprovedEmail(
     user.email,
@@ -917,6 +921,9 @@ export const updateV2 = wrapHandler(async (event) => {
   if (!user) {
     return NotFound;
   }
+
+  // Check if authorizer's region matches the user's
+  if (!matchesUserRegion(event, user.regionId)) return Unauthorized;
 
   if (body.state) {
     body.regionId = REGION_STATE_MAP[body.state];
