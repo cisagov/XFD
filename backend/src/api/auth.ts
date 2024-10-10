@@ -311,7 +311,7 @@ export const matchesRegion = async (
 };
 
 /** Checks if the authorizer's region is the same as the user's being modified  */
-export const matchesUserRegion = async (
+export const matchesUserRegion = (
   event: APIGatewayProxyEvent,
   userRegionId?: string
 ) => {
