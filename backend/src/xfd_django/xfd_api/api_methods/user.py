@@ -30,3 +30,24 @@ def get_users(regionId):
         return [UserSchema.from_orm(user) for user in users]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def delete_user(user_id: str):
+    """
+    Delete a user by ID.
+
+    Args:
+        user_id : The ID of the user to delete.
+    Raises:
+        HTTPException: If the user is not authorized or the user is not found.
+
+    Returns:
+        User: The user that was deleted.
+    """
+
+    try:
+        user = User.objects.get(id=user_id)
+        user.delete()
+        return UserSchema.from_orm(user)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

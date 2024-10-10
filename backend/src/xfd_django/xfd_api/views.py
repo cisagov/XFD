@@ -36,7 +36,7 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
-from .api_methods.user import get_users
+from .api_methods.user import delete_user, get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
 from .login_gov import callback, login
@@ -318,7 +318,7 @@ async def callback_route(request: Request):
 
 
 # GET Current User
-@api_router.get("/users/me", tags=["users"])
+@api_router.get("/users/me", tags=["Users"])
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
@@ -327,7 +327,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
     "/users/{regionId}",
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
-    tags=["User"],
+    tags=["Users"],
 )
 async def call_get_users(regionId):
     """
@@ -343,6 +343,21 @@ async def call_get_users(regionId):
         List[User]: A list of users matching the filter criteria.
     """
     return get_users(regionId)
+
+
+@api_router.delete("/users/{userId}", tags=["Users"])
+async def call_delete_user(userId: str):
+    """
+    call delete_user()
+    Args:
+        userId: UUID of the user to delete.
+
+        Returns:
+        User: The user that was deleted.
+
+    """
+
+    return delete_user(userId)
 
 
 ######################
