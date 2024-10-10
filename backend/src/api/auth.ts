@@ -310,16 +310,25 @@ export const matchesRegion = async (
   return regionId === (await getRegion(organizationId));
 };
 
+/** Checks if the authorizer's region is the same as the user's being modified  */
 export const matchesUserRegion = async (
   event: APIGatewayProxyEvent,
   userRegionId?: string
 ) => {
+  if (isGlobalWriteAdmin(event)) return true;
   if (!event.requestContext.authorizer || !userRegionId) return false;
   return userRegionId === event.requestContext.authorizer.regionId;
 };
 
 /** Checks if the current user is allowed to access (modify) a user with id userId */
 export const canAccessUser = (event: APIGatewayProxyEvent, userId?: string) => {
+  if (
+    userId &&
+    (userId === getUserId(event) ||
+      isGlobalWriteAdmin(event) ||
+      isRegionalAdmin(event))
+  );
+
   return (
     userId &&
     (userId === getUserId(event) ||

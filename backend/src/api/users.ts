@@ -920,6 +920,7 @@ export const updateV2 = wrapHandler(async (event) => {
     return NotFound;
   }
 
+  // Check if authorizer's region matches the user's
   if (!matchesUserRegion(event, user.regionId)) return Unauthorized;
 
   if (body.state) {
