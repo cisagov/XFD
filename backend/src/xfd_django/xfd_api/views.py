@@ -45,7 +45,7 @@ from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
 from .schema_models.domain import DomainSearch
 from .schema_models.organization import Organization as OrganizationSchema
-from .schema_models.saved_search import SavedSearch as savedSearchSchema
+from .schema_models.saved_search import SavedSearch as SavedSearchSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
@@ -358,7 +358,7 @@ async def create_saved_search():
 @api_router.get(
     "/saved-searches",
     # dependencies=[Depends(get_current_active_user)],
-    # response_model=savedSearchSchema,
+    response_model=List[SavedSearchSchema],
     tags=["Testing"],
 )
 async def call_list_saved_searches():

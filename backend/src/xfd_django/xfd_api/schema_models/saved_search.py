@@ -1,7 +1,7 @@
 """Saved Search schemas."""
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
@@ -12,15 +12,14 @@ class SavedSearch(BaseModel):
     """SavedSearch schema."""
 
     id: UUID
-    name: str
-    count: int
-    sort_direction: str
-    sort_field: str
-    search_term: str
-    search_path: str
-    filters: Json[Any]
     created_at: datetime
     updated_at: datetime
+    name: str
+    search_term: str
+    sort_direction: str
+    sort_field: str
+    count: int
+    filters: List[Dict[str, Any]]
 
 
 class SavedSearchFilters(BaseModel):

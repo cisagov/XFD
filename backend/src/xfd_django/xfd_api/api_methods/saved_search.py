@@ -41,23 +41,20 @@ def list_saved_searches():
             print(str(saved_search_list))
             response = {
                 "id": str(search.id),
+                "created_at": search.createdAt,
+                "updated_at": search.updatedAt,
                 "name": search.name,
-                "count": search.count,
+                "search_term": search.searchTerm,
                 "sort_direction": search.sortDirection,
                 "sort_field": search.sortField,
-                "search_term": search.searchTerm,
-                "search_path": search.searchPath,
+                "count": search.count,
                 "filters": search.filters,
-                "create_vulnerabilities": search.createVulnerabilities,
-                "vulnerability_template": search.vulnerabilityTemplate,
-                "created_by": {
-                    "id": search.createdById.id,
-                    "user_name": search.createdById.fullName,
-                },
+                "search_path": search.searchPath,
+                "createdBy_id": search.createdById.id,
             }
             saved_search_list.append(response)
 
-        return {"saved_searches": list(saved_search_list), "Saved Search Count": count}
+        return list(saved_search_list)
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))
 
