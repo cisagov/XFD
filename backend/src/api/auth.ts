@@ -315,6 +315,7 @@ export const matchesUserRegion = async (
   event: APIGatewayProxyEvent,
   userRegionId?: string
 ) => {
+  // Global admins can match with any region
   if (isGlobalWriteAdmin(event)) return true;
   if (!event.requestContext.authorizer || !userRegionId) return false;
   return userRegionId === event.requestContext.authorizer.regionId;
