@@ -21,6 +21,7 @@ export interface UserToken {
     org: string;
     role: 'user' | 'admin';
   }[];
+  regionId: string | null;
   dateAcceptedTerms: Date | undefined;
   acceptedTermsVersion: string | undefined;
   lastLoggedIn: Date | undefined;
@@ -95,6 +96,7 @@ export const userTokenBody = (user): UserToken => ({
   email: user.email,
   userType: user.userType,
   dateAcceptedTerms: user.dateAcceptedTerms,
+  regionId: user.regionId,
   acceptedTermsVersion: user.acceptedTermsVersion,
   lastLoggedIn: user.lastLoggedIn,
   loginBlockedByMaintenance: user.loginBlockedByMaintenance,
