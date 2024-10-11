@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel, Json
+from pydantic import BaseModel
 
 
 class SavedSearch(BaseModel):

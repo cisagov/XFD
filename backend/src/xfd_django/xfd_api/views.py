@@ -369,6 +369,7 @@ async def call_list_saved_searches():
 # Get individual saved search is implemented in the following function
 @api_router.get(
     "/saved-searches/{saved_search_id}",
+    response_model=SavedSearchSchema,
     tags=["Testing"],
 )
 async def call_get_saved_search(saved_search_id: str):

@@ -35,7 +35,6 @@ def list_saved_searches():
     """List all saved searches."""
     try:
         saved_searches = SavedSearch.objects.all()
-        count = saved_searches.count()
         saved_search_list = []
         for search in saved_searches:
             print(str(saved_search_list))
@@ -67,7 +66,20 @@ def get_saved_search(search_id):
         saved_search = SavedSearch.objects.all()
         for search in saved_search:
             if str(search.id) == search_id:
-                return search
+                response = {
+                    "id": str(search.id),
+                    "created_at": search.createdAt,
+                    "updated_at": search.updatedAt,
+                    "name": search.name,
+                    "search_term": search.searchTerm,
+                    "sort_direction": search.sortDirection,
+                    "sort_field": search.sortField,
+                    "count": search.count,
+                    "filters": search.filters,
+                    "search_path": search.searchPath,
+                    "createdBy_id": search.createdById.id,
+                }
+                return response
 
         # search = SavedSearch.objects.get(id=search_id, created_by=request.user)
         # data = {
