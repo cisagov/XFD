@@ -3,11 +3,11 @@
 # from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel, Json
+from pydantic import BaseModel
 
 
 class Role(BaseModel):
@@ -22,3 +22,6 @@ class Role(BaseModel):
     approvedById: Optional[Any]
     userId: Optional[Any]
     organizationId: Optional[Any]
+
+    class Config:
+        from_attributes = True

@@ -16,3 +16,6 @@ class Category(BaseModel):
     name: str
     number: str
     shortName: Optional[str]
+
+    class Config:
+        from_attributes = True

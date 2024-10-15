@@ -36,10 +36,11 @@ class Domain(BaseModel):
     discoveredById_id: Optional[UUID]
     organizationId_id: Optional[UUID]
 
-    model_config = {
-        """Organization base schema schema config.""" "from_attributes": True,
-        "validate_assignment": True,
-    }
+    class Config:
+        """Domain base schema config."""
+
+        from_attributes = True
+        validate_assignment = True
 
 
 class DomainFilters(BaseModel):
@@ -54,6 +55,9 @@ class DomainFilters(BaseModel):
     vulnerabilities: Optional[str] = None
     tag: Optional[str] = None
 
+    class Config:
+        from_attributes = True
+
 
 class DomainSearch(BaseModel):
     """DomainSearch schema."""
@@ -63,3 +67,6 @@ class DomainSearch(BaseModel):
     order: str
     filters: Optional[DomainFilters]
     pageSize: Optional[int] = None
+
+    class Config:
+        from_attributes = True

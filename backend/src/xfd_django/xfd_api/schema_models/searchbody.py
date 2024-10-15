@@ -20,3 +20,6 @@ class SearchBody(BaseModel):
     filters: Json[Any]
     organizationId: Optional[UUID]
     tagId: Optional[UUID]
+
+    class Config:
+        from_attributes = True
