@@ -22,7 +22,7 @@ const addRequestId = format((info) => {
 });
 
 // Configure Winston logger
-const logger = createLogger({
+const logger_lz = createLogger({
   format: format.combine(
     format.timestamp(),
     uppercaseLevelFormat(),
@@ -37,4 +37,4 @@ const logger = createLogger({
   transports: [new transports.Console()]
 });
 
-export default logger;
+export default logger_lz;

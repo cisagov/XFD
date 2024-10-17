@@ -13,6 +13,7 @@ import * as search from './search';
 import * as vulnerabilities from './vulnerabilities';
 import * as organizations from './organizations';
 import * as scans from './scans';
+import * as logs from './logs';
 import * as users from './users';
 import * as scanTasks from './scan-tasks';
 import * as stats from './stats';
@@ -22,14 +23,15 @@ import * as reports from './reports';
 import * as savedSearches from './saved-searches';
 import rateLimit from 'express-rate-limit';
 import { createProxyMiddleware } from 'http-proxy-middleware';
-import { User, UserType, connectToDatabase } from '../models';
+import { Organization, User, UserType, connectToDatabase } from '../models';
 import * as assessments from './assessments';
 import * as jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 import fetch from 'node-fetch';
-import logger from '../tools/lambda-logger';
+import logger_lz from '../tools/lambda-logger';
 import { HttpsProxyAgent } from 'https-proxy-agent';
 import * as searchOrganizations from './organizationSearch';
+import { Logger, RecordMessage } from '../tools/logger';
 
 const sanitizer = require('sanitizer');
 
@@ -45,31 +47,42 @@ if (
   setInterval(() => scheduler({}, {} as any, () => null), 30000);
 }
 
-const handlerToExpress = (handler) => async (req, res, next) => {
-  const { statusCode, body } = await handler(
-    {
-      pathParameters: req.params,
-      query: req.query,
-      requestContext: req.requestContext,
-      body: JSON.stringify(req.body || '{}'),
-      headers: req.headers,
-      path: req.originalUrl
-    },
-    {},
-    req.context
-  );
-  // Set HSTS header to ensure that the browser enforces HTTPS
-  res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+const handlerToExpress =
+  (handler, message?: RecordMessage, action?: string) => async (req, res) => {
+    const { statusCode, body } = await handler(
+      {
+        pathParameters: req.params,
+        query: req.query,
+        requestContext: req.requestContext,
+        body: JSON.stringify(req.body || '{}'),
+        headers: req.headers,
+        path: req.originalUrl
+      },
+      {},
+      req.context
+    );
+    // Set HSTS header to ensure that the browser enforces HTTPS
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000');
 
-  try {
-    const parsedBody = JSON.parse(sanitizer.sanitize(body));
-    res.status(statusCode).json(parsedBody);
-  } catch (e) {
-    // Not a JSON body
-    res.setHeader('content-type', 'text/plain');
-    res.status(statusCode).send(sanitizer.sanitize(body));
-  }
-};
+    if (message && action) {
+      const logger = new Logger(req);
+      if (statusCode === 200) {
+        logger.record(action, 'success', message, body);
+      } else {
+        logger.record(action, 'fail', message, body);
+      }
+    }
+
+    try {
+      const parsedBody = JSON.parse(sanitizer.sanitize(body));
+      res.status(200).json(parsedBody);
+    } catch (e) {
+      // Not valid JSON - may be a string response.
+      console.log('Error?', e);
+      res.setHeader('content-type', 'text/plain');
+      res.status(statusCode).send(sanitizer.sanitize(body));
+    }
+  };
 
 const logHeaders = (req, res, next) => {
   const sanitizedHeaders = { ...req.headers };
@@ -89,7 +102,7 @@ const logHeaders = (req, res, next) => {
         : 'undefined'
     };
 
-    logger.info(`Request Info: ${JSON.stringify(logInfo)}`);
+    logger_lz.info(`Request Info: ${JSON.stringify(logInfo)}`);
   });
 
   next();
@@ -531,7 +544,6 @@ const checkGlobalAdminOrRegionAdmin = async (
 // needing to sign the terms of service yet
 const authenticatedNoTermsRoute = express.Router();
 authenticatedNoTermsRoute.use(checkUserLoggedIn);
-authenticatedNoTermsRoute.use(logHeaders);
 authenticatedNoTermsRoute.get('/users/me', handlerToExpress(users.me));
 authenticatedNoTermsRoute.post(
   '/users/me/acceptTerms',
@@ -547,7 +559,6 @@ const authenticatedRoute = express.Router();
 
 authenticatedRoute.use(checkUserLoggedIn);
 authenticatedRoute.use(checkUserSignedTerms);
-authenticatedRoute.use(logHeaders);
 
 authenticatedRoute.post('/api-keys', handlerToExpress(apiKeys.generate));
 authenticatedRoute.delete('/api-keys/:keyId', handlerToExpress(apiKeys.del));
@@ -598,6 +609,7 @@ authenticatedRoute.delete(
   handlerToExpress(savedSearches.del)
 );
 authenticatedRoute.get('/scans', handlerToExpress(scans.list));
+authenticatedRoute.post('/logs/search', handlerToExpress(logs.list));
 authenticatedRoute.get('/granularScans', handlerToExpress(scans.listGranular));
 authenticatedRoute.post('/scans', handlerToExpress(scans.create));
 authenticatedRoute.get('/scans/:scanId', handlerToExpress(scans.get));
@@ -655,12 +667,39 @@ authenticatedRoute.delete(
 );
 authenticatedRoute.post(
   '/v2/organizations/:organizationId/users',
-  handlerToExpress(organizations.addUserV2)
+  handlerToExpress(
+    organizations.addUserV2,
+    async (req, token) => {
+      const orgId = req?.params?.organizationId;
+      const userId = req?.body?.userId;
+      const role = req?.body?.role;
+      if (orgId && userId) {
+        const orgRecord = await Organization.findOne({ where: { id: orgId } });
+        const userRecord = await User.findOne({ where: { id: userId } });
+        return {
+          timestamp: new Date(),
+          userPerformedAssignment: token?.id,
+          organization: orgRecord,
+          role: role,
+          user: userRecord
+        };
+      }
+      return {
+        timestamp: new Date(),
+        userId: token?.id,
+        updatePayload: req.body
+      };
+    },
+    'USER ASSIGNED'
+  )
 );
+
 authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/approve',
   handlerToExpress(organizations.approveRole)
 );
+
+// TO-DO Add logging => /users => user has an org and you change them to a new organization
 authenticatedRoute.post(
   '/organizations/:organizationId/roles/:roleId/remove',
   handlerToExpress(organizations.removeRole)
@@ -678,9 +717,58 @@ authenticatedRoute.post(
   handlerToExpress(organizations.checkDomainVerification)
 );
 authenticatedRoute.post('/stats', handlerToExpress(stats.get));
-authenticatedRoute.post('/users', handlerToExpress(users.invite));
+authenticatedRoute.post(
+  '/users',
+  handlerToExpress(
+    users.invite,
+    async (req, token, responseBody) => {
+      const userId = token?.id;
+      if (userId) {
+        const userRecord = await User.findOne({ where: { id: userId } });
+        return {
+          timestamp: new Date(),
+          userPerformedInvite: userRecord,
+          invitePayload: req.body,
+          createdUserRecord: responseBody
+        };
+      }
+      return {
+        timestamp: new Date(),
+        userId: token?.id,
+        invitePayload: req.body,
+        createdUserRecord: responseBody
+      };
+    },
+    'USER INVITE'
+  )
+);
 authenticatedRoute.get('/users', handlerToExpress(users.list));
-authenticatedRoute.delete('/users/:userId', handlerToExpress(users.del));
+authenticatedRoute.delete(
+  '/users/:userId',
+  handlerToExpress(
+    users.del,
+    async (req, token, res) => {
+      const userId = req?.params?.userId;
+      const userPerformedRemovalId = token?.id;
+      if (userId && userPerformedRemovalId) {
+        const userPerformdRemovalRecord = await User.findOne({
+          where: { id: userPerformedRemovalId }
+        });
+        return {
+          timestamp: new Date(),
+          userPerformedRemoval: userPerformdRemovalRecord,
+          userRemoved: userId
+        };
+      }
+      return {
+        timestamp: new Date(),
+        userPerformedRemoval: token?.id,
+        userRemoved: req.params.userId
+      };
+    },
+    'USER DENY/REMOVE'
+  )
+);
 authenticatedRoute.get(
   '/users/state/:state',
   handlerToExpress(users.getByState)
@@ -705,7 +793,17 @@ authenticatedRoute.post(
 authenticatedRoute.put(
   '/users/:userId/register/approve',
   checkGlobalAdminOrRegionAdmin,
-  handlerToExpress(users.registrationApproval)
+  handlerToExpress(
+    users.registrationApproval,
+    async (req, token) => {
+      return {
+        timestamp: new Date(),
+        userId: token?.id,
+        userToApprove: req.params.userId
+      };
+    },
+    'USER APPROVE'
+  )
 );
 
 authenticatedRoute.put(
