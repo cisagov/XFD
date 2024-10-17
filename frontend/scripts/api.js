@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
+import logger from 'lambda-logger';
 
 export const app = express();
 
@@ -12,7 +13,17 @@ app.use((req, res, next) => {
   const sanitizedHeaders = { ...req.headers };
   // Remove or replace sensitive headers
   delete sanitizedHeaders['authorization'];
-  console.log(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
+  res.on('finish', () => {
+    const logInfo = {
+      httpMethod: req.method,
+      protocol: req.protocol,
+      originalUrl: req.originalUrl,
+      path: req.path,
+      statusCode: res.statusCode,
+      headers: sanitizedHeaders
+    };
+    logger.info(`Request Info: ${JSON.stringify(logInfo)}`);
+  });
   next();
 });
 
@@ -34,21 +45,21 @@ app.use(
       directives: {
         defaultSrc: [
           "'self'",
-          'https://cognito-idp.us-east-1.amazonaws.com',
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
+          `${process.env.COGNITO_URL}`,
+          `${process.env.BACKEND_DOMAIN}`
         ],
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
           'data:',
-          'https://staging-cd.crossfeed.cyber.dhs.gov',
+          `https://${process.env.DOMAIN}`,
           'https://www.ssa.gov',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov',
+          `${process.env.BACKEND_DOMAIN}`,
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
           'https://www.ssa.gov/accessibility/andi/fandi.js',
           'https://www.ssa.gov/accessibility/andi/andi.js',

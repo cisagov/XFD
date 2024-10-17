@@ -8,7 +8,7 @@
         "Service": "cloudtrail.amazonaws.com"
       },
       "Action": ["s3:GetBucketAcl"],
-      "Resource": ["arn:aws:s3:::${bucketName}"]
+      "Resource": ["arn:${awsPartition}:s3:::${bucketName}"]
     },
     {
       "Sid": "AWSCloudTrailWrite20121017",
@@ -18,8 +18,8 @@
       },
       "Action": ["s3:PutObject"],
       "Resource": [
-        "arn:aws:s3:::${bucketName}/AWSLogs/${accountId}",
-        "arn:aws:s3:::${bucketName}/AWSLogs/${accountId}/*"
+        "arn:${awsPartition}:s3:::${bucketName}/AWSLogs/${accountId}",
+        "arn:${awsPartition}:s3:::${bucketName}/AWSLogs/${accountId}/*"
       ],
       "Condition": {
         "StringEquals": {
@@ -33,8 +33,8 @@
       "Effect": "Deny",
       "Principal": "*",
       "Resource": [
-        "arn:aws:s3:::${bucketName}",
-        "arn:aws:s3:::${bucketName}/*"
+        "arn:${awsPartition}:s3:::${bucketName}",
+        "arn:${awsPartition}:s3:::${bucketName}/*"
       ],
       "Condition": {
         "Bool": {

@@ -13,6 +13,7 @@ resource "aws_ecr_repository" "worker" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -37,8 +38,11 @@ resource "aws_iam_role" "worker_task_execution_role" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
+
+data "aws_ssm_parameter" "worker_kms_keys" { name = var.ssm_worker_kms_keys }
 
 resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
@@ -56,11 +60,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
         "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sqs:ListQueues",
-        "sqs:GetQueueAttributes"
+        "logs:PutLogEvents"
       ],
       "Resource": "*"
     },
@@ -90,6 +90,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.sixgill_client_secret.arn}",
           "${data.aws_ssm_parameter.lg_api_key.arn}",
           "${data.aws_ssm_parameter.lg_workspace_name.arn}",
+          "${data.aws_ssm_parameter.https_proxy.arn}",
           "${aws_ssm_parameter.es_endpoint.arn}",
           "${data.aws_ssm_parameter.pe_api_key.arn}",
           "${data.aws_ssm_parameter.cf_api_key.arn}",
@@ -101,11 +102,19 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.ssm_redshift_user.arn}",
           "${data.aws_ssm_parameter.ssm_redshift_password.arn}"
         ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt"
+      ],
+      "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
     }
   ]
 }
 EOF
 }
+
 
 resource "aws_iam_role" "worker_task_role" {
   name               = "crossfeed-${var.stage}-worker-task"
@@ -128,6 +137,7 @@ resource "aws_iam_role" "worker_task_role" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -169,7 +179,7 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
         "sqs:GetQueueAttributes"
       ],
       "Resource": "*"
-    }
+      }
   ]
 }
 EOF
@@ -186,6 +196,7 @@ resource "aws_ecs_cluster" "worker" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -201,6 +212,7 @@ resource "aws_ssm_parameter" "worker_arn" {
 
   tags = {
     Project = var.project
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -307,6 +319,10 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
       },
       {
+        "name": "HTTPS_PROXY",
+        "valueFrom": "${data.aws_ssm_parameter.https_proxy.arn}"
+      },
+      {
         "name": "PE_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
       },
@@ -359,6 +375,7 @@ resource "aws_ecs_task_definition" "worker" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -369,6 +386,7 @@ resource "aws_cloudwatch_log_group" "worker" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -404,6 +422,8 @@ data "aws_ssm_parameter" "worker_signature_public_key" { name = var.ssm_worker_s
 
 data "aws_ssm_parameter" "worker_signature_private_key" { name = var.ssm_worker_signature_private_key }
 
+data "aws_ssm_parameter" "https_proxy" { name = var.ssm_https_proxy }
+
 data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
 
 data "aws_ssm_parameter" "cf_api_key" { name = var.ssm_cf_api_key }
@@ -428,6 +448,7 @@ resource "aws_s3_bucket" "export_bucket" {
   tags = {
     Project = var.project
     Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
   }
 }
 
@@ -456,9 +477,11 @@ resource "aws_s3_bucket_policy" "export_bucket" {
 }
 
 resource "aws_s3_bucket_acl" "export_bucket" {
+  count  = var.is_dmz ? 1 : 0
   bucket = aws_s3_bucket.export_bucket.id
   acl    = "private"
 }
+
 resource "aws_s3_bucket_server_side_encryption_configuration" "export_bucket" {
   bucket = aws_s3_bucket.export_bucket.id
   rule {

@@ -180,7 +180,6 @@ export const handler = async (commandOptions: CommandOptions) => {
               ipOnly: ipOnly
             })
           ]);
-          console.log(`Successfully saved domain with id: ${domainId}`);
         } catch (e) {
           console.error(`Failed to save domain ${vuln.service_asset}`);
           console.error(e);
