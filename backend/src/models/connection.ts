@@ -29,6 +29,7 @@ import {
   VwSeverityStats,
   VwDomainStats,
   VwOrgStats,
+  Log,
 
   //  Models for the Mini Data Lake database
   CertScan,
@@ -211,7 +212,7 @@ const connectDb = async (logging?: boolean) => {
       VwSeverityStats,
       VwDomainStats,
       VwOrgStats,
-      Webpage
+      Log
     ],
     synchronize: false,
     name: 'default',
