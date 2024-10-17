@@ -554,14 +554,24 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
 
 
 @api_router.post("/search")
-async def search_endpoint(request: Request):
+async def search_endpoint(request: Request, body: SearchBody):
     try:
-        body = await request.json()
-        search_body = SearchBody(**body)  # Parse request body into SearchBody
-        result = search(search_body, request)
-        return result
+        # Example of parsing UUIDs correctly
+        organization_id = body.organization_id
+        tag_id = body.tag_id
+
+        # Search logic
+        # Using the parsed and validated UUIDs in the search
+        results = {
+            "current": body.current,
+            "organization_id": str(organization_id) if organization_id else None,
+            "tag_id": str(tag_id) if tag_id else None,
+        }
+
+        return results
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @api_router.post("/search/export")

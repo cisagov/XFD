@@ -2,7 +2,8 @@
 # Standard Python Libraries
 import csv
 from io import StringIO
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
 # Third-Party Libraries
 import boto3
@@ -17,16 +18,22 @@ from xfd_api.auth import (
 from xfd_api.helpers.elastic_search import build_request
 
 
+class Filter(BaseModel):
+    field: str
+    values: List[str]
+    type: str
+
+
 class SearchBody(BaseModel):
     current: int
-    resultsPerPage: int
-    searchTerm: str
-    sortDirection: str
-    sortField: str
-    filters: List[Dict[str, Any]]
-    organizationIds: List[str] = []
-    organizationId: str = ""
-    tagId: str = ""
+    results_per_page: int
+    search_term: str
+    sort_direction: str
+    sort_field: str
+    filters: List[Filter]
+    organization_ids: Optional[List[UUID]] = None
+    organization_id: Optional[UUID] = None
+    tag_id: Optional[UUID] = None
 
 
 def get_options(search_body: SearchBody, event) -> Dict[str, Any]:
@@ -112,7 +119,7 @@ def export(search_body: SearchBody, event) -> Dict[str, Any]:
     writer.writeheader()
     writer.writerows(results)
 
-    # Save to S3
+    # Save to S3 # TODO: Replace with heler logic
     s3 = boto3.client("s3")
     bucket_name = "your-bucket-name"
     csv_key = "domains.csv"
