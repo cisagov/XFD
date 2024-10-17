@@ -120,7 +120,11 @@ export const RegionAndOrganizationFilters: React.FC<
                 )
             )
         );
-        setOrgResults(filteredOrgs);
+        // Sort filtered orgs by name
+        const sortedOrgs = filteredOrgs.sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        setOrgResults(sortedOrgs);
       } catch (e) {
         console.log(e);
       }
@@ -300,6 +304,7 @@ export const RegionAndOrganizationFilters: React.FC<
               renderOption={(params, option) => {
                 return (
                   <li
+                    {...params}
                     style={{ pointerEvents: 'none', padding: 0 }}
                     key={option.id}
                   >
@@ -309,11 +314,13 @@ export const RegionAndOrganizationFilters: React.FC<
                         height: '100%',
                         width: '100%',
                         display: 'flex',
+                        textAlign: 'left',
                         justifyContent: 'start',
                         fontWeight: 400,
                         color: 'black',
                         textTransform: 'none'
                       }}
+                      id="search-org-button"
                       onClick={() =>
                         setTimeout(() => {
                           handleAddOrganization(option);

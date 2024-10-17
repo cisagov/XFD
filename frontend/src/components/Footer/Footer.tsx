@@ -41,6 +41,7 @@ export const CrossfeedFooter: React.FC = (props) => {
                 className={footerClasses.footerNavLink}
                 href="https://www.cisa.gov"
                 target="_blank"
+                rel="noopener noreferrer"
               >
                 CISA Homepage
               </Link>

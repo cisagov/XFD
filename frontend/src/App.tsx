@@ -38,7 +38,6 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { RSCDashboard } from 'components/ReadySetCyber/RSCDashboard';
 import { RSCDetail } from 'components/ReadySetCyber/RSCDetail';
 import { RSCLogin } from 'components/ReadySetCyber/RSCLogin';
-import { RSCAuthLoginCreate } from 'components/ReadySetCyber/RSCAuthLoginCreate';
 import { RiskWithSearch } from 'pages/Risk/Risk';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
@@ -226,12 +225,6 @@ const App: React.FC = () => (
                         exact
                         path="/readysetcyber"
                         unauth={RSCLogin}
-                        component={RSCDashboard}
-                      />
-                      <RouteGuard
-                        exact
-                        path="/readysetcyber/create-account"
-                        unauth={RSCAuthLoginCreate}
                         component={RSCDashboard}
                       />
                       <RouteGuard

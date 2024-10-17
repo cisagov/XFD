@@ -1,4 +1,4 @@
-import { Vulnerability } from './vulnerability';
+import { Vulnerability } from './domain';
 
 export interface Point {
   id: string;

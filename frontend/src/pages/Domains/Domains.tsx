@@ -156,8 +156,7 @@ export const Domains: React.FC = () => {
           { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
         ]}
       ></Subnav>
-      <br></br>
-      <Box mb={3} mt={3} display="flex" justifyContent="center">
+      <Box mb={3} mt={5} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
             <Alert severity="info">Loading Domains..</Alert>
@@ -177,7 +176,7 @@ export const Domains: React.FC = () => {
             </Button>
           </Stack>
         ) : isLoading === false && loadingError === false ? (
-          <Paper elevation={2} sx={{ width: '90%' }}>
+          <Paper elevation={2} sx={{ width: '90%', minHeight: '200px' }}>
             <DataGrid
               rows={domRows}
               rowCount={totalResults}

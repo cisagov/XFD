@@ -82,23 +82,23 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
   const [totalResults, setTotalResults] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
   // TO-DO
   // Implement regional rollup for vulnerabilities view to allow for proper vunl drilldown from dashboard
   const updateVulnerability = useCallback(
     async (index: number, body: { [key: string]: string }) => {
-      setIsLoading(true);
       try {
-        const res = await apiPut<Vulnerability>(
+        const updatedVulns = await apiPut<Vulnerability>(
           '/vulnerabilities/' + vulnerabilities[index].id,
           {
             body: body
           }
         );
-        const vulnCopy = [...vulnerabilities];
-        vulnCopy[index].state = res.state;
-        vulnCopy[index].substate = res.substate;
-        vulnCopy[index].actions = res.actions;
-        setVulnerabilities(vulnCopy);
+        setVulnerabilities((prevState) =>
+          prevState.map((orgVulns, targetIndex) =>
+            targetIndex === index ? updatedVulns : orgVulns
+          )
+        );
       } catch (e) {
         console.error(e);
       }
@@ -255,7 +255,38 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       operator: filter.operator
     }))
   });
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  // Row scoped menu state management for vulnerability status updates
+  interface MenuState {
+    [key: string]: {
+      anchorEl: HTMLElement | null;
+      open: boolean;
+    };
+  }
+
+  const [menuState, setMenuState] = useState<MenuState>({});
+
+  const handleMenuClick = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    rowId: any
+  ) => {
+    setMenuState((prev) => ({
+      ...prev,
+      [rowId]: {
+        anchorEl: event.currentTarget,
+        open: true
+      }
+    }));
+  };
+
+  const handleClose = (rowId: any) => {
+    setMenuState((prev) => ({
+      ...prev,
+      [rowId]: {
+        ...prev[rowId],
+        open: false
+      }
+    }));
+  };
 
   const resetVulnerabilities = useCallback(() => {
     setInitialFilters([]);
@@ -418,17 +449,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       minWidth: 100,
       flex: 1,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const open = Boolean(anchorEl);
-        const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
-          setAnchorEl(event.currentTarget);
-        };
-        const handleClose = () => {
-          setAnchorEl(null);
-        };
-        const handleUpdate = (substate: string) => {
-          const index = vulnerabilities.findIndex(
-            (vuln) => vuln.id === cellValues.row.id
-          );
+        const handleUpdate = (id: string, substate: string) => {
+          const index = vulnerabilities.findIndex((v) => v.id === id);
           updateVulnerability(index, {
             substate: substate
           });
@@ -437,32 +459,39 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
         return (
           <div>
             <Button
-              id="basic-button"
+              id={`basic-button-${cellValues.row.id}`}
               style={{ textDecorationLine: 'underline' }}
-              aria-controls={open ? 'basic-menu' : undefined}
+              aria-controls={
+                menuState[cellValues.row.id]?.open
+                  ? `basic-menu-${cellValues.row.id}`
+                  : undefined
+              }
               aria-haspopup="true"
-              aria-expanded={open ? 'true' : undefined}
+              aria-expanded={
+                menuState[cellValues.row.id]?.open ? 'true' : undefined
+              }
               tabIndex={cellValues.tabIndex}
               endIcon={<ExpandMoreIcon />}
-              onClick={handleClick}
+              onClick={(event) => handleMenuClick(event, cellValues.row.id)}
             >
               {cellValues.row.state}
             </Button>
             <Menu
-              id="basic-menu"
-              anchorEl={anchorEl}
-              open={open}
-              onClose={handleClose}
+              id={`basic-menu-${cellValues.row.id}`}
+              anchorEl={menuState[cellValues.row.id]?.anchorEl}
+              open={menuState[cellValues.row.id]?.open}
+              onClose={() => handleClose(cellValues.row.id)}
               MenuListProps={{
-                'aria-labelledby': 'basic-button'
+                'aria-labelledby': `basic-button-${cellValues.row.id}`
               }}
             >
               {Object.keys(stateMap).map((substate) => (
                 <MenuItem
-                  key={substate}
+                  key={`${cellValues.row.id}-${substate}`}
+                  id={`menu-item-${cellValues.row.id}-${substate}`}
                   onClick={() => {
-                    handleUpdate(substate);
-                    handleClose();
+                    handleUpdate(cellValues.row.id, substate);
+                    handleClose(cellValues.row.id);
                   }}
                 >
                   {substate === 'unconfirmed' || substate === 'exploitable'
@@ -507,8 +536,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
           { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
         ]}
       ></Subnav>
-      <br></br>
-      <Box mb={3} mt={3} display="flex" justifyContent="center">
+      <Box mb={3} mt={5} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
             <Alert severity="info">Loading Vulnerabilities..</Alert>
@@ -528,7 +556,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
             </Button>
           </Stack>
         ) : isLoading === false && loadingError === false ? (
-          <Paper elevation={2} sx={{ width: '90%' }}>
+          <Paper elevation={2} sx={{ width: '90%', minHeight: '200px' }}>
             <DataGrid
               rows={vulRows}
               rowCount={totalResults}
