@@ -143,7 +143,7 @@ app.use(
 
 //Middleware to set Cache-Control headers
 app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'private, must-revalidate, max-age=60');
+  res.setHeader('Cache-Control', 'private, must-revalidate, max-age=3600');
   next();
 });
 
