@@ -18,3 +18,6 @@ class Cpe(BaseModel):
     version: Optional[str]
     vendor: Optional[str]
     lastSeenAt: datetime
+
+    class Config:
+        from_attributes = True

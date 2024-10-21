@@ -39,3 +39,6 @@ class Cve(BaseModel):
     cvssV4ImpactScore: Optional[str]
     weaknesses: Optional[str]
     references: Optional[str]
+
+    class Config:
+        from_attributes = True

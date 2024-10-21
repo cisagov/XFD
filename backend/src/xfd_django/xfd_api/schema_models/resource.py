@@ -16,3 +16,6 @@ class Resource(BaseModel):
     name: str
     type: str
     url: str
+
+    class Config:
+        from_attributes = True

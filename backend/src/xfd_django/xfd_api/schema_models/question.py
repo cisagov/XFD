@@ -18,3 +18,6 @@ class Question(BaseModel):
     longForm: str
     number: str
     categoryId: Optional[Any]
+
+    class Config:
+        from_attributes = True

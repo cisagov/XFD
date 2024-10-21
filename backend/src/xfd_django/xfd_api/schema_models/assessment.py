@@ -19,3 +19,6 @@ class Assessment(BaseModel):
     rscId: str
     type: str
     userId: Optional[Any]
+
+    class Config:
+        from_attributes = True

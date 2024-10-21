@@ -16,3 +16,6 @@ class Response(BaseModel):
     selection: str
     assessmentId: Optional[Any]
     questionId: Optional[Any]
+
+    class Config:
+        from_attributes = True

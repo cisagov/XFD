@@ -21,8 +21,15 @@ Dependencies:
 from typing import List, Optional
 
 # Third-Party Libraries
-from fastapi import APIRouter, Depends, HTTPException, Query
+from django.shortcuts import render
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
+# from .schemas import Cpe
+from . import schema_models
+from .api_methods import api_key as api_key_methods
+from .api_methods import auth as auth_methods
+from .api_methods import notification as notification_methods
 from .api_methods import scan
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
@@ -36,14 +43,18 @@ from .api_methods.vulnerability import (
     update_vulnerability,
 )
 from .auth import get_current_active_user
+from .login_gov import callback, login
 from .models import Assessment, User
 from .schema_models import scan as scanSchema
+from .schema_models.api_key import ApiKey as ApiKeySchema
 from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
-from .schema_models.domain import DomainSearch
+from .schema_models.domain import DomainFilters, DomainSearch
+from .schema_models.notification import Notification as NotificationSchema
 from .schema_models.organization import Organization as OrganizationSchema
+from .schema_models.role import Role as RoleSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 from .schema_models.vulnerability import VulnerabilitySearch
@@ -275,6 +286,48 @@ async def call_update_vulnerability(vuln_id, data: VulnerabilitySchema):
     return update_vulnerability(vuln_id, data)
 
 
+######################
+# Auth
+######################
+
+
+# Okta Callback
+@api_router.post("/auth/okta-callback", tags=["auth"])
+async def okta_callback(request: Request):
+    """Handle Okta Callback."""
+    return await auth_methods.handle_okta_callback(request)
+
+
+# Login
+@api_router.get("/login", tags=["auth"])
+async def login_route():
+    """Handle V1 Login."""
+    return login()
+
+
+# V1 Callback
+@api_router.post("/auth/callback", tags=["auth"])
+async def callback_route(request: Request):
+    """Handle V1 Callback."""
+    body = await request.json()
+    try:
+        user_info = callback(body)
+        return user_info
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+######################
+# Users
+######################
+
+
+# GET Current User
+@api_router.get("/users/me", tags=["users"])
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
 @api_router.get(
     "/users/{regionId}",
     response_model=List[UserSchema],
@@ -297,6 +350,27 @@ async def call_get_users(regionId):
     return get_users(regionId)
 
 
+######################
+# API-Keys
+######################
+
+
+# POST
+@api_router.post("/api-keys", response_model=ApiKeySchema, tags=["api-keys"])
+async def create_api_key(current_user: User = Depends(get_current_active_user)):
+    """Create api key."""
+    return api_key_methods.post(current_user)
+
+
+# DELETE
+@api_router.delete("/api-keys/{id}", tags=["api-keys"])
+async def delete_api_key(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete api key by id."""
+    return api_key_methods.delete(id, current_user)
+
+
 @api_router.get(
     "/organizations/{regionId}",
     response_model=List[OrganizationSchema],
@@ -316,6 +390,82 @@ async def call_get_organizations(regionId):
         List[Organizations]: A list of organizations matching the filter criteria.
     """
     return get_organizations(regionId)
+
+
+# GET ALL
+@api_router.get("/api-keys", response_model=List[ApiKeySchema], tags=["api-keys"])
+async def get_all_api_keys(current_user: User = Depends(get_current_active_user)):
+    """Get all api keys."""
+    return api_key_methods.get_all(current_user)
+
+
+# GET BY ID
+@api_router.get("/api-keys/{id}", response_model=ApiKeySchema, tags=["api-keys"])
+async def get_api_key(id: str, current_user: User = Depends(get_current_active_user)):
+    """Get api key by id."""
+    return api_key_methods.get_by_id(id, current_user)
+
+
+#########################
+#     Notifications
+#########################
+
+
+# POST
+@api_router.post(
+    "/notifications", response_model=NotificationSchema, tags=["notifications"]
+)
+async def create_notification(current_user: User = Depends(get_current_active_user)):
+    """Create notification key."""
+    # return notification_handler.post(current_user)
+    return []
+
+
+# DELETE
+@api_router.delete(
+    "/notifications/{id}", response_model=NotificationSchema, tags=["notifications"]
+)
+async def delete_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete notification by id."""
+    return notification_methods.delete(id, current_user)
+
+
+# GET ALL
+@api_router.get(
+    "/notifications", response_model=List[NotificationSchema], tags=["notifications"]
+)
+async def get_all_notifications(current_user: User = Depends(get_current_active_user)):
+    """Get all notifications."""
+    return notification_methods.get_all(current_user)
+
+
+# GET BY ID
+@api_router.get(
+    "/notifications/{id}", response_model=NotificationSchema, tags=["notifications"]
+)
+async def get_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Get notification by id."""
+    return notification_methods.get_by_id(id, current_user)
+
+
+# UPDATE BY ID
+@api_router.put("/notifications/{id}", tags=["notifications"])
+async def update_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Update notification key by id."""
+    return notification_methods.delete(id, current_user)
+
+
+# GET 508 Banner
+@api_router.get("/notifications/508-banner", tags=["notifications"])
+async def get_508_banner(current_user: User = Depends(get_current_active_user)):
+    """Get notification by id."""
+    return notification_methods.get_508_banner(current_user)
 
 
 # ========================================
