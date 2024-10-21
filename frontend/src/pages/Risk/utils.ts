@@ -17,6 +17,7 @@ export const getSeverityColor = ({ id }: { id: string }) => {
   else if (id === 'Low') return '#ffe100';
   else if (id === 'Medium') return '#f66e1f';
   else if (id === 'High') return '#ed240e';
+  else if (id === 'Other') return '#0000FF';
   else return '#540C03';
 };
 export const getCVSSColor = (score: number) => {
