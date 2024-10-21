@@ -544,6 +544,7 @@ const checkGlobalAdminOrRegionAdmin = async (
 // needing to sign the terms of service yet
 const authenticatedNoTermsRoute = express.Router();
 authenticatedNoTermsRoute.use(checkUserLoggedIn);
+authenticatedNoTermsRoute.use(logHeaders);
 authenticatedNoTermsRoute.get('/users/me', handlerToExpress(users.me));
 authenticatedNoTermsRoute.post(
   '/users/me/acceptTerms',
@@ -559,6 +560,7 @@ const authenticatedRoute = express.Router();
 
 authenticatedRoute.use(checkUserLoggedIn);
 authenticatedRoute.use(checkUserSignedTerms);
+authenticatedRoute.use(logHeaders);
 
 authenticatedRoute.post('/api-keys', handlerToExpress(apiKeys.generate));
 authenticatedRoute.delete('/api-keys/:keyId', handlerToExpress(apiKeys.del));
