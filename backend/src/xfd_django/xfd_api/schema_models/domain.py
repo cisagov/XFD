@@ -59,7 +59,7 @@ class DomainSearch(BaseModel):
     """DomainSearch schema."""
 
     page: int = 1
-    sort: str
-    order: str
+    sort: Optional[str] = "ASC"
+    order: Optional[str] = None
     filters: Optional[DomainFilters]
     pageSize: Optional[int] = None

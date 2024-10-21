@@ -30,7 +30,11 @@ from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
 from .api_methods.user import get_users
-from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
+from .api_methods.vulnerability import (
+    get_vulnerability_by_id,
+    search_vulnerabilities,
+    update_vulnerability,
+)
 from .auth import get_current_active_user
 from .models import Assessment, User
 from .schema_models import scan as scanSchema
@@ -42,6 +46,7 @@ from .schema_models.domain import DomainSearch
 from .schema_models.organization import Organization as OrganizationSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
+from .schema_models.vulnerability import VulnerabilitySearch
 
 # Define API router
 api_router = APIRouter()
@@ -224,9 +229,9 @@ async def call_get_domain_by_id(domain_id: str):
 
 
 @api_router.post("/vulnerabilities/search")
-async def search_vulnerabilities():
+async def call_search_vulnerabilities(vulnerability_search: VulnerabilitySearch):
     try:
-        pass
+        return search_vulnerabilities(vulnerability_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
