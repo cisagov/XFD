@@ -53,7 +53,7 @@ API.configure({
 
 if (process.env.REACT_APP_USE_COGNITO) {
   Auth.configure({
-    region: 'us-east-1',
+    region: process.env.EMAIL_REGION,
     userPoolId: process.env.REACT_APP_USER_POOL_ID,
     userPoolWebClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID
   });

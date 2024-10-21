@@ -11,38 +11,51 @@ custom:
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
-    certificateName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
+    certificateName: ${file(env.yml):${self:provider.stage}.CERT_DOMAIN, ''}
     stage: ${self:provider.stage}
     createRoute53Record: false
+  serverlessIfElse:
+    - If: '"${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE}" == "REGIONAL"'
+      Exclude:
+        - provider.vpcEndpointIds
 
 provider:
   name: aws
-  region: us-east-1
-  endpointType: REGIONAL
+  region: ${file(env.yml):${self:provider.stage}.REGION, ''}
+  endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
   runtime: nodejs16.x
   timeout: 30
   stage: ${opt:stage, 'dev'}
   environment: ${file(env.yml):${self:provider.stage}, ''}
   vpc: ${file(env.yml):${self:provider.stage}-vpc, ''}
+  vpcEndpointIds:
+    - ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
+  # apiName: ${file(env.yml):${self:provider.stage}.API_GATEWAY_NAME, ''}
+  # stackName: ${file(env.yml):${self:provider.stage}.STACK_NAME, ''}
   apiGateway:
     binaryMediaTypes:
       - image/*
       - font/*
     resourcePolicy:
+      - Effect: Deny
+        Principal: '*'
+        Action: 'execute-api:Invoke'
+        Resource: 'execute-api:/${self:provider.stage}/*/*'
+        Condition:
+          StringNotEquals:
+            'aws:sourceVpce': ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
       - Effect: Allow
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
-        Condition:
-          IpAddress:
-            aws:SourceIp:
-              - ${file(env.yml):${self:provider.stage}.DMZ_CIDR, ''}
+        
   logs:
     restApi: true
   deploymentBucket:
     serverSideEncryption: AES256
   iam:
     role:
+      # name: ${file(env.yml):${self:provider.stage}.LAMBDA_ROLE, ''}
       statements:
         # TODO: make the resources more specific. See Resource: '*' was
         - Effect: Allow
@@ -61,10 +74,12 @@ provider:
             - ecs:DescribeServices
             - ecs:UpdateService
             - iam:PassRole
+            - logs:GetLogEvents
           Resource: '*'
         - Effect: Allow
           Action:
             - ses:SendRawEmail
+            - ses:SendEmail
           Resource: '*'
         - Effect: Allow
           Action:
@@ -111,9 +126,19 @@ provider:
           Resource: '*'
 
 resources:
+  Conditions:
+    IsDMZ:
+      Fn::Or:
+        - Fn::Equals:
+            - ${self:provider.stage}
+            - staging-dmz
+        - Fn::Equals:
+            - ${self:provider.stage}
+            - prod-dmz
   Resources:
     ShodanQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-shodan-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -121,6 +146,7 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     DnstwistQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-dnstwist-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -128,6 +154,7 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     IntelxQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-intelx-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -135,6 +162,7 @@ resources:
         MessageRetentionPeriod: 604800  # 7 days
     CybersixgillQueue:
       Type: AWS::SQS::Queue
+      Condition: IsDMZ
       Properties:
         QueueName: ${self:provider.stage}-cybersixgill-queue
         VisibilityTimeout: 18000  # 5 hours
@@ -152,7 +180,10 @@ functions:
   - ${file(./src/tasks/functions.yml)}
   - ${file(./src/api/functions.yml)}
 
+
 plugins:
+  - serverless-better-credentials
   - serverless-domain-manager
   - serverless-webpack
   - serverless-dotenv-plugin
+  - serverless-plugin-ifelse

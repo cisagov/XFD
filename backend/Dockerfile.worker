@@ -58,8 +58,6 @@ RUN pip3.10 install --upgrade pip
 
 RUN apt remove dav1d && apt autoclean && apt autoremove
 
-# Python dependencies
-
 COPY worker/requirements.txt worker/requirements.txt
 
 RUN pip install -r worker/requirements.txt

@@ -1,7 +1,25 @@
 variable "aws_region" {
   description = "aws_region"
   type        = string
-  default     = "us-east-1"
+  default     = "us-gov-east-1"
+}
+
+variable "aws_other_region" {
+  description = "aws_other_region"
+  type        = string
+  default     = "us-gov-west-1"
+}
+
+variable "aws_partition" {
+  description = "aws_partition"
+  type        = string
+  default     = "aws"
+}
+
+variable "is_dmz" {
+  description = "is_dmz"
+  type        = bool
+  default     = false
 }
 
 variable "project" {
@@ -56,12 +74,6 @@ variable "frontend_lambda_function" {
   description = "frontend_lambda_function"
   type        = string
   default     = "crossfeed-security-headers-staging"
-}
-
-variable "frontend_cert_arn" {
-  description = "frontend_cert_arn"
-  type        = string
-  default     = "arn:aws:acm:us-east-1:563873274798:certificate/7c6a5980-80e3-47a4-9f21-cbda44b6f34c"
 }
 
 variable "log_metric_namespace" {
@@ -213,6 +225,13 @@ variable "ssm_pe_db_password" {
   type        = string
   default     = "/crossfeed/staging/PE_DB_PASSWORD"
 }
+
+variable "ssm_crossfeed_vpc_name" {
+  description = "ssm_crossfeed_vpc_name"
+  type        = string
+  default     = "/crossfeed/staging/VPC_NAME"
+}
+
 variable "ssm_lambda_sg" {
   description = "ssm_lambda_sg"
   type        = string
@@ -340,22 +359,16 @@ variable "ssm_lg_api_key" {
   default     = "/crossfeed/staging/LG_API_KEY"
 }
 
-variable "ssm_pe_api_key" {
-  description = "ssm_pe_api_key"
-  type        = string
-  default     = "/crossfeed/staging/PE_API_KEY"
-}
-
-variable "ssm_cf_api_key" {
-  description = "ssm_cf_api_key"
-  type        = string
-  default     = "/crossfeed/staging/CF_API_KEY"
-}
-
 variable "ssm_lg_workspace_name" {
   description = "ssm_lg_workspace_name"
   type        = string
   default     = "/crossfeed/staging/LG_WORKSPACE_NAME"
+}
+
+variable "ssm_https_proxy" {
+  description = "ssm_https_proxy"
+  type        = string
+  default     = "/crossfeed/staging/HTTPS_PROXY"
 }
 
 variable "db_group_name" {
@@ -398,42 +411,6 @@ variable "logging_bucket_name" {
   description = "logging_bucket_name"
   type        = string
   default     = "cisa-crossfeed-staging-logging"
-}
-
-variable "cloudtrail_name" {
-  description = "cloudtrail_name"
-  type        = string
-  default     = "crossfeed-staging-all-events"
-}
-
-variable "cloudtrail_bucket_name" {
-  description = "cloudtrail_bucket_name"
-  type        = string
-  default     = "cisa-crossfeed-staging-cloudtrail"
-}
-
-variable "cloudtrail_role_name" {
-  description = "cloudtrail_role_name"
-  type        = string
-  default     = "crossfeed-staging-cloudtrail-role"
-}
-
-variable "cloudtrail_log_group_name" {
-  description = "cloudtrail_log_group_name"
-  type        = string
-  default     = "crossfeed-staging-cloudtrail-logs"
-}
-
-variable "cloudwatch_bucket_name" {
-  description = "cloudwatch_bucket_name"
-  type        = string
-  default     = "cisa-crossfeed-staging-cloudwatch"
-}
-
-variable "cloudwatch_log_group_name" {
-  description = "cloudwatch_log_group_name"
-  type        = string
-  default     = "crossfeed-staging-cloudwatch-bucket"
 }
 
 variable "export_bucket_name" {
@@ -591,6 +568,149 @@ variable "severity_low" {
   type        = string
   default     = "LOW"
 }
+
+variable "ami_id" {
+  description = "ID of the AMI to use for EC2 instances."
+  type        = string
+  default     = "ami-0a1445a13e666a557"
+}
+
+variable "cloudtrail_name" {
+  description = "cloudtrail_name"
+  type        = string
+  default     = "crossfeed-staging-all-events"
+}
+
+variable "cloudtrail_bucket_name" {
+  description = "cloudtrail_bucket_name"
+  type        = string
+  default     = "cisa-crossfeed-staging-cloudtrail"
+}
+
+variable "cloudtrail_role_name" {
+  description = "cloudtrail_role_name"
+  type        = string
+  default     = "crossfeed-staging-cloudtrail-role"
+}
+
+variable "cloudtrail_log_group_name" {
+  description = "cloudtrail_log_group_name"
+  type        = string
+  default     = "crossfeed-staging-cloudtrail-logs"
+}
+
+variable "es_instance_master_count" {
+  description = "es_instance_master_count"
+  type        = number
+  default     = 3
+}
+
+variable "ssm_vpc_id" {
+  description = "ssm_vpc_id"
+  type        = string
+  default     = "/LZ/VPC_ID"
+}
+
+variable "ssm_vpc_cidr_block" {
+  description = "ssm_vpc_cidr_block"
+  type        = string
+  default     = "/LZ/VPC_CIDR_BLOCK"
+}
+
+variable "ssm_route_table_endpoints_id" {
+  description = "ssm_route_table_endpoints_id"
+  type        = string
+  default     = ""
+}
+variable "ssm_route_table_private_A_id" {
+  description = "ssm_route_table_private_A_id"
+  type        = string
+  default     = ""
+}
+variable "ssm_route_table_private_B_id" {
+  description = "ssm_route_table_private_B_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_route_table_private_C_id" {
+  description = "ssm_route_table_private_C_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_backend_id" {
+  description = "ssm_subnet_backend_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_worker_id" {
+  description = "ssm_subnet_worker_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_matomo_id" {
+  description = "ssm_subnet_matomo_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_db_1_id" {
+  description = "ssm_subnet_db_1_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_db_2_id" {
+  description = "ssm_subnet_db_2_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_subnet_es_id" {
+  description = "ssm_subnet_es_id"
+  type        = string
+  default     = ""
+}
+
+variable "ssm_ses_email_identity_arn" {
+  description = "ssm_ses_email_identity_arn"
+  type        = string
+  default     = "/crossfeed/staging/SES_EMAIL_IDENTITY_ARN"
+}
+
+variable "ssm_worker_kms_keys" {
+  description = "ssm_worker_kms_keys"
+  type        = string
+  default     = "/crossfeed/staging/WORKER_KMS_KEYS"
+}
+
+variable "ssm_pe_api_key" {
+  description = "ssm_pe_api_key"
+  type        = string
+  default     = "/crossfeed/staging/PE_API_KEY"
+}
+
+variable "ssm_cf_api_key" {
+  description = "ssm_cf_api_key"
+  type        = string
+  default     = "/crossfeed/staging/CF_API_KEY"
+}
+
+variable "cloudwatch_bucket_name" {
+  description = "cloudwatch_bucket_name"
+  type        = string
+  default     = "cisa-crossfeed-staging-cloudwatch"
+}
+
+variable "cloudwatch_log_group_name" {
+  description = "cloudwatch_log_group_name"
+  type        = string
+  default     = "crossfeed-staging-cloudwatch-bucket"
+}
+
 variable "pe_worker_ecs_repository_name" {
   description = "pe_worker_ecs_repository_name"
   type        = string
@@ -621,6 +741,12 @@ variable "pe_worker_ecs_role_name" {
   default     = "pe-staging-worker"
 }
 
+variable "matomo_availability_zone" {
+  description = "matomo_availability_zone"
+  type        = string
+  default     = "us-east-1"
+
+}
 variable "ssm_mdl_name" {
   description = "ssm_mdl_name"
   type        = string

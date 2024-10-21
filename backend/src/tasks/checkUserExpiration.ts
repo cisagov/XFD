@@ -7,7 +7,6 @@ import { getRepository } from 'typeorm';
 
 const cognito = new AWS.CognitoIdentityServiceProvider();
 const userPoolId = process.env.REACT_APP_USER_POOL_ID!;
-const ses = new AWS.SES({ region: 'us-east-1' }); // Assuming SES for email notifications
 
 export const handler: Handler = async (event) => {
   await connectToDatabase(true);

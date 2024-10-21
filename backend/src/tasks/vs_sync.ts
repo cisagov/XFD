@@ -57,9 +57,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     const endTime = Date.now();
     const durationMs = endTime - startTime;
     const durationSeconds = Math.round(durationMs / 1000);
-    console.log(
-      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
-    );
     requestArray = result.rows;
   } catch (error) {
     console.error(
@@ -275,9 +272,6 @@ export const handler = async (commandOptions: CommandOptions) => {
     const endTime = Date.now();
     const durationMs = endTime - startTime;
     const durationSeconds = Math.round(durationMs / 1000);
-    console.log(
-      `[Redshift] [${durationMs}ms] [${durationSeconds}s] [${result.rows.length.toLocaleString()} records] ${query}`
-    );
     vulnScansArray = result.rows;
   } catch (error) {
     console.error(

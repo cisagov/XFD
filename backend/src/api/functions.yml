@@ -11,3 +11,4 @@ api:
         path: /{any+}
         method: ANY
         cors: true
+  # provisionedConcurrency: 1

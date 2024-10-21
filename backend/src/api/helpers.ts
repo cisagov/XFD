@@ -13,7 +13,9 @@ import { SES } from 'aws-sdk';
 import * as nodemailer from 'nodemailer';
 import { Notification, User, connectToDatabase } from '../models';
 import * as handlebars from 'handlebars';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 
+const AWS = require('aws-sdk');
 export const REGION_STATE_MAP = {
   Alabama: '4',
   Alaska: '10',
@@ -149,22 +151,54 @@ export const sendEmail = async (
   subject: string,
   body: string
 ) => {
-  const transporter = nodemailer.createTransport({
-    SES: new SES({ region: 'us-east-1' })
-  });
+  try {
+    process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    const proxyAgent = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    AWS.config.update({
+      httpOptions: {
+        agent: proxyAgent ? new HttpsProxyAgent(proxyAgent) : undefined
+      }
+    });
+    const transporter = nodemailer.createTransport({
+      SES: new SES({
+        region: 'us-gov-west-1',
+        endpoint: 'https://email.us-gov-west-1.amazonaws.com'
+      })
+    });
 
-  await transporter.sendMail({
-    from: process.env.CROSSFEED_SUPPORT_EMAIL_SENDER!,
-    to: recipient,
-    subject: subject,
-    text: body,
-    replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
-  });
+    await transporter.sendMail({
+      from: process.env.CROSSFEED_SUPPORT_EMAIL_SENDER!,
+      to: recipient,
+      subject: subject,
+      text: body,
+      replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
+    });
+
+    console.log('Email sent successfully');
+    return 'Email sent successfully';
+  } catch (error) {
+    console.error(`Error sending email: ${error}`);
+
+    // Handle the error or re-throw it if needed
+    throw error;
+  }
 };
 
 export const sendRegistrationTextEmail = async (recipient: string) => {
+  process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+  process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+  const proxyAgent = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  AWS.config.update({
+    httpOptions: {
+      agent: proxyAgent ? new HttpsProxyAgent(proxyAgent) : undefined
+    }
+  });
   const transporter = nodemailer.createTransport({
-    SES: new SES({ region: 'us-east-1' })
+    SES: new SES({
+      region: 'us-gov-west-1',
+      endpoint: 'https://email.us-gov-west-1.amazonaws.com'
+    })
   });
 
   const mailOptions = {
@@ -184,8 +218,19 @@ export const sendRegistrationTextEmail = async (recipient: string) => {
 };
 
 export const sendRegistrationHtmlEmail = async (recipient: string) => {
+  process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+  process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+  const proxyAgent = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  AWS.config.update({
+    httpOptions: {
+      agent: proxyAgent ? new HttpsProxyAgent(proxyAgent) : undefined
+    }
+  });
   const transporter = nodemailer.createTransport({
-    SES: new SES({ region: 'us-east-1' })
+    SES: new SES({
+      region: 'us-gov-west-1',
+      endpoint: 'https://email.us-gov-west-1.amazonaws.com'
+    })
   });
 
   const mailOptions = {
@@ -229,8 +274,19 @@ export const sendUserRegistrationEmail = async (
       replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
     };
 
+    process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    const proxyAgent = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    AWS.config.update({
+      httpOptions: {
+        agent: proxyAgent ? new HttpsProxyAgent(proxyAgent) : undefined
+      }
+    });
     const transporter = nodemailer.createTransport({
-      SES: new SES({ region: 'us-east-1' })
+      SES: new SES({
+        region: 'us-gov-west-1',
+        endpoint: 'https://email.us-gov-west-1.amazonaws.com'
+      })
     });
     await transporter.sendMail(mailOptions);
   } catch (errorMessage) {
@@ -263,8 +319,19 @@ export const sendRegistrationDeniedEmail = async (
       replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
     };
 
+    process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    const proxyAgent = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    AWS.config.update({
+      httpOptions: {
+        agent: proxyAgent ? new HttpsProxyAgent(proxyAgent) : undefined
+      }
+    });
     const transporter = nodemailer.createTransport({
-      SES: new SES({ region: 'us-east-1' })
+      SES: new SES({
+        region: 'us-gov-west-1',
+        endpoint: 'https://email.us-gov-west-1.amazonaws.com'
+      })
     });
     await transporter.sendMail(mailOptions);
   } catch (errorMessage) {
@@ -298,8 +365,19 @@ export const sendRegistrationApprovedEmail = async (
       replyTo: process.env.CROSSFEED_SUPPORT_EMAIL_REPLYTO!
     };
 
+    process.env.HTTPS_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    process.env.HTTP_PROXY = 'http://proxy.lz.us-cert.gov:8080';
+    const proxyAgent = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+    AWS.config.update({
+      httpOptions: {
+        agent: proxyAgent ? new HttpsProxyAgent(proxyAgent) : undefined
+      }
+    });
     const transporter = nodemailer.createTransport({
-      SES: new SES({ region: 'us-east-1' })
+      SES: new SES({
+        region: 'us-gov-west-1',
+        endpoint: 'https://email.us-gov-west-1.amazonaws.com'
+      })
     });
     await transporter.sendMail(mailOptions);
   } catch (errorMessage) {

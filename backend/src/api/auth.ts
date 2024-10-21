@@ -49,11 +49,19 @@ interface UserInfo {
 }
 
 const client = jwksClient({
-  jwksUri: `https://cognito-idp.us-east-1.amazonaws.com/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`
+  jwksUri: `${process.env.COGNITO_URL}/${process.env.REACT_APP_USER_POOL_ID}/.well-known/jwks.json`,
+  getKeysInterceptor: () => {
+    const jwksJson = JSON.parse(process.env.REACT_APP_USER_POOL_KEY!);
+    return jwksJson.keys;
+  }
 });
 
 const oktaClient = jwksClient({
-  jwksUri: `https://cognito-idp.us-east-1.amazonaws.com/${process.env.REACT_APP_COGNITO_USER_POOL_ID}/.well-known/jwks.json`
+  jwksUri: `${process.env.COGNITO_URL}/${process.env.REACT_APP_COGNITO_USER_POOL_ID}/.well-known/jwks.json`,
+  getKeysInterceptor: () => {
+    const jwksJson = JSON.parse(process.env.REACT_APP_USER_POOL_KEY!);
+    return jwksJson.keys;
+  }
 });
 
 export function getKey(header, callback) {
@@ -259,7 +267,7 @@ export const authorize = async (event) => {
       const parsed = { id: 'cisa:crossfeed:anonymous' };
       return parsed;
     } else {
-      console.error(e);
+      console.error(JSON.stringify(e));
       const parsed = { id: 'cisa:crossfeed:anonymous' };
       return parsed;
     }

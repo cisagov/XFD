@@ -131,20 +131,11 @@ export const SCAN_SCHEMA: ScanSchema = {
   flagFloatingIps: {
     type: 'fargate',
     isPassive: true,
-    global: false,
-    cpu: '2048',
-    memory: '16384',
+    global: true,
+    cpu: '4096',
+    memory: '30720',
     description:
       'Loops through all domains and determines if their associated IP can be found in a report Cidr block.'
-  },
-  hibp: {
-    type: 'fargate',
-    isPassive: true,
-    global: false,
-    cpu: '2048',
-    memory: '16384',
-    description:
-      'Finds emails that have appeared in breaches related to a given domain'
   },
   intrigueIdent: {
     type: 'fargate',
@@ -191,8 +182,8 @@ export const SCAN_SCHEMA: ScanSchema = {
     type: 'fargate',
     isPassive: true,
     global: true,
-    cpu: '1024',
-    memory: '4096',
+    cpu: '4096',
+    memory: '30720',
     description:
       'Syncs records with Elasticsearch so that they appear in search results.'
   },

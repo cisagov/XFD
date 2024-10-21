@@ -1,7 +1,8 @@
 
 # P&E ECR Repository
 resource "aws_ecr_repository" "pe_worker" {
-  name = var.pe_worker_ecs_repository_name
+  count = var.is_dmz ? 1 : 0
+  name  = var.pe_worker_ecs_repository_name
   image_scanning_configuration {
     scan_on_push = true
   }
@@ -20,7 +21,8 @@ resource "aws_ecr_repository" "pe_worker" {
 
 # P&E ECS Cluster
 resource "aws_ecs_cluster" "pe_worker" {
-  name = var.pe_worker_ecs_cluster_name
+  count = var.is_dmz ? 1 : 0
+  name  = var.pe_worker_ecs_cluster_name
 
   setting {
     name  = "containerInsights"
@@ -34,18 +36,20 @@ resource "aws_ecs_cluster" "pe_worker" {
 }
 
 resource "aws_ecs_cluster_capacity_providers" "pe_worker" {
-  cluster_name       = aws_ecs_cluster.pe_worker.name
+  count              = var.is_dmz ? 1 : 0
+  cluster_name       = aws_ecs_cluster.pe_worker[0].name
   capacity_providers = ["FARGATE"]
 }
 
 # P&E generic task definition
 resource "aws_ecs_task_definition" "pe_worker" {
+  count                    = var.is_dmz ? 1 : 0
   family                   = var.pe_worker_ecs_task_definition_family
   container_definitions    = <<EOF
 [
   {
     "name": "main",
-    "image": "${aws_ecr_repository.pe_worker.repository_url}:latest",
+    "image": "${aws_ecr_repository.pe_worker[0].repository_url}:latest",
     "essential": true,
     "mountPoints": [],
     "portMappings": [],
@@ -182,6 +186,7 @@ resource "aws_ecs_task_definition" "pe_worker" {
 
 # Create the  log group
 resource "aws_cloudwatch_log_group" "pe_worker" {
+  count             = var.is_dmz ? 1 : 0
   name              = var.pe_worker_ecs_log_group_name
   retention_in_days = 3653
   kms_key_id        = aws_kms_key.key.arn
