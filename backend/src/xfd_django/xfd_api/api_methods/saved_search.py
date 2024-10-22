@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from fastapi import HTTPException
 
 from ..models import SavedSearch
+from ..schema_models.saved_search import SavedSearchFilters
 
 
 def create_saved_search(request):
@@ -18,8 +19,8 @@ def create_saved_search(request):
     search = SavedSearch.objects.create(
         name=data["name"],
         count=data["count"],
-        sort_direction=data["sortDirection"],
-        sort_field=data["sortField"],
+        sort_direction="asc",
+        sort_field="name",
         search_term=data["searchTerm"],
         search_path=data["searchPath"],
         filters=data["filters"],
@@ -36,7 +37,15 @@ def list_saved_searches():
         saved_searches = SavedSearch.objects.all()
         saved_search_list = []
         for search in saved_searches:
-            print(str(saved_search_list))
+            filters_without_type = []
+            for filter in search.filters:
+                # Exclude the "type" field by constructing a new dictionary without it
+                filter_without_type = {
+                    "field": filter["field"],  # Keep field
+                    "values": filter["values"],  # Keep values
+                }
+                filters_without_type.append(filter_without_type)
+
             response = {
                 "id": str(search.id),
                 "created_at": search.createdAt,
@@ -46,7 +55,7 @@ def list_saved_searches():
                 "sort_direction": search.sortDirection,
                 "sort_field": search.sortField,
                 "count": search.count,
-                "filters": search.filters,
+                "filters": filters_without_type,
                 "search_path": search.searchPath,
                 "createdBy_id": search.createdById.id,
             }

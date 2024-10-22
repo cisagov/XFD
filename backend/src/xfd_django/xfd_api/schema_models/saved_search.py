@@ -8,6 +8,13 @@ from uuid import UUID
 from pydantic import BaseModel
 
 
+class SavedSearchFilters(BaseModel):
+    """SavedSearchFilters schema."""
+
+    field: str
+    values: List[Any]
+
+
 class SavedSearch(BaseModel):
     """SavedSearch schema."""
 
@@ -15,31 +22,10 @@ class SavedSearch(BaseModel):
     created_at: datetime
     updated_at: datetime
     name: str
-    search_term: str
+    search_term: str = ""
     sort_direction: str
     sort_field: str
     count: int
-    filters: List[Dict[str, Any]]
-
-
-class SavedSearchFilters(BaseModel):
-    """SavedSearchFilters schema."""
-
-    id: Optional[UUID]
-    name: Optional[str]
-    sort_direction: Optional[str]
-    sort_field: Optional[str]
-    search_term: Optional[str]
-    search_path: Optional[str]
-    created_by: Optional[UUID]
-
-
-class SavedSearchSearch(BaseModel):
-    """SavedSearchSearch schema."""
-
-    page: int
-    sort: Optional[str]
-    order: str
-    filters: Optional[SavedSearchFilters]
-    pageSize: Optional[int]
-    groupBy: Optional[str]
+    filters: List[SavedSearchFilters]
+    search_path: str
+    createdBy_id: UUID
