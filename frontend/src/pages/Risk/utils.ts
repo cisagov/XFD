@@ -13,11 +13,11 @@ export const getAllVulnColor = () => {
   return '#ce80ed';
 };
 export const getSeverityColor = ({ id }: { id: string }) => {
-  if (id === 'null' || id === '') return '#EFF1F5';
+  if (id === 'N/A' || id === '') return '#EFF1F5';
   else if (id === 'Low') return '#ffe100';
   else if (id === 'Medium') return '#f66e1f';
   else if (id === 'High') return '#ed240e';
-  else if (id === 'Other') return '#0000FF';
+  else if (id === 'Other') return '#6BA7F5';
   else return '#540C03';
 };
 export const getCVSSColor = (score: number) => {
