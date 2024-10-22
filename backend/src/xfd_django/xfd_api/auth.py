@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import hashlib
 from hashlib import sha256
 import os
+from typing import Optional
 from urllib.parse import urlencode
 import uuid
 
@@ -407,6 +408,12 @@ async def get_jwt_from_code(auth_code: str):
 #         )
 #     print(f"Authenticated user: {user.id}")
 #     return user
+
+
+def can_access_user(current_user, user_id: Optional[str]) -> bool:
+    return (
+        user_id and (current_user.id == user_id) or is_global_write_admin(current_user)
+    )
 
 
 def is_global_write_admin(current_user) -> bool:

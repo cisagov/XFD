@@ -3,6 +3,7 @@ User API.
 
 """
 # Standard Python Libraries
+from datetime import datetime
 from typing import List, Optional
 
 # Third-Party Libraries
@@ -10,6 +11,27 @@ from fastapi import HTTPException, Query
 
 from ..models import User
 from ..schema_models.user import User as UserSchema
+
+
+async def accept_terms(current_user: User, version: str):
+    """
+    Accept the latest terms of service.
+
+    Args:
+        current_user (User): The current authenticated user.
+        version (str): The version of the terms of service.
+
+    Returns:
+        User: The updated user.
+    """
+    if not current_user:
+        raise HTTPException(status_code=401, detail="User not authenticated.")
+
+    current_user.dateAcceptedTerms = datetime.now()
+    current_user.acceptedTermsVersion = version
+    current_user.save()
+
+    return UserSchema.from_orm(current_user)
 
 
 def get_users(regionId):

@@ -58,3 +58,11 @@ class User(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class UpdateUser(BaseModel):
+    firstName: str
+    lastName: str
+    email: str
+    userType: str
+    state: Optional[str]

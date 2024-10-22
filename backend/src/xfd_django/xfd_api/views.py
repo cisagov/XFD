@@ -36,7 +36,7 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
-from .api_methods.user import delete_user, get_users
+from .api_methods.user import accept_terms, delete_user, get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
 from .login_gov import callback, login
@@ -318,6 +318,22 @@ async def callback_route(request: Request):
 
 
 # GET Current User
+@api_router.post("/users/acceptTerms", tags=["Users"])
+async def call_accept_terms(
+    version: str, current_user: User = Depends(get_current_active_user)
+):
+    """
+    Accept the latest terms of service.
+
+    Args:
+        version (str): The version of the terms of service.
+
+    Returns:
+        User: The updated user.
+    """
+    return accept_terms(current_user, version)
+
+
 @api_router.get("/users/me", tags=["Users"])
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
