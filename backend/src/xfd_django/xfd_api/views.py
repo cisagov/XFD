@@ -334,6 +334,24 @@ async def call_accept_terms(
     return accept_terms(current_user, version)
 
 
+# TODO: Add authentication and  permissions
+@api_router.delete("/users/{userId}", tags=["Users"])
+async def call_delete_user(userId: str):
+    """
+    Delete a user by ID.
+
+    Args:
+        userId : The ID of the user to delete.
+
+    Raises:
+        HTTPException: If the user is not authorized or the user is not found.
+
+    Returns:
+        JSONResponse: The result of the deletion.
+    """
+    return delete_user(userId)
+
+
 @api_router.get("/users/me", tags=["Users"])
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
@@ -359,21 +377,6 @@ async def call_get_users(regionId):
         List[User]: A list of users matching the filter criteria.
     """
     return get_users(regionId)
-
-
-@api_router.delete("/users/{userId}", tags=["Users"])
-async def call_delete_user(userId: str):
-    """
-    call delete_user()
-    Args:
-        userId: UUID of the user to delete.
-
-        Returns:
-        User: The user that was deleted.
-
-    """
-
-    return delete_user(userId)
 
 
 ######################

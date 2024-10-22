@@ -7,7 +7,8 @@ from datetime import datetime
 from typing import List, Optional
 
 # Third-Party Libraries
-from fastapi import HTTPException, Query
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
 
 from ..models import User
 from ..schema_models.user import User as UserSchema
@@ -34,6 +35,28 @@ async def accept_terms(current_user: User, version: str):
     return UserSchema.from_orm(current_user)
 
 
+#  TODO: Add user context and permissions
+def delete_user(user_id: str):
+    """
+    Delete a user by ID.
+
+    Args:
+        user_id : The ID of the user to delete.
+    Raises:
+        HTTPException: If the user is not authorized or the user is not found.
+
+    Returns:
+        JSONResponse: The result of the deletion.
+    """
+
+    try:
+        user = User.objects.get(id=user_id)
+        result = user.delete()
+        return JSONResponse(status_code=200, content={"result": result})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def get_users(regionId):
     """
     Retrieve a list of users based on optional filter parameters.
@@ -50,26 +73,5 @@ def get_users(regionId):
     try:
         users = User.objects.filter(regionId=regionId).prefetch_related("roles")
         return [UserSchema.from_orm(user) for user in users]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-def delete_user(user_id: str):
-    """
-    Delete a user by ID.
-
-    Args:
-        user_id : The ID of the user to delete.
-    Raises:
-        HTTPException: If the user is not authorized or the user is not found.
-
-    Returns:
-        User: The user that was deleted.
-    """
-
-    try:
-        user = User.objects.get(id=user_id)
-        user.delete()
-        return UserSchema.from_orm(user)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
