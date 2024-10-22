@@ -38,6 +38,12 @@ app.use(
   })
 );
 
+//Middleware to set Cache-Control headers
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'private, max-age=3600');
+  next();
+});
+
 app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '0');
   next();
