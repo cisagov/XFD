@@ -38,17 +38,17 @@ class SearchBody(BaseModel):
 
 def get_options(search_body: SearchBody, event) -> Dict[str, Any]:
     """Determine options for filtering based on organization ID or tag ID."""
-    if search_body.organizationId and (
-        search_body.organizationId in get_org_memberships(event)
+    if search_body.organization_id and (
+        search_body.organization_id in get_org_memberships(event)
         or is_global_view_admin(event)
     ):
         options = {
-            "organizationIds": [search_body.organizationId],
+            "organizationIds": [search_body.organization_id],
             "matchAllOrganizations": False,
         }
-    elif search_body.tagId:
+    elif search_body.tag_id:
         options = {
-            "organizationIds": get_tag_organizations(event, search_body.tagId),
+            "organizationIds": get_tag_organizations(event, str(search_body.tag_id)),
             "matchAllOrganizations": False,
         }
     else:
@@ -119,18 +119,19 @@ def export(search_body: SearchBody, event) -> Dict[str, Any]:
     writer.writeheader()
     writer.writerows(results)
 
-    # Save to S3 # TODO: Replace with heler logic
-    s3 = boto3.client("s3")
-    bucket_name = "your-bucket-name"
-    csv_key = "domains.csv"
-    s3.put_object(Bucket=bucket_name, Key=csv_key, Body=csv_buffer.getvalue())
+    # Save to S3 # TODO: Replace with helper logic
+    # s3 = boto3.client("s3")
+    # bucket_name = "your-bucket-name"
+    # csv_key = "domains.csv"
+    # s3.put_object(Bucket=bucket_name, Key=csv_key, Body=csv_buffer.getvalue())
 
-    # Generate a presigned URL to access the CSV
-    url = s3.generate_presigned_url(
-        "get_object", Params={"Bucket": bucket_name, "Key": csv_key}, ExpiresIn=3600
-    )
+    # # Generate a presigned URL to access the CSV
+    # url = s3.generate_presigned_url(
+    #     "get_object", Params={"Bucket": bucket_name, "Key": csv_key}, ExpiresIn=3600
+    # )
 
-    return {"url": url}
+    # return {"url": url}
+    return {"data": results}
 
 
 def search(search_body: SearchBody, event) -> Dict[str, Any]:
