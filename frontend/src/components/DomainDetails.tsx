@@ -26,7 +26,6 @@ import { DefinitionList } from './DefinitionList';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';
 import { useAuthContext } from 'context';
-import { Stack } from '@mui/system';
 
 const PREFIX = 'DomainDetails';
 
@@ -336,21 +335,15 @@ export const DomainDetails: React.FC<Props> = (props) => {
   const webpageTree = generateWebpageTree(webpages);
   const webpageList = generateWebpageList(webpageTree);
 
-  const backToResults = () => {
-    history.push('/inventory');
-  };
-
   return (
     <>
-      <Stack
-        direction="row"
-        spacing={1}
-        alignItems="center"
-        onClick={backToResults}
+      <Button
+        onClick={() => history.goBack()}
+        startIcon={<KeyboardBackspace />}
       >
-        <KeyboardBackspace color="primary" />
-        <Button>Back To Results</Button>
-      </Stack>
+        Back To Results
+      </Button>
+      {/* </Stack> */}
 
       <StyledPaper classes={{ root: classes.root }}>
         <div className={classes.title}>
