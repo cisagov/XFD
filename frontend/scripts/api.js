@@ -76,9 +76,19 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.static(path.join(__dirname, '../build')));
+app.use(
+  express.static(path.join(__dirname, '../build'), {
+    setHeaders: (res, path) => {
+      if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      }
+    },
+    maxAge: '1h'
+  })
+);
 
 app.use((req, res) => {
+  res.setHeader('Content-Type', 'text/html');
   res.sendFile(path.join(__dirname, '../build/index.html'));
 });
 
