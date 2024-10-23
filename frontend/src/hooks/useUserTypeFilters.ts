@@ -75,7 +75,7 @@ export const useUserTypeFilters: UseUserTypeFilters = (
         },
         {
           field: 'organizationId',
-          values: userOrgs,
+          values: [],
           type: 'any'
         }
       ];
