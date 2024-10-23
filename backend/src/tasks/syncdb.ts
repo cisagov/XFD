@@ -98,6 +98,7 @@ export const handler: Handler = async (event) => {
           name: Sentencer.make('{{ adjective }}-{{ noun }}.crossfeed.local'),
           ip: ['127', randomNum(), randomNum(), randomNum()].join('.'), // Create random loopback addresses
           fromRootDomain: 'crossfeed.local',
+          isFceb: true,
           subdomainSource: 'findomain',
           organization
         }).save();

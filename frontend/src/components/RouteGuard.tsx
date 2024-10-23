@@ -38,7 +38,6 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
 
   if (token && !user) {
     // waiting on user profile
-    console.log('Token Route Check');
     return null;
   }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useAuthContext } from 'context';
 import { Organization as OrganizationType, Role } from 'types';
-import { Alert, IconButton, Paper, Typography } from '@mui/material';
+import { Alert, Box, IconButton, Paper, Typography } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { CheckCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
@@ -117,12 +117,16 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   };
 
   return (
-    <React.Fragment>
-      <Paper elevation={0}>
+    <Box display="flex">
+      <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
         <DataGrid
           rows={userRoles}
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 15 } }
+          }}
+          pageSizeOptions={[15, 30, 50, 100]}
         />
       </Paper>
       <ConfirmDialog
@@ -167,7 +171,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           </Typography>
         }
       />
-    </React.Fragment>
+    </Box>
   );
 };
 

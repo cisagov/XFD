@@ -18,14 +18,13 @@ import {
   Annotation
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
-import { Vulnerability } from 'types';
-import { Stats } from 'types/stats';
+import { Stats, Vulnerability } from 'types';
 import { UpdateStateForm } from 'components/Register';
 import {
   ORGANIZATION_FILTER_KEY,
   OrganizationShallow,
   REGION_FILTER_KEY
-} from 'components/OrganizationSearch';
+} from 'components/RegionAndOrganizationFilters';
 import { withSearch } from '@elastic/react-search-ui';
 
 export interface Point {
@@ -54,7 +53,7 @@ let colorScale = scaleLinear<string>()
   .domain([0, 1])
   .range(['#c7e8ff', '#135787']);
 
-const Risk: React.FC<ContextType & {}> = ({ filters }) => {
+const Risk: React.FC<ContextType & {}> = ({ filters, addFilter }) => {
   const { showMaps, user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
@@ -102,7 +101,8 @@ const Risk: React.FC<ContextType & {}> = ({ filters }) => {
         .range(['#c7e8ff', '#135787']);
       setStats(result);
     },
-    [apiPost, riskFilters]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [riskFilters]
   );
 
   useEffect(() => {

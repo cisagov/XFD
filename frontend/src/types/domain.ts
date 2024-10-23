@@ -1,6 +1,5 @@
 import { Organization } from './organization';
-import { Vulnerability } from './vulnerability';
-import { Webpage } from './webpage';
+import { Scan } from './scan';
 
 export interface Product {
   // Common name
@@ -66,6 +65,57 @@ export interface Service {
   products: Product[];
   productSource: string | null;
   serviceSource: string | null;
+}
+
+export interface Webpage {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+  syncedAt: Date | null;
+  domain: Domain;
+  discoveredBy: Scan;
+  lastSeen: Date | null;
+  s3Key: string | null;
+  url: string;
+  status: number;
+  responseSize: number | null;
+}
+
+export interface Vulnerability {
+  id: string;
+  domain: Domain;
+  createdAt: string;
+  lastSeen: string | null;
+  title: string;
+  cve: string | null;
+  isKev?: string;
+  cwe: string | null;
+  cpe: string | null;
+  description: string;
+  cvss: number | null;
+  severity: string | null;
+  state: string;
+  source: string;
+  structuredData: { [x: string]: any };
+  substate: string;
+  notes: string;
+  actions: {
+    type: 'state-change' | 'comment';
+    state?: string;
+    substate?: string;
+    value?: string;
+    automatic: boolean;
+    userId: string | null;
+    userName: string | null;
+    date: string;
+  }[];
+  references: {
+    url: string;
+    name: string;
+    source: string;
+    tags: string[];
+  }[];
+  service: Service;
 }
 
 export interface Domain {

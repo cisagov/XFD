@@ -37,6 +37,7 @@ describe('sslyze', () => {
     let domain = await Domain.create({
       organization,
       name: 'www.cisa.gov',
+      isFceb: true,
       ip: '0.0.0.0'
     }).save();
     const service = await Service.create({
@@ -74,6 +75,7 @@ describe('sslyze', () => {
     let domain = await Domain.create({
       organization,
       name: 'www.cisa.gov',
+      isFceb: true,
       ip: '0.0.0.0'
     }).save();
     const service = await Service.create({

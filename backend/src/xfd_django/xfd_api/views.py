@@ -18,7 +18,7 @@ Dependencies:
 """
 
 # Standard Python Libraries
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 # Third-Party Libraries
 from django.shortcuts import render
@@ -36,11 +36,18 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
+from .api_methods.saved_search import (
+    create_saved_search,
+    delete_saved_search,
+    get_saved_search,
+    list_saved_searches,
+    update_saved_search,
+)
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
 from .login_gov import callback, login
-from .models import Assessment, User
+from .models import Assessment, SavedSearch, User
 from .schema_models import scan as scanSchema
 from .schema_models.api_key import ApiKey as ApiKeySchema
 from .schema_models.assessment import Assessment as AssessmentSchema
@@ -51,6 +58,7 @@ from .schema_models.domain import DomainFilters, DomainSearch
 from .schema_models.notification import Notification as NotificationSchema
 from .schema_models.organization import Organization as OrganizationSchema
 from .schema_models.role import Role as RoleSchema
+from .schema_models.saved_search import SavedSearch as SavedSearchSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
@@ -385,6 +393,97 @@ async def call_get_organizations(regionId):
         List[Organizations]: A list of organizations matching the filter criteria.
     """
     return get_organizations(regionId)
+
+
+# TODO: Typescript endpoints for reference, not implemented in FastAPI.
+# Remove after implementation
+# authenticatedRoute.post(
+#   '/saved-searches',
+#   handlerToExpress(savedSearches.create)
+# );
+
+
+# ========================================
+#   Saved Search  Endpoints
+# ========================================
+
+
+# TODO: Implement the following functions
+@api_router.post(
+    "/saved-searches",
+    dependencies=[Depends(get_current_active_user)],
+    # response_model=SavedSearchSchema,
+    tags=["Testing"],
+)
+async def call_create_saved_search(
+    name: str,
+    search_term: str,
+    region_id: str,
+    current_user: User = Depends(get_current_active_user),
+):
+    request = {
+        "name": name,
+        "searchTerm": search_term,
+        "regionId": region_id,
+        "createdById": current_user.id,
+    }
+    """Create a new saved search."""
+    return create_saved_search(request)
+
+
+# Get all existing saved searches is implemented in the following function
+@api_router.get(
+    "/saved-searches",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[SavedSearchSchema],
+    tags=["Testing"],
+)
+async def call_list_saved_searches():
+    """Retrieve a list of all saved searches."""
+    return list_saved_searches()
+
+
+# Get individual saved search is implemented in the following function
+@api_router.get(
+    "/saved-searches/{saved_search_id}",
+    response_model=SavedSearchSchema,
+    tags=["Testing"],
+)
+async def call_get_saved_search(saved_search_id: str):
+    """Retrieve a saved search by its ID."""
+    return get_saved_search(saved_search_id)
+
+
+# TODO: Implement the following functions
+@api_router.put(
+    "/saved-searches/{saved_search_id}",
+    response_model=SavedSearchSchema,
+    tags=["Testing"],
+)
+async def call_update_saved_search(
+    saved_search_id: str,
+    name: str,
+    search_term: str,
+):
+    """Update a saved search by its ID."""
+
+    request = {
+        "name": name,
+        "saved_search_id": saved_search_id,
+        "searchTerm": search_term,
+    }
+
+    return update_saved_search(request)
+
+
+# Delete saved search is implemented in the following function
+@api_router.delete(
+    "/saved-searches/{saved_search_id}",
+    tags=["Testing"],
+)
+async def call_delete_saved_search(saved_search_id: str):
+    """Delete a saved search by its ID."""
+    return delete_saved_search(saved_search_id)
 
 
 # GET ALL

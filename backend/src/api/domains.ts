@@ -154,6 +154,10 @@ class DomainSearch {
       });
     }
 
+    qs.andWhere(
+      '(domain."isFceb" = true OR (domain."isFceb" = false AND domain."fromCidr" = true))'
+    );
+
     await this.filterResultQueryset(qs, event);
     return qs.getManyAndCount();
   }
@@ -169,7 +173,6 @@ class DomainSearch {
  *    - Domains
  */
 export const list = wrapHandler(async (event) => {
-  console.log('Hello, list handler');
   if (!isGlobalViewAdmin(event) && getOrgMemberships(event).length === 0) {
     console.log('returning no results');
     return {

@@ -460,8 +460,6 @@ class SavedSearch(models.Model):
     count = models.IntegerField()
     filters = models.JSONField()
     searchPath = models.CharField(db_column="searchPath")
-    createVulnerabilities = models.BooleanField(db_column="createVulnerabilities")
-    vulnerabilityTemplate = models.JSONField(db_column="vulnerabilityTemplate")
     createdById = models.ForeignKey(
         "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
     )
