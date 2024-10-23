@@ -14,9 +14,14 @@ from ..models import SavedSearch, User
 from ..schema_models.saved_search import SavedSearchFilters
 
 
-def empty_string_check(name):
-    if name == "":
+def validate_name(name: str):
+    if name.strip() == "":
         raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+    all_saved_searches = SavedSearch.objects.all()
+    for search in all_saved_searches:
+        if search.name.strip() == name.strip():
+            raise HTTPException(status_code=400, detail="Name already exists")
 
 
 def create_saved_search(request):
@@ -24,6 +29,9 @@ def create_saved_search(request):
         user = User.objects.get(id=request.get("createdById"))
     except User.DoesNotExist:
         raise HTTPException(status_code=404, detail="User not found")
+
+    all_saved_searches = SavedSearch.objects.all()
+    validate_name(request.get("name"))
 
     search = SavedSearch.objects.create(
         id=uuid.uuid4(),
@@ -120,8 +128,9 @@ def update_saved_search(request):
         return HTTPException(status_code=404, detail=str(e))
 
     saved_search.name = request["name"]
-    saved_search.updatedAt = datetime.now()
+    saved_search.updatedAt = datetime.now(timezone.utc)
     saved_search.searchTerm = request["searchTerm"]
+    validate_name(request.get("name"))
 
     saved_search.save()
     response = {
