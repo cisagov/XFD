@@ -3,11 +3,14 @@
 # from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
 from pydantic import BaseModel
+
+from ..schema_models.service import Service
+from ..schema_models.vulnerability import Vulnerability
 
 
 class Domain(BaseModel):
@@ -36,14 +39,14 @@ class Domain(BaseModel):
     class Config:
         """Domain base schema config."""
 
-        orm_mode = True
+        from_attributes = True
         validate_assignment = True
 
 
 class DomainFilters(BaseModel):
     """DomainFilters schema."""
 
-    ports: Optional[str] = None
+    port: Optional[str] = None
     service: Optional[str] = None
     reverseName: Optional[str] = None
     ip: Optional[str] = None
@@ -51,6 +54,9 @@ class DomainFilters(BaseModel):
     organizationName: Optional[str] = None
     vulnerabilities: Optional[str] = None
     tag: Optional[str] = None
+
+    class Config:
+        from_attributes = True
 
 
 class DomainSearch(BaseModel):
@@ -61,3 +67,6 @@ class DomainSearch(BaseModel):
     order: str
     filters: Optional[DomainFilters]
     pageSize: Optional[int] = None
+
+    class Config:
+        from_attributes = True

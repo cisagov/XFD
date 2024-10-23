@@ -21,26 +21,37 @@ Dependencies:
 from typing import List, Optional
 
 # Third-Party Libraries
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import UUID4
+from django.shortcuts import render
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
-from .api_methods import organization, scan, scan_tasks
+# from .schemas import Cpe
+from . import schema_models
+from .api_methods import api_key as api_key_methods
+from .api_methods import auth as auth_methods
+from .api_methods import notification as notification_methods
+from .api_methods import scan, organization
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
-from .api_methods.domain import get_domain_by_id
+from .api_methods.domain import export_domains, get_domain_by_id, search_domains
+from .api_methods.organization import get_organizations, read_orgs
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
+from .login_gov import callback, login
 from .models import Assessment, User
 from .schema_models import organization as OrganizationSchema
 from .schema_models import scan as scanSchema
-from .schema_models import scan_tasks as scanTaskSchema
+from .schema_models.api_key import ApiKey as ApiKeySchema
 from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
-from .schema_models.domain import DomainSearch
+from .schema_models.domain import DomainFilters, DomainSearch
+from .schema_models.notification import Notification as NotificationSchema
+from .schema_models.organization import Organization as OrganizationSchema
+from .schema_models.role import Role as RoleSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
 
@@ -162,18 +173,27 @@ async def call_get_cves_by_name(cve_name):
     return get_cves_by_name(cve_name)
 
 
-@api_router.post("/domain/search")
-async def search_domains(domain_search: DomainSearch):
+@api_router.post(
+    "/domain/search",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[DomainSchema],
+    tags=["Domains"],
+)
+async def call_search_domains(domain_search: DomainSearch):
     try:
-        pass
+        return search_domains(domain_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@api_router.post("/domain/export")
-async def export_domains():
+@api_router.post(
+    "/domain/export",
+    # dependencies=[Depends(get_current_active_user)],
+    tags=["Domains"],
+)
+async def call_export_domains(domain_search: DomainSearch):
     try:
-        pass
+        return export_domains(domain_search)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -240,26 +260,60 @@ async def call_update_vulnerability(vuln_id, data: VulnerabilitySchema):
     return update_vulnerability(vuln_id, data)
 
 
+######################
+# Auth
+######################
+
+
+# Okta Callback
+@api_router.post("/auth/okta-callback", tags=["auth"])
+async def okta_callback(request: Request):
+    """Handle Okta Callback."""
+    return await auth_methods.handle_okta_callback(request)
+
+
+# Login
+@api_router.get("/login", tags=["auth"])
+async def login_route():
+    """Handle V1 Login."""
+    return login()
+
+
+# V1 Callback
+@api_router.post("/auth/callback", tags=["auth"])
+async def callback_route(request: Request):
+    """Handle V1 Callback."""
+    body = await request.json()
+    try:
+        user_info = callback(body)
+        return user_info
+    except Exception as error:
+        raise HTTPException(status_code=400, detail=str(error))
+
+
+######################
+# Users
+######################
+
+
+# GET Current User
+@api_router.get("/users/me", tags=["users"])
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+
 @api_router.get(
-    "/v2/users",
+    "/users/{regionId}",
     response_model=List[UserSchema],
     # dependencies=[Depends(get_current_active_user)],
     tags=["User"],
 )
-async def call_get_users(
-    state: Optional[List[str]] = Query(None),
-    regionId: Optional[List[str]] = Query(None),
-    invitePending: Optional[List[str]] = Query(None),
-    # current_user: User = Depends(is_regional_admin)
-):
+async def call_get_users(regionId):
     """
     Call get_users()
 
     Args:
-        state (Optional[List[str]]): List of states to filter users by.
-        regionId (Optional[List[str]]): List of region IDs to filter users by.
-        invitePending (Optional[List[str]]): List of invite pending statuses to filter users by.
-        current_user (User): The current authenticated user, must be a regional admin.
+        regionId: Region IDs to filter users by.
 
     Raises:
         HTTPException: If the user is not authorized or no users are found.
@@ -267,7 +321,125 @@ async def call_get_users(
     Returns:
         List[User]: A list of users matching the filter criteria.
     """
-    return get_users(state, regionId, invitePending)
+    return get_users(regionId)
+
+
+######################
+# API-Keys
+######################
+
+
+# POST
+@api_router.post("/api-keys", response_model=ApiKeySchema, tags=["api-keys"])
+async def create_api_key(current_user: User = Depends(get_current_active_user)):
+    """Create api key."""
+    return api_key_methods.post(current_user)
+
+
+# DELETE
+@api_router.delete("/api-keys/{id}", tags=["api-keys"])
+async def delete_api_key(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete api key by id."""
+    return api_key_methods.delete(id, current_user)
+
+
+@api_router.get(
+    "/organizations/{regionId}",
+    response_model=List[OrganizationSchema],
+    # dependencies=[Depends(get_current_active_user)],
+    tags=["Organization"],
+)
+async def call_get_organizations(regionId):
+    """
+    List all organizations with query parameters.
+    Args:
+        regionId : Region IDs to filter organizations by.
+
+    Raises:
+        HTTPException: If the user is not authorized or no organizations are found.
+
+    Returns:
+        List[Organizations]: A list of organizations matching the filter criteria.
+    """
+    return get_organizations(regionId)
+
+
+# GET ALL
+@api_router.get("/api-keys", response_model=List[ApiKeySchema], tags=["api-keys"])
+async def get_all_api_keys(current_user: User = Depends(get_current_active_user)):
+    """Get all api keys."""
+    return api_key_methods.get_all(current_user)
+
+
+# GET BY ID
+@api_router.get("/api-keys/{id}", response_model=ApiKeySchema, tags=["api-keys"])
+async def get_api_key(id: str, current_user: User = Depends(get_current_active_user)):
+    """Get api key by id."""
+    return api_key_methods.get_by_id(id, current_user)
+
+
+#########################
+#     Notifications
+#########################
+
+
+# POST
+@api_router.post(
+    "/notifications", response_model=NotificationSchema, tags=["notifications"]
+)
+async def create_notification(current_user: User = Depends(get_current_active_user)):
+    """Create notification key."""
+    # return notification_handler.post(current_user)
+    return []
+
+
+# DELETE
+@api_router.delete(
+    "/notifications/{id}", response_model=NotificationSchema, tags=["notifications"]
+)
+async def delete_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Delete notification by id."""
+    return notification_methods.delete(id, current_user)
+
+
+# GET ALL
+@api_router.get(
+    "/notifications", response_model=List[NotificationSchema], tags=["notifications"]
+)
+async def get_all_notifications(current_user: User = Depends(get_current_active_user)):
+    """Get all notifications."""
+    return notification_methods.get_all(current_user)
+
+
+# GET BY ID
+@api_router.get(
+    "/notifications/{id}", response_model=NotificationSchema, tags=["notifications"]
+)
+async def get_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Get notification by id."""
+    return notification_methods.get_by_id(id, current_user)
+
+
+# UPDATE BY ID
+@api_router.put("/notifications/{id}", tags=["notifications"])
+async def update_notification(
+    id: str, current_user: User = Depends(get_current_active_user)
+):
+    """Update notification key by id."""
+    return notification_methods.delete(id, current_user)
+
+
+# GET 508 Banner
+@api_router.get("/notifications/508-banner", tags=["notifications"])
+async def get_508_banner(current_user: User = Depends(get_current_active_user)):
+    """Get notification by id."""
+    return notification_methods.get_508_banner(current_user)
 
 
 # ========================================
@@ -368,49 +540,6 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     response = await scan.invoke_scheduler(current_user)
     return response
 
-
-# ========================================
-#   Scan Task Endpoints
-# ========================================
-
-
-@api_router.post(
-    "/scan-tasks/search",
-    dependencies=[Depends(get_current_active_user)],
-    response_model=scanTaskSchema.ScanTaskListResponse,
-    tags=["Scan Tasks"],
-)
-async def list_scan_tasks(
-    search_data: scanTaskSchema.ScanTaskSearch,
-    current_user: User = Depends(get_current_active_user),
-):
-    """List scan tasks based on filters."""
-    return scan_tasks.list_scan_tasks(search_data, current_user)
-
-
-@api_router.post(
-    "/scan-tasks/{scan_task_id}/kill",
-    dependencies=[Depends(get_current_active_user)],
-    tags=["Scan Tasks"],
-)
-async def kill_scan_tasks(
-    scan_task_id: UUID4, current_user: User = Depends(get_current_active_user)
-):
-    """Kill a scan task."""
-    return scan_tasks.kill_scan_task(scan_task_id, current_user)
-
-
-@api_router.get(
-    "/scan-tasks/{scan_task_id}/logs",
-    dependencies=[Depends(get_current_active_user)],
-    # response_model=scanTaskSchema.GenericResponse,
-    tags=["Scan Tasks"],
-)
-async def get_scan_task_logs(
-    scan_task_id: UUID4, current_user: User = Depends(get_current_active_user)
-):
-    """Get logs from a particular scan task."""
-    return scan_tasks.get_scan_task_logs(scan_task_id, current_user)
 
 
 # ========================================
