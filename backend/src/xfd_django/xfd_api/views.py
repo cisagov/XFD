@@ -36,6 +36,7 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.organization import get_organizations, read_orgs
+from .api_methods.search import SearchBody, export, search
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
@@ -137,16 +138,6 @@ async def list_assessments():
         raise HTTPException(status_code=404, detail="No assessments found")
 
     return list(assessments)
-
-
-@api_router.post("/search")
-async def search():
-    pass
-
-
-@api_router.post("/search/export")
-async def export_search():
-    pass
 
 
 @api_router.get(
@@ -560,3 +551,35 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     """Manually invoke the scan scheduler."""
     response = await scan.invoke_scheduler(current_user)
     return response
+
+
+@api_router.post("/search")
+async def search_endpoint(request: Request, body: SearchBody):
+    try:
+        # Example of parsing UUIDs correctly
+        organization_id = body.organization_id
+        tag_id = body.tag_id
+
+        # Search logic
+        # Using the parsed and validated UUIDs in the search
+        results = {
+            "current": body.current,
+            "organization_id": str(organization_id) if organization_id else None,
+            "tag_id": str(tag_id) if tag_id else None,
+        }
+
+        return results
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@api_router.post("/search/export")
+async def export_endpoint(request: Request):
+    try:
+        body = await request.json()
+        search_body = SearchBody(**body)  # Parse request body into SearchBody
+        result = export(search_body, request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
