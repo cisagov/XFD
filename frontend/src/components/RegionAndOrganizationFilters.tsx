@@ -124,6 +124,25 @@ export const RegionAndOrganizationFilters: React.FC<
         const sortedOrgs = filteredOrgs.sort((a, b) =>
           a.name.localeCompare(b.name)
         );
+
+        // Utility function to replce HTML encodings
+        const decodeHtml = (orgName: string): string => {
+          const encodings: { [key: string]: string } = {
+            '&amp;': '&',
+            '&lt;': '<',
+            '&gt;': '>',
+            '&quot;': '"',
+            '&#039;': "'"
+          };
+          return orgName.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, (m) => {
+            return encodings[m];
+          });
+        };
+        // Decode HTML encodings in org names
+        sortedOrgs.forEach((org) => {
+          org.name = decodeHtml(org.name);
+        });
+
         setOrgResults(sortedOrgs);
       } catch (e) {
         console.log(e);
