@@ -19,7 +19,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 import requests
 
 # from .helpers import user_to_dict
-from .models import ApiKey, Organization, OrganizationTag, User
+from .models import ApiKey, Organization, OrganizationTag, Role, User
 
 # JWT_ALGORITHM = "RS256"
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -481,3 +481,11 @@ def get_tag_organizations(current_user, tag_id: str) -> list[str]:
 
     # Return an empty list if tag is not found
     return []
+
+
+def get_org_memberships(current_user) -> list[str]:
+    """Returns the organization IDs that a user is a member of."""
+    roles = Role.objects.filter(userId=current_user)
+    if not roles:
+        return []
+    return [role.organizationId.id for role in roles if role.organizationId]

@@ -30,12 +30,11 @@ from . import schema_models
 from .api_methods import api_key as api_key_methods
 from .api_methods import auth as auth_methods
 from .api_methods import notification as notification_methods
-from .api_methods import scan, organization
+from .api_methods import organization, scan
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
-from .api_methods.organization import get_organizations, read_orgs
 from .api_methods.user import get_users
 from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerability
 from .auth import get_current_active_user
@@ -50,7 +49,6 @@ from .schema_models.cve import Cve as CveSchema
 from .schema_models.domain import Domain as DomainSchema
 from .schema_models.domain import DomainFilters, DomainSearch
 from .schema_models.notification import Notification as NotificationSchema
-from .schema_models.organization import Organization as OrganizationSchema
 from .schema_models.role import Role as RoleSchema
 from .schema_models.user import User as UserSchema
 from .schema_models.vulnerability import Vulnerability as VulnerabilitySchema
@@ -345,27 +343,6 @@ async def delete_api_key(
     return api_key_methods.delete(id, current_user)
 
 
-@api_router.get(
-    "/organizations/{regionId}",
-    response_model=List[OrganizationSchema],
-    # dependencies=[Depends(get_current_active_user)],
-    tags=["Organization"],
-)
-async def call_get_organizations(regionId):
-    """
-    List all organizations with query parameters.
-    Args:
-        regionId : Region IDs to filter organizations by.
-
-    Raises:
-        HTTPException: If the user is not authorized or no organizations are found.
-
-    Returns:
-        List[Organizations]: A list of organizations matching the filter criteria.
-    """
-    return get_organizations(regionId)
-
-
 # GET ALL
 @api_router.get("/api-keys", response_model=List[ApiKeySchema], tags=["api-keys"])
 async def get_all_api_keys(current_user: User = Depends(get_current_active_user)):
@@ -539,7 +516,6 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     """Manually invoke the scan scheduler."""
     response = await scan.invoke_scheduler(current_user)
     return response
-
 
 
 # ========================================
