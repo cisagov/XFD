@@ -83,7 +83,7 @@ app.use(
         res.setHeader('Content-Type', 'application/javascript');
       }
     },
-    maxAge: '1h'
+    maxAge: 'no-cache'
   })
 );
 
