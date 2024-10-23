@@ -2,7 +2,7 @@
 
 
 # Standard Python Libraries
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import uuid
 
@@ -10,24 +10,42 @@ import uuid
 from django.http import JsonResponse
 from fastapi import HTTPException
 
-from ..models import SavedSearch
+from ..models import SavedSearch, User
 from ..schema_models.saved_search import SavedSearchFilters
 
 
+def empty_string_check(name):
+    if name == "":
+        raise HTTPException(status_code=400, detail="Name cannot be empty")
+
+
 def create_saved_search(request):
-    data = json.loads(request.body)
+    try:
+        user = User.objects.get(id=request.get("createdById"))
+    except User.DoesNotExist:
+        raise HTTPException(status_code=404, detail="User not found")
+
     search = SavedSearch.objects.create(
-        name=data["name"],
-        count=data["count"],
-        sort_direction="asc",
-        sort_field="name",
-        search_term=data["searchTerm"],
-        search_path=data["searchPath"],
-        filters=data["filters"],
-        create_vulnerabilities=data["createVulnerabilities"],
-        vulnerability_template=data.get("vulnerabilityTemplate"),
-        created_by=request.user,
+        id=uuid.uuid4(),
+        createdAt=datetime.now(timezone.utc),
+        updatedAt=datetime.now(timezone.utc),
+        name=request.get("name"),
+        count=request.get("count", 0),  # Default to 0 if count does not exist
+        sortDirection=request.get("sortDirection", ""),
+        sortField=request.get("sortField", ""),
+        searchTerm=request.get("searchTerm", ""),
+        searchPath=request.get("searchPath", ""),
+        filters=[
+            {
+                "type": "any",
+                "field": request.get("field", "organization.regionId"),
+                "values": [request.get("regionId")],
+            }
+        ],
+        createdById=user,
     )
+
+    search.save()
     return JsonResponse({"status": "Created", "search": search.id}, status=201)
 
 
@@ -48,16 +66,16 @@ def list_saved_searches():
 
             response = {
                 "id": str(search.id),
-                "created_at": search.createdAt,
-                "updated_at": search.updatedAt,
+                "createdAt": search.createdAt,
+                "updatedAt": search.updatedAt,
                 "name": search.name,
-                "search_term": search.searchTerm,
-                "sort_direction": search.sortDirection,
-                "sort_field": search.sortField,
+                "searchTerm": search.searchTerm,
+                "sortDirection": search.sortDirection,
+                "sortField": search.sortField,
                 "count": search.count,
                 "filters": filters_without_type,
-                "search_path": search.searchPath,
-                "createdBy_id": search.createdById.id,
+                "searchPath": search.searchPath,
+                "createdById": search.createdById.id,
             }
             saved_search_list.append(response)
 
@@ -74,16 +92,16 @@ def get_saved_search(search_id):
         saved_search = SavedSearch.objects.get(id=search_id)
         response = {
             "id": str(saved_search.id),
-            "created_at": saved_search.createdAt,
-            "updated_at": saved_search.updatedAt,
+            "createdAt": saved_search.createdAt,
+            "updatedAt": saved_search.updatedAt,
             "name": saved_search.name,
-            "search_term": saved_search.searchTerm,
-            "sort_direction": saved_search.sortDirection,
-            "sort_field": saved_search.sortField,
+            "searchTerm": saved_search.searchTerm,
+            "sortDirection": saved_search.sortDirection,
+            "sortField": saved_search.sortField,
             "count": saved_search.count,
             "filters": saved_search.filters,
-            "search_path": saved_search.searchPath,
-            "createdBy_id": saved_search.createdById.id,
+            "searchPath": saved_search.searchPath,
+            "createdById": saved_search.createdById.id,
         }
         return response
     except SavedSearch.DoesNotExist as e:
@@ -103,21 +121,21 @@ def update_saved_search(request):
 
     saved_search.name = request["name"]
     saved_search.updatedAt = datetime.now()
-    saved_search.searchTerm = request["search_term"]
+    saved_search.searchTerm = request["searchTerm"]
 
     saved_search.save()
     response = {
         "id": saved_search.id,
-        "created_at": saved_search.createdAt,
-        "updated_at": saved_search.updatedAt,
+        "createdAt": saved_search.createdAt,
+        "updatedAt": saved_search.updatedAt,
         "name": saved_search.name,
-        "search_term": saved_search.searchTerm,
-        "sort_direction": saved_search.sortDirection,
-        "sort_field": saved_search.sortField,
+        "searchTerm": saved_search.searchTerm,
+        "sortDirection": saved_search.sortDirection,
+        "sortField": saved_search.sortField,
         "count": saved_search.count,
         "filters": saved_search.filters,
-        "search_path": saved_search.searchPath,
-        "createdBy_id": saved_search.createdById.id,
+        "searchPath": saved_search.searchPath,
+        "createdById": saved_search.createdById.id,
     }
 
     return response

@@ -19,13 +19,13 @@ class SavedSearch(BaseModel):
     """SavedSearch schema."""
 
     id: UUID
-    created_at: datetime
-    updated_at: datetime
+    createdAt: datetime
+    updatedAt: datetime
     name: str
-    search_term: str = ""
-    sort_direction: str
-    sort_field: str
+    searchTerm: str = ""
+    sortDirection: str
+    sortField: str
     count: int
     filters: List[SavedSearchFilters]
-    search_path: str
-    createdBy_id: UUID
+    searchPath: str
+    createdById: UUID

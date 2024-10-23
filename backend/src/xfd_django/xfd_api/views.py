@@ -411,15 +411,24 @@ async def call_get_organizations(regionId):
 # TODO: Implement the following functions
 @api_router.post(
     "/saved-searches",
+    dependencies=[Depends(get_current_active_user)],
+    # response_model=SavedSearchSchema,
     tags=["Testing"],
 )
 async def call_create_saved_search(
     name: str,
     search_term: str,
-    region_id: int,
+    region_id: str,
+    current_user: User = Depends(get_current_active_user),
 ):
+    request = {
+        "name": name,
+        "searchTerm": search_term,
+        "regionId": region_id,
+        "createdById": current_user.id,
+    }
     """Create a new saved search."""
-    return {"status": "ok"}
+    return create_saved_search(request)
 
 
 # Get all existing saved searches is implemented in the following function
@@ -461,7 +470,7 @@ async def call_update_saved_search(
     request = {
         "name": name,
         "saved_search_id": saved_search_id,
-        "search_term": search_term,
+        "searchTerm": search_term,
     }
 
     return update_saved_search(request)
