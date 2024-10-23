@@ -9,7 +9,7 @@ from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 
 from .jwt_utils import decode_jwt_token
-from .models import ApiKey, OrganizationTag
+from .models import ApiKey, Organization, OrganizationTag, Role
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
@@ -75,6 +75,45 @@ def is_regional_admin(current_user) -> bool:
     return current_user and current_user.userType in ["regionalAdmin", "globalAdmin"]
 
 
+def is_org_admin(current_user, organization_id) -> bool:
+    """Check if the user is an admin of the given organization."""
+    if not organization_id:
+        return False
+
+    # Check if the user has an admin role in the given organization
+    for role in current_user.roles.all():
+        if role.organization.id == organization_id and role.role == "admin":
+            return True
+
+    # If the user is a global write admin, they are considered an org admin
+    return is_global_write_admin(current_user)
+
+
+def is_regional_admin_for_organization(current_user, organization_id) -> bool:
+    """Check if user is a regional admin and if a selected organization belongs to their region."""
+    if not organization_id:
+        return False
+
+    # Check if the user is a regional admin
+    if is_regional_admin(current_user):
+        # Check if the organization belongs to the user's region
+        user_region_id = (
+            current_user.regionId
+        )  # Assuming this is available in the user object
+        organization_region_id = get_organization_region(
+            organization_id
+        )  # Function to fetch the organization's region
+        return user_region_id == organization_region_id
+
+    return False
+
+
+def get_organization_region(organization_id: str) -> str:
+    """Fetch the region ID for the given organization."""
+    organization = Organization.objects.get(id=organization_id)
+    return organization.regionId
+
+
 def get_tag_organizations(current_user, tag_id: str) -> list[str]:
     """Returns the organizations belonging to a tag, if the user can access the tag."""
     # Check if the user is a global view admin
@@ -97,6 +136,14 @@ def get_tag_organizations(current_user, tag_id: str) -> list[str]:
 
     # Return an empty list if tag is not found
     return []
+
+
+def get_org_memberships(current_user) -> list[str]:
+    """Returns the organization IDs that a user is a member of."""
+    roles = Role.objects.filter(userId=current_user)
+    if not roles:
+        return []
+    return [role.organizationId.id for role in roles if role.organizationId]
 
 
 # TODO: Below is a template of what these could be nut isn't tested
