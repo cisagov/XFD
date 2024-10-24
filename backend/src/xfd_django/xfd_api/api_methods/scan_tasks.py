@@ -23,9 +23,13 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
                 status_code=403, detail="Unauthorized access. View logs for details."
             )
 
+        # Ensure that search_data is not None, and set default values if it is
+        if search_data is None:
+            search_data = ScanTaskSearch(pageSize=PAGE_SIZE, page=1, sort="createdAt", order="DESC", filters={})
+
         # Validate and parse the request body
         pageSize = search_data.pageSize or PAGE_SIZE
-
+            
         # Determine the correct ordering based on the 'order' field
         ordering_field = (
             f"-{search_data.sort}"
@@ -35,7 +39,7 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
 
         # Construct query based on filters
         qs = (
-            ScanTask.objects.select_related("scanId")
+            ScanTask.objects.select_related("scan")
             .prefetch_related("organizations")
             .order_by(ordering_field)
         )
@@ -44,17 +48,14 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
         filters = search_data.filters
         if filters:
             if filters.get("name"):
-                qs = qs.filter(scanId__name__icontains=filters["name"])
+                qs = qs.filter(scan__name__icontains=filters["name"])
             if filters.get("status"):
                 qs = qs.filter(status__icontains=filters["status"])
             if filters.get("organization"):
                 qs = qs.filter(organizations__id=filters["organization"])
             if filters.get("tag"):
-                print("We are in tags")
                 orgs = get_tag_organizations(current_user, filters["tag"])
-                print(orgs)
                 qs = qs.filter(organizations__id__in=orgs)
-                print(qs)
 
         # Paginate results
         if pageSize != -1:
@@ -63,25 +64,25 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
         # Convert queryset into a serialized response
         results = []
         for task in qs:
-            # Ensure scanId is not None before accessing its properties
-            if task.scanId is None:
-                print(f"Warning: ScanTask {task.id} has no scanId associated.")
+            # Ensure scan is not None before accessing its properties
+            if task.scan is None:
+                print(f"Warning: ScanTask {task.id} has no scan associated.")
                 scan_data = None  # or some default values, depending on how you want to handle this case
             else:
                 scan_data = {
-                    "id": str(task.scanId.id),
-                    "createdAt": task.scanId.createdAt.isoformat() + "Z",
-                    "updatedAt": task.scanId.updatedAt.isoformat() + "Z",
-                    "name": task.scanId.name,
-                    "arguments": task.scanId.arguments,
-                    "frequency": task.scanId.frequency,
-                    "lastRun": task.scanId.lastRun.isoformat() + "Z"
-                    if task.scanId.lastRun
+                    "id": str(task.scan.id),
+                    "createdAt": task.scan.createdAt.isoformat() + "Z",
+                    "updatedAt": task.scan.updatedAt.isoformat() + "Z",
+                    "name": task.scan.name,
+                    "arguments": task.scan.arguments,
+                    "frequency": task.scan.frequency,
+                    "lastRun": task.scan.lastRun.isoformat() + "Z"
+                    if task.scan.lastRun
                     else None,
-                    "isGranular": task.scanId.isGranular,
-                    "isUserModifiable": task.scanId.isUserModifiable,
-                    "isSingleScan": task.scanId.isSingleScan,
-                    "manualRunPending": task.scanId.manualRunPending,
+                    "isGranular": task.scan.isGranular,
+                    "isUserModifiable": task.scan.isUserModifiable,
+                    "isSingleScan": task.scan.isSingleScan,
+                    "manualRunPending": task.scan.manualRunPending,
                 }
             results.append(
                 {
@@ -133,8 +134,10 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
 
         count = qs.count()
         response = {"result": results, "count": count}
-
         return response
+    
+    except HTTPException as http_exc:
+        raise http_exc
 
     except Exception as e:
         print(e)
@@ -170,6 +173,9 @@ def kill_scan_task(scan_task_id, current_user):
 
         return {"statusCode": 200, "message": "ScanTask successfully marked as failed."}
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
@@ -202,6 +208,9 @@ def get_scan_task_logs(scan_task_id, current_user):
 
         return Response(content=logs or "", status_code=status.HTTP_200_OK)
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))

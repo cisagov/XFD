@@ -22,15 +22,16 @@ from typing import List, Optional
 
 # Third-Party Libraries
 from django.shortcuts import render
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
+from pydantic import UUID4
 
 # from .schemas import Cpe
 from . import schema_models
 from .api_methods import api_key as api_key_methods
 from .api_methods import auth as auth_methods
 from .api_methods import notification as notification_methods
-from .api_methods import organization, scan
+from .api_methods import organization, scan, scan_tasks
 from .api_methods.api_keys import get_api_keys
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
@@ -40,6 +41,7 @@ from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerabi
 from .auth import get_current_active_user
 from .login_gov import callback, login
 from .models import Assessment, User
+from .schema_models import scan_tasks as scanTaskSchema
 from .schema_models import organization as OrganizationSchema
 from .schema_models import scan as scanSchema
 from .schema_models.api_key import ApiKey as ApiKeySchema
@@ -517,6 +519,49 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     response = await scan.invoke_scheduler(current_user)
     return response
 
+
+
+# ========================================
+#   Scan Task Endpoints
+# ========================================
+
+@api_router.post(
+    "/scan-tasks/search",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=scanTaskSchema.ScanTaskListResponse,
+    tags=["Scan Tasks"],
+)
+async def list_scan_tasks(
+    search_data: Optional[scanTaskSchema.ScanTaskSearch] = Body(None),
+    current_user: User = Depends(get_current_active_user),
+):
+    """List scan tasks based on filters."""
+    return scan_tasks.list_scan_tasks(search_data, current_user)
+
+
+@api_router.post(
+    "/scan-tasks/{scan_task_id}/kill",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Scan Tasks"],
+)
+async def kill_scan_tasks(
+    scan_task_id: UUID4, current_user: User = Depends(get_current_active_user)
+):
+    """Kill a scan task."""
+    return scan_tasks.kill_scan_task(scan_task_id, current_user)
+
+
+@api_router.get(
+    "/scan-tasks/{scan_task_id}/logs",
+    dependencies=[Depends(get_current_active_user)],
+    # response_model=scanTaskSchema.GenericResponse,
+    tags=["Scan Tasks"],
+)
+async def get_scan_task_logs(
+    scan_task_id: UUID4, current_user: User = Depends(get_current_active_user)
+):
+    """Get logs from a particular scan task."""
+    return scan_tasks.get_scan_task_logs(scan_task_id, current_user)
 
 # ========================================
 #   Organization Endpoints

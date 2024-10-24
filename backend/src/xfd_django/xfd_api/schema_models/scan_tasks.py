@@ -2,7 +2,7 @@
 
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, List, Optional, Dict
 from uuid import UUID
 
 # Third-Party Libraries
@@ -15,11 +15,11 @@ from .scan import Scan
 class ScanTaskSearch(BaseModel):
     """Scan-task search schema."""
 
-    page: int
-    pageSize: int
-    sort: str
-    order: str
-    filters: Any
+    page: Optional[int] = 1
+    pageSize: Optional[int] = 10
+    sort: Optional[str] = "createdAt"
+    order: Optional[str] = "DESC"
+    filters: Optional[Dict[str, Optional[str]]] = {}
 
 
 class ScanTaskList(BaseModel):
@@ -30,8 +30,8 @@ class ScanTaskList(BaseModel):
     updatedAt: datetime
     status: str
     type: str
-    fargateTaskArn: str
-    input: str
+    fargateTaskArn: Optional[str]
+    input: Optional[str]
     output: Optional[str]
     requestedAt: Optional[datetime]
     startedAt: Optional[datetime]
@@ -44,7 +44,7 @@ class ScanTaskList(BaseModel):
 class ScanTaskListResponse(BaseModel):
     """Scan-task list schema."""
 
-    result: List[ScanTaskList]
+    result: List[ScanTaskList] = []
     count: int
 
 
