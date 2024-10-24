@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 from ..helpers.filter_helpers import filter_domains, sort_direction
 from ..models import Domain
-from ..schema_models.domain import DomainSearch
+from ..schema_models.domain import DomainFilters, DomainSearch
 
 
 def get_domain_by_id(domain_id: str):
@@ -39,40 +39,27 @@ def search_domains(domain_search: DomainSearch):
         object: A paginated list of Domain objects
     """
     try:
-        # Fetch all domains in list
-        if domain_search.order is not None:
-            domains = Domain.objects.all().order_by(
-                sort_direction(domain_search.sort, domain_search.order)
-            )
-        else:
-            # Default sort order behavior
-            domains = Domain.objects.all()
-
-        if domain_search.filters is not None:
-            results = filter_domains(domains, domain_search.filters)
-            paginator = Paginator(results, domain_search.pageSize)
-
-            return paginator.get_page(domain_search.page)
-        else:
-            raise ValueError("DomainFilters cannot be NoneType")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-def export_domains(domain_search: DomainSearch):
-    try:
         domains = Domain.objects.all().order_by(
             sort_direction(domain_search.sort, domain_search.order)
         )
 
-        if domain_search.filters is not None:
-            results = filter_domains(domains, domain_search.filters)
-            paginator = Paginator(results, domain_search.pageSize)
+        if domain_search.filters:
+            domains = filter_domains(domains, domain_search.filters)
+        paginator = Paginator(domains, domain_search.pageSize)
 
-            return paginator.get_page(domain_search.page)
-            # TODO: Implement S3 client methods after collab with entire team.
-            # return export_to_csv(paginator, domains, "testing", True)
-        else:
-            raise ValueError("DomainFilters cannot be NoneType")
+        return paginator.get_page(domain_search.page)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+def export_domains(domain_filters: DomainFilters):
+    try:
+        domains = Domain.objects.all()
+
+        if domain_filters:
+            domains = filter_domains(domains, domain_filters)
+
+        # TODO: Integrate methods to generate CSV from queryset and save to S3 bucket
+        return domains
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

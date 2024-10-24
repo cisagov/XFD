@@ -239,7 +239,12 @@ async def call_get_domain_by_id(domain_id: str):
     return get_domain_by_id(domain_id)
 
 
-@api_router.post("/vulnerabilities/search")
+@api_router.post(
+    "/vulnerabilities/search",
+    # dependencies=[Depends(get_current_active_user)],
+    response_model=List[VulnerabilitySchema],
+    tags=["Vulnerabilities"],
+)
 async def call_search_vulnerabilities(vulnerability_search: VulnerabilitySearch):
     try:
         return search_vulnerabilities(vulnerability_search)

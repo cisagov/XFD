@@ -46,7 +46,7 @@ class Domain(BaseModel):
 class DomainFilters(BaseModel):
     """DomainFilters schema."""
 
-    port: Optional[str] = None
+    port: Optional[int] = None
     service: Optional[str] = None
     reverseName: Optional[str] = None
     ip: Optional[str] = None
@@ -64,9 +64,9 @@ class DomainSearch(BaseModel):
 
     page: int = 1
     sort: Optional[str] = "ASC"
-    order: Optional[str] = None
-    filters: Optional[DomainFilters]
-    pageSize: Optional[int] = None
+    order: Optional[str] = "id"
+    filters: Optional[DomainFilters] = None
+    pageSize: Optional[int] = 25
 
     class Config:
         from_attributes = True
