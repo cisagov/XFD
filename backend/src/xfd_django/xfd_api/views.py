@@ -699,7 +699,7 @@ async def remove_role(
 @api_router.post(
     "/organizations/{organization_id}/granularScans/{scan_id}/update",
     dependencies=[Depends(get_current_active_user)],
-    response_model=OrganizationSchema.UpdateOrgScanSchema,
+    response_model=OrganizationSchema.GetSingleOrganizationSchema,
     tags=["Organizations"],
 )
 async def update_granular_scan(

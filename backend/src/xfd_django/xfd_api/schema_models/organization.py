@@ -125,6 +125,7 @@ class GetSingleOrganizationSchema(BaseModel):
     rootDomains: List[str]
     ipBlocks: List[str]
     isPassive: bool
+    createdBy: Optional[Any] = {}
     pendingDomains: Optional[Any] = []
     country: Optional[str] = None
     state: Optional[str] = None
@@ -201,11 +202,3 @@ class GenericPostResponseModel(BaseModel):
     statusCode: int
     body: Any
 
-
-class UpdateOrgScanSchema(BaseModel):
-    """Update an org's scan model."""
-
-    status: str
-    organization_id: UUID
-    scan_id: UUID
-    enabled: bool

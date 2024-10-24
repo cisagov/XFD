@@ -161,6 +161,7 @@ def get_organization(organization_id, current_user):
             "county": organization.county,
             "countyFips": organization.countyFips,
             "type": organization.type,
+            "createdBy": organization.createdBy,
             "userRoles": [
                 {
                     "id": str(role.id),
@@ -224,9 +225,12 @@ def get_organization(organization_id, current_user):
 
         return org_data
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         print(f"An error occurred: {e}")
-        raise HTTPException(status_code=500, detail="An unexpected error occurred")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def get_by_state(state, current_user):
@@ -318,6 +322,8 @@ def get_all_regions(current_user):
         # Convert to a list and return the regions
         return list(regions)
 
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -349,7 +355,7 @@ def create_organization(organization_data, current_user):
         # Check if the user is a GlobalWriteAdmin
         if not is_global_write_admin(current_user):
             raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
+                status_code=403, detail="Unauthorized access."
             )
 
         # Prepare the organization data for creation
@@ -395,6 +401,9 @@ def create_organization(organization_data, current_user):
             "county": organization.county,
             "countyFips": organization.countyFips,
             "type": organization.type,
+            "createdBy": {
+                "id": str(current_user.id),  # Simplify to just the user ID
+            },
             "tags": [
                 {
                     "id": str(tag.id),
@@ -412,6 +421,8 @@ def create_organization(organization_data, current_user):
             else {},
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Parent organization not found")
     except Exception as e:
@@ -474,6 +485,7 @@ def upsert_organization(organization_data, current_user):
             "county": organization.county,
             "countyFips": organization.countyFips,
             "type": organization.type,
+            "createdBy": organization.createdBy,
             "tags": [
                 {
                     "id": str(tag.id),
@@ -491,6 +503,8 @@ def upsert_organization(organization_data, current_user):
             else {},
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Parent organization not found")
     except Exception as e:
@@ -557,6 +571,7 @@ def update_organization(organization_id: str, organization_data, current_user):
             "county": organization.county,
             "countyFips": organization.countyFips,
             "type": organization.type,
+            "createdBy": organization.createdBy,
             "tags": [
                 {
                     "id": str(tag.id),
@@ -598,6 +613,9 @@ def update_organization(organization_id: str, organization_data, current_user):
             ],
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Organization not found")
     except Exception as e:
@@ -631,6 +649,9 @@ def delete_organization(id: str, current_user):
             "message": f"Organization {id} has been deleted successfully.",
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -704,6 +725,9 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
             },
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
@@ -738,6 +762,8 @@ def approve_role(organization_id: str, role_id, current_user):
 
         raise HTTPException(status_code=404, detail="Role not found")
 
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -769,6 +795,9 @@ def remove_role(organization_id: str, role_id, current_user):
 
         return {"status": "success", "message": "Role removed successfully"}
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -830,12 +859,44 @@ def update_org_scan(organization_id: str, scan_id, scan_data, current_user):
 
         # Return a success response
         return {
-            "status": "success",
-            "organization_id": organization_id,
-            "scan_id": scan_id,
-            "enabled": enabled,
+            "id": str(organization.id),
+            "createdAt": organization.createdAt.isoformat(),
+            "updatedAt": organization.updatedAt.isoformat(),
+            "acronym": organization.acronym,
+            "name": organization.name,
+            "rootDomains": organization.rootDomains,
+            "ipBlocks": organization.ipBlocks,
+            "isPassive": organization.isPassive,
+            "pendingDomains": organization.pendingDomains,
+            "country": organization.country,
+            "state": organization.state,
+            "regionId": organization.regionId,
+            "stateFips": organization.stateFips,
+            "stateName": organization.stateName,
+            "county": organization.county,
+            "countyFips": organization.countyFips,
+            "type": organization.type,
+            "granularScans": [
+                {
+                    "id": str(scan.id),
+                    "createdAt": scan.createdAt.isoformat(),
+                    "updatedAt": scan.updatedAt.isoformat(),
+                    "name": scan.name,
+                    "arguments": scan.arguments,
+                    "frequency": scan.frequency,
+                    "lastRun": scan.lastRun.isoformat() if scan.lastRun else None,
+                    "isGranular": scan.isGranular,
+                    "isUserModifiable": scan.isUserModifiable,
+                    "isSingleScan": scan.isSingleScan,
+                    "manualRunPending": scan.manualRunPending,
+                }
+                for scan in organization.granularScans.all()
+            ],
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -905,6 +966,9 @@ def list_organizations_v2(state, regionId, current_user):
 
         return organization_list
 
+    except HTTPException as http_exc:
+        raise http_exc
+    
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))

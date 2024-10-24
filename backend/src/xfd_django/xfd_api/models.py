@@ -685,7 +685,7 @@ class User(models.Model):
     state = models.CharField(blank=True, null=True, max_length=255)
 
     def save(self, *args, **kwargs):
-        self.full_name = f"{self.first_name} {self.last_name}"
+        self.fullName = f"{self.firstName} {self.lastName}"
         super().save(*args, **kwargs)
 
     class Meta:
