@@ -90,12 +90,12 @@ class NewScan(BaseModel):
 
     name: str
     arguments: Any
-    organizations: Optional[List[UUID]]
-    tags: Optional[List[IdSchema]]
-    frequency: int
-    isGranular: bool
-    isUserModifiable: Optional[bool]
-    isSingleScan: bool
+    organizations: Optional[List[UUID]] = []
+    tags: Optional[List[IdSchema]] = []
+    frequency: Optional[int] = None
+    isGranular: Optional[bool] = None
+    isUserModifiable: Optional[bool] = None
+    isSingleScan: Optional[bool] = None
 
 
 class CreateScanResponseModel(BaseModel):
@@ -121,7 +121,7 @@ class GetScanResponseModel(BaseModel):
 
 
 class GenericMessageResponseModel(BaseModel):
-    """Get Scans response model."""
+    """Generic response model."""
 
     status: str
     message: str

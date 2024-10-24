@@ -1,17 +1,17 @@
 """Authentication utilities for the FastAPI application."""
 
 # Standard Python Libraries
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import hashlib
 from hashlib import sha256
 import os
+from typing import Optional
 from urllib.parse import urlencode
 import uuid
 
 # Third-Party Libraries
 from django.conf import settings
 from django.forms.models import model_to_dict
-from django.utils import timezone
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 import jwt
@@ -19,7 +19,7 @@ from jwt import ExpiredSignatureError, InvalidTokenError
 import requests
 
 # from .helpers import user_to_dict
-from .models import ApiKey, OrganizationTag, User
+from .models import ApiKey, Organization, OrganizationTag, Role, User
 
 # JWT_ALGORITHM = "RS256"
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -64,7 +64,7 @@ def create_jwt_token(user):
     payload = {
         "id": str(user.id),
         "email": user.email,
-        "exp": datetime.now(datetime.timezone.utc) + timedelta(hours=JWT_TIMEOUT_HOURS),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_TIMEOUT_HOURS),
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -200,7 +200,7 @@ def get_user_by_api_key(api_key: str):
     hashed_key = sha256(api_key.encode()).hexdigest()
     try:
         api_key_instance = ApiKey.objects.get(hashedKey=hashed_key)
-        api_key_instance.lastUsed = timezone.now()
+        api_key_instance.lastUsed = datetime.now(timezone.utc)
         api_key_instance.save(update_fields=["lastUsed"])
         return api_key_instance.userId
     except ApiKey.DoesNotExist:
@@ -209,8 +209,8 @@ def get_user_by_api_key(api_key: str):
 
 
 def get_current_active_user(
-    api_key: str = Security(api_key_header),
-    token: str = Depends(oauth2_scheme),
+    api_key: Optional[str] = Security(api_key_header),
+    token: Optional[str] = Depends(oauth2_scheme),
 ):
     """Ensure the current user is authenticated and active."""
     user = None
@@ -231,7 +231,6 @@ def get_current_active_user(
                 )
             # Fetch the user by ID from the database
             user = User.objects.get(id=user_id)
-            print(f"User found: {user_to_dict(user)}")
         except jwt.ExpiredSignatureError:
             print("Token has expired")
             raise HTTPException(
@@ -424,7 +423,46 @@ def is_regional_admin(current_user) -> bool:
     return current_user and current_user.userType in ["regionalAdmin", "globalAdmin"]
 
 
-def get_tag_organizations(current_user, tag_id: str) -> list[str]:
+def is_org_admin(current_user, organization_id) -> bool:
+    """Check if the user is an admin of the given organization."""
+    if not organization_id:
+        return False
+
+    # Check if the user has an admin role in the given organization
+    for role in current_user.roles.all():
+        if str(role.organization.id) == str(organization_id) and role.role == "admin":
+            return True
+
+    # If the user is a global write admin, they are considered an org admin
+    return is_global_write_admin(current_user)
+
+
+def is_regional_admin_for_organization(current_user, organization_id) -> bool:
+    """Check if user is a regional admin and if a selected organization belongs to their region."""
+    if not organization_id:
+        return False
+
+    # Check if the user is a regional admin
+    if is_regional_admin(current_user):
+        # Check if the organization belongs to the user's region
+        user_region_id = (
+            current_user.regionId
+        )  # Assuming this is available in the user object
+        organization_region_id = get_organization_region(
+            organization_id
+        )  # Function to fetch the organization's region
+        return user_region_id == organization_region_id
+
+    return False
+
+
+def get_organization_region(organization_id: str) -> str:
+    """Fetch the region ID for the given organization."""
+    organization = Organization.objects.get(id=organization_id)
+    return organization.regionId
+
+
+def get_tag_organizations(current_user, tag_id) -> list[str]:
     """Returns the organizations belonging to a tag, if the user can access the tag."""
     # Check if the user is a global view admin
     if not is_global_view_admin(current_user):
@@ -442,3 +480,11 @@ def get_tag_organizations(current_user, tag_id: str) -> list[str]:
 
     # Return an empty list if tag is not found
     return []
+
+
+def get_org_memberships(current_user) -> list[str]:
+    """Returns the organization IDs that a user is a member of."""
+    roles = Role.objects.filter(user=current_user)
+    if not roles:
+        return []
+    return [role.organization.id for role in roles if role.organization]
