@@ -38,7 +38,6 @@ def filter_domains(domains: QuerySet, domain_filters: DomainFilters):
         object: a list of Domain objects
     """
     try:
-        print(f"domains: {domains}")
         if domain_filters.port:
             services_by_port = Service.objects.filter(port=domain_filters.port).values(
                 "domainId"
