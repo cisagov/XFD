@@ -5,9 +5,9 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 from hashlib import sha256
 import os
+from typing import Optional
 from urllib.parse import urlencode
 import uuid
-from typing import Optional
 
 # Third-Party Libraries
 from django.conf import settings
@@ -210,7 +210,7 @@ def get_user_by_api_key(api_key: str):
 
 def get_current_active_user(
     api_key: Optional[str] = Security(api_key_header),
-    token: Optional[str] = Depends(oauth2_scheme)
+    token: Optional[str] = Depends(oauth2_scheme),
 ):
     """Ensure the current user is authenticated and active."""
     user = None

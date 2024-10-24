@@ -1,12 +1,24 @@
+# Standard Python Libraries
+from datetime import datetime
 import secrets
+
+# Third-Party Libraries
 from fastapi.testclient import TestClient
 import pytest
-from datetime import datetime
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import User, Organization, UserType, Role, Scan, ScanTask, OrganizationTag
+from xfd_api.models import (
+    Organization,
+    OrganizationTag,
+    Role,
+    Scan,
+    ScanTask,
+    User,
+    UserType,
+)
 from xfd_django.asgi import app
 
 client = TestClient(app)
+
 
 # Test: Creating an organization by global admin should succeed
 @pytest.mark.django_db(transaction=True)
@@ -19,10 +31,10 @@ def test_create_org_by_global_admin():
         createdAt=datetime.now(),
         updatedAt=datetime.now(),
     )
-    
+
     name = f"test-{secrets.token_hex(4)}"
     acronym = secrets.token_hex(2)
-    
+
     response = client.post(
         "/organizations/",
         json={
@@ -31,7 +43,7 @@ def test_create_org_by_global_admin():
             "name": name,
             "rootDomains": ["cisa.gov"],
             "isPassive": False,
-            "tags": [{"name": "test"}]
+            "tags": [{"name": "test"}],
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
@@ -41,6 +53,7 @@ def test_create_org_by_global_admin():
     assert data["createdBy"]["id"] == str(user.id)
     assert data["name"] == name
     assert data["tags"][0]["name"] == "test"
+
 
 # Test: Cannot add organization with the same acronym
 @pytest.mark.django_db(transaction=True)
@@ -53,10 +66,10 @@ def test_create_duplicate_org_fails():
         createdAt=datetime.now(),
         updatedAt=datetime.now(),
     )
-    
+
     name = f"test-{secrets.token_hex(4)}"
     acronym = secrets.token_hex(2)
-    
+
     client.post(
         "/organizations/",
         json={
@@ -65,7 +78,7 @@ def test_create_duplicate_org_fails():
             "name": name,
             "rootDomains": ["cisa.gov"],
             "isPassive": False,
-            "tags": []
+            "tags": [],
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
@@ -79,12 +92,13 @@ def test_create_duplicate_org_fails():
             "name": name,
             "rootDomains": ["cisa.gov"],
             "isPassive": False,
-            "tags": []
+            "tags": [],
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
     assert response.status_code == 500
+
 
 # Test: Creating an organization by global view user should fail
 @pytest.mark.django_db(transaction=True)
@@ -98,7 +112,7 @@ def test_create_org_by_global_view_fails():
         updatedAt=datetime.now(),
     )
     print(user)
-    
+
     name = f"test-{secrets.token_hex(4)}"
     acronym = secrets.token_hex(2)
 
@@ -113,9 +127,10 @@ def test_create_org_by_global_view_fails():
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
-    
+
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized access.'}
+    assert response.json() == {"detail": "Unauthorized access."}
+
 
 # Test: Update organization by global admin
 @pytest.mark.django_db(transaction=True)
@@ -167,6 +182,7 @@ def test_update_org_by_global_admin():
     assert data["isPassive"] == is_passive
     assert data["tags"][0]["name"] == tags[0]["name"]
 
+
 # Test: Update organization by global view should fail
 @pytest.mark.django_db(transaction=True)
 def test_update_org_by_global_view_fails():
@@ -210,7 +226,8 @@ def test_update_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized access.'}
+    assert response.json() == {"detail": "Unauthorized access."}
+
 
 # Test: Deleting an organization by global admin should succeed
 @pytest.mark.django_db(transaction=True)
@@ -239,6 +256,7 @@ def test_delete_org_by_global_admin():
     )
 
     assert response.status_code == 200
+
 
 # Test: Deleting an organization by org admin should fail
 @pytest.mark.django_db(transaction=True)
@@ -274,7 +292,8 @@ def test_delete_org_by_org_admin_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized access.'}
+    assert response.json() == {"detail": "Unauthorized access."}
+
 
 # Test: Deleting an organization by global view should fail
 @pytest.mark.django_db(transaction=True)
@@ -304,7 +323,8 @@ def test_delete_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized access.'}
+    assert response.json() == {"detail": "Unauthorized access."}
+
 
 # Test: List organizations by global view should succeed
 @pytest.mark.django_db(transaction=True)
@@ -317,7 +337,7 @@ def test_list_orgs_by_global_view_succeeds():
         createdAt=datetime.now(),
         updatedAt=datetime.now(),
     )
-    
+
     # Create an organization
     organization = Organization.objects.create(
         name=f"test-{secrets.token_hex(4)}",
@@ -327,7 +347,7 @@ def test_list_orgs_by_global_view_succeeds():
         createdAt=datetime.now(),
         updatedAt=datetime.now(),
     )
-    
+
     response = client.get(
         "/organizations",
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
@@ -336,6 +356,7 @@ def test_list_orgs_by_global_view_succeeds():
     assert response.status_code == 200
     data = response.json()
     assert len(data) >= 1
+
 
 # Test: List organizations by org member should only return their org
 @pytest.mark.django_db(transaction=True)
@@ -398,7 +419,7 @@ def test_get_org_by_global_view_fails():
         createdAt=datetime.now(),
         updatedAt=datetime.now(),
     )
-    
+
     organization = Organization.objects.create(
         name=f"test-{secrets.token_hex(4)}",
         rootDomains=["test-" + secrets.token_hex(4)],
@@ -414,7 +435,8 @@ def test_get_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized'}
+    assert response.json() == {"detail": "Unauthorized"}
+
 
 # Test: Get organization by org admin user should pass
 @pytest.mark.django_db(transaction=True)
@@ -452,6 +474,7 @@ def test_get_org_by_org_admin_succeeds():
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == organization.name
+
 
 # Test: Get organization by org admin of different org should fail
 @pytest.mark.django_db(transaction=True)
@@ -496,7 +519,8 @@ def test_get_org_by_org_admin_of_different_org_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized'}
+    assert response.json() == {"detail": "Unauthorized"}
+
 
 # Test: Get organization by org regular user should fail
 @pytest.mark.django_db(transaction=True)
@@ -532,7 +556,8 @@ def test_get_org_by_org_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized'}
+    assert response.json() == {"detail": "Unauthorized"}
+
 
 # Test: Get organization by org admin should return associated scantasks
 @pytest.mark.django_db(transaction=True)
@@ -569,11 +594,7 @@ def test_get_org_with_scan_tasks_by_org_admin_succeeds():
         frequency=999999,
     )
 
-    scan_task = ScanTask.objects.create(
-        scan=scan,
-        status="created",
-        type="fargate"
-    )
+    scan_task = ScanTask.objects.create(scan=scan, status="created", type="fargate")
 
     scan_task.organizations.add(organization)
 
@@ -588,6 +609,7 @@ def test_get_org_with_scan_tasks_by_org_admin_succeeds():
     assert len(data["scanTasks"]) == 1
     assert data["scanTasks"][0]["id"] == str(scan_task.id)
     assert data["scanTasks"][0]["scan"]["id"] == str(scan.id)
+
 
 # Test: Enabling a user-modifiable scan by org admin should succeed
 @pytest.mark.django_db(transaction=True)
@@ -1046,7 +1068,7 @@ def test_remove_role_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized access.'}
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: removeRole by org admin should succeed
@@ -1129,7 +1151,7 @@ def test_remove_role_by_org_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {'detail': 'Unauthorized access.'}
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: getTags by globalAdmin should work

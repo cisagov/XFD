@@ -201,4 +201,3 @@ class GenericPostResponseModel(BaseModel):
 
     statusCode: int
     body: Any
-

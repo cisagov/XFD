@@ -227,7 +227,7 @@ def get_organization(organization_id, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         print(f"An error occurred: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -354,9 +354,7 @@ def create_organization(organization_data, current_user):
     try:
         # Check if the user is a GlobalWriteAdmin
         if not is_global_write_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Prepare the organization data for creation
         organization_data_dict = organization_data.dict(
@@ -615,7 +613,7 @@ def update_organization(organization_id: str, organization_data, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Organization not found")
     except Exception as e:
@@ -651,7 +649,7 @@ def delete_organization(id: str, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -727,7 +725,7 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
@@ -797,7 +795,7 @@ def remove_role(organization_id: str, role_id, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -896,7 +894,7 @@ def update_org_scan(organization_id: str, scan_id, scan_data, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -968,7 +966,7 @@ def list_organizations_v2(state, regionId, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
