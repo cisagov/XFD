@@ -16,6 +16,7 @@ import DoneIcon from '@mui/icons-material/Done';
 import { CheckCircleOutline as CheckIcon } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useUserLevel } from 'hooks/useUserLevel';
+import { formatDate, parseISO } from 'date-fns';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -37,7 +38,10 @@ const transformData = (data: User[]): User[] => {
   return data.map(({ roles, ...user }) => ({
     ...user,
     roles,
-    organizations: roles.map((role) => ' ' + role.organization.name)
+    organizations: roles.map((role) => ' ' + role.organization.name),
+    lastLoggedIn: user.lastLoggedIn
+      ? formatDate(parseISO(user.lastLoggedIn), 'MM/dd/yyyy hh:mm a')
+      : 'None'
   }));
 };
 export const RegionUsers: React.FC = () => {
