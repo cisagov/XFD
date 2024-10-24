@@ -1,10 +1,13 @@
-from unittest.mock import patch
+# Standard Python Libraries
+from datetime import datetime
 import secrets
+from unittest.mock import patch
+
+# Third-Party Libraries
 from fastapi.testclient import TestClient
 import pytest
-from datetime import datetime
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import User, Organization, UserType, ScanTask, Scan, Role
+from xfd_api.models import Organization, Role, Scan, ScanTask, User, UserType
 from xfd_django.asgi import app
 
 client = TestClient(app)
@@ -32,9 +35,7 @@ def test_list_scan_tasks_by_global_view():
     )
 
     scan = Scan.objects.create(name="findomain", arguments={}, frequency=100)
-    scan_task = ScanTask.objects.create(
-        scan=scan, type="fargate", status="failed"
-    )
+    scan_task = ScanTask.objects.create(scan=scan, type="fargate", status="failed")
     scan_task.organizations.add(organization)
 
     response = client.post(
@@ -70,15 +71,11 @@ def test_list_filtered_scan_tasks_by_global_view():
     )
 
     scan = Scan.objects.create(name="findomain", arguments={}, frequency=100)
-    scan_task = ScanTask.objects.create(
-        scan=scan, type="fargate", status="failed"
-    )
+    scan_task = ScanTask.objects.create(scan=scan, type="fargate", status="failed")
     scan_task.organizations.add(organization)
 
     scan2 = Scan.objects.create(name="censys", arguments={}, frequency=100)
-    scan_task2 = ScanTask.objects.create(
-        scan=scan2, type="fargate", status="failed"
-    )
+    scan_task2 = ScanTask.objects.create(scan=scan2, type="fargate", status="failed")
     scan_task2.organizations.add(organization)
 
     response = client.post(
@@ -149,9 +146,7 @@ def test_kill_scan_task_by_global_admin():
     )
 
     scan = Scan.objects.create(name="findomain", arguments={}, frequency=100)
-    scan_task = ScanTask.objects.create(
-        scan=scan, type="fargate", status="created"
-    )
+    scan_task = ScanTask.objects.create(scan=scan, type="fargate", status="created")
     scan_task.organizations.add(organization)
 
     response = client.post(
@@ -185,9 +180,7 @@ def test_kill_finished_scan_task_by_global_admin_fails():
     )
 
     scan = Scan.objects.create(name="findomain", arguments={}, frequency=100)
-    scan_task = ScanTask.objects.create(
-        scan=scan, type="fargate", status="finished"
-    )
+    scan_task = ScanTask.objects.create(scan=scan, type="fargate", status="finished")
     scan_task.organizations.add(organization)
 
     response = client.post(
@@ -221,9 +214,7 @@ def test_kill_scan_task_by_global_view_fails():
     )
 
     scan = Scan.objects.create(name="findomain", arguments={}, frequency=100)
-    scan_task = ScanTask.objects.create(
-        scan=scan, type="fargate", status="created"
-    )
+    scan_task = ScanTask.objects.create(scan=scan, type="fargate", status="created")
     scan_task.organizations.add(organization)
 
     response = client.post(
@@ -239,8 +230,7 @@ def test_kill_scan_task_by_global_view_fails():
 @pytest.mark.django_db(transaction=True)
 @patch("xfd_api.tasks.ecs_client.ECSClient.get_logs")
 def test_get_logs_by_global_view(mock_get_logs):
-
-    mock_get_logs.return_value = "logs" 
+    mock_get_logs.return_value = "logs"
 
     user = User.objects.create(
         firstName="",
@@ -281,8 +271,7 @@ def test_get_logs_by_global_view(mock_get_logs):
 @pytest.mark.django_db(transaction=True)
 @patch("xfd_api.tasks.ecs_client.ECSClient.get_logs")
 def test_get_logs_by_regular_user_fails(mock_get_logs):
-
-    mock_get_logs.return_value = "logs" 
+    mock_get_logs.return_value = "logs"
 
     user = User.objects.create(
         firstName="",

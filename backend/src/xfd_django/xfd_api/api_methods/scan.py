@@ -17,9 +17,7 @@ def list_scans(current_user):
     try:
         # Check if the user is a GlobalViewAdmin
         if not is_global_view_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Fetch scans and prefetch related tags
         scans = Scan.objects.prefetch_related("tags").all()
@@ -62,6 +60,10 @@ def list_scans(current_user):
         }
 
         return response
+
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -71,9 +73,7 @@ def list_granular_scans(current_user):
     try:
         # Check if the user is a GlobalViewAdmin
         if not is_global_view_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Fetch scans that match the criteria (isGranular, isUserModifiable, isSingleScan)
         scans = Scan.objects.filter(
@@ -84,6 +84,9 @@ def list_granular_scans(current_user):
 
         return response
 
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -93,9 +96,7 @@ def create_scan(scan_data: NewScan, current_user):
     try:
         # Check if the user is a GlobalWriteAdmin
         if not is_global_write_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Check if scan name is valid
         if scan_data.name not in SCAN_SCHEMA:
@@ -131,6 +132,9 @@ def create_scan(scan_data: NewScan, current_user):
             "organizations": list(scan.organizations.values("id")),
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Organization not found")
     except OrganizationTag.DoesNotExist:
@@ -145,9 +149,7 @@ def get_scan(scan_id: str, current_user):
 
     # Check if the user is a GlobalViewAdmin
     if not is_global_view_admin(current_user):
-        raise HTTPException(
-            status_code=403, detail="Unauthorized access. View logs for details."
-        )
+        raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     try:
         # Fetch the scan with its related organizations and tags
@@ -194,9 +196,7 @@ def update_scan(scan_id: str, scan_data: NewScan, current_user):
     try:
         # Check if the user is a GlobalWriteAdmin
         if not is_global_write_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Validate scan ID
         try:
@@ -204,13 +204,19 @@ def update_scan(scan_id: str, scan_data: NewScan, current_user):
         except Scan.DoesNotExist:
             raise HTTPException(status_code=404, detail="Scan not found")
 
-        # Update the scan's fields with the new data
-        scan.name = scan_data.name
-        scan.arguments = scan_data.arguments
-        scan.frequency = scan_data.frequency
-        scan.isGranular = scan_data.isGranular
-        scan.isUserModifiable = scan_data.isUserModifiable
-        scan.isSingleScan = scan_data.isSingleScan
+        # Only update the fields that are provided in the request (non-null)
+        if scan_data.name is not None:
+            scan.name = scan_data.name
+        if scan_data.arguments is not None:
+            scan.arguments = scan_data.arguments
+        if scan_data.frequency is not None:
+            scan.frequency = scan_data.frequency
+        if scan_data.isGranular is not None:
+            scan.isGranular = scan_data.isGranular
+        if scan_data.isUserModifiable is not None:
+            scan.isUserModifiable = scan_data.isUserModifiable
+        if scan_data.isSingleScan is not None:
+            scan.isSingleScan = scan_data.isSingleScan
 
         # Update ManyToMany relationships
         if scan_data.organizations:
@@ -235,6 +241,9 @@ def update_scan(scan_id: str, scan_data: NewScan, current_user):
             "organizations": list(scan.organizations.values("id")),
         }
 
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -244,9 +253,7 @@ def delete_scan(scan_id: str, current_user):
     try:
         # Check if the user is a GlobalWriteAdmin
         if not is_global_write_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Validate scan ID
         try:
@@ -257,6 +264,10 @@ def delete_scan(scan_id: str, current_user):
         scan.delete()
 
         return {"status": "success", "message": f"Scan {scan_id} deleted successfully."}
+
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -266,9 +277,7 @@ def run_scan(scan_id: str, current_user):
     try:
         # Check if the user is a GlobalWriteAdmin
         if not is_global_write_admin(current_user):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access. View logs for details."
-            )
+            raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Validate the scan ID and check if it exists
         try:
@@ -279,6 +288,10 @@ def run_scan(scan_id: str, current_user):
         scan.manualRunPending = True
         scan.save()
         return {"status": "success", "message": f"Scan {scan_id} deleted successfully."}
+
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -302,5 +315,9 @@ async def invoke_scheduler(current_user):
         response = await lambda_client.run_command(name=lambda_function_name)
 
         return response
+
+    except HTTPException as http_exc:
+        raise http_exc
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

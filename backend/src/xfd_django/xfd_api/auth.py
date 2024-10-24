@@ -462,7 +462,7 @@ def get_organization_region(organization_id: str) -> str:
     return organization.regionId
 
 
-def get_tag_organizations(current_user, tag_id: str) -> list[str]:
+def get_tag_organizations(current_user, tag_id) -> list[str]:
     """Returns the organizations belonging to a tag, if the user can access the tag."""
     # Check if the user is a global view admin
     if not is_global_view_admin(current_user):

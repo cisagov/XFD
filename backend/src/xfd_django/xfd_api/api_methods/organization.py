@@ -529,14 +529,21 @@ def update_organization(organization_id: str, organization_data, current_user):
         except Organization.DoesNotExist:
             raise HTTPException(status_code=404, detail="Organization not found")
 
-        # Manually update each field
-        organization.name = organization_data.name
-        organization.acronym = organization_data.acronym
-        organization.rootDomains = organization_data.rootDomains
-        organization.ipBlocks = organization_data.ipBlocks
-        organization.stateName = organization_data.stateName
-        organization.state = organization_data.state
-        organization.isPassive = organization_data.isPassive
+        # Update only the fields that are provided
+        if organization_data.name is not None:
+            organization.name = organization_data.name
+        if organization_data.acronym is not None:
+            organization.acronym = organization_data.acronym
+        if organization_data.rootDomains is not None:
+            organization.rootDomains = organization_data.rootDomains
+        if organization_data.ipBlocks is not None:
+            organization.ipBlocks = organization_data.ipBlocks
+        if organization_data.stateName is not None:
+            organization.stateName = organization_data.stateName
+        if organization_data.state is not None:
+            organization.state = organization_data.state
+        if organization_data.isPassive is not None:
+            organization.isPassive = organization_data.isPassive
 
         # Handle parent organization if provided
         if organization_data.parent:

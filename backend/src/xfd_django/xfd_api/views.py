@@ -22,7 +22,7 @@ from typing import List, Optional
 
 # Third-Party Libraries
 from django.shortcuts import render
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from pydantic import UUID4
 
@@ -41,9 +41,9 @@ from .api_methods.vulnerability import get_vulnerability_by_id, update_vulnerabi
 from .auth import get_current_active_user
 from .login_gov import callback, login
 from .models import Assessment, User
-from .schema_models import scan_tasks as scanTaskSchema
 from .schema_models import organization as OrganizationSchema
 from .schema_models import scan as scanSchema
+from .schema_models import scan_tasks as scanTaskSchema
 from .schema_models.api_key import ApiKey as ApiKeySchema
 from .schema_models.assessment import Assessment as AssessmentSchema
 from .schema_models.cpe import Cpe as CpeSchema
@@ -520,10 +520,10 @@ async def invoke_scheduler(current_user: User = Depends(get_current_active_user)
     return response
 
 
-
 # ========================================
 #   Scan Task Endpoints
 # ========================================
+
 
 @api_router.post(
     "/scan-tasks/search",
@@ -562,6 +562,7 @@ async def get_scan_task_logs(
 ):
     """Get logs from a particular scan task."""
     return scan_tasks.get_scan_task_logs(scan_task_id, current_user)
+
 
 # ========================================
 #   Organization Endpoints

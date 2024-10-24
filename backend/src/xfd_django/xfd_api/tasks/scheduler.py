@@ -60,7 +60,7 @@ class Scheduler:
         global_scan = getattr(scan_schema, "global_scan", None)
 
         scan_task = scan_task or ScanTask.objects.create(
-            scanId=scan, type=task_type, status="created"
+            scan=scan, type=task_type, status="created"
         )
 
         # Set the many-to-many relationship with organizations
@@ -208,9 +208,9 @@ class Scheduler:
         # Function to filter the scan tasks based on whether it's global or organization-specific.
         def filter_scan_tasks(tasks):
             if global_scan:
-                return tasks.filter(scanId=scan)
+                return tasks.filter(scan=scan)
             else:
-                return tasks.filter(scanId=scan).filter(
+                return tasks.filter(scan=scan).filter(
                     organizations=organization
                 ) | tasks.filter(organizations__id=organization.id)
 
@@ -239,6 +239,13 @@ class Scheduler:
             frequency_seconds = (
                 scan.frequency * 1000
             )  # Assuming frequency is in seconds.
+
+            # Convert finishedAt to an aware datetime if it is naive
+            if timezone.is_naive(last_finished_scan_task.finishedAt):
+                last_finished_scan_task.finishedAt = timezone.make_aware(
+                    last_finished_scan_task.finishedAt, timezone.get_current_timezone()
+                )
+            # Perform the subtraction and check the time difference
             if (
                 timezone.now() - last_finished_scan_task.finishedAt
             ).total_seconds() < frequency_seconds:
@@ -281,9 +288,9 @@ async def handler(event):
         organizations = Organization.objects.all()
 
     queued_scan_tasks = (
-        ScanTask.objects.filter(scanId__in=scan_ids, status="queued")
+        ScanTask.objects.filter(scan__in=scan_ids, status="queued")
         .order_by("queuedAt")
-        .select_related("scanId")
+        .select_related("scan")
     )
 
     scheduler = Scheduler()

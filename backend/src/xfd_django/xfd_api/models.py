@@ -212,7 +212,11 @@ class Domain(models.Model):
     trustymailResults = models.JSONField(db_column="trustymailResults", default=dict)
 
     discoveredBy = models.ForeignKey(
-        "Scan", on_delete=models.SET_NULL, null=True, blank=True
+        "Scan",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        db_column="discoveredById",
     )
     organization = models.ForeignKey(
         "Organization", on_delete=models.CASCADE, db_column="organizationId"

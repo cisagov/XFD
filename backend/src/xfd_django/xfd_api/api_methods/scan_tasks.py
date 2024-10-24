@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from datetime import datetime, timezone
+from typing import Optional
 
 # Third-Party Libraries
 from fastapi import HTTPException, Response, status
@@ -14,7 +15,7 @@ from ..tasks.ecs_client import ECSClient
 PAGE_SIZE = 15
 
 
-def list_scan_tasks(search_data: ScanTaskSearch, current_user):
+def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
     """List scans tasks based on search filter."""
     try:
         # Check if the user is a GlobalViewAdmin
@@ -25,15 +26,18 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
 
         # Ensure that search_data is not None, and set default values if it is
         if search_data is None:
-            search_data = ScanTaskSearch(pageSize=PAGE_SIZE, page=1, sort="createdAt", order="DESC", filters={})
+            search_data = ScanTaskSearch(
+                pageSize=PAGE_SIZE, page=1, sort="createdAt", order="DESC", filters={}
+            )
 
         # Validate and parse the request body
         pageSize = search_data.pageSize or PAGE_SIZE
-            
+        page = search_data.page or 1
+
         # Determine the correct ordering based on the 'order' field
         ordering_field = (
             f"-{search_data.sort}"
-            if search_data.order.upper() == "DESC"
+            if search_data.order and search_data.order.upper() == "DESC"
             else search_data.sort
         )
 
@@ -59,7 +63,7 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
 
         # Paginate results
         if pageSize != -1:
-            qs = qs[(search_data.page - 1) * pageSize : search_data.page * pageSize]
+            qs = qs[(page - 1) * pageSize : page * pageSize]
 
         # Convert queryset into a serialized response
         results = []
@@ -135,7 +139,7 @@ def list_scan_tasks(search_data: ScanTaskSearch, current_user):
         count = qs.count()
         response = {"result": results, "count": count}
         return response
-    
+
     except HTTPException as http_exc:
         raise http_exc
 
@@ -175,7 +179,7 @@ def kill_scan_task(scan_task_id, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
@@ -210,7 +214,7 @@ def get_scan_task_logs(scan_task_id, current_user):
 
     except HTTPException as http_exc:
         raise http_exc
-    
+
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
