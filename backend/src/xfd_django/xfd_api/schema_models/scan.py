@@ -121,7 +121,7 @@ class GetScanResponseModel(BaseModel):
 
 
 class GenericMessageResponseModel(BaseModel):
-    """Get Scans response model."""
+    """Generic response model."""
 
     status: str
     message: str

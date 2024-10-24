@@ -12,14 +12,19 @@ from django.db import models
 class ApiKey(models.Model):
     """The ApiKey model."""
 
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
     updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
     lastUsed = models.DateTimeField(db_column="lastUsed", blank=True, null=True)
     hashedKey = models.TextField(db_column="hashedKey")
     lastFour = models.TextField(db_column="lastFour")
     userId = models.ForeignKey(
-        "User", models.CASCADE, db_column="userId", blank=True, null=True
+        "User",
+        models.CASCADE,
+        db_column="userId",
+        blank=True,
+        null=True,
+        related_name="apiKeys",
     )
 
     class Meta:
@@ -32,13 +37,19 @@ class ApiKey(models.Model):
 class Assessment(models.Model):
     """The Assessment model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
-    rscId = models.CharField(db_column="rscId", unique=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+    rscId = models.CharField(max_length=255, db_column="rscId", unique=True)
     type = models.CharField(max_length=255)
-    userId = models.ForeignKey(
-        "User", db_column="userId", blank=True, null=True, on_delete=models.CASCADE
+
+    user = models.ForeignKey(
+        "User",
+        db_column="userId",
+        blank=True,
+        null=True,
+        on_delete=models.CASCADE,
+        related_name="assessments",
     )
 
     class Meta:
@@ -51,7 +62,7 @@ class Assessment(models.Model):
 class Category(models.Model):
     """The Category model."""
 
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     number = models.CharField(max_length=255, unique=True)
     shortName = models.CharField(
@@ -68,7 +79,7 @@ class Category(models.Model):
 class Cpe(models.Model):
     """The Cpe model."""
 
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
     version = models.CharField(max_length=255)
     vendor = models.CharField(max_length=255)
@@ -85,7 +96,7 @@ class Cpe(models.Model):
 class Cve(models.Model):
     """The Cve model."""
 
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(unique=True, blank=True, null=True)
     publishedAt = models.DateTimeField(db_column="publishedAt", blank=True, null=True)
     modifiedAt = models.DateTimeField(db_column="modifiedAt", blank=True, null=True)
@@ -172,35 +183,38 @@ class CveCpesCpe(models.Model):
 class Domain(models.Model):
     """The Domain model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+
     syncedAt = models.DateTimeField(db_column="syncedAt", blank=True, null=True)
     ip = models.CharField(max_length=255, blank=True, null=True)
-    fromRootDomain = models.CharField(db_column="fromRootDomain", blank=True, null=True)
+    fromRootDomain = models.CharField(
+        max_length=255, db_column="fromRootDomain", blank=True, null=True
+    )
     subdomainSource = models.CharField(
         db_column="subdomainSource", max_length=255, blank=True, null=True
     )
     ipOnly = models.BooleanField(db_column="ipOnly", default=False)
+
     reverseName = models.CharField(db_column="reverseName", max_length=512)
     name = models.CharField(max_length=512)
+
     screenshot = models.CharField(max_length=512, blank=True, null=True)
     country = models.CharField(max_length=255, blank=True, null=True)
     asn = models.CharField(max_length=255, blank=True, null=True)
     cloudHosted = models.BooleanField(db_column="cloudHosted", default=False)
+
     ssl = models.JSONField(blank=True, null=True)
     censysCertificatesResults = models.JSONField(
         db_column="censysCertificatesResults", default=dict
     )
     trustymailResults = models.JSONField(db_column="trustymailResults", default=dict)
-    discoveredById = models.ForeignKey(
-        "Scan",
-        on_delete=models.SET_NULL,
-        db_column="discoveredById",
-        blank=True,
-        null=True,
+
+    discoveredBy = models.ForeignKey(
+        "Scan", on_delete=models.SET_NULL, null=True, blank=True
     )
-    organizationId = models.ForeignKey(
+    organization = models.ForeignKey(
         "Organization", on_delete=models.CASCADE, db_column="organizationId"
     )
 
@@ -209,7 +223,7 @@ class Domain(models.Model):
 
         db_table = "domain"
         managed = False  # This ensures Django does not manage the table
-        unique_together = (("name", "organizationId"),)  # Unique constraint
+        unique_together = (("name", "organization"),)  # Unique constraint
 
     def save(self, *args, **kwargs):
         self.name = self.name.lower()
@@ -247,40 +261,44 @@ class Organization(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
+
     acronym = models.CharField(unique=True, blank=True, null=True, max_length=255)
-    name = models.CharField()
+    name = models.CharField(max_length=255)
     rootDomains = ArrayField(models.CharField(max_length=255), db_column="rootDomains")
     ipBlocks = ArrayField(models.CharField(max_length=255), db_column="ipBlocks")
-    isPassive = models.BooleanField(db_column="isPassive")
-    pendingDomains = models.TextField(db_column="pendingDomains", default=list)
-    country = models.CharField(blank=True, null=True)
-    state = models.CharField(blank=True, null=True)
-    regionId = models.CharField(db_column="regionId", blank=True, null=True)
+    isPassive = models.BooleanField(db_column="isPassive", default=False)
+
+    pendingDomains = models.TextField(
+        db_column="pendingDomains", default="[]"
+    )  # ******* Had to change this from JSON TO TEXT**********
+    country = models.CharField(max_length=255, blank=True, null=True)
+    state = models.CharField(max_length=255, blank=True, null=True)
+    regionId = models.CharField(
+        max_length=255, db_column="regionId", blank=True, null=True
+    )
     stateFips = models.IntegerField(db_column="stateFips", blank=True, null=True)
-    stateName = models.CharField(db_column="stateName", blank=True, null=True)
-    county = models.CharField(blank=True, null=True)
+    stateName = models.CharField(
+        max_length=255, db_column="stateName", blank=True, null=True
+    )
+    county = models.CharField(max_length=255, blank=True, null=True)
     countyFips = models.IntegerField(db_column="countyFips", blank=True, null=True)
-    type = models.CharField(blank=True, null=True)
-    parentId = models.ForeignKey(
-        "self", models.DO_NOTHING, db_column="parentId", blank=True, null=True
+    type = models.CharField(max_length=255, blank=True, null=True)
+
+    parent = models.ForeignKey(
+        "self",
+        db_column="parentId",
+        on_delete=models.CASCADE,
+        related_name="children",
+        null=True,
+        blank=True,
     )
-    createdById = models.ForeignKey(
-        "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
-    )
-    # TODO: Consider geting rid of this, don't need Many To Many in both tables
-    # Relationships with other models (Scan, OrganizationTag)
-    granularScans = models.ManyToManyField(
-        "Scan", related_name="organizations", db_table="scan_organizations_organization"
-    )
-    tags = models.ManyToManyField(
-        "OrganizationTag",
-        related_name="organizations",
-        db_table="organization_tag_organizations_organization",
-    )
-    allScanTasks = models.ManyToManyField(
-        "ScanTask",
-        related_name="organizations",
-        db_table="scan_task_organizations_organization",
+
+    createdBy = models.ForeignKey(
+        "User",
+        db_column="createdById",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
     )
 
     class Meta:
@@ -296,7 +314,8 @@ class OrganizationTag(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
-    name = models.CharField(unique=True)
+
+    name = models.CharField(max_length=255, unique=True)
     organizations = models.ManyToManyField(
         "Organization",
         related_name="tags",
@@ -407,34 +426,38 @@ class Response(models.Model):
 class Role(models.Model):
     """The Role model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
-    role = models.CharField()
-    approved = models.BooleanField()
-    createdById = models.ForeignKey(
-        "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+
+    role = models.CharField(max_length=10, default="user")
+    approved = models.BooleanField(default=False)
+
+    user = models.ForeignKey(
+        "User", on_delete=models.CASCADE, db_column="userId", related_name="roles"
     )
-    approvedById = models.ForeignKey(
+    createdBy = models.ForeignKey(
+        "User",
+        models.DO_NOTHING,
+        db_column="createdById",
+        related_name="createdRoles",
+        blank=True,
+        null=True,
+    )
+    approvedBy = models.ForeignKey(
         "User",
         models.DO_NOTHING,
         db_column="approvedById",
-        related_name="role_approvedbyid_set",
+        related_name="approvedRoles",
         blank=True,
         null=True,
     )
-    userId = models.ForeignKey(
-        "User",
+
+    organization = models.ForeignKey(
+        "Organization",
         on_delete=models.CASCADE,
-        db_column="userId",
-        related_name="roles",
-        blank=True,
-        null=True,
-    )
-    organizationId = models.ForeignKey(
-        Organization,
-        models.DO_NOTHING,
         db_column="organizationId",
+        related_name="userRoles",
         blank=True,
         null=True,
     )
@@ -444,7 +467,7 @@ class Role(models.Model):
 
         managed = False
         db_table = "role"
-        unique_together = (("userId", "organizationId"),)
+        unique_together = (("user", "organization"),)
 
 
 class SavedSearch(models.Model):
@@ -479,11 +502,13 @@ class Scan(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
     updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
+
     name = models.CharField()
     arguments = models.TextField(
         default="{}"
     )  # JSON in the database but fails: the JSON object must be str, bytes or bytearray, not dict
     frequency = models.IntegerField()
+
     lastRun = models.DateTimeField(db_column="lastRun", blank=True, null=True)
     isGranular = models.BooleanField(db_column="isGranular", default=False)
     isUserModifiable = models.BooleanField(
@@ -491,14 +516,17 @@ class Scan(models.Model):
     )
     isSingleScan = models.BooleanField(db_column="isSingleScan", default=False)
     manualRunPending = models.BooleanField(db_column="manualRunPending", default=False)
+
     createdBy = models.ForeignKey(
-        "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
+        "User", models.SET_NULL, db_column="createdById", blank=True, null=True
     )
     tags = models.ManyToManyField(
         "OrganizationTag", related_name="scans", db_table="scan_tags_organization_tag"
     )
     organizations = models.ManyToManyField(
-        "Organization", related_name="scans", db_table="scan_organizations_organization"
+        "Organization",
+        related_name="granularScans",
+        db_table="scan_organizations_organization",
     )
 
     class Meta:
@@ -523,8 +551,9 @@ class ScanTask(models.Model):
     startedAt = models.DateTimeField(db_column="startedAt", blank=True, null=True)
     finishedAt = models.DateTimeField(db_column="finishedAt", blank=True, null=True)
     queuedAt = models.DateTimeField(db_column="queuedAt", blank=True, null=True)
-    scanId = models.ForeignKey(
-        Scan, on_delete=models.DO_NOTHING, db_column="scanId", blank=True, null=True
+
+    scan = models.ForeignKey(
+        Scan, on_delete=models.SET_NULL, db_column="scanId", blank=True, null=True
     )
     organizations = models.ManyToManyField(
         "Organization",
@@ -542,25 +571,39 @@ class ScanTask(models.Model):
 class Service(models.Model):
     """The Service model."""
 
-    id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+
     serviceSource = models.TextField(db_column="serviceSource", blank=True, null=True)
     port = models.IntegerField()
     service = models.CharField(blank=True, null=True)
     lastSeen = models.DateTimeField(db_column="lastSeen", blank=True, null=True)
     banner = models.TextField(blank=True, null=True)
-    products = models.JSONField()
-    censysMetadata = models.JSONField(db_column="censysMetadata")
-    censysIpv4Results = models.JSONField(db_column="censysIpv4Results")
-    intrigueIdentResults = models.JSONField(db_column="intrigueIdentResults")
-    shodanResults = models.JSONField(db_column="shodanResults")
-    wappalyzerResults = models.JSONField(db_column="wappalyzerResults")
-    domainId = models.ForeignKey(
-        Domain, models.DO_NOTHING, db_column="domainId", blank=True, null=True
+
+    products = models.JSONField(default=list)
+    censysMetadata = models.JSONField(
+        db_column="censysMetadata", null=True, blank=True, default=dict
     )
-    discoveredById = models.ForeignKey(
-        Scan, models.DO_NOTHING, db_column="discoveredById", blank=True, null=True
+    censysIpv4Results = models.JSONField(db_column="censysIpv4Results", default=dict)
+    intrigueIdentResults = models.JSONField(
+        db_column="intrigueIdentResults", default=dict
+    )
+    shodanResults = models.JSONField(
+        db_column="shodanResults", null=True, blank=True, default=dict
+    )
+    wappalyzerResults = models.JSONField(db_column="wappalyzerResults", default=list)
+
+    domain = models.ForeignKey(
+        Domain, db_column="domainId", on_delete=models.CASCADE, related_name="services"
+    )
+    discoveredBy = models.ForeignKey(
+        Scan,
+        db_column="discoveredById",
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name="services",
     )
 
     class Meta:
@@ -568,7 +611,7 @@ class Service(models.Model):
 
         managed = False
         db_table = "service"
-        unique_together = (("port", "domainId"),)
+        unique_together = (("port", "domain"),)
 
 
 class TypeormMetadata(models.Model):
@@ -588,25 +631,38 @@ class TypeormMetadata(models.Model):
         db_table = "typeorm_metadata"
 
 
+class UserType(models.TextChoices):
+    GLOBAL_ADMIN = "globalAdmin"
+    GLOBAL_VIEW = "globalView"
+    REGIONAL_ADMIN = "regionalAdmin"
+    READY_SET_CYBER = "readySetCyber"
+    STANDARD = "standard"
+
+
 class User(models.Model):
     """The User model."""
 
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     cognitoId = models.CharField(
-        db_column="cognitoId", unique=True, blank=True, null=True
+        max_length=255, db_column="cognitoId", unique=True, blank=True, null=True
+    )
+    oktaId = models.CharField(
+        max_length=255, db_column="oktaId", null=True, blank=True, unique=True
     )
     loginGovId = models.CharField(
-        db_column="loginGovId", unique=True, blank=True, null=True
+        max_length=255, db_column="loginGovId", unique=True, blank=True, null=True
     )
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
-    firstName = models.CharField(db_column="firstName")
-    lastName = models.CharField(db_column="lastName")
-    fullName = models.CharField(db_column="fullName")
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+
+    firstName = models.CharField(max_length=255, db_column="firstName")
+    lastName = models.CharField(max_length=255, db_column="lastName")
+    fullName = models.CharField(max_length=255, db_column="fullName")
     email = models.CharField(unique=True)
-    invitePending = models.BooleanField(db_column="invitePending")
+
+    invitePending = models.BooleanField(db_column="invitePending", default=False)
     loginBlockedByMaintenance = models.BooleanField(
-        db_column="loginBlockedByMaintenance"
+        db_column="loginBlockedByMaintenance", default=False
     )
     dateAcceptedTerms = models.DateTimeField(
         db_column="dateAcceptedTerms", blank=True, null=True
@@ -614,11 +670,23 @@ class User(models.Model):
     acceptedTermsVersion = models.TextField(
         db_column="acceptedTermsVersion", blank=True, null=True
     )
+
     lastLoggedIn = models.DateTimeField(db_column="lastLoggedIn", blank=True, null=True)
-    userType = models.TextField(db_column="userType")
-    regionId = models.CharField(db_column="regionId", blank=True, null=True)
-    state = models.CharField(blank=True, null=True)
-    oktaId = models.CharField(db_column="oktaId", unique=True, blank=True, null=True)
+    userType = models.CharField(
+        db_column="userType",
+        max_length=50,
+        choices=UserType.choices,
+        default=UserType.STANDARD,
+    )
+
+    regionId = models.CharField(
+        db_column="regionId", blank=True, null=True, max_length=255
+    )
+    state = models.CharField(blank=True, null=True, max_length=255)
+
+    def save(self, *args, **kwargs):
+        self.fullName = f"{self.firstName} {self.lastName}"
+        super().save(*args, **kwargs)
 
     class Meta:
         """The Meta class for User."""
