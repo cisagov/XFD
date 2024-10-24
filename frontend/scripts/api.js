@@ -67,7 +67,7 @@ app.use(
 
 //Middleware to set Cache-Control headers
 app.use((req, res, next) => {
-  res.setHeader('Cache-Control', 'private, max-age=3600');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   next();
 });
 
@@ -83,7 +83,7 @@ app.use(
         res.setHeader('Content-Type', 'application/javascript');
       }
     },
-    maxAge: 'no-cache'
+    maxAge: 'no-cache, no-store, must-revalidate'
   })
 );
 
