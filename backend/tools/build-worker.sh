@@ -6,6 +6,6 @@
 
 set -e
 
-docker build --platform linux/amd64 -t crossfeed-worker -f Dockerfile.worker .
+docker build --no-cache --platform linux/amd64 -t crossfeed-worker -f Dockerfile.worker .
 
-docker build --platform linux/amd64 -t pe-worker -f Dockerfile.pe .
+docker build --no-cache --platform linux/amd64 -t pe-worker -f Dockerfile.pe .
