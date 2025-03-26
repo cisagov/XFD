@@ -104,6 +104,14 @@ DATABASES = {
             "NAME": "mini_data_lake_test",  # Name of the test database
         },
     },
+    "mini_data_lake_secondary": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",  # Replace with your database engine
+        "NAME": os.getenv("MDL_SECONDARY_NAME"),
+        "USER": os.getenv("MDL_USERNAME"),
+        "PASSWORD": os.getenv("MDL_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": "5432",
+    },
 }
 
 DATABASE_ROUTERS = ["xfd_django.db_routers.MyAppRouter"]
