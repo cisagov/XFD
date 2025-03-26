@@ -20,6 +20,12 @@ syncmdl:
 syncmdl-dangerously-force:
 	docker compose exec backend python manage.py syncmdl --dangerouslyforce
 
+# Syncronize the secondary database
+syncmdl_secondary:
+	docker compose exec backend python manage.py syncmdl_secondary
+
+syncmdl_secondary-dangerously-force:
+	docker compose exec backend python manage.py syncmdl_secondary --dangerouslyforce
 
 # Pytest
 # i.e. make pytest FILE=xfd_api/tests/test_domain.py

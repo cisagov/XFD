@@ -248,7 +248,7 @@ def create_sample_services_and_vulnerabilities(domain):
         )
 
 
-def synchronize(target_app_label=None):
+def synchronize(target_app_label=None, using=None):
     """
     Synchronize the database schema with Django models.
 
@@ -277,6 +277,9 @@ def synchronize(target_app_label=None):
     # Get database name for 'connections':
     # The 'connections' object gets all databases defined in settings.py
     database = db_mapping.get(target_app_label, "default")
+    # Used only for syncing a duplicate database that mirrors the xfd_mini_dl schema
+    if using:
+        database = using
     print(
         "Synchronizing database schema for app '{}' in database '{}'...".format(
             target_app_label, database
