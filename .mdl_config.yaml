@@ -10,12 +10,16 @@ MD001: false
 # MD003/heading-style/header-style - Heading style
 MD003:
   # Enforce the ATX-closed style of header
+<<<<<<< HEAD
   style: "atx"
+=======
+  style: atx_closed
+>>>>>>> d289ef312b24b454cc0edfbe5788697a933d1bd2
 
 # MD004/ul-style - Unordered list style
 MD004:
   # Enforce dashes for unordered lists
-  style: "dash"
+  style: dash
 
 # MD010/hard-tabs - Hard tabs
 # Don't enforce that hard tabs are not used
@@ -32,7 +36,13 @@ MD024:
   allow_different_nesting: true
 
 # MD029/ol-prefix - Ordered list item prefix
+<<<<<<< HEAD
 MD029: false
+=======
+MD029:
+  # Enforce the `1.` style for ordered lists
+  style: one
+>>>>>>> d289ef312b24b454cc0edfbe5788697a933d1bd2
 
 # MD033/no-inline-html - Inline HTML
 MD033: false
@@ -43,7 +53,7 @@ MD034: false
 # MD035/hr-style - Horizontal rule style
 MD035:
   # Enforce dashes for horizontal rules
-  style: "---"
+  style: ---
 
 # MD041/first-line-h1 - First line in file should be a top level heading
 MD041: false
@@ -51,14 +61,14 @@ MD041: false
 # MD046/code-block-style - Code block style
 MD046:
   # Enforce the fenced style for code blocks
-  style: "fenced"
+  style: fenced
 
 # MD049/emphasis-style - Emphasis style should be consistent
 MD049:
   # Enforce asterisks as the style to use for emphasis
-  style: "asterisk"
+  style: asterisk
 
 # MD050/strong-style - Strong style should be consistent
 MD050:
   # Enforce asterisks as the style to use for strong
-  style: "asterisk"
+  style: asterisk
