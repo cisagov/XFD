@@ -302,7 +302,8 @@ def synchronize(target_app_label=None):
 
         print("Processing Many-to-Many tables...")
         process_m2m_tables(schema_editor, ordered_models, database)
-
+        create_normal_views(database)
+        create_materialized_views(database)
         cleanup_stale_tables(ordered_models, database)
 
     print("Database synchronization complete.")
@@ -488,6 +489,115 @@ def cleanup_stale_tables(models, database):
             except OperationalError as e:
                 print("Error dropping stale table {}: {}".format(table, e))
 
+def create_normal_views(database):
+    with connections[database].cursor() as cursor:
+        print("Creating normal views...")
+
+        cursor.execute("""
+            CREATE OR REPLACE VIEW vw_ticket_vulns AS
+            -- Query for VS Ticket Vulns
+            SELECT 
+                'vuln_scanning_tickets' as scan_source,
+                t.id as id,
+                t.opened_timestamp as first_seen,
+                coalesce(t.closed_timestamp, t.updated_timestamp) as last_seen,
+                t.cve_string as cve,
+                t.vuln_name as title,
+                vs.cpe as product,	
+                t.ip_string as domain,
+                t.ip_id as domain_id,
+                t.port_protocol as protocol,
+                t.vuln_port::text as port,
+                t.cvss_base_score,
+                t.cvss_severity::text as severity,
+                t.organization_id,
+                --t.kev, as is_kev,
+                --t.service,
+                --t.risky_service = is_risky_service,
+                --t.os as os --Not seeing this in the ticket
+                te."action" as state,
+                t.vuln_source as data_source,
+                vs.description
+            FROM ticket t
+            LEFT JOIN ticket_event te 
+            ON te.ticket_id = t.id
+            LEFT JOIN vuln_scan vs 
+            ON vs.id = te.vuln_scan_id
+            WHERE te.event_timestamp = (
+                SELECT MAX(event_timestamp)
+                FROM ticket_event
+                WHERE ticket_id = t.id
+            )
+        """)
+
+        cursor.execute("""
+            CREATE OR REPLACE VIEW vw_shodan_vulns AS
+            -- Query for ShodanVulns
+            SELECT
+                'shodan_vulnerability' as scan_source,
+                sv.shodan_vuln_uid::text as id,
+                null as first_seen,
+                sv."timestamp" as last_seen,
+                sv.cve as cve,
+                sv.name as title,
+                array_to_string(sv.cpe, ', ') as product,
+                sv.ip_string as domain,
+                sv.ip_id as domain_id,
+                sv.protocol as protocol,
+                sv.port as port,
+                sv.cvss as cvss_base_score,
+                sv.severity as severity,
+                sv.organization_uid as organization_id,
+                'Open' as state,
+                'Shodan' as data_source,
+                null as description
+            FROM shodan_vulns as sv
+        """)
+
+        cursor.execute("""
+            CREATE OR REPLACE VIEW vw_credential_breaches AS
+            SELECT DISTINCT 
+                'credential_breach' as scan_source,
+                cb.credential_breaches_uid::text as id,
+                cb.breach_date as first_seen,
+                cb.modified_date as last_seen,
+                null as cve,
+                cb.breach_name as title,
+                null as product,
+                ce.sub_domain_string as domain,
+                ce.sub_domain_id as domain_id,
+                'SMTP,IMAP,POP3' as protocol, --"Unsure on this one"
+                null as port,
+                null::float as cvss_base_score,
+                'Medium' as severity,
+                ce.organization_id,
+                'Open' as state,
+                ds.name as data_source,
+                cb.description 
+            FROM credential_breaches cb
+            JOIN credential_exposures ce on cb.credential_breaches_uid = ce.credential_breach_id
+            JOIN data_source ds on ds.data_source_uid = cb.data_source_uid
+        """)
+        print("Normal views created.")
+
+def create_materialized_views(database):
+    with connections[database].cursor() as cursor:
+        print("Creating materialized views...")
+
+        cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mat_vw_combined_vulns;")
+
+        # Example materialized view
+        cursor.execute("""
+            CREATE MATERIALIZED VIEW IF NOT EXISTS mat_vw_combined_vulns AS
+            SELECT * from vw_shodan_vulns
+            union 
+            SELECT * from vw_credential_breaches
+        """)
+
+        # Optional refresh
+        cursor.execute("REFRESH MATERIALIZED VIEW mat_vw_combined_vulns;")
+
+        print("Materialized views created.")
 
 def drop_all_tables(app_label=None):
     """Drop all tables in the database. Used with `dangerouslyforce`."""

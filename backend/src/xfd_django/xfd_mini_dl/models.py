@@ -73,7 +73,7 @@ class Cpe(models.Model):
     name = models.CharField(max_length=255, help_text="Name of the product.")
     version = models.CharField(max_length=255, help_text="Version of the product.")
     vendor = models.CharField(
-        max_length=255, help_text="Vendorr who created the product."
+        max_length=255, help_text="Vendor who created the product."
     )
     last_seen_at = models.DateTimeField(
         db_column="last_seen_at", help_text="Last datetime the CPE was seen."
@@ -900,10 +900,12 @@ class Scan(models.Model):
     )
     created_at = models.DateTimeField(
         db_column="created_at",
+        auto_now_add=True,
         help_text="Date the scan object was added to the database.",
     )
     updated_at = models.DateTimeField(
         db_column="updated_at",
+        auto_now=True,
         help_text="Last date the scan object was updated in the database.",
     )
     name = models.CharField(
@@ -1457,8 +1459,7 @@ class TicketEvent(models.Model):
         blank=True,
         help_text="Event action type. (OPENED, VERIFIED, CHANGED, CLOSED, REOPENED, UNVERIFIED)",
     )
-    reason = models.CharField(
-        max_length=255,
+    reason = models.TextField(
         null=True,
         blank=True,
         help_text="Short description of the event",
@@ -1546,8 +1547,7 @@ class VulnScan(models.Model):
         null=True,
         help_text="A textual representation of the set of CVSS metrics.",
     )
-    description = models.CharField(
-        max_length=255,
+    description = models.TextField(
         blank=True,
         null=True,
         help_text="Description of the vulnerability, according to the vulnerability scanner.",
@@ -1628,8 +1628,7 @@ class VulnScan(models.Model):
     script_version = models.CharField(
         max_length=255, blank=True, null=True, help_text="Script version string"
     )
-    see_also = models.CharField(
-        max_length=255,
+    see_also = models.TextField(
         blank=True,
         null=True,
         help_text="Additional reference(s) for this vulnerability provided by the vulnerability scanner",
@@ -1645,8 +1644,7 @@ class VulnScan(models.Model):
         null=True,
         help_text="CVSS v2.0 severity rating from the vulnerability scanner.",
     )
-    solution = models.CharField(
-        max_length=255,
+    solution = models.TextField(
         blank=True,
         null=True,
         help_text="Solution to mitigate the detected vulnerability, according to the vulnerability scanner",
@@ -1657,8 +1655,7 @@ class VulnScan(models.Model):
         null=True,
         help_text="Source of the vulnerability scan (e.g. 'nessus').",
     )
-    synopsis = models.CharField(
-        max_length=255,
+    synopsis = models.TextField(
         blank=True,
         null=True,
         help_text="Brief overview of the vulnerability.",
@@ -1671,8 +1668,8 @@ class VulnScan(models.Model):
     vuln_publication_timestamp = models.DateTimeField(
         blank=True, null=True, help_text="Vulnerability publication date."
     )
-    xref = models.CharField(
-        max_length=255, blank=True, null=True, help_text="External reference."
+    xref = models.TextField(
+        blank=True, null=True, help_text="External reference."
     )
     cwe = models.CharField(
         max_length=255,
@@ -1691,8 +1688,7 @@ class VulnScan(models.Model):
         default=False,
         help_text="Boolean field to flag if more thorough tests have been run on the vulnerability for confirmation.",
     )
-    cvss_score_rationale = models.CharField(
-        max_length=255,
+    cvss_score_rationale = models.TextField(
         blank=True,
         null=True,
         help_text="Rationale for the cvss score given to the vulnerability.",
@@ -2083,8 +2079,7 @@ class Host(models.Model):
         blank=True,
         help_text="Whether or not a live host was detected at this host document’s IP address by the port scanner",
     )
-    host_live_reason = models.CharField(
-        max_length=255,
+    host_live_reason = models.TextField(
         null=True,
         blank=True,
         help_text="Reason given by the port scanner as to whether or not this host document represents a live host",
@@ -2114,6 +2109,47 @@ class Host(models.Model):
             models.Index(fields=["ip_string"]),
         ]
 
+class HostSummary(models.Model):
+    """Define HostSummary model.""" 
+
+    start_date = models.DateTimeField(
+        help_text="Timestamp of the earliest last_change in the collection",
+    ) 
+    end_date = models.DateTimeField(
+        help_text="Timestamp of the latest last_change in the collection",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        related_name="host_summaries",
+        on_delete=models.CASCADE,
+        help_text="Foreign key relationship to the organization the summary is built for.",
+    )
+    host_done_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of the hosts with a status of DONE."
+    )
+    host_waiting_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of the hosts with a status of WAITING."
+    )
+    host_running_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of the hosts with a status of RUNNING."
+    )
+    host_ready_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of the hosts with a status of READY."
+    )
+    up_host_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of the hosts that were live in the last scan."
+    )
+    down_host_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of the hosts that were down in the last scan."
+    )
+    
+    class Meta:
+        """The Meta class for HostSummary."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "host_summary"
+        unique_together = (("organization", "end_date"),)
 
 class Ip(models.Model):
     """The Ip model."""
@@ -2420,6 +2456,28 @@ class Ticket(models.Model):
         blank=True,
         help_text="Timestamp when this ticket was opened (vulnerability was first detected)",
     )
+    is_kev = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Boolean field that flags if this ticket is a KEV (Known Exploited Vulnerability) ticket",
+    )
+    is_risky = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Boolean field that flags if this ticket is a risky ticket",
+    )
+    risky_service_group = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Service group that this ticket is associated with",
+    )
+    service_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Name of the service associated with this ticket",
+    )
     # snapshots = models.ManyToManyField(Snapshot, related_name='tickets', blank=True)
     # ticket_events = models.ManyToManyField(TicketEvent, related_name='tickets', blank=True)
 
@@ -2523,6 +2581,112 @@ class PortScan(models.Model):
         managed = manage_db
         db_table = "port_scan"
 
+class PortScanSummary(models.Model):
+    """Define PortScanSummary model."""
+
+    start_date = models.DateTimeField(
+        help_text="Timestamp of the earliest vuln_detection timestamp",
+    ) 
+    end_date = models.DateTimeField(
+        help_text="Timestamp of the latest vuln_detection timestamp",
+    )
+    datetime_pulled_from_redshift = models.DateTimeField(
+        help_text="Timestamp when the summary data was collected from redshift",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        related_name="port_scan_summaries",
+        on_delete=models.CASCADE,
+        help_text="Foreign key relationship to the organization the port scan summary is built for.",
+    )
+    open_port_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of open ports."
+    )
+    risky_port_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of risky ports."
+    )
+    unique_ip_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of unique ips."
+    )
+    unique_service_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of unique services."
+    )
+
+    is_service_summary = models.BooleanField(
+        default=False,
+        help_text="Booolean field that flags if this is service level summary instead of a port count summary.",
+    )
+    service_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Name of the service the summary row is tracking.",
+    )
+    risky_ports = models.JSONField(
+        blank=True,
+        null=True,
+        default=dict, #or list
+        help_text="Dictionary or list of risky ports running the service.",
+    )
+    # unique_ip_count = models.IntegerField(
+    #     null=True, blank=True, help_text="Number of the hosts with a status of DONE."
+    # )
+    # unique_service_count = models.IntegerField(
+    #     null=True, blank=True, help_text="Number of the hosts with a status of DONE."
+    # )
+
+    class Meta:
+        """The Meta class for PortScanSummary."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "port_scan_summary"
+        unique_together = (("organization", "end_date"),) # datetime_pulled_from_redshift
+
+
+class PortScanSummary(models.Model):
+    """Define PortScanSummary model."""
+
+    start_date = models.DateTimeField(
+        help_text="Timestamp of the earliest vuln_detection timestamp",
+    ) 
+    end_date = models.DateTimeField(
+        help_text="Timestamp of the latest vuln_detection timestamp",
+    )
+    datetime_pulled_from_redshift = models.DateTimeField(
+        help_text="Timestamp when the summary data was collected from redshift",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        related_name="port_scan_service_summaries",
+        on_delete=models.CASCADE,
+        help_text="Foreign key relationship to the organization the port scan summary is built for.",
+    )
+    service_name = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Name of the service the summary row is tracking.",
+    )
+    risky_ports = models.JSONField(
+        blank=True,
+        null=True,
+        default=dict, #or list
+        help_text="Dictionary or list of risky ports running the service.",
+    )
+    unique_ip_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of unique ips."
+    )
+    unique_service_count = models.IntegerField(
+        null=True, blank=True, help_text="Number of unique services."
+    )
+    class Meta:
+        """The Meta class for PortScanServiceSummary."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "port_scan_service_summary"
+        unique_together = (("organization", "end_date","service_name"),) # datetime_pulled_from_redshift
 
 # #######  WAS Models  #########
 
@@ -3092,7 +3256,7 @@ class PeUsers(models.Model):
     )
     email = models.CharField(
         unique=True,
-        max_length=64,
+        max_length=256,
         blank=True,
         null=True,
         help_text="Email address of the user.",
@@ -4880,7 +5044,6 @@ class SubDomains(models.Model):
     )
     subdomain_source = models.TextField(
         db_column="subdomain_source",
-        max_length=255,
         blank=True,
         null=True,
         help_text="Where the subdomain originated from.",
@@ -4902,8 +5065,7 @@ class SubDomains(models.Model):
         max_length=512,
         help_text="DNS reverse lookup of a subdomain",
     )  # XFD column
-    screenshot = models.CharField(
-        max_length=512,
+    screenshot = models.TextField(
         blank=True,
         null=True,
         help_text="link to the screenshot of the subdomain site.???",
@@ -5129,7 +5291,7 @@ class WeeklyStatusesMdl(models.Model):
     pto = models.TextField(blank=True, null=True, help_text="Any upcoming PTO.")
     week_ending = models.DateField(help_text="Last day of the week.")
     notes = models.TextField(blank=True, null=True, help_text="additional notes")
-    statusComplete = models.IntegerField(
+    status_complete = models.IntegerField(
         blank=True,
         null=True,
         help_text="T/F if the user has completed the status report.",
@@ -5870,7 +6032,65 @@ class Blocklist(models.Model):
         ]
 
 
-# # THese are all views, so they shouldn't be generated via the ORM
+# These are all views, so they shouldn't be generated via the ORM
+class VwCombinedVulns(models.Model):
+    """Define VwCombinedVulns model."""
+    scan_source = models.TextField(
+        blank=True, null=True, help_text="Scan that identified the data."
+    )
+    id = models.TextField(
+        unique=True, blank=True, null=True, help_text="Id of the vulnerability"
+    ) # Maybe shouldn't be unique
+    first_seen = models.DateTimeField(
+        help_text="Date and time the vulnerability was first seen",
+    )
+    last_seen = models.DateTimeField(
+        help_text="Date and time the vulnerability was first seen",
+    )
+    cve = models.CharField(blank=True, null=True, max_length=255)
+    title = models.TextField(blank=True, null=True)
+    product	= models.CharField(blank=True, null=True, max_length=255)
+    domain = models.TextField(blank=True, null=True)
+    domain_id = models.TextField(blank=True, null=True)
+    protocol = models.CharField(blank=True, null=True, max_length=255)
+    port = models.CharField(blank=True, null=True, max_length=255)
+    cvss_base_score = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="CVSS base score](https://nvd.nist.gov/vuln-metrics)",
+    )
+    severity = models.CharField(blank=True, null=True, max_length=255)
+    organization = models.ForeignKey(
+        Organization,
+        models.DO_NOTHING,
+        db_column="organization_id",
+        blank=True,
+        null=True,
+        help_text="Foreign key to the organization that owns the vulnerable asset   .",
+    )
+    # is_kev = models.BooleanField(
+    #     blank=True,
+    #     null=True,
+    #     help_text="T/F if the vulnerability is known to be exloited.",
+    # )
+    # service = models.CharField(blank=True, null=True, max_length=255)
+    # is_risky_service = models.BooleanField(
+    #     blank=True,
+    #     null=True,
+    #     help_text="T/F if the vulnerability is a known risky service.",
+    # )
+    # os = models.CharField(blank=True, null=True, max_length=255)
+    state = models.CharField(blank=True, null=True, max_length=255)
+    data_source = models.CharField(blank=True, null=True, max_length=255)
+    description = models.TextField(blank=True, null=True)
+    class Meta:
+        """Set VwCombinedVulns model metadata."""
+        app_label = app_label_name
+        managed = False
+        db_table = "vw_combined_vulnerabilities"
+
 
 # # This should be a view not a table
 # class VwPshttDomainsToRun(models.Model):
