@@ -109,6 +109,10 @@ def apply_vuln_filters(
     if vulnerability_filters.id:
         q &= Q(id=vulnerability_filters.id)
 
+    # Exact match on creattedAt
+    if vulnerability_filters.createdAt:
+        q &= Q(createdAt=vulnerability_filters.createdAt)
+
     # Partial match on title (ILIKE -> __icontains)
     if vulnerability_filters.title:
         q &= Q(title__icontains=vulnerability_filters.title)

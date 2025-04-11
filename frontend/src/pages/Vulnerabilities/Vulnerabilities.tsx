@@ -54,7 +54,7 @@ export interface LooseVulnerabilityRow {
   id: string;
   title: string;
   severity: string;
-  kev: string;
+  isKev: boolean;
   domain: string | undefined;
   domainId: string | undefined;
   product: string;
@@ -430,7 +430,7 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       id: vuln.id,
       title: vuln.title,
       severity: severity,
-      kev: vuln.isKev ? 'Yes' : 'No',
+      isKev: vuln.isKev ? true : false,
       domain: vuln?.domain?.name,
       domainId: vuln?.domain?.id,
       product: vuln.cpe
@@ -450,6 +450,8 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
     };
   });
+
+  console.log('Vuln Rows', vulRows);
 
   const vulCols: GridColDef[] = [
     {
@@ -535,10 +537,14 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       }
     },
     {
-      field: 'kev',
+      field: 'isKev',
       headerName: 'KEV',
       minWidth: 50,
-      flex: 0.3
+      flex: 0.5,
+      type: 'boolean',
+      valueGetter(params) {
+        return params.row.isKev === true ? true : false;
+      }
     },
     {
       field: 'domain',
@@ -574,6 +580,12 @@ export const Vulnerabilities: React.FC<{ groupBy?: string }> = ({
       headerName: 'Days Open',
       minWidth: 100,
       flex: 0.5
+      // type: 'date',
+      // valueGetter(params) {
+      //   return params.row.createdAt
+      //     ? new Date(params.row.createdAt)
+      //     : new Date();
+      // }
     },
     {
       field: 'state',
