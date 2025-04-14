@@ -12,6 +12,7 @@ import {
   createInstance,
   useMatomo
 } from '@jonkoops/matomo-tracker-react';
+import { Analytics } from './pages/Analytics/Analytics';
 import {
   AdminTools,
   AuthCreateAccount,
@@ -195,6 +196,11 @@ const App: React.FC = () => (
                         <RouteGuard
                           path="/admin-tools"
                           component={AdminTools}
+                        />
+                        <RouteGuard
+                          path="/analytics"
+                          permissions={['analytics']}
+                          component={Analytics}
                         />
                         <RouteGuard
                           path="/organizations/:organizationId"
