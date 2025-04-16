@@ -1,6 +1,10 @@
-import React from "react";
+import React from 'react';
+import { useAuthContext } from 'context';
 
 export const Analytics: React.FC = () => {
+
+const { user, apiGet, apiPost } = useAuthContext();
+    
   return (
     <div>
       <h1>Analytics</h1>

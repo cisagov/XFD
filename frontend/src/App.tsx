@@ -12,9 +12,9 @@ import {
   createInstance,
   useMatomo
 } from '@jonkoops/matomo-tracker-react';
-import { Analytics } from './pages/Analytics/Analytics';
 import {
   AdminTools,
+  Analytics,
   AuthCreateAccount,
   AuthLogin,
   Domain,
