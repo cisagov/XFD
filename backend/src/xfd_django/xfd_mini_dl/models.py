@@ -315,14 +315,15 @@ class Cve(AutoLengthCheckModel):
         max_length=255,
         help_text="Numerical value that quantifies the potential impact of the vulnerability.",
     )
-    weaknesses = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True
+    weaknesses = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Weaknesses (CWE) associated with the vulnerability.",
     )
-    reference_urls = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True
-    )
-    cpe_list = ArrayField(
-        models.TextField(blank=True, null=True), blank=True, null=True
+    references = models.TextField(
+        blank=True,
+        null=True,
+        help_text="URLs to references associated with the vulnerability.",
     )
     dve_score = models.DecimalField(
         max_digits=1000,

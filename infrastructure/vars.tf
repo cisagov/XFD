@@ -376,11 +376,6 @@ variable "ssm_xpanse_auth_id" {
   default     = "/crossfeed/staging/XPANSE_AUTH_ID"
 }
 
-variable "ssm_nist_api_key" {
-  description = "ssm_nist_api_key"
-  type        = string
-  default     = "/crossfeed/staging/NIST_API_KEY"
-}
 
 variable "ssm_lg_api_key" {
   description = "ssm_lg_api_key"

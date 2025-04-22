@@ -237,7 +237,6 @@ def start_local_containers(count, scan_type, queue_url, shodan_api_key=""):
                     "DB_NAME={}".format(os.getenv("DB_NAME")),
                     "DB_USERNAME={}".format(os.getenv("DB_USERNAME")),
                     "DB_PASSWORD={}".format(os.getenv("DB_PASSWORD")),
-                    "NIST_API_KEY={}".format(os.getenv("NIST_API_KEY")),
                     "SERVICE_QUEUE_URL={}".format(queue_url),
                     "SERVICE_TYPE={}".format(scan_type),
                     "PE_SHODAN_API_KEYS={}".format(shodan_api_key),

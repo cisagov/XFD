@@ -94,8 +94,8 @@ def test_get_cve_by_id_success():
         status="Active",
         cvss_v3_base_score="9.8",
         cvss_v3_base_severity="Critical",
-        weaknesses=["None"],
-        reference_urls=["https://cve.mitre.org"],
+        weaknesses="None",
+        references="https://cve.mitre.org",
     )
 
     response = client.get(

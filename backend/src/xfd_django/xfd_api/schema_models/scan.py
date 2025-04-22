@@ -247,12 +247,6 @@ SCAN_SCHEMA = {
         global_scan=False,
         description="Finds vulnerabilities and malware from the LookingGlass API",
     ),
-    "nist": ScanSchema(
-        type="fargate",
-        is_passive=True,
-        global_scan=True,
-        description="Update CVE data using the NIST API",
-    ),
     "portscanner": ScanSchema(
         type="fargate",
         is_passive=False,

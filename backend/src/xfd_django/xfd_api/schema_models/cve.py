@@ -3,11 +3,11 @@
 # from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Cve(BaseModel):
@@ -37,8 +37,8 @@ class Cve(BaseModel):
     cvss_v4_base_severity: Optional[str]
     cvss_v4_exploitability_score: Optional[str]
     cvss_v4_impact_score: Optional[str]
-    weaknesses: Optional[List[str]] = Field(None)
-    reference_urls: Optional[List[str]] = Field(None)
+    weaknesses: Optional[str]
+    references: Optional[str]
 
     class Config:
         """Config."""
