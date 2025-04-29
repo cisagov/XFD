@@ -261,6 +261,14 @@ SCAN_SCHEMA = {
         memory="8192",
         description="Pull in Cybersixgill data from commercial mdl",
     ),
+    "cybersix_lz_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Pull in NIST cve data from commercial mdl",
+    ),
     "portscanner": ScanSchema(
         type="fargate",
         is_passive=False,
