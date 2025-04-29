@@ -1,4 +1,4 @@
-mitmproxy==11.1.2
+mitmproxy==11.0.2
 nested_lookup==0.2.25
 numpy==1.24.3
 pandas==2.2.3
