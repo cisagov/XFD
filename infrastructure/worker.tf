@@ -89,6 +89,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}",
           "${data.aws_ssm_parameter.sixgill_client_id.arn}",
           "${data.aws_ssm_parameter.intelx_api_key.arn}",
+          "${data.aws_ssm_parameter.checksum_salt.arn}",
           "${data.aws_ssm_parameter.xpanse_api_key.arn}",
           "${data.aws_ssm_parameter.xpanse_auth_id.arn}",
           "${data.aws_ssm_parameter.whoisxml_api_key.arn}",
@@ -405,6 +406,10 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "INTELX_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.intelx_api_key.arn}"
+      },
+      {
+        "name": "CHECKSUM_SALT",
+        "valueFrom": "${data.aws_ssm_parameter.checksum_salt.arn}"
       }
     ]
   }
@@ -449,6 +454,8 @@ data "aws_ssm_parameter" "pe_shodan_api_keys" { name = var.ssm_pe_shodan_api_key
 data "aws_ssm_parameter" "sixgill_client_id" { name = var.ssm_sixgill_client_id }
 
 data "aws_ssm_parameter" "intelx_api_key" { name = var.ssm_intelx_api_key }
+
+data "aws_ssm_parameter" "checksum_salt" { name = var.ssm_checksum_salt }
 
 data "aws_ssm_parameter" "xpanse_api_key" { name = var.ssm_xpanse_api_key }
 

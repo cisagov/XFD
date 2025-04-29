@@ -253,6 +253,14 @@ SCAN_SCHEMA = {
         global_scan=True,
         description="Update CVE data using the NIST API",
     ),
+    "cybersix_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Pull in Cybersixgill data from commercial mdl",
+    ),
     "portscanner": ScanSchema(
         type="fargate",
         is_passive=False,
