@@ -340,6 +340,12 @@ variable "ssm_intelx_api_key" {
   default     = "/crossfeed/staging/INTELX_API_KEY"
 }
 
+variable "ssm_checksum_salt" {
+  description = "ssm_checksum_salt"
+  type        = string
+  default     = "/crossfeed/staging/CHECKSUM_SALT"
+}
+
 variable "ssm_xpanse_api_key" {
   description = "ssm_xpanse_api_key"
   type        = string

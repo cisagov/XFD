@@ -58,11 +58,12 @@ class ECSClient:
                     container = self.docker.containers.run(
                         "crossfeed-worker",
                         name=container_name,
-                        network_mode="xfd_backend",
+                        network_mode="backend",
                         mem_limit="4g",
                         environment={
                             "CROSSFEED_COMMAND_OPTIONS": json.dumps(command_options),
                             "CF_API_KEY": os.getenv("CF_API_KEY"),
+                            "CHECKSUM_SALT": os.getenv("CHECKSUM_SALT"),
                             "PE_API_KEY": os.getenv("PE_API_KEY"),
                             "DB_DIALECT": os.getenv("DB_DIALECT"),
                             "DB_HOST": os.getenv("DB_HOST"),

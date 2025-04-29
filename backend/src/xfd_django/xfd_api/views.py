@@ -18,6 +18,7 @@ from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_check_ip
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
+from .api_methods.dmz_sync import fetch_cybersix_data
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.queue_monitoring import list_queues
 from .api_methods.saved_search import (
@@ -66,6 +67,7 @@ from .schema_models.api_key import ApiKey as ApiKeySchema
 from .schema_models.blocklist import BlocklistCheckResponse
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
+from .schema_models.dmz_sync import CybersixSyncResponse
 from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
 from .schema_models.notification import CreateNotificationSchema
 from .schema_models.notification import Notification as NotificationSchema
@@ -1429,3 +1431,35 @@ async def get_blocklist(
 ):
     """Determine if IP is on the blocklist."""
     return await handle_check_ip(ip_address)
+
+
+# ========================================
+#   DMZ SyncEndpoints
+# ========================================
+
+# --- Cybersixgill Sync endpoint, CRASM-2433 ---
+@api_router.post(
+    "/dmz_sync/cybersix_sync",
+    response_model=CybersixSyncResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Cybersix sync to LZ mdl"],
+)
+async def get_call_all_cybersixgill(response: Response):
+    try:
+        raw_json, checksum = await fetch_cybersix_data()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Sync error: {e}"
+        )
+
+    # Validate + parse
+    parsed = CybersixSyncResponse(**raw_json)
+
+    # Attach checksum header
+    response.headers["X-Salted-Checksum"] = checksum
+
+    return parsed
