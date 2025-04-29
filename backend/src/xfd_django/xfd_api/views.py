@@ -6,10 +6,21 @@ from typing import List, Optional, Union
 from uuid import UUID
 
 # Third-Party Libraries
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    status,
+)
 from fastapi.responses import RedirectResponse
 from redis import asyncio as aioredis
 from xfd_mini_dl.models import User
+
+from ..auth import is_global_write_admin
 
 # from .schemas import Cpe
 from .api_methods import api_key as api_key_methods
@@ -18,7 +29,7 @@ from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_check_ip
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_cves_by_id, get_cves_by_name
-from .api_methods.dmz_sync import fetch_cybersix_data
+from .api_methods.dmz_sync import CybersixSyncParams, fetch_cybersix_data
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.queue_monitoring import list_queues
 from .api_methods.saved_search import (
@@ -1465,6 +1476,7 @@ async def get_blocklist(
 #   DMZ SyncEndpoints
 # ========================================
 
+
 # --- Cybersixgill Sync endpoint, CRASM-2433 ---
 @api_router.post(
     "/dmz_sync/cybersix_sync",
@@ -1473,21 +1485,38 @@ async def get_blocklist(
     dependencies=[Depends(get_current_active_user)],
     tags=["Cybersix sync to LZ mdl"],
 )
-async def get_call_all_cybersixgill(response: Response):
-    try:
-        raw_json, checksum = await fetch_cybersix_data()
-    except HTTPException:
-        raise
-    except Exception as e:
+async def get_call_all_cybersixgill(
+    params: CybersixSyncParams,
+    response: Response,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Get all Cybersixgill data, paginated.
+
+    - Only global write-admins may call this.
+    - Returns a JSON payload plus an X-Salted-Checksum header.
+    """
+    # enforce write-admin access
+    if not is_global_write_admin(current_user):
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Sync error: {e}"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access."
         )
 
-    # Validate + parse
+    try:
+        raw_json, checksum = await fetch_cybersix_data(params, current_user)
+    except HTTPException:
+        # re-raise known HTTPExceptions (403, 500 from DB, etc.)
+        raise
+    except Exception as e:
+        # wrap everything else
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync error: {e}"
+        )
+
+    # validate + parse
     parsed = CybersixSyncResponse(**raw_json)
 
-    # Attach checksum header
+    # attach checksum header
     response.headers["X-Salted-Checksum"] = checksum
 
     return parsed

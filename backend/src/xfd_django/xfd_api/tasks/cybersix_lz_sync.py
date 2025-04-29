@@ -1,18 +1,18 @@
-#!/usr/bin/env python
-"""
-dmz_sync_cybersix.py
+"""dmz_sync_cybersix.py.
 
 Fetch paginated Sixgill data from the DMZ sync endpoint
 and upsert into the local database.
 """
 
-import os
-import json
-import hashlib
-import logging
-from urllib.parse import urljoin
+# Standard Python Libraries
 import datetime
+import hashlib
+import json
+import logging
+import os
+from urllib.parse import urljoin
 
+# Third-Party Libraries
 import django
 import requests
 
@@ -21,13 +21,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
+# Third-Party Libraries
 # --- Models ---
 from xfd_mini_dl.models import (
-    SixgillAlerts,
-    Mentions,
     CredentialBreaches,
-    SubDomains,
     CredentialExposures,
+    Mentions,
+    SixgillAlerts,
+    SubDomains,
     TopCves,
 )
 
@@ -79,22 +80,21 @@ def save_cybersix_payload(payload):
         SixgillAlerts.objects.update_or_create(
             sixgill_id=rec["sixgill_id"],
             defaults={
-                "alert_name":      rec.get("alert_name"),
-                "content":         rec.get("content", "")[:2000],
-                "date":            _parse_dt(rec.get("date")),
-                "read":            rec.get("read"),
-                "severity":        rec.get("severity"),
-                "site":            rec.get("site"),
-                "threat_level":    rec.get("threat_level"),
-                "threats":         rec.get("threats"),
-                "title":           rec.get("title"),
-                "user_id":         rec.get("user_id"),
-                "category":        rec.get("category"),
-                "lang":            rec.get("lang"),
-                "content_snip":    rec.get("content_snip"),
+                "alert_name": rec.get("alert_name"),
+                "content": rec.get("content", "")[:2000],
+                "date": _parse_dt(rec.get("date")),
+                "read": rec.get("read"),
+                "severity": rec.get("severity"),
+                "site": rec.get("site"),
+                "threat_level": rec.get("threat_level"),
+                "threats": rec.get("threats"),
+                "title": rec.get("title"),
+                "user_id": rec.get("user_id"),
+                "category": rec.get("category"),
+                "lang": rec.get("lang"),
+                "content_snip": rec.get("content_snip"),
                 "asset_mentioned": rec.get("asset_mentioned"),
-                "asset_type":      rec.get("asset_type"),
-
+                "asset_type": rec.get("asset_type"),
             },
         )
 
@@ -103,27 +103,27 @@ def save_cybersix_payload(payload):
         Mentions.objects.update_or_create(
             sixgill_mention_id=rec["sixgill_mention_id"],
             defaults={
-                "category":           rec.get("category"),
-                "collection_date":    _parse_dt(rec.get("collection_date")),
-                "content":            rec.get("content"),
-                "creator":            rec.get("creator"),
-                "date":               _parse_dt(rec.get("date")),
-                "post_id":            rec.get("post_id"),
-                "lang":               rec.get("lang"),
-                "rep_grade":          rec.get("rep_grade"),
-                "site":               rec.get("site"),
-                "site_grade":         rec.get("site_grade"),
-                "title":              rec.get("title"),
-                "type":               rec.get("type"),
-                "url":                rec.get("url"),
-                "comments_count":     rec.get("comments_count"),
-                "sub_category":       rec.get("sub_category", "NaN"),
-                "tags":               rec.get("tags"),
-                "title_translated":   rec.get("title_translated"),
+                "category": rec.get("category"),
+                "collection_date": _parse_dt(rec.get("collection_date")),
+                "content": rec.get("content"),
+                "creator": rec.get("creator"),
+                "date": _parse_dt(rec.get("date")),
+                "post_id": rec.get("post_id"),
+                "lang": rec.get("lang"),
+                "rep_grade": rec.get("rep_grade"),
+                "site": rec.get("site"),
+                "site_grade": rec.get("site_grade"),
+                "title": rec.get("title"),
+                "type": rec.get("type"),
+                "url": rec.get("url"),
+                "comments_count": rec.get("comments_count"),
+                "sub_category": rec.get("sub_category", "NaN"),
+                "tags": rec.get("tags"),
+                "title_translated": rec.get("title_translated"),
                 "content_translated": rec.get("content_translated"),
-                "detected_lang":      rec.get("detected_lang"),
-                "organization_id":    rec.get("organization_id"),
-                "data_source_id":     rec.get("data_source_id"),
+                "detected_lang": rec.get("detected_lang"),
+                "organization_id": rec.get("organization_id"),
+                "data_source_id": rec.get("data_source_id"),
             },
         )
 
@@ -133,11 +133,11 @@ def save_cybersix_payload(payload):
             breach_name=rec["breach_name"],
             defaults={
                 "exposed_cred_count": rec.get("exposed_cred_count"),
-                "breach_date":        _parse_dt(rec.get("breach_date")),
-                "added_date":         _parse_dt(rec.get("added_date")),
-                "modified_date":      _parse_dt(rec.get("modified_date")),
-                "password_included":  rec.get("password_included"),
-                "data_source_id":     rec.get("data_source_id"),
+                "breach_date": _parse_dt(rec.get("breach_date")),
+                "added_date": _parse_dt(rec.get("added_date")),
+                "modified_date": _parse_dt(rec.get("modified_date")),
+                "password_included": rec.get("password_included"),
+                "data_source_id": rec.get("data_source_id"),
             },
         )
 
@@ -146,16 +146,16 @@ def save_cybersix_payload(payload):
         SubDomains.objects.update_or_create(
             id=rec["id"],  # or use another unique key
             defaults={
-                "organization_id":  rec.get("organization_id"),
-                "sub_domain":       rec.get("sub_domain"),
-                "is_root_domain":   rec.get("is_root_domain", False),
-                "first_seen":       _parse_dt(rec.get("first_seen")),
-                "last_seen":        _parse_dt(rec.get("last_seen")),
+                "organization_id": rec.get("organization_id"),
+                "sub_domain": rec.get("sub_domain"),
+                "is_root_domain": rec.get("is_root_domain", False),
+                "first_seen": _parse_dt(rec.get("first_seen")),
+                "last_seen": _parse_dt(rec.get("last_seen")),
                 "from_root_domain": rec.get("from_root_domain"),
-                "identified":       rec.get("identified", False),
-                "current":          rec.get("current", False),
+                "identified": rec.get("identified", False),
+                "current": rec.get("current", False),
                 "subdomain_source": rec.get("subdomain_source"),
-                "data_source_id":   rec.get("data_source_id"),
+                "data_source_id": rec.get("data_source_id"),
             },
         )
 
@@ -165,17 +165,17 @@ def save_cybersix_payload(payload):
             email=rec["email"],
             breach_name=rec["breach_name"],
             defaults={
-                "organization_id":      rec.get("organization_id"),
-                "root_domain":          rec.get("root_domain"),
-                "sub_domain_string":    rec.get("sub_domain"),
-                "sub_domain_id":        rec.get("sub_domain_id"),
+                "organization_id": rec.get("organization_id"),
+                "root_domain": rec.get("root_domain"),
+                "sub_domain_string": rec.get("sub_domain"),
+                "sub_domain_id": rec.get("sub_domain_id"),
                 "credential_breach_id": rec.get("credential_breach_id"),
-                "modified_date":        _parse_dt(rec.get("modified_date")),
-                "created_at":           _parse_dt(rec.get("created_at")),
-                "data_source_id":       rec.get("data_source_id"),
-                "password":             rec.get("password"),
-                "hash_type":            rec.get("hash_type"),
-                "intelx_system_id":     rec.get("intelx_system_id", ""),
+                "modified_date": _parse_dt(rec.get("modified_date")),
+                "created_at": _parse_dt(rec.get("created_at")),
+                "data_source_id": rec.get("data_source_id"),
+                "password": rec.get("password"),
+                "hash_type": rec.get("hash_type"),
+                "intelx_system_id": rec.get("intelx_system_id", ""),
             },
         )
 
@@ -185,7 +185,7 @@ def save_cybersix_payload(payload):
             cve_id=rec["cve_id"],
             date=_parse_dt(rec["date"]),
             defaults={
-                "summary":        rec.get("summary"),
+                "summary": rec.get("summary"),
                 "dynamic_rating": rec.get("dynamic_rating"),
                 "nvd_base_score": rec.get("nvd_base_score"),
                 "data_source_id": rec.get("data_source_id"),
@@ -194,9 +194,7 @@ def save_cybersix_payload(payload):
 
 
 def validate_response_checksum(response) -> bool:
-    """
-    Recompute SHA-256(SALT + stable_json) and compare to X-Salted-Checksum header.
-    """
+    """Recompute SHA-256(SALT + stable_json) and compare to X-Salted-Checksum header."""
     try:
         data = response.json()
         received = response.headers.get("X-Salted-Checksum")
@@ -214,7 +212,8 @@ def validate_response_checksum(response) -> bool:
 
 def handler():
     """
-    Loop through all pages of the cybersix endpoint and upsert every table
+    Loop through all pages of the cybersix endpoint and upsert every table.
+
     via save_cybersix_payload().
     """
     try:

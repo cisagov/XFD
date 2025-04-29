@@ -1,45 +1,88 @@
-"""DmzSync API."""
-import json
+"""
+dmz_sync API module.
+
+Defines the `/dmz_sync/cybersix_sync` endpoint and the supporting logic
+to paginate and fetch data from the Sixgill tables, bundle it into a
+standardized payload, and compute an X-Salted-Checksum for integrity.
+
+Exports:
+  - CybersixSyncParams: Pydantic model for page and page_size parameters.
+  - fetch_cybersix_data: Async function that retrieves paginated slices of
+    alerts, mentions, breaches, subdomains, exposures, and top CVEs.
+"""
+# Standard Python Libraries
 import hashlib
-from datetime import timedelta
-from typing import Dict, Any
+import json
 
+# Third-Party Libraries
 from django.conf import settings
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
-from django.utils import timezone
-from asgiref.sync import sync_to_async
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from fastapi import HTTPException, status
-
 from pydantic import BaseModel, Field
-from xfd_api.helpers.date_time_helpers import calculate_days_back
 from xfd_mini_dl.models import (
-    SixgillAlerts,
-    Mentions,
     CredentialBreaches,
-    SubDomains,
     CredentialExposures,
+    Mentions,
+    SixgillAlerts,
+    SubDomains,
     TopCves,
 )
 
+from ..auth import is_global_write_admin
 
 SALT = settings.CHECKSUM_SALT
 
+
 # POST: /dmz_sync/sixgill_sync
 class CybersixSyncParams(BaseModel):
+    """
+    Pagination parameters for the CyberSix sync endpoint.
+
+    Attributes:
+        page (int): 1-indexed page number to fetch. Must be ≥ 1.
+        page_size (int): Number of items to include per page. Must be ≥ 1.
+    """
+
     page: int = Field(..., ge=1, description="Which page to fetch (1-indexed)")
     page_size: int = Field(..., ge=1, description="How many items per page")
 
 
-async def fetch_cybersix_data(params: CybersixSyncParams):
+async def fetch_cybersix_data(
+    params: CybersixSyncParams,
+    current_user,
+) -> tuple[dict, str]:
     """
     Pull paginated slices of each Sixgill table (no date filtering).
-    Returns (response_obj: dict, checksum: str)
-    """
 
+    Only global write-admin users may call this.
+
+    Args:
+        params: pagination parameters (page, page_size).
+        current_user: the authenticated User model instance.
+
+    Raises:
+        HTTPException 403 if the user is not a global write-admin.
+        HTTPException 500 on any underlying DB errors.
+
+    Returns:
+        A tuple of:
+          - response_obj (dict): { status: "ok", payload: { total_pages, current_page, data: {...} } }
+          - checksum (str): SHA-256 of SALT + deterministic JSON of response_obj.
+    """
+    # 1️⃣ enforce permissions
+    if not is_global_write_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access."
+        )
+
+    # 2️⃣ helper to paginate any Django model
     def _paginate(model_cls, ordering_field: str):
         """
         Order by `ordering_field`, then paginate.
-        Returns: (num_pages, list_of_dicts)
+
+        Returns:
+            num_pages (int),
+            items (List[dict])  -- list of `model_cls.values()` dicts for that page
         """
         qs = model_cls.objects.order_by(ordering_field).values()
         paginator = Paginator(qs, params.page_size)
@@ -53,19 +96,20 @@ async def fetch_cybersix_data(params: CybersixSyncParams):
             items = []
         return paginator.num_pages, items
 
+    # 3️⃣ pull each table
     try:
-        alerts_pages, alerts = _paginate(SixgillAlerts,     "date")
-        mentions_pages, mentions = _paginate(Mentions,      "date")
+        alerts_pages, alerts = _paginate(SixgillAlerts, "date")
+        mentions_pages, mentions = _paginate(Mentions, "date")
         breaches_pages, breaches = _paginate(CredentialBreaches, "added_date")
-        subs_pages, subs = _paginate(SubDomains,            "first_seen")
+        subs_pages, subs = _paginate(SubDomains, "first_seen")
         expo_pages, exposures = _paginate(CredentialExposures, "created_at")
-        topcves_pages, topcves = _paginate(TopCves,         "date")
+        topcves_pages, topcves = _paginate(TopCves, "date")
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="DB error: {}".format(e),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {e}"
         )
 
+    # 4️⃣ build the payload
     total_pages = max(
         alerts_pages,
         mentions_pages,
@@ -74,7 +118,6 @@ async def fetch_cybersix_data(params: CybersixSyncParams):
         expo_pages,
         topcves_pages,
     )
-
     payload = {
         "total_pages": total_pages,
         "current_page": params.page,
@@ -89,7 +132,7 @@ async def fetch_cybersix_data(params: CybersixSyncParams):
     }
     response_obj = {"status": "ok", "payload": payload}
 
-    # deterministic JSON + checksum
+    # 5️⃣ deterministic JSON + salted checksum
     json_str = json.dumps(response_obj, default=str, sort_keys=True)
     checksum = hashlib.sha256((SALT + json_str).encode()).hexdigest()
 
