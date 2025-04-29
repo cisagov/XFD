@@ -1,15 +1,17 @@
 """Test DMZ Sync CyberSix API endpoint."""
 
-import uuid
+# Standard Python Libraries
 from datetime import datetime
-import pytest
-from fastapi.testclient import TestClient
-from fastapi import HTTPException as FastAPIHTTPException
+import uuid
 
+# Third-Party Libraries
+from fastapi import HTTPException as FastAPIHTTPException
+from fastapi.testclient import TestClient
+import pytest
+import xfd_api.api_methods.dmz_sync as cybersix_module  # adjust path if needed
 from xfd_api.auth import create_jwt_token
 from xfd_django.asgi import app
 from xfd_mini_dl.models import User, UserType
-import xfd_api.api_methods.dmz_sync as cybersix_module  # adjust path if needed
 
 client = TestClient(app)
 
@@ -43,9 +45,7 @@ def test_cybersix_sync_success(admin_user, monkeypatch):
     async def fake_fetch():
         return dummy_payload, dummy_checksum
 
-    monkeypatch.setattr(
-        cybersix_module, "fetch_cybersix_data", fake_fetch
-    )
+    monkeypatch.setattr(cybersix_module, "fetch_cybersix_data", fake_fetch)
 
     response = client.post(
         "/dmz_sync/cybersix_sync",
@@ -66,12 +66,11 @@ def test_cybersix_sync_unauthenticated():
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_cybersix_sync_fetch_error(admin_user, monkeypatch):
     """Generic exception in fetch_cybersix_data → 500 Sync error."""
+
     async def fake_fetch():
         raise RuntimeError("database down")
 
-    monkeypatch.setattr(
-        cybersix_module, "fetch_cybersix_data", fake_fetch
-    )
+    monkeypatch.setattr(cybersix_module, "fetch_cybersix_data", fake_fetch)
 
     response = client.post(
         "/dmz_sync/cybersix_sync",
@@ -84,13 +83,12 @@ def test_cybersix_sync_fetch_error(admin_user, monkeypatch):
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_cybersix_sync_http_exception(admin_user, monkeypatch):
-    """HTTPException in fetch_cybersix_data is re-raised as is."""
+    """A HTTPException in fetch_cybersix_data is re-raised as is."""
+
     async def fake_fetch():
         raise FastAPIHTTPException(status_code=418, detail="I'm a teapot")
 
-    monkeypatch.setattr(
-        cybersix_module, "fetch_cybersix_data", fake_fetch
-    )
+    monkeypatch.setattr(cybersix_module, "fetch_cybersix_data", fake_fetch)
 
     response = client.post(
         "/dmz_sync/cybersix_sync",
