@@ -48,6 +48,8 @@ interface UserType extends User {
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
   full_name: string;
+  approved_by_id?: string | null | undefined;
+  date_approved?: string | null | undefined;
 }
 
 export const Users: React.FC = () => {
@@ -116,6 +118,26 @@ export const Users: React.FC = () => {
       flex: 1
     },
     { field: 'user_type', headerName: 'User Type', minWidth: 100, flex: 0.75 },
+    {
+      field: 'date_approved',
+      headerName: 'Approval Date',
+      minWidth: 100,
+      flex: 1,
+      sortComparator: (v1, v2) => {
+        if (v1 === 'None') return -1;
+        if (v2 === 'None') return 1;
+
+        const date1 = new Date(v1);
+        const date2 = new Date(v2);
+        return date1.getTime() - date2.getTime();
+      }
+    },
+    {
+      field: 'approved_by_id',
+      headerName: 'Approved By',
+      minWidth: 100,
+      flex: 0.75
+    },
     {
       field: 'dateToUSigned',
       headerName: 'Date ToU Signed',

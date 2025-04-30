@@ -204,6 +204,13 @@ def get_users(current_user):
             print("user_type:", user.user_type)
             print("last_logged_in:", user.last_logged_in)
             print("date_approved:", user.date_approved)
+            if user.approved_by_id:
+                # Check if approved_by_id is not None before accessing its id
+                # This prevents AttributeError if approved_by_id is None
+                print("approved_by_id:", user.approved_by_id.id)
+            else:
+                # Handle the case where approved_by_id is None
+                print("approved_by_id: None")
             print("approved_by_id:", user.approved_by_id.id)
             print("accepted_terms_version:", user.accepted_terms_version)
             print("date_accepted_terms:", user.date_accepted_terms)

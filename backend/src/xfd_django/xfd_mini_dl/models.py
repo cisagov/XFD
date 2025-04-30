@@ -1275,7 +1275,7 @@ class User(AutoLengthCheckModel):
         null=True,
         help_text="Date the user was approved to have access to the cyhy dashboard.",
     )
-    approved_by_id = models.UUIDField(
+    approved_by_id = models.ForeignKey(
         "User",
         models.DO_NOTHING,
         db_column="approved_by_id",
@@ -2513,66 +2513,6 @@ class Ticket(models.Model):
         managed = manage_db
         db_table = "ticket"
         unique_together = ["id"]
-
-
-class CisaKevCatalog(models.Model):
-    """Define CISA KEV Catalog model."""
-
-    cisa_kev_uid = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        help_text="PK: Unique identifier for each KEV record.",
-    )
-    cve_id = models.CharField(
-        max_length=50,
-        db_index=True,
-        help_text="CVE ID of the known exploited vulnerability.",
-    )
-    vendor_project = models.CharField(
-        max_length=255,
-        help_text="Name of the vendor or project associated with the vulnerability.",
-    )
-    product = models.CharField(
-        max_length=255, help_text="Name of the affected product."
-    )
-    vulnerability_name = models.CharField(
-        max_length=255, help_text="Name or brief title of the vulnerability."
-    )
-    date_added = models.DateField(
-        help_text="Date the vulnerability was added to the KEV catalog."
-    )
-    short_description = models.TextField(
-        help_text="Brief description of the vulnerability."
-    )
-    required_action = models.TextField(
-        help_text="Recommended remediation or mitigation action."
-    )
-    due_date = models.DateField(
-        null=True, blank=True, help_text="Due date for action if provided."
-    )
-    notes = models.TextField(
-        null=True, blank=True, help_text="Additional notes or remarks."
-    )
-    cwe_id = models.CharField(
-        max_length=50,
-        null=True,
-        blank=True,
-        help_text="Common Weakness Enumeration (CWE) ID related to the CVE.",
-    )
-    known_ransomware_campaign_use = models.BooleanField(
-        default=False,
-        help_text="Flag indicating if the CVE is known to be used in ransomware campaigns.",
-    )
-    vulnerability_publish_date = models.DateField(
-        null=True, blank=True, help_text="Original publish date of the vulnerability."
-    )
-
-    class Meta:
-        """Set model metadata for Mini Data Lake."""
-
-        app_label = app_label_name
-        managed = manage_db
-        db_table = "cisa_kev_catalog"
 
 
 class PortScan(AutoLengthCheckModel):

@@ -86,6 +86,12 @@ export const RegionUsers: React.FC = () => {
           </Stack>
         );
       }
+    },
+    {
+      field: 'cognito_use_case_description',
+      headerName: 'Use Case',
+      minWidth: 100,
+      flex: 1.5
     }
   ];
   const memberCols: GridColDef[] = [
