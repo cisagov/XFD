@@ -190,30 +190,23 @@ def get_users(current_user):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         users = User.objects.all().prefetch_related("roles__organization")
-        print("Inside user.py: ")
-        for user in users:
-            print("id:", str(user.id))
-            print("created_at:", user.created_at.isoformat())
-            print("updated_at:", user.updated_at.isoformat())
-            print("first_name:", user.first_name)
-            print("last_name:", user.last_name)
-            print("full_name:", user.full_name)
-            print("email:", user.email)
-            print("region_id:", user.region_id)
-            print("state:", user.state)
-            print("user_type:", user.user_type)
-            print("last_logged_in:", user.last_logged_in)
-            print("date_approved:", user.date_approved)
-            if user.approved_by_id:
-                # Check if approved_by_id is not None before accessing its id
-                # This prevents AttributeError if approved_by_id is None
-                print("approved_by_id:", user.approved_by_id.id)
-            else:
-                # Handle the case where approved_by_id is None
-                print("approved_by_id: None")
-            print("approved_by_id:", user.approved_by_id.id)
-            print("accepted_terms_version:", user.accepted_terms_version)
-            print("date_accepted_terms:", user.date_accepted_terms)
+        # print("Inside user.py: ")
+        # for user in users:
+        #     print("id:", str(user.id))
+        #     print("created_at:", user.created_at.isoformat())
+        #     print("updated_at:", user.updated_at.isoformat())
+        #     print("first_name:", user.first_name)
+        #     print("last_name:", user.last_name)
+        #     print("full_name:", user.full_name)
+        #     print("email:", user.email)
+        #     print("region_id:", user.region_id)
+        #     print("state:", user.state)
+        #     print("user_type:", user.user_type)
+        #     print("last_logged_in:", user.last_logged_in)
+        #     print("date_approved:", user.date_approved)
+        #     print("approved_by_id:", user.approved_by_id)
+        #     print("accepted_terms_version:", user.accepted_terms_version)
+        #     print("date_accepted_terms:", user.date_accepted_terms)
         # Return the updated user details
         return [
             {
@@ -229,7 +222,7 @@ def get_users(current_user):
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
                 "date_approved": user.date_approved,
-                "approved_by_id": user.approved_by_id.id,
+                "approved_by_id": user.approved_by_id,
                 "accepted_terms_version": user.accepted_terms_version,
                 "date_accepted_terms": user.date_accepted_terms,
                 "roles": [

@@ -296,13 +296,30 @@ export const RegionUsers: React.FC = () => {
   };
 
   const handleApproveClick = (row: typeof initializeUser) => {
-    selectOrg([]);
-    setDialogStates({
-      ...dialogStates,
-      isOrgDialogOpen: true
-    });
-    selectUser(row);
-    fetchOrganizations(row);
+    try {
+      let currentUser = '';
+      selectOrg([]);
+      setDialogStates({
+        ...dialogStates,
+        isOrgDialogOpen: true
+      });
+      selectUser(row);
+      fetchOrganizations(row);
+    } catch (e: any) {
+      setErrorStates({ ...errorStates, getOrgsError: e.message });
+    } finally {
+      // Make API call to get current user approving a new user request
+      apiGet('/users/me')
+        .then((currentUser) => {
+          console.log(currentUser);
+          console.log('ID', currentUser.id);
+          console.log('Name', currentUser.full_name);
+          console.log('Email', currentUser.email);
+        })
+        .catch((e: any) => {
+          setErrorStates({ ...errorStates, getOrgsError: e.message });
+        });
+    }
   };
 
   const handleDenyClick = (row: typeof initializeUser) => {

@@ -37,6 +37,8 @@ class User(BaseModel):
     email: str
     invite_pending: bool
     login_blocked_by_maintenance: bool
+    date_approved: Optional[datetime] = None
+    approved_by_id: Optional[UUID] = None
     date_accepted_terms: Optional[datetime]
     accepted_terms_version: Optional[str]
     last_logged_in: Optional[datetime]
