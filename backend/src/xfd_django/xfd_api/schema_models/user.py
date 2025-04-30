@@ -186,6 +186,8 @@ class UserResponseV2(BaseModel):
     last_name: str
     full_name: str
     email: str
+    date_approved: Optional[datetime] = None
+    approved_by_id: Optional[UUID] = None
     accepted_terms_version: Optional[str] = None
     date_accepted_terms: Optional[datetime] = None
     last_logged_in: Optional[datetime] = None
