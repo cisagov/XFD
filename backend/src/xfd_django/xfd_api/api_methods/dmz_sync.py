@@ -29,6 +29,7 @@ from xfd_mini_dl.models import (
 )
 
 from ..auth import is_global_write_admin
+from ..models import Organization
 
 SALT = settings.CHECKSUM_SALT
 
@@ -45,6 +46,8 @@ class CybersixSyncParams(BaseModel):
 
     page: int = Field(..., ge=1, description="Which page to fetch (1-indexed)")
     page_size: int = Field(..., ge=1, description="How many items per page")
+    acronym: str = "DHS"
+    since_date: Optional[datetime] = None
 
 
 async def fetch_cybersix_data(
@@ -74,9 +77,8 @@ async def fetch_cybersix_data(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access."
         )
-
     # 2️⃣ helper to paginate any Django model
-    def _paginate(model_cls, ordering_field: str):
+    def _paginate(model_cls, ordering_field: str, org: Organization, since_timestamp: str | None = None):
         """
         Order by `ordering_field`, then paginate.
 
@@ -84,7 +86,9 @@ async def fetch_cybersix_data(
             num_pages (int),
             items (List[dict])  -- list of `model_cls.values()` dicts for that page
         """
-        qs = model_cls.objects.order_by(ordering_field).values()
+        qs = model_cls.objects.filter(organization = org).order_by(ordering_field).values()
+        if since_timestamp is not None:
+            qs = qs.filter(Q(date__gte=since_timestamp))
         paginator = Paginator(qs, params.page_size)
         try:
             page = paginator.page(params.page)
@@ -100,9 +104,6 @@ async def fetch_cybersix_data(
     try:
         alerts_pages, alerts = _paginate(SixgillAlerts, "date")
         mentions_pages, mentions = _paginate(Mentions, "date")
-        breaches_pages, breaches = _paginate(CredentialBreaches, "added_date")
-        subs_pages, subs = _paginate(SubDomains, "first_seen")
-        expo_pages, exposures = _paginate(CredentialExposures, "created_at")
         topcves_pages, topcves = _paginate(TopCves, "date")
     except Exception as e:
         raise HTTPException(
@@ -113,9 +114,6 @@ async def fetch_cybersix_data(
     total_pages = max(
         alerts_pages,
         mentions_pages,
-        breaches_pages,
-        subs_pages,
-        expo_pages,
         topcves_pages,
     )
     payload = {
@@ -124,9 +122,7 @@ async def fetch_cybersix_data(
         "data": {
             "alerts": alerts,
             "mentions": mentions,
-            "breaches": breaches,
-            "subdomains": subs,
-            "exposures": exposures,
+
             "topcves": topcves,
         },
     }

@@ -62,193 +62,70 @@ def _parse_dt(val):
         return None
 
 
-def save_cybersix_payload(payload):
-    """
-    Upsert each Sixgill table from the payload JSON.
-
-    payload = {
-      "alerts": [...],
-      "mentions": [...],
-      "breaches": [...],
-      "subdomains": [...],
-      "exposures": [...],
-      "topcves": [...],
-    }
-    """
-    # 1) Alerts
-    for rec in payload.get("alerts", []):
-        SixgillAlerts.objects.update_or_create(
-            sixgill_id=rec["sixgill_id"],
-            defaults={
-                "alert_name": rec.get("alert_name"),
-                "content": rec.get("content", "")[:2000],
-                "date": _parse_dt(rec.get("date")),
-                "read": rec.get("read"),
-                "severity": rec.get("severity"),
-                "site": rec.get("site"),
-                "threat_level": rec.get("threat_level"),
-                "threats": rec.get("threats"),
-                "title": rec.get("title"),
-                "user_id": rec.get("user_id"),
-                "category": rec.get("category"),
-                "lang": rec.get("lang"),
-                "content_snip": rec.get("content_snip"),
-                "asset_mentioned": rec.get("asset_mentioned"),
-                "asset_type": rec.get("asset_type"),
-            },
-        )
-
-    # 2) Mentions
-    for rec in payload.get("mentions", []):
-        Mentions.objects.update_or_create(
-            sixgill_mention_id=rec["sixgill_mention_id"],
-            defaults={
-                "category": rec.get("category"),
-                "collection_date": _parse_dt(rec.get("collection_date")),
-                "content": rec.get("content"),
-                "creator": rec.get("creator"),
-                "date": _parse_dt(rec.get("date")),
-                "post_id": rec.get("post_id"),
-                "lang": rec.get("lang"),
-                "rep_grade": rec.get("rep_grade"),
-                "site": rec.get("site"),
-                "site_grade": rec.get("site_grade"),
-                "title": rec.get("title"),
-                "type": rec.get("type"),
-                "url": rec.get("url"),
-                "comments_count": rec.get("comments_count"),
-                "sub_category": rec.get("sub_category", "NaN"),
-                "tags": rec.get("tags"),
-                "title_translated": rec.get("title_translated"),
-                "content_translated": rec.get("content_translated"),
-                "detected_lang": rec.get("detected_lang"),
-                "organization_id": rec.get("organization_id"),
-                "data_source_id": rec.get("data_source_id"),
-            },
-        )
-
-    # 3) Breaches
-    for rec in payload.get("breaches", []):
-        CredentialBreaches.objects.update_or_create(
-            breach_name=rec["breach_name"],
-            defaults={
-                "exposed_cred_count": rec.get("exposed_cred_count"),
-                "breach_date": _parse_dt(rec.get("breach_date")),
-                "added_date": _parse_dt(rec.get("added_date")),
-                "modified_date": _parse_dt(rec.get("modified_date")),
-                "password_included": rec.get("password_included"),
-                "data_source_id": rec.get("data_source_id"),
-            },
-        )
-
-    # 4) SubDomains
-    for rec in payload.get("subdomains", []):
-        SubDomains.objects.update_or_create(
-            id=rec["id"],  # or use another unique key
-            defaults={
-                "organization_id": rec.get("organization_id"),
-                "sub_domain": rec.get("sub_domain"),
-                "is_root_domain": rec.get("is_root_domain", False),
-                "first_seen": _parse_dt(rec.get("first_seen")),
-                "last_seen": _parse_dt(rec.get("last_seen")),
-                "from_root_domain": rec.get("from_root_domain"),
-                "identified": rec.get("identified", False),
-                "current": rec.get("current", False),
-                "subdomain_source": rec.get("subdomain_source"),
-                "data_source_id": rec.get("data_source_id"),
-            },
-        )
-
-    # 5) CredentialExposures
-    for rec in payload.get("exposures", []):
-        CredentialExposures.objects.update_or_create(
-            email=rec["email"],
-            breach_name=rec["breach_name"],
-            defaults={
-                "organization_id": rec.get("organization_id"),
-                "root_domain": rec.get("root_domain"),
-                "sub_domain_string": rec.get("sub_domain"),
-                "sub_domain_id": rec.get("sub_domain_id"),
-                "credential_breach_id": rec.get("credential_breach_id"),
-                "modified_date": _parse_dt(rec.get("modified_date")),
-                "created_at": _parse_dt(rec.get("created_at")),
-                "data_source_id": rec.get("data_source_id"),
-                "password": rec.get("password"),
-                "hash_type": rec.get("hash_type"),
-                "intelx_system_id": rec.get("intelx_system_id", ""),
-            },
-        )
-
-    # 6) TopCves
-    for rec in payload.get("topcves", []):
-        TopCves.objects.update_or_create(
-            cve_id=rec["cve_id"],
-            date=_parse_dt(rec["date"]),
-            defaults={
-                "summary": rec.get("summary"),
-                "dynamic_rating": rec.get("dynamic_rating"),
-                "nvd_base_score": rec.get("nvd_base_score"),
-                "data_source_id": rec.get("data_source_id"),
-            },
-        )
-
-
-def validate_response_checksum(response) -> bool:
-    """Recompute SHA-256(SALT + stable_json) and compare to X-Salted-Checksum header."""
+def handler(event):
+    """Retrieve and save Sixgill data for each organization."""
     try:
-        data = response.json()
-        received = response.headers.get("X-Salted-Checksum")
-        if not received:
-            LOGGER.warning("No checksum header")
-            return False
-
-        stable = json.dumps(data, default=str, sort_keys=True)
-        calc = hashlib.sha256((SALT + stable).encode()).hexdigest()
-        return received == calc
-    except Exception as e:
-        LOGGER.error("Error validating checksum: %s", e)
-        return False
+        main()
+        return {
+            "status_code": 200,
+            "body": "DMZ Sixgill sync completed successfully.",
+        }
+    except Exception as error:
+        LOGGER.error("Sync error: %s", error)
+        return {"status_code": 500, "body": str(error)}
 
 
-def handler():
-    """
-    Loop through all pages of the cybersix endpoint and upsert every table.
+def main():
+    """Fetch and save DMZ Sixgill data, paging through each org."""
+    # Ensure our DataSource record exists
+    sixgill_source, _ = DataSource.objects.get_or_create(
+        name="Sixgill",
+        defaults={
+            "description": "Darkweb monitoring via Sixgill",
+            "last_run": timezone.now().date(),
+        },
+    )
 
-    via save_cybersix_payload().
-    """
-    try:
-        page = 1
-        page_size = int(os.getenv("SYNC_PAGE_SIZE", "200"))
+    # Loop over every organization
+    for organization in Organization.objects.all():
+        LOGGER.info(
+            "Processing organization: %s (%s)",
+            organization.acronym,
+            organization.name,
+        )
 
-        while True:
-            LOGGER.info("Fetching page %s …", page)
-            resp = requests.post(
-                API_URL,
-                headers=HEADERS,
-                json={"page": page, "page_size": page_size},
-                timeout=60,
+        current_page = 1
+        total_pages = 2  # dummy to enter loop
+
+        while current_page <= total_pages:
+            since_timestamp_str = calculate_days_back(15)
+            response = fetch_sixgill_page(
+                organization_acronym=organization.acronym,
+                page_number=current_page,
+                page_size=PAGE_SIZE,
+
             )
-            resp.raise_for_status()
+            if not response:
+                LOGGER.error("Failed to fetch page %d for %s", current_page, organization.acronym)
+                break
 
-            if not validate_response_checksum(resp):
-                LOGGER.error("Checksum mismatch on page %s", page)
-                return {"statusCode": 500, "body": "Checksum mismatch"}
+            if not validate_response_checksum(response):
+                raise RuntimeError(f"Checksum mismatch on page {current_page}")
 
-            body = resp.json()
-            if body.get("status") != "ok":
-                LOGGER.error("Bad status on page %s: %s", page, body)
-                return {"statusCode": 500, "body": "Bad status"}
+            wrapper = response.json()
+            if wrapper.get("status") != "ok":
+                raise RuntimeError(f"Bad status on page {current_page}: {wrapper}")
 
-            payload = body["payload"]
-            current = payload["current_page"]
-            total = payload["total_pages"]
+            payload = wrapper["payload"]
+            total_pages = payload["total_pages"]
+            fetched_page = payload["current_page"]
             data = payload["data"]
 
             LOGGER.info(
-                "Page %s/%s: alerts=%s, mentions=%s, breaches=%s, "
-                "subdomains=%s, exposures=%s, topcves=%s",
-                current,
-                total,
+                "Org %s page %d/%d: alerts=%d, mentions=%d, breaches=%d, subdomains=%d, exposures=%d, topcves=%d",
+                organization.acronym,
+                fetched_page,
+                total_pages,
                 len(data["alerts"]),
                 len(data["mentions"]),
                 len(data["breaches"]),
@@ -257,22 +134,131 @@ def handler():
                 len(data["topcves"]),
             )
 
-            # Upsert all tables in one pass
-            save_cybersix_payload(data)
+            save_sixgill_payload(
+                payload=data,
+                organization=organization,
+                data_source=sixgill_source,
+            )
 
-            if current >= total:
+            if fetched_page >= total_pages:
                 break
-            page += 1
 
-        LOGGER.info("Cybersixgill sync completed successfully.")
-        return {"statusCode": 200, "body": "Sync successful"}
-
-    except Exception as e:
-        LOGGER.error("Sync error: %s", e)
-        return {"statusCode": 500, "body": str(e)}
+            current_page += 1
+            time.sleep(1)  # throttle between pages
 
 
-if __name__ == "__main__":
-    result = handler()
-    LOGGER.info("Result: %s", result)
-    print(result)
+def fetch_sixgill_page(organization_acronym: str, page_number: int, page_size: int, since_timestamp: str):
+    """Fetch a single page of Sixgill data for the given org."""
+    request_body = {
+        "org_acronym": organization_acronym,
+        "page": page_number,
+        "page_size": page_size,
+        "since_timestamp": since_timestamp,
+    }
+    try:
+        response = requests.post(
+            API_URL,
+            headers=HEADERS,
+            json=request_body,
+            timeout=REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        return response
+    except requests.RequestException as error:
+        LOGGER.error(
+            "Error fetching Sixgill page %d for %s: %s",
+            page_number,
+            organization_acronym,
+            error,
+        )
+        return None
+
+
+def validate_response_checksum(response) -> bool:
+    """Recompute SHA-256(SALT + stable_json) and compare to X-Salted-Checksum."""
+    try:
+        data = response.json()
+        received_checksum = response.headers.get("X-Salted-Checksum")
+        if not received_checksum:
+            LOGGER.warning("No X-Salted-Checksum header on response")
+            return False
+
+        stable = json.dumps(data, default=str, sort_keys=True)
+        calculated = hashlib.sha256((SALT + stable).encode()).hexdigest()
+        return received_checksum == calculated
+    except Exception as error:
+        LOGGER.error("Checksum validation error: %s", error)
+        return False
+
+
+def save_sixgill_payload(payload: dict, organization, data_source):
+    """
+    Upsert each Sixgill table from the payload JSON, scoped to org & data_source.
+    """
+    # Alerts
+    for record in payload.get("alerts", []):
+        SixgillAlerts.objects.update_or_create(
+            sixgill_id=record["sixgill_id"],
+            organization=organization,
+            defaults={
+                "alert_name": record.get("alert_name"),
+                "content": record.get("content", "")[:2000],
+                "date": _parse_dt(record.get("date")),
+                "read": record.get("read"),
+                "severity": record.get("severity"),
+                "site": record.get("site"),
+                "threat_level": record.get("threat_level"),
+                "threats": record.get("threats"),
+                "title": record.get("title"),
+                "category": record.get("category"),
+                "lang": record.get("lang"),
+                "content_snip": record.get("content_snip"),
+                "asset_mentioned": record.get("asset_mentioned"),
+                "asset_type": record.get("asset_type"),
+                "data_source": data_source,
+            },
+        )
+
+    # Mentions
+    for record in payload.get("mentions", []):
+        Mentions.objects.update_or_create(
+            sixgill_mention_id=record["sixgill_mention_id"],
+            organization=organization,
+            defaults={
+                "category": record.get("category"),
+                "collection_date": _parse_dt(record.get("collection_date")),
+                "content": record.get("content"),
+                "creator": record.get("creator"),
+                "date": _parse_dt(record.get("date")),
+                "post_id": record.get("post_id"),
+                "lang": record.get("lang"),
+                "rep_grade": record.get("rep_grade"),
+                "site": record.get("site"),
+                "site_grade": record.get("site_grade"),
+                "title": record.get("title"),
+                "type": record.get("type"),
+                "url": record.get("url"),
+                "comments_count": record.get("comments_count"),
+                "sub_category": record.get("sub_category", "NaN"),
+                "tags": record.get("tags"),
+                "title_translated": record.get("title_translated"),
+                "content_translated": record.get("content_translated"),
+                "detected_lang": record.get("detected_lang"),
+                "data_source": data_source,
+            },
+        )
+
+    # Top CVEs
+    for record in payload.get("topcves", []):
+        TopCves.objects.update_or_create(
+            cve_id=record["cve_id"],
+            date=_parse_dt(record.get("date")),
+            organization=organization,
+            defaults={
+                "summary": record.get("summary"),
+                "dynamic_rating": record.get("dynamic_rating"),
+                "nvd_base_score": record.get("nvd_base_score"),
+                "data_source": data_source,
+            },
+        )
+
