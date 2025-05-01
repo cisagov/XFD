@@ -5,11 +5,12 @@ and upsert into the local database.
 """
 
 # Standard Python Libraries
-import datetime
+from datetime import datetime, timezone
 import hashlib
 import json
 import logging
 import os
+import time
 from urllib.parse import urljoin
 
 # Third-Party Libraries
@@ -20,15 +21,17 @@ import requests
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
+# Standard Python Libraries
 
 # Third-Party Libraries
+from xfd_api.helpers.date_time_helpers import calculate_days_back
+
 # --- Models ---
 from xfd_mini_dl.models import (
-    CredentialBreaches,
-    CredentialExposures,
+    DataSource,
     Mentions,
+    Organization,
     SixgillAlerts,
-    SubDomains,
     TopCves,
 )
 
@@ -41,6 +44,9 @@ HEADERS = {
     "X-API-KEY": os.getenv("DMZ_API_KEY"),
     "Content-Type": "application/json",
 }
+
+REQUEST_TIMEOUT_SECONDS = 5
+PAGE_SIZE = 10
 
 # Build the endpoint URL (/sync → /dmz_sync/cybersix_sync)
 base = os.getenv("DMZ_SYNC_ENDPOINT", "").rstrip("/")
@@ -103,10 +109,12 @@ def main():
                 organization_acronym=organization.acronym,
                 page_number=current_page,
                 page_size=PAGE_SIZE,
-
+                since_timestamp=since_timestamp_str,
             )
             if not response:
-                LOGGER.error("Failed to fetch page %d for %s", current_page, organization.acronym)
+                LOGGER.error(
+                    "Failed to fetch page %d for %s", current_page, organization.acronym
+                )
                 break
 
             if not validate_response_checksum(response):
@@ -147,7 +155,9 @@ def main():
             time.sleep(1)  # throttle between pages
 
 
-def fetch_sixgill_page(organization_acronym: str, page_number: int, page_size: int, since_timestamp: str):
+def fetch_sixgill_page(
+    organization_acronym: str, page_number: int, page_size: int, since_timestamp: str
+):
     """Fetch a single page of Sixgill data for the given org."""
     request_body = {
         "org_acronym": organization_acronym,
@@ -192,9 +202,7 @@ def validate_response_checksum(response) -> bool:
 
 
 def save_sixgill_payload(payload: dict, organization, data_source):
-    """
-    Upsert each Sixgill table from the payload JSON, scoped to org & data_source.
-    """
+    """Upsert each Sixgill table from the payload JSON, scoped to org & data_source."""
     # Alerts
     for record in payload.get("alerts", []):
         SixgillAlerts.objects.update_or_create(
@@ -261,4 +269,3 @@ def save_sixgill_payload(payload: dict, organization, data_source):
                 "data_source": data_source,
             },
         )
-

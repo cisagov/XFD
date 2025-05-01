@@ -1,3 +1,5 @@
+"""Cybersix Sync Command."""
+# Third-Party Libraries
 from django.core.management.base import BaseCommand
 from xfd_api.tasks.dmz_sync_cybersix import handler as run_cybersix_sync
 
@@ -8,6 +10,7 @@ class Command(BaseCommand):
     help = "Fetch Cybersixgill data via DMZ and upsert into the mini datalake models"
 
     def handle(self, *args, **options):
+        """Handle the command."""
         result = run_cybersix_sync()
         # If your handler() returns a dict like {"statusCode": ..., "body": ...}
         # you can pretty-print it here

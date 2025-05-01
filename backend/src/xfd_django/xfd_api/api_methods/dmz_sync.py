@@ -11,22 +11,18 @@ Exports:
     alerts, mentions, breaches, subdomains, exposures, and top CVEs.
 """
 # Standard Python Libraries
+from datetime import datetime
 import hashlib
 import json
+from typing import Optional
 
 # Third-Party Libraries
 from django.conf import settings
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db.models import Q
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
-from xfd_mini_dl.models import (
-    CredentialBreaches,
-    CredentialExposures,
-    Mentions,
-    SixgillAlerts,
-    SubDomains,
-    TopCves,
-)
+from xfd_mini_dl.models import Mentions, SixgillAlerts, TopCves
 
 from ..auth import is_global_write_admin
 from ..models import Organization
@@ -77,8 +73,22 @@ async def fetch_cybersix_data(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access."
         )
+
+    try:
+        org = Organization.objects.get(acronym=params.acronym)  # <<< ADDED
+    except Organization.DoesNotExist:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Organization '{params.acronym}' not found.",
+        )
+
     # 2️⃣ helper to paginate any Django model
-    def _paginate(model_cls, ordering_field: str, org: Organization, since_timestamp: str | None = None):
+    def _paginate(
+        model_cls,
+        ordering_field: str,
+        org: Organization,
+        since_date: datetime | None = None,
+    ):
         """
         Order by `ordering_field`, then paginate.
 
@@ -86,9 +96,11 @@ async def fetch_cybersix_data(
             num_pages (int),
             items (List[dict])  -- list of `model_cls.values()` dicts for that page
         """
-        qs = model_cls.objects.filter(organization = org).order_by(ordering_field).values()
-        if since_timestamp is not None:
-            qs = qs.filter(Q(date__gte=since_timestamp))
+        qs = (
+            model_cls.objects.filter(organization=org).order_by(ordering_field).values()
+        )
+        if since_date is not None:
+            qs = qs.filter(Q(date__gte=since_date))
         paginator = Paginator(qs, params.page_size)
         try:
             page = paginator.page(params.page)
@@ -102,9 +114,15 @@ async def fetch_cybersix_data(
 
     # 3️⃣ pull each table
     try:
-        alerts_pages, alerts = _paginate(SixgillAlerts, "date")
-        mentions_pages, mentions = _paginate(Mentions, "date")
-        topcves_pages, topcves = _paginate(TopCves, "date")
+        alerts_pages, alerts = _paginate(
+            SixgillAlerts, "date", org, since_date=params.since_date
+        )
+        mentions_pages, mentions = _paginate(
+            Mentions, "date", org, since_date=params.since_date
+        )
+        topcves_pages, topcves = _paginate(
+            TopCves, "date", org, since_date=params.since_date
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {e}"
@@ -122,7 +140,6 @@ async def fetch_cybersix_data(
         "data": {
             "alerts": alerts,
             "mentions": mentions,
-
             "topcves": topcves,
         },
     }
