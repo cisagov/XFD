@@ -36,8 +36,12 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   const fetchNotifications = React.useCallback(async () => {
     try {
       const rows = await apiGet('/notifications');
+      // Updated maintenance window banner check
+      const now = new Date();
       const activeRow = rows.find((row: MaintenanceNotification) => {
-        return row.status === 'active';
+        const start = new Date(row.start_datetime);
+        const end = new Date(row.end_datetime);
+        return row.status === 'active' && start <= now && now <= end;
       });
       setNotification(activeRow);
     } catch (e: any) {

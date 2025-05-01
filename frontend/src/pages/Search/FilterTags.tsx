@@ -116,7 +116,7 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
       return t;
     }
   },
-  organizationId: {
+  organization_id: {
     labelAccessor: (t) => {
       return 'Organization';
     },

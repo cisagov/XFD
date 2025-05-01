@@ -1,8 +1,9 @@
 """Test Stats endpoint."""
 # Standard Python Libraries
 from asyncio import Semaphore
-from datetime import datetime
+from datetime import datetime, timedelta
 import secrets
+import uuid
 
 # Third-Party Libraries
 from django.core.management import call_command
@@ -21,9 +22,11 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import (
     DataSource,
     Domain,
+    HostSummary,
     Ip,
     IpsSubs,
     Organization,
+    PortScanSummary,
     Role,
     ShodanAssets,
     ShodanVulns,
@@ -31,6 +34,7 @@ from xfd_mini_dl.models import (
     User,
     UserType,
     Vulnerability,
+    VulnScanSummary,
 )
 
 client = TestClient(app)
@@ -496,3 +500,260 @@ def test_get_stats_by_global_view_user(
     vuln_ids = [x["id"] for x in data["result"]["domains"]["num_vulnerabilities"]]
     assert any("sub.org2.com|Low" in v for v in vuln_ids)
     assert all("sub.org1.com" not in v for v in vuln_ids)
+
+
+#####################################################################
+#                 --------VS Summary Tests--------
+#####################################################################
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_vs_trends_success():
+    """Test /stats/trends endpoint returns valid data."""
+    org = Organization.objects.create(
+        id=uuid.uuid4(), name="Test Org", region_id="us-east"
+    )
+
+    user = User.objects.create(
+        email="{}@example.com".format(uuid.uuid4().hex),
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-east",
+    )
+
+    now = datetime.utcnow()
+    HostSummary.objects.create(
+        summary_date=now.date(),
+        start_date=now - timedelta(days=7),
+        end_date=now,
+        organization=org,
+        host_done_count=10,
+        host_waiting_count=2,
+        host_running_count=1,
+        host_ready_count=7,
+        up_host_count=8,
+        down_host_count=3,
+    )
+
+    PortScanSummary.objects.create(
+        summary_date=now.date(),
+        start_date=now - timedelta(days=7),
+        end_date=now,
+        organization=org,
+        open_port_count=20,
+        risky_port_count=5,
+        nmi_service_count=2,
+        unique_ip_count=10,
+        unique_service_count=8,
+    )
+
+    VulnScanSummary.objects.create(
+        summary_date=now.date(),
+        start_date=now - timedelta(days=7),
+        end_date=now,
+        organization=org,
+        assets_owned_count=100,
+        false_positive_count=5,
+        vulnerable_host_count=50,
+        scanned_asset_count=80,
+        unique_service_count=12,
+        unique_none_severity_count=1,
+        unique_low_severity_count=2,
+        unique_medium_severity_count=3,
+        unique_high_severity_count=4,
+        unique_critical_severity_count=5,
+        risky_services_count=3,
+        unsupported_software_count=7,
+        unique_os_count=4,
+        none_severity_count=10,
+        low_severity_count=20,
+        medium_severity_count=15,
+        high_severity_count=25,
+        critical_severity_count=5,
+        critical_max_age=90,
+        high_max_age=60,
+        none_kev_count=1,
+        low_kev_count=1,
+        medium_kev_count=1,
+        high_kev_count=1,
+        critical_kev_count=1,
+        kev_max_age=100,
+        one_to_five_vulns_count=10,
+        six_to_nine_vulns_count=5,
+        ten_plus_vulns_count=3,
+        top_5_occurring_cves=[],
+        top_5_occurring_kevs=[],
+        included_tickets=[],
+        top_5_risky_hosts={},
+    )
+
+    payload = {
+        "filters": {
+            "organization_id": str(org.id),
+            "start_date": (now - timedelta(days=7)).date().isoformat(),
+            "end_date": now.date().isoformat(),
+            "sources": ["vs", "host", "port", "port_service"],
+            "enhanced_data": True,
+        }
+    }
+
+    response = client.post(
+        "/stats/trends",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "host_summaries" in data
+    assert "port_scan_summaries" in data
+    assert "vuln_scan_summaries" in data
+    assert data["host_summaries"][0]["host_done_count"] == 10
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_vs_condensed_trends_success():
+    """Test /stats/condensed_trends endpoint returns valid flattened data."""
+    org = Organization.objects.create(
+        id=uuid.uuid4(), name="Test Org", region_id="us-west"
+    )
+
+    user = User.objects.create(
+        email="{}@example.com".format(uuid.uuid4().hex),
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-west",
+    )
+
+    now = datetime.utcnow()
+
+    HostSummary.objects.create(
+        summary_date=now.date(),
+        start_date=now - timedelta(days=7),
+        end_date=now,
+        organization=org,
+        host_done_count=12,
+        host_waiting_count=3,
+        host_running_count=0,
+        host_ready_count=9,
+        up_host_count=10,
+        down_host_count=2,
+    )
+
+    PortScanSummary.objects.create(
+        summary_date=now.date(),
+        start_date=now - timedelta(days=7),
+        end_date=now,
+        organization=org,
+        open_port_count=30,
+        risky_port_count=7,
+        nmi_service_count=3,
+        unique_ip_count=15,
+        unique_service_count=10,
+    )
+
+    VulnScanSummary.objects.create(
+        summary_date=now.date(),
+        start_date=now - timedelta(days=7),
+        end_date=now,
+        organization=org,
+        assets_owned_count=200,
+        false_positive_count=0,
+        vulnerable_host_count=100,
+        scanned_asset_count=150,
+        unique_service_count=5,
+        unique_none_severity_count=0,
+        unique_low_severity_count=0,
+        unique_medium_severity_count=0,
+        unique_high_severity_count=0,
+        unique_critical_severity_count=0,
+        risky_services_count=0,
+        unsupported_software_count=0,
+        unique_os_count=0,
+        none_severity_count=0,
+        low_severity_count=0,
+        medium_severity_count=0,
+        high_severity_count=0,
+        critical_severity_count=0,
+        critical_max_age=0,
+        high_max_age=0,
+        none_kev_count=0,
+        low_kev_count=0,
+        medium_kev_count=0,
+        high_kev_count=0,
+        critical_kev_count=0,
+        kev_max_age=0,
+        one_to_five_vulns_count=0,
+        six_to_nine_vulns_count=0,
+        ten_plus_vulns_count=0,
+    )
+
+    payload = {
+        "filters": {
+            "organization_id": str(org.id),
+            "start_date": (now - timedelta(days=7)).date().isoformat(),
+            "end_date": now.date().isoformat(),
+            "sources": ["vs", "host", "port_service", "port"],
+            "enhanced_data": False,
+        }
+    }
+
+    response = client.post(
+        "/stats/condensed_trends",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert any("host_summary_host_done_count" in k for k in data.keys())
+    assert data["host_summary_host_done_count"][0] == 12
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_vs_trends_unauthorized(organization):
+    """Test the /stats/trends endpoint without auth."""
+    payload = {
+        "filters": {
+            "organization_id": str(organization.id),
+            "start_date": (datetime.today() - timedelta(days=30)).isoformat(),
+            "end_date": datetime.today().isoformat(),
+            "enhanced_data": False,
+        }
+    }
+
+    response = client.post("/stats/trends", json=payload)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "No valid authentication credentials provided"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_vs_trends_invalid_org():
+    """Test the /stats/trends endpoint with invalid org ID."""
+    user = User.objects.create(
+        email="{}@example.com".format(uuid.uuid4().hex),
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-west",
+    )
+
+    payload = {
+        "filters": {
+            "organization_id": "Invalid-uuid",
+            "start_date": (datetime.today() - timedelta(days=30)).date().isoformat(),
+            "end_date": datetime.today().date().isoformat(),
+            "enhanced_data": False,
+        }
+    }
+
+    response = client.post(
+        "/stats/trends",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+    print(response)
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Invalid organization ID."

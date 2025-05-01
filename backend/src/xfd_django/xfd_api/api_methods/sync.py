@@ -17,13 +17,18 @@ from fastapi import HTTPException, Request
 from xfd_api.tasks.vulnScanningSync import save_organization_to_mdl
 from xfd_mini_dl.models import Organization, Sector
 
+from ..auth import is_global_view_admin
 from ..helpers.s3_client import S3Client
+from ..schema_models.sync import SyncResponse
 from ..utils.csv_utils import create_checksum
 
 
-async def sync_post(sync_body, request: Request):
+async def sync_post(sync_body, request: Request, current_user):
     """Ingest and persist organization data to the data lake."""
     try:
+        if not is_global_view_admin(current_user):
+            raise HTTPException(status_code=403, detail="Unauthorized")
+
         headers = request.headers
         request_checksum = headers.get("x-checksum")
         if not request_checksum or not sync_body.data:
@@ -62,6 +67,11 @@ async def sync_post(sync_body, request: Request):
 
             except Exception:
                 raise HTTPException(status_code=500)
+
+        return SyncResponse(status="success")
+
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception:
         raise HTTPException(status_code=500)
 

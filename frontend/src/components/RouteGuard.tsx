@@ -40,17 +40,18 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
+  // User must accept terms
   if (user && userMustSign) {
-    // user has authenticated but needs to sign terms
     console.log('User must sign check');
     history.push('/terms');
     return null;
   }
 
-  if (user && user.login_blocked_by_maintenance) {
-    logout();
-    return null;
-  }
+  // TODO: Uncomment if we decide to fully block logins during maintenance windows.
+  // if (user && user.login_blocked_by_maintenance) {
+  //   logout();
+  //   return null;
+  // }
 
   if (typeof unauth === 'string' && !user) {
     history.push(unauth);

@@ -32,7 +32,11 @@ class AutoLengthCheckModel(models.Model):
         for field in self._meta.fields:
             if isinstance(field, models.CharField):
                 value = getattr(self, field.name)
-                if value and field.max_length and len(value) > field.max_length:
+                if (
+                    isinstance(value, str)
+                    and field.max_length
+                    and len(value) > field.max_length
+                ):
                     LOGGER.warning(
                         "[%s] Auto-truncating field '%s': %s → %s chars",
                         self.__class__.__name__,
@@ -1103,10 +1107,9 @@ class ScanTask(models.Model):
 class Service(models.Model):
     """The Service View."""
 
-    id = models.UUIDField(
+    id = models.TextField(
         primary_key=True,
-        default=uuid.uuid4,
-        help_text="Unique identifier for a web service running on a stakeholders attack surface.",
+        help_text="Unique identifier for the service object.",
     )
     created_at = models.DateTimeField(
         db_column="created_at",
@@ -1801,6 +1804,229 @@ class VulnScan(AutoLengthCheckModel):
         db_table = "vuln_scan"
 
 
+class VulnScanSummary(models.Model):
+    """The VulnScanSummary Model."""
+
+    summary_date = models.DateField(
+        help_text="Date this summary represents (usually the date it was generated)."
+    )
+    start_date = models.DateTimeField(
+        help_text="Timestamp of the earliest last_change in the collection",
+    )
+    end_date = models.DateTimeField(
+        help_text="Timestamp of the latest last_change in the collection",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        related_name="vuln_scan_summaries",
+        on_delete=models.CASCADE,
+        help_text="Foreign key relationship to the organization the summary is built for.",
+    )
+    assets_owned_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Ip addresses found within an organizations reported CIDR blocks.",
+    )
+    false_positive_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of tickets marked as false positive.",
+    )
+    vulnerable_host_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Ip addresses that have an open ticket associated with them.",
+    )
+    scanned_asset_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Ip addresses that have been scanned",
+    )
+    unique_service_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Ip addresses that have been scanned",
+    )
+    unique_none_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 0",
+    )
+    unique_low_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 1",
+    )
+    unique_medium_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 2",
+    )
+    unique_high_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 3",
+    )
+    unique_critical_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 4",
+    )
+    risky_services_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count risky services by port",
+    )
+    unsupported_software_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of hosts with unsupported software",
+    )
+    unique_os_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of unique operating systems identified running on org assets.",
+    )
+    none_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 0",
+    )
+    low_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 1",
+    )
+    medium_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 2",
+    )
+    high_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 3",
+    )
+    critical_severity_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of vulnerabilities with a severity of 4",
+    )
+    critical_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open critical ticket.",
+    )
+    high_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open high ticket.",
+    )
+    # median age of current vulns by severity (requires 'firstDiscovered') <- age=enddate() - firstDiscovered(); where ticket.open=true by severity; sum(age)/count(by severity)
+    # none_median_age = models.IntegerField(
+    #     null=True,
+    #     blank=True,
+    #     help_text="Median age of vulns with no severity.",
+    # )
+    # low_median_age = models.IntegerField(
+    #     null=True,
+    #     blank=True,
+    #     help_text="Median age of vulns with severity of low.",
+    # )
+    # medium_median_age = models.IntegerField(
+    #     null=True,
+    #     blank=True,
+    #     help_text="Median age of vulns with severity of medium.",
+    # )
+    # high_median_age = models.IntegerField(
+    #     null=True,
+    #     blank=True,
+    #     help_text="Median age of vulns with severity of high.",
+    # )
+    # critical_median_age = models.IntegerField(
+    #     null=True,
+    #     blank=True,
+    #     help_text="Median age of vulns with severity of critical.",
+    # )
+    none_kev_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Kevs with no severity.",
+    )
+    low_kev_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of KEVs with a severity of low.",
+    )
+    medium_kev_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of KEVs with a severity of medium.",
+    )
+    high_kev_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of KEVs with a severity of high.",
+    )
+    critical_kev_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of KEVs with a severity of critical.",
+    )
+    kev_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open KEV ticket.",
+    )
+    one_to_five_vulns_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of hosts that have 1 to 5 vulns.",
+    )
+    six_to_nine_vulns_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of hosts that have 6 to 9 vulns.",
+    )
+    ten_plus_vulns_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of hosts that have 10+ vulns.",
+    )
+    top_5_occurring_cves = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        help_text="Dictionary containing top 5 occuring CVEs vulns",
+    )
+    top_5_occurring_kevs = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        help_text="Dictionary containing top 5 KEV CVEs.",
+    )
+    included_tickets = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        help_text="List of ids for the tickets counted in this summary.",
+    )
+    top_5_risky_hosts = models.JSONField(
+        blank=True,
+        null=True,
+        default=dict,
+        help_text="Dictionary containing top 5 risky hosts based on severity and the count number of tickets at each severity level.",
+    )
+
+    class Meta:
+        """The Meta class for VulnScan."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "vuln_scan_summary"
+        unique_together = (("summary_date", "organization"),)
+
+
 class Cidr(models.Model):
     """The Cidr Model."""
 
@@ -2478,6 +2704,11 @@ class Ticket(models.Model):
         blank=True,
         help_text="Timestamp when this ticket was opened (vulnerability was first detected)",
     )
+    is_open = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Boolean field that flags if this ticket open or closed   ",
+    )
     is_kev = models.BooleanField(
         null=True,
         blank=True,
@@ -2504,6 +2735,12 @@ class Ticket(models.Model):
         max_length=255,
         null=True,
         blank=True,
+    )
+    operating_system = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Name of operating system identified by port scan for the ip of the ticket.",
     )
 
     class Meta:
@@ -2752,9 +2989,6 @@ class PortScanServiceSummary(models.Model):
         unique_together = (
             ("organization", "summary_date", "service_name"),
         )  # datetime_pulled_from_redshift
-
-
-# #######  WAS Models  #########
 
 
 class WasTrackerCustomerdata(models.Model):
@@ -3941,7 +4175,7 @@ class DataSource(models.Model):
         default=uuid.uuid4,
         help_text="PK: Unique identifier for data_sources",
     )
-    name = models.TextField(help_text="Name of data source")
+    name = models.TextField(unique=True, help_text="Name of data source")
     description = models.TextField(help_text="Description of data source")
     last_run = models.DateField(help_text="Date that data source was last ran")
 
@@ -5127,12 +5361,12 @@ class SubDomains(AutoLengthCheckModel):
         auto_now_add=True,
         blank=True,
         null=True,
-        help_text="Date and time of the first time teh subdomain was seen.",
+        help_text="Date and time of the first time the subdomain was seen.",
     )
     last_seen = models.DateTimeField(
         blank=True,
         null=True,
-        auto_now=True,
+        auto_now_add=True,
         help_text="Date of the last time the subdomain was seen.",
     )
     created_at = models.DateTimeField(

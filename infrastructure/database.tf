@@ -56,11 +56,14 @@ resource "aws_db_instance" "db" {
   vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
 
   tags = {
-    Project  = "Crossfeed"
-    Owner    = "Crossfeed managed resource"
-    ART      = "No Art"
-    POC      = "Lamar Steward   Craig Duhn"
-    PocEmail = "lamar.stewart@cisa.dhs.gov"
+    Project        = "Crossfeed"
+    Owner          = "Crossfeed managed resource"
+    ART            = "CISA-VM"
+    POC            = "Lamar Steward   Craig Duhn"
+    PocEmail       = "lamar.stewart@cisa.dhs.gov"
+    Name           = "crossfeed-stage-db"
+    BillingProject = "VM-Crossfeed"
+    workload-type  = "staging"
   }
 }
 

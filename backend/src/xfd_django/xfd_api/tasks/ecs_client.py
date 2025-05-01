@@ -63,6 +63,7 @@ class ECSClient:
                         environment={
                             "CROSSFEED_COMMAND_OPTIONS": json.dumps(command_options),
                             "CF_API_KEY": os.getenv("CF_API_KEY"),
+                            "CHECKSUM_SALT": os.getenv("CHECKSUM_SALT"),
                             "PE_API_KEY": os.getenv("PE_API_KEY"),
                             "DB_DIALECT": os.getenv("DB_DIALECT"),
                             "DB_HOST": os.getenv("DB_HOST"),
@@ -106,7 +107,7 @@ class ECSClient:
                             "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
                             "LG_API_KEY": os.getenv("LG_API_KEY"),
                             "LG_WORKSPACE_NAME": os.getenv("LG_WORKSPACE_NAME"),
-                            "QUEUE_URL": os.getenv("QUEUE_URL", ""),
+                            "SERVICE_QUEUE_URL": os.getenv("QUEUE_URL", ""),
                             "DMZ_SYNC_ENDPOINT": os.getenv("DMZ_SYNC_ENDPOINT", ""),
                             "DMZ_API_KEY": os.getenv("DMZ_API_KEY", ""),
                         },
@@ -155,17 +156,11 @@ class ECSClient:
                                 if memory
                                 else "",
                             },
-                        ]
-                        + (
-                            [
-                                {
-                                    "name": "SHODAN_API_KEY",
-                                    "value": command_options["SHODAN_API_KEY"],
-                                }
-                            ]
-                            if "SHODAN_API_KEY" in command_options
-                            else []
-                        ),
+                            {
+                                "name": "SHODAN_API_KEY",
+                                "value": command_options.get("SHODAN_API_KEY") or "",
+                            },
+                        ],
                     }
                 ],
             },

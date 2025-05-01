@@ -31,6 +31,7 @@ import { useLocation } from 'react-router-dom';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
+import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
 
 export interface Point {
   id: string;
@@ -65,7 +66,7 @@ const Risk: React.FC<ContextType> = ({
   search_term,
   setSearchTerm
 }) => {
-  const { showMaps, user, apiPost } = useAuthContext();
+  const { showMaps, user, apiPost, apiGet, logout } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
@@ -147,6 +148,12 @@ const Risk: React.FC<ContextType> = ({
     [riskFilters]
   );
 
+  const { userMustSign } = useAuthContext();
+  const [isLoginBlockedDialogOpen, setIsLoginBlockedDialogOpen] =
+    useState(false);
+  const [maintenanceNotification, setMaintenanceNotification] =
+    useState<any>(null);
+
   useEffect(() => {
     fetchStats();
   }, [fetchStats, riskFilters]);
@@ -160,10 +167,62 @@ const Risk: React.FC<ContextType> = ({
   }, [user]);
 
   useEffect(() => {
+    const fetchAndCheckMaintenance = async () => {
+      // TODO: Some login blocking logic is a duplicate of backend
+      // checks to meet "waiting room" needs to allow controlled logins
+      // for populating new user state and terms agreement before blocking
+      // for pre-release. Standardize this once this is no longer needed.
+      if (
+        user &&
+        !user.invite_pending &&
+        user.state &&
+        user.date_accepted_terms &&
+        !isLoginBlockedDialogOpen
+      ) {
+        // Active Notifications
+        const notifications = await apiGet('/notifications');
+        const active = notifications.find(
+          (n: any) =>
+            n.status === 'active' &&
+            n.maintenance_type === 'major' &&
+            new Date(n.start_datetime) <= new Date() &&
+            new Date(n.end_datetime) >= new Date()
+        );
+        // Set non-blocking userTypes (additional check)
+        const nonBlockingUserTypes = ['globalAdmin', 'regionalAdmin'];
+        if (active && !nonBlockingUserTypes.includes(user.user_type)) {
+          setMaintenanceNotification(active);
+          setIsLoginBlockedDialogOpen(true);
+        }
+      }
+    };
+
+    fetchAndCheckMaintenance();
+  }, [apiGet, isLoginBlockedDialogOpen, user, userMustSign]);
+
+  useEffect(() => {
+    const handleMaintenanceBlocked = (e: any) => {
+      if (e.detail?.message) {
+        setMaintenanceNotification({ message: e.detail.message });
+        setIsLoginBlockedDialogOpen(true);
+      }
+    };
+
+    window.addEventListener('maintenance-blocked', handleMaintenanceBlocked);
+
+    return () => {
+      window.removeEventListener(
+        'maintenance-blocked',
+        handleMaintenanceBlocked
+      );
+    };
+  }, []);
+
+  useEffect(() => {
     filters.forEach((filter) => {
       if (
         filter.field !== 'organization.region_id' &&
-        filter.field !== 'organizationId'
+        filter.field !== 'organization_id'
       ) {
         removeFilter(filter.field, filter.values[0], filter.type);
       }
@@ -296,7 +355,38 @@ const Risk: React.FC<ContextType> = ({
       <UpdateStateForm
         open={isUpdateStateFormOpen}
         user_id={user?.id ?? ''}
-        onClose={() => setIsUpdateStateFormOpen(false)}
+        onClose={async () => {
+          setIsUpdateStateFormOpen(false);
+
+          // Re-fetch user data or just check if state now exists
+          if (user && user.state) {
+            const notifications = await apiGet('/notifications');
+            const active = notifications.find(
+              (n: any) =>
+                n.status === 'active' &&
+                n.maintenance_type === 'major' &&
+                new Date(n.start_datetime) <= new Date() &&
+                new Date(n.end_datetime) >= new Date()
+            );
+            if (active && user.user_type !== 'globalAdmin') {
+              setMaintenanceNotification(active);
+              setIsLoginBlockedDialogOpen(true);
+            }
+          }
+        }}
+      />
+    );
+  }
+
+  if (isLoginBlockedDialogOpen && maintenanceNotification) {
+    return (
+      <LoginBlockedDialog
+        open={isLoginBlockedDialogOpen}
+        message={maintenanceNotification.message}
+        onClose={() => {
+          setIsLoginBlockedDialogOpen(false);
+          logout();
+        }}
       />
     );
   }

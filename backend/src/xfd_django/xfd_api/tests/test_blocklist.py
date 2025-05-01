@@ -22,7 +22,7 @@ def test_blocklist_check_blocked():
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        user_type=UserType.STANDARD,
+        user_type=UserType.GLOBAL_ADMIN,
     )
     random_ip_address = "111.111.111.111"
     Blocklist.objects.create(
@@ -46,7 +46,7 @@ def test_blocklist_check_unblocked():
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        user_type=UserType.STANDARD,
+        user_type=UserType.GLOBAL_ADMIN,
     )
     random_ip_address = "222.222.222.222"
     response = client.get(
