@@ -52,6 +52,29 @@ export const RegionUsers: React.FC = () => {
   const { formattedUserType } = useUserLevel();
   const getOrgsURL = `/organizations/region_id/`;
   const getUsersURL = `/v2/users?invite_pending=`;
+  const logUserApproval = async (approvedUser: any) => {
+    await apiGet('/users/me')
+      .then((currentUser) => {
+        const body = {
+          first_name: approvedUser.first_name,
+          last_name: approvedUser.last_name,
+          email: approvedUser.email,
+          user_type: approvedUser.user_type,
+          state: approvedUser.state,
+          region_id: approvedUser.region_id,
+          date_approved: new Date().toISOString(),
+          approved_by_id: currentUser.id
+        };
+        apiPut(`/v2/users/${approvedUser.id}`, { body });
+        console.log(currentUser);
+        console.log('ID', currentUser.id);
+        console.log('Name', currentUser.full_name);
+        console.log('Email', currentUser.email);
+      })
+      .catch((e: any) => {
+        setErrorStates({ ...errorStates, getOrgsError: e.message });
+      });
+  };
   const pendingCols: GridColDef[] = [
     { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 100, flex: 2 },
@@ -297,28 +320,19 @@ export const RegionUsers: React.FC = () => {
 
   const handleApproveClick = (row: typeof initializeUser) => {
     try {
-      let currentUser = '';
       selectOrg([]);
       setDialogStates({
         ...dialogStates,
         isOrgDialogOpen: true
       });
       selectUser(row);
+      console.log('Selected User', row);
       fetchOrganizations(row);
     } catch (e: any) {
       setErrorStates({ ...errorStates, getOrgsError: e.message });
     } finally {
       // Make API call to get current user approving a new user request
-      apiGet('/users/me')
-        .then((currentUser) => {
-          console.log(currentUser);
-          console.log('ID', currentUser.id);
-          console.log('Name', currentUser.full_name);
-          console.log('Email', currentUser.email);
-        })
-        .catch((e: any) => {
-          setErrorStates({ ...errorStates, getOrgsError: e.message });
-        });
+      logUserApproval(row);
     }
   };
 

@@ -163,6 +163,8 @@ class UpdateUserV2(BaseModel):
     state: Optional[str] = None
     user_type: Optional[str] = None
     invite_pending: Optional[bool] = None
+    date_approved: Optional[datetime] = None
+    approved_by_id: Optional[UUID] = None
 
 
 class RegisterUserResponse(BaseModel):
