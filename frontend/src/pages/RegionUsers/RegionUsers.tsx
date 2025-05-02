@@ -52,6 +52,7 @@ export const RegionUsers: React.FC = () => {
   const { formattedUserType } = useUserLevel();
   const getOrgsURL = `/organizations/region_id/`;
   const getUsersURL = `/v2/users?invite_pending=`;
+
   const logUserApproval = async (approvedUser: any) => {
     await apiGet('/users/me')
       .then((currentUser) => {
@@ -65,6 +66,8 @@ export const RegionUsers: React.FC = () => {
           date_approved: new Date().toISOString(),
           approved_by_id: currentUser.id
         };
+
+        console.log('Body inside RegionUsers', body);
         apiPut(`/v2/users/${approvedUser.id}`, { body });
         console.log(currentUser);
         console.log('ID', currentUser.id);

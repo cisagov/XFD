@@ -427,6 +427,8 @@ def get_users_v2(state, region_id, invite_pending, current_user):
 def update_user_v2(user_id, user_data, current_user):
     """Update a particular user."""
     try:
+
+
         # Validate that the user ID is a valid UUID
         if not user_id or not is_valid_uuid(user_id):
             raise HTTPException(status_code=404, detail="User not found")
@@ -465,6 +467,21 @@ def update_user_v2(user_id, user_data, current_user):
         updated_user = User.objects.prefetch_related("roles__organization").get(
             id=user_id
         )
+        print("Full updated user: ", vars(updated_user))
+        print("Full user data: ", vars(user_data))
+        print("Full current user: ", vars(current_user))
+        print("Full user id: ", user_id)
+        
+        if user_data.approved_by_id:
+            try:
+                approver = User.objects.get(id=user_data.approved_by_id.id)
+                user.approved_by_id = approver
+                print("Approver found: {}".format(approver))
+            except User.DoesNotExist:
+                print("Approver not found: {}".format(e))
+                raise HTTPException(
+                    status_code=500, detail="An unexpected error occurred."
+                )
 
         # Return the updated user details
         return {
@@ -479,6 +496,8 @@ def update_user_v2(user_id, user_data, current_user):
             "state": updated_user.state,
             "user_type": updated_user.user_type,
             "last_logged_in": user.last_logged_in,
+            "date_approved": updated_user.date_approved,
+            "approved_by_id": approver,
             "accepted_terms_version": user.accepted_terms_version,
             "roles": [
                 {
