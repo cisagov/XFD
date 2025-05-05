@@ -389,6 +389,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
         return [
             {
                 "id": str(user.id),
+                "cognito_use_case_description": user.cognito_use_case_description,
                 "created_at": user.created_at.isoformat(),
                 "updated_at": user.updated_at.isoformat(),
                 "first_name": user.first_name,
@@ -399,6 +400,8 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                 "state": user.state,
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
+                "date_approved": user.date_approved,
+                "approved_by_id": user.approved_by.full_name,
                 "accepted_terms_version": user.accepted_terms_version,
                 "roles": [
                     {
