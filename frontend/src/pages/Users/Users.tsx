@@ -48,8 +48,8 @@ interface UserType extends User {
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
   full_name: string;
-  approved_by_id?: string | null | undefined;
-  date_approved?: string | null | undefined;
+  approved_by?: string | null;
+  date_approved?: string | null;
 }
 
 export const Users: React.FC = () => {

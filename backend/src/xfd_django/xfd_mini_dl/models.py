@@ -1278,7 +1278,7 @@ class User(AutoLengthCheckModel):
         null=True,
         help_text="Date the user was approved to have access to the cyhy dashboard.",
     )
-    approved_by_id = models.ForeignKey(
+    approved_by = models.ForeignKey(
         "User",
         models.DO_NOTHING,
         db_column="approved_by_id",

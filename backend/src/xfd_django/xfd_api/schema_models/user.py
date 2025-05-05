@@ -38,7 +38,7 @@ class User(BaseModel):
     invite_pending: bool
     login_blocked_by_maintenance: bool
     date_approved: Optional[datetime] = None
-    approved_by_id: Optional[UUID] = None
+    approved_by_id: Optional[Any] = None
     date_accepted_terms: Optional[datetime]
     accepted_terms_version: Optional[str]
     last_logged_in: Optional[datetime]
@@ -191,7 +191,7 @@ class UserResponseV2(BaseModel):
     full_name: str
     email: str
     date_approved: Optional[datetime] = None
-    approved_by_id: Optional[UUID] = None
+    approved_by_id: Optional[Any] = None
     accepted_terms_version: Optional[str] = None
     date_accepted_terms: Optional[datetime] = None
     last_logged_in: Optional[datetime] = None
