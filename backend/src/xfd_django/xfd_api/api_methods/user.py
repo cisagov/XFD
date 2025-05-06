@@ -190,23 +190,14 @@ def get_users(current_user):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         users = User.objects.all().prefetch_related("roles__organization")
-        # print("Inside user.py: ")
-        # for user in users:
-        #     print("id:", str(user.id))
-        #     print("created_at:", user.created_at.isoformat())
-        #     print("updated_at:", user.updated_at.isoformat())
-        #     print("first_name:", user.first_name)
-        #     print("last_name:", user.last_name)
-        #     print("full_name:", user.full_name)
-        #     print("email:", user.email)
-        #     print("region_id:", user.region_id)
-        #     print("state:", user.state)
-        #     print("user_type:", user.user_type)
-        #     print("last_logged_in:", user.last_logged_in)
-        #     print("date_approved:", user.date_approved)
-        #     print("approved_by_id:", user.approved_by_id)
-        #     print("accepted_terms_version:", user.accepted_terms_version)
-        #     print("date_accepted_terms:", user.date_accepted_terms)
+        print("Inside user.py: ")
+        for user in users:
+            print("user: ", vars(user))
+            print("id:", str(user.id))
+            print("full_name:", user.full_name)
+            print("email:", user.email)
+            print("date_approved:", user.date_approved)
+            print("approved_by:", user.approved_by)
         # Return the updated user details
         return [
             {
@@ -222,7 +213,11 @@ def get_users(current_user):
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
                 "date_approved": user.date_approved,
-                "approved_by_id": user.approved_by.full_name,
+                "approved_by": {
+                    "id": str(user.approved_by.id),
+                    "full_name": str(user.approved_by.full_name),
+                    "email": str(user.approved_by.email),
+                },
                 "accepted_terms_version": user.accepted_terms_version,
                 "date_accepted_terms": user.date_accepted_terms,
                 "roles": [
@@ -243,9 +238,11 @@ def get_users(current_user):
             for user in users
         ]
     except HTTPException as http_exc:
+        print("HTTPException: ", http_exc)
         raise http_exc
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print("Error retrieving users: {}".format(e))
+        raise Exception(status_code=500, detail=str(e))
 
 
 # GET: /users/region_id/{region_id}
@@ -401,7 +398,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
                 "date_approved": user.date_approved,
-                "approved_by_id": user.approved_by.full_name,
+                "approved_by": user.approved_by,
                 "accepted_terms_version": user.accepted_terms_version,
                 "roles": [
                     {

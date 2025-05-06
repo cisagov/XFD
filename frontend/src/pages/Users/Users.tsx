@@ -43,12 +43,27 @@ export interface ApiResponse {
   url?: string;
 }
 
+interface ApprovedBy {
+  id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  user_type: string;
+  region_id: string;
+  state: string;
+  last_logged_in: string;
+  accepted_terms_version: string;
+  date_accepted_terms: string;
+  // approved_by: string;
+}
+
 interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
   full_name: string;
-  approved_by?: string | null;
+  approved_by?: ApprovedBy | null;
   date_approved?: string | null;
 }
 
@@ -92,6 +107,7 @@ export const Users: React.FC = () => {
               .join(', ')
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
+        row.approved_by = row.approved_by ? row.approved_by.full_name : 'None'; // Map approved_by to full_name
       });
       setUsers(rows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
@@ -133,7 +149,7 @@ export const Users: React.FC = () => {
       }
     },
     {
-      field: 'approved_by_id',
+      field: 'approved_by',
       headerName: 'Approved By',
       minWidth: 100,
       flex: 0.75
