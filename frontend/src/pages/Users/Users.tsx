@@ -37,12 +37,6 @@ type ApiErrorStates = {
   getOrgsError: string;
 };
 
-export interface ApiResponse {
-  result: User[];
-  count: number;
-  url?: string;
-}
-
 interface ApprovedBy {
   id: string;
   full_name: string;
@@ -52,10 +46,6 @@ interface ApprovedBy {
   user_type: string;
   region_id: string;
   state: string;
-  last_logged_in: string;
-  accepted_terms_version: string;
-  date_accepted_terms: string;
-  // approved_by: string;
 }
 
 interface UserType extends User {
@@ -107,7 +97,6 @@ export const Users: React.FC = () => {
               .join(', ')
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
-        row.approved_by = row.approved_by ? row.approved_by.full_name : 'None'; // Map approved_by to full_name
       });
       setUsers(rows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
@@ -152,7 +141,9 @@ export const Users: React.FC = () => {
       field: 'approved_by',
       headerName: 'Approved By',
       minWidth: 100,
-      flex: 0.75
+      flex: 0.75,
+      valueGetter: (params) =>
+        params.row.approved_by ? params.row.approved_by.full_name : 'None'
     },
     {
       field: 'dateToUSigned',

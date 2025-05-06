@@ -190,14 +190,6 @@ def get_users(current_user):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         users = User.objects.all().prefetch_related("roles__organization")
-        print("Inside user.py: ")
-        for user in users:
-            print("user: ", vars(user))
-            print("id:", str(user.id))
-            print("full_name:", user.full_name)
-            print("email:", user.email)
-            print("date_approved:", user.date_approved)
-            print("approved_by:", user.approved_by)
         # Return the updated user details
         return [
             {
@@ -217,7 +209,9 @@ def get_users(current_user):
                     "id": str(user.approved_by.id),
                     "full_name": str(user.approved_by.full_name),
                     "email": str(user.approved_by.email),
-                },
+                }
+                if user.approved_by
+                else None,
                 "accepted_terms_version": user.accepted_terms_version,
                 "date_accepted_terms": user.date_accepted_terms,
                 "roles": [
