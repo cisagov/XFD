@@ -1,0 +1,12 @@
+{
+  "infoIconContent": [
+    {
+      "content": "An overview of dashboard items",
+      "id": "Overview Dashboard"
+    },
+    {
+      "content": "Summary of CyHy Services Data",
+      "id": "Summary of CyHy Services Data"
+    }
+  ]
+}

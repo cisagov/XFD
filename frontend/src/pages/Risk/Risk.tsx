@@ -1,6 +1,16 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import classes from './Risk.module.scss';
-import { Box, Card, CardContent, Grid, Paper, Typography } from '@mui/material';
+import {
+  Box,
+  Card,
+  CardContent,
+  Grid,
+  Paper,
+  Typography,
+  CircularProgress,
+  Stack,
+  Alert
+} from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
@@ -32,6 +42,7 @@ import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
+import InfoLabel from './InfoLabel';
 
 export interface Point {
   id: string;
@@ -70,6 +81,9 @@ const Risk: React.FC<ContextType> = ({
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const RiskRoot = RiskStyles.RiskRoot;
   const { cardRoot, content, contentWrapper, header, panel } =
@@ -416,107 +430,103 @@ const Risk: React.FC<ContextType> = ({
     );
   }
 
-  return (
-    <Grid container>
-      <Grid
-        size={{ sm: 0.5, lg: 1, xl: 2 }}
-        display={{ xs: 'none', sm: 'block' }}
-      />
-      <Grid size={{ sm: 11, lg: 10, xl: 8 }} sx={{ maxWidth: '1500px' }}>
-        <RiskRoot className={classes.root}>
-          <div id="wrapper" className={contentWrapper}>
-            <Box sx={{ px: '1rem', pb: '2rem' }}>
-              <FilterTags
-                filters={filtersToDisplay}
-                removeFilter={removeFilter}
-              />
-            </Box>
-            {stats && (
-              <Grid container>
-                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }} mb={-4}>
-                  <div className={content}>
-                    <div className={panel}>
-                      <VulnerabilityCard
-                        title={'Latest Vulnerabilities'}
-                        data={latestVulnsGroupedArr}
-                        showLatest={true}
-                        showCommon={false}
-                      ></VulnerabilityCard>
-                      {stats.domains.ports.length > 0 && (
-                        <TopVulnerablePorts
-                          data={stats.domains.ports.slice(0, 5).reverse()}
-                        />
-                      )}
-                      {stats.vulnerabilities.severity.length > 0 && (
-                        <VulnerabilityBarChart
-                          title={'Severity Levels'}
-                          data={stats.vulnerabilities.severity}
-                          colors={getSeverityColor}
-                          type={'vulns'}
-                        />
-                      )}
-                    </div>
-                  </div>
-                </Grid>
-                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }}>
-                  <div className={content}>
-                    <div className={panel}>
-                      {stats.domains.num_vulnerabilities.length > 0 && (
-                        <Paper elevation={0} className={cardRoot}>
-                          <TopVulnerableDomains
-                            data={stats.domains.num_vulnerabilities}
-                          />
-                        </Paper>
-                      )}
-                      <VulnerabilityCard
-                        title={'Most Common Vulnerabilities'}
-                        data={stats.vulnerabilities.most_common_vulnerabilities}
-                        showLatest={false}
-                        showCommon={true}
-                      ></VulnerabilityCard>
-                      <div id="mapWrapper">
-                        {(user?.user_type === 'globalView' ||
-                          user?.user_type === 'globalAdmin') &&
-                          showMaps && (
-                            <>
-                              <MapCard
-                                title={'State Vulnerabilities'}
-                                geoUrl={geoStateUrl}
-                                findFn={(geo) =>
-                                  stats?.vulnerabilities.by_org.find(
-                                    (p) => p.label === geo.properties.name
-                                  )
-                                }
-                                type={'state'}
-                              ></MapCard>
-                              <MapCard
-                                title={'County Vulnerabilities'}
-                                geoUrl={geoStateUrl}
-                                findFn={(geo) =>
-                                  stats?.vulnerabilities.by_org.find(
-                                    (p) =>
-                                      p.label ===
-                                      geo.properties.name + ' Counties'
-                                  )
-                                }
-                                type={'county'}
-                              ></MapCard>
-                            </>
-                          )}
-                      </div>
-                    </div>
-                  </div>
-                </Grid>
-              </Grid>
-            )}
-          </div>
-        </RiskRoot>
+  const overviewHeader = (
+    <Box>
+      <Grid container mb={0}>
+        <Grid size={{ xs: 12 }} sx={{ mt: 6 }}>
+          <InfoLabel
+            label="Overview Dashboard"
+            typographyVariant="h1"
+            viewDetails
+          />
+        </Grid>
       </Grid>
-      <Grid
-        size={{ sm: 0.5, lg: 1, xl: 2 }}
-        display={{ xs: 'none', sm: 'block' }}
-      />
-    </Grid>
+    </Box>
+  );
+
+  if (loading) {
+    return <CircularProgress />;
+  }
+  if (error) {
+    return (
+      <Stack
+        sx={{ maxWidth: '1152px', margin: 'auto', paddingBottom: 6 }}
+        spacing={6}
+      >
+        {header}
+        <Alert severity="error">{error}</Alert>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack
+      sx={{ maxWidth: '1152px', margin: 'auto', paddingBottom: 6 }}
+      spacing={6}
+    >
+      {overviewHeader}
+      <Box>
+        <Grid
+          container
+          direction="column"
+          border="1px solid"
+          borderRadius="4px"
+          borderColor="neutrals.main"
+          p={3}
+          sx={{ backgroundColor: 'neutrals.white' }}
+        >
+          <Grid
+            container
+            direction="row"
+            paddingBottom={2}
+            alignItems="center"
+            justifyContent="space-between"
+          >
+            <Grid size={{ xs: 12 }}>
+              <InfoLabel
+                label="Summary of CyHy Services Data"
+                viewDetails
+                link="/inventory/vulnerabilities"
+              />
+            </Grid>
+          </Grid>
+          <Grid container direction="row" spacing={2}>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                border="1px solid"
+                borderRadius="4px"
+                borderColor="neutrals.light"
+                p={3}
+              >
+                <VulnerabilityCard
+                  title={'Latest Vulnerabilities'}
+                  data={latestVulnsGroupedArr}
+                  showLatest={true}
+                  showCommon={false}
+                />
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                border="1px solid"
+                borderRadius="4px"
+                borderColor="neutrals.light"
+                p={3}
+              >
+                <VulnerabilityCard
+                  title={'Most Common Vulnerabilities'}
+                  data={
+                    stats?.vulnerabilities?.most_common_vulnerabilities || []
+                  }
+                  showLatest={false}
+                  showCommon={true}
+                />
+              </Box>
+            </Grid>
+          </Grid>
+        </Grid>
+      </Box>
+    </Stack>
   );
 };
 
