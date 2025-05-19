@@ -400,12 +400,6 @@ variable "ssm_lg_workspace_name" {
   default     = "/crossfeed/staging/LG_WORKSPACE_NAME"
 }
 
-variable "ssm_https_proxy" {
-  description = "ssm_https_proxy"
-  type        = string
-  default     = "/crossfeed/staging/HTTPS_PROXY"
-}
-
 variable "db_group_name" {
   description = "db_group_name"
   type        = string

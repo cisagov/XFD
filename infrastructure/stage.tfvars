@@ -56,7 +56,6 @@ ssm_sixgill_client_id                        = "/crossfeed/staging/SIXGILL_CLIEN
 ssm_sixgill_client_secret                    = "/crossfeed/staging/SIXGILL_CLIENT_SECRET"
 ssm_lg_api_key                               = "/crossfeed/staging/LG_API_KEY"
 ssm_lg_workspace_name                        = "/crossfeed/staging/LG_WORKSPACE_NAME"
-ssm_https_proxy                              = "/crossfeed/staging/HTTPS_PROXY"
 ssm_ses_email_identity_arn                   = "/crossfeed/staging/SES_EMAIL_IDENTITY_ARN"
 ssm_worker_kms_keys                          = "/crossfeed/staging/WORKER_KMS_KEYS"
 db_group_name                                = "crossfeed-staging-db-group"
