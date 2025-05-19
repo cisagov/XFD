@@ -437,7 +437,7 @@ const Risk: React.FC<ContextType> = ({
           <InfoLabel
             label="Overview Dashboard"
             typographyVariant="h1"
-            viewDetails
+            //viewDetails
           />
         </Grid>
       </Grid>
@@ -485,8 +485,8 @@ const Risk: React.FC<ContextType> = ({
             <Grid size={{ xs: 12 }}>
               <InfoLabel
                 label="Summary of CyHy Services Data"
-                viewDetails
-                link="/inventory/vulnerabilities"
+                //viewDetails
+                //link="/inventory/vulnerabilities"
               />
             </Grid>
           </Grid>
@@ -499,7 +499,15 @@ const Risk: React.FC<ContextType> = ({
                 p={3}
               >
                 <VulnerabilityCard
-                  title={'Latest Vulnerabilities'}
+                  label={
+                    <InfoLabel
+                      label="Latest Vulnerabilities"
+                      typographyVariant="h3"
+                      headingLevel="h3"
+                      viewDetails
+                      link="/inventory/vulnerabilities"
+                    />
+                  }
                   data={latestVulnsGroupedArr}
                   showLatest={true}
                   showCommon={false}
@@ -514,7 +522,15 @@ const Risk: React.FC<ContextType> = ({
                 p={3}
               >
                 <VulnerabilityCard
-                  title={'Most Common Vulnerabilities'}
+                  label={
+                    <InfoLabel
+                      label="Most Common Vulnerabilities"
+                      typographyVariant="h3"
+                      headingLevel="h3"
+                      viewDetails
+                      link="/inventory/vulnerabilities"
+                    />
+                  }
                   data={
                     stats?.vulnerabilities?.most_common_vulnerabilities || []
                   }

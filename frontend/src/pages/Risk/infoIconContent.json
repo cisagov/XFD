@@ -7,6 +7,14 @@
     {
       "content": "Summary of CyHy Services Data",
       "id": "Summary of CyHy Services Data"
+    },
+    {
+      "content": "Summary of Latest Vulnerabilities",
+      "id": "Latest Vulnerabilities"
+    },
+    {
+      "content": "This section shows the most common vulnerabilities detected.",
+      "id": "Most Common Vulnerabilities"
     }
   ]
 }
