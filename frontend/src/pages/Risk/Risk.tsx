@@ -43,6 +43,7 @@ import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
 import InfoLabel from './InfoLabel';
+import MostCommonVulns from './MostCommonVulns';
 
 export interface Point {
   id: string;
@@ -597,19 +598,15 @@ const Risk: React.FC<ContextType> = ({
                       borderColor="neutrals.light"
                       p={3}
                     >
-                      <VulnerabilityCard
-                        label={
-                          <InfoLabel
-                            label="Most Common Vulnerabilities"
-                            typographyVariant="h3"
-                            headingLevel="h3"
-                            viewDetails
-                            link="/inventory/vulnerabilities"
-                          />
-                        }
+                      <InfoLabel
+                        label="Most Common Vulnerabilities"
+                        typographyVariant="h3"
+                        headingLevel="h3"
+                        viewDetails
+                        link="/inventory/vulnerabilities"
+                      />
+                      <MostCommonVulns
                         data={stats.vulnerabilities.most_common_vulnerabilities}
-                        showLatest={false}
-                        showCommon={true}
                       />
                     </Box>
                   </Grid>

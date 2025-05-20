@@ -1,0 +1,104 @@
+import React from 'react';
+import { useHistory } from 'react-router-dom';
+import { Box, Link, Stack, Tooltip, Typography } from '@mui/material';
+import { Circle } from '@mui/icons-material';
+// import { CVEItem } from 'types/vuln-scan-stats'
+import RoundedTable from 'components/RoundedTable';
+// import { severityColor } from 'utils/severityLevelColorMap';
+import { severityColor } from 'utils/severityLevelColorMap';
+
+type CommonVuln = {
+  title: string | null;
+  count: number;
+  severity: string | null;
+};
+
+type ColumnConfig<T> = {
+  key: keyof T;
+  header: string;
+  textAlign?: 'left' | 'center' | 'right';
+  minWidth?: string;
+  render: (value: T[keyof T], row: T) => React.ReactNode;
+};
+
+export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
+  const history = useHistory();
+  const filteredVulnTableLinkHandler = (title: string) =>
+    history.push('/inventory/vulnerabilities', { title: title });
+
+  const TruncatedLink = ({ text = '' }: { text: string | null }) => (
+    <Tooltip title={text} placement={'right'}>
+      <Link
+        onClick={() => filteredVulnTableLinkHandler(text || '')}
+        aria-label={`View details for vulnerability: ${text}`}
+        sx={{
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          lineHeight: '1.5',
+          maxHeight: '3em',
+          cursor: 'pointer'
+        }}
+      >
+        {text}
+      </Link>
+    </Tooltip>
+  );
+
+  const topVulnerabilitiesColumns: ColumnConfig<CommonVuln>[] = [
+    {
+      key: 'title',
+      header: 'Vulnerability Name',
+      minWidth: '100px',
+      render: (value) => (
+        <TruncatedLink text={value !== null ? String(value) : null} />
+      )
+    },
+    {
+      key: 'count',
+      header: 'Host Counts',
+      textAlign: 'center',
+      render: (value) => (
+        <Typography variant="body1" textAlign="center">
+          {value}
+        </Typography>
+      )
+    },
+    {
+      key: 'severity',
+      header: 'Severity',
+      textAlign: 'center',
+      render: (value, row) => (
+        <Stack direction="row" alignItems="center" justifyContent="center">
+          <Circle
+            sx={{
+              color: severityColor(
+                value !== null ? String(value).toLowerCase() : null
+              ),
+              fontSize: '18px',
+              mr: 1,
+              ...(value === 'low' || value === 'medium'
+                ? { '& path': { stroke: '#646566', strokeWidth: 1.5 } }
+                : {})
+            }}
+          />
+          <Typography variant="body1" textTransform="capitalize">
+            {value}
+          </Typography>
+        </Stack>
+      )
+    }
+  ];
+
+  return (
+    <Box sx={{ height: 'auto', mt: -1.5 }}>
+      <RoundedTable
+        data={data.slice(0, 5)}
+        columns={topVulnerabilitiesColumns}
+        noDataMessage="There were no vulnerabilities found."
+      />
+    </Box>
+  );
+}
