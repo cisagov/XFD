@@ -77,36 +77,36 @@ export const Header: React.FC = () => {
     // }
   ].filter(({ users }) => users <= userLevel);
 
-  const supportMenuItems: MenuItemType[] = [
-    // {
-    //   menuItemTitle: 'Report Bug',
-    //   path: '#',
-    //   users: STANDARD_USER
-    // },
-    {
-      menuItemTitle: 'Send Feedback',
-      path: 'mailto:vulnerability@mail.cisa.dhs.gov',
-      users: STANDARD_USER
-    }
-  ].filter(({ users }) => users <= userLevel);
+  // const supportMenuItems: MenuItemType[] = [
+  //   // {
+  //   //   menuItemTitle: 'Report Bug',
+  //   //   path: '#',
+  //   //   users: STANDARD_USER
+  //   // },
+  //   {
+  //     menuItemTitle: 'Send Feedback',
+  //     path: 'mailto:vulnerability@mail.cisa.dhs.gov',
+  //     users: STANDARD_USER
+  //   }
+  // ].filter(({ users }) => users <= userLevel);
 
-  const learningCenterMenuItems: MenuItemType[] = [
-    // {
-    //   menuItemTitle: 'Glossary',
-    //   path: '#',
-    //   users: STANDARD_USER
-    // },
-    // {
-    //   menuItemTitle: 'FAQ',
-    //   path: '#',
-    //   users: STANDARD_USER
-    // },
-    {
-      menuItemTitle: 'CISA Resources',
-      path: 'https://www.cisa.gov',
-      users: STANDARD_USER
-    }
-  ].filter(({ users }) => users <= userLevel);
+  // const learningCenterMenuItems: MenuItemType[] = [
+  //   // {
+  //   //   menuItemTitle: 'Glossary',
+  //   //   path: '#',
+  //   //   users: STANDARD_USER
+  //   // },
+  //   // {
+  //   //   menuItemTitle: 'FAQ',
+  //   //   path: '#',
+  //   //   users: STANDARD_USER
+  //   // },
+  //   {
+  //     menuItemTitle: 'CISA Resources',
+  //     path: 'https://www.cisa.gov',
+  //     users: STANDARD_USER
+  //   }
+  // ].filter(({ users }) => users <= userLevel);
 
   const inventoryMenuItems: MenuItemType[] = [
     {
@@ -117,10 +117,11 @@ export const Header: React.FC = () => {
   ].filter(({ users }) => users <= userLevel);
 
   const allMenuItems: { [section: string]: MenuItemType[] }[] = [
-    { 'Scanning Results': scanningResults },
+    // { 'Scanning Results': scanningResults }, Change back after hot-fix
+    { Overview: scanningResults },
     { Inventory: inventoryMenuItems },
-    { 'Learning Center': learningCenterMenuItems },
-    { Support: supportMenuItems },
+    // { 'Learning Center': learningCenterMenuItems },
+    // { Support: supportMenuItems },
     userLevel > 1 ? { 'Admin Hub': adminHubMenuItems } : {},
     { 'My Account': userMenuItems }
   ];
@@ -159,7 +160,8 @@ export const Header: React.FC = () => {
         height: '84px'
       }}
     >
-      <Toolbar disableGutters sx={{ maxWidth: '1152px', width: '100%', p: 0 }}>
+      {/* <Toolbar disableGutters sx={{ maxWidth: '1152px', width: '100%', p: 0 }}> CHANGE BACK AFTER HOT-FIX */}
+      <Toolbar disableGutters sx={{ maxWidth: '1225px', width: '100%', pr: 2 }}>
         {headerLogo}
         {userLevel > 0 && (
           <>
