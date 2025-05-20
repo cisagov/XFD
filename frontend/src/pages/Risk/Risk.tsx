@@ -519,6 +519,11 @@ const Risk: React.FC<ContextType> = ({
                   showLatest={true}
                   showCommon={false}
                 />
+                {stats?.domains?.ports && stats.domains.ports.length > 0 && (
+                  <TopVulnerablePorts
+                    data={stats.domains.ports.slice(0, 5).reverse()}
+                  />
+                )}
               </Box>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
