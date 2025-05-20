@@ -481,6 +481,7 @@ const Risk: React.FC<ContextType> = ({
             border="1px solid"
             borderRadius="4px"
             borderColor="neutrals.main"
+            display="block"
             p={3}
             sx={{ backgroundColor: 'neutrals.white' }}
           >
@@ -495,125 +496,125 @@ const Risk: React.FC<ContextType> = ({
                 <InfoLabel label="Summary of CyHy Services Data" />
               </Grid>
             </Grid>
-            {/* Two columns using container only */}
             <Grid container direction="row" spacing={2}>
-              <Grid container direction="column" spacing={2} sx={{ flex: 1 }}>
-                <Grid>
-                  <Box
-                    border="1px solid"
-                    borderRadius="4px"
-                    borderColor="neutrals.light"
-                    p={3}
-                  >
-                    <VulnerabilityCard
-                      label={
-                        <InfoLabel
-                          label="Latest Kevs"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
+              <Box display="flex" gap={2} width={'100%'}>
+                <Grid container direction="column" spacing={2} sx={{ flex: 1 }}>
+                  <Grid>
+                    <Box
+                      border="1px solid"
+                      borderRadius="4px"
+                      borderColor="neutrals.light"
+                      p={3}
+                    >
+                      <VulnerabilityCard
+                        label={
+                          <InfoLabel
+                            label="Latest Kevs"
+                            typographyVariant="h3"
+                            headingLevel="h3"
+                            viewDetails
+                            link="/inventory/vulnerabilities"
+                          />
+                        }
+                        data={latestVulnsGroupedArr}
+                        showLatest={true}
+                        showCommon={false}
+                      />
+                    </Box>
+                  </Grid>
+                  <Grid>
+                    <Box
+                      border="1px solid"
+                      borderRadius="4px"
+                      borderColor="neutrals.light"
+                      p={3}
+                    >
+                      <InfoLabel
+                        label="Most Common Ports"
+                        typographyVariant="h3"
+                        headingLevel="h3"
+                        viewDetails
+                        link="/inventory/vulnerabilities"
+                      />
+                      {stats.domains.ports.length > 0 && (
+                        <TopVulnerablePorts
+                          data={stats.domains.ports.slice(0, 5).reverse()}
                         />
-                      }
-                      data={latestVulnsGroupedArr}
-                      showLatest={true}
-                      showCommon={false}
-                    />
-                  </Box>
-                </Grid>
-                <Grid>
-                  <Box
-                    border="1px solid"
-                    borderRadius="4px"
-                    borderColor="neutrals.light"
-                    p={3}
-                  >
-                    <InfoLabel
-                      label="Most Common Ports"
-                      typographyVariant="h3"
-                      headingLevel="h3"
-                      viewDetails
-                      link="/inventory/vulnerabilities"
-                    />
-                    {stats.domains.ports.length > 0 && (
-                      <TopVulnerablePorts
-                        data={stats.domains.ports.slice(0, 5).reverse()}
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid>
+                    <Box
+                      border="1px solid"
+                      borderRadius="4px"
+                      borderColor="neutrals.light"
+                      p={3}
+                    >
+                      <InfoLabel
+                        label="Severity Levels"
+                        typographyVariant="h3"
+                        headingLevel="h3"
+                        viewDetails
+                        link="/inventory/vulnerabilities"
                       />
-                    )}
-                  </Box>
-                </Grid>
-                <Grid>
-                  <Box
-                    border="1px solid"
-                    borderRadius="4px"
-                    borderColor="neutrals.light"
-                    p={3}
-                  >
-                    <InfoLabel
-                      label="Severity Levels"
-                      typographyVariant="h3"
-                      headingLevel="h3"
-                      viewDetails
-                      link="/inventory/vulnerabilities"
-                    />
-                    {stats.vulnerabilities.severity.length > 0 && (
-                      <VulnerabilityBarChart
-                        title="Severity Levels"
-                        data={stats.vulnerabilities.severity}
-                        colors={getSeverityColor}
-                        type="vulns"
-                      />
-                    )}
-                  </Box>
-                </Grid>
-              </Grid>
-              {/* Right column */}
-              <Grid container direction="column" spacing={2} sx={{ flex: 1 }}>
-                <Grid>
-                  <Box
-                    border="1px solid"
-                    borderRadius="4px"
-                    borderColor="neutrals.light"
-                    p={3}
-                  >
-                    <InfoLabel
-                      label="Open Vulnerabilities by Hosts"
-                      typographyVariant="h3"
-                      headingLevel="h3"
-                      viewDetails
-                      link="/inventory/vulnerabilities"
-                    />
-                    {stats.domains.num_vulnerabilities.length > 0 && (
-                      <TopVulnerableDomains
-                        data={stats.domains.num_vulnerabilities}
-                      />
-                    )}
-                  </Box>
-                </Grid>
-                <Grid>
-                  <Box
-                    border="1px solid"
-                    borderRadius="4px"
-                    borderColor="neutrals.light"
-                    p={3}
-                  >
-                    <VulnerabilityCard
-                      label={
-                        <InfoLabel
-                          label="Most Common Vulnerabilities"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
+                      {stats.vulnerabilities.severity.length > 0 && (
+                        <VulnerabilityBarChart
+                          title="Severity Levels"
+                          data={stats.vulnerabilities.severity}
+                          colors={getSeverityColor}
+                          type="vulns"
                         />
-                      }
-                      data={stats.vulnerabilities.most_common_vulnerabilities}
-                      showLatest={false}
-                      showCommon={true}
-                    />
-                  </Box>
+                      )}
+                    </Box>
+                  </Grid>
                 </Grid>
-              </Grid>
+                <Grid container direction="column" spacing={2} sx={{ flex: 1 }}>
+                  <Grid>
+                    <Box
+                      border="1px solid"
+                      borderRadius="4px"
+                      borderColor="neutrals.light"
+                      p={3}
+                    >
+                      <InfoLabel
+                        label="Open Vulnerabilities by Hosts"
+                        typographyVariant="h3"
+                        headingLevel="h3"
+                        viewDetails
+                        link="/inventory/vulnerabilities"
+                      />
+                      {stats.domains.num_vulnerabilities.length > 0 && (
+                        <TopVulnerableDomains
+                          data={stats.domains.num_vulnerabilities}
+                        />
+                      )}
+                    </Box>
+                  </Grid>
+                  <Grid>
+                    <Box
+                      border="1px solid"
+                      borderRadius="4px"
+                      borderColor="neutrals.light"
+                      p={3}
+                    >
+                      <VulnerabilityCard
+                        label={
+                          <InfoLabel
+                            label="Most Common Vulnerabilities"
+                            typographyVariant="h3"
+                            headingLevel="h3"
+                            viewDetails
+                            link="/inventory/vulnerabilities"
+                          />
+                        }
+                        data={stats.vulnerabilities.most_common_vulnerabilities}
+                        showLatest={false}
+                        showCommon={true}
+                      />
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
             </Grid>
           </Grid>
         )}
