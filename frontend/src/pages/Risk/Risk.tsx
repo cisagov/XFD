@@ -501,7 +501,6 @@ const Risk: React.FC<ContextType> = ({
               </Grid>
             </Grid>
             <Grid container direction="row" spacing={2}>
-              {/* Latest Vulnerabilities Card */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <Box
                   border="1px solid"
@@ -512,7 +511,7 @@ const Risk: React.FC<ContextType> = ({
                   <VulnerabilityCard
                     label={
                       <InfoLabel
-                        label="Latest Vulnerabilities"
+                        label="Latest Kevs"
                         typographyVariant="h3"
                         headingLevel="h3"
                         viewDetails
@@ -525,7 +524,6 @@ const Risk: React.FC<ContextType> = ({
                   />
                 </Box>
               </Grid>
-              {/* Most Common Vulnerabilities Card */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <Box
                   border="1px solid"
@@ -549,7 +547,6 @@ const Risk: React.FC<ContextType> = ({
                   />
                 </Box>
               </Grid>
-              {/* Top Vulnerable Ports Card */}
               <Grid size={{ xs: 12, md: 6 }}>
                 <Box
                   border="1px solid"
