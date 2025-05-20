@@ -9,7 +9,7 @@ import {
   TextField,
   Button,
   Box
-} from '@mui/material/';
+} from '@mui/material';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Save } from '@mui/icons-material';
@@ -184,8 +184,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 formErrors.name
                   ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
                   : formErrors.duplicate
-                  ? 'This name is already taken. Please choose a different name.'
-                  : ''
+                    ? 'This name is already taken. Please choose a different name.'
+                    : ''
               }
             />
           </DialogContentText>
@@ -289,8 +289,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 formErrors.name
                   ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
                   : formErrors.duplicate
-                  ? 'This name is already taken. Please choose a different name.'
-                  : ''
+                    ? 'This name is already taken. Please choose a different name.'
+                    : ''
               }
             />
           </Box>

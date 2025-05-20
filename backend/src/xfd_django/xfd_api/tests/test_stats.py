@@ -534,6 +534,7 @@ def test_vs_trends_success():
         host_ready_count=7,
         up_host_count=8,
         down_host_count=3,
+        scanned_asset_count=11,
     )
 
     PortScanSummary.objects.create(
@@ -556,7 +557,6 @@ def test_vs_trends_success():
         assets_owned_count=100,
         false_positive_count=5,
         vulnerable_host_count=50,
-        scanned_asset_count=80,
         unique_service_count=12,
         unique_none_severity_count=1,
         unique_low_severity_count=2,
@@ -640,6 +640,7 @@ def test_vs_condensed_trends_success():
         host_ready_count=9,
         up_host_count=10,
         down_host_count=2,
+        scanned_asset_count=12,
     )
 
     PortScanSummary.objects.create(
@@ -662,7 +663,6 @@ def test_vs_condensed_trends_success():
         assets_owned_count=200,
         false_positive_count=0,
         vulnerable_host_count=100,
-        scanned_asset_count=150,
         unique_service_count=5,
         unique_none_severity_count=0,
         unique_low_severity_count=0,

@@ -400,12 +400,6 @@ variable "ssm_lg_workspace_name" {
   default     = "/crossfeed/staging/LG_WORKSPACE_NAME"
 }
 
-variable "ssm_https_proxy" {
-  description = "ssm_https_proxy"
-  type        = string
-  default     = "/crossfeed/staging/HTTPS_PROXY"
-}
-
 variable "db_group_name" {
   description = "db_group_name"
   type        = string
@@ -848,6 +842,12 @@ variable "ssm_dmz_api_key" {
   default     = "/crossfeed/staging/DMZ_API_KEY"
 }
 
+variable "ssm_vs_pull_date_range" {
+  description = "ssm_vs_pull_date_range"
+  type        = string
+  default     = "/crossfeed/staging/VS_PULL_DATE_RANGE"
+}
+
 variable "ssm_dmz_sync_endpoint" {
   description = "ssm_dmz_sync_endpoint"
   type        = string
@@ -864,6 +864,12 @@ variable "crossfeed-lz-sync_name" {
   type        = string
   description = "The name of the S3 bucket for Crossfeed LZ sync"
   default     = "crossfeed-lz-sync"
+}
+
+variable "crossfeed-xpanse-org-sync" {
+  type        = string
+  description = "The name of the S3 bucket for Crossfeed Xpanse Org sync"
+  default     = "crossfeed-xpanse-org-sync"
 }
 
 variable "image_tag" {

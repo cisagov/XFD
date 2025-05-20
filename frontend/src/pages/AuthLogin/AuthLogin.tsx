@@ -67,7 +67,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   };
 
   const platformNotification = (
-    <Grid item xs={12}>
+    <Grid size={{ xs: 12 }}>
       <Alert severity="warning">
         <MaintenanceAlert notification={notification} />
         {notification?.message}

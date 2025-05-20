@@ -166,6 +166,7 @@ export const ResultCard: React.FC<Props> = (props) => {
       elevation={0}
       classes={{ root: classes.root }}
       aria-label="view domain details"
+      variant="outlined"
     >
       <div className={classes.inner} onClick={onClick}>
         <button className={classes.domainRow}>

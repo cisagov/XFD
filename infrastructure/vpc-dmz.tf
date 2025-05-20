@@ -75,6 +75,18 @@ resource "aws_subnet" "matomo_1" {
   }
 }
 
+resource "aws_subnet" "nat_public" {
+  count             = var.is_dmz ? 1 : 0
+  availability_zone = data.aws_availability_zones.available.names[0]
+  vpc_id            = aws_vpc.crossfeed_vpc[0].id
+  cidr_block        = "10.0.6.0/28"
+
+  tags = {
+    Project = var.project
+    Name    = "nat-gateway-subnet"
+  }
+}
+
 resource "aws_route_table" "r" {
   count  = var.is_dmz ? 1 : 0
   vpc_id = aws_vpc.crossfeed_vpc[0].id
@@ -115,6 +127,22 @@ resource "aws_route_table" "worker" {
   }
 }
 
+resource "aws_route_table" "nat_public" {
+  count  = var.is_dmz ? 1 : 0
+  vpc_id = aws_vpc.crossfeed_vpc[0].id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.gw[0].id
+  }
+
+  tags = {
+    Project = var.project
+    Name    = "nat-public-route-table"
+  }
+}
+
+
 resource "aws_route_table_association" "r_assoc_db_1" {
   count          = var.is_dmz ? 1 : 0
   route_table_id = aws_route_table.r[0].id
@@ -139,9 +167,30 @@ resource "aws_route_table_association" "r_assoc_matomo" {
   subnet_id      = aws_subnet.matomo_1[0].id
 }
 
+resource "aws_route_table_association" "nat_public_assoc" {
+  count          = var.is_dmz ? 1 : 0
+  subnet_id      = aws_subnet.nat_public[0].id
+  route_table_id = aws_route_table.nat_public[0].id
+}
+
+resource "aws_route_table" "worker_nat" {
+  count  = var.is_dmz ? 1 : 0
+  vpc_id = aws_vpc.crossfeed_vpc[0].id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.worker_nat[0].id
+  }
+
+  tags = {
+    Project = var.project
+    Name    = "worker-nat-route-table"
+  }
+}
+
 resource "aws_route_table_association" "r_assoc_worker" {
   count          = var.is_dmz ? 1 : 0
-  route_table_id = aws_route_table.worker[0].id
+  route_table_id = aws_route_table.worker_nat[0].id
   subnet_id      = aws_subnet.worker[0].id
 }
 
@@ -170,6 +219,25 @@ resource "aws_nat_gateway" "nat" {
   tags = {
     Project = var.project
     Stage   = var.stage
+  }
+}
+
+resource "aws_eip" "worker_nat_eip" {
+  count = var.is_dmz ? 1 : 0
+  tags = {
+    Project = var.project
+    Name    = "worker-nat-eip"
+  }
+}
+
+resource "aws_nat_gateway" "worker_nat" {
+  count         = var.is_dmz ? 1 : 0
+  allocation_id = aws_eip.worker_nat_eip[0].id
+  subnet_id     = aws_subnet.nat_public[0].id
+
+  tags = {
+    Project = var.project
+    Name    = "worker-nat"
   }
 }
 

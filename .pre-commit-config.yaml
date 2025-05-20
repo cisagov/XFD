@@ -36,8 +36,8 @@ repos:
       - id: markdownlint
         args:
           - --config=.mdl_config.yaml
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v3.0.3
+  - repo: https://github.com/kaechele/pre-commit-mirror-prettier
+    rev: v3.4.2
     hooks:
       - id: prettier
   - repo: https://github.com/adrienverge/yamllint
@@ -61,8 +61,8 @@ repos:
       - id: validate_manifest
 
   # Shell script hooks
-  - repo: https://github.com/cisagov/pre-commit-shfmt
-    rev: v0.0.2
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.11.0-1
     hooks:
       - id: shfmt
         args:
@@ -119,6 +119,13 @@ repos:
     hooks:
       - id: terraform_fmt
       - id: terraform_validate
+  - repo: local
+    hooks:
+      - id: terraform-dedupe-sort
+        name: "Terraform HCL: dedupe, sort & duplicate‑variable check"
+        entry: python hooks/terraform_dedupe_sort.py
+        language: python
+        files: \.tf$
 
   # Docker hooks
   - repo: https://github.com/IamTheFij/docker-pre-commit

@@ -1,6 +1,13 @@
 import React from 'react';
 import { NavLink, useLocation, Link as RouterLink } from 'react-router-dom';
-import { Box, Button, ButtonProps, Menu, MenuItem } from '@mui/material';
+import {
+  Box,
+  Button,
+  ButtonProps,
+  Link as MuiLink,
+  Menu,
+  MenuItem
+} from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
@@ -14,17 +21,18 @@ interface MenuItemType {
 interface Props {
   menuItems?: MenuItemType[];
   title: string;
-  path?: string;
 }
 
-export const NavMenuButton: React.FC<Props> = ({ menuItems, title, path }) => {
+export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
   const location = useLocation();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const menuRef = React.useRef<HTMLUListElement>(null);
-  const isLink = !!path;
+  const isLink = !!menuItems?.[0]?.path || '';
   const open = Boolean(anchorEl);
 
-  const isActive = isLink ? location.pathname === path : open;
+  const isActive = isLink
+    ? menuItems?.some((item) => item.path === location.pathname)
+    : open;
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) =>
     setAnchorEl(event.currentTarget);
@@ -58,18 +66,14 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title, path }) => {
   const isDropdown = !isLink && menuItems && menuItems.length > 0;
 
   const buttonProps: Partial<ButtonProps> & { to?: string } = {
-    variant: 'text',
-    sx: {
-      display: { xs: 'none', lg: 'flex' },
-      whiteSpace: 'nowrap',
-      borderRadius: 0
-    },
+    variant: 'globalNav',
+    sx: { display: { xs: 'none', lg: 'flex' }, px: 1 },
     'aria-current': isActive ? 'page' : undefined
   };
 
-  if (isLink) {
+  if (title === 'Inventory') {
     buttonProps.component = RouterLink;
-    buttonProps.to = path!;
+    buttonProps.to = menuItems?.[0]?.path || '';
   } else {
     buttonProps.onClick = handleClick;
     buttonProps.endIcon = open ? (
@@ -91,20 +95,40 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title, path }) => {
         ? '3px solid'
         : '3px solid transparent'
       : isActive
-      ? '3px solid'
-      : '3px solid transparent',
+        ? '3px solid'
+        : '3px solid transparent',
     borderColor: isDropdown
       ? open
         ? 'primary.dark'
         : 'transparent'
       : isActive
-      ? 'primary.dark'
-      : 'transparent',
+        ? 'primary.dark'
+        : 'transparent',
     borderRadius: 0
   };
 
+  const getMenuItemProps = (item: MenuItemType) => {
+    const isExternal =
+      item.path?.startsWith('http') ||
+      item.path?.startsWith('www') ||
+      item.path?.startsWith('mailto');
+    if (isExternal) {
+      return {
+        component: MuiLink,
+        href: item.path,
+        target: '_blank',
+        rel: 'noopener noreferrer'
+      };
+    }
+
+    return {
+      component: NavLink,
+      to: item.onClick ? '#' : item.path
+    };
+  };
+
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
       <Box sx={{ display: { xs: 'none', lg: 'flex' } }}>
         <Button {...buttonProps}>
           <Box sx={borderBoxStyle}>{title}</Box>
@@ -116,21 +140,22 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title, path }) => {
           open={open}
           onClose={handleClose}
           id={id}
-          MenuListProps={{
-            'aria-labelledby': id,
-            role: 'menu',
-            ref: menuRef
+          slotProps={{
+            list: {
+              'aria-labelledby': id,
+              ref: menuRef
+            }
           }}
         >
           {menuItems.map((item, index) => (
             <MenuItem
               key={index}
-              component={NavLink}
-              to={item.onClick ? '#' : item.path}
+              {...getMenuItemProps(item)}
               selected={item.path === location.pathname && !item.onClick}
               onClick={() => item.onClick?.()}
               tabIndex={0}
               role="menuitem"
+              sx={{ minWidth: '150px' }}
             >
               {item.menuItemTitle}
             </MenuItem>

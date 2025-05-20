@@ -77,7 +77,7 @@ export const OrganizationList: React.FC<{
         message:
           e.status === 422
             ? 'Error when submitting organization entry.'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       setChosenTags([]);
@@ -120,7 +120,10 @@ export const OrganizationList: React.FC<{
           columns={orgCols}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
-            toolbar: { children: addOrgButton, exportTitle: 'Organizations' }
+            toolbar: {
+              children: addOrgButton,
+              exportTitle: 'Organizations'
+            } as any
           }}
           initialState={{
             pagination: { paginationModel: { pageSize: 15 } }

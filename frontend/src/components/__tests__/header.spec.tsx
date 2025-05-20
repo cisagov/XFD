@@ -36,7 +36,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Vulnerability Scanning', 'Inventory'].forEach((expected) => {
+    ['Scanning Results', 'Inventory'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
     ['Scans'].forEach((notExpected) => {
@@ -51,7 +51,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Vulnerability Scanning', 'Inventory'].forEach((expected) => {
+    ['Scanning Results', 'Inventory'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
     // ['Manage Organizations', 'Manage Users'].forEach((notExpected) => {
@@ -66,7 +66,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Vulnerability Scanning', 'Inventory'].forEach((expected) => {
+    ['Scanning Results', 'Inventory'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
   });

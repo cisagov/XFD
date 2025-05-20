@@ -369,7 +369,10 @@ export const Users: React.FC = () => {
                 columns={userCols}
                 slots={{ toolbar: CustomToolbar }}
                 slotProps={{
-                  toolbar: { children: addUserButton, exportTitle: 'Users' }
+                  toolbar: {
+                    children: addUserButton,
+                    exportTitle: 'Users'
+                  } as any
                 }}
                 initialState={{
                   pagination: { paginationModel: { pageSize: 15 } }

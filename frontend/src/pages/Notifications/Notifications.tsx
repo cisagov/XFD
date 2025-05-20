@@ -439,7 +439,7 @@ export const Notifications: React.FC = () => {
 
   const formContents = (
     <Grid container spacing={1}>
-      <Grid item xs={12}>
+      <Grid size={{ xs: 12 }}>
         <Typography variant="body1" pb={1}>
           Maintenance Type
         </Typography>
@@ -475,7 +475,7 @@ export const Notifications: React.FC = () => {
           </Typography>
         )}
       </Grid>
-      <Grid item sm={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Typography variant="body1" pb={1} pt={2}>
           Start Date and Time
         </Typography>
@@ -490,7 +490,7 @@ export const Notifications: React.FC = () => {
           error={formErrors.start_datetime}
         />
       </Grid>
-      <Grid item sm={12} md={6}>
+      <Grid size={{ xs: 12, md: 6 }}>
         <Typography variant="body1" pb={1} pt={2}>
           End Date and Time
         </Typography>
@@ -505,19 +505,19 @@ export const Notifications: React.FC = () => {
           error={formErrors.end_datetime}
         />
       </Grid>
-      <Grid item xs={12}>
+      <Grid size={{ xs: 12 }}>
         {formErrors.dateMessage && (
           <Typography pl={2} variant="caption" color="error.main">
             {formErrors.dateMessage}
           </Typography>
         )}
       </Grid>
-      <Grid item xs={12}>
+      <Grid size={{ xs: 12 }}>
         <Typography variant="body2">
           * Dates should be entered in US Eastern Time.
         </Typography>
       </Grid>
-      <Grid item xs={12}>
+      <Grid size={{ xs: 12 }}>
         <Typography variant="body1" pt={2}>
           Maintenance Message
         </Typography>
@@ -538,7 +538,7 @@ export const Notifications: React.FC = () => {
           helperText={formErrors.message && 'Message is required'}
         ></TextField>
       </Grid>
-      <Grid item xs={12}>
+      <Grid size={{ xs: 12 }}>
         <Typography variant="body1" pt={2}>
           Status
         </Typography>
@@ -552,7 +552,7 @@ export const Notifications: React.FC = () => {
     </Grid>
   );
   const createNotificationCard = (
-    <Grid item xs={12} sm={10} md={8} lg={7} mt={3}>
+    <Grid size={{ xs: 12, sm: 10, md: 8, lg: 7 }} mt={3}>
       <Card sx={{ p: 3 }}>
         <Typography variant="h6" pb={2} fontWeight="500">
           Create a Notification
@@ -601,10 +601,10 @@ export const Notifications: React.FC = () => {
 
   return (
     <Grid container>
-      <Grid item xs={12} sm={8}>
+      <Grid size={{ xs: 12, sm: 8 }}>
         <Typography variant="h5">Maintenance Notifications</Typography>
       </Grid>
-      <Grid item xs={12} sm={4}>
+      <Grid size={{ xs: 12, sm: 4 }}>
         <Box display="flex" justifyContent="flex-end">
           <Button
             variant="contained"
@@ -619,7 +619,7 @@ export const Notifications: React.FC = () => {
         </Box>
       </Grid>
       {addBtnToggle && createNotificationCard}
-      <Grid item xs={12} my={5}>
+      <Grid size={{ xs: 12 }} my={5}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" pb={2} fontWeight="500">
             Active Notification
@@ -661,7 +661,7 @@ export const Notifications: React.FC = () => {
           )}
         </Paper>
       </Grid>
-      <Grid item xs={12} mb={5}>
+      <Grid size={{ xs: 12 }} mb={5}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" pb={2} fontWeight="500">
             Inactive Notifications

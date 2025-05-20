@@ -86,7 +86,7 @@ export const Logs: FC<LogsProps> = () => {
       type: 'dateTime',
       minWidth: 100,
       flex: 1,
-      valueFormatter: (e) => {
+      valueFormatter: (e: any) => {
         return `${differenceInCalendarDays(
           Date.now(),
           parseISO(e.value)
@@ -116,7 +116,7 @@ export const Logs: FC<LogsProps> = () => {
           </Box>
         );
       },
-      valueFormatter: (e) => {
+      valueFormatter: (e: any) => {
         return JSON.stringify(e.value, null, 2);
       }
     },
@@ -158,7 +158,7 @@ export const Logs: FC<LogsProps> = () => {
           slots={{
             toolbar: CustomToolbar
           }}
-          slotProps={{ toolbar: { multifilter: true } }}
+          slotProps={{ toolbar: { multifilter: true } as any }}
           onFilterModelChange={(model) => {
             setFilters(model.items);
           }}

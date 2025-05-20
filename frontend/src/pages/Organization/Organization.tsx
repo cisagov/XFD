@@ -89,7 +89,7 @@ export const Organization: React.FC = () => {
 
   return (
     <Grid container p={2}>
-      <Grid item xs={12} mb={2}>
+      <Grid size={{ xs: 12 }} mb={2}>
         <Breadcrumbs separator={<ChevronRight />}>
           <MuiLink href="/organizations" variant="h5">
             Organizations
@@ -104,8 +104,8 @@ export const Organization: React.FC = () => {
           </Typography>
         </Breadcrumbs>
       </Grid>
-      <Grid item xs={12} md={2} xl={3} />
-      <Grid item xs={12} md={8} xl={6}>
+      <Grid size={{ xs: 12, md: 2, xl: 3 }} />
+      <Grid size={{ xs: 12, md: 8, xl: 6 }}>
         <TabContext value={tabValue}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <TabList onChange={handleTabChange}>
@@ -117,7 +117,7 @@ export const Organization: React.FC = () => {
           <TabPanel value="2">{views[1]}</TabPanel>
         </TabContext>
       </Grid>
-      <Grid item xs={12} md={2} xl={3} />
+      <Grid size={{ xs: 12, md: 2, xl: 3 }} />
     </Grid>
   );
 };

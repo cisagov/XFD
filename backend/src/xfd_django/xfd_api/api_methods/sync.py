@@ -32,10 +32,10 @@ async def sync_post(sync_body, request: Request, current_user):
         headers = request.headers
         request_checksum = headers.get("x-checksum")
         if not request_checksum or not sync_body.data:
-            raise HTTPException(status_code=500)
+            raise HTTPException(status_code=500, detail="No checksum error")
 
         if request_checksum != create_checksum(sync_body.data):
-            raise HTTPException(status_code=500)
+            raise HTTPException(status_code=500, detail="Checksum doesn't match error.")
 
         # Use MinIO client to save CSV data to S3
         s3_client = S3Client()
@@ -44,7 +44,7 @@ async def sync_post(sync_body, request: Request, current_user):
 
         s3_url = s3_client.save_csv(sync_body.data, file_name)
         if not s3_url:
-            raise HTTPException(status_code=500)
+            raise HTTPException(status_code=500, detail="No S3 URL.")
 
         parsed_data = json.loads(sync_body.data)
 
@@ -65,15 +65,16 @@ async def sync_post(sync_body, request: Request, current_user):
                         org, item.get("sectors", []), db_name="mini_data_lake"
                     )
 
-            except Exception:
-                raise HTTPException(status_code=500)
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
 
         return SyncResponse(status="success")
 
     except HTTPException as http_exc:
         raise http_exc
-    except Exception:
-        raise HTTPException(status_code=500)
+    except Exception as e:
+        print(e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 def parse_cursor(cursor_header):

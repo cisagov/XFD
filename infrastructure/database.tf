@@ -146,22 +146,29 @@ resource "aws_iam_role_policy" "db_accessor_s3_policy" {
       "Action": [
         "s3:*"
       ],
-      "Resource": ["${aws_s3_bucket.reports_bucket.arn}", "${aws_s3_bucket.reports_bucket.arn}/*", "${aws_s3_bucket.pe_db_backups_bucket.arn}", "${aws_s3_bucket.pe_db_backups_bucket.arn}/*"]
+      "Resource": [
+        "${aws_s3_bucket.pe_db_backups_bucket.arn}",
+        "${aws_s3_bucket.pe_db_backups_bucket.arn}/*",
+        "${aws_s3_bucket.reports_bucket.arn}",
+        "${aws_s3_bucket.reports_bucket.arn}/*"
+      ]
     },
     {
       "Effect": "Allow",
       "Action": [
         "lambda:InvokeFunction"
       ],
-      "Resource": ["*"]
+      "Resource": [
+        "*"
+      ]
     },
     {
       "Effect": "Allow",
       "Action": [
-        "ecs:ListTasks",
+        "ecs:DescribeClusters",
         "ecs:DescribeTasks",
         "ecs:ListClusters",
-        "ecs:DescribeClusters",
+        "ecs:ListTasks",
         "sts:AssumeRole"
       ],
       "Resource": "*"
@@ -496,4 +503,69 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "crossfeed-lz-sync
       sse_algorithm = "AES256"
     }
   }
+}
+
+resource "aws_s3_bucket" "crossfeed-xpanse-org-sync" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = var.crossfeed-xpanse-org-sync
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+  }
+}
+
+resource "aws_s3_bucket_policy" "crossfeed-xpanse-org-sync" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = var.crossfeed-xpanse-org-sync
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "RequireSSLRequests",
+        "Action" : "s3:*",
+        "Effect" : "Deny",
+        "Principal" : "*",
+        "Resource" : [
+          aws_s3_bucket.crossfeed-xpanse-org-sync[0].arn,
+          "${aws_s3_bucket.crossfeed-xpanse-org-sync[0].arn}/*"
+        ],
+        "Condition" : {
+          "Bool" : {
+            "aws:SecureTransport" : "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_s3_bucket_acl" "crossfeed-xpanse-org-sync" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
+  acl    = "private"
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "crossfeed-xpanse-org-sync" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_ownership_controls" "crossfeed-xpanse-org-sync" {
+  count  = var.is_dmz ? 1 : 0
+  bucket = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
+  rule {
+    object_ownership = "ObjectWriter"
+  }
+}
+
+resource "aws_s3_bucket_logging" "crossfeed-xpanse-org-sync" {
+  count         = var.is_dmz ? 1 : 0
+  bucket        = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
+  target_bucket = aws_s3_bucket.logging_bucket.id
+  target_prefix = "crossfeed-xpanse-org-sync/"
 }

@@ -35,7 +35,7 @@ resource "aws_iam_role" "matomo_task_execution_role" {
     }
   ]
 }
-  EOF
+EOF
 
   tags = {
     Project = var.project
@@ -55,9 +55,9 @@ resource "aws_iam_role_policy" "matomo_task_execution_role_policy" {
     {
       "Effect": "Allow",
       "Action": [
-        "ssm:GetParameters",
         "logs:CreateLogStream",
-        "logs:PutLogEvents"
+        "logs:PutLogEvents",
+        "ssm:GetParameters"
       ],
       "Resource": "*"
     }
@@ -77,9 +77,9 @@ resource "aws_ecs_task_definition" "matomo" {
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-          "awslogs-group": "${var.matomo_ecs_log_group_name}",
-          "awslogs-region": "${var.aws_region}",
-          "awslogs-stream-prefix": "matomo"
+        "awslogs-group": "${var.matomo_ecs_log_group_name}",
+        "awslogs-region": "${var.aws_region}",
+        "awslogs-stream-prefix": "matomo"
       }
     },
     "environment": [
@@ -120,7 +120,7 @@ resource "aws_ecs_task_definition" "matomo" {
     ]
   }
 ]
-  EOF
+EOF
   execution_role_arn       = aws_iam_role.matomo_task_execution_role.arn
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
