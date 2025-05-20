@@ -57,10 +57,11 @@ PROB_SAMPLE_VULNERABILITIES = 0.5
 SAMPLE_STATES = ["Virginia", "California", "Colorado"]
 SAMPLE_REGION_IDS = ["1", "2", "3"]
 ORGANIZATION_CHUNK_SIZE = 50
-FAKE_VULN_SCAN_COUNT = 2
-FAKE_PORT_SCAN_COUNT = 20
+FAKE_ORG_COUNT = 20
+FAKE_VULN_SCAN_COUNT = 200
+FAKE_PORT_SCAN_COUNT = 200
 FAKE_HOST_COUNT = 2
-FAKE_TICKET_COUNT = 2
+FAKE_TICKET_COUNT = 100
 # Load sample data files
 SAMPLE_DATA_DIR = os.path.join(settings.BASE_DIR, "xfd_api", "tasks", "sample_data")
 services = json.load(open(os.path.join(SAMPLE_DATA_DIR, "services.json")))
@@ -394,11 +395,18 @@ def build_fake_ticket(org):
     ip_record, ip_string = create_ip_within_org_cidr(org)
     cve = Cve.objects.order_by("?").first()
     port = random.choice([21, 22, 80, 443])
-    severity = random.choice(["1.0", "2.0", "3.0", "4.0"])
+    severity_ranges = {
+        "1.0": (0.1, 3.9),  # Low
+        "2.0": (4.0, 6.9),  # Medium
+        "3.0": (7.0, 8.9),  # High
+        "4.0": (9.0, 10.0),  # Critical
+    }
+    severity = random.choice(list(severity_ranges.keys()))
+    cvss_base_score = round(random.uniform(*severity_ranges[severity]), 1)
     protocol = random.choice(["tcp", "udp"])
     opened_time = timezone.now() - timedelta(days=random.randint(0, 30))
-    # 70% chance of ticket being open (closed_timestamp = None)
-    if random.random() < 0.7:
+    # 80% chance of ticket being open (closed_timestamp = None)
+    if random.random() < 0.8:
         closed_time = None
     else:
         closed_time = opened_time + timedelta(days=random.randint(30, 600))
@@ -421,17 +429,21 @@ def build_fake_ticket(org):
         organization=org,
         cve=cve,
         cve_string=cve.name if cve else "CVE-2021-0001",
-        cvss_base_score=round(random.uniform(0, 9), 1),
+        cvss_base_score=cvss_base_score,
         cvss_version="3.1",
-        vuln_name=random.choice(
+        vuln_name=cve.name
+        + " "
+        + random.choice(
             [
                 "Super Alarming Vuln",
                 "Super Hazardous Vuln",
                 "Super Risky Vuln",
                 "Super Menacing Vuln",
-                "Super Perilous Vuln",
+                "Super unsupported Vuln",
             ]
-        ),
+        )
+        if cve
+        else "CVE-2021-0001",
         cvss_score_source="nvd",
         cvss_severity=Decimal(severity),
         vpr_score=Decimal("6.9"),
@@ -444,10 +456,25 @@ def build_fake_ticket(org):
         port_protocol=protocol,
         snapshots_bool=False,
         vuln_source="nessus",
+        operating_system=random.choice(
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "Windows 10",
+                "Linux (Ubuntu 22.04)",
+                "macOS (macOS Ventura)",
+                "FreeBSD",
+                "Cisco IOS",
+            ]
+        ),
         vuln_source_id=random.choice([10081, 12345, 34567, 89012]),
         closed_timestamp=closed_time,
         opened_timestamp=opened_time,
-        is_kev=random.choice([True, False]),
+        is_kev=random.choice([True, True, False]),
         is_risky=random.choice([True, False]),
         is_open=not closed_time,
         service_name="ftp",
@@ -502,7 +529,7 @@ def generate_cidr_blocks(n=5):
     for _ in range(n):
         # Generate random private IP ranges
         net = ipaddress.IPv4Network(
-            f"{random.randint(10, 172)}.{random.randint(0, 255)}.{random.randint(0, 255)}.0/{random.choice([24, 25, 26])}",
+            f"{random.randint(10, 172)}.{random.randint(0, 255)}.{random.randint(0, 255)}.0/{random.choice([26, 27, 28])}",
             strict=False,
         )
         cidrs.append(str(net))
@@ -619,7 +646,9 @@ def create_cidrs_for_org(org, cidr_list, data_source=None, ips_per_cidr=4):
             )
 
             # Link CIDR to Org
-            CidrOrgs.objects.get_or_create(organization=org, cidr=cidr_obj)
+            CidrOrgs.objects.get_or_create(
+                organization=org, cidr=cidr_obj, defaults={"current": True}
+            )
 
             # Generate IPs from this CIDR
             usable_ips = list(net.hosts())
@@ -653,14 +682,14 @@ def populate_sample_data():
     orgs = Organization.objects.all()
 
     if len(orgs) == 0:
-        gen_orgs(200)
+        gen_orgs(FAKE_ORG_COUNT)
         orgs = Organization.objects.all()
 
     for org in orgs:
         cidrs = generate_cidr_blocks()
         create_cidrs_for_org(org, cidrs)
 
-    print("Populating vuln_scans, port_ccans, tickets, and ticket_events...")
+    print("Populating vuln_scans, port_scans, tickets, and ticket_events...")
     for idx, org in enumerate(orgs, start=1):
         try:
             with transaction.atomic():

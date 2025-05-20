@@ -192,7 +192,7 @@ def apply_vuln_filters(
         q &= Q(created_at__lte=vulnerability_filters.latest_date)
 
     # Filter  by OS
-    if vulnerability_filters.os and vulnerability_filters.os.lower() != "any":
+    if vulnerability_filters.os and str(vulnerability_filters.os).lower() != "any":
         q &= Q(os__icontains=vulnerability_filters.os)
 
     # Filter by public ID (CVE or CWE)
@@ -205,12 +205,19 @@ def apply_vuln_filters(
             | Q(cwe__icontains=vulnerability_filters.public_id)
         )
 
-    # Filter by scan type (scan_source with case-insensitive match)
+    # Filter by scan type (source with case-insensitive match)
     if (
-        vulnerability_filters.scan_type
-        and vulnerability_filters.scan_type.lower() != "any"
+        vulnerability_filters.scan_type is not None
+        and str(vulnerability_filters.scan_type).lower() != "any"
     ):
         q &= Q(source__iexact=vulnerability_filters.scan_type)
+
+    # Filter by scan source (scan_source with case-insensitive match)
+    if (
+        getattr(vulnerability_filters, "scan_source", None) is not None
+        and str(getattr(vulnerability_filters, "scan_source")).lower() != "any"
+    ):
+        q &= Q(scan_source__iexact=vulnerability_filters.scan_source)
 
     # Filter by IP or hostname
     if (
