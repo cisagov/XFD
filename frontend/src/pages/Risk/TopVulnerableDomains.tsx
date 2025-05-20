@@ -134,7 +134,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
       <div className={header}>
         <h2>Open Vulnerabilities by Domain</h2>
       </div>
-      <div className={chartLarge}>
+      <div className={chartLarge} style={{ height: 400 }}>
         {data.length === 0 ? (
           <h3>No open vulnerabilities</h3>
         ) : (
