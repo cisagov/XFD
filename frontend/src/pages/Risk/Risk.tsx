@@ -516,6 +516,7 @@ const Risk: React.FC<ContextType> = ({
                     />
                   }
                   data={latestVulnsGroupedArr}
+                  //data={dummyLatestVulnsGroupedArr}
                   showLatest={true}
                   showCommon={false}
                 />
@@ -524,6 +525,21 @@ const Risk: React.FC<ContextType> = ({
                     data={stats.domains.ports.slice(0, 5).reverse()}
                   />
                 )}
+                {stats?.domains?.num_vulnerabilities &&
+                  stats.domains.num_vulnerabilities.length > 0 && (
+                    <TopVulnerableDomains
+                      data={stats.domains.num_vulnerabilities}
+                    />
+                  )}
+                {stats?.vulnerabilities?.severity &&
+                  stats.vulnerabilities.severity.length > 0 && (
+                    <VulnerabilityBarChart
+                      title="Severity Levels"
+                      data={stats.vulnerabilities.severity}
+                      colors={getSeverityColor}
+                      type="vulns"
+                    />
+                  )}
               </Box>
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
