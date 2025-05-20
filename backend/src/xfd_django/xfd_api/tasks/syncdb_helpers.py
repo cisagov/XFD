@@ -11,6 +11,7 @@ import json
 import os
 import random
 import secrets
+import string
 import sys
 from typing import Optional
 import uuid
@@ -24,17 +25,19 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.utils import timezone
 from faker import Faker
 from psycopg2.errors import WrongObjectType
+from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.models import Domain, Service, Vulnerability
 from xfd_api.tasks.es_client import ESClient
 from xfd_mini_dl.models import (
     ApiKey,
     Cidr,
+    CidrOrgs,
     Cve,
     Host,
     HostSummary,
     Ip,
+    Location,
     Organization,
-    OrganizationTag,
     PortScan,
     Ticket,
     TicketEvent,
@@ -54,10 +57,11 @@ PROB_SAMPLE_VULNERABILITIES = 0.5
 SAMPLE_STATES = ["Virginia", "California", "Colorado"]
 SAMPLE_REGION_IDS = ["1", "2", "3"]
 ORGANIZATION_CHUNK_SIZE = 50
-FAKE_VULN_SCAN_COUNT = 2
-FAKE_PORT_SCAN_COUNT = 2
+FAKE_ORG_COUNT = 20
+FAKE_VULN_SCAN_COUNT = 200
+FAKE_PORT_SCAN_COUNT = 200
 FAKE_HOST_COUNT = 2
-FAKE_TICKET_COUNT = 2
+FAKE_TICKET_COUNT = 100
 # Load sample data files
 SAMPLE_DATA_DIR = os.path.join(settings.BASE_DIR, "xfd_api", "tasks", "sample_data")
 services = json.load(open(os.path.join(SAMPLE_DATA_DIR, "services.json")))
@@ -267,13 +271,33 @@ def build_fake_port_scan(org):
         "method": random.choice(["probed", "banner", "snmp", "ssl-cert"]),
         "name": random.choice(["http", "ssh", "tcpwrapped", "ftp", "mysql"]),
     }
+    risky_service_group = random.choice(
+        [
+            "rdp",
+            "telnet",
+            "smb",
+            "ldap",
+            "netbios",
+            "ftp",
+            "rpc",
+            "sql",
+            "irc",
+            "kerberos",
+            None,
+            None,
+            None,
+        ]
+    )
+    nmi_group = (
+        risky_service_group if risky_service_group in ["smb", "telnet", "rdp"] else None
+    )
 
     return PortScan(
         id=str(uuid.uuid4()),
         ip=ip_record,
         ip_string=ip_string,
         organization=org,
-        latest=random.choice([True, False]),
+        latest=random.choice([True, True, True, True, False]),
         port=random.choice([22, 80, 443, 8080, 33542]),
         protocol=random.choice(["tcp", "udp"]),
         reason=random.choice(["syn-ack", "response", "reset", "none"]),
@@ -282,14 +306,12 @@ def build_fake_port_scan(org):
         service_confidence=int(service_info["conf"]),
         service_method=service_info["method"],
         source="nmap",
-        state=random.choice(["open", "closed", "filtered", "silent"]),
+        state=random.choice(["open", "open", "open", "open", "silent"]),
         time_scanned=timezone.make_aware(
             fake.date_time_between(start_date="-1y", end_date="now")
         ),
-        nmi_service_group="NMI",
-        risky_service_group=random.choice(
-            ["Potentially Risky Service", "Known Exploited Service"]
-        ),
+        nmi_service_group=nmi_group,
+        risky_service_group=risky_service_group,
     )
 
 
@@ -360,6 +382,7 @@ def build_fake_host_summaries():
                     "host_ready_count": host_ready_count,
                     "up_host_count": up_host_count,
                     "down_host_count": down_host_count,
+                    "scanned_asset_count": total_count,
                 },
             )
         except Exception as e:
@@ -372,11 +395,18 @@ def build_fake_ticket(org):
     ip_record, ip_string = create_ip_within_org_cidr(org)
     cve = Cve.objects.order_by("?").first()
     port = random.choice([21, 22, 80, 443])
-    severity = random.choice(["0.0", "1.0", "2.0", "3.0", "4.0"])
+    severity_ranges = {
+        "1.0": (0.1, 3.9),  # Low
+        "2.0": (4.0, 6.9),  # Medium
+        "3.0": (7.0, 8.9),  # High
+        "4.0": (9.0, 10.0),  # Critical
+    }
+    severity = random.choice(list(severity_ranges.keys()))
+    cvss_base_score = round(random.uniform(*severity_ranges[severity]), 1)
     protocol = random.choice(["tcp", "udp"])
-    opened_time = timezone.now() - timedelta(days=random.randint(300, 1000))
-    # 70% chance of ticket being open (closed_timestamp = None)
-    if random.random() < 0.7:
+    opened_time = timezone.now() - timedelta(days=random.randint(0, 30))
+    # 80% chance of ticket being open (closed_timestamp = None)
+    if random.random() < 0.8:
         closed_time = None
     else:
         closed_time = opened_time + timedelta(days=random.randint(30, 600))
@@ -399,17 +429,21 @@ def build_fake_ticket(org):
         organization=org,
         cve=cve,
         cve_string=cve.name if cve else "CVE-2021-0001",
-        cvss_base_score=round(random.uniform(0, 9), 1),
+        cvss_base_score=cvss_base_score,
         cvss_version="3.1",
-        vuln_name=random.choice(
+        vuln_name=cve.name
+        + " "
+        + random.choice(
             [
                 "Super Alarming Vuln",
                 "Super Hazardous Vuln",
                 "Super Risky Vuln",
                 "Super Menacing Vuln",
-                "Super Perilous Vuln",
+                "Super unsupported Vuln",
             ]
-        ),
+        )
+        if cve
+        else "CVE-2021-0001",
         cvss_score_source="nvd",
         cvss_severity=Decimal(severity),
         vpr_score=Decimal("6.9"),
@@ -422,10 +456,25 @@ def build_fake_ticket(org):
         port_protocol=protocol,
         snapshots_bool=False,
         vuln_source="nessus",
+        operating_system=random.choice(
+            [
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "Windows 10",
+                "Linux (Ubuntu 22.04)",
+                "macOS (macOS Ventura)",
+                "FreeBSD",
+                "Cisco IOS",
+            ]
+        ),
         vuln_source_id=random.choice([10081, 12345, 34567, 89012]),
         closed_timestamp=closed_time,
         opened_timestamp=opened_time,
-        is_kev=random.choice([True, False]),
+        is_kev=random.choice([True, True, False]),
         is_risky=random.choice([True, False]),
         is_open=not closed_time,
         service_name="ftp",
@@ -474,43 +523,174 @@ def build_fake_ticket_events(ticket, port_scans, vuln_scans):
     return events
 
 
-def populate_sample_data():
-    """Populate the database with sample data."""
-    all_orgs = Organization.objects.all()
-    total_orgs = len(all_orgs)
+def generate_cidr_blocks(n=5):
+    """Generate a list of random CIDR blocks."""
+    cidrs = []
+    for _ in range(n):
+        # Generate random private IP ranges
+        net = ipaddress.IPv4Network(
+            f"{random.randint(10, 172)}.{random.randint(0, 255)}.{random.randint(0, 255)}.0/{random.choice([26, 27, 28])}",
+            strict=False,
+        )
+        cidrs.append(str(net))
+    return cidrs
 
-    if len(all_orgs) == 0:
-        with transaction.atomic():
-            tag, _ = OrganizationTag.objects.get_or_create(name=SAMPLE_TAG_NAME)
-            for _ in range(NUM_SAMPLE_ORGS):
-                # Create organization
-                org = Organization.objects.create(
-                    acronym="".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=5)),
-                    name=generate_random_name(),
-                    root_domains=["crossfeed.local"],
-                    ip_blocks=[],
-                    is_passive=False,
-                    state=random.choice(SAMPLE_STATES),
-                    region_id=random.choice(SAMPLE_REGION_IDS),
-                )
-                org.tags.add(tag)
 
-                # Create sample domains, services, and vulnerabilities
-                # for _ in range(NUM_SAMPLE_DOMAINS):
-                #     domain = create_sample_domain(org)
-                #     create_sample_services_and_vulnerabilities(domain)
+def generate_acronym(name: str) -> str:
+    """Generate an acronym from a given name."""
+    # Take first letters of up to 4 words
+    words = name.split()
+    acronym = "".join(word[0] for word in words[:4]).upper()
 
-            # Create a user for the organization
+    # Pad if too short
+    if len(acronym) < 3:
+        acronym += "".join(random.choices(string.ascii_uppercase, k=3 - len(acronym)))
+
+    # Truncate if too long
+    return acronym[:6]
+
+
+def gen_orgs(num_orgs):
+    """Generate a specified number of organizations."""
+    dummy_location, _ = Location.objects.get_or_create(
+        id=uuid.uuid4(), defaults={"name": fake.city()}
+    )
+
+    orgs = []
+    print(f"Generating {num_orgs} organizations...")
+    for i in range(num_orgs):
+        try:
+            company = fake.company()
+            acronym = generate_acronym(company)
+            state = fake.state()
+            region_id = REGION_STATE_MAP[state]
+            org = Organization.objects.create(
+                acronym=acronym,
+                name=company,
+                retired=False,
+                root_domains=[fake.domain_name() for _ in range(2)],
+                ip_blocks=generate_cidr_blocks(),
+                is_passive=fake.boolean(),
+                pending_domains=[fake.domain_name() for _ in range(2)],
+                date_pe_first_reported=timezone.now(),
+                country=fake.country_code(),
+                country_name=fake.country(),
+                state=fake.state_abbr(),
+                region_id=region_id,
+                state_fips=fake.random_int(min=1, max=99),
+                state_name=state,
+                county=fake.city(),
+                county_fips=fake.random_int(min=1000, max=9999),
+                type=random.choice(["PRIVATE", "FEDERAL", "STATE"]),
+                pe_report_on=fake.boolean(),
+                pe_premium=fake.boolean(),
+                pe_demo=fake.boolean(),
+                agency_type=random.choice(["Federal", "State", "Local", "Private"]),
+                is_parent=fake.boolean(),
+                pe_run_scans=fake.boolean(),
+                stakeholder=True,
+                election=fake.boolean(),
+                was_stakeholder=fake.boolean(),
+                vs_stakeholder=fake.boolean(),
+                pe_stakeholder=fake.boolean(),
+                receives_cyhy_report=fake.boolean(),
+                receives_bod_report=fake.boolean(),
+                receives_cybex_report=fake.boolean(),
+                init_stage=random.choice(["stage_1", "stage_2", "stage_3"]),
+                scheduler=random.choice(["cron", "manual", "event"]),
+                enrolled_in_vs_timestamp=timezone.now(),
+                period_start_vs_timestamp=timezone.now(),
+                report_types=["CYHY"],
+                scan_types=["CYHY"],
+                scan_windows=[],
+                scan_limits=[],
+                password=fake.password(length=12),
+                cyhy_period_start=fake.date_this_decade(),
+                location=dummy_location,
+                parent=None,
+                created_by=None,
+            )
+            orgs.append(org)
             user = create_sample_user(org)
 
             # Create an API key for the user
             create_api_key_for_user(user)
 
-            # test_user = create_test_user(org)
+            test_user = create_test_user(org)
 
-            # create_api_key_for_user(test_user)
+            create_api_key_for_user(test_user)
+        except IntegrityError:
+            continue
+    print(f"Generated {len(orgs)} organizations.")
+    return orgs
 
-    for idx, org in enumerate(all_orgs, start=1):
+
+def create_ip_hash(ip_str: str) -> str:
+    """Create a SHA-256 hash of the given IP address string."""
+    return hashlib.sha256(ip_str.encode()).hexdigest()
+
+
+def create_cidrs_for_org(org, cidr_list, data_source=None, ips_per_cidr=4):
+    """Create CIDR objects and link them to the organization."""
+    for cidr_str in cidr_list:
+        try:
+            net = ipaddress.ip_network(cidr_str, strict=False)
+            cidr_obj, _ = Cidr.objects.get_or_create(
+                network=str(net),
+                defaults={
+                    "start_ip": str(net.network_address),
+                    "end_ip": str(net.broadcast_address),
+                    "retired": False,
+                    "data_source": data_source,
+                },
+            )
+
+            # Link CIDR to Org
+            CidrOrgs.objects.get_or_create(
+                organization=org, cidr=cidr_obj, defaults={"current": True}
+            )
+
+            # Generate IPs from this CIDR
+            usable_ips = list(net.hosts())
+            for ip_addr in usable_ips[:ips_per_cidr]:
+                ip_str = str(ip_addr)
+                ip_hash = create_ip_hash(ip_str)
+
+                Ip.objects.create(
+                    ip=ip_str,
+                    ip_hash=ip_hash,
+                    organization=org,
+                    origin_cidr=cidr_obj,
+                    live=random.choice([True, False]),
+                    false_positive=False,
+                    retired=False,
+                    from_cidr=True,
+                    last_seen_timestamp=timezone.now(),
+                    last_reverse_lookup=timezone.now(),
+                    has_shodan_results=random.choice([True, False]),
+                    current=random.choice([True, False]),
+                    conflict_alerts=[],
+                    synced_at=timezone.now(),
+                )
+
+        except ValueError:
+            print(f"Skipping invalid CIDR: {cidr_str}")
+
+
+def populate_sample_data():
+    """Populate the database with sample data."""
+    orgs = Organization.objects.all()
+
+    if len(orgs) == 0:
+        gen_orgs(FAKE_ORG_COUNT)
+        orgs = Organization.objects.all()
+
+    for org in orgs:
+        cidrs = generate_cidr_blocks()
+        create_cidrs_for_org(org, cidrs)
+
+    print("Populating vuln_scans, port_scans, tickets, and ticket_events...")
+    for idx, org in enumerate(orgs, start=1):
         try:
             with transaction.atomic():
                 # Bulk create CVEs (once per run)
@@ -552,12 +732,12 @@ def populate_sample_data():
             continue
 
         # Progress bar
-        percent = (idx / total_orgs) * 100
+        percent = (idx / len(orgs)) * 100
         bar_length = 40
-        filled = int(bar_length * idx // total_orgs)
+        filled = int(bar_length * idx // len(orgs))
         bar_template = "█" * filled + "-" * (bar_length - filled)
         sys.stdout.write(
-            f"\rProgress: |{bar_template}| {percent:.1f}% ({idx}/{total_orgs})"
+            f"\rProgress: |{bar_template}| {percent:.1f}% ({idx}/{len(orgs)})"
         )
         sys.stdout.flush()
 
@@ -779,10 +959,10 @@ def synchronize(target_app_label=None, using=None):
         process_m2m_tables(schema_editor, ordered_models, database)
 
         if target_app_label == "xfd_mini_dl":
-            create_vuln_normal_views(database)
-            create_vuln_materialized_views(database)
             create_domain_view(database)
             create_service_view(database)
+            create_vuln_normal_views(database)
+            create_vuln_materialized_views(database)
 
         cleanup_stale_tables(ordered_models, database)
 
@@ -1153,7 +1333,8 @@ def create_vuln_normal_views(database):
                 t.is_kev::bool as is_kev,
                 t.service_name as service_string,
                 t.is_risky::bool as is_risky_service,
-                null as os, --t.os as os --Not seeing this in the ticket
+                --null as os, --t.os as os --Not seeing this in the ticket
+                t.operating_system as os,
                 null as cwe,
                 vs.cpe as cpe,
                 null as references,
@@ -1161,7 +1342,15 @@ def create_vuln_normal_views(database):
                 null as needs_population,
                 null as actions,
                 null as structured_data,
-                null as kev_results
+                null as kev_results,
+                --Additional fields requested:
+                t.ip_string,
+                vs.cvss_vector,
+                t.cvss_severity as severity_int,
+                vs.plugin_id,
+                vs.solution,
+                vs.synopsis,
+                vs.plugin_output as results
             FROM ticket t
             LEFT JOIN LATERAL (
                 SELECT te.*
@@ -1215,7 +1404,15 @@ def create_vuln_normal_views(database):
                 null as needs_population,
                 null as actions,
                 null as structured_data,
-                null as kev_results
+                null as kev_results,
+                --Additional Data requested
+                sv.ip_string,
+                null AS cvss_vector,
+                null::int AS severity_int,
+                null as plugin_id,
+                null AS solution,
+                null AS synopsis,
+                null AS results
             FROM shodan_vulns as sv
             LEFT JOIN LATERAL (
                 SELECT sub_domain_id
@@ -1260,8 +1457,16 @@ def create_vuln_normal_views(database):
                 null as needs_population,
                 null as actions,
                 null as structured_data,
-                null as kev_results
-            FROM (
+                null as kev_results,
+                --Additional Data requested
+                null AS ip_string,
+                null AS cvss_vector,
+                null::int AS severity_int,
+                null as plugin_id,
+                null AS solution,
+                null AS synopsis,
+                null AS results
+                FROM (
                 SELECT
                     ce.credential_exposures_uid::text AS vuln_id,
                     'credential_breach' AS scan_source,

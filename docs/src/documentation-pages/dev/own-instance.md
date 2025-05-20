@@ -12,7 +12,7 @@ To deploy Crossfeed for the first time in a fresh AWS environment, you need to d
 
 ### Set up a custom domain for the frontend
 
-Pick a custom domain for your frontend and create an [ACM certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) for your domain. Then, set the `frontend_domain` and `frontend_cert_arn` variables in `infrastructure/stage.tfvars` and `infrastructure/prod.tfvars` accordingly.
+Pick a custom domain for your frontend and create an [ACM certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) for your domain. Then, set the `frontend_domain` variables in `infrastructure/stage.tfvars` and `infrastructure/prod.tfvars` accordingly.
 
 ### Set up authentication mechanism (Cognito or login.gov)
 

@@ -6,14 +6,12 @@ import React, {
 } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import { Box, Drawer, useMediaQuery } from '@mui/material';
 import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
 import { matchPath } from 'utils/matchPath';
-import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
-import { useTheme } from '@mui/system';
+import { FilterDrawerV2 } from './FilterDrawerV2';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
@@ -26,37 +24,39 @@ const Main = styled('main', {
 })<{
   open?: boolean;
   user?: boolean;
-}>(({ theme, open, user }) => ({
+  // }>(({ theme, open, user }) => ({
+}>(() => ({
   flexGrow: 1,
   minHeight: '100vh',
   height: '100vh',
-  overflow: 'scroll',
-  transition: theme.transitions.create('margin', {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen
-  }),
-  [theme.breakpoints.up('lg')]: {
-    marginLeft: `-${drawerWidth}px`
-  },
-  [theme.breakpoints.down('lg')]: {
-    marginLeft: user ? 0 : `-${drawerWidth}px`
-  },
-  ...(open && {
-    transition: theme.transitions.create('margin', {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen
-    }),
-    [theme.breakpoints.up('lg')]: {
-      marginLeft: 0
-    }
-  })
+  overflowY: 'auto'
+  // transition: theme.transitions.create('margin', {
+  //   easing: theme.transitions.easing.sharp,
+  //   duration: theme.transitions.duration.leavingScreen
+  // }),
+  // [theme.breakpoints.up('lg')]: {
+  //   marginLeft: `-${drawerWidth}px`
+  // },
+  // [theme.breakpoints.down('lg')]: {
+  //   marginLeft: user ? 0 : `-${drawerWidth}px`
+  // },
+  // marginLeft: `-${drawerWidth}px`
+  // ...(open && {
+  //   transition: theme.transitions.create('margin', {
+  //     easing: theme.transitions.easing.easeOut,
+  //     duration: theme.transitions.duration.enteringScreen
+  //   }),
+  //   [theme.breakpoints.up('lg')]: {
+  //     marginLeft: 0
+  //   }
+  // })
 }));
 
 export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   children,
   filters,
-  addFilter,
-  removeFilter
+  addFilter
+  // removeFilter
 }) => {
   const { logout, user } = useAuthContext();
 
@@ -67,8 +67,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const { regions } = useStaticsContext();
 
   const [initialFilters, setInitialFilters] = useState<any[]>([]);
-
-  const theme = useTheme();
 
   const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
     useFilterDrawerContext();
@@ -121,7 +119,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regions, user]);
 
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  // const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
   return (
     <>
@@ -141,22 +139,13 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
             height: '100vh'
           }}
         >
-          {userLevel > 0 ? (
+          {userLevel > 0 && (
             <FilterDrawerV2
               setIsFilterDrawerOpen={setIsFilterDrawerOpen}
               isFilterDrawerOpen={isFilterDrawerOpen}
-              isMobile={isMobile}
+              // isMobile={isMobile}
               initialFilters={initialFilters}
             />
-          ) : (
-            <Drawer
-              variant="persistent"
-              id="dummy-drawer-does-not-offer-functionality"
-              sx={{ width: drawerWidth }}
-              PaperProps={{ style: { position: 'unset' } }}
-            >
-              <Box width={drawerWidth} />
-            </Drawer>
           )}
           <Main open={isFilterDrawerOpen} user={!!user}>
             <Header />

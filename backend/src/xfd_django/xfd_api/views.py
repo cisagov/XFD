@@ -66,6 +66,7 @@ from .api_methods.user import (
 )
 from .api_methods.user_log_search import search_logs
 from .api_methods.vulnerability import (
+    enrich_kev_fields,
     export_vulnerabilities,
     get_vulnerability_by_id,
     get_vulnerability_by_scan_source_and_id,
@@ -82,7 +83,14 @@ from .schema_models.blocklist import BlocklistCheckResponse
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.cve import GetAllCvesResponse
-from .schema_models.dmz_sync import ShodanSyncResponse, SyncRequest
+from .schema_models.dmz_sync import (
+    AsmSyncResponse,
+    CensysSyncResponse,
+    CredSyncResponse,
+    DataSource,
+    ShodanSyncResponse,
+    SyncRequest,
+)
 from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
 from .schema_models.notification import CreateNotificationSchema
 from .schema_models.notification import Notification as NotificationSchema
@@ -1437,6 +1445,8 @@ async def call_search_vulnerabilities(
         return VulnerabilitySearchResponse(result=vulnerabilities, count=count)
 
     try:
+        enrich_kev_fields(vulnerabilities)
+
         # Convert each ORM instance to a Pydantic model
         result = [GetVulnerabilityResponse.model_validate(v) for v in vulnerabilities]
     except Exception as e:
@@ -1538,6 +1548,15 @@ async def get_blocklist(
 # ========================================
 #   DMZ Sync Endpoints
 # ========================================
+@api_router.get(
+    "/dmz_sync/data_sources",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=List[DataSource],
+    tags=["Data Sources"],
+)
+async def list_data_sources(current_user: User = Depends(get_current_active_user)):
+    """Retrieve a list of all data sources."""
+    return dmz_sync_methods.list_data_sources(current_user)
 
 
 def serialize_custom(obj):
@@ -1551,6 +1570,58 @@ def serialize_custom(obj):
             key: serialize_custom(value) for key, value in obj.items()
         }  # Recursively process dicts
     return obj
+
+
+# POST
+@api_router.post(
+    "/dmz_sync/asm_sync",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=AsmSyncResponse,
+    tags=["DMZ Sync"],
+)
+async def asm_sync(
+    asm_sync_data: SyncRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Return ASM_sync findings for a provided organization.
+
+    This endpoint retrieves findings from the ASM (Attack Surface Management) sync process
+    based on the input parameters provided. The response is serialized and includes a
+    SHA-256 checksum in the headers for integrity verification.
+
+    ### Request Body Parameters (SyncRequest):
+    - **page** (int, default=1):
+    Page number for pagination of the results.
+
+    - **page_size** (int, optional, default=25):
+    Number of records per page.
+
+    - **acronym** (str):
+    Organization acronym to filter the results.
+
+    - **since_date** (datetime):
+    Return results updated or found since this date.
+
+    ### Headers:
+    - **X-Salted-Checksum**:
+    A SHA-256 hash of the salted response body for response integrity verification.
+
+    ### Returns:
+    - JSON response containing ASM findings and a checksum header.
+    """
+    response_data = dmz_sync_methods.dmz_asm_sync(asm_sync_data, current_user)
+    # # response_json = json.dumps(response_data, sort_keys=True)
+    # Convert response data to a JSON-serializable format
+    response_serializable = serialize_custom(response_data)
+
+    response_json = json.dumps(response_serializable, default=str, sort_keys=True)
+
+    checksum = hashlib.sha256((SALT + response_json).encode()).hexdigest()
+
+    return JSONResponse(
+        content=response_serializable, headers={"X-Salted-Checksum": checksum}
+    )
 
 
 @api_router.post(
@@ -1574,4 +1645,80 @@ async def shodan_sync(
     checksum = hashlib.sha256((SALT + json_str).encode()).hexdigest()
     return JSONResponse(
         content=response_json_obj, headers={"X-Salted-Checksum": checksum}
+    )
+
+
+@api_router.post(
+    "/dmz_sync/censys_sync",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=CensysSyncResponse,
+    tags=["DMZ Sync"],
+)
+async def censys_sync(
+    censys_data: SyncRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Return Censys data for a provided org with checksum verification."""
+    response_data = dmz_sync_methods.dmz_censys_sync(censys_data, current_user)
+
+    response_serializable = serialize_custom(response_data)
+
+    # Consistent JSON encoding: sort keys to ensure deterministic output
+    response_json_obj = {"status": "ok", "payload": response_serializable}
+    json_str = json.dumps(response_json_obj, default=str, sort_keys=True)
+    checksum = hashlib.sha256((SALT + json_str).encode()).hexdigest()
+    return JSONResponse(
+        content=response_json_obj, headers={"X-Salted-Checksum": checksum}
+    )
+
+
+# POST
+@api_router.post(
+    "/dmz_sync/cred_sync",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=CredSyncResponse,
+    tags=["DMZ Sync"],
+)
+async def cred_sync(
+    cred_sync_data: SyncRequest,
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Return Credential Breach findings for a provided organization.
+
+    This endpoint retrieves credential breach findings from the DMZ
+    based on the input parameters provided. The response is serialized and includes a
+    SHA-256 checksum in the headers for integrity verification.
+
+    ### Request Body Parameters (SyncRequest):
+    - **page** (int, default=1):
+    Page number for pagination of the results.
+
+    - **page_size** (int, optional, default=25):
+    Number of records per page.
+
+    - **acronym** (str):
+    Organization acronym to filter the results.
+
+    - **since_date** (datetime):
+    Return results updated or found since this date.
+
+    ### Headers:
+    - **X-Salted-Checksum**:
+    A SHA-256 hash of the salted response body for response integrity verification.
+
+    ### Returns:
+    - JSON response containing credential breach findings and a checksum header.
+    """
+    response_data = dmz_sync_methods.dmz_cred_sync(cred_sync_data, current_user)
+
+    # Convert response data to a JSON-serializable format
+    response_serializable = serialize_custom(response_data)
+
+    response_json = json.dumps(response_serializable, default=str, sort_keys=True)
+
+    checksum = hashlib.sha256((SALT + response_json).encode()).hexdigest()
+
+    return JSONResponse(
+        content=response_serializable, headers={"X-Salted-Checksum": checksum}
     )

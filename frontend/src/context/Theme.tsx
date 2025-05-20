@@ -90,6 +90,13 @@ declare module '@mui/material/Button' {
   }
 }
 
+declare module '@mui/material/Chip' {
+  interface ChipPropsVariantOverrides {
+    graphOutlinedInactive: true;
+    graphOutlinedActive: true;
+  }
+}
+
 const theme = createTheme({
   breakpoints: {
     values: {
@@ -134,6 +141,56 @@ const theme = createTheme({
         }
       ]
     },
+    MuiChip: {
+      variants: [
+        {
+          props: {
+            variant: 'graphOutlinedInactive'
+          },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.neutrals.white,
+            color: theme.palette.primary.dark,
+            border: `1px solid ${theme.palette.primary.dark}`,
+
+            fontWeight: 'medium',
+
+            '&:hover': {
+              backgroundColor: theme.palette.primary.light
+            }
+          })
+        },
+        {
+          props: {
+            variant: 'graphOutlinedActive'
+          },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.primary.dark,
+            color: theme.palette.neutrals.white,
+
+            fontWeight: 'medium',
+
+            '&:hover': {
+              opacity: 0.8
+            }
+          })
+        }
+      ]
+    },
+    // To-do: Re-enable this after clarification with Design Team
+    // MuiChip: {
+    //   styleOverrides: {
+    //     root: {
+    //       borderRadius: '4px',
+    //       fontSize: '1.167rem',
+    //       fontWeight: 'medium',
+    //       height: '24px',
+    //       padding: '2px 14px 2px 14px',
+    //       '&:hover': {
+    //         backgroundColor: '#ECF7FF'
+    //       }
+    //     }
+    //   }
+    // }
     MuiIconButton: {
       styleOverrides: {
         root: ({ theme }) => ({
@@ -147,6 +204,7 @@ const theme = createTheme({
     MuiLink: {
       styleOverrides: {
         root: ({ theme }) => ({
+          ...theme.typography.link,
           color: theme.palette.primary.dark,
           '&:hover': {
             color: theme.palette.primary.darker
@@ -197,7 +255,7 @@ const theme = createTheme({
     //     root: {
     //       borderRadius: '4px',
     //       fontSize: '1.167rem',
-    //       fontWeight: 'medium',
+    //       fontWeight: 500,
     //       height: '24px',
     //       padding: '2px 14px 2px 14px',
     //       '&:hover': {
@@ -246,7 +304,7 @@ const theme = createTheme({
     fontFamily: 'source sans pro, sans-serif',
     body1: {
       fontSize: '14px',
-      fontWeight: 'regular',
+      fontWeight: 500,
       textTransform: 'none'
     },
     boldBody: {
@@ -256,14 +314,14 @@ const theme = createTheme({
     },
     largeBody: {
       fontSize: '16px',
-      fontWeight: 'regular',
+      fontWeight: 400,
       textTransform: 'none',
       letterSpacing: '0%',
       lineHeight: '22px'
     },
     button: {
       fontSize: '14px',
-      fontWeight: 'medium',
+      fontWeight: 'bold',
       textTransform: 'uppercase'
     },
     globalNav: {
@@ -278,22 +336,22 @@ const theme = createTheme({
     },
     h2: {
       fontSize: '24px',
-      fontWeight: 'medium',
+      fontWeight: 500,
       textTransform: 'none'
     },
     h3: {
       fontSize: '18px',
-      fontWeight: 'medium',
+      fontWeight: 500,
       textTransform: 'none'
     },
     link: {
       fontSize: '14px',
-      fontWeight: 'medium',
+      fontWeight: 500,
       textDecoration: 'underline'
     },
     miniStatCallout: {
       fontSize: '20px',
-      fontWeight: 'medium',
+      fontWeight: 500,
       textTransform: 'uppercase'
     },
     statCallout: {
@@ -303,17 +361,17 @@ const theme = createTheme({
     },
     uiElementsI: {
       fontSize: '10px',
-      fontWeight: 'regular',
+      fontWeight: 400,
       textTransform: 'none'
     },
     uiElementsII: {
       fontSize: '12px',
-      fontWeight: 'medium',
+      fontWeight: 500,
       textTransform: 'none'
     },
     uiElementsIII: {
       fontSize: '12px',
-      fontWeight: 'medium',
+      fontWeight: 500,
       fontStyle: 'italic',
       textTransform: 'none'
     }

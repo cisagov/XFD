@@ -26,7 +26,10 @@ def test_blocklist_check_blocked():
     )
     random_ip_address = "111.111.111.111"
     Blocklist.objects.create(
-        ip=random_ip_address, created_at=datetime.now(timezone.utc)
+        ip=random_ip_address,
+        created_at=datetime.now(timezone.utc),
+        reports=1,
+        attacks=1,
     )
 
     response = client.get(
@@ -36,7 +39,10 @@ def test_blocklist_check_blocked():
     )
 
     assert response.status_code == 200
-    assert response.json() == {"status": "BLOCKED"}
+    assert response.json() == {
+        "attacks": 1,
+        "reports": 1,
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -55,4 +61,7 @@ def test_blocklist_check_unblocked():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
-    assert response.json() == {"status": "UNBLOCKED"}
+    assert response.json() == {
+        "attacks": 0,
+        "reports": 0,
+    }

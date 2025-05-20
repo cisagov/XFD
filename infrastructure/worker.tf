@@ -55,73 +55,73 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
     {
       "Effect": "Allow",
       "Action": [
-        "ecr:GetAuthorizationToken",
         "ecr:BatchCheckLayerAvailability",
-        "ecr:GetDownloadUrlForLayer",
         "ecr:BatchGetImage",
+        "ecr:GetAuthorizationToken",
+        "ecr:GetDownloadUrlForLayer",
         "logs:CreateLogStream",
         "logs:PutLogEvents",
-        "sqs:ReceiveMessage",
         "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
         "sqs:ListQueues",
-        "sqs:GetQueueAttributes"
+        "sqs:ReceiveMessage"
       ],
       "Resource": "*"
     },
     {
-        "Effect": "Allow",
-        "Action": [
-            "ssm:GetParameters"
-        ],
-        "Resource": [
-          "${aws_ssm_parameter.crossfeed_send_db_host.arn}",
-          "${aws_ssm_parameter.crossfeed_send_db_name.arn}",
-          "${data.aws_ssm_parameter.db_username.arn}",
-          "${data.aws_ssm_parameter.db_password.arn}",
-          "${data.aws_ssm_parameter.pe_db_name.arn}",
-          "${data.aws_ssm_parameter.pe_db_username.arn}",
-          "${data.aws_ssm_parameter.pe_db_password.arn}",
-          "${data.aws_ssm_parameter.worker_signature_public_key.arn}",
-          "${data.aws_ssm_parameter.worker_signature_private_key.arn}",
-          "${data.aws_ssm_parameter.censys_api_id.arn}",
-          "${data.aws_ssm_parameter.censys_api_secret.arn}",
-          "${data.aws_ssm_parameter.shodan_api_key.arn}",
-          "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}",
-          "${data.aws_ssm_parameter.sixgill_client_id.arn}",
-          "${data.aws_ssm_parameter.intelx_api_key.arn}",
-          "${data.aws_ssm_parameter.checksum_salt.arn}",
-          "${data.aws_ssm_parameter.xpanse_api_key.arn}",
-          "${data.aws_ssm_parameter.xpanse_auth_id.arn}",
-          "${data.aws_ssm_parameter.whoisxml_api_key.arn}",
-          "${data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn}",
-          "${data.aws_ssm_parameter.qualys_username.arn}",
-          "${data.aws_ssm_parameter.qualys_password.arn}",
-          "${data.aws_ssm_parameter.sixgill_client_secret.arn}",
-          "${data.aws_ssm_parameter.lg_api_key.arn}",
-          "${data.aws_ssm_parameter.lg_workspace_name.arn}",
-          "${data.aws_ssm_parameter.https_proxy.arn}",
-          "${aws_ssm_parameter.es_endpoint.arn}",
-          "${data.aws_ssm_parameter.pe_api_key.arn}",
-          "${data.aws_ssm_parameter.pe_api_url.arn}",
-          "${data.aws_ssm_parameter.cf_api_key.arn}",
-          "${data.aws_ssm_parameter.ssm_mdl_name.arn}",
-          "${data.aws_ssm_parameter.ssm_mdl_username.arn}",
-          "${data.aws_ssm_parameter.ssm_mdl_password.arn}",
-          "${data.aws_ssm_parameter.ssm_redshift_host.arn}",
-          "${data.aws_ssm_parameter.ssm_redshift_database.arn}",
-          "${data.aws_ssm_parameter.ssm_redshift_user.arn}",
-          "${data.aws_ssm_parameter.ssm_redshift_password.arn}",
-          "${data.aws_ssm_parameter.ssm_dmz_api_key.arn}",
-          "${data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn}",
-          "${data.aws_ssm_parameter.ssm_nist_api_key.arn}"
-        ]
+      "Effect": "Allow",
+      "Action": [
+        "ssm:GetParameters"
+      ],
+      "Resource": [
+        "${aws_ssm_parameter.crossfeed_send_db_host.arn}",
+        "${aws_ssm_parameter.crossfeed_send_db_name.arn}",
+        "${aws_ssm_parameter.es_endpoint.arn}",
+        "${data.aws_ssm_parameter.censys_api_id.arn}",
+        "${data.aws_ssm_parameter.censys_api_secret.arn}",
+        "${data.aws_ssm_parameter.cf_api_key.arn}",
+        "${data.aws_ssm_parameter.checksum_salt.arn}",
+        "${data.aws_ssm_parameter.db_password.arn}",
+        "${data.aws_ssm_parameter.db_username.arn}",
+        "${data.aws_ssm_parameter.intelx_api_key.arn}",
+        "${data.aws_ssm_parameter.lg_api_key.arn}",
+        "${data.aws_ssm_parameter.lg_workspace_name.arn}",
+        "${data.aws_ssm_parameter.pe_api_key.arn}",
+        "${data.aws_ssm_parameter.pe_api_url.arn}",
+        "${data.aws_ssm_parameter.pe_db_name.arn}",
+        "${data.aws_ssm_parameter.pe_db_password.arn}",
+        "${data.aws_ssm_parameter.pe_db_username.arn}",
+        "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}",
+        "${data.aws_ssm_parameter.qualys_password.arn}",
+        "${data.aws_ssm_parameter.qualys_username.arn}",
+        "${data.aws_ssm_parameter.shodan_api_key.arn}",
+        "${data.aws_ssm_parameter.sixgill_client_id.arn}",
+        "${data.aws_ssm_parameter.sixgill_client_secret.arn}",
+        "${data.aws_ssm_parameter.ssm_dmz_api_key.arn}",
+        "${data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn}",
+        "${data.aws_ssm_parameter.ssm_mdl_name.arn}",
+        "${data.aws_ssm_parameter.ssm_mdl_password.arn}",
+        "${data.aws_ssm_parameter.ssm_mdl_username.arn}",
+        "${data.aws_ssm_parameter.ssm_nist_api_key.arn}",
+        "${data.aws_ssm_parameter.ssm_redshift_database.arn}",
+        "${data.aws_ssm_parameter.ssm_redshift_host.arn}",
+        "${data.aws_ssm_parameter.ssm_redshift_password.arn}",
+        "${data.aws_ssm_parameter.ssm_redshift_user.arn}",
+        "${data.aws_ssm_parameter.ssm_vs_pull_date_range.arn}",
+        "${data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn}",
+        "${data.aws_ssm_parameter.whoisxml_api_key.arn}",
+        "${data.aws_ssm_parameter.worker_signature_private_key.arn}",
+        "${data.aws_ssm_parameter.worker_signature_public_key.arn}",
+        "${data.aws_ssm_parameter.xpanse_api_key.arn}",
+        "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
+      ]
     },
     {
       "Effect": "Allow",
       "Action": [
         "kms:Decrypt"
       ],
-      "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
+      "Resource": "${jsondecode(data.aws_ssm_parameter.worker_kms_keys.value)}"
     }
   ]
 }
@@ -131,20 +131,20 @@ EOF
 resource "aws_iam_role" "worker_task_role" {
   name               = "crossfeed-${var.stage}-worker-task"
   assume_role_policy = <<EOF
-  {
-    "Version": "2008-10-17",
-    "Statement": [
-      {
-        "Sid": "",
-        "Effect": "Allow",
-        "Principal": {
-          "Service": "ecs-tasks.amazonaws.com"
-        },
-        "Action": "sts:AssumeRole"
-      }
-    ]
-  }
-  EOF
+{
+  "Version": "2008-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "ecs-tasks.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
+EOF
 
   tags = {
     Project = var.project
@@ -162,21 +162,21 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
   "Version": "2012-10-17",
   "Statement": [
     {
-        "Effect": "Allow",
-        "Action": [
-            "s3:PutObject",
-            "s3:PutObjectAcl",
-            "s3:GetObject",
-            "s3:GetObjectAcl"
-        ],
-        "Resource": [
-          "${aws_s3_bucket.export_bucket.arn}/*"
-        ]
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectAcl",
+        "s3:PutObject",
+        "s3:PutObjectAcl"
+      ],
+      "Resource": [
+        "${aws_s3_bucket.export_bucket.arn}/*"
+      ]
     },
     {
       "Effect": "Allow",
       "Action": [
-          "s3:ListBucket"
+        "s3:ListBucket"
       ],
       "Resource": [
         "${aws_s3_bucket.export_bucket.arn}"
@@ -185,10 +185,10 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
     {
       "Effect": "Allow",
       "Action": [
-        "sqs:ReceiveMessage",
         "sqs:DeleteMessage",
+        "sqs:GetQueueAttributes",
         "sqs:ListQueues",
-        "sqs:GetQueueAttributes"
+        "sqs:ReceiveMessage"
       ],
       "Resource": "*"
     }
@@ -242,9 +242,9 @@ resource "aws_ecs_task_definition" "worker" {
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-          "awslogs-group": "${var.worker_ecs_log_group_name}",
-          "awslogs-region": "${var.aws_region}",
-          "awslogs-stream-prefix": "worker"
+        "awslogs-group": "${var.worker_ecs_log_group_name}",
+        "awslogs-region": "${var.aws_region}",
+        "awslogs-stream-prefix": "worker"
       }
     },
     "environment": [
@@ -255,37 +255,13 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "DB_PORT",
         "value": "${var.db_port}"
+      },
+      {
+        "name": "XPANSE_ORG_SYNC_BUCKET_NAME",
+        "value": "${var.crossfeed-xpanse-org-sync}"
       }
     ],
     "secrets": [
-      {
-        "name": "DB_HOST",
-        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_host.arn}"
-      },
-      {
-        "name": "DB_NAME",
-        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_name.arn}"
-      },
-      {
-        "name": "DB_USERNAME",
-        "valueFrom": "${data.aws_ssm_parameter.db_username.arn}"
-      },
-      {
-        "name": "DB_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.db_password.arn}"
-      },
-      {
-        "name": "PE_DB_NAME",
-        "valueFrom": "${data.aws_ssm_parameter.pe_db_name.arn}"
-      },
-      {
-        "name": "PE_DB_USERNAME",
-        "valueFrom": "${data.aws_ssm_parameter.pe_db_username.arn}"
-      },
-      {
-        "name": "PE_DB_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.pe_db_password.arn}"
-      },
       {
         "name": "CENSYS_API_ID",
         "valueFrom": "${data.aws_ssm_parameter.censys_api_id.arn}"
@@ -295,84 +271,28 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.censys_api_secret.arn}"
       },
       {
-        "name": "SHODAN_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
-      },
-      {
-        "name": "PE_SHODAN_API_KEYS",
-        "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
-      },
-      {
-        "name": "SIXGILL_CLIENT_ID",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
-      },
-      {
-        "name": "SIXGILL_CLIENT_SECRET",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
-      },
-      {
-        "name": "LG_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.lg_api_key.arn}"
-      },
-      {
-        "name": "LG_WORKSPACE_NAME",
-        "valueFrom": "${data.aws_ssm_parameter.lg_workspace_name.arn}"
-      },
-      {
-        "name": "WORKER_SIGNATURE_PUBLIC_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.worker_signature_public_key.arn}"
-      },
-      {
-        "name": "WORKER_SIGNATURE_PRIVATE_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
-      },
-      {
-        "name": "ELASTICSEARCH_ENDPOINT",
-        "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
-      },
-      {
-        "name": "HTTPS_PROXY",
-        "valueFrom": "${data.aws_ssm_parameter.https_proxy.arn}"
-      },
-      {
-        "name": "PE_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
-      },
-      {
-        "name": "PE_API_URL",
-        "valueFrom": "${data.aws_ssm_parameter.pe_api_url.arn}"
-      },
-      {
         "name": "CF_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.cf_api_key.arn}"
       },
       {
-        "name": "MDL_NAME",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_name.arn}"
+        "name": "CHECKSUM_SALT",
+        "valueFrom": "${data.aws_ssm_parameter.checksum_salt.arn}"
       },
       {
-        "name": "MDL_USERNAME",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_username.arn}"
+        "name": "DB_HOST",
+        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_host.arn}"
       },
       {
-        "name": "MDL_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_password.arn}"
+        "name": "DB_NAME",
+        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_name.arn}"
       },
       {
-        "name": "REDSHIFT_HOST",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_host.arn}"
+        "name": "DB_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.db_password.arn}"
       },
       {
-        "name": "REDSHIFT_DATABASE",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_database.arn}"
-      },
-      {
-        "name": "REDSHIFT_USER",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_user.arn}"
-      },
-      {
-        "name": "REDSHIFT_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_password.arn}"
+        "name": "DB_USERNAME",
+        "valueFrom": "${data.aws_ssm_parameter.db_username.arn}"
       },
       {
         "name": "DMZ_API_KEY",
@@ -383,21 +303,100 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn}"
       },
       {
-        "name": "XPANSE_ORG_SYNC_BUCKET_NAME",
-        "value": "${var.crossfeed-xpanse-org-sync}"
+        "name": "ELASTICSEARCH_ENDPOINT",
+        "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
+      },
+      {
+        "name": "INTELX_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.intelx_api_key.arn}"
+      },
+      {
+        "name": "LG_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.lg_api_key.arn}"
+      },
+      {
+        "name": "LG_WORKSPACE_NAME",
+        "valueFrom": "${data.aws_ssm_parameter.lg_workspace_name.arn}"
+      },
+      {
+        "name": "MDL_NAME",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_name.arn}"
+      },
+      {
+        "name": "MDL_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_password.arn}"
+      },
+      {
+        "name": "MDL_USERNAME",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_mdl_username.arn}"
+      },
+      {
+        "name": "NIST_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_nist_api_key.arn}"
+      },
+      {
+        "name": "PE_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
+      },
+      {
+        "name": "PE_API_URL",
+        "valueFrom": "${data.aws_ssm_parameter.pe_api_url.arn}"
+      },
+      {
+        "name": "PE_DB_NAME",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_name.arn}"
+      },
+      {
+        "name": "PE_DB_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_password.arn}"
+      },
+      {
+        "name": "PE_DB_USERNAME",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_username.arn}"
+      },
+      {
+        "name": "PE_SHODAN_API_KEYS",
+        "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
+      },
+      {
+        "name": "QUALYS_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.qualys_password.arn}"
       },
       {
         "name": "QUALYS_USERNAME",
         "valueFrom": "${data.aws_ssm_parameter.qualys_username.arn}"
-
       },
       {
-          "name": "QUALYS_PASSWORD",
-          "valueFrom": "${data.aws_ssm_parameter.qualys_password.arn}"
+        "name": "REDSHIFT_DATABASE",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_database.arn}"
       },
       {
-          "name": "NIST_API_KEY",
-          "valueFrom": "${data.aws_ssm_parameter.ssm_nist_api_key.arn}"
+        "name": "REDSHIFT_HOST",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_host.arn}"
+      },
+      {
+        "name": "REDSHIFT_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_password.arn}"
+      },
+      {
+        "name": "REDSHIFT_USER",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_redshift_user.arn}"
+      },
+      {
+        "name": "SHODAN_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
+      },
+      {
+        "name": "SIXGILL_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
+      },
+      {
+        "name": "SIXGILL_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
+      },
+      {
+        "name": "VS_PULL_DATE_RANGE",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_vs_pull_date_range.arn}"
       },
       {
         "name": "WHOIS_XML_KEY",
@@ -408,17 +407,17 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn}"
       },
       {
-        "name": "INTELX_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.intelx_api_key.arn}"
+        "name": "WORKER_SIGNATURE_PRIVATE_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
       },
       {
-        "name": "CHECKSUM_SALT",
-        "valueFrom": "${data.aws_ssm_parameter.checksum_salt.arn}"
+        "name": "WORKER_SIGNATURE_PUBLIC_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.worker_signature_public_key.arn}"
       }
     ]
   }
 ]
-  EOF
+EOF
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.worker_task_execution_role.arn
@@ -489,8 +488,6 @@ data "aws_ssm_parameter" "worker_signature_public_key" { name = var.ssm_worker_s
 
 data "aws_ssm_parameter" "worker_signature_private_key" { name = var.ssm_worker_signature_private_key }
 
-data "aws_ssm_parameter" "https_proxy" { name = var.ssm_https_proxy }
-
 data "aws_ssm_parameter" "pe_api_key" { name = var.ssm_pe_api_key }
 
 data "aws_ssm_parameter" "pe_api_url" { name = var.ssm_pe_api_url }
@@ -512,6 +509,8 @@ data "aws_ssm_parameter" "ssm_redshift_user" { name = var.ssm_redshift_user }
 data "aws_ssm_parameter" "ssm_redshift_password" { name = var.ssm_redshift_password }
 
 data "aws_ssm_parameter" "ssm_dmz_api_key" { name = var.ssm_dmz_api_key }
+
+data "aws_ssm_parameter" "ssm_vs_pull_date_range" { name = var.ssm_vs_pull_date_range }
 
 data "aws_ssm_parameter" "ssm_dmz_sync_endpoint" { name = var.ssm_dmz_sync_endpoint }
 

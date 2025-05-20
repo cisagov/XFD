@@ -750,7 +750,9 @@ def test_delete_user_as_admin():
     assert response.json()["status"] == "success"
     assert response.json()[
         "message"
-    ] == "User {} has been deleted successfully.".format(target_user.id)
+    ] == "User {} and associated roles have been deleted successfully.".format(
+        target_user.id
+    )
 
     # Ensure the user is deleted from the database
     assert not User.objects.filter(id=target_user.id).exists()
@@ -808,7 +810,7 @@ def test_delete_nonexistent_user():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 404
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

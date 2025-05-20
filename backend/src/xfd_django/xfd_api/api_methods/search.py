@@ -119,6 +119,10 @@ def generate_csv(results: List[Dict[str, Any]], fields: List[str]) -> str:
 # POST: /search
 async def search_post(search_body: DomainSearchBody, current_user):
     """Handle Elastic Search request."""
+    # Block search for pending users.
+    if current_user.invite_pending:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     options = await get_options(search_body, current_user)
     es_query = build_request(search_body, options)
 
@@ -157,6 +161,10 @@ async def search_post(search_body: DomainSearchBody, current_user):
 # POST: /search/export
 async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str, Any]:
     """Export the search results into a CSV and upload to S3."""
+    # Block search_export for pending users.
+    if current_user.invite_pending:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     # Get Elasticsearch options
     options = await get_options(search_body, current_user)
 

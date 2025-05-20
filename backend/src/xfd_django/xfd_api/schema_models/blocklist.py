@@ -6,4 +6,5 @@ from pydantic import BaseModel
 class BlocklistCheckResponse(BaseModel):
     """BlocklistCheckResponse schema."""
 
-    status: str
+    attacks: int
+    reports: int

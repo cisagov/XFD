@@ -140,10 +140,11 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
           open={open}
           onClose={handleClose}
           id={id}
-          MenuListProps={{
-            'aria-labelledby': id,
-            role: 'menu',
-            ref: menuRef
+          slotProps={{
+            list: {
+              'aria-labelledby': id,
+              ref: menuRef
+            }
           }}
         >
           {menuItems.map((item, index) => (
@@ -154,6 +155,7 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
               onClick={() => item.onClick?.()}
               tabIndex={0}
               role="menuitem"
+              sx={{ minWidth: '150px' }}
             >
               {item.menuItemTitle}
             </MenuItem>

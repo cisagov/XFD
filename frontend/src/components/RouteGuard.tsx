@@ -47,6 +47,19 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
+  // Redirect to landing with request sent message for unapproved users
+  if (
+    user &&
+    user.invite_pending &&
+    window.location.pathname !== '/' &&
+    window.location.pathname !== '/terms' &&
+    window.location.pathname !== '/logout'
+  ) {
+    console.log('User is not approved.');
+    history.push('/');
+    return null;
+  }
+
   // TODO: Uncomment if we decide to fully block logins during maintenance windows.
   // if (user && user.login_blocked_by_maintenance) {
   //   logout();

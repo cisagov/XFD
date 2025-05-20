@@ -406,8 +406,15 @@ def organization_to_dict(org):
         "created_at": org.created_at.isoformat(),
         "updated_at": org.updated_at.isoformat(),
         "type": org.type,
+        "state": org.state,
+        "state_name": org.state_name,
+        "county": org.county,
+        "county_fips": org.county_fips,
+        "state_fips": org.state_fips,
+        "country": org.country,
+        "country_name": org.country_name,
+        "region_id": org.region_id,
         "stakeholder": org.stakeholder,
-        "region_id": str(org.region_id) if org.region_id else None,
         "enrolled_in_vs_timestamp": org.enrolled_in_vs_timestamp.isoformat(),
         "period_start_vs_timestamp": org.period_start_vs_timestamp.isoformat(),
         "report_types": org.report_types,
@@ -653,6 +660,7 @@ def enforce_latest_flag_port_scan():
                 id
             FROM port_scan
             WHERE time_scanned IS NOT NULL
+            AND time_scanned > NOW() - INTERVAL '90 days'
             ORDER BY organization_id, ip_string, port, time_scanned DESC
         )
         UPDATE port_scan

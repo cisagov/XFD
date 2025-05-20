@@ -104,7 +104,7 @@ class Cpe(AutoLengthCheckModel):
         default=uuid.uuid4,
         help_text="PK: Unique identifier for a CPE Product object.",
     )
-    name = models.CharField(max_length=255, help_text="Name of the product.")
+    name = models.TextField(help_text="Name of the product.")
     version = models.CharField(max_length=255, help_text="Version of the product.")
     vendor = models.CharField(
         max_length=255, help_text="Vendor who created the product."
@@ -623,12 +623,14 @@ class Organization(AutoLengthCheckModel):
     )
     enrolled_in_vs_timestamp = models.DateTimeField(
         db_column="enrolled_in_vs_timestamp",
-        auto_now=True,
+        null=True,
+        blank=True,
         help_text="Date the stakeholder enrolled in VS.",
     )
     period_start_vs_timestamp = models.DateTimeField(
         db_column="period_start_vs_timestamp",
-        auto_now=True,
+        null=True,
+        blank=True,
         help_text="Period start for the last report period VS ran.?????",
     )
     report_types = models.JSONField(
@@ -1389,6 +1391,7 @@ class Webpage(models.Model):
         db_column="domain_id",
         blank=True,
         null=True,
+        related_name="webpages",
         help_text="The domain associated with the webpage.",
     )
     discovered_by = models.ForeignKey(
@@ -1493,8 +1496,7 @@ class VulnScan(AutoLengthCheckModel):
         null=True,
         help_text="Id to look up a vulnerability int the CERT Vulnerability Notes Database. https://www.kb.cert.org/vuls/",
     )
-    cpe = models.CharField(
-        max_length=255,
+    cpe = models.TextField(
         blank=True,
         null=True,
         help_text="Common Platform Enumeration (CPE) id for the product the vulnerability was found on.",
@@ -1822,11 +1824,6 @@ class VulnScanSummary(models.Model):
         null=True,
         blank=True,
         help_text="Count of Ip addresses that have an open ticket associated with them.",
-    )
-    scanned_asset_count = models.IntegerField(
-        null=True,
-        blank=True,
-        help_text="Count of Ip addresses that have been scanned",
     )
     unique_service_count = models.IntegerField(
         null=True,
@@ -2374,6 +2371,11 @@ class HostSummary(models.Model):
         blank=True,
         help_text="Number of the hosts that were down in the last scan.",
     )
+    scanned_asset_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Ip addresses that have been scanned",
+    )
 
     class Meta:
         """The Meta class for HostSummary."""
@@ -2856,8 +2858,7 @@ class PortScan(AutoLengthCheckModel):
         blank=True,
         help_text="The method that was used to identify the service on the port.",
     )
-    service_cpe = models.CharField(
-        max_length=255,
+    service_cpe = models.TextField(
         null=True,
         blank=True,
         help_text="The cpe of the product associated with the service on the port.",
@@ -2976,6 +2977,11 @@ class PortScanSummary(models.Model):
     )
     unique_service_count = models.IntegerField(
         null=True, blank=True, help_text="Number of unique services."
+    )
+    risky_service_group_counts = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Dictionary of risky_service_group values and their counts",
     )
 
     class Meta:
@@ -5404,7 +5410,6 @@ class SubDomains(AutoLengthCheckModel):
         help_text="T/F: Boolean field flagging if the status is active.???",
     )
     first_seen = models.DateTimeField(
-        auto_now_add=True,
         blank=True,
         null=True,
         help_text="Date and time of the first time the subdomain was seen.",
@@ -5412,7 +5417,6 @@ class SubDomains(AutoLengthCheckModel):
     last_seen = models.DateTimeField(
         blank=True,
         null=True,
-        auto_now_add=True,
         help_text="Date of the last time the subdomain was seen.",
     )
     created_at = models.DateTimeField(
@@ -6418,10 +6422,16 @@ class Blocklist(models.Model):
     """Define Blocklist Model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    ip = InetAddressField(
-        null=False, blank=False, unique=True
-    )  # <-- Removed trailing comma
-    created_at = models.DateTimeField(auto_now=False)  # <-- Removed trailing comma
+    ip = InetAddressField(null=False, blank=False, unique=True)
+    created_at = models.DateTimeField(auto_now=False)
+    updated_at = models.DateTimeField(auto_now=True)
+    malicious = models.BooleanField(default=False)
+    attacks = models.IntegerField(
+        help_text="Number of attacks recorded for this IP.", null=True
+    )
+    reports = models.IntegerField(
+        help_text="Number of reports recorded for this IP.", null=True
+    )
 
     class Meta:
         """Set Blocklist model metadata."""
@@ -6489,6 +6499,22 @@ class Log(models.Model):
 
         managed = True
         db_table = "log"
+
+
+class DataPullTracker(models.Model):
+    """Define DataPullTracker Model."""
+
+    org = models.ForeignKey(Organization, on_delete=models.CASCADE)
+    data_source = models.CharField(max_length=255)  # Store data source as a string
+    last_queried_at = models.DateTimeField()  # Explicitly controlled timestamp
+
+    class Meta:
+        """Set DataPullTracker model metadata."""
+
+        unique_together = ("org", "data_source")  # Ensure unique org-data_source pairs
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "data_pull_tracker"
 
 
 # # THese are all views, so they shouldn't be generated via the ORM
@@ -6614,6 +6640,13 @@ class Vulnerability(models.Model):
         null=True,
         help_text="The CISA provided KEV information assocaited with KEV vulnerabilities.",
     )
+    ip_string = models.CharField(max_length=255, blank=True, null=True)
+    cvss_vector = models.TextField(blank=True, null=True)
+    severity_int = models.IntegerField(blank=True, null=True)
+    plugin_id = models.TextField(blank=True, null=True)
+    solution = models.TextField(blank=True, null=True)
+    synopsis = models.TextField(blank=True, null=True)
+    results = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set Vulnerability model metadata."""
