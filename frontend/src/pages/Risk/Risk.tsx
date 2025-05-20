@@ -516,7 +516,6 @@ const Risk: React.FC<ContextType> = ({
                     />
                   }
                   data={latestVulnsGroupedArr}
-                  //data={dummyLatestVulnsGroupedArr}
                   showLatest={true}
                   showCommon={false}
                 />
