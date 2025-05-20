@@ -498,6 +498,7 @@ const Risk: React.FC<ContextType> = ({
             </Grid>
           </Grid>
           <Grid container direction="row" spacing={2}>
+            {/* Latest Vulnerabilities Card */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Box
                 border="1px solid"
@@ -519,28 +520,9 @@ const Risk: React.FC<ContextType> = ({
                   showLatest={true}
                   showCommon={false}
                 />
-                {stats?.domains?.ports && stats.domains.ports.length > 0 && (
-                  <TopVulnerablePorts
-                    data={stats.domains.ports.slice(0, 5).reverse()}
-                  />
-                )}
-                {stats?.domains?.num_vulnerabilities &&
-                  stats.domains.num_vulnerabilities.length > 0 && (
-                    <TopVulnerableDomains
-                      data={stats.domains.num_vulnerabilities}
-                    />
-                  )}
-                {stats?.vulnerabilities?.severity &&
-                  stats.vulnerabilities.severity.length > 0 && (
-                    <VulnerabilityBarChart
-                      title="Severity Levels"
-                      data={stats.vulnerabilities.severity}
-                      colors={getSeverityColor}
-                      type="vulns"
-                    />
-                  )}
               </Box>
             </Grid>
+            {/* Most Common Vulnerabilities Card */}
             <Grid size={{ xs: 12, md: 6 }}>
               <Box
                 border="1px solid"
@@ -563,6 +545,69 @@ const Risk: React.FC<ContextType> = ({
                   }
                   showLatest={false}
                   showCommon={true}
+                />
+              </Box>
+            </Grid>
+            {/* Top Vulnerable Ports Card */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                border="1px solid"
+                borderRadius="4px"
+                borderColor="neutrals.light"
+                p={3}
+              >
+                <InfoLabel
+                  label="Most Common Ports"
+                  typographyVariant="h3"
+                  headingLevel="h3"
+                  viewDetails
+                  link="/inventory/vulnerabilities"
+                />
+                <TopVulnerablePorts
+                  data={stats?.domains?.ports?.slice(0, 5).reverse() || []}
+                />
+              </Box>
+            </Grid>
+            {/* Top Vulnerable Domains Card */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                border="1px solid"
+                borderRadius="4px"
+                borderColor="neutrals.light"
+                p={3}
+              >
+                <InfoLabel
+                  label="Top Vulnerable Domains"
+                  typographyVariant="h3"
+                  headingLevel="h3"
+                  viewDetails
+                  link="/inventory/vulnerabilities"
+                />
+                <TopVulnerableDomains
+                  data={stats?.domains?.num_vulnerabilities || []}
+                />
+              </Box>
+            </Grid>
+            {/* Vulnerability Severity Bar Chart Card */}
+            <Grid size={{ xs: 12, md: 6 }}>
+              <Box
+                border="1px solid"
+                borderRadius="4px"
+                borderColor="neutrals.light"
+                p={3}
+              >
+                <InfoLabel
+                  label="Severity Levels"
+                  typographyVariant="h3"
+                  headingLevel="h3"
+                  viewDetails
+                  link="/inventory/vulnerabilities"
+                />
+                <VulnerabilityBarChart
+                  title="Severity Levels"
+                  data={stats?.vulnerabilities?.severity || []}
+                  colors={getSeverityColor}
+                  type="vulns"
                 />
               </Box>
             </Grid>
