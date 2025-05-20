@@ -84,15 +84,16 @@ export const TopVulnerablePorts = (props: { data: Point[] }) => {
   const { data } = props;
   const { cardRoot, cardSmall, header, chartSmall } = RiskStyles.classesRisk;
   const dataVal = data
+    .slice()
     .reverse()
-    .map((e) => ({ ...e, [['Port'][0]]: e.value })) as any;
+    .map((e) => ({ ...e, Port: e.value })) as any;
   return (
     <Paper elevation={0} className={cardRoot}>
       <div className={cardSmall}>
         <div className={header}>
           <h2>Most Common Ports</h2>
         </div>
-        <div className={chartSmall}>
+        <div className={chartSmall} style={{ height: 300 }}>
           <ResponsiveBar
             data={dataVal as any}
             keys={['Port']}
