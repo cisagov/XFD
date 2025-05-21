@@ -399,7 +399,13 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
                 "date_approved": user.date_approved,
-                "approved_by": user.approved_by,
+                "approved_by": {
+                    "id": str(user.approved_by.id),
+                    "full_name": str(user.approved_by.full_name),
+                    "email": str(user.approved_by.email),
+                }
+                if user.approved_by
+                else None,
                 "accepted_terms_version": user.accepted_terms_version,
                 "roles": [
                     {
