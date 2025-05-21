@@ -1,33 +1,19 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
-import classes from './Risk.module.scss';
 import {
   Box,
   Card,
   CardContent,
   Grid,
-  Paper,
   Typography,
   CircularProgress,
   Stack,
   Alert
 } from '@mui/material';
-import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityBarChart from './VulnerabilityBarChart';
-import * as RiskStyles from './style';
-import { getSeverityColor, offsets, severities } from './utils';
+import { getSeverityColor, severities } from './utils';
 import { ContextType, useAuthContext } from 'context';
-import { geoCentroid } from 'd3-geo';
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  ZoomableGroup,
-  Marker,
-  Annotation
-} from 'react-simple-maps';
-import { scaleLinear } from 'd3-scale';
 import { Stats, Vulnerability } from 'types';
 import { UpdateStateForm } from 'components/Register';
 import {
@@ -36,7 +22,6 @@ import {
   REGION_FILTER_KEY
 } from 'components/RegionAndOrganizationFilters';
 import { withSearch } from '@elastic/react-search-ui';
-import { FilterTags } from 'pages/Search/FilterTags';
 import { useLocation } from 'react-router-dom';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
@@ -44,6 +29,7 @@ import { useUserLevel } from 'hooks/useUserLevel';
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
 import InfoLabel from './InfoLabel';
 import MostCommonVulns from './MostCommonVulns';
+import LatestKevs from './LatestKevs';
 
 export interface Point {
   id: string;
@@ -66,11 +52,6 @@ export interface VulnSeverities {
   amount?: number;
 }
 
-// Color Scale used for map
-let colorScale = scaleLinear<string>()
-  .domain([0, 1])
-  .range(['#c7e8ff', '#135787']);
-
 const Risk: React.FC<ContextType> = ({
   filters,
   removeFilter,
@@ -78,29 +59,14 @@ const Risk: React.FC<ContextType> = ({
   search_term,
   setSearchTerm
 }) => {
-  const {
-    showMaps,
-    user,
-    apiPost,
-    apiGet,
-    logout,
-    userMustSign,
-    isLoggingOut
-  } = useAuthContext();
+  const { user, apiPost, apiGet, logout, userMustSign, isLoggingOut } =
+    useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const RiskRoot = RiskStyles.RiskRoot;
-  const { cardRoot, content, contentWrapper, header, panel } =
-    RiskStyles.classesRisk;
-
-  const geoStateUrl = 'https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json';
-
-  // const allColors = ['rgb(0, 111, 162)', 'rgb(0, 185, 227)'];
 
   const riskFilters = useMemo(() => {
     const regionFilters = filters.find(
@@ -125,19 +91,19 @@ const Risk: React.FC<ContextType> = ({
 
   const { pathname } = useLocation();
 
-  const filtersToDisplay = useMemo(() => {
-    if (search_term !== '') {
-      return [
-        ...filters,
-        {
-          field: 'query',
-          values: [search_term],
-          onClear: () => setSearchTerm('', { shouldClearFilters: false })
-        }
-      ];
-    }
-    return filters;
-  }, [filters, search_term, setSearchTerm]);
+  // const filtersToDisplay = useMemo(() => {
+  //   if (search_term !== '') {
+  //     return [
+  //       ...filters,
+  //       {
+  //         field: 'query',
+  //         values: [search_term],
+  //         onClear: () => setSearchTerm('', { shouldClearFilters: false })
+  //       }
+  //     ];
+  //   }
+  //   return filters;
+  // }, [filters, search_term, setSearchTerm]);
 
   const userLevel = useUserLevel().userLevel;
 
@@ -146,24 +112,31 @@ const Risk: React.FC<ContextType> = ({
 
   const fetchStats = useCallback(
     async (org_id?: string) => {
+      setLoading(true);
+      setError(null);
       if (
         user?.user_type === 'globalAdmin' &&
         riskFilters.regions.length === 0
       ) {
         return;
       } else {
-        const { result } = await apiPost<ApiResponse>('/stats', {
-          body: {
-            filters: riskFilters
-          }
-        });
-        const max = Math.max(
-          ...result.vulnerabilities.by_org.map((p) => p.value)
-        );
-        colorScale = scaleLinear<string>()
-          .domain([0, Math.log(max)])
-          .range(['#c7e8ff', '#135787']);
-        setStats(result);
+        try {
+          const { result } = await apiPost<ApiResponse>('/stats', {
+            body: {
+              filters: riskFilters
+            }
+          });
+          // const max = Math.max(
+          //   ...result.vulnerabilities.by_org.map((p) => p.value)
+          // );
+          setStats(result);
+          setLoading(false);
+        } catch (err) {
+          setLoading(false);
+          setError(
+            err + '. Unable to retrieve data. See console log for details.'
+          );
+        }
       }
     },
 
@@ -264,87 +237,6 @@ const Risk: React.FC<ContextType> = ({
     riskFilters,
     initialFiltersForUser
   ]);
-
-  const MapCard = ({
-    title,
-    geoUrl,
-    findFn
-  }: {
-    title: string;
-    geoUrl: string;
-    findFn: (geo: any) => Point | undefined;
-    type: string;
-  }) => (
-    <Paper elevation={0}>
-      <div className={classes.chart}>
-        <div className={header}>
-          <h2>{title}</h2>
-        </div>
-        <ComposableMap
-          data-tip="hello world"
-          projection="geoAlbersUsa"
-          style={{
-            width: '90%',
-            display: 'block',
-            margin: 'auto'
-          }}
-        >
-          <ZoomableGroup zoom={1}>
-            <Geographies geography={geoUrl}>
-              {({ geographies }) =>
-                geographies.map((geo) => {
-                  const cur = findFn(geo) as
-                    | (Point & {
-                        org_id: string;
-                      })
-                    | undefined;
-                  const centroid = geoCentroid(geo);
-                  const name: string = geo.properties.name;
-                  return (
-                    <React.Fragment key={geo.rsmKey}>
-                      <Geography
-                        geography={geo}
-                        fill={colorScale(cur ? Math.log(cur.value) : 0)}
-                        onClick={() => {
-                          if (cur) fetchStats(cur.org_id);
-                        }}
-                      />
-                      <g>
-                        {centroid[0] > -160 &&
-                          centroid[0] < -67 &&
-                          (Object.keys(offsets).indexOf(name) === -1 ? (
-                            <Marker coordinates={centroid}>
-                              <text y="2" fontSize={14} textAnchor="middle">
-                                {cur ? cur.value : 0}
-                              </text>
-                            </Marker>
-                          ) : (
-                            <Annotation
-                              subject={centroid}
-                              dx={offsets[name][0]}
-                              dy={offsets[name][1]}
-                              connectorProps={{}}
-                            >
-                              <text
-                                x={4}
-                                fontSize={14}
-                                alignmentBaseline="middle"
-                              >
-                                {cur ? cur.value : 0}
-                              </text>
-                            </Annotation>
-                          ))}
-                      </g>
-                    </React.Fragment>
-                  );
-                })
-              }
-            </Geographies>
-          </ZoomableGroup>
-        </ComposableMap>
-      </div>
-    </Paper>
-  );
 
   const latestVulnsGrouped: {
     [key: string]: VulnerabilityCount;
@@ -461,13 +353,11 @@ const Risk: React.FC<ContextType> = ({
         sx={{ maxWidth: '1152px', margin: 'auto', paddingBottom: 6 }}
         spacing={6}
       >
-        {header}
+        {overviewHeader}
         <Alert severity="error">{error}</Alert>
       </Stack>
     );
   }
-
-  console.log('stats.domains.ports', stats?.domains?.ports);
 
   return (
     <Stack
@@ -507,20 +397,14 @@ const Risk: React.FC<ContextType> = ({
                       borderColor="neutrals.light"
                       p={3}
                     >
-                      <VulnerabilityCard
-                        label={
-                          <InfoLabel
-                            label="Latest Kevs"
-                            typographyVariant="h3"
-                            headingLevel="h3"
-                            viewDetails
-                            link="/inventory/vulnerabilities"
-                          />
-                        }
-                        data={latestVulnsGroupedArr}
-                        showLatest={true}
-                        showCommon={false}
+                      <InfoLabel
+                        label="Latest Kevs"
+                        typographyVariant="h3"
+                        headingLevel="h3"
+                        viewDetails
+                        link="/inventory/vulnerabilities"
                       />
+                      <LatestKevs data={latestVulnsGroupedArr} />
                     </Box>
                   </Grid>
                   <Grid>

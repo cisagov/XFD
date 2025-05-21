@@ -19,7 +19,7 @@ type ColumnConfig<T> = {
   render: (value: T[keyof T], row: T) => React.ReactNode;
 };
 
-export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
+export default function LatestKevs({ data }: { data: CommonVuln[] }) {
   const history = useHistory();
   const filteredVulnTableLinkHandler = (title: string) =>
     history.push('/inventory/vulnerabilities', { title: title });
@@ -45,7 +45,7 @@ export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
     </Tooltip>
   );
 
-  const mostCommonVulnsColumns: ColumnConfig<CommonVuln>[] = [
+  const LatestKevsColumns: ColumnConfig<CommonVuln>[] = [
     {
       key: 'title',
       header: 'Vulnerability Name',
@@ -94,7 +94,7 @@ export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
     <Box sx={{ height: 'auto', mt: -1.5 }}>
       <RoundedTable
         data={data.slice(0, 5)}
-        columns={mostCommonVulnsColumns}
+        columns={LatestKevsColumns}
         noDataMessage="There were no vulnerabilities found."
       />
     </Box>
