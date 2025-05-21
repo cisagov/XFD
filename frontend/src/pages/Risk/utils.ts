@@ -1,4 +1,4 @@
-import { VulnSeverities } from './Risk';
+import { VulnSeverities } from './OverviewDash';
 
 export const resultsPerPage = 30;
 export const getSingleColor = () => {

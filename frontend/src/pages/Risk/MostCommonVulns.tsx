@@ -4,6 +4,7 @@ import { Box, Link, Stack, Tooltip, Typography } from '@mui/material';
 import { Circle } from '@mui/icons-material';
 import RoundedTable from 'components/RoundedTable';
 import { severityColor } from 'utils/severityLevelColorMap';
+import InfoLabel from './InfoLabel';
 
 type CommonVuln = {
   title: string | null;
@@ -91,12 +92,26 @@ export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
   ];
 
   return (
-    <Box sx={{ height: 'auto', mt: -1.5 }}>
-      <RoundedTable
-        data={data.slice(0, 5)}
-        columns={mostCommonVulnsColumns}
-        noDataMessage="There were no vulnerabilities found."
+    <Box
+      border="1px solid"
+      borderRadius="4px"
+      borderColor="neutrals.light"
+      p={3}
+    >
+      <InfoLabel
+        label="Most Common Vulnerabilities"
+        typographyVariant="h3"
+        headingLevel="h3"
+        viewDetails
+        link="/inventory/vulnerabilities"
       />
+      <Box sx={{ height: 'auto', mt: -1.5 }}>
+        <RoundedTable
+          data={data.slice(0, 5)}
+          columns={mostCommonVulnsColumns}
+          noDataMessage="There were no vulnerabilities found."
+        />
+      </Box>
     </Box>
   );
 }

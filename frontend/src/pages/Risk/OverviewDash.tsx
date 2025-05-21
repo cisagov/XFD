@@ -52,7 +52,7 @@ export interface VulnSeverities {
   amount?: number;
 }
 
-const Risk: React.FC<ContextType> = ({
+const OverviewDash: React.FC<ContextType> = ({
   filters,
   removeFilter,
   addFilter,
@@ -334,11 +334,7 @@ const Risk: React.FC<ContextType> = ({
     <Box>
       <Grid container mb={0}>
         <Grid size={{ xs: 12 }} sx={{ mt: 6 }}>
-          <InfoLabel
-            label="Overview Dashboard"
-            typographyVariant="h1"
-            //viewDetails
-          />
+          <InfoLabel label="Overview Dashboard" typographyVariant="h1" />
         </Grid>
       </Grid>
     </Box>
@@ -361,7 +357,7 @@ const Risk: React.FC<ContextType> = ({
 
   return (
     <Stack
-      sx={{ maxWidth: '1152px', margin: 'auto', paddingBottom: 6 }}
+      sx={{ maxWidth: '1152px', margin: 'auto', paddingBottom: 3 }}
       spacing={6}
     >
       {overviewHeader}
@@ -392,21 +388,7 @@ const Risk: React.FC<ContextType> = ({
                 <Grid size={{ xs: 12, sm: 12, md: 6 }}>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12 }}>
-                      <Box
-                        border="1px solid"
-                        borderRadius="4px"
-                        borderColor="neutrals.light"
-                        p={3}
-                      >
-                        <InfoLabel
-                          label="Latest Kevs"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
-                        />
-                        <LatestKevs data={latestVulnsGroupedArr} />
-                      </Box>
+                      <LatestKevs data={latestVulnsGroupedArr} />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box
@@ -504,25 +486,9 @@ const Risk: React.FC<ContextType> = ({
                       </Box>
                     </Grid>
                     <Grid size={{ xs: 12 }}>
-                      <Box
-                        border="1px solid"
-                        borderRadius="4px"
-                        borderColor="neutrals.light"
-                        p={3}
-                      >
-                        <InfoLabel
-                          label="Most Common Vulnerabilities"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
-                        />
-                        <MostCommonVulns
-                          data={
-                            stats.vulnerabilities.most_common_vulnerabilities
-                          }
-                        />
-                      </Box>
+                      <MostCommonVulns
+                        data={stats.vulnerabilities.most_common_vulnerabilities}
+                      />
                     </Grid>
                   </Grid>
                 </Grid>
@@ -552,6 +518,6 @@ export const RiskWithSearch = withSearch(
     search_term,
     setSearchTerm
   })
-)(Risk);
+)(OverviewDash);
 
-export default Risk;
+export default OverviewDash;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ResponsiveBar } from '@nivo/bar';
-import { Point } from './Risk';
+import { Point } from './OverviewDash';
 import { useHistory } from 'react-router-dom';
 import { getSingleColor } from './utils';
 import * as RiskStyles from './style';
