@@ -27,9 +27,10 @@ import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
-import InfoLabel from './InfoLabel';
+import InfoLabel from 'components/Dashboard/InfoLabel';
 import MostCommonVulns from './MostCommonVulns';
 import LatestKevs from './LatestKevs';
+import infoIconContent from './infoIconContent.json';
 
 export interface Point {
   id: string;
@@ -51,6 +52,8 @@ export interface VulnSeverities {
   disable?: boolean;
   amount?: number;
 }
+
+const tooltipContentJson = infoIconContent.infoIconContent;
 
 const OverviewDash: React.FC<ContextType> = ({
   filters,
@@ -334,7 +337,11 @@ const OverviewDash: React.FC<ContextType> = ({
     <Box>
       <Grid container mb={0}>
         <Grid size={{ xs: 12 }} sx={{ mt: 6 }}>
-          <InfoLabel label="Overview Dashboard" typographyVariant="h1" />
+          <InfoLabel
+            label="Overview Dashboard"
+            typographyVariant="h1"
+            tooltipContentJson={tooltipContentJson}
+          />
         </Grid>
       </Grid>
     </Box>
@@ -379,7 +386,10 @@ const OverviewDash: React.FC<ContextType> = ({
               justifyContent="space-between"
               size={{ xs: 12 }}
             >
-              <InfoLabel label="Summary of CyHy Services Data" />
+              <InfoLabel
+                label="Summary of CyHy Services Data"
+                tooltipContentJson={tooltipContentJson}
+              />
             </Grid>
             {/* Main content */}
             <Grid spacing={2} size={{ xs: 12 }}>
@@ -404,6 +414,7 @@ const OverviewDash: React.FC<ContextType> = ({
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
                         />
                         {stats.domains.ports.length > 0 && (
                           <TopVulnerablePorts
@@ -426,6 +437,7 @@ const OverviewDash: React.FC<ContextType> = ({
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
                         />
                         {stats.vulnerabilities.severity.length > 0 && (
                           <VulnerabilityBarChart
@@ -456,6 +468,7 @@ const OverviewDash: React.FC<ContextType> = ({
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
                         />
                         {stats.vulnerabilities.by_org.length > 0 && (
                           <VulnerabilityBarChart
@@ -481,6 +494,7 @@ const OverviewDash: React.FC<ContextType> = ({
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
                         />
                         {stats.domains.num_vulnerabilities.length > 0 && (
                           <TopVulnerableDomains

@@ -2,9 +2,10 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import { Box, Link, Stack, Tooltip, Typography } from '@mui/material';
 import { Circle } from '@mui/icons-material';
-import RoundedTable from 'components/RoundedTable';
+import RoundedTable from 'components/Dashboard/RoundedTable';
 import { severityColor } from 'utils/severityLevelColorMap';
-import InfoLabel from './InfoLabel';
+import InfoLabel from 'components/Dashboard/InfoLabel';
+import infoIconContent from './infoIconContent.json';
 
 type CommonVuln = {
   title: string | null;
@@ -19,6 +20,8 @@ type ColumnConfig<T> = {
   minWidth?: string;
   render: (value: T[keyof T], row: T) => React.ReactNode;
 };
+
+const tooltipContentJson = infoIconContent.infoIconContent;
 
 export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
   const history = useHistory();
@@ -105,6 +108,7 @@ export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
         headingLevel="h3"
         viewDetails
         link="/inventory/vulnerabilities"
+        tooltipContentJson={tooltipContentJson}
       />
       <Box sx={{ height: 'auto', mt: -1.5 }}>
         <RoundedTable
