@@ -1,19 +1,21 @@
 import React from 'react';
 import { Divider, Paper, Tooltip, IconButton, Typography } from '@mui/material';
 import InfoOutlined from '@mui/icons-material/InfoOutlined';
-import infoIconContent from './infoIconContent.json';
 
 type InfoTooltipIconProps = {
   label: string;
+  // data: { content: string; id: string }[];
+  tooltipContent: string;
 };
 
-const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({ label }) => {
-  const getTooltipContent = (label: string): string => {
-    const info = infoIconContent.infoIconContent.find(
-      (item) => item.id === label
-    );
-    return info ? info.content : 'No information available.';
-  };
+const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({
+  label,
+  tooltipContent
+}) => {
+  // const getTooltipContent = (label: string): string => {
+  //   const info = data.find((item: { id: string }) => item.id === label);
+  //   return info ? info.content : 'No information available.';
+  // };
   const tooltipContentJSX = (
     <Paper
       elevation={3}
@@ -34,7 +36,8 @@ const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({ label }) => {
         color="neutrals.main"
         sx={{ p: 2 }}
       >
-        {getTooltipContent(label)}
+        {/* {getTooltipContent(label)} */}
+        {tooltipContent}
       </Typography>
     </Paper>
   );

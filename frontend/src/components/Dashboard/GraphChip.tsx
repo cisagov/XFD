@@ -18,7 +18,7 @@ const GraphChip: React.FC<GraphChipProps> = ({ data, activeLabel }) => {
       direction="row"
       spacing={1}
       alignItems="center"
-      role="group"
+      role="radiogroup"
       aria-label="Data selector"
     >
       {data.map((item, index) => {
@@ -29,7 +29,7 @@ const GraphChip: React.FC<GraphChipProps> = ({ data, activeLabel }) => {
             label={capitalizeFirstLetter(item.label)}
             variant={isActive ? 'graphOutlinedActive' : 'graphOutlinedInactive'}
             onClick={item.onClick}
-            role="group"
+            role="radio"
             aria-checked={isActive}
           />
         );
