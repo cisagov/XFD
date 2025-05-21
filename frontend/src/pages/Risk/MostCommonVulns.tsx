@@ -96,7 +96,8 @@ export default function MostCommonVulns({ data }: { data: CommonVuln[] }) {
       border="1px solid"
       borderRadius="4px"
       borderColor="neutrals.light"
-      p={3}
+      px={3}
+      py={2}
     >
       <InfoLabel
         label="Most Common Vulnerabilities"

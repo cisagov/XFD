@@ -395,7 +395,8 @@ const OverviewDash: React.FC<ContextType> = ({
                         border="1px solid"
                         borderRadius="4px"
                         borderColor="neutrals.light"
-                        p={3}
+                        px={3}
+                        py={2}
                       >
                         <InfoLabel
                           label="Most Common Ports"
@@ -416,7 +417,8 @@ const OverviewDash: React.FC<ContextType> = ({
                         border="1px solid"
                         borderRadius="4px"
                         borderColor="neutrals.light"
-                        p={3}
+                        px={3}
+                        py={2}
                       >
                         <InfoLabel
                           label="Severity Levels"
@@ -445,7 +447,8 @@ const OverviewDash: React.FC<ContextType> = ({
                         border="1px solid"
                         borderRadius="4px"
                         borderColor="neutrals.light"
-                        p={3}
+                        px={3}
+                        py={2}
                       >
                         <InfoLabel
                           label="Vulnerabilities by Organizations"
@@ -469,7 +472,8 @@ const OverviewDash: React.FC<ContextType> = ({
                         border="1px solid"
                         borderRadius="4px"
                         borderColor="neutrals.light"
-                        p={3}
+                        px={3}
+                        py={2}
                       >
                         <InfoLabel
                           label="Open Vulnerabilities by Hosts"

@@ -96,7 +96,8 @@ export default function LatestKevs({ data }: { data: CommonVuln[] }) {
       border="1px solid"
       borderRadius="4px"
       borderColor="neutrals.light"
-      p={3}
+      px={3}
+      py={2}
     >
       <InfoLabel
         label="Latest Kevs"
