@@ -70,8 +70,8 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
     sx: { display: { xs: 'none', lg: 'flex' }, px: 1 },
     'aria-current': isActive ? 'page' : undefined
   };
-
-  if (title === 'Inventory') {
+  // if (title === 'Inventory') { CHANGE BACK TO THIS AFTER HOT-FIX
+  if (title === 'Inventory' || title === 'Overview') {
     buttonProps.component = RouterLink;
     buttonProps.to = menuItems?.[0]?.path || '';
   } else {
@@ -128,7 +128,8 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
   };
 
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
+    // <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}> CHANGE BACK TO THIS AFTER HOT-FIX
+    <Box sx={{ display: 'flex', alignItems: 'center', ml: 8 }}>
       <Box sx={{ display: { xs: 'none', lg: 'flex' } }}>
         <Button {...buttonProps}>
           <Box sx={borderBoxStyle}>{title}</Box>

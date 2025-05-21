@@ -7,7 +7,7 @@ exports[`Header component matches snapshot 1`] = `
     style="--Paper-shadow: none;"
   >
     <div
-      class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
+      class="MuiToolbar-root MuiToolbar-regular css-1q6i74g-MuiToolbar-root"
     >
       <div
         class="MuiBox-root css-1g2h0gh"
@@ -24,44 +24,27 @@ exports[`Header component matches snapshot 1`] = `
         </h1>
       </div>
       <div
-        class="MuiBox-root css-9mul5i"
+        class="MuiBox-root css-yt9tbs"
       >
         <div
           class="MuiBox-root css-1i9627s"
         >
-          <button
+          <a
             aria-current="page"
-            aria-haspopup="true"
-            aria-label="Scanning Results menu"
             class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-12tdaad-MuiButtonBase-root-MuiButton-root"
+            href="/"
             tabindex="0"
-            type="button"
           >
             <div
               class="MuiBox-root css-91xr4f"
             >
-              Scanning Results
+              Overview
             </div>
-            <span
-              class="MuiButton-icon MuiButton-endIcon MuiButton-iconSizeMedium css-1gulhci-MuiButton-endIcon"
-            >
-              <svg
-                aria-hidden="true"
-                class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
-                data-testid="KeyboardArrowDownIcon"
-                focusable="false"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
-                />
-              </svg>
-            </span>
-          </button>
+          </a>
         </div>
       </div>
       <div
-        class="MuiBox-root css-9mul5i"
+        class="MuiBox-root css-yt9tbs"
       >
         <div
           class="MuiBox-root css-1i9627s"
@@ -80,83 +63,7 @@ exports[`Header component matches snapshot 1`] = `
         </div>
       </div>
       <div
-        class="MuiBox-root css-1ewlgbh"
-      >
-        <div
-          class="MuiBox-root css-9mul5i"
-        >
-          <div
-            class="MuiBox-root css-1i9627s"
-          >
-            <button
-              aria-haspopup="true"
-              aria-label="Learning Center menu"
-              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-12tdaad-MuiButtonBase-root-MuiButton-root"
-              tabindex="0"
-              type="button"
-            >
-              <div
-                class="MuiBox-root css-14sskv3"
-              >
-                Learning Center
-              </div>
-              <span
-                class="MuiButton-icon MuiButton-endIcon MuiButton-iconSizeMedium css-1gulhci-MuiButton-endIcon"
-              >
-                <svg
-                  aria-hidden="true"
-                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
-                  data-testid="KeyboardArrowDownIcon"
-                  focusable="false"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
-                  />
-                </svg>
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div
-        class="MuiBox-root css-9mul5i"
-      >
-        <div
-          class="MuiBox-root css-1i9627s"
-        >
-          <button
-            aria-haspopup="true"
-            aria-label="Support menu"
-            class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-12tdaad-MuiButtonBase-root-MuiButton-root"
-            tabindex="0"
-            type="button"
-          >
-            <div
-              class="MuiBox-root css-14sskv3"
-            >
-              Support
-            </div>
-            <span
-              class="MuiButton-icon MuiButton-endIcon MuiButton-iconSizeMedium css-1gulhci-MuiButton-endIcon"
-            >
-              <svg
-                aria-hidden="true"
-                class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
-                data-testid="KeyboardArrowDownIcon"
-                focusable="false"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  d="M7.41 8.59 12 13.17l4.59-4.58L18 10l-6 6-6-6z"
-                />
-              </svg>
-            </span>
-          </button>
-        </div>
-      </div>
-      <div
-        class="MuiBox-root css-9mul5i"
+        class="MuiBox-root css-yt9tbs"
       >
         <div
           class="MuiBox-root css-1i9627s"
