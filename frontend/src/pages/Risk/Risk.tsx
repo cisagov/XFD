@@ -167,10 +167,7 @@ const Risk: React.FC<ContextType> = ({
 
   useEffect(() => {
     if (!isLoggingOut && user) {
-      if (
-        (!user.state || user.state === '') &&
-        !localStorage.getItem('user_state')
-      ) {
+      if (!user.state || user.state === '') {
         setIsUpdateStateFormOpen(true);
       }
     }
@@ -368,9 +365,8 @@ const Risk: React.FC<ContextType> = ({
         onClose={async () => {
           setIsUpdateStateFormOpen(false);
 
-          // Re-fetch updated user to prevent false popup
-          const updatedUser = await apiGet('/users/me');
-          if (updatedUser?.state && user?.user_type !== 'globalAdmin') {
+          // Re-fetch user data or just check if state now exists
+          if (user && user.state) {
             const notifications = await apiGet('/notifications');
             const active = notifications.find(
               (n: any) =>
@@ -379,7 +375,7 @@ const Risk: React.FC<ContextType> = ({
                 new Date(n.start_datetime) <= new Date() &&
                 new Date(n.end_datetime) >= new Date()
             );
-            if (active && updatedUser.user_type !== 'globalAdmin') {
+            if (active && user.user_type !== 'globalAdmin') {
               setMaintenanceNotification(active);
               setIsLoginBlockedDialogOpen(true);
             }
