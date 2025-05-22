@@ -12,10 +12,13 @@ const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({
   label,
   tooltipContent
 }) => {
-  // const getTooltipContent = (label: string): string => {
-  //   const info = data.find((item: { id: string }) => item.id === label);
-  //   return info ? info.content : 'No information available.';
-  // };
+  const handleIconButtonClick = (event: {
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
   const tooltipContentJSX = (
     <Paper
       elevation={3}
@@ -36,7 +39,6 @@ const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({
         color="neutrals.main"
         sx={{ p: 2 }}
       >
-        {/* {getTooltipContent(label)} */}
         {tooltipContent}
       </Typography>
     </Paper>
@@ -59,9 +61,9 @@ const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({
       }}
     >
       <IconButton
+        onClick={handleIconButtonClick}
         aria-label={`More information about ${label}`}
         disableRipple
-        disableFocusRipple
         sx={{
           p: 2,
           width: '56px',

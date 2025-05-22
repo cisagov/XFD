@@ -10,15 +10,18 @@ exports[`Header component matches snapshot 1`] = `
       class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
     >
       <div
-        class="MuiBox-root css-1g2h0gh"
+        aria-label="Navigate to VS Dashboard"
+        class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary MuiBox-root css-ica2rq-MuiButtonBase-root-MuiButton-root"
+        role="link"
+        tabindex="0"
       >
         <img
-          alt="C Logo"
+          alt="CISA Logo"
           class="MuiBox-root css-1gapyfo"
           src="cisaSeal.svg"
         />
         <h1
-          class="MuiTypography-root MuiTypography-h1 css-165lrkh-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-h1 css-17hzhq5-MuiTypography-root"
         >
           CyHy Dashboard
         </h1>
@@ -30,7 +33,6 @@ exports[`Header component matches snapshot 1`] = `
           class="MuiBox-root css-1i9627s"
         >
           <button
-            aria-current="page"
             aria-haspopup="true"
             aria-label="Scanning Results menu"
             class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-12tdaad-MuiButtonBase-root-MuiButton-root"
@@ -38,7 +40,7 @@ exports[`Header component matches snapshot 1`] = `
             type="button"
           >
             <div
-              class="MuiBox-root css-91xr4f"
+              class="MuiBox-root css-14sskv3"
             >
               Scanning Results
             </div>

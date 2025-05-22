@@ -14,7 +14,7 @@ import {
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 import { useAuthContext } from 'context';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
@@ -67,6 +67,8 @@ export const Logs: FC<LogsProps> = () => {
     fetchLogs();
   }, [fetchLogs]);
 
+  console.log('logs', logs);
+
   const logCols: GridColDef[] = [
     {
       field: 'event_type',
@@ -83,14 +85,12 @@ export const Logs: FC<LogsProps> = () => {
     {
       field: 'created_at',
       headerName: 'Timestamp',
-      type: 'dateTime',
       minWidth: 100,
       flex: 1,
-      valueFormatter: (e: any) => {
-        return `${differenceInCalendarDays(
-          Date.now(),
-          parseISO(e.value)
-        )} days ago`;
+      renderCell: (cellValues) => {
+        const date = new Date(cellValues.value);
+        const daysAgo = differenceInCalendarDays(new Date(), date);
+        return `${daysAgo} days ago`;
       }
     },
     {

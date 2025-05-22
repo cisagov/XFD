@@ -56,7 +56,6 @@ export const transformVulnScanData = (
       severityByProminence: []
     }; // return empty arrays if no data
   }
-
   return {
     vulnScanSummary: [
       {
@@ -139,7 +138,8 @@ export const transformVulnScanData = (
       highSeverity: hostData.high ?? 0,
       criticalSeverity: hostData.critical ?? 0,
       all: hostData.total ?? 0,
-      rrs: hostData.rrs ?? 0
+      rrs: hostData.rrs ?? 0,
+      domainId: hostData.domain_id ?? 0
     })),
     topVulnerabilities: latestVulnSummary?.top_5_occurring_cves ?? [],
     topKevVulnerabilities: latestVulnSummary?.top_5_occurring_kevs ?? [],

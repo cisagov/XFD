@@ -102,7 +102,7 @@ const App: React.FC = () => (
                           exact
                           path="/"
                           unauth={AuthLogin}
-                          component={RiskWithSearch}
+                          component={VulnerabilityScan}
                         />
                         <Route
                           exact
@@ -142,6 +142,10 @@ const App: React.FC = () => (
                         <RouteGuard
                           path="/inventory/domains"
                           component={Domains}
+                        />
+                        <RouteGuard
+                          path="/overview"
+                          component={RiskWithSearch}
                         />
                         <RouteGuard
                           path="/VSDashboard"
