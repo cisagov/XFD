@@ -23,7 +23,7 @@ type ColumnConfig<T> = {
 
 const tooltipContentJson = infoIconContent.infoIconContent;
 
-export default function LatestKevs({ data }: { data: CommonVuln[] }) {
+export default function LatestKEVs({ data }: { data: CommonVuln[] }) {
   const history = useHistory();
   const filteredVulnTableLinkHandler = (title: string) =>
     history.push('/inventory/vulnerabilities', { title: title });
@@ -103,7 +103,7 @@ export default function LatestKevs({ data }: { data: CommonVuln[] }) {
       py={2}
     >
       <InfoLabel
-        label="Latest Kevs"
+        label="Latest KEVs"
         typographyVariant="h3"
         headingLevel="h3"
         viewDetails

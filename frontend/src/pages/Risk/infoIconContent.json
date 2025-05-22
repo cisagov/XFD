@@ -15,6 +15,26 @@
     {
       "content": "This section shows the most common vulnerabilities detected.",
       "id": "Most Common Vulnerabilities"
+    },
+    {
+      "content": "This section shows the latest KEVs.",
+      "id": "Latest KEVs"
+    },
+    {
+      "content": "This section shows the most common ports.",
+      "id": "Most Common Ports"
+    },
+    {
+      "content": "This section shows the vulnerabilities by organizations.",
+      "id": "Vulnerabilities by Organizations"
+    },
+    {
+      "content": "This section shows the severity levels.",
+      "id": "Severity Levels"
+    },
+    {
+      "content": "This section shows the open vulnerabilities by hosts.",
+      "id": "Open Vulnerabilities by Hosts"
     }
   ]
 }

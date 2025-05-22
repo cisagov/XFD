@@ -29,7 +29,7 @@ import { useUserLevel } from 'hooks/useUserLevel';
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 import MostCommonVulns from './MostCommonVulns';
-import LatestKevs from './LatestKevs';
+import LatestKEVs from './LatestKEVs';
 import infoIconContent from './infoIconContent.json';
 
 export interface Point {
@@ -398,7 +398,7 @@ const OverviewDash: React.FC<ContextType> = ({
                 <Grid size={{ xs: 12, sm: 12, md: 6 }}>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12 }}>
-                      <LatestKevs data={latestVulnsGroupedArr} />
+                      <LatestKEVs data={latestVulnsGroupedArr} />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box
