@@ -15,6 +15,7 @@ from uuid import uuid4
 from django.db import transaction
 from fastapi import HTTPException, Request
 from xfd_api.tasks.vulnScanningSync import save_organization_to_mdl
+from xfd_api.utils.scan_utils.alerting import SyncError
 from xfd_mini_dl.models import Organization, Sector
 
 from ..auth import is_global_view_admin
@@ -38,43 +39,58 @@ async def sync_post(sync_body, request: Request, current_user):
             raise HTTPException(status_code=500, detail="Checksum doesn't match error.")
 
         # Use MinIO client to save CSV data to S3
-        s3_client = S3Client()
-        start_bound, end_bound = parse_cursor(headers.get("x-cursor"))
-        file_name = generate_s3_filename(start_bound, end_bound)
-
-        s3_url = s3_client.save_csv(sync_body.data, file_name)
-        if not s3_url:
-            raise HTTPException(status_code=500, detail="No S3 URL.")
-
-        parsed_data = json.loads(sync_body.data)
-
-        for item in parsed_data:
-            try:
-                org = save_organization_to_mdl(
-                    org_dict=item,
-                    network_list=item["cidrs"],
-                    location=item["location"],
-                    db_name="mini_data_lake",
-                )
-
-                if org:
-                    link_parent_organization(
-                        org, item.get("parent"), db_name="mini_data_lake"
-                    )
-                    link_sectors_to_organization(
-                        org, item.get("sectors", []), db_name="mini_data_lake"
-                    )
-
-            except Exception as e:
-                raise HTTPException(status_code=500, detail=str(e))
-
-        return SyncResponse(status="success")
+        try:
+            process_request(headers, sync_body)
+        except Exception as e:
+            raise SyncError(
+                "VulnScanningSync Endpoint", str(e), "Error syncing VS data"
+            )
 
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
+    except SyncError as sync_exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"SyncError: {sync_exc.message} - {sync_exc.error_message}",
+        )
+
+
+def process_request(headers, sync_body):
+    """Process the request to save organization data."""
+    s3_client = S3Client()
+    start_bound, end_bound = parse_cursor(headers.get("x-cursor"))
+    file_name = generate_s3_filename(start_bound, end_bound)
+
+    s3_url = s3_client.save_csv(sync_body.data, file_name)
+    if not s3_url:
+        raise HTTPException(status_code=500, detail="No S3 URL.")
+
+    parsed_data = json.loads(sync_body.data)
+
+    for item in parsed_data:
+        try:
+            org = save_organization_to_mdl(
+                org_dict=item,
+                network_list=item["cidrs"],
+                location=item["location"],
+                db_name="mini_data_lake",
+            )
+
+            if org:
+                link_parent_organization(
+                    org, item.get("parent"), db_name="mini_data_lake"
+                )
+                link_sectors_to_organization(
+                    org, item.get("sectors", []), db_name="mini_data_lake"
+                )
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    return SyncResponse(status="success")
 
 
 def parse_cursor(cursor_header):

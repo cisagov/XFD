@@ -3,18 +3,14 @@
 exports[`Layout component matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    style="display: flex;"
-  >
-    <div>
-      GOV_BANNER
-    </div>
-  </div>
-  <div
     style="display: flex; flex-direction: row; height: 100vh;"
   >
     <main
       class="css-p5oo7q"
     >
+      <div>
+        GOV_BANNER
+      </div>
       <div>
         HEADER
       </div>

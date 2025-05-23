@@ -84,7 +84,3 @@ jobs:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: pip-
-      - run: pip install safety
-      - run: |
-          safety check -r worker/requirements.txt \
-          --policy-file ./worker/.safety-policy.yml

@@ -146,6 +146,21 @@ export const Header: React.FC = () => {
   };
 
   const headerLogo = (
+    <>
+      <Box component="img" src={cisaLogo} sx={{ height: 60 }} alt="CISA Logo" />
+      <Typography
+        variant="h1"
+        sx={{
+          fontSize: '22px',
+          color: 'primary.darker',
+          ml: 1
+        }}
+      >
+        CyHy Dashboard
+      </Typography>
+    </>
+  );
+  const headerLogoWrapper = (
     <Button
       component={Box}
       onClick={handleLogoClick}
@@ -178,17 +193,7 @@ export const Header: React.FC = () => {
         }
       }}
     >
-      <Box component="img" src={cisaLogo} sx={{ height: 60 }} alt="CISA Logo" />
-      <Typography
-        variant="h1"
-        sx={{
-          fontSize: '22px',
-          color: 'primary.darker',
-          ml: 1
-        }}
-      >
-        CyHy Dashboard
-      </Typography>
+      {headerLogo}
     </Button>
   );
 
@@ -207,7 +212,7 @@ export const Header: React.FC = () => {
       }}
     >
       <Toolbar disableGutters sx={{ maxWidth: '1152px', width: '100%', p: 0 }}>
-        {headerLogo}
+        {userLevel > 0 ? headerLogoWrapper : headerLogo}
         {userLevel > 0 && (
           <>
             {allMenuItems.map((sectionObj, index) => {

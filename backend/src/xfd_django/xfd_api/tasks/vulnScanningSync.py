@@ -33,6 +33,12 @@ from xfd_api.tasks.syncdb_helpers import (
 from xfd_api.utils.chunk import chunk_list_by_bytes
 from xfd_api.utils.csv_utils import create_checksum
 from xfd_api.utils.hash import hash_ip
+from xfd_api.utils.scan_utils.alerting import (
+    IngestionError,
+    QueryError,
+    ScanExecutionError,
+    SyncError,
+)
 from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (
     enforce_latest_flag_port_scan,
     fetch_orgs_and_relations,
@@ -67,6 +73,7 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")
+SCAN_NAME = "VulnScanningSync"
 
 VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 
@@ -89,8 +96,9 @@ def handler(event):
         main()
         return {"status_code": 200, "body": "VS Sync completed successfully"}
     except Exception as e:
-        LOGGER.info("Error occurred: %s", e)
-        return {"status_code": 500, "body": str(e)}
+        raise ScanExecutionError(SCAN_NAME, str(e), event) from e
+        # LOGGER.info("Error occurred: %s", e)
+        # return {"status_code": 500, "body": str(e)}
 
 
 def query_redshift(query, params=None):
@@ -111,6 +119,8 @@ def query_redshift(query, params=None):
             cursor.execute(query)  # <-- this avoids the IndexError
         results = cursor.fetchall()
         return [dict(row) for row in results]
+    except Exception as e:
+        raise QueryError(SCAN_NAME, str(e)) from e
     finally:
         cursor.close()
         conn.close()
@@ -217,12 +227,33 @@ def main():
             chunk_number - 1,
         )
         LOGGER.info("Finished processing tickets")
-        create_vuln_scan_summary()
+        try:
+            create_vuln_scan_summary()
+        except Exception as e:
+            raise QueryError(
+                SCAN_NAME, str(e), "Error creating vulnerability scan summary"
+            ) from e
 
-    create_domain_view("mini_data_lake")
-    create_service_view("mini_data_lake")
-    create_vuln_normal_views("mini_data_lake")
-    create_vuln_materialized_views("mini_data_lake")
+    try:
+        create_domain_view("mini_data_lake")
+    except Exception as e:
+        raise QueryError(SCAN_NAME, str(e), "Error creating domain view") from e
+    try:
+        create_service_view("mini_data_lake")
+    except Exception as e:
+        raise QueryError(SCAN_NAME, str(e), "Error creating service view") from e
+    try:
+        create_vuln_normal_views("mini_data_lake")
+    except Exception as e:
+        raise QueryError(
+            SCAN_NAME, str(e), "Error creating vulnerability normal views"
+        ) from e
+    try:
+        create_vuln_materialized_views("mini_data_lake")
+    except Exception as e:
+        raise QueryError(
+            SCAN_NAME, str(e), "Error creating vulnerability materialized views"
+        ) from e
 
 
 def detect_data_set(query):
@@ -291,6 +322,7 @@ def send_organizations_to_dmz():
             traceback.format_exc(),
         )
         print(e)
+        raise SyncError(SCAN_NAME, str(e), "Error sending organizations to dmz") from e
 
 
 def send_csv_to_sync(csv_data, bounds):
@@ -330,6 +362,10 @@ def send_csv_to_sync(csv_data, bounds):
         )
     except Exception as e:
         LOGGER.error("Unexpected error sending chunk: %s", str(e))
+        raise SyncError(
+            SCAN_NAME,
+            str(e),
+        ) from e
 
 
 def process_vulnerability_scans(vuln_scans, org_id_dict):
@@ -357,9 +393,14 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
             except Exception as e:
                 LOGGER.error("Error saving vulnerability scan: %s", e)
                 print(traceback.format_exc())
+                # Raise to catch in the outer block
+                raise e
         except Exception as e:
             LOGGER.error("Error processing Vulnerability Scan: %s", e)
             print(traceback.format_exc())
+            raise IngestionError(
+                SCAN_NAME, str(e), "Failed processing vulnerability scans"
+            ) from e
 
 
 def safe_fromisoformat(date_input) -> datetime.datetime | None:
@@ -518,6 +559,9 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                 owner_id,
                 e,
             )
+            raise QueryError(
+                SCAN_NAME, str(e), "Error creating daily host summary"
+            ) from e
 
     LOGGER.info("Completed host summary creation from Redshift.")
 
@@ -581,6 +625,7 @@ def create_port_scan_summary(summary_date=None):
 
     except Exception as e:
         print("Error creating port scan summary: {}".format(e))
+        raise QueryError(SCAN_NAME, str(e), "Error creating port scan summary") from e
 
 
 def create_port_scan_service_summaries(summary_date=None):
@@ -633,6 +678,9 @@ def create_port_scan_service_summaries(summary_date=None):
                 )
     except Exception as e:
         print("Error creating port scan service summary: {}".format(e))
+        raise QueryError(
+            SCAN_NAME, str(e), "Error creating port scan service summary"
+        ) from e
 
 
 def process_tickets(tickets, org_id_dict):
@@ -706,6 +754,7 @@ def process_tickets(tickets, org_id_dict):
             print(
                 f"Error processing ticket data: {e} - {owner_id} - {ticket.get('owner')}"
             )
+            raise IngestionError(SCAN_NAME, str(e), "Failed processing tickets") from e
 
 
 def get_asset_owned_count(org):
@@ -1034,6 +1083,9 @@ def process_port_scans(port_scans, org_id_dict):
             save_port_scan_to_datalake(port_scan_dict)
         except Exception as e:
             print(f"Error processing port scan data: {e}")
+            raise IngestionError(
+                SCAN_NAME, str(e), "Failed processing port scans"
+            ) from e
 
 
 def process_orgs(request_list):
@@ -1044,16 +1096,23 @@ def process_orgs(request_list):
     parent_child_dict = {}
 
     # Process the request data
-    if request_list and isinstance(request_list, list):
-        process_request(request_list, sector_child_dict, parent_child_dict, org_id_dict)
+    try:
+        if request_list and isinstance(request_list, list):
+            process_request(
+                request_list, sector_child_dict, parent_child_dict, org_id_dict
+            )
 
-        # Link parent-child organizations
-        link_parent_child_organizations(parent_child_dict, org_id_dict)
+            # Link parent-child organizations
+            link_parent_child_organizations(parent_child_dict, org_id_dict)
 
-        # Assign organizations to sectors
-        assign_organizations_to_sectors(sector_child_dict, org_id_dict)
+            # Assign organizations to sectors
+            assign_organizations_to_sectors(sector_child_dict, org_id_dict)
 
-    return org_id_dict
+        return org_id_dict
+    except Exception as e:
+        raise IngestionError(
+            SCAN_NAME, str(e), "Failed processing organizations"
+        ) from e
 
 
 def link_parent_child_organizations(
@@ -1108,6 +1167,7 @@ def assign_organizations_to_sectors(
     except Exception as e:
         print("Error assigning organization to sectors:")
         print(e)
+        raise e
 
 
 def process_request(request_list, sector_child_dict, parent_child_dict, org_id_dict):
@@ -1264,6 +1324,9 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         org_id_dict[request["_id"]] = org_record.id
     except Exception as e:
         LOGGER.info("Error saving organization: %s - %s", e, request["_id"])
+        raise IngestionError(
+            SCAN_NAME, str(e), "Failed processing organizations"
+        ) from e
 
 
 if __name__ == "__main__":
