@@ -413,20 +413,25 @@ const OverviewDash: React.FC<ContextType> = ({
                         py={2}
                       >
                         <InfoLabel
-                          label="Most Common Ports"
+                          label="Open Vulnerabiliti es by Hosts"
                           typographyVariant="h3"
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
                           tooltipContentJson={tooltipContentJson}
                         />
-                        {stats.domains.ports.length > 0 && (
-                          <TopVulnerablePorts
-                            data={stats.domains.ports.slice(0, 5).reverse()}
+                        {stats.domains.num_vulnerabilities.length > 0 && (
+                          <TopVulnerableDomains
+                            data={stats.domains.num_vulnerabilities}
                           />
                         )}
                       </Box>
                     </Grid>
+                  </Grid>
+                </Grid>
+                {/* Right side content */}
+                <Grid size={{ xs: 12, sm: 12, md: 6 }}>
+                  <Grid container spacing={2} width="100%">
                     <Grid size={{ xs: 12 }}>
                       <Box
                         border="1px solid"
@@ -436,7 +441,7 @@ const OverviewDash: React.FC<ContextType> = ({
                         py={2}
                       >
                         <InfoLabel
-                          label="Severity Levels"
+                          label="Vulnerability by Severity Type"
                           typographyVariant="h3"
                           headingLevel="h3"
                           viewDetails
@@ -453,12 +458,7 @@ const OverviewDash: React.FC<ContextType> = ({
                         )}
                       </Box>
                     </Grid>
-                  </Grid>
-                </Grid>
-                {/* Right side content */}
-                <Grid size={{ xs: 12, sm: 12, md: 6 }}>
-                  <Grid container spacing={2} width="100%">
-                    <Grid size={{ xs: 12 }}>
+                    {/* <Grid size={{ xs: 12 }}>
                       <Box
                         border="1px solid"
                         borderRadius="4px"
@@ -483,6 +483,11 @@ const OverviewDash: React.FC<ContextType> = ({
                           />
                         )}
                       </Box>
+                    </Grid> */}
+                    <Grid size={{ xs: 12 }}>
+                      <MostCommonVulns
+                        data={stats.vulnerabilities.most_common_vulnerabilities}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box
@@ -493,24 +498,19 @@ const OverviewDash: React.FC<ContextType> = ({
                         py={2}
                       >
                         <InfoLabel
-                          label="Open Vulnerabilities by Hosts"
+                          label="Most Common Ports"
                           typographyVariant="h3"
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
                           tooltipContentJson={tooltipContentJson}
                         />
-                        {stats.domains.num_vulnerabilities.length > 0 && (
-                          <TopVulnerableDomains
-                            data={stats.domains.num_vulnerabilities}
+                        {stats.domains.ports.length > 0 && (
+                          <TopVulnerablePorts
+                            data={stats.domains.ports.slice(0, 5).reverse()}
                           />
                         )}
                       </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <MostCommonVulns
-                        data={stats.vulnerabilities.most_common_vulnerabilities}
-                      />
                     </Grid>
                   </Grid>
                 </Grid>

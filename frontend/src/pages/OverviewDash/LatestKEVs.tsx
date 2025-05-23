@@ -103,7 +103,7 @@ export default function LatestKEVs({ data }: { data: CommonVuln[] }) {
       py={2}
     >
       <InfoLabel
-        label="Latest KEVs"
+        label="Latest KEV's"
         typographyVariant="h3"
         headingLevel="h3"
         viewDetails

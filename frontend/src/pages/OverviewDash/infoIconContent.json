@@ -18,7 +18,7 @@
     },
     {
       "content": "This section shows the latest KEVs.",
-      "id": "Latest KEVs"
+      "id": "Latest KEV's"
     },
     {
       "content": "This section shows the most common ports.",
@@ -29,8 +29,8 @@
       "id": "Vulnerabilities by Organizations"
     },
     {
-      "content": "This section shows the severity levels.",
-      "id": "Severity Levels"
+      "content": "This section shows the vulnerability by severity type.",
+      "id": "Vulnerability by Severity Type"
     },
     {
       "content": "This section shows the open vulnerabilities by hosts.",
