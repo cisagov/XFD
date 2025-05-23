@@ -35,51 +35,76 @@ whois_datasource, created = DataSource.objects.get_or_create(
 )
 
 
-def process_ips(thread_id, org, cidr, ip_gen):
-    """Process ips through WhoisXML and save them to DB."""
+def process_ips(thread_id, org, cidr, ip_list):
+    """Process IPs through WhoisXML and save them to DB."""
     count = 0
     failed_ips = []
     chunk_start = time.time()
-    while True:
+    for ip in ip_list:
+        count += 1
         try:
-            # Get the next IP from the generator or break if exhausted
-            ip = str(next(ip_gen))
-            count += 1
-            try:
-                domain_list, failed_ips = search_whois_for_domains(ip, failed_ips)
-            except Exception as e:
-                LOGGER.error("Thread %d: Error identifying domains: %s", thread_id, e)
-
-                failed_ips.append(ip)
-                continue
-            if domain_list:
-                LOGGER.info("Found %d domains associated with %s", len(domain_list), ip)
-                save_and_link_ip_and_subdomain(ip, cidr, org, domain_list)
-
-        except StopIteration:
-            # Stop when the generator is exhausted
-            LOGGER.info(
-                "Thread %d has completed. Processed %d ips in %s seconds.",
-                thread_id,
-                count,
-                round(time.time() - chunk_start, 2),
+            domain_list, failed_ips = search_whois_for_domains(ip, failed_ips)
+        except Exception as e:
+            LOGGER.error(
+                "Thread %d: Error identifying domains for %s: %s", thread_id, ip, e
             )
-            if len(failed_ips) > 0:
-                LOGGER.warning("%d IPs failed to process", len(failed_ips))
-            break
+            failed_ips.append(ip)
+            continue
+
+        if domain_list:
+            LOGGER.info("Found %d domains associated with %s", len(domain_list), ip)
+            save_and_link_ip_and_subdomain(ip, cidr, org, domain_list)
+
+    LOGGER.info(
+        "Thread %d completed. Processed %d IPs in %.2f seconds.",
+        thread_id,
+        count,
+        time.time() - chunk_start,
+    )
+
+    if failed_ips:
+        LOGGER.warning(
+            "%d IPs failed to process in thread %d", len(failed_ips), thread_id
+        )
+
+
+def split_into_balanced_chunks(items, num_chunks):
+    """Split `items` into `num_chunks` parts, distributing remainder fairly."""
+    n = len(items)
+    base_chunk_size = n // num_chunks
+    remainder = n % num_chunks
+
+    chunks = []
+    start = 0
+    for i in range(num_chunks):
+        # Give one extra item to the first `remainder` chunks
+        end = start + base_chunk_size + (1 if i < remainder else 0)
+        chunks.append(items[start:end])
+        start = end
+    return chunks
 
 
 def process_cidr(cidr, org):
-    """Process a given cidr."""
-    ip_gen = generate_ips(cidr.network)
+    """Process a given CIDR using stored live IPs."""
+    if not cidr.live_ips:
+        LOGGER.warning("No live IPs for CIDR: %s", cidr.network)
+        return
+
+    ip_list = list(cidr.live_ips)
+    if not ip_list:
+        return
+
+    chunks = split_into_balanced_chunks(ip_list, THREAD_COUNT)
 
     threads = []
-    for i in range(THREAD_COUNT):
-        thread = threading.Thread(target=process_ips, args=(i + 1, org, cidr, ip_gen))
-        threads.append(thread)
-        thread.start()
+    for i, chunk in enumerate(chunks):
+        if chunk:  # Only create a thread if the chunk has work
+            thread = threading.Thread(
+                target=process_ips, args=(i + 1, org, cidr, chunk)
+            )
+            threads.append(thread)
+            thread.start()
 
-    # Wait for all threads to complete
     for thread in threads:
         thread.join()
 

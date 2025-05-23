@@ -2045,6 +2045,12 @@ class Cidr(models.Model):
         null=True,
         help_text="An alert message specifying any conflicts when inserting the cidr into the database.",
     )
+    live_ips = models.JSONField(
+        default=list,
+        blank=True,
+        null=True,
+        help_text="A list of live IP addresses associated with this CIDR block.",
+    )
     data_source = models.ForeignKey(
         "DataSource",
         on_delete=models.CASCADE,
@@ -2942,6 +2948,14 @@ class PortScan(AutoLengthCheckModel):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            models.Index(fields=["state"]),
+            models.Index(fields=["time_scanned"]),
+            models.Index(
+                fields=["organization", "ip_string", "port", "-time_scanned"],
+                name="portscan_latest_lookup_idx",
+            ),
+        ]
         db_table = "port_scan"
 
 

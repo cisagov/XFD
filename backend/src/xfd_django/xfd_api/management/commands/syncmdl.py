@@ -92,6 +92,15 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write("Granting privileges failed: {}".format(e))
 
+        # 👉 Step 1.5: Enable btree_gist extension
+        self.stdout.write("Enabling btree_gist extension for GiST indexing...")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("CREATE EXTENSION IF NOT EXISTS btree_gist;")
+                self.stdout.write("btree_gist extension enabled.")
+        except Exception as e:
+            self.stdout.write(f"Failed to enable btree_gist extension: {e}")
+
         # Step 2: Synchronize or Reset the Database
         self.stdout.write("Synchronizing the MDL database schema...")
         if dangerouslyforce:
