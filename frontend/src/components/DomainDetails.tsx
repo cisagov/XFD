@@ -27,7 +27,7 @@ import { DefinitionList } from './DefinitionList';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';
 import { useAuthContext } from 'context';
-import { getSeverityColor } from 'pages/Risk/utils';
+import { getSeverityColor } from 'pages/OverviewDash/utils';
 import { Box } from '@mui/system';
 
 const PREFIX = 'DomainDetails';

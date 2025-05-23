@@ -35,7 +35,7 @@ import {
 import { LayoutWithSearch, RouteGuard } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
-import { RiskWithSearch } from 'pages/Risk/OverviewDash';
+import { RiskWithSearch } from 'pages/OverviewDash/OverviewDash';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
 import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
