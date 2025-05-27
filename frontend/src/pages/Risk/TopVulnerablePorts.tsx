@@ -1,147 +1,114 @@
 import React from 'react';
-import { ResponsiveBar } from '@nivo/bar';
-import { Point } from './OverviewDash';
 import { useHistory } from 'react-router-dom';
-import { getSingleColor } from './utils';
+import { Paper } from '@mui/material';
+import { BarChart, axisClasses } from '@mui/x-charts';
+import { useTheme } from '@mui/material/styles';
 import * as RiskStyles from './style';
-import { Paper, Tooltip } from '@mui/material';
-import { ContextType } from 'context';
-import { withSearch } from '@elastic/react-search-ui';
-
-const CustomBarLayer = ({
-  bars,
-  addFilter,
-  removeFilter,
-  filters
-}: {
-  bars: any[];
-  [key: string]: any;
-  addFilter: ContextType['addFilter'];
-  removeFilter: ContextType['removeFilter'];
-  filters: any[];
-}) => {
-  const reversedBars = [...bars].reverse();
-  const history = useHistory();
-
-  return reversedBars.map((bar) => (
-    <Tooltip
-      title={
-        <span>
-          {bar.data.value} domains with vulnerabilities on port{' '}
-          {bar.data.indexValue}
-        </span>
-      }
-      placement="right"
-      arrow
-      key={bar.key}
-    >
-      <g key={bar.key}>
-        <rect
-          role="button"
-          key={bar.key}
-          x={bar.x}
-          y={bar.y}
-          width={bar.width}
-          height={bar.height}
-          fill={bar.color}
-          tabIndex={0}
-          aria-label={`${
-            bar.data.value
-          }${' '}domains with vulnerabilities on port${' '}
-          ${bar.data.indexValue}`}
-          onClick={() => {
-            const servicesPort = filters.find(
-              (filter) => filter.field === 'services.port'
-            );
-            if (servicesPort) {
-              removeFilter(
-                'services.port',
-                parseInt(servicesPort.values[0], 10),
-                'any'
-              );
-              addFilter('services.port', parseInt(bar.data.indexValue), 'any');
-              history.push('/inventory');
-            } else {
-              addFilter('services.port', parseInt(bar.data.indexValue), 'any');
-              history.push('/inventory');
-            }
-          }}
-        />
-      </g>
-    </Tooltip>
-  ));
-};
-
-const CustomBarLayerWithSearch = withSearch(
-  ({ addFilter, filters, removeFilter }: ContextType) => ({
-    addFilter,
-    filters,
-    removeFilter
-  })
-)(CustomBarLayer);
+import { Point } from './OverviewDash';
 
 export const TopVulnerablePorts = (props: { data: Point[] }) => {
   const { data } = props;
-  const { cardRoot, cardSmall, header, chartSmall } = RiskStyles.classesRisk;
-  const dataVal = data
-    .slice()
-    .reverse()
-    .map((e) => ({ ...e, Port: e.value })) as any;
+  const { cardRoot, cardSmall, chartSmall } = RiskStyles.classesRisk;
+  const theme = useTheme();
+  const history = useHistory();
+
+  const chartData = data.map((item) => ({
+    port: item.label,
+    value: item.value
+  }));
+
+  const barColor = theme.palette.primary.main;
+
   return (
     <Paper elevation={0} className={cardRoot}>
       <div className={cardSmall}>
-        <div className={header}>
-          <h2>Most Common Ports</h2>
-        </div>
         <div className={chartSmall} style={{ height: 300 }}>
-          <ResponsiveBar
-            data={dataVal as any}
-            keys={['Port']}
-            layers={['grid', 'axes', CustomBarLayerWithSearch]}
-            indexBy="label"
-            margin={{ top: 30, right: 40, bottom: 75, left: 100 }}
-            theme={{
-              fontSize: 12,
-              axis: {
-                legend: {
-                  text: {
-                    fontWeight: 'bold'
+          <BarChart
+            series={[
+              {
+                dataKey: 'value',
+                label: 'Ports',
+                color: barColor
+              }
+            ]}
+            dataset={chartData}
+            xAxis={[
+              {
+                dataKey: 'value',
+                scaleType: 'linear',
+                label: 'Numer of Vulnerabilities',
+                labelStyle: {
+                  fontSize: 12,
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  color:
+                    theme.palette.neutrals?.main || theme.palette.text.primary
+                },
+                disableTicks: true,
+                tickLabelStyle: { fontSize: 10 }
+              }
+            ]}
+            yAxis={[
+              {
+                dataKey: 'port',
+                scaleType: 'band',
+                label: 'Port Number',
+                disableTicks: true,
+                tickPlacement: 'middle',
+                tickLabelPlacement: 'middle',
+                tickLabelStyle: {
+                  fontSize: 12,
+                  fill: theme.palette.primary.dark,
+                  fontWeight: 500,
+                  textDecoration: 'underline',
+                  cursor: 'pointer'
+                },
+                categoryGapRatio: 0.6,
+                width: 90
+              }
+            ]}
+            height={300}
+            layout="horizontal"
+            margin={{ top: 20, right: 10, bottom: 20, left: 0 }}
+            grid={{ vertical: true }}
+            hideLegend
+            slotProps={{
+              axisTickLabel: {
+                onClick: (event: React.MouseEvent<SVGTextElement>) => {
+                  const dataIndex = parseInt(
+                    event.currentTarget.getAttribute('data-index') || '0',
+                    10
+                  );
+                  const clickedPort = chartData[dataIndex]?.port;
+                  if (clickedPort) {
+                    history.push(`/inventory?port=${clickedPort}`);
                   }
                 }
+              },
+
+              bar: ({ dataIndex }: { dataIndex: number }) => ({
+                'aria-label': `Bar for port ${chartData[dataIndex].port} with ${chartData[dataIndex].value} vulnerable domains`,
+                tabIndex: dataIndex,
+                role: 'button',
+                onClick: () => {
+                  history.push(`/inventory?port=${chartData[dataIndex].port}`);
+                },
+                style: {
+                  cursor: 'pointer'
+                }
+              })
+            }}
+            sx={{
+              [`.${axisClasses.root}`]: {
+                [`.${axisClasses.line}`]: {
+                  strokeWidth: 3
+                }
+              },
+              '.MuiChartsGrid-line': {
+                strokeDasharray: '4 4',
+                stroke: theme.palette.neutrals.light
               }
             }}
-            padding={0.5}
-            colors={getSingleColor}
-            borderColor={{ from: 'color', modifiers: [['darker', 1.6]] }}
-            axisTop={null}
-            axisRight={null}
-            axisBottom={{
-              ariaHidden: true,
-              tickSize: 0,
-              tickPadding: 5,
-              tickRotation: 0,
-              legend: 'Count',
-              legendPosition: 'middle',
-              legendOffset: 40
-            }}
-            axisLeft={{
-              ariaHidden: true,
-              tickSize: 0,
-              tickPadding: 20,
-              tickRotation: 0,
-              legend: 'Port',
-              legendPosition: 'middle',
-              legendOffset: -65
-            }}
-            animate={true}
-            ariaLabel={'Top Vulnerable Ports - y-axis: Port, x-axis: Count'}
-            enableGridX={true}
-            enableGridY={false}
-            enableLabel={false}
-            isFocusable={true}
-            layout={'horizontal'}
-            motionDamping={15}
-            {...({ motionStiffness: 90 } as any)}
           />
         </div>
       </div>
