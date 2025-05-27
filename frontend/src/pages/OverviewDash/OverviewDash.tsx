@@ -31,6 +31,7 @@ import InfoLabel from 'components/Dashboard/InfoLabel';
 import MostCommonVulns from './MostCommonVulns';
 import LatestKEVs from './LatestKEVs';
 import infoIconContent from './infoIconContent.json';
+import OpenVulnsByHosts from './OpenVulnsByHosts';
 
 export interface Point {
   id: string;
@@ -396,7 +397,7 @@ const OverviewDash: React.FC<ContextType> = ({
               />
             </Grid>
             {/* Main content */}
-            <Grid spacing={2} size={{ xs: 12 }}>
+            <Grid size={{ xs: 12 }}>
               <Grid container spacing={2} width="100%">
                 {/* Left side content */}
                 <Grid size={{ xs: 12, sm: 12, md: 6 }}>
@@ -405,27 +406,9 @@ const OverviewDash: React.FC<ContextType> = ({
                       <LatestKEVs data={latestVulnsGroupedArr} />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
-                      <Box
-                        border="1px solid"
-                        borderRadius="4px"
-                        borderColor="neutrals.light"
-                        px={3}
-                        py={2}
-                      >
-                        <InfoLabel
-                          label="Open Vulnerabiliti es by Hosts"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
-                          tooltipContentJson={tooltipContentJson}
-                        />
-                        {stats.domains.num_vulnerabilities.length > 0 && (
-                          <TopVulnerableDomains
-                            data={stats.domains.num_vulnerabilities}
-                          />
-                        )}
-                      </Box>
+                      <OpenVulnsByHosts
+                        data={stats.domains.num_vulnerabilities}
+                      />
                     </Grid>
                   </Grid>
                 </Grid>
