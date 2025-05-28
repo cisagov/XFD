@@ -28,6 +28,9 @@ from psycopg2.errors import WrongObjectType
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.models import Domain, Service, Vulnerability
 from xfd_api.tasks.es_client import ESClient
+from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_live_ips,
+    fill_cidr_live_ips_bulk_update,
+)
 from xfd_mini_dl.models import (
     ApiKey,
     Cidr,
@@ -668,7 +671,7 @@ def create_cidrs_for_org(org, cidr_list, data_source=None, ips_per_cidr=4):
                     last_seen_timestamp=timezone.now(),
                     last_reverse_lookup=timezone.now(),
                     has_shodan_results=random.choice([True, False]),
-                    current=random.choice([True, False]),
+                    current=random.choice([True, True, True, False]),
                     conflict_alerts=[],
                     synced_at=timezone.now(),
                 )
@@ -740,6 +743,9 @@ def populate_sample_data():
             f"\rProgress: |{bar_template}| {percent:.1f}% ({idx}/{len(orgs)})"
         )
         sys.stdout.flush()
+
+    # fill_cidr_live_ips()
+    fill_cidr_live_ips_bulk_update()
 
     print("\n✅ Done populating all data.")
 
@@ -959,6 +965,22 @@ def synchronize(target_app_label=None, using=None):
         process_m2m_tables(schema_editor, ordered_models, database)
 
         if target_app_label == "xfd_mini_dl":
+            print("Ensuring GiST index exists on ip.ip...")
+            with connections[database].cursor() as cursor:
+                cursor.execute(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_indexes
+                            WHERE tablename = 'ip' AND indexname = 'ip_ip_gist_idx'
+                        ) THEN
+                            EXECUTE 'CREATE INDEX ip_ip_gist_idx ON ip USING gist (ip inet_ops)';
+                        END IF;
+                    END
+                    $$;
+                """
+                )
             create_domain_view(database)
             create_service_view(database)
             create_vuln_normal_views(database)
@@ -1039,6 +1061,7 @@ def process_model(
             else:
                 print("Creating table for model: {}".format(model.__name__))
                 schema_editor.create_model(model)
+
         except Exception as e:
             print("Error processing model {}: {}".format(model.__name__, e))
 

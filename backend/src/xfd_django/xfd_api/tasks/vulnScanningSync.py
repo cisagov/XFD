@@ -39,9 +39,10 @@ from xfd_api.utils.scan_utils.alerting import (
     ScanExecutionError,
     SyncError,
 )
-from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (
+from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_live_ips,
     enforce_latest_flag_port_scan,
     fetch_orgs_and_relations,
+    fill_cidr_live_ips_bulk_update,
     get_latest_os_type,
     load_test_data,
     save_cve_to_datalake,
@@ -138,7 +139,7 @@ def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
         offset += chunk_size
 
 
-def main():
+def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     LOGGER.info("Started VulnScanningSync scan...")
 
@@ -149,9 +150,6 @@ def main():
     LOGGER.info("Fetched %d requests from Redshift", len(request_list))
     org_id_dict = process_orgs(request_list)
     LOGGER.info("Completed saving organizations to the LZ MDL.")
-
-    # Process Organizations & Relations
-    send_organizations_to_dmz()
 
     # Process Vulnerability Scans
     LOGGER.info("Started processing vulnerability scans...")
@@ -198,6 +196,12 @@ def main():
         create_port_scan_summary()
         create_port_scan_service_summaries()
         LOGGER.info("Finished processing port scans")
+
+    # fill_cidr_live_ips()
+    fill_cidr_live_ips_bulk_update()
+
+    # Process Organizations & Relations
+    send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
     LOGGER.info("Started processing tickets...")
@@ -343,7 +347,10 @@ def send_csv_to_sync(csv_data, bounds):
 
     try:
         response = requests.post(
-            os.getenv("DMZ_SYNC_ENDPOINT"), json=body, headers=headers, timeout=60
+            os.getenv("DMZ_SYNC_ENDPOINT") + "/sync",
+            json=body,
+            headers=headers,
+            timeout=60,
         )
         response.raise_for_status()
         LOGGER.info("Successfully sent chunk to sync API")
