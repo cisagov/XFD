@@ -253,22 +253,22 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
           }
         ]
       : state?.domain
-      ? [
-          {
-            field: 'domain',
-            value: state.domain,
-            operator: 'contains'
-          }
-        ]
-      : state?.severity
-      ? [
-          {
-            field: 'severity',
-            value: state.severity,
-            operator: 'contains'
-          }
-        ]
-      : []
+        ? [
+            {
+              field: 'domain',
+              value: state.domain,
+              operator: 'contains'
+            }
+          ]
+        : state?.severity
+          ? [
+              {
+                field: 'severity',
+                value: state.severity,
+                operator: 'contains'
+              }
+            ]
+          : []
   );
   const [filters, setFilters] = useState(initialFilters);
 
@@ -437,11 +437,11 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
       product: vuln.cpe
         ? vuln.cpe
         : vuln.service &&
-          vuln.service.products &&
-          vuln.service.products.length > 0 &&
-          vuln.service.products[0].cpe
-        ? vuln.service.products[0].cpe || 'N/A'
-        : 'N/A',
+            vuln.service.products &&
+            vuln.service.products.length > 0 &&
+            vuln.service.products[0].cpe
+          ? vuln.service.products[0].cpe || 'N/A'
+          : 'N/A',
       created_at: vuln?.created_at
         ? `${differenceInCalendarDays(
             Date.now(),

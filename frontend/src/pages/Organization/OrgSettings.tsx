@@ -79,7 +79,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error updating organization'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
@@ -101,7 +101,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error creating domain'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
@@ -137,7 +137,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error verifying domain'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
