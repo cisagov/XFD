@@ -5,7 +5,7 @@ and upsert into the local database.
 """
 
 # Standard Python Libraries
-from datetime import datetime, timezone
+import datetime
 import hashlib
 import json
 import logging
@@ -15,13 +15,13 @@ from urllib.parse import urljoin
 
 # Third-Party Libraries
 import django
+from django.utils import timezone
 import requests
 
 # --- Django setup ---
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
-# Standard Python Libraries
 
 # Third-Party Libraries
 from xfd_api.helpers.date_time_helpers import calculate_days_back
@@ -54,6 +54,33 @@ if base.endswith("/sync"):
     API_URL = base.rsplit("/", 1)[0] + "/dmz_sync/cybersix_sync"
 else:
     API_URL = urljoin(base + "/", "dmz_sync/cybersix_sync")
+
+
+def normalize_dates(payload: dict) -> dict:
+    """Convert all date/datetime fields to consistent strings."""
+    for section in ["alerts", "mentions", "topcves"]:
+        for record in payload.get(section, []):
+            # normalize the main “date” field to YYYY-MM-DD
+            if "date" in record and record["date"]:
+                try:
+                    dt = datetime.datetime.fromisoformat(record["date"])
+                    record["date"] = dt.date().isoformat()
+                except (AttributeError, TypeError) as e:
+                    LOGGER.warning(
+                        f"Unable to format record date for {record.get('id', '<unknown>')}: {e}"
+                    )
+
+            # for mentions, keep the full timestamp on collection_date
+            if section == "mentions" and record.get("collection_date"):
+                try:
+                    dt = datetime.datetime.fromisoformat(record["collection_date"])
+                    record["collection_date"] = dt.isoformat()
+                except (AttributeError, TypeError) as e:
+                    LOGGER.warning(
+                        f"Unable to format collection_date for {record.get('id', '<unknown>')}: {e}"
+                    )
+
+    return payload
 
 
 def _parse_dt(val):
@@ -92,6 +119,17 @@ def main():
         },
     )
 
+    # 2️⃣ Bootstrap all Organization rows into the secondary DB
+    for org in Organization.objects.all():
+        Organization.objects.using("mini_data_lake_secondary").update_or_create(
+            id=org.id,
+            defaults={
+                "acronym": org.acronym,
+                "name": org.name,
+                # include any other required fields on Organization here
+            },
+        )
+
     # Loop over every organization
     for organization in Organization.objects.all():
         LOGGER.info(
@@ -117,17 +155,18 @@ def main():
                 )
                 break
 
-            if not validate_response_checksum(response):
+            wrapper = response.json()
+            received_checksum = response.headers.get("X-Salted-Checksum")
+
+            # Normalize, validate checksum, and extract payload
+            normalized_payload = normalize_dates(wrapper["payload"])
+            wrapped_obj = {"status": "ok", "payload": normalized_payload}
+            if not validate_response_checksum(wrapped_obj, received_checksum):
                 raise RuntimeError(f"Checksum mismatch on page {current_page}")
 
-            wrapper = response.json()
-            if wrapper.get("status") != "ok":
-                raise RuntimeError(f"Bad status on page {current_page}: {wrapper}")
-
-            payload = wrapper["payload"]
-            total_pages = payload["total_pages"]
-            fetched_page = payload["current_page"]
-            data = payload["data"]
+            total_pages = normalized_payload["total_pages"]
+            fetched_page = normalized_payload["current_page"]
+            data = normalized_payload
 
             LOGGER.info(
                 "Org %s page %d/%d: alerts=%d, mentions=%d, breaches=%d, subdomains=%d, exposures=%d, topcves=%d",
@@ -184,18 +223,27 @@ def fetch_sixgill_page(
         return None
 
 
-def validate_response_checksum(response) -> bool:
-    """Recompute SHA-256(SALT + stable_json) and compare to X-Salted-Checksum."""
+def validate_response_checksum(json_obj: dict, received_checksum: str) -> bool:
+    """Recompute SHA-256(SALT + stable_json) and compare to provided checksum."""
+    if not received_checksum:
+        LOGGER.warning("No X-Salted-Checksum header on response")
+        return False
+
     try:
-        data = response.json()
-        received_checksum = response.headers.get("X-Salted-Checksum")
-        if not received_checksum:
-            LOGGER.warning("No X-Salted-Checksum header on response")
+        stable = json.dumps(
+            json_obj, default=str, sort_keys=True, separators=(",", ":")
+        )
+        calculated = hashlib.sha256((SALT + stable).encode()).hexdigest()
+
+        if received_checksum != calculated:
+            LOGGER.error(
+                "Checksum mismatch! Expected: %s, Got: %s",
+                calculated,
+                received_checksum,
+            )
             return False
 
-        stable = json.dumps(data, default=str, sort_keys=True)
-        calculated = hashlib.sha256((SALT + stable).encode()).hexdigest()
-        return received_checksum == calculated
+        return True
     except Exception as error:
         LOGGER.error("Checksum validation error: %s", error)
         return False
@@ -207,7 +255,7 @@ def save_sixgill_payload(payload: dict, organization, data_source):
     for record in payload.get("alerts", []):
         SixgillAlerts.objects.update_or_create(
             sixgill_id=record["sixgill_id"],
-            organization=organization,
+            organization_id=record["organization_id"],
             defaults={
                 "alert_name": record.get("alert_name"),
                 "content": record.get("content", "")[:2000],
@@ -231,7 +279,7 @@ def save_sixgill_payload(payload: dict, organization, data_source):
     for record in payload.get("mentions", []):
         Mentions.objects.update_or_create(
             sixgill_mention_id=record["sixgill_mention_id"],
-            organization=organization,
+            organization_id=record["organization_id"],
             defaults={
                 "category": record.get("category"),
                 "collection_date": _parse_dt(record.get("collection_date")),
@@ -261,11 +309,10 @@ def save_sixgill_payload(payload: dict, organization, data_source):
         TopCves.objects.update_or_create(
             cve_id=record["cve_id"],
             date=_parse_dt(record.get("date")),
-            organization=organization,
+            data_source=data_source,
             defaults={
                 "summary": record.get("summary"),
                 "dynamic_rating": record.get("dynamic_rating"),
                 "nvd_base_score": record.get("nvd_base_score"),
-                "data_source": data_source,
             },
         )

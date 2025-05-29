@@ -4706,17 +4706,17 @@ class Mentions(models.Model):
     tags = models.TextField(
         blank=True, null=True, help_text="Tags associated with mention alert"
     )
-    organization_uid = models.ForeignKey(
-        Organization,
+    organization = models.ForeignKey(
+        "Organization",
         on_delete=models.CASCADE,
         db_column="organization_uid",
-        help_text="FK: Foreign Key to organizations",
+        help_text="Foreign Key to the related organization",
     )
     data_source = models.ForeignKey(
-        DataSource,
+        "DataSource",
         on_delete=models.CASCADE,
         db_column="data_source_uid",
-        help_text="FK: Foreign Key to data_source",
+        help_text="Foreign Key to the data_source.",
     )
     title_translated = models.TextField(
         blank=True, null=True, help_text="Title of mention post translated to english"

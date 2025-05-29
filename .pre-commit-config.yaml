@@ -69,10 +69,14 @@ repos:
         language_version: python3.11
         entry: shfmt
         args:
+          # Indent by two spaces
           - -i
           - '2'
+          # Binary operators may start a line
           - -bn
+          # Switch cases are indented
           - -ci
+          # Redirect operators are followed by a space
           - -sr
   - repo: https://github.com/detailyang/pre-commit-shell
     rev: 1.0.5

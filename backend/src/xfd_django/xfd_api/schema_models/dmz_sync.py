@@ -5,7 +5,7 @@ from typing import List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SixgillAlert(BaseModel):
@@ -14,7 +14,7 @@ class SixgillAlert(BaseModel):
     alerts_uid: UUID
     alert_name: Optional[str] = None
     content: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[datetime] = None
     sixgill_id: Optional[str] = None
     read: Optional[str] = None
     severity: Optional[str] = None
@@ -32,15 +32,16 @@ class SixgillAlert(BaseModel):
     asset_type: Optional[str] = None
 
 
-class Mention(BaseModel):
+class Mentions(BaseModel):
     """A single CyberSix mention record."""
 
-    sixgill_mention_id: str
+    mentions_uid: UUID
     category: Optional[str] = None
     collection_date: Optional[datetime] = None
     content: Optional[str] = None
     creator: Optional[str] = None
     date: Optional[datetime] = None
+    sixgill_mention_id: str
     post_id: Optional[str] = None
     lang: Optional[str] = None
     rep_grade: Optional[str] = None
@@ -141,7 +142,7 @@ class TopCve(BaseModel):
     cve_id: Optional[str] = None
     dynamic_rating: Optional[str] = None
     nvd_base_score: Optional[str] = None
-    date: Optional[date] = None
+    date: Optional[datetime] = None
     summary: Optional[str] = None
     data_source_id: UUID
 
@@ -150,11 +151,18 @@ class CybersixPayload(BaseModel):
     """The payload of the CyberSixSyncResponse."""
 
     alerts: List[SixgillAlert]
-    mentions: List[Mention]
+    mentions: List[Mentions]
     breaches: List[CredentialBreach]
     exposures: List[CredentialExposure]
     subdomains: List[SubDomain]
     topcves: List[TopCve]
+
+    current_page: int = Field(
+        ..., ge=1, description="Which page this payload represents"
+    )
+    total_pages: int = Field(
+        ..., ge=1, description="How many pages are available in total"
+    )
 
 
 class CybersixSyncResponse(BaseModel):
