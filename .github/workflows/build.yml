@@ -56,7 +56,7 @@ jobs:
           # There is no expectation for actual Go code so we disable caching as
           # it relies on the existence of a go.sum file.
           cache: false
-          go-version: '1.20'
+          go-version: '1.23'
       - name: Lookup Go cache directory
         id: go-cache
         run: echo "dir=$(go env GOCACHE)" >> $GITHUB_OUTPUT
