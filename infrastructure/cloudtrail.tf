@@ -70,7 +70,7 @@ resource "aws_s3_bucket_logging" "cloudtrail_bucket" {
 
 resource "aws_s3_bucket_policy" "cloudtrail_bucket" {
   bucket = aws_s3_bucket.cloudtrail_bucket.id
-  policy = data.template_file.cloudtrail_bucket_policy.rendered
+  policy = local.cloudtrail_bucket_policy
 }
 
 resource "aws_iam_role" "cloudtrail_role" {
@@ -97,13 +97,15 @@ resource "aws_iam_role" "cloudtrail_role" {
   }
 }
 
-data "template_file" "cloudtrail_bucket_policy" {
-  template = file("cloudtrail_bucket_policy.tpl")
-  vars = {
-    bucketName   = var.cloudtrail_bucket_name
-    accountId    = data.aws_caller_identity.current.account_id
-    awsPartition = var.aws_partition
-  }
+locals {
+  cloudtrail_bucket_policy = templatefile(
+    "${path.module}/cloudtrail_bucket_policy.tpl",
+    {
+      bucketName   = var.cloudtrail_bucket_name
+      accountId    = data.aws_caller_identity.current.account_id
+      awsPartition = var.aws_partition
+    }
+  )
 }
 
 # Attach policies to the IAM role allowing access to the S3 bucket and Cloudwatch
