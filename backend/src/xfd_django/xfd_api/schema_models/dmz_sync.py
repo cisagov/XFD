@@ -60,7 +60,7 @@ class Mentions(BaseModel):
     data_source_id: UUID
 
 
-class CredentialBreach(BaseModel):
+class CyberSixCredentialBreach(BaseModel):
     """A single CyberSix credential breach record."""
 
     credential_breaches_uid: UUID
@@ -80,7 +80,7 @@ class CredentialBreach(BaseModel):
     data_source_id: UUID
 
 
-class CredentialExposure(BaseModel):
+class CyberSixCredentialExposure(BaseModel):
     """A single CyberSix credential exposure record."""
 
     credential_exposures_uid: UUID
@@ -152,8 +152,8 @@ class CybersixPayload(BaseModel):
 
     alerts: List[SixgillAlert]
     mentions: List[Mentions]
-    breaches: List[CredentialBreach]
-    exposures: List[CredentialExposure]
+    breaches: List[CyberSixCredentialBreach]
+    exposures: List[CyberSixCredentialExposure]
     subdomains: List[SubDomain]
     topcves: List[TopCve]
 
@@ -170,7 +170,8 @@ class CybersixSyncResponse(BaseModel):
 
     status: str
     payload: CybersixPayload
-      
+
+
 class SyncRequest(BaseModel):
     """SyncRequest schema."""
 

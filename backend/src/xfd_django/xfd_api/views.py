@@ -1547,7 +1547,7 @@ async def get_blocklist(
 ):
     """Determine if IP is on the blocklist."""
     return await handle_check_ip(ip_address, current_user)
-  
+
 
 # ========================================
 #   DMZ SyncEndpoints
@@ -1598,7 +1598,7 @@ async def get_call_all_cybersixgill(
 
     return parsed
 
-  
+
 @api_router.get(
     "/dmz_sync/data_sources",
     dependencies=[Depends(get_current_active_user)],

@@ -44,6 +44,11 @@ EOF
 
 data "aws_ssm_parameter" "worker_kms_keys" { name = var.ssm_worker_kms_keys }
 
+data "aws_ssm_parameter" "https_proxy" {
+  name            = "/crossfeed/staging/HTTPS_PROXY"
+  with_decryption = true
+}
+
 resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
   role        = aws_iam_role.worker_task_execution_role.id

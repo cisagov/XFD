@@ -18,12 +18,12 @@ from xfd_mini_dl.models import (
     DataSource,
     Ip,
     IpsSubs,
+    Mentions,
     Organization,
     ShodanAssets,
     ShodanVulns,
-    SubDomains,
-    Mentions,
     SixgillAlerts,
+    SubDomains,
     TopCves,
 )
 

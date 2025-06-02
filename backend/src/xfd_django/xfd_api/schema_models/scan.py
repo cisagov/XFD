@@ -276,7 +276,7 @@ SCAN_SCHEMA = {
         memory="8192",
         description="Update CVE data using the NIST API",
     ),
-  "nist_lz_sync": ScanSchema(
+    "nist_lz_sync": ScanSchema(
         type="fargate",
         is_passive=True,
         global_scan=True,
