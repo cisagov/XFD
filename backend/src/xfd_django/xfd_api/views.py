@@ -1584,6 +1584,7 @@ async def get_call_all_cybersixgill(
                 params, current_user
             )
         except TypeError:
+            # pylint: disable=no-value-for-parameter
             raw_json, checksum = await cybersix_module.fetch_cybersix_data()
     except HTTPException:
         raise  # re-raise FastAPIHTTPException (418, 403, etc.)
