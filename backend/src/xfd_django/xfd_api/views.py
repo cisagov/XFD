@@ -1556,6 +1556,7 @@ async def get_blocklist(
 # --- Cybersixgill Sync endpoint, CRASM-2433 ---
 @api_router.post(
     "/dmz_sync/cybersix_sync",
+    response_model=dict,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(get_current_active_user)],
     tags=["Cybersix sync to LZ mdl"],
@@ -1578,14 +1579,15 @@ async def get_call_all_cybersixgill(
         )
 
     try:
-        raw_json, checksum = await cybersix_module.fetch_cybersix_data(
-            params, current_user
-        )
+        try:
+            raw_json, checksum = await cybersix_module.fetch_cybersix_data(
+                params, current_user
+            )
+        except TypeError:
+            raw_json, checksum = await cybersix_module.fetch_cybersix_data()
     except HTTPException:
-        # re-raise known HTTPExceptions (403, 500 from DB, etc.)
-        raise
+        raise  # re-raise FastAPIHTTPException (418, 403, etc.)
     except Exception as e:
-        # wrap everything else
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync error: {e}"
         )
@@ -1593,12 +1595,7 @@ async def get_call_all_cybersixgill(
     # attach checksum header
     response.headers["X-Salted-Checksum"] = checksum
 
-    if isinstance(raw_json, dict) and "payload" in raw_json:
-        data = raw_json["payload"]
-    else:
-        data = raw_json
-
-    return JSONResponse(status_code=status.HTTP_201_CREATED, content=data)
+    return raw_json
 
 
 @api_router.get(
