@@ -21,6 +21,7 @@ from fastapi import (
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse
 from redis import asyncio as aioredis
+import xfd_api.api_methods.dmz_sync as cybersix_module
 from xfd_api.auth import is_global_write_admin
 from xfd_mini_dl.models import User
 
@@ -32,7 +33,7 @@ from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_check_ip
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
-from .api_methods.dmz_sync import CybersixSyncParams, fetch_cybersix_data
+from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
 from .api_methods.queue_monitoring import list_queues
 from .api_methods.saved_search import (
@@ -1577,7 +1578,9 @@ async def get_call_all_cybersixgill(
         )
 
     try:
-        raw_json, checksum = await fetch_cybersix_data(params, current_user)
+        raw_json, checksum = await cybersix_module.fetch_cybersix_data(
+            params, current_user
+        )
     except HTTPException:
         # re-raise known HTTPExceptions (403, 500 from DB, etc.)
         raise
