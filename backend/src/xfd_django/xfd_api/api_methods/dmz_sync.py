@@ -52,8 +52,8 @@ class CybersixSyncParams(BaseModel):
         page_size (int): Number of items to include per page. Must be ≥ 1.
     """
 
-    page: int = Field(..., ge=1, description="Which page to fetch (1-indexed)")
-    page_size: int = Field(..., ge=1, description="How many items per page")
+    page: int = Field(1, ge=1, description="Which page to fetch (1-indexed)")
+    page_size: int = Field(100, ge=1, description="How many items per page")
     acronym: str = "DHS"
     since_date: Optional[datetime] = None
 
