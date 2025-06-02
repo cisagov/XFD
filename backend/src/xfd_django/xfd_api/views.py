@@ -21,9 +21,8 @@ from fastapi import (
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse
 from redis import asyncio as aioredis
+from xfd_api.auth import is_global_write_admin
 from xfd_mini_dl.models import User
-
-from ..auth import is_global_write_admin
 
 # from .schemas import Cpe
 from .api_methods import api_key as api_key_methods
