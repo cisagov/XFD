@@ -88,16 +88,13 @@ async def fetch_cybersix_data(
         )
 
     try:
-        org = Organization.objects.get(acronym=params.acronym)  # <<< ADDED
+        org = Organization.objects.get(acronym=params.acronym)
         LOGGER.info(f"Found organization: {org.acronym} ({org.name})")
-
     except Organization.DoesNotExist:
-        LOGGER.error(f"Organization not found: {params.acronym}")
-
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Organization '{params.acronym}' not found.",
+        LOGGER.warning(
+            f"Organization not found: {params.acronym}, continuing without org filter"
         )
+        org = None
 
     # 2️⃣ helper to paginate any Django model
     def _paginate(
