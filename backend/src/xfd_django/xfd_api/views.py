@@ -1585,10 +1585,9 @@ async def get_call_all_cybersixgill(
                 params, current_user
             )
         except TypeError:
-            # pylint: disable=no-value-for-parameter
             raw_json, checksum = await cybersix_module.fetch_cybersix_data()
     except HTTPException:
-        raise  # re-raise FastAPIHTTPException (418, 403, etc.)
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync error: {e}"
@@ -1597,12 +1596,12 @@ async def get_call_all_cybersixgill(
     # attach checksum header
     response.headers["X-Salted-Checksum"] = checksum
 
-    if isinstance(raw_json, dict) and "payload" in raw_json:
-        data = raw_json["payload"]
+    if isinstance(raw_json, dict) and "payload" in raw_json and "status" in raw_json:
+        wrapper = raw_json
     else:
-        data = raw_json
+        wrapper = {"status": "ok", "payload": raw_json}
 
-    return CybersixSyncResponse(**data)
+    return CybersixSyncResponse(**wrapper)
 
 
 @api_router.get(
