@@ -1589,13 +1589,16 @@ async def get_call_all_cybersixgill(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync error: {e}"
         )
 
-    # validate + parse
-    parsed = CybersixSyncResponse(**raw_json)
-
     # attach checksum header
     response.headers["X-Salted-Checksum"] = checksum
 
-    return parsed
+    if isinstance(raw_json, dict) and "payload" in raw_json:
+        data = raw_json["payload"]
+    else:
+        data = raw_json
+
+    # 5⃣ Validate+serialize via CybersixSyncResponse
+    return CybersixSyncResponse(**data)
 
 
 @api_router.get(
