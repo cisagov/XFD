@@ -75,10 +75,9 @@ class ECSClient:
                             "DB_USERNAME": os.getenv("DB_USERNAME"),
                             "DB_PASSWORD": os.getenv("DB_PASSWORD"),
                             "MDL_NAME": os.getenv("MDL_NAME"),
+                            "MDL_SECONDARY_NAME": os.getenv("MDL_SECONDARY_NAME"),
                             "MDL_USERNAME": os.getenv("MDL_USERNAME"),
                             "MDL_PASSWORD": os.getenv("MDL_PASSWORD"),
-                            "MI_ACCOUNT_NAME": os.getenv("MI_ACCOUNT_NAME"),
-                            "MI_PASSWORD": os.getenv("MI_PASSWORD"),
                             "NIST_API_KEY": os.getenv("NIST_API_KEY"),
                             "PE_DB_NAME": os.getenv("PE_DB_NAME"),
                             "PE_DB_USERNAME": os.getenv("PE_DB_USERNAME"),
@@ -87,8 +86,6 @@ class ECSClient:
                             "CENSYS_API_SECRET": os.getenv("CENSYS_API_SECRET"),
                             "WORKER_USER_AGENT": os.getenv("WORKER_USER_AGENT"),
                             "SHODAN_API_KEY": command_options["SHODAN_API_KEY"],
-                            "SIXGILL_CLIENT_ID": os.getenv("SIXGILL_CLIENT_ID"),
-                            "SIXGILL_CLIENT_SECRET": os.getenv("SIXGILL_CLIENT_SECRET"),
                             "PE_SHODAN_API_KEYS": os.getenv("PE_SHODAN_API_KEYS"),
                             "WHOIS_XML_KEY": os.getenv("WHOIS_XML_KEY"),
                             "WHOIS_XML_THREAD_COUNT": os.getenv(
@@ -108,8 +105,15 @@ class ECSClient:
                             "LG_API_KEY": os.getenv("LG_API_KEY"),
                             "LG_WORKSPACE_NAME": os.getenv("LG_WORKSPACE_NAME"),
                             "QUEUE_URL": os.getenv("QUEUE_URL", ""),
+                            "XPANSE_ORG_SYNC_BUCKET_NAME": os.getenv(
+                                "XPANSE_ORG_SYNC_BUCKET_NAME"
+                            ),
+                            "XPANSE_API_KEY": os.getenv("XPANSE_API_KEY"),
+                            "XPANSE_AUTH_ID": os.getenv("XPANSE_AUTH_ID"),
+                            "SERVICE_QUEUE_URL": os.getenv("QUEUE_URL", ""),
                             "DMZ_SYNC_ENDPOINT": os.getenv("DMZ_SYNC_ENDPOINT", ""),
                             "DMZ_API_KEY": os.getenv("DMZ_API_KEY", ""),
+                            "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "90"),
                         },
                         detach=True,
                     )
@@ -121,6 +125,32 @@ class ECSClient:
             return {"tasks": tasks, "failures": []}
 
         # Run the command on ECS (non-local)
+        container_env = [
+            {
+                "name": "CROSSFEED_COMMAND_OPTIONS",
+                "value": json.dumps(command_options),
+            },
+            {"name": "SERVICE_TYPE", "value": scan_name},
+            {
+                "name": "SERVICE_QUEUE_URL",
+                "value": command_options.get("SERVICE_QUEUE_URL"),
+            },
+            {
+                "name": "NODE_OPTIONS",
+                "value": "--max_old_space_size={}".format(memory) if memory else "",
+            },
+            {
+                "name": "SHODAN_API_KEY",
+                "value": command_options.get("SHODAN_API_KEY") or "",
+            },
+        ]
+
+        # Conditionally add NO_PROXY
+        if not os.getenv("IS_DMZ"):
+            container_env.append(
+                {"name": "HTTPS_PROXY", "value": os.getenv("LZ_PROXY_URL")}
+            )
+
         response = self.ecs.run_task(
             cluster=os.getenv("FARGATE_CLUSTER_NAME"),
             taskDefinition=os.getenv("FARGATE_TASK_DEFINITION_NAME"),
@@ -140,33 +170,7 @@ class ECSClient:
                 "containerOverrides": [
                     {
                         "name": "main",
-                        "environment": [
-                            {
-                                "name": "CROSSFEED_COMMAND_OPTIONS",
-                                "value": json.dumps(command_options),
-                            },
-                            {"name": "SERVICE_TYPE", "value": scan_name},
-                            {
-                                "name": "SERVICE_QUEUE_URL",
-                                "value": command_options.get("SERVICE_QUEUE_URL"),
-                            },
-                            {
-                                "name": "NODE_OPTIONS",
-                                "value": "--max_old_space_size={}".format(memory)
-                                if memory
-                                else "",
-                            },
-                        ]
-                        + (
-                            [
-                                {
-                                    "name": "SHODAN_API_KEY",
-                                    "value": command_options["SHODAN_API_KEY"],
-                                }
-                            ]
-                            if "SHODAN_API_KEY" in command_options
-                            else []
-                        ),
+                        "environment": container_env,
                     }
                 ],
             },

@@ -66,7 +66,15 @@ const Risk: React.FC<ContextType> = ({
   search_term,
   setSearchTerm
 }) => {
-  const { showMaps, user, apiPost, apiGet, logout } = useAuthContext();
+  const {
+    showMaps,
+    user,
+    apiPost,
+    apiGet,
+    logout,
+    userMustSign,
+    isLoggingOut
+  } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
   const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
@@ -148,7 +156,6 @@ const Risk: React.FC<ContextType> = ({
     [riskFilters]
   );
 
-  const { userMustSign } = useAuthContext();
   const [isLoginBlockedDialogOpen, setIsLoginBlockedDialogOpen] =
     useState(false);
   const [maintenanceNotification, setMaintenanceNotification] =
@@ -159,12 +166,15 @@ const Risk: React.FC<ContextType> = ({
   }, [fetchStats, riskFilters]);
 
   useEffect(() => {
-    if (user) {
-      if (!user.state || user.state === '') {
+    if (!isLoggingOut && user) {
+      if (
+        (!user.state || user.state === '') &&
+        !localStorage.getItem('user_state')
+      ) {
         setIsUpdateStateFormOpen(true);
       }
     }
-  }, [user]);
+  }, [user, isLoggingOut]);
 
   useEffect(() => {
     const fetchAndCheckMaintenance = async () => {
@@ -222,7 +232,7 @@ const Risk: React.FC<ContextType> = ({
     filters.forEach((filter) => {
       if (
         filter.field !== 'organization.region_id' &&
-        filter.field !== 'organizationId'
+        filter.field !== 'organization_id'
       ) {
         removeFilter(filter.field, filter.values[0], filter.type);
       }
@@ -358,8 +368,9 @@ const Risk: React.FC<ContextType> = ({
         onClose={async () => {
           setIsUpdateStateFormOpen(false);
 
-          // Re-fetch user data or just check if state now exists
-          if (user && user.state) {
+          // Re-fetch updated user to prevent false popup
+          const updatedUser = await apiGet('/users/me');
+          if (updatedUser?.state && user?.user_type !== 'globalAdmin') {
             const notifications = await apiGet('/notifications');
             const active = notifications.find(
               (n: any) =>
@@ -368,7 +379,7 @@ const Risk: React.FC<ContextType> = ({
                 new Date(n.start_datetime) <= new Date() &&
                 new Date(n.end_datetime) >= new Date()
             );
-            if (active && user.user_type !== 'globalAdmin') {
+            if (active && updatedUser.user_type !== 'globalAdmin') {
               setMaintenanceNotification(active);
               setIsLoginBlockedDialogOpen(true);
             }
@@ -418,8 +429,11 @@ const Risk: React.FC<ContextType> = ({
 
   return (
     <Grid container>
-      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
-      <Grid item sm={11} lg={10} xl={8} sx={{ maxWidth: '1500px' }}>
+      <Grid
+        size={{ sm: 0.5, lg: 1, xl: 2 }}
+        display={{ xs: 'none', sm: 'block' }}
+      />
+      <Grid size={{ sm: 11, lg: 10, xl: 8 }} sx={{ maxWidth: '1500px' }}>
         <RiskRoot className={classes.root}>
           <div id="wrapper" className={contentWrapper}>
             <Box sx={{ px: '1rem', pb: '2rem' }}>
@@ -430,7 +444,7 @@ const Risk: React.FC<ContextType> = ({
             </Box>
             {stats && (
               <Grid container>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6} mb={-4}>
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }} mb={-4}>
                   <div className={content}>
                     <div className={panel}>
                       <VulnerabilityCard
@@ -455,16 +469,16 @@ const Risk: React.FC<ContextType> = ({
                     </div>
                   </div>
                 </Grid>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6}>
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }}>
                   <div className={content}>
                     <div className={panel}>
-                      <Paper elevation={0} className={cardRoot}>
-                        {stats.domains.num_vulnerabilities.length > 0 && (
+                      {stats.domains.num_vulnerabilities.length > 0 && (
+                        <Paper elevation={0} className={cardRoot}>
                           <TopVulnerableDomains
                             data={stats.domains.num_vulnerabilities}
                           />
-                        )}
-                      </Paper>
+                        </Paper>
+                      )}
                       <VulnerabilityCard
                         title={'Most Common Vulnerabilities'}
                         data={stats.vulnerabilities.most_common_vulnerabilities}
@@ -509,11 +523,15 @@ const Risk: React.FC<ContextType> = ({
           </div>
         </RiskRoot>
       </Grid>
-      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
+      <Grid
+        size={{ sm: 0.5, lg: 1, xl: 2 }}
+        display={{ xs: 'none', sm: 'block' }}
+      />
     </Grid>
   );
 };
 
+//Use this as a reference point for the VS Dash UI
 export const RiskWithSearch = withSearch(
   ({
     addFilter,

@@ -31,6 +31,7 @@ export interface AuthContextType extends ReturnType<typeof useApi> {
   maximumRole: 'user' | 'admin';
   touVersion: string;
   userMustSign: boolean;
+  isLoggingOut: boolean | null;
 }
 
 export const AuthContext = React.createContext<AuthContextType>(undefined!);

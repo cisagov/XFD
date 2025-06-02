@@ -120,7 +120,10 @@ export const OrganizationList: React.FC<{
           columns={orgCols}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
-            toolbar: { children: addOrgButton, exportTitle: 'Organizations' }
+            toolbar: {
+              children: addOrgButton,
+              exportTitle: 'Organizations'
+            } as any
           }}
           initialState={{
             pagination: { paginationModel: { pageSize: 15 } }

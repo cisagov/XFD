@@ -71,7 +71,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       };
       if (!showAllOrganizations && currentOrganization) {
         if ('root_domains' in currentOrganization)
-          body.organizationId = currentOrganization.id;
+          body.organization_id = currentOrganization.id;
         else body.tagId = currentOrganization.id;
       }
       const { url } = await apiPost('/search/export', {
@@ -116,7 +116,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         }}
       />
       <Box
-        width="90%"
+        width="100%"
         display="flex"
         alignSelf={'anchor-center'}
         flexDirection={'column'}
@@ -159,7 +159,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       >
         <Box
           height="100%"
-          width="90%"
+          width="100%"
           flexDirection="column"
           flexWrap="nowrap"
           gap="1rem"

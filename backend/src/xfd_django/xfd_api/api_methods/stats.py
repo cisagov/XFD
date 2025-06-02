@@ -457,7 +457,7 @@ def get_vs_condensed_trending_data(filters, current_user):
         and not current_user.user_type == "regionalAdmin"
     ):
         org_ids = get_org_memberships(current_user)
-        if organization_id not in org_ids:
+        if uuid.UUID(organization_id) not in org_ids:
             raise HTTPException(
                 status_code=404, detail="Access denied to requested organization."
             )
@@ -541,7 +541,7 @@ def get_vs_trending_data(filters, current_user):
         and not current_user.user_type == "regionalAdmin"
     ):
         org_ids = get_org_memberships(current_user)
-        if organization_id not in org_ids:
+        if uuid.UUID(organization_id) not in org_ids:
             raise HTTPException(
                 status_code=404, detail="Access denied to requested organization."
             )  # User has no accessible organizations

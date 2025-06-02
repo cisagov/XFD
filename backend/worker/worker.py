@@ -16,7 +16,7 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # ElasticMQ/SQS Configuration
-QUEUE_URL = os.getenv("QUEUE_URL")
+QUEUE_URL = os.getenv("SERVICE_QUEUE_URL")
 if not QUEUE_URL:
     print("QUEUE_URL environment variable is not set. Exiting.")
     sys.exit(1)

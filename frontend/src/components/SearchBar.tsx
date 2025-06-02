@@ -94,7 +94,7 @@ type Timer = ReturnType<typeof setTimeout>;
 export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
   (props, ref) => {
     const {
-      initialValue,
+      initialValue = '',
       className,
       placeholder,
       autocompletedResults,
@@ -151,7 +151,7 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
                     <ListItem
                       onFocus={handleFocus}
                       onBlur={handleBlur}
-                      button
+                      component={'button'}
                       key={result.id.raw}
                       onClick={() => {
                         onSelectResult(result.id.raw);

@@ -37,22 +37,32 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     type: AlertProps['severity'];
   } | null>(null);
   const cookies = useMemo(() => new Cookies(), []);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const logout = useCallback(async () => {
+    setIsLoggingOut(true);
     const shouldReload = !!token;
 
+    // Clear local storage/cookies and sign out
     localStorage.clear();
     await Auth.signOut();
     cookies.remove('crossfeed-token', {
       domain: process.env.REACT_APP_COOKIE_DOMAIN
     });
 
+    // Clear user state after successful sign out
+    setAuthUser(null);
+    setIsLoggingOut(false); // Reset logout state
+
     if (shouldReload) {
       // Refresh the page only if the token was previously defined
       // (i.e. it is now invalid / has expired now).
       window.location.reload();
     }
-  }, [cookies, token]);
+
+    // Reset logout state even on error
+    setIsLoggingOut(false);
+  }, [cookies, token, setAuthUser]);
 
   const handleError = useCallback(
     async (e: Error) => {
@@ -170,6 +180,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         userMustSign,
         setFeedbackMessage,
         user_type: '',
+        isLoggingOut,
         ...api
       }}
     >

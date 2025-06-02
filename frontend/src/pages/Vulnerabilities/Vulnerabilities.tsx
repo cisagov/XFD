@@ -702,7 +702,7 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
                     ? showAllVulnsButton
                     : showOpenVulnsButton,
                   exportTitle: 'Vulnerabilities'
-                },
+                } as any,
                 noRowsOverlay: { children: noRowsOverlay }
               }}
               paginationMode="server"

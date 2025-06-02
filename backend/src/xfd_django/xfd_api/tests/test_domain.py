@@ -4,7 +4,7 @@ from datetime import datetime
 import secrets
 
 # Third-Party Libraries
-from django.db import transaction
+from django.db import connections, transaction
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
@@ -116,12 +116,6 @@ def ensure_vuln_views_created(django_db_setup, django_db_blocker):
         create_domain_view("mini_data_lake")
         create_vuln_normal_views("mini_data_lake")
         create_service_view("mini_data_lake")
-
-
-@pytest.fixture
-def refresh_vuln_views(django_db_blocker):
-    """Refresh the materialized vuln views after data is inserted."""
-    with django_db_blocker.unblock():
         create_vuln_materialized_views("mini_data_lake")
 
 
@@ -129,6 +123,15 @@ def refresh_vuln_views(django_db_blocker):
 def domain(sample_domain_ip_vuln):
     """Get domain from view after creating source data."""
     return Domain.objects.get(name="example.crossfeed.local")
+
+
+@pytest.fixture
+def refresh_vuln_views(django_db_blocker):
+    """Refresh service material view."""
+    with django_db_blocker.unblock():
+        with connections["mini_data_lake"].cursor() as cursor:
+            cursor.execute("REFRESH MATERIALIZED VIEW vw_service;")
+            cursor.execute("REFRESH MATERIALIZED VIEW mat_vw_combined_vulns;")
 
 
 @pytest.fixture
@@ -241,6 +244,13 @@ def test_search_domain_by_port(user, domain, refresh_vuln_views):
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domain_by_service(user, domain, refresh_vuln_views):
     """Test domain by service."""
+    services = Service.objects.filter(service="Apache httpd")
+    assert services.exists(), "No Service rows with 'Apache httpd' exist"
+
+    # Step 2: Check that Domain rows exist
+    domains = Domain.objects.filter(id=domain.id)
+    assert domains.exists(), f"Domain with id {domain.id} does not exist"
+
     response = client.post(
         "/domain/search",
         json={

@@ -9,7 +9,7 @@ import {
   TextField,
   Button,
   Box
-} from '@mui/material/';
+} from '@mui/material';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
 import { Save } from '@mui/icons-material';

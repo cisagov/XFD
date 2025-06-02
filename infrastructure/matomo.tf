@@ -220,12 +220,14 @@ resource "aws_db_instance" "matomo_db" {
   vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
 
   tags = {
-    Project  = var.project
-    Stage    = var.stage
-    Owner    = "Crossfeed managed resource"
-    ART      = "No Art"
-    POC      = "Lamar Steward   Craig Duhn"
-    PocEmail = "lamar.stewart@cisa.dhs.gov"
+    Project        = var.project
+    Owner          = "Crossfeed managed resource"
+    ART            = "CISA-TH"
+    POC            = "Lamar Steward   Craig Duhn"
+    PocEmail       = "lamar.stewart@cisa.dhs.gov"
+    Name           = "crossfeed-matomo-staging"
+    BillingProject = "VM-Crossfeed"
+    workload-type  = "staging"
   }
 }
 

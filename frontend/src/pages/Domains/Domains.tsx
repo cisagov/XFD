@@ -211,7 +211,7 @@ export const Domains: React.FC = () => {
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
-                toolbar: { exportTitle: 'Domains' }
+                toolbar: { exportTitle: 'Domains' } as any
               }}
               paginationMode="server"
               paginationModel={paginationModel}

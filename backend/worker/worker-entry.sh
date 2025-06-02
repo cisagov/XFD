@@ -48,10 +48,7 @@ fi
 # Install the mitmproxy SSL certificate so that HTTPS connections can be proxied.
 echo "Installing mitmproxy SSL certificate..."
 cp "$CERT_PATH" /usr/local/share/ca-certificates/mitmproxy-ca-cert.crt
-update-ca-certificates --fresh
-
-# Export environment variables for Python and AWS to trust the mitmproxy self-signed certificate.
-export AWS_CA_BUNDLE=/usr/local/share/ca-certificates/mitmproxy-ca-cert.crt
+update-ca-certificates
 
 # Main code
 echo "Running main worker script..."

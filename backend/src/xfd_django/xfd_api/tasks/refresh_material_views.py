@@ -2,6 +2,8 @@
 
 # Standard Python Libraries
 import os
+
+# Third-Party Libraries
 import django
 from django.db import connections
 
@@ -23,28 +25,35 @@ def handler(event, context):
     try:
         with connections["mini_data_lake"].cursor() as cursor:
             # Get all materialized views in the current schema
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT schemaname, matviewname
                 FROM pg_matviews
                 WHERE schemaname = current_schema()
-            """)
+            """
+            )
             matviews = cursor.fetchall()
 
             for schemaname, matviewname in matviews:
                 try:
                     # Check if the view has a unique index (required for CONCURRENTLY)
-                    cursor.execute("""
+                    cursor.execute(
+                        """
                         SELECT 1
                         FROM pg_index i
                         JOIN pg_class c ON c.oid = i.indrelid
                         WHERE c.relname = %s AND i.indisunique = TRUE
                         LIMIT 1
-                    """, [matviewname])
+                    """,
+                        [matviewname],
+                    )
                     has_unique_index = cursor.fetchone() is not None
 
                     if has_unique_index:
                         cursor.execute(
-                            'REFRESH MATERIALIZED VIEW CONCURRENTLY "{}"'.format(matviewname)
+                            'REFRESH MATERIALIZED VIEW CONCURRENTLY "{}"'.format(
+                                matviewname
+                            )
                         )
                     else:
                         cursor.execute(

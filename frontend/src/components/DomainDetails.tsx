@@ -276,7 +276,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
             return (
               <>
                 <ListItem
-                  button
+                  component={'button'}
                   onClick={() => {
                     setHiddenRows((hiddenRows: any) => {
                       hiddenRows[newPrefix] =
@@ -306,7 +306,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
             .split('/');
           return (
             <ListItem
-              button
+              component={'button'}
               divider={true}
               key={page.url}
               onClick={() => window.open(page.url, '_blank')}

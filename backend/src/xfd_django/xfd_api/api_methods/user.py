@@ -158,7 +158,7 @@ def accept_terms(version_data, current_user):
 def delete_user(target_user_id, current_user):
     """Delete a user by ID."""
     # Validate that the user ID is a valid UUID
-    if not target_user_id:
+    if not target_user_id or not is_valid_uuid(target_user_id):
         raise HTTPException(status_code=404, detail="User not found")
 
     # Check if the current user has permission to access/update this user
@@ -166,19 +166,26 @@ def delete_user(target_user_id, current_user):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     try:
-        target_user = User.objects.get(id=target_user_id)
+        # Fetch the user to be deleted
+        target_user = User.objects.prefetch_related("roles").get(id=target_user_id)
+
+        # Delete all associated roles before deleting the user
+        target_user.roles.all().delete()
+
+        # Delete the user
         target_user.delete()
+
         # Return success response
         return {
             "status": "success",
-            "message": "User {} has been deleted successfully.".format(target_user_id),
+            "message": f"User {target_user_id} and associated roles have been deleted successfully.",
             "user_deleted": serialize_user(target_user),
         }
 
-    except HTTPException as http_exc:
-        raise http_exc
+    except User.DoesNotExist:
+        raise HTTPException(status_code=404, detail="User not found.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
 
 
 # GET: /users
@@ -205,6 +212,14 @@ def get_users(current_user):
                 "state": user.state,
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
+                "date_approved": user.date_approved,
+                "approved_by": {
+                    "id": str(user.approved_by.id),
+                    "full_name": str(user.approved_by.full_name),
+                    "email": str(user.approved_by.email),
+                }
+                if user.approved_by
+                else None,
                 "accepted_terms_version": user.accepted_terms_version,
                 "date_accepted_terms": user.date_accepted_terms,
                 "roles": [
@@ -371,6 +386,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
         return [
             {
                 "id": str(user.id),
+                "cognito_use_case_description": user.cognito_use_case_description,
                 "created_at": user.created_at.isoformat(),
                 "updated_at": user.updated_at.isoformat(),
                 "first_name": user.first_name,
@@ -381,6 +397,14 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                 "state": user.state,
                 "user_type": user.user_type,
                 "last_logged_in": user.last_logged_in,
+                "date_approved": user.date_approved,
+                "approved_by": {
+                    "id": str(user.approved_by.id),
+                    "full_name": str(user.approved_by.full_name),
+                    "email": str(user.approved_by.email),
+                }
+                if user.approved_by
+                else None,
                 "accepted_terms_version": user.accepted_terms_version,
                 "roles": [
                     {
@@ -493,6 +517,9 @@ def approve_user_registration(user_id, current_user):
     try:
         # Retrieve the user by ID
         user = User.objects.get(id=user_id)
+        user.date_approved = datetime.now()
+        user.approved_by = current_user
+        user.save()
     except ObjectDoesNotExist:
         raise HTTPException(status_code=404, detail="User not found.")
 
@@ -518,7 +545,10 @@ def approve_user_registration(user_id, current_user):
             status_code=500, detail="Failed to send email: {}".format(str(e))
         )
 
-    return {"status_code": 200, "body": "User registration approved."}
+    return {
+        "status_code": 200,
+        "body": "User registration approved.",
+    }
 
 
 # PUT: /users/{user_id}/register/deny

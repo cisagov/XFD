@@ -115,7 +115,7 @@ class ProductResponse(BaseModel):
 class ServiceResponse(BaseModel):
     """Service response."""
 
-    id: UUID
+    id: Any
     port: int
     last_seen: Optional[datetime] = None
     products: Any

@@ -59,7 +59,7 @@ export const useUserTypeFilters: UseUserTypeFilters = (
           type: 'any'
         },
         {
-          field: 'organizationId',
+          field: 'organization_id',
           values: userOrgs,
           type: 'any'
         }
@@ -74,7 +74,7 @@ export const useUserTypeFilters: UseUserTypeFilters = (
           type: 'any'
         },
         {
-          field: 'organizationId',
+          field: 'organization_id',
           values: [],
           type: 'any'
         }
@@ -87,7 +87,7 @@ export const useUserTypeFilters: UseUserTypeFilters = (
           type: 'any'
         },
         {
-          field: 'organizationId',
+          field: 'organization_id',
           values: userOrgs,
           type: 'any'
         }
@@ -100,7 +100,7 @@ export const useUserTypeFilters: UseUserTypeFilters = (
           type: 'any'
         },
         {
-          field: 'organizationId',
+          field: 'organization_id',
           values: userOrgs,
           type: 'any'
         }

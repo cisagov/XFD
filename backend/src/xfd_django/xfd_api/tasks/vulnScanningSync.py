@@ -13,36 +13,47 @@ from ipaddress import IPv4Network, IPv6Network, ip_network
 import json
 import logging
 import os
-import random
+import traceback
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
-from django.db import connections
+from django.core.management import call_command
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
 from django.db.models.functions import Power
 from django.utils import timezone
 import psycopg2
 import requests
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
+from xfd_api.tasks.syncdb_helpers import (
+    create_domain_view,
+    create_service_view,
+    create_vuln_materialized_views,
+    create_vuln_normal_views,
+)
 from xfd_api.utils.chunk import chunk_list_by_bytes
 from xfd_api.utils.csv_utils import create_checksum
 from xfd_api.utils.hash import hash_ip
-from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (
+from xfd_api.utils.scan_utils.alerting import (
+    IngestionError,
+    QueryError,
+    ScanExecutionError,
+    SyncError,
+)
+from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_live_ips,
+    enforce_latest_flag_port_scan,
     fetch_orgs_and_relations,
+    fill_cidr_live_ips_bulk_update,
     get_latest_os_type,
     load_test_data,
     save_cve_to_datalake,
-    save_host,
     save_ip_to_datalake,
     save_organization_to_mdl,
     save_port_scan_to_datalake,
     save_ticket_to_datalake,
     save_vuln_scan,
-    save_vuln_scan_to_xfd_db,
 )
 from xfd_mini_dl.models import (
     Cidr,
-    Host,
     HostSummary,
     NMIServiceGroup,
     Organization,
@@ -52,6 +63,7 @@ from xfd_mini_dl.models import (
     RiskyServiceGroup,
     Sector,
     Ticket,
+    Vulnerability,
     VulnScanSummary,
 )
 
@@ -61,6 +73,10 @@ logging.basicConfig(
     filename="vuln_scanning_sync.log",
 )
 LOGGER = logging.getLogger(__name__)
+IS_LOCAL = os.getenv("IS_LOCAL")
+SCAN_NAME = "VulnScanningSync"
+
+VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 
 
 def handler(event):
@@ -76,12 +92,14 @@ def handler(event):
     Returns:
         dict: Response containing the status code and message.
     """
+    print("VS_PULL_DATE_RANGE: ", VS_PULL_DATE_RANGE)
     try:
         main()
         return {"status_code": 200, "body": "VS Sync completed successfully"}
     except Exception as e:
-        LOGGER.info("Error occurred: %s", e)
-        return {"status_code": 500, "body": str(e)}
+        raise ScanExecutionError(SCAN_NAME, str(e), event) from e
+        # LOGGER.info("Error occurred: %s", e)
+        # return {"status_code": 500, "body": str(e)}
 
 
 def query_redshift(query, params=None):
@@ -95,32 +113,48 @@ def query_redshift(query, params=None):
     )
 
     try:
-        cursor = conn.cursor(
-            cursor_factory=psycopg2.extras.DictCursor
-        )  # Use DictCursor for row dicts
-        cursor.execute(query, params or ())
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        if params:
+            cursor.execute(query, params)
+        else:
+            cursor.execute(query)  # <-- this avoids the IndexError
         results = cursor.fetchall()
-        return [dict(row) for row in results]  # Convert to list of dicts
+        return [dict(row) for row in results]
+    except Exception as e:
+        raise QueryError(SCAN_NAME, str(e)) from e
     finally:
         cursor.close()
         conn.close()
 
 
-def main():
+def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
+    """Yield chunks of rows from Redshift using LIMIT/OFFSET pagination."""
+    offset = 0
+    while True:
+        query = f"{base_query} LIMIT {chunk_size} OFFSET {offset}"
+        chunk = fetch_from_redshift(query)
+        if not chunk:
+            break
+        yield chunk
+        offset += chunk_size
+
+
+def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     LOGGER.info("Started VulnScanningSync scan...")
-    # Load request data
 
+    call_command("syncmdl", dangerouslyforce=False)
+
+    # Load request data
     request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
     LOGGER.info("Fetched %d requests from Redshift", len(request_list))
     org_id_dict = process_orgs(request_list)
-    # Process Organizations & Relations
-    process_organizations_and_relations()
+    LOGGER.info("Completed saving organizations to the LZ MDL.")
 
     # Process Vulnerability Scans
     LOGGER.info("Started processing vulnerability scans...")
     vuln_scans = fetch_from_redshift(
-        "SELECT * FROM vmtableau.vuln_scans WHERE time >= GETDATE() - INTERVAL '2 days';"
+        f"SELECT * FROM vmtableau.vuln_scans WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days';"  # nosec B608
     )
     LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
     if vuln_scans:
@@ -129,37 +163,101 @@ def main():
 
     # Process Host Scans
     LOGGER.info("Started processing host scans...")
-    host_scans = fetch_from_redshift(
-        "SELECT * FROM vmtableau.hosts WHERE last_change >= GETDATE() - INTERVAL '2 days';"
-    )
-    LOGGER.info("Fetched %d host scans from Redshift", len(host_scans))
-    if host_scans:
-        process_host_scans(host_scans, org_id_dict)
-        LOGGER.info("Finished processing host scans")
-        create_daily_host_summary()
+    create_daily_host_summary(org_id_dict)
 
-    # Process Port Scans
+    # Port Scans (Chunked)
     LOGGER.info("Started processing port scans...")
-    port_scans = fetch_from_redshift(
-        "SELECT * FROM vmtableau.port_scans WHERE time >= GETDATE() - INTERVAL '2 days';"
+    base_query = (
+        "SELECT * FROM vmtableau.port_scans "
+        f"WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
     )
-    LOGGER.info("Fetched %d port scans from Redshift", len(port_scans))
-    if port_scans:
-        process_port_scans(port_scans, org_id_dict)
+
+    total_processed = 0
+    chunk_number = 1
+    for chunk in fetch_in_chunks(base_query):
+        LOGGER.info(
+            "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
+        )
+        process_port_scans(chunk, org_id_dict)
+        total_processed += len(chunk)
+        chunk_number += 1
+
+    if total_processed == 0:
+        LOGGER.warning(
+            f"No port scans found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+        )
+    else:
+        LOGGER.info(
+            "Processed %d total port scans across %d chunks",
+            total_processed,
+            chunk_number - 1,
+        )
         enforce_latest_flag_port_scan()
-        LOGGER.info("Finished processing port scans")
         create_port_scan_summary()
         create_port_scan_service_summaries()
-    # Process Tickets
+        LOGGER.info("Finished processing port scans")
+
+    # fill_cidr_live_ips()
+    fill_cidr_live_ips_bulk_update()
+
+    # Process Organizations & Relations
+    send_organizations_to_dmz()
+
+    # Process Tickets (Chunked)
     LOGGER.info("Started processing tickets...")
-    tickets = fetch_from_redshift(
-        "SELECT * FROM vmtableau.tickets WHERE last_change >= GETDATE() - INTERVAL '2 days';"
+    base_query = (
+        "SELECT * FROM vmtableau.tickets "
+        f"WHERE last_change >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
     )
-    LOGGER.info("Fetched %d tickets from Redshift", len(tickets))
-    if tickets:
-        process_tickets(tickets, org_id_dict)
+
+    total_processed = 0
+    chunk_number = 1
+    for chunk in fetch_in_chunks(base_query):
+        LOGGER.info(
+            "Processing ticket chunk #%d with %d rows", chunk_number, len(chunk)
+        )
+        process_tickets(chunk, org_id_dict)
+        total_processed += len(chunk)
+        chunk_number += 1
+
+    if total_processed == 0:
+        LOGGER.warning(
+            f"No tickets found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+        )
+    else:
+        LOGGER.info(
+            "Processed %d total tickets across %d chunks",
+            total_processed,
+            chunk_number - 1,
+        )
         LOGGER.info("Finished processing tickets")
-        create_vuln_scan_summary()
+        try:
+            create_vuln_scan_summary()
+        except Exception as e:
+            raise QueryError(
+                SCAN_NAME, str(e), "Error creating vulnerability scan summary"
+            ) from e
+
+    try:
+        create_domain_view("mini_data_lake")
+    except Exception as e:
+        raise QueryError(SCAN_NAME, str(e), "Error creating domain view") from e
+    try:
+        create_service_view("mini_data_lake")
+    except Exception as e:
+        raise QueryError(SCAN_NAME, str(e), "Error creating service view") from e
+    try:
+        create_vuln_normal_views("mini_data_lake")
+    except Exception as e:
+        raise QueryError(
+            SCAN_NAME, str(e), "Error creating vulnerability normal views"
+        ) from e
+    try:
+        create_vuln_materialized_views("mini_data_lake")
+    except Exception as e:
+        raise QueryError(
+            SCAN_NAME, str(e), "Error creating vulnerability materialized views"
+        ) from e
 
 
 def detect_data_set(query):
@@ -179,7 +277,6 @@ def detect_data_set(query):
 
 def fetch_from_redshift(query):
     """Fetch data from Redshift and log execution time."""
-    IS_LOCAL = os.getenv("IS_LOCAL")
     if IS_LOCAL:
         data_set = detect_data_set(query)
         return load_test_data(data_set)
@@ -189,7 +286,7 @@ def fetch_from_redshift(query):
         end_time = datetime.datetime.now()
         duration_seconds = (end_time - start_time).total_seconds()
         LOGGER.info(f"[Redshift] [{duration_seconds}s] [{len(result)} records] {query}")
-        return result.rows
+        return result
     except Exception as e:
         LOGGER.info("Error fetching data from Redshift: %s", e)
         LOGGER.info("Erroneous query: %s", query)
@@ -206,25 +303,30 @@ def save_json_to_file(data, filename="test.json"):
         print(f"Error saving JSON to file: {e}")
 
 
-def process_organizations_and_relations():
+def send_organizations_to_dmz():
     """Fetch organizations and sync with the external API."""
     try:
         shaped_orgs = fetch_orgs_and_relations()
         if not shaped_orgs:
             return
 
-        chunks = chunk_list_by_bytes(shaped_orgs, 2097152)
+        # 100_000 = 100 KB
+        chunks = chunk_list_by_bytes(shaped_orgs, 100_000)
         for idx, chunk_info in enumerate(chunks):
             chunk = chunk_info["chunk"]
             bounds = chunk_info["bounds"]
-            # save_json_to_file(json.dumps(chunk), f"org_chunk_{idx}.json")
             LOGGER.info(
-                "Sending chunk %d - %d to sync API", bounds[0].start, bounds[0].end
+                "Sending chunk %d - %d to sync API", bounds["start"], bounds["end"]
             )
             send_csv_to_sync(json.dumps(chunk), bounds)
 
     except Exception as e:
-        LOGGER.error("Error sending organizations to DMZ sync endpoint, %s", e)
+        LOGGER.error(
+            "Error sending organizations to DMZ sync endpoint:\n%s",
+            traceback.format_exc(),
+        )
+        print(e)
+        raise SyncError(SCAN_NAME, str(e), "Error sending organizations to dmz") from e
 
 
 def send_csv_to_sync(csv_data, bounds):
@@ -243,11 +345,34 @@ def send_csv_to_sync(csv_data, bounds):
         "Authorization": os.getenv("DMZ_API_KEY", ""),
     }
 
-    response = requests.post(
-        os.getenv("DMZ_SYNC_ENDPOINT"), json=body, headers=headers, timeout=60
-    )
-    if response.status_code == 200:
+    try:
+        response = requests.post(
+            os.getenv("DMZ_SYNC_ENDPOINT") + "/sync",
+            json=body,
+            headers=headers,
+            timeout=60,
+        )
+        response.raise_for_status()
         LOGGER.info("Successfully sent chunk to sync API")
+    except requests.exceptions.HTTPError as http_err:
+        try:
+            error_data = response.json()
+            error_detail = error_data.get("detail", error_data)
+            print(http_err)
+        except ValueError:
+            error_detail = response.text
+        LOGGER.error(
+            "HTTPError sending chunk to sync API:\nStatus Code: %s\nDetail: %s\nHeaders: %s",
+            response.status_code,
+            error_detail,
+            response.headers,
+        )
+    except Exception as e:
+        LOGGER.error("Unexpected error sending chunk: %s", str(e))
+        raise SyncError(
+            SCAN_NAME,
+            str(e),
+        ) from e
 
 
 def process_vulnerability_scans(vuln_scans, org_id_dict):
@@ -274,20 +399,30 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
                 save_vuln_scan(vuln_scan_dict)
             except Exception as e:
                 LOGGER.error("Error saving vulnerability scan: %s", e)
+                print(traceback.format_exc())
+                # Raise to catch in the outer block
+                raise e
         except Exception as e:
             LOGGER.error("Error processing Vulnerability Scan: %s", e)
-    for vuln in vuln_scans:
+            print(traceback.format_exc())
+            raise IngestionError(
+                SCAN_NAME, str(e), "Failed processing vulnerability scans"
+            ) from e
+
+
+def safe_fromisoformat(date_input) -> datetime.datetime | None:
+    """Safely convert input to datetime, or return None if invalid."""
+    if isinstance(date_input, datetime.datetime):
+        return date_input
+    if isinstance(date_input, str):
         try:
-            save_vuln_scan_to_xfd_db(vuln)
+            return parser.isoparse(date_input)
         except Exception as e:
-            print("Error saving to XFD DB", e)
-
-
-def safe_fromisoformat(date_str: str | None) -> datetime.datetime | None:
-    """Convert a date string to a datetime object."""
-    if date_str is None:
-        return None
-    return parser.isoparse(date_str)
+            LOGGER.warning(
+                "Failed to parse datetime from string: %s | Error: %s", date_input, e
+            )
+            return None
+    return None
 
 
 def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
@@ -361,176 +496,198 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
     }
 
 
-def create_daily_host_summary(summary_date=None):
-    """Create host summary record for each organization."""
+def create_daily_host_summary(org_id_dict, summary_date=None):
+    """Create host summary records directly from Redshift data."""
     if summary_date is None:
         summary_date = timezone.now().date()
 
-    for org in Organization.objects.all():
-        hosts = Host.objects.filter(organization=org)
+    LOGGER.info("Starting host summary creation directly from Redshift...")
 
-        if not hosts.exists():
-            continue  # Skip orgs with no hosts
+    redshift_query = """
+        SELECT
+            owner,
+            MIN(last_change) AS start_date,
+            MAX(last_change) AS end_date,
+            SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END) AS host_done_count,
+            SUM(CASE WHEN status = 'WAITING' THEN 1 ELSE 0 END) AS host_waiting_count,
+            SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) AS host_running_count,
+            SUM(CASE WHEN status = 'READY' THEN 1 ELSE 0 END) AS host_ready_count,
+            SUM(CASE WHEN json_extract_path_text(state, 'up') = 'true' THEN 1 ELSE 0 END) AS up_host_count,
+            SUM(CASE WHEN json_extract_path_text(state, 'up') = 'false' THEN 1 ELSE 0 END) AS down_host_count,
+            COUNT(ip) AS scanned_asset_count,
+        FROM vmtableau.hosts
+        WHERE last_change >= GETDATE() - INTERVAL '100 days'
+        GROUP BY owner;
+    """
 
-        # Aggregate everything in one DB query
-        summary_data = hosts.aggregate(
-            start_date=Min("updated_timestamp"),
-            end_date=Max("updated_timestamp"),
-            host_done_count=Count("id", filter=Q(status="DONE")),
-            host_waiting_count=Count("id", filter=Q(status="WAITING")),
-            host_running_count=Count("id", filter=Q(status="RUNNING")),
-            host_ready_count=Count("id", filter=Q(status="READY")),
-            up_host_count=Count("id", filter=Q(host_live=True)),
-            down_host_count=Count("id", filter=Q(host_live=False)),
-        )
+    summary_rows = fetch_from_redshift(redshift_query)
 
-        # Create or update the summary
-        HostSummary.objects.update_or_create(
-            organization=org,
-            summary_date=summary_date,
-            defaults={
-                "start_date": summary_data["start_date"],
-                "end_date": summary_data["end_date"],
-                "host_done_count": summary_data["host_done_count"],
-                "host_waiting_count": summary_data["host_waiting_count"],
-                "host_running_count": summary_data["host_running_count"],
-                "host_ready_count": summary_data["host_ready_count"],
-                "up_host_count": summary_data["up_host_count"],
-                "down_host_count": summary_data["down_host_count"],
-            },
-        )
+    if not summary_rows:
+        LOGGER.warning("No host data found in Redshift to summarize.")
+        return
 
+    LOGGER.info("Fetched %d host summary records from Redshift", len(summary_rows))
 
-def process_host_scans(host_scans, org_id_dict):
-    """Process and save host scans."""
-    for host in host_scans:
+    for row in summary_rows:
         try:
-            lon, lat = json.loads(host.get("loc", "[]"))
-            owner_id = org_id_dict.get(host.get("owner"))
-            ip = (
-                save_ip_to_datalake(
-                    {
-                        "ip": host["ip"],
-                        "ip_hash": hash_ip(host["ip"]),
-                        "organization": {"id": owner_id},
-                    }
+            owner = row["owner"]
+            owner_id = org_id_dict.get(owner)
+
+            if not owner_id:
+                LOGGER.warning(
+                    "No matching org_id found for owner %s; skipping.", owner
                 )
-                if host.get("ip")
-                else None
+                continue
+
+            organization = Organization.objects.get(id=owner_id)
+
+            HostSummary.objects.update_or_create(
+                organization=organization,
+                summary_date=summary_date,
+                defaults={
+                    "start_date": row["start_date"],
+                    "end_date": row["end_date"],
+                    "host_done_count": row["host_done_count"],
+                    "host_waiting_count": row["host_waiting_count"],
+                    "host_running_count": row["host_running_count"],
+                    "host_ready_count": row["host_ready_count"],
+                    "up_host_count": row["up_host_count"],
+                    "down_host_count": row["down_host_count"],
+                },
             )
-            latest_scan = json.loads(host.get("latest_scan", "{}"))
-            state_dict = json.loads(host.get("state", "{}"))
-            host_dict = {
-                "id": host.get("_id"),
-                "ip_string": host.get("ip"),
-                "ip": ip,
-                "updated_timestamp": host.get("last_change"),
-                "latest_netscan_1_timestamp": latest_scan.get("NETSCAN1", None),
-                "latest_netscan_2_timestamp": latest_scan.get("NETSCAN2", None),
-                "latest_vulnscan_timestamp": latest_scan.get("PORTSCAN", None),
-                "latest_portscan_timestamp": latest_scan.get("VULNSCAN", None),
-                "latest_scan_completion_timestamp": latest_scan.get("DONE", None),
-                "location_longitude": lon,
-                "location_latitude": lat,
-                "priority": host.get("priority"),
-                "next_scan_timestamp": parser.parse(host.get("next_scan")),
-                "rand": host.get("r", random.random()),
-                "curr_stage": host.get("stage"),
-                "host_live": state_dict.get("up", None),
-                "host_live_reason": state_dict.get("reason", None),
-                "status": host.get("status"),
-                "organization": Organization.objects.get(id=owner_id),
-            }
-            save_host(host_dict)
+        except Organization.DoesNotExist:
+            LOGGER.warning(
+                "Organization ID %s not found in local DB; skipping.", owner_id
+            )
         except Exception as e:
-            print(f"Error processing host scan: {e}")
+            LOGGER.error(
+                "Error creating host summary for owner %s (mapped to %s): %s",
+                owner,
+                owner_id,
+                e,
+            )
+            raise QueryError(
+                SCAN_NAME, str(e), "Error creating daily host summary"
+            ) from e
+
+    LOGGER.info("Completed host summary creation from Redshift.")
 
 
 def create_port_scan_summary(summary_date=None):
     """Create port summary record for each organization."""
-    if summary_date is None:
-        summary_date = timezone.now().date()
+    try:
+        if summary_date is None:
+            summary_date = timezone.now().date()
 
-    for org in Organization.objects.all():
-        scans = PortScan.objects.filter(
-            organization=org,
-            latest=True,  # only latest scans
-            time_scanned__isnull=False,
-        )
+        for org in Organization.objects.all():
+            scans = PortScan.objects.filter(
+                organization=org,
+                latest=True,  # only latest scans
+                time_scanned__isnull=False,
+                state="open",
+            )
 
-        if not scans.exists():
-            continue
+            if not scans.exists():
+                continue
 
-        aggregated = scans.aggregate(
-            start_date=Min("time_scanned"),
-            end_date=Max("time_scanned"),
-            open_port_count=Count("id", filter=Q(state="open")),
-            risky_port_count=Count("id", filter=Q(risky_service_group__isnull=False)),
-            nmi_service_count=Count("id", filter=Q(nmi_service_group__isnull=False)),
-            unique_ip_count=Count("ip_string", distinct=True),
-            unique_service_count=Count("service_name", distinct=True),
-        )
-
-        PortScanSummary.objects.update_or_create(
-            organization=org,
-            summary_date=summary_date,
-            defaults={
-                "start_date": aggregated["start_date"],
-                "end_date": aggregated["end_date"],
-                "open_port_count": aggregated["open_port_count"],
-                "risky_port_count": aggregated["risky_port_count"],
-                "nmi_service_count": aggregated["nmi_service_count"],
-                "unique_ip_count": aggregated["unique_ip_count"],
-                "unique_service_count": aggregated["unique_service_count"],
-            },
-        )
-
-
-def create_port_scan_service_summaries(summary_date=None):
-    """Fill the port scan service summary table."""
-    if summary_date is None:
-        summary_date = timezone.now().date()
-
-    for org in Organization.objects.all():
-        scans = PortScan.objects.filter(
-            organization=org,
-            latest=True,
-            time_scanned__isnull=False,
-            service_name__isnull=False,
-        )
-
-        if not scans.exists():
-            continue
-
-        # Group by service_name
-        service_names = scans.values_list("service_name", flat=True).distinct()
-
-        for service in service_names:
-            service_scans = scans.filter(service_name=service)
-
-            agg = service_scans.aggregate(
+            aggregated = scans.aggregate(
                 start_date=Min("time_scanned"),
                 end_date=Max("time_scanned"),
+                open_port_count=Count("id"),
+                risky_port_count=Count(
+                    "id", filter=Q(risky_service_group__isnull=False)
+                ),
+                nmi_service_count=Count(
+                    "id", filter=Q(nmi_service_group__isnull=False)
+                ),
                 unique_ip_count=Count("ip_string", distinct=True),
                 unique_service_count=Count("service_name", distinct=True),
             )
 
-            # Collect risky ports
-            risky_ports_qs = service_scans.filter(risky_service_group__isnull=False)
-            risky_ports = list(risky_ports_qs.values_list("port", flat=True).distinct())
+            risky_group_data = (
+                scans.filter(risky_service_group__isnull=False)
+                .values("risky_service_group")
+                .annotate(count=Count("id"))
+            )
 
-            PortScanServiceSummary.objects.update_or_create(
+            # Convert to dict: {group: count}
+            risky_service_group_counts = {
+                item["risky_service_group"]: item["count"] for item in risky_group_data
+            }
+
+            PortScanSummary.objects.update_or_create(
                 organization=org,
                 summary_date=summary_date,
-                service_name=service,
                 defaults={
-                    "start_date": agg["start_date"],
-                    "end_date": agg["end_date"],
-                    "unique_ip_count": agg["unique_ip_count"],
-                    "unique_service_count": agg["unique_service_count"],
-                    "risky_ports": risky_ports,
+                    "start_date": aggregated["start_date"],
+                    "end_date": aggregated["end_date"],
+                    "open_port_count": aggregated["open_port_count"],
+                    "risky_port_count": aggregated["risky_port_count"],
+                    "nmi_service_count": aggregated["nmi_service_count"],
+                    "unique_ip_count": aggregated["unique_ip_count"],
+                    "unique_service_count": aggregated["unique_service_count"],
+                    "risky_service_group_counts": risky_service_group_counts,
                 },
             )
+
+    except Exception as e:
+        print("Error creating port scan summary: {}".format(e))
+        raise QueryError(SCAN_NAME, str(e), "Error creating port scan summary") from e
+
+
+def create_port_scan_service_summaries(summary_date=None):
+    """Fill the port scan service summary table."""
+    try:
+        if summary_date is None:
+            summary_date = timezone.now().date()
+
+        for org in Organization.objects.all():
+            scans = PortScan.objects.filter(
+                organization=org,
+                latest=True,
+                time_scanned__isnull=False,
+                service_name__isnull=False,
+            )
+
+            if not scans.exists():
+                continue
+
+            # Group by service_name
+            service_names = scans.values_list("service_name", flat=True).distinct()
+
+            for service in service_names:
+                service_scans = scans.filter(service_name=service)
+
+                agg = service_scans.aggregate(
+                    start_date=Min("time_scanned"),
+                    end_date=Max("time_scanned"),
+                    unique_ip_count=Count("ip_string", distinct=True),
+                    unique_service_count=Count("service_name", distinct=True),
+                )
+
+                # Collect risky ports
+                risky_ports_qs = service_scans.filter(risky_service_group__isnull=False)
+                risky_ports = list(
+                    risky_ports_qs.values_list("port", flat=True).distinct()
+                )
+
+                PortScanServiceSummary.objects.update_or_create(
+                    organization=org,
+                    summary_date=summary_date,
+                    service_name=service,
+                    defaults={
+                        "start_date": agg["start_date"],
+                        "end_date": agg["end_date"],
+                        "unique_ip_count": agg["unique_ip_count"],
+                        "unique_service_count": agg["unique_service_count"],
+                        "risky_ports": risky_ports,
+                    },
+                )
+    except Exception as e:
+        print("Error creating port scan service summary: {}".format(e))
+        raise QueryError(
+            SCAN_NAME, str(e), "Error creating port scan service summary"
+        ) from e
 
 
 def process_tickets(tickets, org_id_dict):
@@ -575,7 +732,7 @@ def process_tickets(tickets, org_id_dict):
                 "false_positive": ticket.get("false_positive"),
                 "ip_string": ticket.get("ip"),
                 "ip": ip,
-                "updated_timestamp": parser.parse(ticket.get("last_change")),
+                "updated_timestamp": safe_fromisoformat(ticket.get("last_change")),
                 "location_longitude": lon,
                 "location_latitude": lat,
                 "organization": Organization.objects.get(id=owner_id),
@@ -584,10 +741,10 @@ def process_tickets(tickets, org_id_dict):
                 "snapshots_bool": bool(ticket.get("snapshots", None)),
                 "vuln_source": ticket.get("source"),
                 "vuln_source_id": ticket.get("source_id"),
-                "closed_timestamp": parser.parse(time_closed_str)
+                "closed_timestamp": safe_fromisoformat(time_closed_str)
                 if time_closed_str
                 else None,
-                "opened_timestamp": parser.parse(time_opened_str)
+                "opened_timestamp": safe_fromisoformat(time_opened_str)
                 if time_opened_str
                 else None,
                 "is_open": ticket.get("open"),
@@ -600,11 +757,11 @@ def process_tickets(tickets, org_id_dict):
             }
             events = json.loads(ticket.get("events", "[]"))
             save_ticket_to_datalake(ticket_dict, events, details)
-            print("Saved ticket to MDL")
         except Exception as e:
             print(
                 f"Error processing ticket data: {e} - {owner_id} - {ticket.get('owner')}"
             )
+            raise IngestionError(SCAN_NAME, str(e), "Failed processing tickets") from e
 
 
 def get_asset_owned_count(org):
@@ -664,7 +821,7 @@ def create_vuln_scan_summary(summary_date=None):
         ]
 
         # Severity logic using cvss_severity
-        severity_map = {0: "none", 1: "low", 2: "medium", 3: "high", 4: "critical"}
+        severity_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
         severity_counts = {
             f"{name}_severity_count": included.filter(cvss_severity=level).count()
             for level, name in severity_map.items()
@@ -712,7 +869,7 @@ def create_vuln_scan_summary(summary_date=None):
             included.filter(~Q(cve_string__isnull=True), ~Q(cve_string=""))
             .values("cve_string")
             .annotate(
-                count=Count("id"),
+                count=Count("ip_string"),
                 cvss_base_score=Max(
                     "cvss_base_score"
                 ),  # or Avg if you want to average across tickets
@@ -745,7 +902,7 @@ def create_vuln_scan_summary(summary_date=None):
             .filter(~Q(cve_string__isnull=True), ~Q(cve_string=""))
             .values("cve_string")
             .annotate(
-                count=Count("id"),
+                count=Count("ip_string"),
                 cvss_base_score=Max("cvss_base_score"),
                 severity=Max("cvss_severity"),
                 vuln_name=Max("vuln_name"),
@@ -773,6 +930,8 @@ def create_vuln_scan_summary(summary_date=None):
             is_open=True,
             cvss_base_score__isnull=False,
             ip_string__isnull=False,
+            vuln_source="nessus",
+            false_positive__in=[False, None],
         )
 
         # Base RRS score expression: (cvss_base_score^7) / 1,000,000
@@ -789,10 +948,20 @@ def create_vuln_scan_summary(summary_date=None):
                 high=Count("id", filter=Q(cvss_severity=3)),
                 critical=Count("id", filter=Q(cvss_severity=4)),
                 weighted=Sum(weighted_expr),
+                sample_ticket_id=Min("id"),
             )
             .order_by("-weighted")[:5]
         )
 
+        ticket_ids = [str(item["sample_ticket_id"]) for item in risky_host_qs]
+
+        # Build a mapping from ticket_id → domain_id
+        vuln_domain_map = {
+            str(v.id): str(v.domain_id)
+            for v in Vulnerability.objects.filter(id__in=ticket_ids).only(
+                "id", "domain_id"
+            )
+        }
         # Convert to dictionary for JSONField
         top_5_hosts = {
             item["ip_string"]: {
@@ -804,6 +973,7 @@ def create_vuln_scan_summary(summary_date=None):
                 "rrs": round(item["weighted"], 2)
                 if item["weighted"] is not None
                 else 0,
+                "domain_id": vuln_domain_map.get(str(item["sample_ticket_id"])),
             }
             for item in risky_host_qs
         }
@@ -821,12 +991,6 @@ def create_vuln_scan_summary(summary_date=None):
                     vuln_source="nessus",
                 ).count(),
                 "vulnerable_host_count": included.values("ip_string")
-                .distinct()
-                .count(),
-                "scanned_asset_count": Host.objects.filter(
-                    organization=org, latest_vulnscan_timestamp__isnull=False
-                )
-                .values("ip_string")
                 .distinct()
                 .count(),
                 "unique_service_count": open_tickets.filter(vuln_source="nmap")
@@ -858,24 +1022,6 @@ def create_vuln_scan_summary(summary_date=None):
                 "included_tickets": list(included.values_list("id", flat=True)),
                 "top_5_risky_hosts": top_5_hosts,
             },
-        )
-
-
-def enforce_latest_flag_port_scan():
-    """Flag outdated port scans as latest = False."""
-    with connections["mini_data_lake"].cursor() as cursor:
-        cursor.execute(
-            """
-            WITH latest_scans AS (
-                SELECT DISTINCT ON (organization_id, ip_string, port)
-                    id
-                FROM port_scan
-                WHERE time_scanned IS NOT NULL
-                ORDER BY organization_id, ip_string, port, time_scanned DESC
-            )
-            UPDATE port_scan
-            SET latest = (id IN (SELECT id FROM latest_scans))
-        """
         )
 
 
@@ -924,7 +1070,7 @@ def process_port_scans(port_scans, org_id_dict):
                 "service_device_type": service_obj.get("devicetype", None),
                 "source": port_scan.get("source"),
                 "state": port_scan.get("state"),
-                "time_scanned": parser.parse(port_scan.get("time")),
+                "time_scanned": safe_fromisoformat(port_scan.get("time")),
                 "organization": Organization.objects.get(id=owner_id),
                 "risky_service_group": RiskyServiceGroup.objects.filter(
                     service_name=service_obj.get("name", None)
@@ -942,9 +1088,11 @@ def process_port_scans(port_scans, org_id_dict):
                 else None,
             }
             save_port_scan_to_datalake(port_scan_dict)
-            print("Saved port scan record")
         except Exception as e:
             print(f"Error processing port scan data: {e}")
+            raise IngestionError(
+                SCAN_NAME, str(e), "Failed processing port scans"
+            ) from e
 
 
 def process_orgs(request_list):
@@ -955,20 +1103,27 @@ def process_orgs(request_list):
     parent_child_dict = {}
 
     # Process the request data
-    if request_list and isinstance(request_list, list):
-        process_request(request_list, sector_child_dict, parent_child_dict, org_id_dict)
+    try:
+        if request_list and isinstance(request_list, list):
+            process_request(
+                request_list, sector_child_dict, parent_child_dict, org_id_dict
+            )
 
-        # Link parent-child organizations
-        link_parent_child_organizations(parent_child_dict, org_id_dict)
+            # Link parent-child organizations
+            link_parent_child_organizations(parent_child_dict, org_id_dict)
 
-        # Assign organizations to sectors
-        assign_organizations_to_sectors(sector_child_dict, org_id_dict)
+            # Assign organizations to sectors
+            assign_organizations_to_sectors(sector_child_dict, org_id_dict)
 
-    return org_id_dict
+        return org_id_dict
+    except Exception as e:
+        raise IngestionError(
+            SCAN_NAME, str(e), "Failed processing organizations"
+        ) from e
 
 
 def link_parent_child_organizations(
-    parent_child_dict, org_id_dict, db_name="mini_data_lake_secondary"
+    parent_child_dict, org_id_dict, db_name="mini_data_lake"
 ):
     """Link child organizations to their respective parent organizations."""
     for parent_acronym, child_acronyms in parent_child_dict.items():
@@ -996,25 +1151,30 @@ def link_parent_child_organizations(
 
 
 def assign_organizations_to_sectors(
-    sector_child_dict, org_id_dict, db_name="mini_data_lake_secondary"
+    sector_child_dict, org_id_dict, db_name="mini_data_lake"
 ):
     """Assign organizations to sectors based on sector-child relationships."""
-    for sector_id, child_acronyms in sector_child_dict.items():
-        try:
-            sector = Sector.objects.using(db_name).get(id=sector_id)
-        except Sector.DoesNotExist:
-            continue
+    try:
+        for sector_id, child_acronyms in sector_child_dict.items():
+            try:
+                sector = Sector.objects.using(db_name).get(id=sector_id)
+            except Sector.DoesNotExist:
+                continue
 
-        organization_ids = [
-            org_id_dict.get(acronym)
-            for acronym in child_acronyms
-            if acronym in org_id_dict
-        ]
+            organization_ids = [
+                org_id_dict.get(acronym)
+                for acronym in child_acronyms
+                if acronym in org_id_dict
+            ]
 
-        if organization_ids:
-            sector.organizations.add(
-                *Organization.objects.using(db_name).filter(id__in=organization_ids)
-            )
+            if organization_ids:
+                sector.organizations.add(
+                    *Organization.objects.using(db_name).filter(id__in=organization_ids)
+                )
+    except Exception as e:
+        print("Error assigning organization to sectors:")
+        print(e)
+        raise e
 
 
 def process_request(request_list, sector_child_dict, parent_child_dict, org_id_dict):
@@ -1055,11 +1215,17 @@ def process_request(request_list, sector_child_dict, parent_child_dict, org_id_d
 
 
 def parse_request_data(request):
-    """Parse JSON fields in the request."""
+    """Parse JSON fields in the request if they are strings."""
     json_fields = ["agency", "networks", "report_types", "scan_types", "children"]
     for field in json_fields:
-        if field in request:
-            request[field] = json.loads(request[field]) if request[field] else []
+        val = request.get(field)
+        if isinstance(val, str):
+            try:
+                request[field] = json.loads(val)
+            except Exception:
+                request[field] = {}
+        elif not isinstance(val, (dict, list)):  # corrupt or malformed
+            request[field] = {} if field == "agency" else []
     return request
 
 
@@ -1089,7 +1255,11 @@ def process_networks(networks):
     network_list = []
     for cidr in networks:
         try:
-            address = IPv6Network(cidr) if ":" in cidr else IPv4Network(cidr)
+            address = (
+                IPv6Network(cidr, strict=False)
+                if ":" in cidr
+                else IPv4Network(cidr, strict=False)
+            )
             network_list.append(
                 {"network": cidr, "start_ip": address[0], "end_ip": address[-1]}
             )
@@ -1116,6 +1286,16 @@ def process_location(org_location):
     }
 
 
+def parse_int(value):
+    """Safely parse integers, return None for blanks."""
+    try:
+        if value == "" or value is None:
+            return None
+        return int(value)
+    except (ValueError, TypeError):
+        return None
+
+
 def process_organization(request, network_list, location_dict, org_id_dict):
     """Save organization data and update org_id_dict."""
     org_data = {
@@ -1126,8 +1306,12 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         "state": request.get("agency", {}).get("location", {}).get("state"),
         "state_name": request.get("agency", {}).get("location", {}).get("state_name"),
         "county": request.get("agency", {}).get("location", {}).get("county"),
-        "county_fips": request.get("agency", {}).get("location", {}).get("county_fips"),
-        "state_fips": request.get("agency", {}).get("location", {}).get("state_fips"),
+        "county_fips": parse_int(
+            request.get("agency", {}).get("location", {}).get("county_fips")
+        ),
+        "state_fips": parse_int(
+            request.get("agency", {}).get("location", {}).get("state_fips")
+        ),
         "country": request.get("agency", {}).get("location", {}).get("country"),
         "country_name": request.get("agency", {})
         .get("location", {})
@@ -1147,6 +1331,9 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         org_id_dict[request["_id"]] = org_record.id
     except Exception as e:
         LOGGER.info("Error saving organization: %s - %s", e, request["_id"])
+        raise IngestionError(
+            SCAN_NAME, str(e), "Failed processing organizations"
+        ) from e
 
 
 if __name__ == "__main__":

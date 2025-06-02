@@ -1,0 +1,7 @@
+---
+version: '3.4'
+
+services:
+  backend:
+    volumes:
+      - ./backend/src/xfd_django:/app

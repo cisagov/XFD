@@ -33,7 +33,7 @@ const STANDARD_USER = 1;
 export const toggleRegionalUserType = true;
 
 export const REGION_FILTER_KEY = 'organization.region_id';
-export const ORGANIZATION_FILTER_KEY = 'organizationId';
+export const ORGANIZATION_FILTER_KEY = 'organization_id';
 
 export interface OrganizationShallow {
   region_id: string;

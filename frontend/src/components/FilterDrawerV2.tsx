@@ -16,13 +16,13 @@ export const drawerWidth = 300;
 export const FilterDrawer: FC<
   ContextType & {
     isFilterDrawerOpen: boolean;
-    isMobile: boolean;
+    // isMobile: boolean;
     setIsFilterDrawerOpen: (isOpen: boolean) => void;
     initialFilters: any[];
   }
 > = (props) => {
   const {
-    isMobile,
+    // isMobile,
     isFilterDrawerOpen,
     setIsFilterDrawerOpen,
     addFilter,
@@ -74,8 +74,10 @@ export const FilterDrawer: FC<
   return (
     <Drawer
       open={isFilterDrawerOpen}
-      variant={isMobile ? 'temporary' : 'persistent'}
-      ModalProps={{ keepMounted: isMobile }}
+      // variant={isMobile ? 'temporary' : 'persistent'}
+      variant="temporary"
+      // ModalProps={{ keepMounted: isMobile }}
+      ModalProps={{ keepMounted: true }}
       onClose={() => setIsFilterDrawerOpen(false)}
       sx={{
         width: drawerWidth,
@@ -83,7 +85,8 @@ export const FilterDrawer: FC<
         '&::-webkit-scrollbar': {
           display: 'none'
         },
-        height: isMobile ? 'unset' : 'calc(100vh - 24px)'
+        // height: isMobile ? 'unset' : 'calc(100vh - 24px)'
+        height: 'unset'
       }}
       PaperProps={{ style: { position: 'unset' } }}
     >

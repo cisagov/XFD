@@ -413,7 +413,15 @@ const ScansView: React.FC = () => {
           setScans(scans.concat(...createdScans));
         }}
       />
-      <Modal ref={deleteModalRef} id="deleteModal">
+      {/* To-Do: Undefined props are needed to avoid errors. This Modal needs to
+      be replaced with a MUI Dialog. */}
+      <Modal
+        ref={deleteModalRef}
+        id="deleteModal"
+        placeholder={undefined}
+        onPointerEnterCapture={undefined}
+        onPointerLeaveCapture={undefined}
+      >
         <ModalHeading>Delete scan?</ModalHeading>
         <p>
           Are you sure you would like to delete the <code>{selectedName}</code>{' '}

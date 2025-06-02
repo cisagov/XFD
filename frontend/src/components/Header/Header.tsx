@@ -1,4 +1,5 @@
 import React from 'react';
+import { useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import {
   useUserLevel,
@@ -6,7 +7,14 @@ import {
   REGIONAL_ADMIN,
   STANDARD_USER
 } from 'hooks/useUserLevel';
-import { AppBar, Box, IconButton, Toolbar, Typography } from '@mui/material';
+import {
+  AppBar,
+  Box,
+  Button,
+  IconButton,
+  Toolbar,
+  Typography
+} from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import cisaLogo from 'assets/cisaSeal.svg';
 import { NavMenuButton } from './NavMenuButton';
@@ -20,6 +28,7 @@ interface MenuItemType {
 }
 
 export const Header: React.FC = () => {
+  const history = useHistory();
   const { logout } = useAuthContext();
   const { userLevel } = useUserLevel();
   const [openDrawer, setOpenDrawer] = React.useState(false);
@@ -64,46 +73,46 @@ export const Header: React.FC = () => {
   ].filter(({ users }) => users <= userLevel);
 
   // TODO: Add path for below menu items
-  const vulnScanningMenuItems: MenuItemType[] = [
+  const scanningResults: MenuItemType[] = [
     {
       menuItemTitle: 'Overview',
-      path: '/',
+      path: '/overview',
       users: STANDARD_USER
     },
     {
       menuItemTitle: 'Vulnerability Scanning',
-      path: '#',
+      path: '/VSDashboard',
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
 
   const supportMenuItems: MenuItemType[] = [
-    {
-      menuItemTitle: 'Report Bug',
-      path: '#',
-      users: STANDARD_USER
-    },
+    // {
+    //   menuItemTitle: 'Report Bug',
+    //   path: '#',
+    //   users: STANDARD_USER
+    // },
     {
       menuItemTitle: 'Send Feedback',
-      path: '#',
+      path: 'mailto:vulnerability@mail.cisa.dhs.gov',
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
 
   const learningCenterMenuItems: MenuItemType[] = [
-    {
-      menuItemTitle: 'Glossary',
-      path: '#',
-      users: STANDARD_USER
-    },
-    {
-      menuItemTitle: 'FAQ',
-      path: '#',
-      users: STANDARD_USER
-    },
+    // {
+    //   menuItemTitle: 'Glossary',
+    //   path: '#',
+    //   users: STANDARD_USER
+    // },
+    // {
+    //   menuItemTitle: 'FAQ',
+    //   path: '#',
+    //   users: STANDARD_USER
+    // },
     {
       menuItemTitle: 'CISA Resources',
-      path: '#',
+      path: 'https://www.cisa.gov',
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
@@ -117,95 +126,127 @@ export const Header: React.FC = () => {
   ].filter(({ users }) => users <= userLevel);
 
   const allMenuItems: { [section: string]: MenuItemType[] }[] = [
-    { 'Vulnerability Scanning': vulnScanningMenuItems },
+    { 'Scanning Results': scanningResults },
     { Inventory: inventoryMenuItems },
-    userLevel > STANDARD_USER ? { 'Admin Hub': adminHubMenuItems } : {},
-    { Support: supportMenuItems },
     { 'Learning Center': learningCenterMenuItems },
+    { Support: supportMenuItems },
+    userLevel > 1 ? { 'Admin Hub': adminHubMenuItems } : {},
     { 'My Account': userMenuItems }
   ];
 
+  const handleLogoClick = () => {
+    history.push('/VSDashboard');
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleLogoClick();
+    }
+  };
+
   const headerLogo = (
-    <Box
+    <>
+      <Box component="img" src={cisaLogo} sx={{ height: 60 }} alt="CISA Logo" />
+      <Typography
+        variant="h1"
+        sx={{
+          fontSize: '22px',
+          color: 'primary.darker',
+          ml: 1
+        }}
+      >
+        CyHy Dashboard
+      </Typography>
+    </>
+  );
+  const headerLogoWrapper = (
+    <Button
+      component={Box}
+      onClick={handleLogoClick}
+      onKeyDown={handleKeyDown}
+      aria-label="Navigate to VS Dashboard"
+      role="link"
+      tabIndex={0}
       sx={{
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'left',
         width: '100%',
-        ml: { md: 'none', lg: 4, xl: 10 },
-        transition: 'margin-left 0.3s ease-in-out'
+        transition: 'margin-left 0.3s ease-in-out',
+        backgroundColor: 'transparent',
+        padding: 0,
+        minWidth: 0,
+        '&:hover': {
+          backgroundColor: 'transparent',
+          textDecoration: 'none',
+          '.MuiTypography-root': {
+            color: 'primary.main'
+          }
+        },
+        '&:active': {
+          backgroundColor: 'transparent'
+        },
+        '&:focus-visible': {
+          outline: `2px solid`,
+          outlineOffset: '2px'
+        }
       }}
     >
-      <Box component="img" src={cisaLogo} sx={{ height: 60 }} alt="C Logo" />
-      <Typography
-        variant="largeBody"
-        sx={{
-          fontSize: '1.375rem',
-          fontWeight: 'bold',
-          ml: 1,
-          color: 'primary.dark'
-        }}
-      >
-        CyHy Dashboard
-      </Typography>
-    </Box>
+      {headerLogo}
+    </Button>
   );
 
   return (
     <AppBar
-      position="static"
+      position="sticky"
       elevation={0}
-      sx={{ backgroundColor: 'neutrals.white' }}
+      sx={{
+        backgroundColor: 'neutrals.white',
+        borderBottom: '0.5px solid',
+        borderColor: 'neutrals.light',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '84px'
+      }}
     >
-      <Toolbar>
-        {headerLogo}
+      <Toolbar disableGutters sx={{ maxWidth: '1152px', width: '100%', p: 0 }}>
+        {userLevel > 0 ? headerLogoWrapper : headerLogo}
         {userLevel > 0 && (
           <>
-            <Box
-              sx={{ flexGrow: 2, display: 'flex', justifyContent: 'center' }}
-            >
-              <NavMenuButton
-                menuItems={vulnScanningMenuItems}
-                title="Vulnerability Scanning"
-              />
-              <NavMenuButton title="Inventory" path="/inventory" />
-              <NavMenuButton
-                menuItems={learningCenterMenuItems}
-                title="Learning Center"
-              />
-            </Box>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'flex-end',
-                width: '100%',
-                mr: { md: 'none', lg: 4, xl: 10 },
-                transition: 'margin-right 0.3s ease-in-out'
-              }}
-            >
-              <NavMenuButton menuItems={supportMenuItems} title="Support" />
-              {userLevel > 1 && (
+            {allMenuItems.map((sectionObj, index) => {
+              const [title, menuItems] = Object.entries(sectionObj)[0] || [];
+              if (!title || !menuItems) {
+                return null;
+              } else if (title === 'Learning Center') {
+                return (
+                  <Box key={title + index} sx={{ mr: { xs: 0, xl: 4 } }}>
+                    <NavMenuButton title={title} menuItems={menuItems} />
+                  </Box>
+                );
+              }
+              return (
                 <NavMenuButton
-                  menuItems={adminHubMenuItems}
-                  title="Admin Hub"
+                  key={title + index}
+                  title={title}
+                  menuItems={menuItems}
                 />
-              )}
-              <NavMenuButton menuItems={userMenuItems} title="My Account" />
-              <IconButton
-                sx={{
-                  display: { xs: 'flex', lg: 'none' },
-                  color: 'primary.dark'
-                }}
-                aria-label="Open mobile menu"
-                aria-haspopup="true"
-                aria-controls={openDrawer ? 'mobile-menu' : undefined}
-                aria-expanded={openDrawer ? 'true' : undefined}
-                onClick={toggleDrawer(!openDrawer)}
-              >
-                <MenuIcon />
-              </IconButton>
-            </Box>
+              );
+            })}
+            <IconButton
+              sx={{
+                display: { xs: 'flex', lg: 'none' },
+                color: 'primary.dark'
+              }}
+              aria-label="Open mobile menu"
+              aria-haspopup="true"
+              aria-controls={openDrawer ? 'mobile-menu' : undefined}
+              aria-expanded={openDrawer ? 'true' : undefined}
+              onClick={toggleDrawer(!openDrawer)}
+            >
+              <MenuIcon />
+            </IconButton>
             <NavMenuDrawer
               openDrawer={openDrawer}
               toggleDrawer={toggleDrawer}
