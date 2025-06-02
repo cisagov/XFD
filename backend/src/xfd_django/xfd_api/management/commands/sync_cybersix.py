@@ -1,7 +1,7 @@
 """Cybersix Sync Command."""
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
-from xfd_api.tasks.dmz_sync_cybersix import handler as run_cybersix_sync
+from xfd_api.tasks.cybersix_lz_sync import handler as run_cybersix_sync
 
 
 class Command(BaseCommand):
