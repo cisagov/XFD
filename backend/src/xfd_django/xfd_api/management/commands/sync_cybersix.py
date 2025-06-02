@@ -11,7 +11,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         """Handle the command."""
-        result = run_cybersix_sync()
+        result = run_cybersix_sync(event={})
         # If your handler() returns a dict like {"statusCode": ..., "body": ...}
         # you can pretty-print it here
         self.stdout.write(self.style.SUCCESS(f"{result}"))
