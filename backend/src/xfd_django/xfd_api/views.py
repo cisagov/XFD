@@ -90,6 +90,7 @@ from .schema_models.dmz_sync import (
     AsmSyncResponse,
     CensysSyncResponse,
     CredSyncResponse,
+    CybersixSyncResponse,
     DataSource,
     ShodanSyncResponse,
     SyncRequest,
@@ -1556,7 +1557,7 @@ async def get_blocklist(
 # --- Cybersixgill Sync endpoint, CRASM-2433 ---
 @api_router.post(
     "/dmz_sync/cybersix_sync",
-    response_model=dict,
+    response_model=CybersixSyncResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(get_current_active_user)],
     tags=["Cybersix sync to LZ mdl"],
@@ -1596,7 +1597,12 @@ async def get_call_all_cybersixgill(
     # attach checksum header
     response.headers["X-Salted-Checksum"] = checksum
 
-    return raw_json
+    if isinstance(raw_json, dict) and "payload" in raw_json:
+        data = raw_json["payload"]
+    else:
+        data = raw_json
+
+    return CybersixSyncResponse(**data)
 
 
 @api_router.get(
