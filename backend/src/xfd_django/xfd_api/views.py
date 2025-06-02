@@ -89,7 +89,6 @@ from .schema_models.dmz_sync import (
     AsmSyncResponse,
     CensysSyncResponse,
     CredSyncResponse,
-    CybersixSyncResponse,
     DataSource,
     ShodanSyncResponse,
     SyncRequest,
@@ -1556,7 +1555,6 @@ async def get_blocklist(
 # --- Cybersixgill Sync endpoint, CRASM-2433 ---
 @api_router.post(
     "/dmz_sync/cybersix_sync",
-    response_model=CybersixSyncResponse,
     status_code=status.HTTP_201_CREATED,
     dependencies=[Depends(get_current_active_user)],
     tags=["Cybersix sync to LZ mdl"],
@@ -1597,8 +1595,7 @@ async def get_call_all_cybersixgill(
     else:
         data = raw_json
 
-    # 5⃣ Validate+serialize via CybersixSyncResponse
-    return CybersixSyncResponse(**data)
+    return JSONResponse(status_code=status.HTTP_201_CREATED, content=data)
 
 
 @api_router.get(
