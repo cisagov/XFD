@@ -1600,7 +1600,14 @@ async def get_call_all_cybersixgill(
     if isinstance(raw_json, dict) and "payload" in raw_json and "status" in raw_json:
         wrapper = raw_json
     else:
-        wrapper = {"status": "ok", "payload": raw_json}
+        # Otherwise wrap raw_json (which in tests is just the six lists) with default pagination fields
+        payload = raw_json.copy()
+        payload.setdefault("total_pages", 1)
+        payload.setdefault("current_page", params.page)
+        wrapper = {
+            "status": "ok",
+            "payload": payload,
+        }
 
     return CybersixSyncResponse(**wrapper)
 
