@@ -1,18 +1,23 @@
 import React from 'react';
 import { Divider, Paper, Tooltip, IconButton, Typography } from '@mui/material';
 import InfoOutlined from '@mui/icons-material/InfoOutlined';
-import infoIconContent from './infoIconContent.json';
 
 type InfoTooltipIconProps = {
   label: string;
+  // data: { content: string; id: string }[];
+  tooltipContent: string;
 };
 
-const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({ label }) => {
-  const getTooltipContent = (label: string): string => {
-    const info = infoIconContent.infoIconContent.find(
-      (item) => item.id === label
-    );
-    return info ? info.content : 'No information available.';
+const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({
+  label,
+  tooltipContent
+}) => {
+  const handleIconButtonClick = (event: {
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => {
+    event.preventDefault();
+    event.stopPropagation();
   };
   const tooltipContentJSX = (
     <Paper
@@ -34,7 +39,7 @@ const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({ label }) => {
         color="neutrals.main"
         sx={{ p: 2 }}
       >
-        {getTooltipContent(label)}
+        {tooltipContent}
       </Typography>
     </Paper>
   );
@@ -56,9 +61,9 @@ const InfoTooltipIcon: React.FC<InfoTooltipIconProps> = ({ label }) => {
       }}
     >
       <IconButton
+        onClick={handleIconButtonClick}
         aria-label={`More information about ${label}`}
         disableRipple
-        disableFocusRipple
         sx={{
           p: 2,
           width: '56px',

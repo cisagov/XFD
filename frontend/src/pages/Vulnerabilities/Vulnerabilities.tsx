@@ -28,7 +28,7 @@ import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 // To-do: Re-enable this as part of Status dropdown once the feature is approved.
 // import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { getSeverityColor } from 'pages/Risk/utils';
+import { getSeverityColor } from 'pages/OverviewDash/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
 import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';

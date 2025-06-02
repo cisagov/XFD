@@ -36,7 +36,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Scanning Results', 'Inventory'].forEach((expected) => {
+    ['Inventory', 'My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
     ['Scans'].forEach((notExpected) => {
@@ -51,12 +51,9 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Scanning Results', 'Inventory'].forEach((expected) => {
+    ['Inventory', 'My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
-    // ['Manage Organizations', 'Manage Users'].forEach((notExpected) => {
-    //   expect(queryByText(notExpected)).not.toBeInTheDocument();
-    // });
   });
 
   it('shows correct links for GLOBAL_ADMIN', () => {
@@ -66,7 +63,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Scanning Results', 'Inventory'].forEach((expected) => {
+    ['Inventory', 'My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
   });

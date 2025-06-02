@@ -27,9 +27,11 @@ import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
-import InfoLabel from './InfoLabel';
+import InfoLabel from 'components/Dashboard/InfoLabel';
 import MostCommonVulns from './MostCommonVulns';
-import LatestKevs from './LatestKevs';
+import LatestKEVs from './LatestKEVs';
+import infoIconContent from './infoIconContent.json';
+import OpenVulnsByHosts from './OpenVulnsByHosts';
 
 export interface Point {
   id: string;
@@ -51,6 +53,8 @@ export interface VulnSeverities {
   disable?: boolean;
   amount?: number;
 }
+
+const tooltipContentJson = infoIconContent.infoIconContent;
 
 const OverviewDash: React.FC<ContextType> = ({
   filters,
@@ -155,7 +159,10 @@ const OverviewDash: React.FC<ContextType> = ({
 
   useEffect(() => {
     if (!isLoggingOut && user) {
-      if (!user.state || user.state === '') {
+      if (
+        (!user.state || user.state === '') &&
+        !localStorage.getItem('user_state')
+      ) {
         setIsUpdateStateFormOpen(true);
       }
     }
@@ -272,8 +279,9 @@ const OverviewDash: React.FC<ContextType> = ({
         onClose={async () => {
           setIsUpdateStateFormOpen(false);
 
-          // Re-fetch user data or just check if state now exists
-          if (user && user.state) {
+          // Re-fetch updated user to prevent false popup
+          const updatedUser = await apiGet('/users/me');
+          if (updatedUser?.state && user?.user_type !== 'globalAdmin') {
             const notifications = await apiGet('/notifications');
             const active = notifications.find(
               (n: any) =>
@@ -282,7 +290,7 @@ const OverviewDash: React.FC<ContextType> = ({
                 new Date(n.start_datetime) <= new Date() &&
                 new Date(n.end_datetime) >= new Date()
             );
-            if (active && user.user_type !== 'globalAdmin') {
+            if (active && updatedUser.user_type !== 'globalAdmin') {
               setMaintenanceNotification(active);
               setIsLoginBlockedDialogOpen(true);
             }
@@ -334,7 +342,11 @@ const OverviewDash: React.FC<ContextType> = ({
     <Box>
       <Grid container mb={0}>
         <Grid size={{ xs: 12 }} sx={{ mt: 6 }}>
-          <InfoLabel label="Overview Dashboard" typographyVariant="h1" />
+          <InfoLabel
+            label="Overview Dashboard"
+            typographyVariant="h1"
+            tooltipContentJson={tooltipContentJson}
+          />
         </Grid>
       </Grid>
     </Box>
@@ -379,61 +391,24 @@ const OverviewDash: React.FC<ContextType> = ({
               justifyContent="space-between"
               size={{ xs: 12 }}
             >
-              <InfoLabel label="Summary of CyHy Services Data" />
+              <InfoLabel
+                label="Summary of CyHy Services Data"
+                tooltipContentJson={tooltipContentJson}
+              />
             </Grid>
             {/* Main content */}
-            <Grid spacing={2} size={{ xs: 12 }}>
+            <Grid size={{ xs: 12 }}>
               <Grid container spacing={2} width="100%">
                 {/* Left side content */}
                 <Grid size={{ xs: 12, sm: 12, md: 6 }}>
                   <Grid container spacing={2}>
                     <Grid size={{ xs: 12 }}>
-                      <LatestKevs data={latestVulnsGroupedArr} />
+                      <LatestKEVs data={latestVulnsGroupedArr} />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
-                      <Box
-                        border="1px solid"
-                        borderRadius="4px"
-                        borderColor="neutrals.light"
-                        p={3}
-                      >
-                        <InfoLabel
-                          label="Most Common Ports"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
-                        />
-                        {stats.domains.ports.length > 0 && (
-                          <TopVulnerablePorts
-                            data={stats.domains.ports.slice(0, 5).reverse()}
-                          />
-                        )}
-                      </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <Box
-                        border="1px solid"
-                        borderRadius="4px"
-                        borderColor="neutrals.light"
-                        p={3}
-                      >
-                        <InfoLabel
-                          label="Severity Levels"
-                          typographyVariant="h3"
-                          headingLevel="h3"
-                          viewDetails
-                          link="/inventory/vulnerabilities"
-                        />
-                        {stats.vulnerabilities.severity.length > 0 && (
-                          <VulnerabilityBarChart
-                            title="Severity Levels"
-                            data={stats.vulnerabilities.severity}
-                            colors={getSeverityColor}
-                            type="vulns"
-                          />
-                        )}
-                      </Box>
+                      <OpenVulnsByHosts
+                        data={stats.domains.num_vulnerabilities}
+                      />
                     </Grid>
                   </Grid>
                 </Grid>
@@ -445,7 +420,34 @@ const OverviewDash: React.FC<ContextType> = ({
                         border="1px solid"
                         borderRadius="4px"
                         borderColor="neutrals.light"
-                        p={3}
+                        px={3}
+                        py={2}
+                      >
+                        <InfoLabel
+                          label="Vulnerability by Severity Type"
+                          typographyVariant="h3"
+                          headingLevel="h3"
+                          viewDetails
+                          link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
+                        />
+                        {stats.vulnerabilities.severity.length > 0 && (
+                          <VulnerabilityBarChart
+                            title="Severity Levels"
+                            data={stats.vulnerabilities.severity}
+                            colors={getSeverityColor}
+                            type="vulns"
+                          />
+                        )}
+                      </Box>
+                    </Grid>
+                    {/* <Grid size={{ xs: 12 }}>
+                      <Box
+                        border="1px solid"
+                        borderRadius="4px"
+                        borderColor="neutrals.light"
+                        px={3}
+                        py={2}
                       >
                         <InfoLabel
                           label="Vulnerabilities by Organizations"
@@ -453,6 +455,7 @@ const OverviewDash: React.FC<ContextType> = ({
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
                         />
                         {stats.vulnerabilities.by_org.length > 0 && (
                           <VulnerabilityBarChart
@@ -463,32 +466,34 @@ const OverviewDash: React.FC<ContextType> = ({
                           />
                         )}
                       </Box>
+                    </Grid> */}
+                    <Grid size={{ xs: 12 }}>
+                      <MostCommonVulns
+                        data={stats.vulnerabilities.most_common_vulnerabilities}
+                      />
                     </Grid>
                     <Grid size={{ xs: 12 }}>
                       <Box
                         border="1px solid"
                         borderRadius="4px"
                         borderColor="neutrals.light"
-                        p={3}
+                        px={3}
+                        py={2}
                       >
                         <InfoLabel
-                          label="Open Vulnerabilities by Hosts"
+                          label="Most Common Ports"
                           typographyVariant="h3"
                           headingLevel="h3"
                           viewDetails
                           link="/inventory/vulnerabilities"
+                          tooltipContentJson={tooltipContentJson}
                         />
-                        {stats.domains.num_vulnerabilities.length > 0 && (
-                          <TopVulnerableDomains
-                            data={stats.domains.num_vulnerabilities}
+                        {stats.domains.ports.length > 0 && (
+                          <TopVulnerablePorts
+                            data={stats.domains.ports.slice(0, 5).reverse()}
                           />
                         )}
                       </Box>
-                    </Grid>
-                    <Grid size={{ xs: 12 }}>
-                      <MostCommonVulns
-                        data={stats.vulnerabilities.most_common_vulnerabilities}
-                      />
                     </Grid>
                   </Grid>
                 </Grid>
