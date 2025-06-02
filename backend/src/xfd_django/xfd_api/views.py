@@ -1562,9 +1562,9 @@ async def get_blocklist(
     tags=["Cybersix sync to LZ mdl"],
 )
 async def get_call_all_cybersixgill(
-    params: CybersixSyncParams,
     response: Response,
     current_user: User = Depends(get_current_active_user),
+    params: CybersixSyncParams = Body(default_factory=CybersixSyncParams),
 ):
     """
     Get all Cybersixgill data, paginated.
