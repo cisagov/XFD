@@ -43,6 +43,8 @@ def test_cybersix_sync_success(admin_user, monkeypatch):
     dummy_checksum = "deadbeef"
 
     async def fake_fetch():
+        # Note: fetch_cybersix_data() in your code now will wrap this into
+        # {"status": "ok", "payload": { **dummy_payload, current_page:1, total_pages:1 }}.
         return dummy_payload, dummy_checksum
 
     monkeypatch.setattr(cybersix_module, "fetch_cybersix_data", fake_fetch)
@@ -53,7 +55,24 @@ def test_cybersix_sync_success(admin_user, monkeypatch):
     )
 
     assert response.status_code == 201
-    assert response.json() == dummy_payload
+
+    # Because your endpoint now injects current_page=1 and total_pages=1,
+    # and wraps everything under “status” + “payload”, the JSON looks like this:
+    expected = {
+        "status": "ok",
+        "payload": {
+            "alerts": [],
+            "mentions": [],
+            "breaches": [],
+            "exposures": [],
+            "subdomains": [],
+            "topcves": [],
+            "current_page": 1,
+            "total_pages": 1,
+        },
+    }
+    assert response.json() == expected
+
     assert response.headers["X-Salted-Checksum"] == dummy_checksum
 
 
