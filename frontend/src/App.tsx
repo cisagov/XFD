@@ -35,7 +35,6 @@ import {
 import { LayoutWithSearch, RouteGuard } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
-import { RiskWithSearch } from 'pages/Risk/Risk';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
 import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
@@ -142,10 +141,6 @@ const App: React.FC = () => (
                         <RouteGuard
                           path="/inventory/domains"
                           component={Domains}
-                        />
-                        <RouteGuard
-                          path="/overview"
-                          component={RiskWithSearch}
                         />
                         <RouteGuard
                           path="/VSDashboard"

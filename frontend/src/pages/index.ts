@@ -15,7 +15,6 @@ export { default as Organization } from './Organization';
 export { default as Organizations } from './Organizations';
 export { default as RegionUsers } from './RegionUsers';
 export { default as Reports } from './Reports';
-export { default as Risk } from './Risk';
 export { default as Scan } from './Scan';
 export { default as Settings } from './Settings';
 export { default as Users } from './Users';
