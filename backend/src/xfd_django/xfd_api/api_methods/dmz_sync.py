@@ -53,7 +53,7 @@ class CybersixSyncParams(BaseModel):
     """
 
     page: int = Field(1, ge=1, description="Which page to fetch (1-indexed)")
-    page_size: int = Field(100, ge=1, description="How many items per page")
+    page_size: int = Field(10, ge=1, description="How many items per page")
     acronym: str = "DHS"
     since_date: Optional[datetime] = None
 
