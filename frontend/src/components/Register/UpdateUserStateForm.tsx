@@ -72,6 +72,8 @@ export const UpdateStateForm: React.FC<{
       }
 
       setIsLoading(false);
+      // Save state selection to local storage to avoid logout re-trigger
+      localStorage.setItem('user_state', values.state);
       onClose(); // Only close after handling
     } catch (error) {
       setErrorRequestMessage(

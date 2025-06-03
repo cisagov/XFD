@@ -147,7 +147,7 @@ SCAN_SCHEMA = {
         cpu="1024",
         memory="8192",
         description="Enumerate and sync org assets.",
-        max_concurrent_tasks=1,
+        max_concurrent_tasks=3,
     ),
     "censys": ScanSchema(
         type="fargate",

@@ -1,6 +1,4 @@
 """Role schema."""
-# Third-Party Libraries
-# from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
 from typing import Any, Optional

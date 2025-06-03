@@ -13,6 +13,7 @@ from xfd_api.helpers.stats_helpers import (
     get_total_count,
     safe_redis_mget,
 )
+from xfd_api.helpers.uuid_helpers import is_valid_uuid
 from xfd_mini_dl.models import (
     HostSummary,
     Organization,
@@ -429,17 +430,6 @@ async def get_by_org_stats(
         )
 
 
-def is_valid_uuid(val: str) -> bool:
-    """Check if the given string is a valid UUID."""
-    try:
-        uuid_obj = uuid.UUID(val)
-        # TODO: Uncomment to re-enable v4 uuid checks
-        # uuid_obj = uuid.UUID(val, version=4)
-    except ValueError:
-        return False
-    return str(uuid_obj) == val
-
-
 def get_vs_condensed_trending_data(filters, current_user):
     """Query VS summary and return in a condensed format."""
     organization_id = filters.organization_id
@@ -457,7 +447,7 @@ def get_vs_condensed_trending_data(filters, current_user):
         and not current_user.user_type == "regionalAdmin"
     ):
         org_ids = get_org_memberships(current_user)
-        if organization_id not in org_ids:
+        if uuid.UUID(organization_id) not in org_ids:
             raise HTTPException(
                 status_code=404, detail="Access denied to requested organization."
             )
@@ -541,7 +531,7 @@ def get_vs_trending_data(filters, current_user):
         and not current_user.user_type == "regionalAdmin"
     ):
         org_ids = get_org_memberships(current_user)
-        if organization_id not in org_ids:
+        if uuid.UUID(organization_id) not in org_ids:
             raise HTTPException(
                 status_code=404, detail="Access denied to requested organization."
             )  # User has no accessible organizations

@@ -132,6 +132,7 @@ export interface Top5VulnerableHostsGraphData {
   highSeverity: number;
   criticalSeverity: number;
   all: number;
+  domainId: string;
 }
 export interface SeverityByProminenceGraphData {
   vulnType: string;

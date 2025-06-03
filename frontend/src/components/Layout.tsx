@@ -128,9 +128,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         onCountdownEnd={handleCountdownEnd}
         countdown={60} // 60 second timer for user inactivity timeout
       />
-      <div style={{ display: 'flex' }}>
-        <GovBanner />
-      </div>
       <>
         <div
           style={{
@@ -148,6 +145,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
             />
           )}
           <Main open={isFilterDrawerOpen} user={!!user}>
+            <GovBanner />
             <Header />
             <div className="main-content" id="main-content" tabIndex={-1} />
             {children}

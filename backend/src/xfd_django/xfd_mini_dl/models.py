@@ -1274,6 +1274,20 @@ class User(AutoLengthCheckModel):
         default=False,
         help_text="A boolean field flagging if the user's invite is pending.",
     )
+    date_approved = models.DateTimeField(
+        db_column="date_approved",
+        blank=True,
+        null=True,
+        help_text="Date the user was approved to have access to the cyhy dashboard.",
+    )
+    approved_by = models.ForeignKey(
+        "User",
+        models.DO_NOTHING,
+        db_column="approved_by_id",
+        blank=True,
+        null=True,
+        help_text="Foreign key to the user who approved the user.",
+    )
     login_blocked_by_maintenance = models.BooleanField(
         db_column="login_blocked_by_maintenance",
         default=False,
@@ -2044,6 +2058,12 @@ class Cidr(models.Model):
         blank=True,
         null=True,
         help_text="An alert message specifying any conflicts when inserting the cidr into the database.",
+    )
+    live_ips = models.JSONField(
+        default=list,
+        blank=True,
+        null=True,
+        help_text="A list of live IP addresses associated with this CIDR block.",
     )
     data_source = models.ForeignKey(
         "DataSource",
@@ -2942,6 +2962,14 @@ class PortScan(AutoLengthCheckModel):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            models.Index(fields=["state"]),
+            models.Index(fields=["time_scanned"]),
+            models.Index(
+                fields=["organization", "ip_string", "port", "-time_scanned"],
+                name="portscan_latest_lookup_idx",
+            ),
+        ]
         db_table = "port_scan"
 
 
@@ -6191,7 +6219,7 @@ class XpanseServicesMdl(models.Model):
 
     xpanse_service_uid = models.UUIDField(
         primary_key=True,
-        default=uuid.uuid1,
+        default=uuid.uuid4,
         help_text="PK: Unique identifier for a Xpanse Service object.",
     )
     service_id = models.TextField(

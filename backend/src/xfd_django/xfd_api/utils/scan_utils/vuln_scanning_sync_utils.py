@@ -10,14 +10,16 @@ import datetime
 import json
 import logging
 import os
+import time
 from typing import Dict
-from uuid import uuid1
+from uuid import uuid4
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
 from django.db import connections, models, transaction
 from django.db.models import Exists, OuterRef, Prefetch
 from django.db.utils import IntegrityError
+from django.utils import timezone
 from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
@@ -288,7 +290,7 @@ def save_cve_to_datalake(cve_obj):
             else:
                 # Insert but ignore if the record already exists
                 obj, created = Cve.objects.get_or_create(
-                    name=cve_name, defaults=cve_obj | {"id": str(uuid1())}
+                    name=cve_name, defaults=cve_obj | {"id": str(uuid4())}
                 )
                 return obj
     except Exception as e:
@@ -525,7 +527,7 @@ def save_organization_to_mdl(
         org_obj = organization_obj
     except Organization.DoesNotExist:
         organization_obj = Organization.objects.using(db_name).create(
-            id=str(uuid1()),
+            id=str(uuid4()),
             name=org_dict["name"],
             acronym=org_dict["acronym"],
             retired=org_dict["retired"],
@@ -584,14 +586,16 @@ def save_cidr_to_mdl(cidr_dict: dict, org: Organization, db_name="mini_data_lake
                 cidr_obj.start_ip = cidr_dict["start_ip"]
                 cidr_obj.end_ip = cidr_dict["end_ip"]
                 cidr_obj.retired = False
+                cidr_obj.live_ips = cidr_dict["live_ips"]
                 cidr_obj.save(using=db_name)  # Save updates
 
             else:
                 cidr_obj = Cidr.objects.using(db_name).create(
-                    id=str(uuid1()),
+                    id=str(uuid4()),
                     network=cidr_dict["network"],
                     start_ip=cidr_dict["start_ip"],
                     end_ip=cidr_dict["end_ip"],
+                    live_ips=cidr_dict["live_ips"],
                     retired=False,
                 )
             # cidr_obj.organizations.add(org, through_defaults={})
@@ -690,3 +694,86 @@ def map_severity(severity):
     if severity < 9:
         return "High"
     return "Critical"
+
+
+def fill_cidr_live_ips():
+    """Update live_ips field for all current CIDRs based on recent open PortScans."""
+    start_time = time.time()
+
+    # Define the 90-day threshold
+    time_threshold = timezone.now() - datetime.timedelta(days=90)
+
+    # Get all Cidrs with at least one related CidrOrgs marked as current
+    current_cidrs = Cidr.objects.filter(cidrorgs__current=True).distinct()
+
+    for cidr in current_cidrs:
+        if not cidr.network:
+            continue
+
+        scans = (
+            PortScan.objects.filter(
+                state="open",
+                time_scanned__gte=time_threshold,
+                ip__ip__net_contained=cidr.network,
+            )
+            .values_list("ip__ip", flat=True)
+            .distinct()
+        )
+
+        # If live_ips is empty or not set, initialize it as an empty set
+        current_live_ips = set(cidr.live_ips or [])
+
+        # Add the new IPs from the scans to the existing set (no duplicates)
+        current_live_ips.update(scans)
+
+        # Convert all IP objects to strings for JSON serialization
+        cidr.live_ips = [str(ip.ip) for ip in current_live_ips]
+        cidr.save()
+
+    duration = time.time() - start_time
+    LOGGER.info("fill_cidr_live_ips completed in %.2f seconds", duration)
+
+
+def fill_cidr_live_ips_bulk_update():
+    """Fill live_ips field in the cidr table based on recent port scans."""
+    start_time = time.time()
+
+    with transaction.atomic(using="mini_data_lake"):
+        with connections["mini_data_lake"].cursor() as cursor:
+            cursor.execute(
+                """
+                WITH new_ips AS (
+                    SELECT
+                        cidr.id AS cidr_id,
+                        array_agg(DISTINCT ip.ip) AS new_ip_list
+                    FROM cidr
+                    JOIN cidr_orgs ON cidr_orgs.cidr_id = cidr.id
+                    JOIN port_scan ON port_scan.state = 'open'
+                        AND port_scan.time_scanned >= NOW() - INTERVAL '90 days'
+                    JOIN ip ON port_scan.ip_id = ip.id
+                    WHERE cidr_orgs.current = TRUE
+                      AND cidr.network IS NOT NULL
+                      AND ip.ip << cidr.network
+                    GROUP BY cidr.id
+                ),
+                merged_ips AS (
+                    SELECT
+                        cidr.id,
+                        ARRAY(
+                            SELECT DISTINCT ip_address::inet
+                            FROM jsonb_array_elements_text(
+                                COALESCE(cidr.live_ips, '[]'::jsonb) || to_jsonb(new_ips.new_ip_list)
+                            ) AS ip_address
+                        ) AS updated_ips
+                    FROM cidr
+                    JOIN new_ips ON cidr.id = new_ips.cidr_id
+                )
+                UPDATE cidr
+                SET live_ips = to_jsonb(merged_ips.updated_ips)
+                FROM merged_ips
+                WHERE cidr.id = merged_ips.id;
+                """
+            )
+
+    duration = time.time() - start_time
+    LOGGER.info("fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration)

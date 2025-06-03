@@ -70,7 +70,6 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
     sx: { display: { xs: 'none', lg: 'flex' }, px: 1 },
     'aria-current': isActive ? 'page' : undefined
   };
-
   if (title === 'Inventory') {
     buttonProps.component = RouterLink;
     buttonProps.to = menuItems?.[0]?.path || '';
