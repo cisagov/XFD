@@ -1,4 +1,9 @@
-import { VulnSeverities } from './Risk';
+type VulnSeverities = {
+  label: string;
+  sevList: string[];
+  disable?: boolean;
+  amount?: number;
+};
 
 export const resultsPerPage = 30;
 export const getSingleColor = () => {
