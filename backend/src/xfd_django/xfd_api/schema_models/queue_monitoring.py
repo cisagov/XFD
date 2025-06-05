@@ -1,6 +1,4 @@
 """Queue monitoring schemas."""
-# Third-Party Libraries
-# from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from typing import List, Optional
 

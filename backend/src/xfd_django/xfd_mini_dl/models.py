@@ -1274,6 +1274,20 @@ class User(AutoLengthCheckModel):
         default=False,
         help_text="A boolean field flagging if the user's invite is pending.",
     )
+    date_approved = models.DateTimeField(
+        db_column="date_approved",
+        blank=True,
+        null=True,
+        help_text="Date the user was approved to have access to the cyhy dashboard.",
+    )
+    approved_by = models.ForeignKey(
+        "User",
+        models.DO_NOTHING,
+        db_column="approved_by_id",
+        blank=True,
+        null=True,
+        help_text="Foreign key to the user who approved the user.",
+    )
     login_blocked_by_maintenance = models.BooleanField(
         db_column="login_blocked_by_maintenance",
         default=False,
@@ -6205,7 +6219,7 @@ class XpanseServicesMdl(models.Model):
 
     xpanse_service_uid = models.UUIDField(
         primary_key=True,
-        default=uuid.uuid1,
+        default=uuid.uuid4,
         help_text="PK: Unique identifier for a Xpanse Service object.",
     )
     service_id = models.TextField(
