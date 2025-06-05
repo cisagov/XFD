@@ -10,7 +10,7 @@ import {
   Alert
 } from '@mui/material';
 import TopVulnerablePorts from './TopVulnerablePorts';
-import TopVulnerableDomains from './TopVulnerableDomains';
+// import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityBarChart from './VulnerabilityBarChart';
 import { getSeverityColor, severities } from './utils';
 import { ContextType, useAuthContext } from 'context';
