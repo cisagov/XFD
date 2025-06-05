@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from uuid import uuid1, uuid4
+from uuid import uuid4
 
 # Third-Party Libraries
 import django
@@ -236,7 +236,7 @@ def insert_xpanse_alert(alert, org_record, business_unit):
         xpanse_alert, _ = XpanseAlerts.objects.update_or_create(
             alert_id=alert["alert_id"],
             defaults={
-                "xpanse_alert_uid": uuid1(),
+                "xpanse_alert_uid": uuid4(),
                 "time_pulled_from_xpanse": parse_possible_datetime(
                     alert["time_pulled_from_xpanse"]
                 ),

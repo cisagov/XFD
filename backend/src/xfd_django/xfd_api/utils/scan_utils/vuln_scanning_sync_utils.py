@@ -12,7 +12,7 @@ import logging
 import os
 import time
 from typing import Dict
-from uuid import uuid1
+from uuid import uuid4
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
@@ -290,7 +290,7 @@ def save_cve_to_datalake(cve_obj):
             else:
                 # Insert but ignore if the record already exists
                 obj, created = Cve.objects.get_or_create(
-                    name=cve_name, defaults=cve_obj | {"id": str(uuid1())}
+                    name=cve_name, defaults=cve_obj | {"id": str(uuid4())}
                 )
                 return obj
     except Exception as e:
@@ -527,7 +527,7 @@ def save_organization_to_mdl(
         org_obj = organization_obj
     except Organization.DoesNotExist:
         organization_obj = Organization.objects.using(db_name).create(
-            id=str(uuid1()),
+            id=str(uuid4()),
             name=org_dict["name"],
             acronym=org_dict["acronym"],
             retired=org_dict["retired"],
@@ -591,7 +591,7 @@ def save_cidr_to_mdl(cidr_dict: dict, org: Organization, db_name="mini_data_lake
 
             else:
                 cidr_obj = Cidr.objects.using(db_name).create(
-                    id=str(uuid1()),
+                    id=str(uuid4()),
                     network=cidr_dict["network"],
                     start_ip=cidr_dict["start_ip"],
                     end_ip=cidr_dict["end_ip"],
