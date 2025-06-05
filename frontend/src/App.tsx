@@ -143,10 +143,10 @@ const App: React.FC = () => (
                           path="/inventory/domains"
                           component={Domains}
                         />
-                        <RouteGuard
+                        {/* <RouteGuard
                           path="/overview"
                           component={RiskWithSearch}
-                        />
+                        /> */}
                         <RouteGuard
                           path="/VSDashboard"
                           component={VulnerabilityScan}

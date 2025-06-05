@@ -74,11 +74,11 @@ export const Header: React.FC = () => {
 
   // TODO: Add path for below menu items
   const scanningResults: MenuItemType[] = [
-    {
-      menuItemTitle: 'Overview',
-      path: '/overview',
-      users: STANDARD_USER
-    },
+    // {
+    //   menuItemTitle: 'Overview',
+    //   path: '/overview',
+    //   users: STANDARD_USER
+    // },
     {
       menuItemTitle: 'Vulnerability Scanning',
       path: '/VSDashboard',
