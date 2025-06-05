@@ -25,7 +25,7 @@ def alerts(org_id, sixgill_org_id):
     # Get overall number of alerts for this org
     count = alerts_count(sixgill_org_id)
     count_total = count["total"]
-    LOGGER.info(f"Total alerts for {org_id}: {count_total}")
+    LOGGER.info("Total alerts for %s: %s", org_id, count_total)
 
     # Begin Retrieving all alerts
     token = cybersix_token()
@@ -46,7 +46,7 @@ def alerts(org_id, sixgill_org_id):
             all_alerts.append(df_alerts)
             df_all_alerts = pd.concat(all_alerts).reset_index(drop=True)
         except Exception as e:
-            LOGGER.error(f"Issue fetching alert data chunk at offset: {offset}")
+            LOGGER.error("Issue fetching alert data chunk at offset: %s", offset)
             LOGGER.error(e)
             continue
 
@@ -85,14 +85,14 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
     all_mentions = []
     try:
         total_mentions = 0
-        LOGGER.info(f"Retrieving total number of mentions for {org_abbrv}")
+        LOGGER.info("Retrieving total number of mentions for %s", org_abbrv)
         [resp, token] = intel_post(token, query, frm=0, scroll=True, result_size=100)
         total_mentions = resp["total_intel_items"]
         scroll_id = resp["scroll_id"]
     except Exception as e:
-        LOGGER.error(f"Total mentions count retrieval failed for {org_abbrv}")
+        LOGGER.error("Total mentions count retrieval failed for %s", org_abbrv)
         LOGGER.error(e)
-    LOGGER.info(f"Total mentions for {org_abbrv}: {total_mentions}")
+    LOGGER.info("Total mentions for %s: %s", org_abbrv, total_mentions)
     # Catch scenario where org has 0 mentions
     if total_mentions == 0:
         return pd.DataFrame()

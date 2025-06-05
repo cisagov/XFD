@@ -427,7 +427,7 @@ def retry_pull_service_data(service_chunk, max_retries=3, retry_delay=5):
             if service_response is not None:
                 return service_response
         except Exception as e:
-            LOGGER.error(f"Error querying services: {e}")
+            LOGGER.error("Error querying services: %s", e)
             if retry_count < max_retries - 1:
                 LOGGER.info("Retrying...")
                 time.sleep(retry_delay)
@@ -535,7 +535,7 @@ def match_services(service_ids, services):
                 if match:
                     matched.append(match)
             except (TypeError, AttributeError) as e:
-                LOGGER.warning(f"Failed to process service ID '{service_id}': {e}")
+                LOGGER.warning("Failed to process service ID '%s': %s", service_id, e)
         return matched
     except ValueError:
         return []

@@ -34,7 +34,7 @@ def cybersix_token():
             resp.raise_for_status()
             return resp.json()["access_token"]
         except Exception as e:
-            logging.warning(f"Token request failed (attempt {attempt}): {e}")
+            logging.warning("Token request failed (attempt %s): %s", attempt, e)
             time.sleep(10)
 
     raise Exception("Failed to retrieve Cybersixgill token after multiple attempts.")

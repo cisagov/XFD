@@ -285,7 +285,12 @@ def fetch_from_redshift(query):
         result = query_redshift(query)
         end_time = datetime.datetime.now()
         duration_seconds = (end_time - start_time).total_seconds()
-        LOGGER.info(f"[Redshift] [{duration_seconds}s] [{len(result)} records] {query}")
+        LOGGER.info(
+            "[Redshift] [%ss] [%d records] %s",
+            duration_seconds,
+            len(result),
+            query,
+        )
         return result
     except Exception as e:
         LOGGER.info("Error fetching data from Redshift: %s", e)

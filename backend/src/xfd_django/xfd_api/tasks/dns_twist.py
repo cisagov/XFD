@@ -257,7 +257,7 @@ def execute_dnstwist_data(domain_dict):
             dshield_attack_count=domain_dict["dshield_attack_count"],
         )
     except Exception as e:
-        LOGGER.error(f"Error adding domain permutation to data lake {str(e)}")
+        LOGGER.error("Error adding domain permutation to data lake %s", str(e))
 
 
 def process_org(org, orgs_list, data_source, failures):
