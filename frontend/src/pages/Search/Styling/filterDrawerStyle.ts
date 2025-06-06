@@ -46,8 +46,6 @@ export const StyledWrapper = styled(Wrapper)(({ theme }) => ({
   },
   [`& .${classes.details}`]: {
     paddingTop: 0
-    // maxHeight: 250,
-    // overflowY: 'auto'
   },
   [`& .${classes.applied}`]: {
     display: 'flex',

@@ -2,12 +2,12 @@ import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Box,
+  Divider,
   Drawer,
   List,
   ListItem,
   ListItemButton,
-  ListItemText,
-  Divider
+  ListItemText
 } from '@mui/material';
 
 interface MenuItemType {
@@ -43,19 +43,30 @@ export const NavMenuDrawer: React.FC<NavMenuDrawerProps> = ({
             if (entries.length === 0) return null;
 
             const [sectionTitle, items] = entries[0];
-
+            const menuTitle = (
+              <ListItem role="presentation">
+                <ListItemText
+                  primary={
+                    sectionTitle === 'Vulnerability Scanning'
+                      ? 'Scanning Results'
+                      : sectionTitle === 'Findings Library'
+                        ? 'Inventory'
+                        : sectionTitle
+                  }
+                  slotProps={{
+                    primary: {
+                      id: `drawer-section-${index}`,
+                      sx: {
+                        fontWeight: 'bold'
+                      }
+                    }
+                  }}
+                />
+              </ListItem>
+            );
             return (
               <React.Fragment key={index}>
-                <ListItem role="presentation">
-                  <ListItemText
-                    primary={sectionTitle}
-                    primaryTypographyProps={{
-                      fontWeight: 'bold',
-                      id: `drawer-section-${index}`
-                    }}
-                  />
-                </ListItem>
-
+                {menuTitle}
                 {items.map((item, subIndex) => (
                   <ListItem
                     key={`${index}-${subIndex}`}

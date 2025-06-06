@@ -357,7 +357,7 @@ export const Users: React.FC = () => {
   );
 
   return (
-    <Box display="flex" justifyContent="center">
+    <Box display="flex" justifyContent="center" sx={{ height: '100vh' }}>
       <Box
         mb={3}
         mt={3}

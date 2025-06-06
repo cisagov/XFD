@@ -67,10 +67,11 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
 
   const buttonProps: Partial<ButtonProps> & { to?: string } = {
     variant: 'globalNav',
-    sx: { display: { xs: 'none', lg: 'flex' }, px: 1 },
+    sx: { display: { xs: 'none', xl: 'flex' }, px: 1 },
     'aria-current': isActive ? 'page' : undefined
   };
-  if (title === 'Inventory') {
+  // TODO: Once Learning Center and Support have more items change this to menuItems.length > 1
+  if (title === 'Vulnerability Scanning' || title === 'Findings Library') {
     buttonProps.component = RouterLink;
     buttonProps.to = menuItems?.[0]?.path || '';
   } else {
@@ -128,7 +129,7 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-      <Box sx={{ display: { xs: 'none', lg: 'flex' } }}>
+      <Box sx={{ display: { xs: 'none', xl: 'flex' } }}>
         <Button {...buttonProps}>
           <Box sx={borderBoxStyle}>{title}</Box>
         </Button>

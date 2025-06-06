@@ -856,7 +856,15 @@ def create_vuln_scan_summary(summary_date=None):
 
         critical_max = max_ticket_life(included.filter(cvss_severity=4))
         high_max = max_ticket_life(included.filter(cvss_severity=3))
+        medium_max = max_ticket_life(included.filter(cvss_severity=2))
+        low_max = max_ticket_life(included.filter(cvss_severity=1))
         kev_max = max_ticket_life(included.filter(is_kev=True))
+        critical_kev_max = max_ticket_life(
+            included.filter(is_kev=True, cvss_severity=4)
+        )
+        high_kev_max = max_ticket_life(included.filter(is_kev=True, cvss_severity=3))
+        medium_kev_max = max_ticket_life(included.filter(is_kev=True, cvss_severity=2))
+        low_kev_max = max_ticket_life(included.filter(is_kev=True, cvss_severity=1))
 
         # Host vuln distribution
         ip_counts = Counter(included.values_list("ip_string", flat=True))
@@ -1013,7 +1021,13 @@ def create_vuln_scan_summary(summary_date=None):
                 **kev_counts,
                 "critical_max_age": critical_max,
                 "high_max_age": high_max,
+                "medium_max_age": medium_max,
+                "low_max_age": low_max,
                 "kev_max_age": kev_max,
+                "critical_kev_max_age": critical_kev_max,
+                "high_kev_max_age": high_kev_max,
+                "medium_kev_max_age": medium_kev_max,
+                "low_kev_max_age": low_kev_max,
                 "one_to_five_vulns_count": one_to_five,
                 "six_to_nine_vulns_count": six_to_nine,
                 "ten_plus_vulns_count": ten_plus,

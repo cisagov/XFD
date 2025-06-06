@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { classes, Root } from './Styling/dashboardStyle';
 import { Subnav } from 'components';
 import { ResultCard } from './ResultCard';
@@ -20,7 +20,6 @@ import { useAuthContext } from 'context';
 import { FilterTags } from './FilterTags';
 import { NoResults } from 'components/NoResults';
 import { exportCSV } from 'components/ImportExport';
-import { SaveSearchModal } from 'components/SaveSearchModal/SaveSearchModal';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
@@ -43,7 +42,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     totalPages,
     totalResults,
     setSearchTerm,
-    search_term,
+    searchTerm,
     noResults
   } = props;
 
@@ -57,7 +56,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     user
   } = useAuthContext();
 
-  const advanceFiltersReq = filters.length > 1 || search_term !== ''; //Prevents a user from saving a search without advanced filters
+  const advanceFiltersReq = filters.length > 1 || searchTerm !== ''; //Prevents a user from saving a search without advanced filters
 
   const fetchDomainsExport = async (): Promise<string> => {
     try {
@@ -65,7 +64,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         current,
         filters,
         resultsPerPage,
-        search_term,
+        searchTerm,
         sort_direction,
         sort_field
       };
@@ -83,25 +82,49 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       return '';
     }
   };
+  const userLevel = useUserLevel().userLevel;
 
+  const { regions } = useStaticsContext();
+  const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
+
+  const resetFilters = () => {
+    filters.forEach((filter) => {
+      removeFilter(filter.field, filter.values[0], filter.type);
+    });
+    initialFiltersForUser.forEach(
+      (filter) => {
+        filter.values.forEach((value) => {
+          addFilter(filter.field, value, filter.type);
+        });
+      },
+      setSearchTerm('', { shouldClearFilters: false })
+    );
+  };
+
+  useEffect(() => {
+    filters.forEach((filter) => {
+      removeFilter(filter.field, filter.values[0], filter.type);
+    });
+    initialFiltersForUser.forEach((filter) => {
+      filter.values.forEach((value) => {
+        addFilter(filter.field, value, filter.type);
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const filtersToDisplay = useMemo(() => {
-    if (search_term !== '') {
+    if (searchTerm !== '') {
       return [
         ...filters,
         {
           field: 'query',
-          values: [search_term],
+          values: [searchTerm],
           onClear: () => setSearchTerm('', { shouldClearFilters: false })
         }
       ];
     }
     return filters;
-  }, [filters, search_term, setSearchTerm]);
-
-  const userLevel = useUserLevel().userLevel;
-
-  const { regions } = useStaticsContext();
-  const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
+  }, [filters, searchTerm, setSearchTerm]);
 
   return (
     <Root className={classes.root}>
@@ -133,14 +156,6 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
             sort_direction={sort_direction}
             setSort={setSort}
             isFixed={resultsScrolled}
-            advancedFiltersReq={advanceFiltersReq}
-          />
-          <SaveSearchModal
-            search_term={search_term}
-            filters={filters}
-            totalResults={totalResults}
-            sort_field={''}
-            sort_direction={''}
             advancedFiltersReq={advanceFiltersReq}
           />
         </Stack>
@@ -180,16 +195,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
                 <NoResults
                   message={"We don't see any results that match your criteria."}
                 ></NoResults>
-                <Button
-                  variant="contained"
-                  onClick={() =>
-                    initialFiltersForUser.forEach((filter) => {
-                      filter.values.forEach((value) => {
-                        addFilter(filter.field, value, filter.type);
-                      });
-                    })
-                  }
-                >
+                <Button variant="contained" onClick={resetFilters}>
                   {' '}
                   Reset Filters
                 </Button>
@@ -276,7 +282,7 @@ export const Dashboard = withSearch(
     totalResults,
     filters,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm,
     autocompletedResults,
     saveSearch,
@@ -296,7 +302,7 @@ export const Dashboard = withSearch(
     totalResults,
     filters,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm,
     autocompletedResults,
     saveSearch,

@@ -11,45 +11,28 @@ import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
 import { matchPath } from 'utils/matchPath';
-import { FilterDrawerV2 } from './FilterDrawerV2';
+import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
+import { useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/system';
+import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) => prop !== 'open' && prop !== 'user'
 })<{
   open?: boolean;
   user?: boolean;
-  // }>(({ theme, open, user }) => ({
 }>(() => ({
   flexGrow: 1,
   minHeight: '100vh',
   height: '100vh',
-  overflowY: 'auto'
-  // transition: theme.transitions.create('margin', {
-  //   easing: theme.transitions.easing.sharp,
-  //   duration: theme.transitions.duration.leavingScreen
-  // }),
-  // [theme.breakpoints.up('lg')]: {
-  //   marginLeft: `-${drawerWidth}px`
-  // },
-  // [theme.breakpoints.down('lg')]: {
-  //   marginLeft: user ? 0 : `-${drawerWidth}px`
-  // },
-  // marginLeft: `-${drawerWidth}px`
-  // ...(open && {
-  //   transition: theme.transitions.create('margin', {
-  //     easing: theme.transitions.easing.easeOut,
-  //     duration: theme.transitions.duration.enteringScreen
-  //   }),
-  //   [theme.breakpoints.up('lg')]: {
-  //     marginLeft: 0
-  //   }
-  // })
+  overflowY: 'auto',
+  overscrollBehavior: 'contain'
 }));
 
 export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
@@ -119,7 +102,8 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regions, user]);
 
-  // const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
   return (
     <>
@@ -128,30 +112,26 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         onCountdownEnd={handleCountdownEnd}
         countdown={60} // 60 second timer for user inactivity timeout
       />
-      <>
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'row',
-            height: '100vh'
-          }}
-        >
-          {userLevel > 0 && (
+      <Main open={isFilterDrawerOpen} user={!!user}>
+        <div style={{ display: 'flex' }}>
+          <GovBanner />
+        </div>
+        <Header />
+        {userLevel > 0 && (
+          <>
+            {matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
+              <FilterDrawerToggle />
+            )}
             <FilterDrawerV2
               setIsFilterDrawerOpen={setIsFilterDrawerOpen}
               isFilterDrawerOpen={isFilterDrawerOpen}
-              // isMobile={isMobile}
+              isMobile={isMobile}
               initialFilters={initialFilters}
             />
-          )}
-          <Main open={isFilterDrawerOpen} user={!!user}>
-            <GovBanner />
-            <Header />
-            <div className="main-content" id="main-content" tabIndex={-1} />
-            {children}
-          </Main>
-        </div>
-      </>
+          </>
+        )}
+        {children}
+      </Main>
     </>
   );
 };

@@ -1,32 +1,21 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Grid,
-  Typography,
-  CircularProgress,
-  Stack,
-  Alert
-} from '@mui/material';
+import { Box, Grid, CircularProgress, Stack, Alert } from '@mui/material';
 import TopVulnerablePorts from './TopVulnerablePorts';
-// import TopVulnerableDomains from './TopVulnerableDomains';
 import VulnerabilityBarChart from './VulnerabilityBarChart';
 import { getSeverityColor, severities } from './utils';
 import { ContextType, useAuthContext } from 'context';
+
+// import TopVulnerableDomains from './TopVulnerableDomains';
 import { Stats, Vulnerability } from 'types';
-import { UpdateStateForm } from 'components/Register';
 import {
   ORGANIZATION_FILTER_KEY,
   OrganizationShallow,
   REGION_FILTER_KEY
-} from 'components/RegionAndOrganizationFilters';
+} from 'components/FilterDrawer/RegionAndOrganizationFilters';
 import { withSearch } from '@elastic/react-search-ui';
-import { useLocation } from 'react-router-dom';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
-import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 import MostCommonVulns from './MostCommonVulns';
 import LatestKEVs from './LatestKEVs';
@@ -59,15 +48,13 @@ const tooltipContentJson = infoIconContent.infoIconContent;
 const OverviewDash: React.FC<ContextType> = ({
   filters,
   removeFilter,
-  addFilter,
-  search_term,
-  setSearchTerm
+  addFilter
+  // searchTerm,
+  // setSearchTerm
 }) => {
-  const { user, apiPost, apiGet, logout, userMustSign, isLoggingOut } =
-    useAuthContext();
+  const { user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
-  const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,21 +80,19 @@ const OverviewDash: React.FC<ContextType> = ({
     };
   }, [filters]);
 
-  const { pathname } = useLocation();
-
   // const filtersToDisplay = useMemo(() => {
-  //   if (search_term !== '') {
+  //   if (searchTerm !== '') {
   //     return [
   //       ...filters,
   //       {
   //         field: 'query',
-  //         values: [search_term],
+  //         values: [searchTerm],
   //         onClear: () => setSearchTerm('', { shouldClearFilters: false })
   //       }
   //     ];
   //   }
   //   return filters;
-  // }, [filters, search_term, setSearchTerm]);
+  // }, [filters, searchTerm, setSearchTerm]);
 
   const userLevel = useUserLevel().userLevel;
 
@@ -148,77 +133,9 @@ const OverviewDash: React.FC<ContextType> = ({
     [riskFilters]
   );
 
-  const [isLoginBlockedDialogOpen, setIsLoginBlockedDialogOpen] =
-    useState(false);
-  const [maintenanceNotification, setMaintenanceNotification] =
-    useState<any>(null);
-
   useEffect(() => {
     fetchStats();
   }, [fetchStats, riskFilters]);
-
-  useEffect(() => {
-    if (!isLoggingOut && user) {
-      if (
-        (!user.state || user.state === '') &&
-        !localStorage.getItem('user_state')
-      ) {
-        setIsUpdateStateFormOpen(true);
-      }
-    }
-  }, [user, isLoggingOut]);
-
-  useEffect(() => {
-    const fetchAndCheckMaintenance = async () => {
-      // TODO: Some login blocking logic is a duplicate of backend
-      // checks to meet "waiting room" needs to allow controlled logins
-      // for populating new user state and terms agreement before blocking
-      // for pre-release. Standardize this once this is no longer needed.
-      if (
-        user &&
-        !user.invite_pending &&
-        user.state &&
-        user.date_accepted_terms &&
-        !isLoginBlockedDialogOpen
-      ) {
-        // Active Notifications
-        const notifications = await apiGet('/notifications');
-        const active = notifications.find(
-          (n: any) =>
-            n.status === 'active' &&
-            n.maintenance_type === 'major' &&
-            new Date(n.start_datetime) <= new Date() &&
-            new Date(n.end_datetime) >= new Date()
-        );
-        // Set non-blocking userTypes (additional check)
-        const nonBlockingUserTypes = ['globalAdmin', 'regionalAdmin'];
-        if (active && !nonBlockingUserTypes.includes(user.user_type)) {
-          setMaintenanceNotification(active);
-          setIsLoginBlockedDialogOpen(true);
-        }
-      }
-    };
-
-    fetchAndCheckMaintenance();
-  }, [apiGet, isLoginBlockedDialogOpen, user, userMustSign]);
-
-  useEffect(() => {
-    const handleMaintenanceBlocked = (e: any) => {
-      if (e.detail?.message) {
-        setMaintenanceNotification({ message: e.detail.message });
-        setIsLoginBlockedDialogOpen(true);
-      }
-    };
-
-    window.addEventListener('maintenance-blocked', handleMaintenanceBlocked);
-
-    return () => {
-      window.removeEventListener(
-        'maintenance-blocked',
-        handleMaintenanceBlocked
-      );
-    };
-  }, []);
 
   useEffect(() => {
     filters.forEach((filter) => {
@@ -236,14 +153,7 @@ const OverviewDash: React.FC<ContextType> = ({
         });
       });
     }
-  }, [
-    pathname,
-    removeFilter,
-    filters,
-    addFilter,
-    riskFilters,
-    initialFiltersForUser
-  ]);
+  }, [removeFilter, filters, addFilter, initialFiltersForUser]);
 
   const latestVulnsGrouped: {
     [key: string]: VulnerabilityCount;
@@ -269,73 +179,6 @@ const OverviewDash: React.FC<ContextType> = ({
         sev.sevList.includes(i.id.split('|')[1])
       );
     }
-  }
-
-  if (isUpdateStateFormOpen) {
-    return (
-      <UpdateStateForm
-        open={isUpdateStateFormOpen}
-        user_id={user?.id ?? ''}
-        onClose={async () => {
-          setIsUpdateStateFormOpen(false);
-
-          // Re-fetch updated user to prevent false popup
-          const updatedUser = await apiGet('/users/me');
-          if (updatedUser?.state && user?.user_type !== 'globalAdmin') {
-            const notifications = await apiGet('/notifications');
-            const active = notifications.find(
-              (n: any) =>
-                n.status === 'active' &&
-                n.maintenance_type === 'major' &&
-                new Date(n.start_datetime) <= new Date() &&
-                new Date(n.end_datetime) >= new Date()
-            );
-            if (active && updatedUser.user_type !== 'globalAdmin') {
-              setMaintenanceNotification(active);
-              setIsLoginBlockedDialogOpen(true);
-            }
-          }
-        }}
-      />
-    );
-  }
-
-  if (isLoginBlockedDialogOpen && maintenanceNotification) {
-    return (
-      <LoginBlockedDialog
-        open={isLoginBlockedDialogOpen}
-        message={maintenanceNotification.message}
-        onClose={() => {
-          setIsLoginBlockedDialogOpen(false);
-          logout();
-        }}
-      />
-    );
-  }
-
-  if (user?.invite_pending) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh'
-        }}
-      >
-        <Card style={{ maxWidth: 400, textAlign: 'center' }}>
-          <CardContent>
-            <Typography variant="h5" component="h2">
-              REQUEST SENT
-            </Typography>
-            <Typography variant="body1">
-              Thank you for requesting a CyHy Dashboard account, you will
-              receive notification once this request is approved.
-            </Typography>
-          </CardContent>
-        </Card>
-      </div>
-    );
   }
 
   const overviewHeader = (
@@ -513,14 +356,14 @@ export const RiskWithSearch = withSearch(
     removeFilter,
     filters,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm
   }: ContextType) => ({
     addFilter,
     removeFilter,
     filters,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm
   })
 )(OverviewDash);

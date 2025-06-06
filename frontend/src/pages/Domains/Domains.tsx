@@ -172,7 +172,7 @@ export const Domains: React.FC = () => {
   );
 
   return (
-    <Box>
+    <Box sx={{ height: '100vh' }}>
       <Subnav
         items={[
           { title: 'Search Results', path: '/inventory', exact: true },

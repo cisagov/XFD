@@ -12,10 +12,10 @@ import {
 } from '@mui/material';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
-import { Save } from '@mui/icons-material';
+import { Add } from '@mui/icons-material';
 
 interface SaveSearchModalProps {
-  search_term: string;
+  searchTerm: string;
   filters: any;
   totalResults: number;
   sort_field: string;
@@ -25,7 +25,7 @@ interface SaveSearchModalProps {
 
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
-    search_term,
+    searchTerm,
     filters,
     totalResults,
     sort_field,
@@ -49,7 +49,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     const body = {
       body: {
         ...savedSearchValues,
-        search_term,
+        search_term: searchTerm,
         filters,
         count: totalResults,
         search_path: window.location.search,
@@ -60,7 +60,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     try {
       if (activeSearch) {
-        await apiPut('/saved-searches' + activeSearch.id, body);
+        await apiPut('/saved-searches/' + activeSearch.id, body);
       } else {
         await apiPost('/saved-searches', body);
       }
@@ -134,11 +134,14 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     <>
       <Button
         tabIndex={0}
-        variant="contained"
+        variant="text"
         onClick={handleUpdate}
-        endIcon={<Save />}
         disabled={!advancedFiltersReq}
         aria-label={activeSearch ? 'Update Saved Search' : 'Save Search'}
+        startIcon={<Add />}
+        sx={{
+          paddingLeft: '0.25em'
+        }}
       >
         {activeSearch ? 'Update Saved Search' : 'Save Search'}
       </Button>

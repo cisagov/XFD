@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { styled } from '@mui/material/styles';
-import { Chip } from '@mui/material';
+import { Button, Chip, Stack } from '@mui/material';
 
 const PREFIX = 'TaggedArrayInput';
 
@@ -78,13 +78,24 @@ export const TaggedArrayInput: React.FC<Props> = (props) => {
 
   return (
     <Root onSubmit={onSubmit} className={classes.form}>
-      <input
-        className={classes.inp}
-        value={inpValue}
-        onChange={onInpChange}
-        aria-label="Filter"
-        placeholder={placeholder}
-      />
+      <Stack spacing={1}>
+        <input
+          className={classes.inp}
+          value={inpValue}
+          onChange={onInpChange}
+          aria-label="Filter"
+          placeholder={placeholder}
+        />
+        <Button
+          type="submit"
+          variant="outlined"
+          color="primary"
+          disabled={!!error || inpValue === ''}
+          onClick={onSubmit}
+        >
+          Add
+        </Button>
+      </Stack>
       {error && <span className={classes.error}>{error}</span>}
       <div className={classes.tagsWrapper}>
         {values.map((val) => (

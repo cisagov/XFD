@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import clsx from 'classnames';
 import { List, ListItem, Paper } from '@mui/material';
 import { SearchOutlined } from '@mui/icons-material';
+import { useTheme } from '@mui/system';
 
 const PREFIX = 'SearchBar';
 
@@ -38,28 +39,29 @@ const Root = styled('div')(({ theme }) => ({
   },
 
   [`& .${classes.inp}`]: {
-    padding: '0.5rem 0.5rem 0.5rem 2rem',
+    padding: '0.5rem 0.5rem 0.5rem 0.5rem',
     display: 'block',
     width: '100%',
     border: '1px solid',
     borderRadius: '5px',
-    borderColor: '#07648D',
+    borderColor: theme.palette.neutrals.main,
     height: '45px',
     fontSize: '1rem',
     fontWeight: 300,
     background: 'none',
     '&::placeholder': {
-      color: '#4E4E4E'
+      color: theme.palette.neutrals.main
     }
   },
 
   [`& .${classes.icon}`]: {
-    position: 'absolute',
-    left: '0.5rem',
-    top: '50%',
-    transform: 'translateY(-50%)',
+    // position: 'absolute',
+    // right: '0.8rem',
+    // top: '50%',
+    // transform: 'translateY(-50%)',
     fontSize: '1.5rem',
-    color: '#4E4E4E'
+    color: theme.palette.neutrals.white
+    // backgroundColor: 'yellow'
   },
 
   [`& .${classes.autocompleteRoot}`]: {
@@ -106,6 +108,7 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
     const [focusTimer, setFocusTimer] = useState<Timer>();
     const [query, setQuery] = useState<string>(initialValue);
 
+    const theme = useTheme();
     const { value } = props;
     useEffect(() => {
       setQuery(value?.toString() ?? '');
@@ -123,7 +126,6 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
     return (
       <Root className={classes.wrapper}>
         <Box className={classes.inner}>
-          <SearchOutlined className={classes.icon} />
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -164,6 +166,24 @@ export const SearchBar = React.forwardRef<HTMLInputElement, Props>(
                 </List>
               </Paper>
             )}
+          <Box
+            sx={{
+              position: 'absolute',
+              right: '0.01rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              backgroundColor: theme.palette.primary.dark,
+              height: '100%',
+              width: '20%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderTopRightRadius: '5px',
+              borderBottomRightRadius: '5px'
+            }}
+          >
+            <SearchOutlined className={classes.icon} />
+          </Box>
         </Box>
       </Root>
     );
