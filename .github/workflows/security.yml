@@ -27,7 +27,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Security
-        run: npm audit --omit=dev
+        run: npm audit --production
   frontend:
     runs-on: ubuntu-latest
     defaults:
