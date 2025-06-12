@@ -21,7 +21,6 @@ import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
 import { toZonedTime } from 'date-fns-tz';
-import { act } from 'react-dom/test-utils';
 
 interface LogsProps {}
 
