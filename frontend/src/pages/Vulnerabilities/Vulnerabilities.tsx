@@ -1,17 +1,13 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Link as RouterLink, useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
 import { useAuthContext } from 'context';
-import { Vulnerability as VulnerabilityType } from 'types';
-import { Subnav } from 'components';
 import {
   Alert,
   Box,
   Button,
+  Divider,
   IconButton,
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // MenuItem,
-  // Menu,
   Link,
   Paper,
   Stack,
@@ -20,100 +16,62 @@ import {
 import {
   DataGrid,
   GridColDef,
-  GridFilterItem,
+  GridPaginationModel,
   GridRenderCellParams
 } from '@mui/x-data-grid';
+import {
+  Checklist,
+  DynamicFeed,
+  FiberManualRecordRounded,
+  OpenInNew
+} from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-// To-do: Re-enable this as part of Status dropdown once the feature is approved.
-// import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getSeverityColor } from 'pages/Risk/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
-import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
-import ChecklistIcon from '@mui/icons-material/Checklist';
-import DynamicFeedIcon from '@mui/icons-material/DynamicFeed';
-
-export interface ApiResponse {
-  result: Vulnerability[];
-  count: number;
-  url?: string;
-}
+import { Vulnerability } from 'types/domain';
+import {
+  ApiResponse,
+  LocationState,
+  SearchParams,
+  VulnerabilityRow
+} from 'types/vulnerabilities';
+import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
+import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
+import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 
 const PAGE_SIZE = 15;
 
-export const stateMap: { [key: string]: string } = {
-  unconfirmed: 'Unconfirmed',
-  exploitable: 'Exploitable',
-  'false-positive': 'False Positive',
-  'accepted-risk': 'Accepted Risk',
-  remediated: 'Remediated'
-};
-
-export interface LooseVulnerabilityRow {
-  id: string;
-  title: string;
-  severity: string;
-  kev: string;
-  domain: string | undefined;
-  domainId: string | undefined;
-  product: string;
-  created_at: string;
-  state: string;
-}
-
-type Nullable<T> = {
-  [P in keyof T]: T[P] | null;
-};
-
-type VulnerabilityRow = Nullable<LooseVulnerabilityRow>;
-
-type Vulnerability = Nullable<VulnerabilityType>;
-
-interface LocationState {
-  domain: any;
-  severity: string;
-  title: string;
-}
-
-export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
-  group_by = undefined
-}: {
-  children?: React.ReactNode;
+interface VulnerabilitiesProps {
   group_by?: string;
+}
+
+export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
+  group_by
 }) => {
   const { currentOrganization, apiPost, user } = useAuthContext();
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // const { apiPut } = useAuthContext();
+  const history = useHistory();
+  const location = useLocation();
+  const state = location.state as LocationState;
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
+  const [initialFilters, setInitialFilters] = useState(() =>
+    extractInitialFilters(state)
+  );
 
-  // TO-DO
-  // Implement regional rollup for vulnerabilities view to allow for proper vunl drilldown from dashboard
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // const updateVulnerability = useCallback(
-  //   async (index: number, body: { [key: string]: string }) => {
-  //     try {
-  //       const updatedVulns = await apiPut<Vulnerability>(
-  //         '/vulnerabilities/' + vulnerabilities[index].id,
-  //         {
-  //           body: body
-  //         }
-  //       );
-  //       setVulnerabilities((prevState) =>
-  //         prevState.map((orgVulns, targetIndex) =>
-  //           targetIndex === index ? updatedVulns : orgVulns
-  //         )
-  //       );
-  //     } catch (e) {
-  //       console.error(e);
-  //     }
-  //   },
-  //   [setVulnerabilities, apiPut, vulnerabilities]
-  // );
+  const filters = initialFilters.length > 0 ? initialFilters : [];
+
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: PAGE_SIZE,
+    pageCount: 0,
+    filters: filters
+  });
 
   const vulnerabilitiesSearch = useCallback(
     async ({
@@ -121,68 +79,20 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
       page,
       pageSize = PAGE_SIZE,
       doExport = false,
-      group_by = undefined,
+      group_by,
       showAll = false
-    }: {
-      filters: GridFilterItem[];
-      page: number;
-      pageSize?: number;
-      doExport?: boolean;
-      group_by?: string;
-      showAll?: boolean;
-    }): Promise<ApiResponse | undefined> => {
+    }: SearchParams): Promise<ApiResponse | undefined> => {
       try {
-        const tableFilters: {
-          [key: string]: string | boolean | undefined;
-        } = filters
-          .filter((f) => Boolean(f.value))
-          .reduce(
-            (accum, next) => ({
-              ...accum,
-              [next.field]: next.value
-            }),
-            {}
-          );
-        // If not open or closed, substitute for appropriate substate
-        if (
-          tableFilters['state'] &&
-          !['open', 'closed'].includes(tableFilters['state'] as string)
-        ) {
-          const substate = (tableFilters['state'] as string)
-            .match(/\((.*)\)/)
-            ?.pop();
-          if (substate)
-            tableFilters['substate'] = substate.toLowerCase().replace(' ', '-');
-          delete tableFilters['state'];
-        }
-        let userOrgIsExcluded = false;
-        ORGANIZATION_EXCLUSIONS.forEach((exc) => {
-          if (currentOrganization?.name.toLowerCase().includes(exc)) {
-            userOrgIsExcluded = true;
-          }
-        });
-
-        if (
-          currentOrganization &&
-          !userOrgIsExcluded &&
-          user?.user_type === 'standard'
-        ) {
-          tableFilters['organization'] = currentOrganization.id;
-        }
-        if (tableFilters['is_kev']) {
-          // Convert string to boolean filter.
-          tableFilters['is_kev'] = tableFilters['is_kev'] === 'true';
-        }
+        const tableFilters = normalizeFilters(
+          filters,
+          currentOrganization,
+          user?.user_type,
+          state?.orgId
+        );
         return await apiPost<ApiResponse>(
           doExport ? '/vulnerabilities/export' : '/vulnerabilities/search',
           {
-            body: {
-              page,
-              filters: tableFilters,
-              pageSize,
-              group_by,
-              showAll
-            }
+            body: { page, filters: tableFilters, pageSize, group_by, showAll }
           }
         );
       } catch (e) {
@@ -191,11 +101,13 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
         return;
       }
     },
-    [apiPost, currentOrganization, user?.user_type]
+    [apiPost, currentOrganization, user?.user_type, state?.orgId]
   );
 
   const fetchVulnerabilities = useCallback(
     async (query: Query<Vulnerability>) => {
+      setIsLoading(true);
+      setLoadingError(false);
       try {
         const resp = await vulnerabilitiesSearch({
           filters: query.filters,
@@ -239,92 +151,6 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
     [vulnerabilitiesSearch, group_by]
   );
 
-  const history = useHistory();
-  const location = useLocation();
-  const state = location.state as LocationState;
-  const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
-  const [initialFilters, setInitialFilters] = useState<GridFilterItem[]>(
-    state?.title
-      ? [
-          {
-            field: 'title',
-            value: state.title,
-            operator: 'contains'
-          }
-        ]
-      : state?.domain
-      ? [
-          {
-            field: 'domain',
-            value: state.domain,
-            operator: 'contains'
-          }
-        ]
-      : state?.severity
-      ? [
-          {
-            field: 'severity',
-            value: state.severity,
-            operator: 'contains'
-          }
-        ]
-      : []
-  );
-  const [filters, setFilters] = useState(initialFilters);
-
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: PAGE_SIZE,
-    pageCount: 0,
-    filters: filters
-  });
-
-  const [filterModel, setFilterModel] = useState({
-    items: filters.map((filter) => ({
-      id: filter.id,
-      field: filter.field,
-      value: filter.value,
-      operator: filter.operator
-    }))
-  });
-
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // Row scoped menu state management for vulnerability status updates
-  // interface MenuState {
-  //   [key: string]: {
-  //     anchorEl: HTMLElement | null;
-  //     open: boolean;
-  //   };
-  // }
-
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // const [menuState, setMenuState] = useState<MenuState>({});
-
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // const handleMenuClick = (
-  //   event: React.MouseEvent<HTMLButtonElement>,
-  //   rowId: any
-  // ) => {
-  //   setMenuState((prev) => ({
-  //     ...prev,
-  //     [rowId]: {
-  //       anchorEl: event.currentTarget,
-  //       open: true
-  //     }
-  //   }));
-  // };
-
-  // To-do: Re-enable this as part of Status dropdown once the feature is approved.
-  // const handleClose = (rowId: any) => {
-  //   setMenuState((prev) => ({
-  //     ...prev,
-  //     [rowId]: {
-  //       ...prev[rowId],
-  //       open: false
-  //     }
-  //   }));
-  // };
-
   const resetVulnerabilities = useCallback(() => {
     setInitialFilters([]);
     fetchVulnerabilities({
@@ -335,27 +161,38 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
   }, [fetchVulnerabilities]);
 
   useEffect(() => {
-    setIsLoading(true);
     fetchVulnerabilities({
-      page: 1,
-      pageSize: PAGE_SIZE,
-      filters: initialFilters
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
+      filters: initialFilters || [],
+      showAll: !onlyOpenVulns
     });
-  }, [fetchVulnerabilities, initialFilters]);
+  }, [
+    fetchVulnerabilities,
+    paginationModel.page,
+    paginationModel.pageSize,
+    initialFilters,
+    onlyOpenVulns
+  ]);
 
+  const handlePaginationModelChange = useCallback(
+    (model: GridPaginationModel) => {
+      setPaginationModel((prev) => ({
+        ...prev,
+        page: model.page,
+        pageSize: model.pageSize
+      }));
+    },
+    []
+  );
   const showAllVulnsButton = (
     <Button
       size="small"
       sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-      startIcon={<DynamicFeedIcon />}
+      startIcon={<DynamicFeed />}
       onClick={() => {
-        fetchVulnerabilities({
-          page: 1,
-          pageSize: 100,
-          filters: [...filters],
-          showAll: true
-        });
         setOnlyOpenVulns(false);
+        // fetchVulnerabilities will be triggered by useEffect due to onlyOpenVulns change
       }}
     >
       Show All Vulnerabilities
@@ -366,15 +203,10 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
     <Button
       size="small"
       sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-      startIcon={<ChecklistIcon />}
+      startIcon={<Checklist />}
       onClick={() => {
-        fetchVulnerabilities({
-          page: 1,
-          pageSize: PAGE_SIZE,
-          filters: [...filters],
-          showAll: false
-        });
         setOnlyOpenVulns(true);
+        // fetchVulnerabilities will be triggered by useEffect due to onlyOpenVulns change
       }}
     >
       Show Open Vulnerabilities
@@ -393,281 +225,252 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
     </Box>
   );
 
-  const vulRows: VulnerabilityRow[] = vulnerabilities.map((vuln) => {
-    //The following logic is to format irregular severity levels to match those used in VulnerabilityBarChart.tsx
+  const vulRows: VulnerabilityRow[] = useMemo(
+    () =>
+      vulnerabilities.map((vuln) => {
+        const severity = formatSeverity(vuln.severity ?? 'N/A');
 
-    const titleCase = (str: string) =>
-      str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+        const product = vuln.cpe
+          ? vuln.cpe
+          : vuln.service?.products?.[0]?.cpe || 'N/A';
 
-    const severityLevels: string[] = [
-      'N/A',
-      'Low',
-      'Medium',
-      'High',
-      'Critical',
-      'Other'
-    ];
+        const daysOpen = vuln?.created_at
+          ? `${differenceInCalendarDays(Date.now(), parseISO(vuln?.created_at))} days`
+          : '';
 
-    const formatSeverity = (severity?: any) => {
-      const titleCaseSev = titleCase(severity);
-      if (severityLevels.includes(titleCaseSev)) {
-        return titleCaseSev;
-      }
-      if (
-        !titleCaseSev ||
-        ['None', 'Null', 'N/a', 'Undefined', 'undefined', ''].includes(
-          titleCaseSev
-        )
-      ) {
-        return 'N/A';
-      } else {
-        return 'Other';
-      }
-    };
+        const stateDisplay =
+          vuln.state + (vuln.substate ? ` (${vuln.substate})` : '');
 
-    const severity = formatSeverity(vuln.severity ?? 'N/A');
+        return {
+          id: vuln.id,
+          title: vuln.title,
+          severity: severity,
+          kev: vuln.is_kev ? 'Yes' : 'No',
+          domain: vuln.domain?.name,
+          domainId: vuln.domain?.id,
+          product: product,
+          created_at: daysOpen,
+          state: stateDisplay
+        };
+      }),
+    [vulnerabilities]
+  );
 
-    return {
-      id: vuln.id,
-      title: vuln.title,
-      severity: severity,
-      kev: vuln.is_kev ? 'Yes' : 'No',
-      domain: vuln?.domain?.name,
-      domainId: vuln?.domain?.id,
-      product: vuln.cpe
-        ? vuln.cpe
-        : vuln.service &&
-          vuln.service.products &&
-          vuln.service.products.length > 0 &&
-          vuln.service.products[0].cpe
-        ? vuln.service.products[0].cpe || 'N/A'
-        : 'N/A',
-      created_at: vuln?.created_at
-        ? `${differenceInCalendarDays(
-            Date.now(),
-            parseISO(vuln?.created_at)
-          )} days`
-        : '',
-      state: vuln.state + (vuln.substate ? ` (${vuln.substate})` : '')
-    };
-  });
-
-  const vulCols: GridColDef[] = [
-    {
-      field: 'title',
-      headerName: 'Vulnerability',
-      minWidth: 100,
-      flex: 1.2,
-      sortComparator: (v1, v2, cellParams1, cellParams2) => {
-        const collator = new Intl.Collator(undefined, {
-          numeric: true,
-          sensitivity: 'base'
-        });
-        return collator.compare(cellParams1.value, cellParams2.value);
+  const vulCols: GridColDef<VulnerabilityRow>[] = useMemo(
+    () => [
+      {
+        field: 'title',
+        headerName: 'Vulnerability',
+        minWidth: 100,
+        flex: 2,
+        sortComparator: (v1: any, v2: any) => {
+          const collator = new Intl.Collator(undefined, {
+            numeric: true,
+            sensitivity: 'base'
+          });
+          return collator.compare(String(v1), String(v2));
+        },
+        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          if (cellValues.row.title && cellValues.row.title.startsWith('CVE')) {
+            return (
+              <Link
+                component={RouterLink}
+                to={`/inventory/vulnerability/${cellValues.row.id}`}
+                aria-label={`View NIST entry for ${cellValues.row.title}`}
+                tabIndex={cellValues.tabIndex}
+              >
+                {cellValues.row.title}
+              </Link>
+            );
+          }
+          return (
+            <Typography variant="body2" pl={1}>
+              {truncateString(cellValues.row.title ?? '')}
+            </Typography>
+          );
+        }
       },
-      renderCell: (cellValues: GridRenderCellParams) => {
-        if (cellValues.row.title.startsWith('CVE')) {
+      {
+        field: 'severity',
+        headerName: 'Severity',
+        minWidth: 100,
+        flex: 0.7,
+        sortComparator: (v1: any, v2: any) => {
+          const severityLevels: Record<string, number> = {
+            'N/A': 1,
+            Low: 2,
+            Medium: 3,
+            High: 4,
+            Critical: 5,
+            Other: 6
+          };
+          return severityLevels[String(v1)] - severityLevels[String(v2)];
+        },
+        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          const severityText = cellValues.row.severity;
+          const severityColor = getSeverityColor({ id: severityText || '' });
+          return (
+            <Stack>
+              <div>{severityText}</div>
+              <Box
+                sx={{
+                  height: '.5em',
+                  width: '5em',
+                  backgroundColor: severityColor
+                }}
+              />
+            </Stack>
+          );
+        }
+      },
+      {
+        field: 'kev',
+        headerName: 'KEV',
+        minWidth: 50,
+        flex: 0.3
+      },
+      {
+        field: 'domain',
+        headerName: 'Domain',
+        minWidth: 100,
+        flex: 1,
+        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Link
               component={RouterLink}
-              to={{
-                pathname: '/inventory/vulnerability/' + cellValues.row.id
-              }}
-              aria-label={`View NIST entry for ${cellValues.row.title}`}
+              to={`/inventory/domain/${cellValues.row.domainId}`}
+              aria-label={`View details for ${cellValues.row.domain}`}
               tabIndex={cellValues.tabIndex}
             >
-              {cellValues.row.title}
+              {cellValues.row.domain}
             </Link>
           );
         }
-        return (
-          <Typography variant="uiElementsI" pl={1}>
-            {truncateString(cellValues.row.title)}
-          </Typography>
-        );
-      }
-    },
-    {
-      field: 'severity',
-      headerName: 'Severity',
-      minWidth: 100,
-      flex: 0.5,
-      sortComparator: (v1, v2, cellParams1, cellParams2) => {
-        const severityLevels: Record<string, number> = {
-          'N/A': 1,
-          Low: 2,
-          Medium: 3,
-          High: 4,
-          Critical: 5,
-          Other: 6
-        };
-        return (
-          severityLevels[cellParams1.value] - severityLevels[cellParams2.value]
-        );
       },
-      renderCell: (cellValues: GridRenderCellParams) => {
-        const severityLevels: Record<string, number> = {
-          NA: 0,
-          Low: 1,
-          Medium: 2,
-          High: 3,
-          Critical: 4,
-          Other: 5
-        };
-        return (
-          <Stack>
-            <div>{cellValues.row.severity}</div>
-            <div style={{ display: 'none' }}>
-              ({severityLevels[cellValues.row.severity]})
-            </div>
-            <Box
-              style={{
-                height: '.5em',
-                width: '5em',
-                backgroundColor: getSeverityColor({
-                  id: cellValues.row.severity ?? ''
-                })
-              }}
-            ></Box>
-          </Stack>
-        );
+      {
+        field: 'product',
+        headerName: 'Product',
+        minWidth: 100,
+        flex: 1
+      },
+      {
+        field: 'created_at',
+        headerName: 'Days Open',
+        minWidth: 100,
+        flex: 0.5
+      },
+      {
+        field: 'state',
+        headerName: 'Status',
+        minWidth: 100,
+        flex: 1
+      },
+      {
+        field: 'viewDetails',
+        headerName: 'Details',
+        minWidth: 75,
+        flex: 0.5,
+        disableExport: true,
+        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          return (
+            <IconButton
+              aria-label={`View details for ${cellValues.row.title}`}
+              tabIndex={cellValues.tabIndex}
+              color="primary"
+              onClick={() =>
+                history.push(`/inventory/vulnerability/${cellValues.row.id}`)
+              }
+            >
+              <OpenInNew />
+            </IconButton>
+          );
+        }
       }
-    },
-    {
-      field: 'kev',
-      headerName: 'KEV',
-      minWidth: 50,
-      flex: 0.3
-    },
-    {
-      field: 'domain',
-      headerName: 'Domain',
-      minWidth: 100,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Link
-            component={RouterLink}
-            to={{
-              pathname: '/inventory/domain/' + cellValues.row.domainId
-            }}
-            aria-label={`View details for ${cellValues.row.domain}`}
-            tabIndex={cellValues.tabIndex}
-          >
-            {cellValues.row.domain}
-          </Link>
-        );
-      }
-    },
-    {
-      field: 'product',
-      headerName: 'Product',
-      minWidth: 100,
-      flex: 1
-    },
-    {
-      field: 'created_at',
-      headerName: 'Days Open',
-      minWidth: 100,
-      flex: 0.5
-    },
-    {
-      field: 'state',
-      headerName: 'Status',
-      minWidth: 100,
-      flex: 1
-      // To-do: Re-enable this Status dropdown once the feature is approved.
-      // Summary: Per CRASM-1090, the status dropdown was removed in favor of static text.
-      // renderCell: (cellValues: GridRenderCellParams) => {
-      //   const handleUpdate = (id: string, substate: string) => {
-      //     const index = vulnerabilities.findIndex((v) => v.id === id);
-      //     updateVulnerability(index, {
-      //       substate: substate
-      //     });
-      //   };
-
-      //   return (
-      //     <div>
-      //       <Button
-      //         id={`basic-button-${cellValues.row.id}`}
-      //         style={{ textDecorationLine: 'underline' }}
-      //         aria-controls={
-      //           menuState[cellValues.row.id]?.open
-      //             ? `basic-menu-${cellValues.row.id}`
-      //             : undefined
-      //         }
-      //         aria-haspopup="true"
-      //         aria-expanded={
-      //           menuState[cellValues.row.id]?.open ? 'true' : undefined
-      //         }
-      //         tabIndex={cellValues.tabIndex}
-      //         endIcon={<ExpandMoreIcon />}
-      //         onClick={(event) => handleMenuClick(event, cellValues.row.id)}
-      //       >
-      //         {cellValues.row.state}
-      //       </Button>
-      //       <Menu
-      //         id={`basic-menu-${cellValues.row.id}`}
-      //         anchorEl={menuState[cellValues.row.id]?.anchorEl}
-      //         open={menuState[cellValues.row.id]?.open}
-      //         onClose={() => handleClose(cellValues.row.id)}
-      //         MenuListProps={{
-      //           'aria-labelledby': `basic-button-${cellValues.row.id}`
-      //         }}
-      //       >
-      //         {Object.keys(stateMap).map((substate) => (
-      //           <MenuItem
-      //             key={`${cellValues.row.id}-${substate}`}
-      //             id={`menu-item-${cellValues.row.id}-${substate}`}
-      //             onClick={() => {
-      //               handleUpdate(cellValues.row.id, substate);
-      //               handleClose(cellValues.row.id);
-      //             }}
-      //           >
-      //             {substate === 'unconfirmed' || substate === 'exploitable'
-      //               ? 'Open'
-      //               : 'Closed'}
-      //             {` (${substate})`}
-      //           </MenuItem>
-      //         ))}
-      //       </Menu>
-      //     </div>
-      //   );
-      // }
-    },
-    {
-      field: 'viewDetails',
-      headerName: 'Details',
-      minWidth: 75,
-      flex: 0.5,
-      disableExport: true,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <IconButton
-            aria-label={`View details for ${cellValues.row.title}`}
-            tabIndex={cellValues.tabIndex}
-            color="primary"
-            onClick={() =>
-              history.push('/inventory/vulnerability/' + cellValues.row.id)
-            }
-          >
-            <OpenInNewIcon />
-          </IconButton>
-        );
-      }
-    }
-  ];
+    ],
+    [history]
+  );
 
   return (
-    <Box>
-      <Subnav
-        items={[
-          { title: 'Search Results', path: '/inventory', exact: true },
-          { title: 'All Domains', path: '/inventory/domains' },
-          { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
-        ]}
-      ></Subnav>
-      <Box mb={3} mt={5} display="flex" justifyContent="center">
+    <FindingsHeader>
+      {!isLoading && !loadingError && filters.length > 0 && (
+        <Box sx={{ width: '100%', mb: 1 }}>
+          <Stack direction="row" alignItems="center">
+            <FiberManualRecordRounded sx={{ color: 'primary.main' }} />
+            <Typography variant="body1" color="neutrals.main">
+              &nbsp;Filters Applied:
+            </Typography>
+            {state.orgName ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>Organization</b> - {state.orgName}
+              </Typography>
+            ) : (
+              ''
+            )}
+            {state.title ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>Vulnerability</b> - {state.title}
+              </Typography>
+            ) : (
+              ''
+            )}
+            {state.domain ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>Domain</b> - {state.domain}
+              </Typography>
+            ) : (
+              ''
+            )}
+            {state.kev ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>KEV</b> - Yes
+              </Typography>
+            ) : (
+              ''
+            )}
+            {state.severity ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>Severity</b> -{' '}
+                {state.severity.charAt(0).toUpperCase() +
+                  state.severity.slice(1)}
+              </Typography>
+            ) : (
+              ''
+            )}
+            {state.dateRange ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>Scan Date</b> - {state.dateRange}
+              </Typography>
+            ) : (
+              ''
+            )}
+            &nbsp;&nbsp;&nbsp;
+            <Divider
+              orientation="vertical"
+              flexItem
+              variant="middle"
+              sx={{
+                height: 24,
+                alignSelf: 'center',
+                borderColor: 'neutrals.light',
+                ml: 2
+              }}
+            />
+            <Button
+              variant="text"
+              onClick={resetVulnerabilities}
+              sx={{
+                color: 'primary.dark',
+                fontSize: '14px',
+                letterSpacing: '3px',
+                ml: 2
+              }}
+            >
+              Reset
+            </Button>
+          </Stack>
+        </Box>
+      )}
+      <Box mb={3} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
             <Alert severity="info">Loading Vulnerabilities..</Alert>
@@ -687,11 +490,12 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
             </Button>
           </Stack>
         ) : isLoading === false && loadingError === false ? (
-          <Paper elevation={2} sx={{ width: '90%', minHeight: 500 }}>
+          <Paper elevation={2} sx={{ width: '100%', minHeight: 500 }}>
             <DataGrid
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
+              loading={isLoading}
               slots={{
                 toolbar: CustomToolbar,
                 noRowsOverlay: CustomNoRowsOverlay
@@ -702,44 +506,18 @@ export const Vulnerabilities: React.FC<{ group_by?: string }> = ({
                     ? showAllVulnsButton
                     : showOpenVulnsButton,
                   exportTitle: 'Vulnerabilities'
-                },
+                } as any,
                 noRowsOverlay: { children: noRowsOverlay }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                fetchVulnerabilities({
-                  page: model.page + 1,
-                  pageSize: model.pageSize,
-                  filters: paginationModel.filters
-                });
-              }}
-              filterMode="server"
-              filterModel={filterModel}
-              onFilterModelChange={(model) => {
-                const filters = model.items.map((item) => ({
-                  id: item.id,
-                  field: item.field,
-                  value: item.value,
-                  operator: item.operator
-                }));
-                setFilters(filters);
-                setFilterModel((prevFilterModel) => ({
-                  ...prevFilterModel,
-                  items: filters
-                }));
-                fetchVulnerabilities({
-                  page: paginationModel.page + 1,
-                  pageSize: paginationModel.pageSize,
-                  filters: filters
-                });
-              }}
+              onPaginationModelChange={handlePaginationModelChange}
               pageSizeOptions={[15, 30, 50, 100]}
             />
           </Paper>
         ) : null}
       </Box>
-    </Box>
+    </FindingsHeader>
   );
 };
 

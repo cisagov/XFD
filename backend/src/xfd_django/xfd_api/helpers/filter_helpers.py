@@ -1,4 +1,7 @@
 """Filter helpers."""
+# Standard Python Libraries
+from datetime import datetime
+
 # Third-Party Libraries
 from django.db.models.query import Q, QuerySet
 from fastapi import HTTPException
@@ -41,6 +44,18 @@ def sort_direction(sort, order):
         raise HTTPException(status_code=500, detail="Invalid sort direction supplied")
 
 
+def convert_to_naive(dt: datetime) -> datetime:
+    """
+    Convert a timezone-aware datetime to naive by removing timezone info.
+
+    Required for vulnerability materialized views created_at date being timestamp
+    vs. timestamptz.
+    """
+    if dt.tzinfo is not None:
+        return dt.replace(tzinfo=None)
+    return dt
+
+
 def apply_domain_filters(domains, filters):
     """
     Apply filters to domains QuerySet directly.
@@ -70,24 +85,7 @@ def apply_domain_filters(domains, filters):
 
     # Organization_name partial match
     if filters.organization_name:
-        q &= Q(organization__name__icontains=filters.organization_name)
-
-    # Vulnerabilities partial match by title
-    if filters.vulnerabilities:
-        q &= Q(vulnerabilities__title__icontains=filters.vulnerabilities)
-
-    # Ports filtering:
-    if hasattr(filters, "ports") and filters.ports:
-        try:
-            port_int = int(filters.ports)
-            q &= Q(services__port=port_int)
-        except ValueError:
-            # If not a valid integer, no match
-            q &= Q(pk__in=[])
-
-    # Service partial match in products or service field:
-    if filters.service:
-        q &= Q(services__products__icontains=filters.service)
+        q &= Q(organization_name__icontains=filters.organization_name)
 
     # Apply the final Q object filter
     filtered = domains.filter(q)
@@ -109,7 +107,7 @@ def apply_vuln_filters(
     if vulnerability_filters.id:
         q &= Q(id=vulnerability_filters.id)
 
-    # Partial match on title (ILIKE -> __icontains)
+    # Partial match on title
     if vulnerability_filters.title:
         q &= Q(title__icontains=vulnerability_filters.title)
 
@@ -117,7 +115,7 @@ def apply_vuln_filters(
     if vulnerability_filters.domain:
         q &= Q(domain__name__icontains=vulnerability_filters.domain)
 
-    # Partial match on severity
+    # Severity logic (includes N/A and Other categories)
     if vulnerability_filters.severity:
         severity_category = format_severity(vulnerability_filters.severity)
 
@@ -130,7 +128,6 @@ def apply_vuln_filters(
                 | Q(severity__icontains="undefined")
                 | Q(severity="")
             )
-
         elif severity_category == "Other":
             q &= ~(
                 Q(severity=None)
@@ -144,11 +141,10 @@ def apply_vuln_filters(
                 | Q(severity__icontains="High")
                 | Q(severity__icontains="Critical")
             )
-
         elif severity_category in SEVERITY_LEVELS:
             q &= Q(severity__icontains=severity_category)
 
-    # Partial match on cpe
+    # CPE match
     if vulnerability_filters.cpe:
         q &= Q(cpe__icontains=vulnerability_filters.cpe)
 
@@ -164,15 +160,68 @@ def apply_vuln_filters(
     if vulnerability_filters.organization:
         q &= Q(domain__organization_id=vulnerability_filters.organization)
 
-    # Exact match on is_kev (True/False)
+    # Boolean flag for KEV
     if vulnerability_filters.is_kev is not None:
         q &= Q(is_kev=vulnerability_filters.is_kev)
 
-    # Apply the final Q object filter
+    # Filter by earliest date (discovery window lower bound)
+    if vulnerability_filters.earliest_date:
+        # naive_earliest = convert_to_naive(vulnerability_filters.earliest_date)
+        q &= Q(created_at__gte=vulnerability_filters.earliest_date)
+
+    # # Filter by latest date (discovery window upper bound)
+    if vulnerability_filters.latest_date:
+        # naive_latest = convert_to_naive(vulnerability_filters.latest_date)
+        q &= Q(created_at__lte=vulnerability_filters.latest_date)
+
+    # Filter  by OS
+    if vulnerability_filters.os and str(vulnerability_filters.os).lower() != "any":
+        q &= Q(os__icontains=vulnerability_filters.os)
+
+    # Filter by public ID (CVE or CWE)
+    if (
+        vulnerability_filters.public_id
+        and vulnerability_filters.public_id.lower() != "any"
+    ):
+        q &= Q(
+            Q(cve__icontains=vulnerability_filters.public_id)
+            | Q(cwe__icontains=vulnerability_filters.public_id)
+        )
+
+    # Filter by scan type (source with case-insensitive match)
+    if (
+        vulnerability_filters.scan_type is not None
+        and str(vulnerability_filters.scan_type).lower() != "any"
+    ):
+        q &= Q(source__iexact=vulnerability_filters.scan_type)
+
+    # Filter by scan source (scan_source with case-insensitive match)
+    if (
+        getattr(vulnerability_filters, "scan_source", None) is not None
+        and str(getattr(vulnerability_filters, "scan_source")).lower() != "any"
+    ):
+        q &= Q(scan_source__iexact=vulnerability_filters.scan_source)
+
+    # Filter by IP or hostname
+    if (
+        vulnerability_filters.ip_or_host
+        and vulnerability_filters.ip_or_host.lower() != "any"
+    ):
+        q &= Q(
+            Q(ip_string__icontains=vulnerability_filters.ip_or_host)
+            | Q(domain_string__icontains=vulnerability_filters.ip_or_host)
+        )
+
+    # Filter by port or service name
+    if (
+        vulnerability_filters.port_or_service
+        and vulnerability_filters.port_or_service.lower() != "any"
+    ):
+        q &= Q(
+            Q(port__icontains=vulnerability_filters.port_or_service)
+            | Q(service_string__icontains=vulnerability_filters.port_or_service)
+        )
+
     filtered = vulnerabilities.filter(q)
 
-    # If the queryset is empty, return an empty queryset
-    if not filtered.exists():
-        return filtered.none()
-
-    return filtered
+    return filtered.none() if not filtered.exists() else filtered

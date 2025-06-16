@@ -28,6 +28,23 @@ export interface Organization {
   tag_names?: string[];
 }
 
+export interface UserOrganization {
+  id: string;
+  name: string;
+  tags: OrganizationTag[];
+  country?: string;
+  region_id?: string;
+  state?: string;
+  state_fips?: number;
+  state_name?: string;
+  county?: string;
+  county_fips?: number;
+  acronym?: string;
+  type?: string;
+  user_count?: number;
+  tag_names?: string[];
+}
+
 export interface PendingDomain {
   name: string;
   token: string;

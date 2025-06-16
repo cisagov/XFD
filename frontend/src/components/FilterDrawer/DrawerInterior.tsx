@@ -4,42 +4,37 @@ import {
   Accordion as MuiAccordion,
   AccordionSummary as MuiAccordionSummary,
   IconButton,
-  Divider,
   Stack,
-  Toolbar,
   Typography,
   Box,
-  Button,
   List,
   FormControlLabel,
   ListItem,
   FormGroup,
-  Radio
+  Radio,
+  useTheme
 } from '@mui/material';
+import { classes } from '../../pages/Search/Styling/filterDrawerStyle';
 import {
-  classes,
-  StyledWrapper
-} from '../pages/Search/Styling/filterDrawerStyle';
-import {
-  Delete,
+  DeleteOutline,
   ExpandMore,
-  FiberManualRecordRounded,
-  FilterAlt,
-  Save
+  FiberManualRecordRounded
 } from '@mui/icons-material';
 import { FacetFilter, TaggedArrayInput } from 'components';
-import { ContextType } from '../context/SearchProvider';
-import { useAuthContext } from '../context';
+import { ContextType } from '../../context/SearchProvider';
+import { useAuthContext } from '../../context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
+import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 
 interface Props {
   addFilter: ContextType['addFilter'];
   removeFilter: ContextType['removeFilter'];
   filters: ContextType['filters'];
   facets: ContextType['facets'];
-  search_term: ContextType['search_term'];
+  searchTerm: ContextType['searchTerm'];
   setSearchTerm: ContextType['setSearchTerm'];
+  totalResults?: ContextType['totalResults'];
   initialFilters: any[];
 }
 
@@ -53,10 +48,11 @@ interface GroupedData {
 }
 
 const FiltersApplied: React.FC = () => {
+  const theme = useTheme();
   return (
-    <div className={classes.applied}>
-      <FiberManualRecordRounded /> Filters Applied
-    </div>
+    <FiberManualRecordRounded
+      sx={{ color: theme.palette.primary.main, height: '1rem', width: '1rem' }}
+    />
   );
 };
 
@@ -69,8 +65,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     addFilter,
     removeFilter,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm,
+    totalResults = 0, // Default to 0 if not provided
     initialFilters
   } = props;
   const { apiGet, apiDelete } = useAuthContext();
@@ -82,6 +79,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     activeSearchId,
     setActiveSearchId
   } = useSavedSearchContext();
+
+  const advanceFiltersReq = filters.length > 1 || searchTerm !== '';
+  const theme = useTheme();
 
   const deleteSearch = async (id: string) => {
     try {
@@ -117,19 +117,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       });
     });
   };
-
-  const clearFiltersAndSearch = () => {
-    setSearchTerm('', {
-      shouldClearFilters: true,
-      autocompleteResults: false
-    });
-    restoreInitialFilters();
-  };
-
-  const selectedFiltersAndSearch = filters.filter(
-    (filter) =>
-      !initialFilters.some((f) => f.field === filter.field) || search_term
-  );
 
   const revertSearch = () => {
     setSearchTerm('', {
@@ -171,20 +158,20 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     [filters]
   );
 
-  const portFacet: any[] = facets['services.port']
+  const portFacet: any[] = facets?.['services.port']
     ? facets['services.port'][0].data.sort(
         (a: { value: number }, b: { value: number }) => a.value - b.value
       )
     : [];
 
-  const fromDomainFacet: any[] = facets['from_root_domain']
+  const fromDomainFacet: any[] = facets?.['from_root_domain']
     ? facets['from_root_domain'][0].data.sort(
         (a: { value: string }, b: { value: string }) =>
           a.value.localeCompare(b.value)
       )
     : [];
 
-  const cveFacet: any[] = facets['vulnerabilities.cve']
+  const cveFacet: any[] = facets?.['vulnerabilities.cve']
     ? facets['vulnerabilities.cve'][0].data.sort(
         (a: { value: string }, b: { value: string }) =>
           a.value.localeCompare(b.value)
@@ -192,7 +179,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     : [];
 
   // To-Do: Create array(s) to handle permutations of null and N/A values
-  const titleCaseSeverityFacet = facets['vulnerabilities.severity']
+  const titleCaseSeverityFacet = facets?.['vulnerabilities.severity']
     ? facets['vulnerabilities.severity'][0].data.map(
         (d: { value: string; count: number }) => {
           if (d.value === null || d.value === undefined) {
@@ -247,24 +234,9 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     });
 
   return (
-    <StyledWrapper style={{ overflowY: 'auto' }}>
-      <Toolbar sx={{ justifyContent: 'center' }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="h6" component="h3">
-            Advanced Filters
-          </Typography>
-          <FilterAlt />
-        </Stack>
-      </Toolbar>
-
-      {selectedFiltersAndSearch.length > 0 ? (
-        <>
-          <Divider />
-          <Box marginY={1} display="flex" width="100%" justifyContent="center">
-            <Button onClick={clearFiltersAndSearch}>Clear Filters</Button>
-          </Box>
-        </>
-      ) : null}
+    <Box>
+      {/* Gives space for accordion divider to render*/}
+      <Box></Box>
       <Accordion
         elevation={0}
         square
@@ -283,8 +255,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             expanded: classes.expanded2
           }}
         >
-          <div>IP(s)</div>
-          {filtersByColumn['ip']?.length > 0 && <FiltersApplied />}
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="largeBody">IP</Typography>
+            {filtersByColumn['ip']?.length > 0 && <FiltersApplied />}
+          </Stack>
         </AccordionSummary>
         <AccordionDetails classes={{ root: classes.details }}>
           <TaggedArrayInput
@@ -313,8 +287,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             expanded: classes.expanded2
           }}
         >
-          <div>Domain(s)</div>
-          {filtersByColumn['name']?.length > 0 && <FiltersApplied />}
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="largeBody">Domain</Typography>
+            {filtersByColumn['name']?.length > 0 && <FiltersApplied />}
+          </Stack>
         </AccordionSummary>
         <AccordionDetails classes={{ root: classes.details }}>
           <TaggedArrayInput
@@ -344,10 +320,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               expanded: classes.expanded2
             }}
           >
-            <div>Root Domain(s)</div>
-            {filtersByColumn['from_root_domain']?.length > 0 && (
-              <FiltersApplied />
-            )}
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">Root Domains</Typography>
+              {filtersByColumn['from_root_domain']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
           </AccordionSummary>
           <AccordionDetails classes={{ root: classes.details }}>
             <FacetFilter
@@ -380,8 +358,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               expanded: classes.expanded2
             }}
           >
-            <div>Port(s)</div>
-            {filtersByColumn['services.port']?.length > 0 && <FiltersApplied />}
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">Ports</Typography>
+              {filtersByColumn['services.port']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
           </AccordionSummary>
           <AccordionDetails classes={{ root: classes.details }}>
             <FacetFilter
@@ -414,10 +396,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               expanded: classes.expanded2
             }}
           >
-            <div>CVE(s)</div>
-            {filtersByColumn['vulnerabilities.cve']?.length > 0 && (
-              <FiltersApplied />
-            )}
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">CVEs</Typography>
+              {filtersByColumn['vulnerabilities.cve']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
           </AccordionSummary>
           <AccordionDetails classes={{ root: classes.details }}>
             <FacetFilter
@@ -452,10 +436,12 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               expanded: classes.expanded2
             }}
           >
-            <div>Severity</div>
-            {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
-              <FiltersApplied />
-            )}
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">Severity</Typography>
+              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
           </AccordionSummary>
           <AccordionDetails classes={{ root: classes.details }}>
             <FacetFilter
@@ -471,22 +457,21 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </AccordionDetails>
         </Accordion>
       )}
-      <Toolbar sx={{ justifyContent: 'center' }}>
-        <Stack direction="row" spacing={2} alignItems="center">
-          <Typography variant="h6" component="h3">
-            Saved Searches
-          </Typography>
-          <Save />
-        </Stack>
-      </Toolbar>
-      <Divider />
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography>Saved Searches</Typography>
+          <Typography variant="largeBody">Saved Filters</Typography>
         </AccordionSummary>
         <AccordionDetails>
+          <SaveSearchModal
+            searchTerm={searchTerm}
+            filters={filters}
+            totalResults={totalResults}
+            sort_field={''}
+            sort_direction={''}
+            advancedFiltersReq={advanceFiltersReq}
+          />
           {ascendingSavedSearches.length > 0 ? (
-            <List>
+            <List sx={{ maxHeight: 5 * 42, overflowY: 'auto' }}>
               {ascendingSavedSearches.map((search) => (
                 <ListItem
                   key={search.id}
@@ -507,8 +492,11 @@ export const DrawerInterior: React.FC<Props> = (props) => {
                     aria-label="Delete"
                     title="Delete Search"
                     onClick={() => deleteSearch(search.id)}
+                    sx={{
+                      color: theme.palette.neutrals.main
+                    }}
                   >
-                    <Delete />
+                    <DeleteOutline />
                   </IconButton>
                 </ListItem>
               ))}
@@ -516,19 +504,30 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           ) : (
             <List>
               <ListItem sx={{ alignItems: 'center', justifyContent: 'center' }}>
-                No Saved Searches
+                No Saved Filters
               </ListItem>
             </List>
           )}
         </AccordionDetails>
       </Accordion>
-    </StyledWrapper>
+    </Box>
   );
 };
 
 export const DrawerInteriorWithSearch = withSearch(
-  ({ search_term, setSearchTerm }: ContextType) => ({
-    search_term,
-    setSearchTerm
+  ({
+    facets,
+    searchTerm,
+    setSearchTerm,
+    totalResults,
+    addFilter,
+    removeFilter
+  }: ContextType) => ({
+    facets,
+    searchTerm,
+    setSearchTerm,
+    totalResults,
+    addFilter,
+    removeFilter
   })
 )(DrawerInterior);

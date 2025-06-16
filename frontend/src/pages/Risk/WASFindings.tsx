@@ -14,12 +14,12 @@ const WASFindings = () => {
         </div>
         <div className={body}>
           <Grid container spacing={1}>
-            <Grid item xs={12} pb={2}>
+            <Grid size={{ xs: 12 }} pb={2}>
               <Typography variant="h6">
                 Scan Date: {wasFindingsData.scanDate}
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Typography variant="h5" sx={headerFontSize}>
                 ACTIVE VULNERABILITIES
               </Typography>
@@ -34,7 +34,7 @@ const WASFindings = () => {
                 {wasFindingsData.reopenedVulns}
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Typography variant="h5" sx={headerFontSize}>
                 NEW VULNERABILITIES
               </Typography>

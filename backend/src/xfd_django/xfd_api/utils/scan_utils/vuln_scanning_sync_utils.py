@@ -10,18 +10,16 @@ import datetime
 import json
 import logging
 import os
+import time
 from typing import Dict
-from uuid import uuid1
+from uuid import uuid4
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
-from django.db import transaction
+from django.db import connections, models, transaction
 from django.db.models import Exists, OuterRef, Prefetch
 from django.db.utils import IntegrityError
-from xfd_api.models import Domain as XFDDomain
-from xfd_api.models import Organization as XFDOrganization
-from xfd_api.models import Service as XFDService
-from xfd_api.models import Vulnerability as XFDVulnerability
+from django.utils import timezone
 from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
@@ -79,8 +77,6 @@ def save_port_scan_to_datalake(port_scan_obj):
             obj, created = PortScan.objects.update_or_create(
                 id=id, defaults=port_scan_obj
             )
-            if not created:
-                print(f"Found existing PortScan: {obj.id}")
     except Exception as e:
         print("Error saving PortScan to Datalake", e)
         return None
@@ -155,8 +151,17 @@ def save_ticket_event_to_datalake(ticket_event_obj, ticket_id, details):
         ticket_event_record = TicketEvent.objects.create(**shaped)
         return ticket_event_record
     except IntegrityError:
-        LOGGER.info("TicketEvent already exists")
         return None
+
+
+def get_latest_os_type(ip_str):
+    """Extract OS type for a given ip."""
+    port_scan = (
+        PortScan.objects.filter(ip_string=ip_str, service_os_type__isnull=False)
+        .order_by("-time_scanned")
+        .first()
+    )
+    return port_scan.service_os_type if port_scan else None
 
 
 def save_ticket_to_datalake(ticket_obj, events, details):
@@ -179,13 +184,11 @@ def save_ticket_to_datalake(ticket_obj, events, details):
             # Insert but ignore if the record already exists
 
             obj, created = Ticket.objects.update_or_create(id=id, defaults=ticket_obj)
-            print("Saved ticket")
     except Exception as e:
         print("Error saving Ticket to Datalake", e)
 
     try:
         for event in events:
-            print("Saving TicketEvent to Datalake")
             save_ticket_event_to_datalake(event, obj.id, details)
     except Exception as e:
         print("Error saving TicketEvent to Datalake", e)
@@ -212,6 +215,26 @@ def save_host(host_data: Dict) -> str:
     return str(host.id)
 
 
+def truncate_charfields(model_cls, data_dict):
+    """Trim or stringify charfields in the given data dict to their model-defined max_length."""
+    for field in model_cls._meta.fields:
+        if isinstance(field, models.CharField):
+            val = data_dict.get(field.name)
+            if val is None:
+                continue
+            if not isinstance(val, str):
+                val = str(val)
+            if field.max_length and len(val) > field.max_length:
+                LOGGER.warning(
+                    "Truncating field %s: %d → %d",
+                    field.name,
+                    len(val),
+                    field.max_length,
+                )
+                val = val[: field.max_length]
+            data_dict[field.name] = val
+
+
 def save_vuln_scan(vuln_scan: Dict) -> str:
     """Save a Vulnerability Scan record to the data lake.
 
@@ -223,6 +246,7 @@ def save_vuln_scan(vuln_scan: Dict) -> str:
     """
     id = vuln_scan.get("id")
     del vuln_scan["id"]
+    truncate_charfields(VulnScan, vuln_scan)
     if isinstance(id, str):
         id = id.replace("ObjectId('", "").replace("')", "")
 
@@ -245,8 +269,6 @@ def save_cve_to_datalake(cve_obj):
     """
     cve_name = cve_obj.get("name")
 
-    print(f"Starting to save CVE to datalake: {cve_name}")
-
     # Determine fields to update, excluding 'name'
     cve_updated_values = [
         key
@@ -268,10 +290,8 @@ def save_cve_to_datalake(cve_obj):
             else:
                 # Insert but ignore if the record already exists
                 obj, created = Cve.objects.get_or_create(
-                    name=cve_name, defaults=cve_obj | {"id": str(uuid1())}
+                    name=cve_name, defaults=cve_obj | {"id": str(uuid4())}
                 )
-                if not created:
-                    print(f"Found existing CVE: {obj.id}")
                 return obj
     except Exception as e:
         print("Error saving CVE to Datalake", e)
@@ -307,7 +327,6 @@ def save_ip_to_datalake(ip_obj):
                     organization=org_record or None,
                     defaults={key: ip_obj[key] for key in ip_updated_values},
                 )
-                print("Updated IP")
                 return ip_record
             else:
                 # Insert but ignore if the record already exists
@@ -337,11 +356,11 @@ def fetch_orgs_and_relations(db_name="mini_data_lake"):
     """
     sectors_prefetch = Prefetch("sectors")
     cidr_orgs_prefetch = Prefetch(
-        "cidrorgs_set",  # Default reverse name for ForeignKey in Django
+        "cidrorgs",  # Default reverse name for ForeignKey in Django
         queryset=CidrOrgs.objects.using(db_name).select_related("cidr"),
     )
     children_prefetch = Prefetch(
-        "organization_set"
+        "children"
     )  # Reverse ForeignKey for children organizations
 
     # Annotate organizations to identify if their id exists in another record's parent_id
@@ -389,6 +408,14 @@ def organization_to_dict(org):
         "created_at": org.created_at.isoformat(),
         "updated_at": org.updated_at.isoformat(),
         "type": org.type,
+        "state": org.state,
+        "state_name": org.state_name,
+        "county": org.county,
+        "county_fips": org.county_fips,
+        "state_fips": org.state_fips,
+        "country": org.country,
+        "country_name": org.country_name,
+        "region_id": org.region_id,
         "stakeholder": org.stakeholder,
         "enrolled_in_vs_timestamp": org.enrolled_in_vs_timestamp.isoformat(),
         "period_start_vs_timestamp": org.period_start_vs_timestamp.isoformat(),
@@ -402,7 +429,7 @@ def organization_to_dict(org):
             "county_fips": org.location.county_fips,
             "gnis_id": org.location.gnis_id,
             "state_abrv": org.location.state_abrv,
-            "stateFips": org.location.state_fips,
+            "state_fips": org.location.state_fips,
             "state": org.location.state,
         }
         if org.location
@@ -415,8 +442,7 @@ def organization_to_dict(org):
         if org.parent
         else None,
         "children": [
-            {"id": str(child.id), "name": child.name}
-            for child in org.organization_set.all()
+            {"id": str(child.id), "name": child.name} for child in org.children.all()
         ],
         "sectors": [
             {"id": str(sector.id), "name": sector.name, "acronym": sector.acronym}
@@ -427,8 +453,9 @@ def organization_to_dict(org):
                 "network": str(cidr_org.cidr.network),
                 "start_ip": str(cidr_org.cidr.start_ip),
                 "end_ip": str(cidr_org.cidr.end_ip),
+                "live_ips": cidr_org.cidr.live_ips or [],
             }
-            for cidr_org in org.cidrorgs_set.all()
+            for cidr_org in org.cidrorgs.all()
         ],
     }
 
@@ -459,7 +486,7 @@ def save_organization_to_mdl(
     if location:
         try:
             location_obj, created = Location.objects.using(db_name).update_or_create(
-                gnis_id=location["gnis_id"],  # Lookup field
+                gnis_id=str(location["gnis_id"]),  # Lookup field
                 defaults={  # Fields to update or set if creating
                     "name": location.get("name", None),
                     "country_abrv": location.get("country_abrv", None),
@@ -489,16 +516,31 @@ def save_organization_to_mdl(
         organization_obj.report_types = org_dict["report_types"]
         organization_obj.scan_types = org_dict["scan_types"]
         organization_obj.location = location_obj
+        organization_obj.region_id = org_dict["region_id"]
+        organization_obj.state = org_dict["state"]
+        organization_obj.state_name = org_dict["state_name"]
+        organization_obj.county = org_dict["county"]
+        organization_obj.county_fips = org_dict["county_fips"]
+        organization_obj.state_fips = org_dict["state_fips"]
+        organization_obj.country = org_dict["country"]
+        organization_obj.country_name = org_dict["country_name"]
         organization_obj.save()
         org_obj = organization_obj
     except Organization.DoesNotExist:
         organization_obj = Organization.objects.using(db_name).create(
-            id=str(uuid1()),
+            id=str(uuid4()),
             name=org_dict["name"],
             acronym=org_dict["acronym"],
             retired=org_dict["retired"],
             type=org_dict["type"],
             region_id=org_dict["region_id"],
+            state=org_dict["state"],
+            state_name=org_dict["state_name"],
+            county=org_dict["county"],
+            county_fips=org_dict["county_fips"],
+            state_fips=org_dict["state_fips"],
+            country=org_dict["country"],
+            country_name=org_dict["country_name"],
             stakeholder=org_dict["stakeholder"],
             enrolled_in_vs_timestamp=org_dict["enrolled_in_vs_timestamp"],
             period_start_vs_timestamp=org_dict["period_start_vs_timestamp"],
@@ -545,14 +587,16 @@ def save_cidr_to_mdl(cidr_dict: dict, org: Organization, db_name="mini_data_lake
                 cidr_obj.start_ip = cidr_dict["start_ip"]
                 cidr_obj.end_ip = cidr_dict["end_ip"]
                 cidr_obj.retired = False
+                cidr_obj.live_ips = cidr_dict.get("live_ips", [])
                 cidr_obj.save(using=db_name)  # Save updates
 
             else:
                 cidr_obj = Cidr.objects.using(db_name).create(
-                    id=str(uuid1()),
+                    id=str(uuid4()),
                     network=cidr_dict["network"],
                     start_ip=cidr_dict["start_ip"],
                     end_ip=cidr_dict["end_ip"],
+                    live_ips=cidr_dict.get("live_ips", []),
                     retired=False,
                 )
             # cidr_obj.organizations.add(org, through_defaults={})
@@ -561,7 +605,6 @@ def save_cidr_to_mdl(cidr_dict: dict, org: Organization, db_name="mini_data_lake
                 organization=org,
                 cidr=cidr_obj,
                 defaults={
-                    "cidr_orgs_id": str(uuid1()),
                     "last_seen": datetime.datetime.today().date(),
                     "current": True,
                 },
@@ -609,6 +652,56 @@ def load_test_data(data_set: str) -> list:
         return json.load(file)
 
 
+def enforce_latest_flag_port_scan():
+    """
+    Enforce the `latest` boolean flag on the PortScan table per org.
+
+    Marks only the most recent scan for each (organization_id, ip_string, port)
+    as `latest=True`. All others are set to `False`.
+    """
+    start = time.time()
+    db = "mini_data_lake"
+    org_ids = list(Organization.objects.using(db).values_list("id", flat=True))
+
+    for org_id in org_ids:
+        try:
+            with connections[db].cursor() as cursor, transaction.atomic(using=db):
+                # Step 1: Mark all as latest=False
+                cursor.execute(
+                    """
+                    UPDATE port_scan
+                    SET latest = FALSE
+                    WHERE organization_id = %s;
+                """,
+                    [org_id],
+                )
+
+                # Step 2: Mark latest=True only for the most recent per IP/port
+                cursor.execute(
+                    """
+                    WITH latest_scans AS (
+                        SELECT DISTINCT ON (ip_string, port)
+                            id
+                        FROM port_scan
+                        WHERE organization_id = %s
+                          AND time_scanned IS NOT NULL
+                          AND time_scanned > NOW() - INTERVAL '90 days'
+                        ORDER BY ip_string, port, time_scanned DESC
+                    )
+                    UPDATE port_scan
+                    SET latest = TRUE
+                    WHERE id IN (SELECT id FROM latest_scans);
+                """,
+                    [org_id],
+                )
+
+        except Exception as e:
+            print("Error enforcing latest flag for org {}: {}".format(org_id, e))
+
+    duration = time.time() - start
+    print("Completed enforce_latest_flag in {:.2f}s".format(duration))
+
+
 def map_severity(severity):
     """Map a severity score to a severity level."""
     if severity == 0 or severity is None:
@@ -622,55 +715,84 @@ def map_severity(severity):
     return "Critical"
 
 
-def save_vuln_scan_to_xfd_db(vuln):
-    """Save a vulnerability scan record to the XFD database."""
-    owner_acronym = vuln.get("owner")
-    vuln_title = vuln.get("cve") if vuln.get("cve") else vuln.get("description")
-    xfd_org_record = None
-    xfd_domain_record = None
-    try:
-        # Fetch the organization record from the XFD database
-        xfd_org_record = XFDOrganization.objects.get(acronym=owner_acronym)
-    except XFDOrganization.DoesNotExist:
-        # If the organization record does not exist, stop execution
-        return
-    try:
-        xfd_domain_record = XFDDomain.objects.get(
-            name=vuln.get("ip"), organization=xfd_org_record
+def fill_cidr_live_ips():
+    """Update live_ips field for all current CIDRs based on recent open PortScans."""
+    start_time = time.time()
+
+    # Define the 90-day threshold
+    time_threshold = timezone.now() - datetime.timedelta(days=90)
+
+    # Get all Cidrs with at least one related CidrOrgs marked as current
+    current_cidrs = Cidr.objects.filter(cidrorgs__current=True).distinct()
+
+    for cidr in current_cidrs:
+        if not cidr.network:
+            continue
+
+        scans = (
+            PortScan.objects.filter(
+                state="open",
+                time_scanned__gte=time_threshold,
+                ip__ip__net_contained=cidr.network,
+            )
+            .values_list("ip__ip", flat=True)
+            .distinct()
         )
-    except XFDDomain.DoesNotExist:
-        xfd_domain_record = XFDDomain.objects.create(
-            ip=vuln.get("ip"),
-            ipOnly=True,
-            name=vuln.get("ip"),
-            organization=xfd_org_record,
-        )
-        print(f"Created domain: {xfd_domain_record} for organization: {xfd_org_record}")
-    try:
-        xfd_service_record = XFDService.objects.get(
-            domain=xfd_domain_record, port=vuln.get("port")
-        )
-    except XFDService.DoesNotExist:
-        xfd_service_record = XFDService.objects.create(
-            createdAt=datetime.datetime.now(datetime.timezone.utc),
-            updatedAt=datetime.datetime.now(datetime.timezone.utc),
-            domain=xfd_domain_record,
-            port=vuln.get("port"),
-            service=vuln.get("service"),
-        )
-    try:
-        XFDVulnerability.objects.get(domain=xfd_domain_record, title=vuln_title)
-    except XFDVulnerability.DoesNotExist:
-        XFDVulnerability.objects.update_or_create(
-            title=vuln_title,  # Fields to match an existing record
-            domain=xfd_domain_record,  # Fields to match an existing record
-            defaults={  # Fields to update or insert if the record doesn't exist
-                "description": vuln.get("description"),
-                "createdAt": datetime.datetime.now(datetime.timezone.utc),
-                "updatedAt": datetime.datetime.now(datetime.timezone.utc),
-                "severity": map_severity(vuln.get("severity")),
-                "cvss": vuln.get("cvss3_base_score"),
-                "source": vuln.get("source"),
-                "service": xfd_service_record,
-            },
-        )
+
+        # If live_ips is empty or not set, initialize it as an empty set
+        current_live_ips = set(cidr.live_ips or [])
+
+        # Add the new IPs from the scans to the existing set (no duplicates)
+        current_live_ips.update(scans)
+
+        # Convert all IP objects to strings for JSON serialization
+        cidr.live_ips = [str(ip.ip) for ip in current_live_ips]
+        cidr.save()
+
+    duration = time.time() - start_time
+    LOGGER.info("fill_cidr_live_ips completed in %.2f seconds", duration)
+
+
+def fill_cidr_live_ips_bulk_update():
+    """Fill live_ips field in the cidr table based on recent port scans."""
+    start_time = time.time()
+
+    with transaction.atomic(using="mini_data_lake"):
+        with connections["mini_data_lake"].cursor() as cursor:
+            cursor.execute(
+                """
+                WITH new_ips AS (
+                    SELECT
+                        cidr.id AS cidr_id,
+                        array_agg(DISTINCT ip.ip) AS new_ip_list
+                    FROM cidr
+                    JOIN cidr_orgs ON cidr_orgs.cidr_id = cidr.id
+                    JOIN port_scan ON port_scan.state = 'open'
+                        AND port_scan.time_scanned >= NOW() - INTERVAL '90 days'
+                    JOIN ip ON port_scan.ip_id = ip.id
+                    WHERE cidr_orgs.current = TRUE
+                      AND cidr.network IS NOT NULL
+                      AND ip.ip << cidr.network
+                    GROUP BY cidr.id
+                ),
+                merged_ips AS (
+                    SELECT
+                        cidr.id,
+                        ARRAY(
+                            SELECT DISTINCT ip_address::inet
+                            FROM jsonb_array_elements_text(
+                                COALESCE(cidr.live_ips, '[]'::jsonb) || to_jsonb(new_ips.new_ip_list)
+                            ) AS ip_address
+                        ) AS updated_ips
+                    FROM cidr
+                    JOIN new_ips ON cidr.id = new_ips.cidr_id
+                )
+                UPDATE cidr
+                SET live_ips = to_jsonb(merged_ips.updated_ips)
+                FROM merged_ips
+                WHERE cidr.id = merged_ips.id;
+                """
+            )
+
+    duration = time.time() - start_time
+    LOGGER.info("fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration)

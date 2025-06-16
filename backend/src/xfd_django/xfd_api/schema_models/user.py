@@ -37,6 +37,9 @@ class User(BaseModel):
     email: str
     invite_pending: bool
     login_blocked_by_maintenance: bool
+    cognito_use_case_description: Optional[str] = None
+    date_approved: Optional[datetime] = None
+    approved_by: Optional[Dict[str, str]] = None
     date_accepted_terms: Optional[datetime]
     accepted_terms_version: Optional[str]
     last_logged_in: Optional[datetime]
@@ -161,6 +164,8 @@ class UpdateUserV2(BaseModel):
     state: Optional[str] = None
     user_type: Optional[str] = None
     invite_pending: Optional[bool] = None
+    date_approved: Optional[datetime] = None
+    approved_by: Optional[Any] = None
 
 
 class RegisterUserResponse(BaseModel):
@@ -188,6 +193,9 @@ class UserResponseV2(BaseModel):
     email: str
     accepted_terms_version: Optional[str] = None
     date_accepted_terms: Optional[datetime] = None
+    cognito_use_case_description: Optional[str] = None
+    date_approved: Optional[datetime] = None
+    approved_by: Optional[Dict[str, str]] = None
     last_logged_in: Optional[datetime] = None
     region_id: Optional[str] = None
     state: Optional[str] = None

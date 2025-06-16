@@ -126,7 +126,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
-            toolbar: { exportTitle: organization?.name + ' Members' }
+            toolbar: { exportTitle: organization?.name + ' Members' } as any
           }}
           initialState={{
             pagination: { paginationModel: { pageSize: 15 } }

@@ -37,22 +37,32 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     type: AlertProps['severity'];
   } | null>(null);
   const cookies = useMemo(() => new Cookies(), []);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const logout = useCallback(async () => {
+    setIsLoggingOut(true);
     const shouldReload = !!token;
 
+    // Clear local storage/cookies and sign out
     localStorage.clear();
     await Auth.signOut();
     cookies.remove('crossfeed-token', {
       domain: process.env.REACT_APP_COOKIE_DOMAIN
     });
 
+    // Clear user state after successful sign out
+    setAuthUser(null);
+    setIsLoggingOut(false); // Reset logout state
+
     if (shouldReload) {
       // Refresh the page only if the token was previously defined
       // (i.e. it is now invalid / has expired now).
       window.location.reload();
     }
-  }, [cookies, token]);
+
+    // Reset logout state even on error
+    setIsLoggingOut(false);
+  }, [cookies, token, setAuthUser]);
 
   const handleError = useCallback(
     async (e: Error) => {
@@ -69,11 +79,27 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
 
   const getProfile = useCallback(async () => {
     const user: User = await apiGet<User>('/users/me');
+
+    // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
+    // Currently commented to meet "waiting room" needs and allow login for state selection
+    // and user terms acceptance for new users.
+    //
+    // This acts as a backup safeguard to alert users login is unavailable and log them out.
+    // If user is blocked due to maintenance, show alert and logout.
+    //
+    // if (user.login_blocked_by_maintenance) {
+    //   alert(
+    //     'Product has not officially been launched. Please check back again.'
+    //   );
+    //   await logout();
+    //   return;
+    // }
+
     setAuthUser({
       ...user,
       isRegistered: user.first_name !== ''
     });
-  }, [setAuthUser, apiGet]);
+  }, [apiGet]);
 
   const setProfile = useCallback(
     async (user: User) => {
@@ -154,6 +180,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         userMustSign,
         setFeedbackMessage,
         user_type: '',
+        isLoggingOut,
         ...api
       }}
     >

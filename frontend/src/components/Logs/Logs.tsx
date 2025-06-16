@@ -16,7 +16,7 @@ import {
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 import { useAuthContext } from 'context';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInCalendarDays } from 'date-fns';
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
@@ -115,6 +115,8 @@ export const Logs: FC<LogsProps> = () => {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
+
+  console.log('logs', logs);
 
   const logCols: GridColDef[] = [
     {
@@ -244,7 +246,6 @@ export const Logs: FC<LogsProps> = () => {
     {
       field: 'created_at',
       headerName: 'Timestamp',
-      type: 'dateTime',
       minWidth: 100,
       flex: 1.25,
       valueFormatter: (e) => {
@@ -306,7 +307,7 @@ export const Logs: FC<LogsProps> = () => {
           slots={{
             toolbar: CustomToolbar
           }}
-          slotProps={{ toolbar: { multifilter: true } }}
+          slotProps={{ toolbar: { multifilter: true } as any }}
           onFilterModelChange={(model) => {
             setFilters(model.items);
           }}

@@ -1,90 +1,78 @@
-import { styled } from '@mui/material/styles';
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { Tabs, Tab } from '@mui/material';
+import { useLocation, useHistory } from 'react-router-dom';
 
-interface Props {
-  items: {
-    title: string;
-    path: string | { pathname: string };
-    exact?: boolean;
-    users?: number;
-    externalLink?: boolean;
-  }[];
-  styles?: any;
-  children?: React.ReactNode;
-}
+type NavTabItem = {
+  title: string;
+  path: string | { pathname: string };
+  exact?: boolean;
+};
 
-export const Subnav: React.FC<Props> = (props) => {
-  const { items, children } = props;
+type NavTabsProps = {
+  items: NavTabItem[];
+};
+
+export const Subnav = ({ items }: NavTabsProps) => {
+  const location = useLocation();
+  const history = useHistory();
+
+  const getPathString = (path: string | { pathname: string }) =>
+    typeof path === 'string' ? path : path.pathname;
+
+  const currentTab =
+    items.find((item) =>
+      item.exact
+        ? location.pathname === getPathString(item.path)
+        : location.pathname.startsWith(getPathString(item.path))
+    )?.path ?? false;
+
+  const handleChange = (_event: React.SyntheticEvent, newValue: string) => {
+    const pathString = getPathString(newValue);
+    history.push(pathString);
+  };
 
   return (
-    <StyledPaper>
-      <div className={classes.root}>
-        {items.map((item) =>
-          item.externalLink ? (
-            <NavLink
-              key={item.title}
-              to={item.path}
-              className={classes.link}
-              activeClassName={classes.active}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {item.title}
-            </NavLink>
-          ) : (
-            <NavLink
-              key={item.title}
-              to={item.path}
-              className={classes.link}
-              activeClassName={classes.active}
-              exact={item.exact ?? false}
-            >
-              {item.title}
-            </NavLink>
-          )
-        )}
-        <div className={classes.flex} />
-        {children}
-      </div>
-    </StyledPaper>
+    <Tabs
+      value={currentTab}
+      onChange={handleChange}
+      slotProps={{
+        indicator: {
+          sx: {
+            height: 4,
+            backgroundColor: 'primary.dark'
+          }
+        }
+      }}
+      sx={{
+        minHeight: 'auto',
+        '.MuiTab-root': {
+          minHeight: 'auto'
+        },
+        mb: 3
+      }}
+    >
+      {items.map((item) => (
+        <Tab
+          key={item.title}
+          label={item.title}
+          value={item.path}
+          sx={{
+            minWidth: 'fit-content',
+            px: 0,
+            py: 1,
+            mr: 3,
+            mb: '3px',
+            textTransform: 'none',
+            color: 'neutrals.main',
+            fontWeight: 500,
+            fontSize: '16px',
+            '&.Mui-selected': {
+              color: 'primary.dark',
+              fontWeight: 'bold'
+            }
+          }}
+        />
+      ))}
+    </Tabs>
   );
 };
-
-//Styling
-const PREFIX = 'Subnav';
-
-const classes = {
-  root: `${PREFIX}-root`,
-  link: `${PREFIX}-link`,
-  active: `${PREFIX}-active`,
-  flex: `${PREFIX}-flex`,
-  styles: `${PREFIX}-styles`
-};
-
-const StyledPaper = styled('div')(({ theme }) => ({
-  [`.${classes.root}`]: {
-    width: '100%',
-    padding: '0 1rem',
-    borderRadius: 0,
-    display: 'flex',
-    flexFlow: 'row nowrap',
-    alignItems: 'center',
-    paddingLeft: '15%'
-  },
-  [`.${classes.link}`]: {
-    display: 'flex',
-    padding: '0.75rem 1rem 0.5rem 1rem',
-    borderBottom: '2px solid transparent',
-    textDecoration: 'none',
-    color: '#4e4e4e',
-    fontWeight: 500
-  },
-  [`.${classes.active}`]: {
-    borderBottom: `2px solid ${theme.palette.primary.main}`,
-    color: theme.palette.primary.main
-  },
-  [`.${classes.flex}`]: {
-    flex: 1
-  }
-}));

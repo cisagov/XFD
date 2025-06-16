@@ -50,7 +50,7 @@ export const SortBar: React.FC<Props> = (props) => {
         <FormControl className={classes.openFields}>
           <Select
             labelId="sort-by-label"
-            value={sort_field}
+            value={sort_field ?? 'name'}
             onChange={onSetSortField}
             classes={{ select: classes.selectInp }}
             sx={{

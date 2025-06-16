@@ -28,16 +28,14 @@ const InfoDialog: React.FC<DialogComponentProps> = ({
     <Dialog open={isOpen} fullWidth maxWidth={screenWidth}>
       <Grid sx={{ textAlign: 'center' }}>
         <DialogTitle sx={{ fontSize: 20 }}>
-          <Grid item sx={{ mt: 2 }}>
-            {icon}
-          </Grid>
-          <Grid item>{title}</Grid>
+          <Grid sx={{ mt: 2 }}>{icon}</Grid>
+          <Grid>{title}</Grid>
         </DialogTitle>
         <DialogContent>
-          <Grid item>
+          <Grid>
             <DialogContent>{content}</DialogContent>
           </Grid>
-          <Grid item sx={{ mt: 3, mb: 1 }}>
+          <Grid sx={{ mt: 3, mb: 1 }}>
             <Button
               sx={{ width: '30%' }}
               onClick={handleClick}

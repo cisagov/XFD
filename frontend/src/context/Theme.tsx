@@ -66,6 +66,26 @@ declare module '@mui/material/styles' {
   }
 }
 
+declare module '@mui/material/Button' {
+  interface ButtonPropsVariantOverrides {
+    globalNav: true;
+    primaryContained: true;
+  }
+}
+
+declare module '@mui/material/Chip' {
+  interface ChipPropsVariantOverrides {
+    graphOutlinedInactive: true;
+    graphOutlinedActive: true;
+  }
+}
+
+declare module '@mui/material/styles' {
+  interface ZIndex {
+    FilterDrawerV2: number;
+  }
+}
+
 declare module '@mui/material/Typography' {
   interface TypographyPropsVariantOverrides {
     boldBody: true;
@@ -87,21 +107,21 @@ const theme = createTheme({
   breakpoints: {
     values: {
       xs: 0,
-      sm: 600,
+      sm: 480,
       mds: 750,
-      md: 900,
-      lg: 1200,
-      xl: 1536
+      md: 769,
+      lg: 1024,
+      xl: 1440
     }
   },
   components: {
     MuiButton: {
       variants: [
         {
-          props: { variant: 'contained' },
+          props: { variant: 'primaryContained' },
           style: ({ theme }: { theme: Theme }) => ({
             backgroundColor: theme.palette.primary.dark,
-            color: theme.palette.primary.white,
+            color: theme.palette.neutrals.white,
             '&:hover': {
               backgroundColor: theme.palette.primary.darker
             },
@@ -112,19 +132,71 @@ const theme = createTheme({
           })
         },
         {
-          props: { variant: 'text' },
-          style: ({ theme }: { theme: Theme }) => ({
-            backgroundColor: 'transparent',
+          props: { variant: 'globalNav' },
+          style: ({ theme }) => ({
+            ...theme.typography.globalNav,
+            textTransform: 'none',
             color: theme.palette.primary.dark,
+            backgroundColor: 'transparent',
+            borderRadius: 0,
+            whiteSpace: 'nowrap',
             '&:hover': {
               color: theme.palette.primary.darker
-            },
-            fontSize: '1rem',
-            textTransform: 'none'
+            }
           })
         }
       ]
     },
+    MuiChip: {
+      variants: [
+        {
+          props: {
+            variant: 'graphOutlinedInactive'
+          },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.neutrals.white,
+            color: theme.palette.primary.dark,
+            border: `1px solid ${theme.palette.primary.dark}`,
+
+            fontWeight: 'medium',
+
+            '&:hover': {
+              backgroundColor: theme.palette.primary.light
+            }
+          })
+        },
+        {
+          props: {
+            variant: 'graphOutlinedActive'
+          },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.primary.dark,
+            color: theme.palette.neutrals.white,
+
+            fontWeight: 'medium',
+
+            '&:hover': {
+              opacity: 0.8
+            }
+          })
+        }
+      ]
+    },
+    // To-do: Re-enable this after clarification with Design Team
+    // MuiChip: {
+    //   styleOverrides: {
+    //     root: {
+    //       borderRadius: '4px',
+    //       fontSize: '1.167rem',
+    //       fontWeight: 'medium',
+    //       height: '24px',
+    //       padding: '2px 14px 2px 14px',
+    //       '&:hover': {
+    //         backgroundColor: '#ECF7FF'
+    //       }
+    //     }
+    //   }
+    // }
     MuiIconButton: {
       styleOverrides: {
         root: ({ theme }) => ({
@@ -138,6 +210,7 @@ const theme = createTheme({
     MuiLink: {
       styleOverrides: {
         root: ({ theme }) => ({
+          ...theme.typography.link,
           color: theme.palette.primary.dark,
           '&:hover': {
             color: theme.palette.primary.darker
@@ -188,7 +261,7 @@ const theme = createTheme({
     //     root: {
     //       borderRadius: '4px',
     //       fontSize: '1.167rem',
-    //       fontWeight: 'medium',
+    //       fontWeight: 500,
     //       height: '24px',
     //       padding: '2px 14px 2px 14px',
     //       '&:hover': {
@@ -219,7 +292,7 @@ const theme = createTheme({
       main: '#5E9732'
     },
     background: {
-      default: '#EFF1F5'
+      default: '#FFFFFF'
     },
     disabled: {
       main: '#BDBDBD', // Set your desired disabled color here
@@ -236,76 +309,81 @@ const theme = createTheme({
   typography: {
     fontFamily: 'source sans pro, sans-serif',
     body1: {
-      fontSize: '1.167rem',
-      fontWeight: 'regular',
+      fontSize: '14px',
+      fontWeight: 500,
       textTransform: 'none'
     },
     boldBody: {
-      fontSize: '1.167rem',
+      fontSize: '14px',
       fontWeight: 'bold',
       textTransform: 'none'
     },
     largeBody: {
-      fontSize: '1.333rem',
-      fontWeight: 'regular',
-      textTransform: 'none'
+      fontSize: '16px',
+      fontWeight: 400,
+      textTransform: 'none',
+      letterSpacing: '0%',
+      lineHeight: '22px'
     },
     button: {
-      fontSize: '1.167rem',
-      fontWeight: 'medium',
+      fontSize: '14px',
+      fontWeight: 'bold',
       textTransform: 'uppercase'
     },
     globalNav: {
-      fontSize: '1rem',
-      fontWeight: 'medium',
+      fontSize: '16px',
+      fontWeight: 'bold',
       textTransform: 'none'
     },
     h1: {
-      fontSize: '3rem',
+      fontSize: '36px',
       fontWeight: 'bold',
       textTransform: 'none'
     },
     h2: {
-      fontSize: '2rem',
-      fontWeight: 'medium',
+      fontSize: '24px',
+      fontWeight: 600,
       textTransform: 'none'
     },
     h3: {
-      fontSize: '1.5rem',
-      fontWeight: 'medium',
+      fontSize: '18px',
+      fontWeight: 600,
       textTransform: 'none'
     },
     link: {
-      fontSize: '1.167rem',
-      fontWeight: 'medium',
+      fontSize: '14px',
+      fontWeight: 500,
       textDecoration: 'underline'
     },
     miniStatCallout: {
-      fontSize: '1.667rem',
-      fontWeight: 'medium',
+      fontSize: '20px',
+      fontWeight: 500,
       textTransform: 'uppercase'
     },
     statCallout: {
-      fontSize: '3rem',
+      fontSize: '36px',
       fontWeight: 'bold',
       textTransform: 'uppercase'
     },
     uiElementsI: {
-      fontSize: '0.833rem',
-      fontWeight: 'regular',
+      fontSize: '10px',
+      fontWeight: 400,
       textTransform: 'none'
     },
     uiElementsII: {
-      fontSize: '1rem',
-      fontWeight: 'medium',
+      fontSize: '12px',
+      fontWeight: 500,
       textTransform: 'none'
     },
     uiElementsIII: {
-      fontSize: '1rem',
-      fontWeight: 'medium',
+      fontSize: '12px',
+      fontWeight: 500,
       fontStyle: 'italic',
       textTransform: 'none'
     }
+  },
+  zIndex: {
+    FilterDrawerV2: 1201
   }
 });
 

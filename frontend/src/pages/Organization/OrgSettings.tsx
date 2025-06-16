@@ -79,7 +79,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error updating organization'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
@@ -101,7 +101,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error creating domain'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
@@ -137,7 +137,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error verifying domain'
-            : e.message ?? e.toString(),
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
@@ -161,12 +161,12 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     const elements: (string | OrganizationTag)[] = organization[props.type];
     return (
       <Grid container spacing={1}>
-        <Grid item xs={12} sm={3} lg={2} my={1}>
+        <Grid size={{ xs: 12, sm: 3, lg: 2 }} my={1}>
           <Typography variant="body2">{props.label}</Typography>
         </Grid>
         {elements &&
           elements.map((value: string | OrganizationTag, index: number) => (
-            <Grid item mb={1} key={index}>
+            <Grid mb={1} key={index}>
               <Chip
                 color={'primary'}
                 label={typeof value === 'string' ? value : value.name}
@@ -185,7 +185,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           ))}
         {props.type === 'root_domains' &&
           organization.pending_domains.map((domain, index: number) => (
-            <Grid item mb={1} key={index}>
+            <Grid mb={1} key={index}>
               <Chip
                 sx={{ backgroundColor: '#C4C4C4' }}
                 label={domain.name + ' (verification pending)'}
@@ -208,7 +208,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           ))}
         {(props.type === 'root_domains' ||
           user?.user_type === 'globalAdmin') && (
-          <Grid item mb={1}>
+          <Grid mb={1}>
             <Chip
               label="ADD"
               variant="outlined"
@@ -399,7 +399,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         }
       />
       <Grid container spacing={1} p={3}>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField
             fullWidth
             value={organization.name}
@@ -410,7 +410,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             }}
           ></TextField>
         </Grid>
-        <Grid item xs={12} mt={2} mb={1}>
+        <Grid size={{ xs: 12 }} mt={2} mb={1}>
           <Stack direction="row" alignItems="center" spacing={1}>
             {organization.region_id && (
               <>
@@ -430,23 +430,23 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             )}
           </Stack>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <ListInput label="Root Domains" type="root_domains"></ListInput>
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <ListInput label="IP Blocks" type="ip_blocks"></ListInput>
         </Grid>
         {user?.user_type === 'globalAdmin' && (
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <ListInput label="Tags" type="tags"></ListInput>
           </Grid>
         )}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Grid container spacing={1}>
-            <Grid item xs={12} sm={3} lg={2} my={1}>
+            <Grid size={{ xs: 12, sm: 3, lg: 2 }} my={1}>
               <Typography variant="body2">Passive Mode</Typography>
             </Grid>
-            <Grid item ml={-1}>
+            <Grid ml={-1}>
               <Switch
                 checked={organization.is_passive}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
@@ -465,13 +465,13 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           </Grid>
         </Grid>
         {organization.root_domains.length === 0 && (
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Alert severity="error">
               An organization must have at least one Root Domain.
             </Alert>
           </Grid>
         )}
-        <Grid item xs={12} mt={2}>
+        <Grid size={{ xs: 12 }} mt={2}>
           <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
             Cancel
           </Button>

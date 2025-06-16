@@ -3,6 +3,7 @@ version: '3.4'
 
 services:
   db:
+    container_name: db
     image: postgres:15.3
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
@@ -19,6 +20,7 @@ services:
     command: ['postgres', '-c', 'log_statement=all', '-c', 'log_duration=on']
 
   frontend:
+    container_name: frontend
     build: ./frontend
     volumes:
       - ./frontend/src:/app/src
@@ -29,21 +31,28 @@ services:
     tty: true
 
   backend:
+    container_name: backend
     build:
       context: ./backend
       dockerfile: ./Dockerfile.python
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - backend
+      backend:
+        aliases:
+          - elasticmq
     ports:
       - '3000:3000'
     env_file:
       - ./.env
+    environment:
+      DMZ_SYNC_ENDPOINT: "http://backend:3000"
+      CF_API_KEY: "${CF_API_KEY}"
     depends_on:
       - db
 
   minio:
+    container_name: minio
     image: bitnami/minio:2020.9.26
     user: root
     command: 'minio server /data'
@@ -60,6 +69,7 @@ services:
       driver: json-file
 
   docs:
+    container_name: docs
     build:
       context: ./
       dockerfile: ./Dockerfile.docs
@@ -73,6 +83,7 @@ services:
       - '44475:44475'
 
   es:
+    container_name: es
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.0
     environment:
       - discovery.type=single-node
@@ -94,6 +105,7 @@ services:
       driver: json-file
 
   redis:
+    container_name: redis
     image: redis:7.0
     ports:
       - "6379:6379"
@@ -112,6 +124,7 @@ services:
   #     LOGGING_QUIET: 'true'
 
   matomodb:
+    container_name: matomodb
     image: mariadb:11.4
     command: --max-allowed-packet=64MB
     networks:
@@ -126,6 +139,7 @@ services:
       - 3306:3306
 
   matomo:
+    container_name: matomo
     image: matomo:5.2.1
     user: root
     networks:
@@ -147,6 +161,7 @@ services:
       - "8080:80"
 
   elasticmq:
+    container_name: elasticmq
     image: softwaremill/elasticmq-native
     ports:
       - "9324:9324"
@@ -154,6 +169,7 @@ services:
       - backend
 
   playwright:
+    container_name: playwright
     image: mcr.microsoft.com/playwright:v1.50.1-jammy
     working_dir: /workspace
     volumes:
@@ -180,3 +196,4 @@ volumes:
 
 networks:
   backend:
+    name: backend

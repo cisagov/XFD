@@ -17,12 +17,12 @@ export const CrossfeedWarning: React.FC = (props) => {
     <Box sx={{ display: 'flex', justifyContent: 'center', px: 1 }}>
       <BackgroundPaper variant="outlined">
         <Grid container spacing={1}>
-          <Grid item xs={12} sm={3} display="flex" justifyContent="end">
+          <Grid size={{ xs: 12, sm: 3 }} display="flex" justifyContent="end">
             <Box m="auto">
               <img alt="CISA LOGO" src={cisa_logo} width="140px" />
             </Box>
           </Grid>
-          <Grid item xs={12} sm={9}>
+          <Grid size={{ xs: 12, sm: 9 }}>
             <Typography variant="h6" textAlign="center">
               WARNING
             </Typography>

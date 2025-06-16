@@ -22,6 +22,33 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       sort_field: 'name',
       sort_direction: 'asc'
     },
+    // debug: false,
+    // alwaysSearchOnInitialLoad: false,
+    // trackUrlState: false,
+    // initialState: {
+    //   resultsPerPage: 15,
+    //   sort_field: 'name',
+    //   sort_direction: 'asc'
+    // },
+    // searchQuery: {
+    //   search_fields: {
+    //     name: {}
+    //   },
+    //   result_fields: {
+    //     name: {
+    //       raw: {}
+    //     }
+    //   }
+    // },
+    // autocompleteQuery: {
+    //   suggestions: {
+    //     types: {
+    //       documents: {
+    //         fields: ['name']
+    //       }
+    //     }
+    //   }
+    // },
 
     onResultClick: () => {
       /* Not implemented */
@@ -54,7 +81,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         current,
         filters,
         resultsPerPage,
-        search_term,
+        searchTerm,
         sort_direction,
         sort_field
       } = state;
@@ -62,7 +89,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         current,
         filters,
         resultsPerPage,
-        search_term,
+        searchTerm,
         sort_direction,
         sort_field
       };

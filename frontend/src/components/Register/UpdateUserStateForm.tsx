@@ -33,7 +33,7 @@ export const UpdateStateForm: React.FC<{
   const [values, setValues] = useState<UpdateStateFormValues>(defaultValues);
   const [errorRequestMessage, setErrorRequestMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { apiPut, user } = useAuthContext();
+  const { apiPut, apiGet, logout, user } = useAuthContext();
 
   const handleChange = (event: SelectChangeEvent) => {
     setValues((values: any) => ({
@@ -52,8 +52,29 @@ export const UpdateStateForm: React.FC<{
       await apiPut(`/v2/users/${user_id}`, {
         body
       });
+
+      // AFTER successful state update, check maintenance immediately
+      const notifications = await apiGet('/notifications');
+      const active = notifications.find(
+        (n: any) =>
+          n.status === 'active' &&
+          n.maintenance_type === 'major' &&
+          new Date(n.start_datetime) <= new Date() &&
+          new Date(n.end_datetime) >= new Date()
+      );
+
+      if (active && user?.user_type !== 'globalAdmin') {
+        window.dispatchEvent(
+          new CustomEvent('maintenance-blocked', {
+            detail: { message: active.message }
+          })
+        );
+      }
+
       setIsLoading(false);
-      onClose();
+      // Save state selection to local storage to avoid logout re-trigger
+      localStorage.setItem('user_state', values.state);
+      onClose(); // Only close after handling
     } catch (error) {
       setErrorRequestMessage(
         'Something went wrong updating the state. Please try again.'
@@ -61,13 +82,14 @@ export const UpdateStateForm: React.FC<{
       setIsLoading(false);
     }
   };
-
   return (
     <StyledDialog
       open={open}
       onClose={(event, reason) => {
-        if (reason !== 'backdropClick' && reason !== 'escapeKeyDown') {
-          onClose();
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+          logout(); // <-- logout if closed without saving to force state
+        } else {
+          onClose(); // only allow normal onClose otherwise
         }
       }}
       maxWidth="xs"
@@ -103,7 +125,7 @@ export const UpdateStateForm: React.FC<{
       <DialogActions>
         <Button
           variant="outlined"
-          onClick={onClose}
+          onClick={logout} // <-- logout when Cancel clicked to force state value
           disabled={user?.invite_pending === true}
         >
           Cancel

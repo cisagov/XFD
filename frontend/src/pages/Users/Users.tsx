@@ -6,7 +6,8 @@ import {
   Paper,
   Typography,
   Stack,
-  Button
+  Button,
+  Tooltip
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
@@ -42,12 +43,24 @@ export interface ApiResponse {
   count: number;
   url?: string;
 }
+interface ApprovedBy {
+  id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  user_type: string;
+  region_id: string;
+  state: string;
+}
 
 interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
   full_name: string;
+  approved_by?: ApprovedBy | null;
+  date_approved?: string | null;
 }
 
 export const Users: React.FC = () => {
@@ -116,6 +129,53 @@ export const Users: React.FC = () => {
       flex: 1
     },
     { field: 'user_type', headerName: 'User Type', minWidth: 100, flex: 0.75 },
+    {
+      field: 'date_approved',
+      headerName: 'Approval Date',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (params: GridRenderCellParams) => {
+        const dateApproved = params.row?.date_approved;
+        return (
+          <Tooltip
+            title={
+              dateApproved
+                ? format(new Date(dateApproved), 'MM-dd-yyyy hh:mm a')
+                : 'None'
+            }
+          >
+            <span>
+              {dateApproved
+                ? format(new Date(dateApproved), 'MM-dd-yyyy hh:mm a')
+                : 'None'}
+            </span>
+          </Tooltip>
+        );
+      }
+    },
+    {
+      field: 'approved_by',
+      headerName: 'Approved By',
+      minWidth: 100,
+      flex: 0.75,
+      renderCell: (params: GridRenderCellParams) => {
+        const approvedBy = params.row?.approved_by;
+        const fullName = approvedBy ? approvedBy.full_name : 'None';
+
+        const fullUserInfo = params.row?.approved_by;
+        return (
+          <Tooltip
+            title={
+              fullUserInfo
+                ? `${fullUserInfo.full_name} ${fullUserInfo.email}`
+                : 'None'
+            }
+          >
+            <span>{fullName}</span>
+          </Tooltip>
+        );
+      }
+    },
     {
       field: 'dateToUSigned',
       headerName: 'Date ToU Signed',
@@ -297,7 +357,7 @@ export const Users: React.FC = () => {
   );
 
   return (
-    <Box display="flex" justifyContent="center">
+    <Box display="flex" justifyContent="center" sx={{ height: '100vh' }}>
       <Box
         mb={3}
         mt={3}
@@ -340,7 +400,10 @@ export const Users: React.FC = () => {
                 columns={userCols}
                 slots={{ toolbar: CustomToolbar }}
                 slotProps={{
-                  toolbar: { children: addUserButton, exportTitle: 'Users' }
+                  toolbar: {
+                    children: addUserButton,
+                    exportTitle: 'Users'
+                  } as any
                 }}
                 initialState={{
                   pagination: { paginationModel: { pageSize: 15 } }

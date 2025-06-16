@@ -13,6 +13,7 @@ from django.utils import timezone
 import numpy as np
 import pandas as pd
 import requests
+from xfd_api.helpers.data_pull_history import get_last_queried, update_query_timestamp
 from xfd_mini_dl.models import (
     CredentialBreaches,
     CredentialExposures,
@@ -22,8 +23,8 @@ from xfd_mini_dl.models import (
 )
 
 # Calculate Datetimes for collection period
-TODAY = datetime.date.today()
-DAYS_BACK = datetime.timedelta(days=20)
+TODAY = timezone.now()
+DAYS_BACK = datetime.timedelta(days=100)
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d %H:%M:%S")
 END_DATE = TODAY.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -50,7 +51,7 @@ SOURCE_OBJ, created = DataSource.objects.get_or_create(
 )
 
 
-def handler(event):
+def handler(command_options):
     """Identify credential breaches associated with stakeholder's root domains."""
     try:
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
@@ -61,7 +62,7 @@ def handler(event):
                 "status_code": 200,
                 "body": "IntelX Credential scan cannot run outside the DMZ.",
             }
-        main()
+        main(command_options)
         return {
             "status_code": 200,
             "body": "IntelX Credential scan completed successfully.",
@@ -70,18 +71,31 @@ def handler(event):
         return {"status_code": 500, "body": str(e)}
 
 
-def main():
+def main(command_options):
     """Identify credential breaches associated with stakeholder's root domains."""
     try:
-        # orgs_to_scan = Organization.objects.all()
-        orgs_to_scan = Organization.objects.filter(
-            acronym__in=["USAGM", "DHS"]
-        ).order_by("acronym")
-        intelx = IntelX(orgs_to_scan)
+        organization_name = command_options.get("organizationName")
+        organization_id = command_options.get("organizationId")
+        if not organization_name or not organization_id:
+            return {"statusCode": 400, "body": "Organization name or id not provided."}
+
+        orgs_to_sync = Organization.objects.filter(id=organization_id)
+        if not orgs_to_sync.exists():
+            return {"statusCode": 500, "body": "Organization not found."}
+
+        organization = orgs_to_sync.first()
+
+        intelx = IntelX([organization])
         intelx.run_intelx()
+
+        return {
+            "statusCode": 200,
+            "body": "Credential breach scan completed successfully.",
+        }
 
     except Exception as e:
         LOGGER.error("Error running IntelX Credential Scan %s", e)
+        return {"statusCode": 500, "body": "Internal server error."}
 
 
 class IntelX:
@@ -156,6 +170,12 @@ class IntelX:
 
         # Retrieve credential leaks from IntelX
         LOGGER.info("Retrieving IntelX findings for %s", org.acronym)
+        since_timestamp = get_last_queried(org, "intel_x_pull")
+        if since_timestamp:
+            start = since_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            start = START_DATE
+        start_pulling_time = datetime.datetime.now(datetime.timezone.utc)
         count = 0
         for root in roots:
             LOGGER.info(
@@ -165,7 +185,7 @@ class IntelX:
                 len(roots),
             )
             count += 1
-            leaks_json = self.find_credential_leaks(root, START_DATE, END_DATE)
+            leaks_json = self.find_credential_leaks(root, start, END_DATE)
 
             # Process and format results
             if len(leaks_json) < 1:
@@ -195,7 +215,11 @@ class IntelX:
                 )
                 LOGGER.error(e)
                 continue
-
+        update_query_timestamp(
+            org,
+            "intel_x_pull",
+            start_pulling_time,
+        )
         return 0
 
     def query_identity_api(self, domain, start_date, end_date):

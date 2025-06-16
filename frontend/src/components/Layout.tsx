@@ -6,62 +6,40 @@ import React, {
 } from 'react';
 import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
-import { Box, Drawer, ScopedCssBaseline, useMediaQuery } from '@mui/material';
 import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
-import { CrossfeedFooter } from './Footer';
-import { SkipToMainContent } from './SkipToMainContent/index';
 import { matchPath } from 'utils/matchPath';
-import { drawerWidth, FilterDrawerV2 } from './FilterDrawerV2';
-import { useTheme } from '@mui/system';
+import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
 import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
+import { useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/system';
+import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) => prop !== 'open' && prop !== 'user'
 })<{
   open?: boolean;
   user?: boolean;
-}>(({ theme, open, user }) => ({
+}>(() => ({
   flexGrow: 1,
-  height: 'calc(100vh - 24px)',
-  maxHeight: 'calc(100vh - 24px)',
-  overflow: 'scroll',
-  '&::-webkit-scrollbar': {
-    display: 'none'
-  },
-  transition: theme.transitions.create('margin', {
-    easing: theme.transitions.easing.sharp,
-    duration: theme.transitions.duration.leavingScreen
-  }),
-  [theme.breakpoints.up('lg')]: {
-    marginLeft: `-${drawerWidth}px`
-  },
-  [theme.breakpoints.down('lg')]: {
-    marginLeft: user ? 0 : `-${drawerWidth}px`
-  },
-  ...(open && {
-    transition: theme.transitions.create('margin', {
-      easing: theme.transitions.easing.easeOut,
-      duration: theme.transitions.duration.enteringScreen
-    }),
-    [theme.breakpoints.up('lg')]: {
-      marginLeft: 0
-    }
-  })
+  minHeight: '100vh',
+  height: '100vh',
+  overflowY: 'auto',
+  overscrollBehavior: 'contain'
 }));
 
 export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   children,
   filters,
-  addFilter,
-  removeFilter
+  addFilter
+  // removeFilter
 }) => {
   const { logout, user } = useAuthContext();
 
@@ -72,8 +50,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const { regions } = useStaticsContext();
 
   const [initialFilters, setInitialFilters] = useState<any[]>([]);
-
-  const theme = useTheme();
 
   const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
     useFilterDrawerContext();
@@ -126,69 +102,37 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [regions, user]);
 
+  const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
   return (
-    <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
-      <div className={classes.root}>
-        <UserInactiveModal
-          isOpen={isTimedOut}
-          onCountdownEnd={handleCountdownEnd}
-          countdown={60} // 60 second timer for user inactivity timeout
-        />
+    <>
+      <UserInactiveModal
+        isOpen={isTimedOut}
+        onCountdownEnd={handleCountdownEnd}
+        countdown={60} // 60 second timer for user inactivity timeout
+      />
+      <Main open={isFilterDrawerOpen} user={!!user}>
         <div style={{ display: 'flex' }}>
           <GovBanner />
-          <SkipToMainContent />
         </div>
-        <>
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              height: '100vh'
-            }}
-          >
-            {userLevel > 0 ? (
-              <FilterDrawerV2
-                setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-                isFilterDrawerOpen={isFilterDrawerOpen}
-                isMobile={isMobile}
-                initialFilters={initialFilters}
-              />
-            ) : (
-              <Drawer
-                variant="persistent"
-                id="dummy-drawer-does-not-offer-functionality"
-                sx={{ width: drawerWidth }}
-                PaperProps={{ style: { position: 'unset' } }}
-              >
-                <Box width={drawerWidth} />
-              </Drawer>
+        <Header />
+        {userLevel > 0 && (
+          <>
+            {matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
+              <FilterDrawerToggle />
             )}
-            <Main open={isFilterDrawerOpen} user={!!user}>
-              <Header />
-              <div className="main-content" id="main-content" tabIndex={-1} />
-              <Box
-                display="block"
-                position="relative"
-                flex="1"
-                height="calc(100vh - 64px - 72px - 24px)"
-                overflow="scroll"
-                sx={{
-                  '&::-webkit-scrollbar': {
-                    display: 'none'
-                  }
-                }}
-                zIndex={16}
-              >
-                {children}
-              </Box>
-              <CrossfeedFooter />
-            </Main>
-          </div>
-        </>
-      </div>
-    </StyledScopedCssBaseline>
+            <FilterDrawerV2
+              setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+              isFilterDrawerOpen={isFilterDrawerOpen}
+              isMobile={isMobile}
+              initialFilters={initialFilters}
+            />
+          </>
+        )}
+        {children}
+      </Main>
+    </>
   );
 };
 
@@ -199,35 +143,3 @@ export const LayoutWithSearch = withSearch(
     filters
   })
 )(Layout);
-
-//Styling
-const PREFIX = 'Layout';
-
-const classes = {
-  root: `${PREFIX}-root`,
-  overrides: `${PREFIX}-overrides`,
-  content: `${PREFIX}-content`
-};
-
-const StyledScopedCssBaseline = styled(ScopedCssBaseline)(({ theme }) => ({
-  [`& .${classes.root}`]: {
-    position: 'relative',
-    height: '100vh',
-    display: 'flex',
-    flexFlow: 'column nowrap'
-    // overflow: 'auto'
-  },
-
-  [`& .${classes.overrides}`]: {
-    WebkitFontSmoothing: 'unset',
-    MozOsxFontSmoothing: 'unset'
-  },
-
-  [`& .${classes.content}`]: {
-    flex: '1',
-    display: 'block',
-    position: 'relative',
-    height: 'calc(100vh - 24px)',
-    overflow: 'scroll'
-  }
-}));

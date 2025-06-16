@@ -1,6 +1,4 @@
 """Cve schema."""
-# Third-Party Libraries
-# from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
 from typing import List, Optional
@@ -44,3 +42,10 @@ class Cve(BaseModel):
         """Config."""
 
         from_attributes = True
+
+
+class GetAllCvesResponse(BaseModel):
+    """GetAllCvesResponse schema."""
+
+    status: str
+    payload: List[Cve]

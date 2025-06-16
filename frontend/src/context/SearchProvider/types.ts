@@ -23,7 +23,7 @@ export interface ContextType {
   resultSearchTerm: string;
   results: Result[];
   resultsPerPage: number;
-  search_term: string;
+  searchTerm: string;
   setCurrent(current: number): void;
   setFilter(): void;
   setResultsPerPage(): void;

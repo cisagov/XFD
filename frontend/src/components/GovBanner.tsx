@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import clsx from 'classnames';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import flagIcon from '../assets/us_flag_small.png';
 import govIcon from '../assets/icon-dot-gov.svg';
 import httpsIcon from '../assets/icon-https.svg';
+import { SkipToMainContent } from './SkipToMainContent';
 
 const PREFIX = 'GovBanner';
 
@@ -25,22 +26,22 @@ const classes = {
 // TODO jss-to-styled codemod: The Fragment root was replaced by div. Change the tag if needed.
 
 const Root = styled('div')(({ theme }) => ({
+  backgroundColor: '#f0f0f0',
+  width: '100%',
   [`& .${classes.root}`]: {
     position: 'relative',
     width: '100%',
     backgroundColor: '#f0f0f0',
     fontSize: '0.75rem',
     display: 'flex',
-    alignItems: 'center'
+    flexDirection: 'column'
   },
 
   [`& .${classes.inner}`]: {
     width: '100%',
     display: 'flex',
     flexFlow: 'row nowrap',
-    alignItems: 'center',
     maxWidth: 1440,
-    margin: '0 auto',
     padding: `2px 24px`,
     [theme.breakpoints.down('md')]: {
       padding: '2px 8px'
@@ -48,7 +49,9 @@ const Root = styled('div')(({ theme }) => ({
   },
 
   [`& .${classes.flag}`]: {
-    padding: `0 ${theme.spacing()}px`
+    padding: `0 ${theme.spacing()}px`,
+    width: 25,
+    height: 20
   },
 
   [`& .${classes.textWrap}`]: {
@@ -117,8 +120,9 @@ const Root = styled('div')(({ theme }) => ({
 export const GovBanner: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
 
+  const theme = useTheme();
   return (
-    <Root>
+    <Root sx={{ zIndex: theme.zIndex.FilterDrawerV2 + 1 }}>
       <div className={classes.root}>
         <div className={classes.inner}>
           <img src={flagIcon} alt="usa flag" className={classes.flag} />
@@ -137,6 +141,7 @@ export const GovBanner: React.FC = () => {
                 <ExpandMore fontSize="small" />
               )}
             </button>
+            <SkipToMainContent />
           </div>
         </div>
       </div>

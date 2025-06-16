@@ -36,6 +36,17 @@ class S3Client:
                 ),
             )
 
+    def get_xpanse_business_units(self):
+        """Retrieve CSV File from S3. Returns the file contents (as bytes)."""
+        bucket_name = os.getenv("XPANSE_ORG_SYNC_BUCKET_NAME")
+        response = self.s3.list_objects_v2(Bucket=bucket_name)
+        contents = response.get("Contents", [])
+        most_recent = max(contents, key=lambda obj: obj["LastModified"])
+        key = most_recent["Key"]
+        obj = self.s3.get_object(Bucket=bucket_name, Key=key)
+        file_contents = obj["Body"].read().decode("utf-8")  # This will be bytes
+        return file_contents
+
     def save_csv(self, body, name=""):
         """Save a CSV file in S3 and returns a temporary URL for access."""
         try:

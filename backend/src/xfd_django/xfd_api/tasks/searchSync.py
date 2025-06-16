@@ -9,6 +9,7 @@ from django.utils.timezone import now
 from xfd_mini_dl.models import Domain, Ip, SubDomains
 
 from .es_client import ESClient
+from .helpers.syncdb_helpers.es_sync import sync_es_organizations
 
 # Constants
 DOMAIN_CHUNK_SIZE = int(os.getenv("DOMAIN_CHUNK_SIZE", "50"))  # Adjust if needed
@@ -171,3 +172,7 @@ def handler(command_options):
             Ip.objects.filter(id__in=ip_ids).update(synced_at=now())
 
     print("Domain sync complete.")
+
+    print("Syncing organizations..")
+    sync_es_organizations()
+    print("Organization sync complete.")

@@ -39,6 +39,9 @@ def create_or_update_ip(create_defaults, update_dict, linked_sub=None):
     if not created:
         for key, value in update_dict.items():
             if key == "origin_cidr":
+                if ip_object.origin_cidr is None:
+                    ip_object.origin_cidr = value
+                    continue
                 if value.id == ip_object.origin_cidr.id:
                     continue
                 if ip_object.origin_cidr.retired is True:

@@ -1,8 +1,11 @@
 """Stats methods."""
 # Standard Python Libraries
+from datetime import datetime
 import json
+import uuid
 
 # Third-Party Libraries
+from django.forms.models import model_to_dict
 from fastapi import HTTPException, Request
 from redis import asyncio as aioredis
 from xfd_api.auth import get_stats_org_ids
@@ -11,6 +14,16 @@ from xfd_api.helpers.stats_helpers import (
     get_total_count,
     safe_redis_mget,
 )
+from xfd_api.helpers.uuid_helpers import is_valid_uuid
+from xfd_mini_dl.models import (
+    HostSummary,
+    Organization,
+    PortScanServiceSummary,
+    PortScanSummary,
+    VulnScanSummary,
+)
+
+from ..auth import get_org_memberships, is_global_view_admin
 
 
 # GET: /stats
@@ -416,3 +429,167 @@ async def get_by_org_stats(
             status_code=500,
             detail="An unexpected error occurred: {}".format(e),
         )
+
+
+def get_vs_condensed_trending_data(filters, current_user):
+    """Query VS summary and return in a condensed format."""
+    organization_id = filters.organization_id
+
+    if not is_valid_uuid(organization_id):
+        raise HTTPException(status_code=404, detail="Invalid organization ID.")
+
+    try:
+        organization = Organization.objects.get(id=organization_id)
+    except Organization.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+
+    if (
+        not is_global_view_admin(current_user)
+        and not current_user.user_type == "regionalAdmin"
+    ):
+        org_ids = get_org_memberships(current_user)
+        if uuid.UUID(organization_id) not in org_ids:
+            raise HTTPException(
+                status_code=404, detail="Access denied to requested organization."
+            )
+
+    if current_user.user_type == "regionalAdmin" and current_user.region_id:
+        if organization.region_id != current_user.region_id:
+            raise HTTPException(
+                status_code=404, detail="Access denied to requested organization."
+            )
+
+    start_date = filters.start_date
+    end_date = filters.end_date
+    sources = filters.sources or []
+    today = datetime.today().date()
+
+    results = {}
+
+    def replace_none_with_empty_list(results_dict):
+        for key, value in results_dict.items():
+            if value is None:
+                results_dict[key] = []
+        return results_dict
+
+    def fetch_and_flatten(model, prefix, exclude_fields=None):
+        exclude_fields = exclude_fields or []
+        qs = model.objects.filter(organization=organization)
+
+        if not start_date and not end_date:
+            latest = qs.order_by("-summary_date").first()
+            summaries = [latest] if latest else []
+        elif start_date and not end_date:
+            summaries = qs.filter(summary_date__range=(start_date, today)).order_by(
+                "summary_date"
+            )
+        elif not start_date and end_date:
+            summaries = qs.filter(summary_date=end_date).order_by("summary_date")
+        else:
+            summaries = qs.filter(summary_date__range=(start_date, end_date)).order_by(
+                "summary_date"
+            )
+
+        if exclude_fields:
+            summaries = summaries.defer(*exclude_fields)
+
+        for obj in summaries:
+            obj_dict = model_to_dict(obj, exclude=exclude_fields)
+            for field, value in obj_dict.items():
+                key = f"{prefix}_{field}"
+                results.setdefault(key, []).append(value)
+
+    if "host" in sources:
+        fetch_and_flatten(HostSummary, "host_summary")
+
+    if "port" in sources:
+        fetch_and_flatten(PortScanSummary, "port_scan_summary")
+
+    if "port_service" in sources:
+        fetch_and_flatten(PortScanServiceSummary, "port_scan_service_summary")
+
+    if "vs" in sources:
+        exclude = ["included_tickets"] if not filters.enhanced_data else []
+        fetch_and_flatten(VulnScanSummary, "vuln_scan_summary", exclude_fields=exclude)
+
+    return replace_none_with_empty_list(results)
+
+
+def get_vs_trending_data(filters, current_user):
+    """Query VS scan data based on the user filters."""
+    organization_id = filters.organization_id
+
+    if not is_valid_uuid(organization_id):
+        raise HTTPException(status_code=404, detail="Invalid organization ID.")
+
+    try:
+        organization = Organization.objects.get(id=organization_id)
+    except Organization.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+
+    if (
+        not is_global_view_admin(current_user)
+        and not current_user.user_type == "regionalAdmin"
+    ):
+        org_ids = get_org_memberships(current_user)
+        if uuid.UUID(organization_id) not in org_ids:
+            raise HTTPException(
+                status_code=404, detail="Access denied to requested organization."
+            )
+
+    if current_user.user_type == "regionalAdmin" and current_user.region_id:
+        if organization.region_id != current_user.region_id:
+            raise HTTPException(
+                status_code=404, detail="Access denied to requested organization."
+            )
+
+    start_date = filters.start_date
+    end_date = filters.end_date
+    sources = filters.sources or []
+    today = datetime.today().date()
+
+    def fetch_summaries(model, exclude_fields=None):
+        exclude_fields = exclude_fields or []
+        qs = model.objects.filter(organization=organization)
+
+        if not start_date and not end_date:
+            latest = qs.order_by("-summary_date").first()
+            return [model_to_dict(latest, exclude=exclude_fields)] if latest else []
+
+        if start_date and not end_date:
+            qs = qs.filter(summary_date__range=(start_date, today))
+        elif not start_date and end_date:
+            qs = qs.filter(summary_date=end_date)
+        else:
+            qs = qs.filter(summary_date__range=(start_date, end_date))
+
+        qs = qs.order_by("summary_date")  # Order ascending by date
+
+        if exclude_fields:
+            qs = qs.defer(*exclude_fields)
+
+        return [model_to_dict(obj, exclude=exclude_fields) for obj in qs]
+
+    host_dicts = fetch_summaries(HostSummary) if "host" in sources else None
+
+    ports_dicts = fetch_summaries(PortScanSummary) if "port" in sources else None
+
+    port_services_dicts = (
+        fetch_summaries(PortScanServiceSummary) if "port_service" in sources else None
+    )
+
+    vuln_scan_summaries = (
+        fetch_summaries(
+            VulnScanSummary,
+            exclude_fields=["included_tickets"] if not filters.enhanced_data else [],
+        )
+        if "vs" in sources
+        else None
+    )
+
+    return {
+        "host_summaries": host_dicts,
+        "port_scan_summaries": ports_dicts,
+        "port_scan_service_summaries": port_services_dicts,
+        "vuln_scan_summaries": vuln_scan_summaries,
+    }

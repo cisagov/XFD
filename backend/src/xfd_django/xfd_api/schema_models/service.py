@@ -2,7 +2,6 @@
 # Standard Python Libraries
 from datetime import datetime
 from typing import Any, Optional
-from uuid import UUID
 
 # Third-Party Libraries
 from pydantic import BaseModel, Json
@@ -11,7 +10,7 @@ from pydantic import BaseModel, Json
 class Service(BaseModel):
     """Service schema."""
 
-    id: UUID
+    id: Any
     created_at: datetime
     updated_at: datetime
     service_source: Optional[str]

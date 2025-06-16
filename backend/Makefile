@@ -34,7 +34,11 @@ syncmdl_secondary-dangerously-force:
 # i.e. make pytest FILE=xfd_api/tests/test_domain.py
 pytest:
 	docker compose exec backend python manage.py makemigrations
+ifeq ($(MODE),reset)
+	docker compose exec backend pytest --create-db $(FILE)
+else
 	docker compose exec backend pytest --no-migrations --reuse-db $(FILE)
+endif
 
 pylint:
 	docker compose exec backend sh -c "PYTHONPATH=/app pylint ."

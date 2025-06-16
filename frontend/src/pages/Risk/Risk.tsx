@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import classes from './Risk.module.scss';
-import { Box, Card, CardContent, Grid, Paper, Typography } from '@mui/material';
+import { Box, Grid, Paper } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
@@ -19,15 +19,13 @@ import {
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { Stats, Vulnerability } from 'types';
-import { UpdateStateForm } from 'components/Register';
 import {
   ORGANIZATION_FILTER_KEY,
   OrganizationShallow,
   REGION_FILTER_KEY
-} from 'components/RegionAndOrganizationFilters';
+} from 'components/FilterDrawer/RegionAndOrganizationFilters';
 import { withSearch } from '@elastic/react-search-ui';
 import { FilterTags } from 'pages/Search/FilterTags';
-import { useLocation } from 'react-router-dom';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
@@ -62,13 +60,12 @@ const Risk: React.FC<ContextType> = ({
   filters,
   removeFilter,
   addFilter,
-  search_term,
+  searchTerm,
   setSearchTerm
 }) => {
   const { showMaps, user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
-  const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
 
   const RiskRoot = RiskStyles.RiskRoot;
   const { cardRoot, content, contentWrapper, header, panel } =
@@ -99,21 +96,19 @@ const Risk: React.FC<ContextType> = ({
     };
   }, [filters]);
 
-  const { pathname } = useLocation();
-
   const filtersToDisplay = useMemo(() => {
-    if (search_term !== '') {
+    if (searchTerm !== '') {
       return [
         ...filters,
         {
           field: 'query',
-          values: [search_term],
+          values: [searchTerm],
           onClear: () => setSearchTerm('', { shouldClearFilters: false })
         }
       ];
     }
     return filters;
-  }, [filters, search_term, setSearchTerm]);
+  }, [filters, searchTerm, setSearchTerm]);
 
   const userLevel = useUserLevel().userLevel;
 
@@ -152,18 +147,10 @@ const Risk: React.FC<ContextType> = ({
   }, [fetchStats, riskFilters]);
 
   useEffect(() => {
-    if (user) {
-      if (!user.state || user.state === '') {
-        setIsUpdateStateFormOpen(true);
-      }
-    }
-  }, [user]);
-
-  useEffect(() => {
     filters.forEach((filter) => {
       if (
         filter.field !== 'organization.region_id' &&
-        filter.field !== 'organizationId'
+        filter.field !== 'organization_id'
       ) {
         removeFilter(filter.field, filter.values[0], filter.type);
       }
@@ -175,14 +162,7 @@ const Risk: React.FC<ContextType> = ({
         });
       });
     }
-  }, [
-    pathname,
-    removeFilter,
-    filters,
-    addFilter,
-    riskFilters,
-    initialFiltersForUser
-  ]);
+  }, [removeFilter, filters, addFilter, initialFiltersForUser]);
 
   const MapCard = ({
     title,
@@ -291,45 +271,13 @@ const Risk: React.FC<ContextType> = ({
     }
   }
 
-  if (isUpdateStateFormOpen) {
-    return (
-      <UpdateStateForm
-        open={isUpdateStateFormOpen}
-        user_id={user?.id ?? ''}
-        onClose={() => setIsUpdateStateFormOpen(false)}
-      />
-    );
-  }
-
-  if (user?.invite_pending) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh'
-        }}
-      >
-        <Card style={{ maxWidth: 400, textAlign: 'center' }}>
-          <CardContent>
-            <Typography variant="h5" component="h2">
-              REQUEST SENT
-            </Typography>
-            <Typography variant="body1">
-              Thank you for requesting a CyHy Dashboard account, you will
-              receive notification once this request is approved.
-            </Typography>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <Grid container>
-      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
-      <Grid item sm={11} lg={10} xl={8} sx={{ maxWidth: '1500px' }}>
+      <Grid
+        size={{ sm: 0.5, lg: 1, xl: 2 }}
+        display={{ xs: 'none', sm: 'block' }}
+      />
+      <Grid size={{ sm: 11, lg: 10, xl: 8 }} sx={{ maxWidth: '1500px' }}>
         <RiskRoot className={classes.root}>
           <div id="wrapper" className={contentWrapper}>
             <Box sx={{ px: '1rem', pb: '2rem' }}>
@@ -340,7 +288,7 @@ const Risk: React.FC<ContextType> = ({
             </Box>
             {stats && (
               <Grid container>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6} mb={-4}>
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }} mb={-4}>
                   <div className={content}>
                     <div className={panel}>
                       <VulnerabilityCard
@@ -365,16 +313,16 @@ const Risk: React.FC<ContextType> = ({
                     </div>
                   </div>
                 </Grid>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6}>
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }}>
                   <div className={content}>
                     <div className={panel}>
-                      <Paper elevation={0} className={cardRoot}>
-                        {stats.domains.num_vulnerabilities.length > 0 && (
+                      {stats.domains.num_vulnerabilities.length > 0 && (
+                        <Paper elevation={0} className={cardRoot}>
                           <TopVulnerableDomains
                             data={stats.domains.num_vulnerabilities}
                           />
-                        )}
-                      </Paper>
+                        </Paper>
+                      )}
                       <VulnerabilityCard
                         title={'Most Common Vulnerabilities'}
                         data={stats.vulnerabilities.most_common_vulnerabilities}
@@ -419,25 +367,29 @@ const Risk: React.FC<ContextType> = ({
           </div>
         </RiskRoot>
       </Grid>
-      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
+      <Grid
+        size={{ sm: 0.5, lg: 1, xl: 2 }}
+        display={{ xs: 'none', sm: 'block' }}
+      />
     </Grid>
   );
 };
 
+//Use this as a reference point for the VS Dash UI
 export const RiskWithSearch = withSearch(
   ({
     addFilter,
     removeFilter,
     filters,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm
   }: ContextType) => ({
     addFilter,
     removeFilter,
     filters,
     facets,
-    search_term,
+    searchTerm,
     setSearchTerm
   })
 )(Risk);

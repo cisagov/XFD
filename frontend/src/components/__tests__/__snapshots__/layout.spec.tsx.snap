@@ -2,366 +2,256 @@
 
 exports[`Layout component matches snapshot 1`] = `
 <DocumentFragment>
-  <div
-    class="MuiScopedCssBaseline-root Layout-overrides css-1yg9gd5-MuiScopedCssBaseline-root"
+  <main
+    class="css-o3tih"
   >
     <div
-      class="Layout-root"
+      style="display: flex;"
     >
-      <div
-        style="display: flex;"
-      >
-        <div>
-          GOV_BANNER
-        </div>
-        <div
-          class="MuiBox-root css-1iuj5ih"
-        >
-          <button
-            aria-label="Skip to main content"
-            class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium css-xf2ktb-MuiButtonBase-root-MuiButton-root"
-            tabindex="0"
-            type="button"
-          >
-            Skip to main content
-            <span
-              class="MuiTouchRipple-root css-8je8zh-MuiTouchRipple-root"
-            />
-          </button>
-        </div>
-      </div>
-      <div
-        style="display: flex; flex-direction: row; height: 100vh;"
-      >
-        <div
-          class="MuiDrawer-root MuiDrawer-docked css-tmy8tc-MuiDrawer-docked"
-        >
-          <div
-            class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-12i7wg6-MuiPaper-root-MuiDrawer-paper"
-            style="visibility: hidden; position: unset; webkit-transform: translateX(-0px); transform: translateX(-0px);"
-          >
-            <div
-              class="MuiBox-root css-1v5z18m"
-              role="presentation"
-            >
-              <div
-                class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-y44dvl-MuiToolbar-root"
-              >
-                <div
-                  class="MuiStack-root css-1sos3zc-MuiStack-root"
-                >
-                  <h3
-                    class="MuiTypography-root MuiTypography-h6 css-ueod1h-MuiTypography-root"
-                  >
-                    Filters
-                  </h3>
-                  <svg
-                    aria-hidden="true"
-                    class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-i4bv87-MuiSvgIcon-root"
-                    data-testid="FilterAltIcon"
-                    focusable="false"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39c.51-.66.04-1.61-.79-1.61H5.04c-.83 0-1.3.95-.79 1.61z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <hr
-                class="MuiDivider-root MuiDivider-fullWidth css-9mgopn-MuiDivider-root"
-              />
-              <div
-                class="MuiBox-root css-19midj6"
-              >
-                <div
-                  class="SearchBar-wrapper css-1ysk2k2"
-                >
-                  <div
-                    class="SearchBar-inner MuiBox-root css-0"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium SearchBar-icon css-i4bv87-MuiSvgIcon-root"
-                      data-testid="SearchOutlinedIcon"
-                      focusable="false"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"
-                      />
-                    </svg>
-                    <form>
-                      <input
-                        class="SearchBar-inp"
-                        placeholder="Search by Domain or IP"
-                        value=""
-                      />
-                    </form>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation1 MuiAccordion-root MuiAccordion-rounded Mui-expanded MuiAccordion-gutters css-1elwnq4-MuiPaper-root-MuiAccordion-root"
-              >
-                <div
-                  aria-expanded="true"
-                  class="MuiButtonBase-root MuiAccordionSummary-root Mui-expanded MuiAccordionSummary-gutters css-sh22l5-MuiButtonBase-root-MuiAccordionSummary-root"
-                  role="button"
-                  tabindex="0"
-                >
-                  <div
-                    class="MuiAccordionSummary-content Mui-expanded MuiAccordionSummary-contentGutters css-o4b71y-MuiAccordionSummary-content"
-                  >
-                    <p
-                      class="MuiTypography-root MuiTypography-body1 css-uyc727-MuiTypography-root"
-                    >
-                      Region(s)
-                    </p>
-                  </div>
-                  <div
-                    class="MuiAccordionSummary-expandIconWrapper Mui-expanded css-yw020d-MuiAccordionSummary-expandIconWrapper"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-i4bv87-MuiSvgIcon-root"
-                      data-testid="ExpandMoreIcon"
-                      focusable="false"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <div
-                  class="MuiCollapse-root MuiCollapse-vertical MuiCollapse-entered css-pwcg7p-MuiCollapse-root"
-                  style="min-height: 0px;"
-                >
-                  <div
-                    class="MuiCollapse-wrapper MuiCollapse-vertical css-smkl36-MuiCollapse-wrapper"
-                  >
-                    <div
-                      class="MuiCollapse-wrapperInner MuiCollapse-vertical css-9l5vo-MuiCollapse-wrapperInner"
-                    >
-                      <div
-                        class="MuiAccordion-region"
-                        role="region"
-                      >
-                        <div
-                          class="MuiAccordionDetails-root css-15v22id-MuiAccordionDetails-root"
-                        >
-                          <ul
-                            class="MuiList-root MuiList-padding css-h4y409-MuiList-root"
-                          >
-                            <li
-                              class="MuiListItem-root MuiListItem-gutters MuiListItem-padding css-1cjmx1v-MuiListItem-root"
-                            >
-                              <div
-                                class="MuiFormGroup-root css-dmmspl-MuiFormGroup-root"
-                              >
-                                <label
-                                  class="MuiFormControlLabel-root Mui-disabled MuiFormControlLabel-labelPlacementEnd css-lc0130-MuiFormControlLabel-root"
-                                >
-                                  <span
-                                    aria-disabled="true"
-                                    class="MuiButtonBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium Mui-disabled PrivateSwitchBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium Mui-checked Mui-disabled MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium css-1a35bqc-MuiButtonBase-root-MuiCheckbox-root"
-                                    tabindex="-1"
-                                  >
-                                    <input
-                                      checked=""
-                                      class="PrivateSwitchBase-input css-1m9pwf3"
-                                      data-indeterminate="false"
-                                      disabled=""
-                                      type="checkbox"
-                                    />
-                                    <svg
-                                      aria-hidden="true"
-                                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-i4bv87-MuiSvgIcon-root"
-                                      data-testid="CheckBoxIcon"
-                                      focusable="false"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.11 0 2-.9 2-2V5c0-1.1-.89-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
-                                      />
-                                    </svg>
-                                  </span>
-                                  <span
-                                    class="MuiTypography-root MuiTypography-body1 MuiFormControlLabel-label Mui-disabled css-uyc727-MuiTypography-root"
-                                  >
-                                    Region 1234
-                                  </span>
-                                </label>
-                              </div>
-                            </li>
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div
-                class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation1 MuiAccordion-root MuiAccordion-rounded Mui-expanded MuiAccordion-gutters css-1elwnq4-MuiPaper-root-MuiAccordion-root"
-              >
-                <div
-                  aria-expanded="true"
-                  class="MuiButtonBase-root MuiAccordionSummary-root Mui-expanded MuiAccordionSummary-gutters css-sh22l5-MuiButtonBase-root-MuiAccordionSummary-root"
-                  role="button"
-                  tabindex="0"
-                >
-                  <div
-                    class="MuiAccordionSummary-content Mui-expanded MuiAccordionSummary-contentGutters css-o4b71y-MuiAccordionSummary-content"
-                  >
-                    <p
-                      class="MuiTypography-root MuiTypography-body1 css-uyc727-MuiTypography-root"
-                    >
-                      Organization(s)
-                    </p>
-                  </div>
-                  <div
-                    class="MuiAccordionSummary-expandIconWrapper Mui-expanded css-yw020d-MuiAccordionSummary-expandIconWrapper"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-i4bv87-MuiSvgIcon-root"
-                      data-testid="ExpandMoreIcon"
-                      focusable="false"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        d="M16.59 8.59 12 13.17 7.41 8.59 6 10l6 6 6-6z"
-                      />
-                    </svg>
-                  </div>
-                </div>
-                <div
-                  class="MuiCollapse-root MuiCollapse-vertical MuiCollapse-entered css-pwcg7p-MuiCollapse-root"
-                  style="min-height: 0px;"
-                >
-                  <div
-                    class="MuiCollapse-wrapper MuiCollapse-vertical css-smkl36-MuiCollapse-wrapper"
-                  >
-                    <div
-                      class="MuiCollapse-wrapperInner MuiCollapse-vertical css-9l5vo-MuiCollapse-wrapperInner"
-                    >
-                      <div
-                        class="MuiAccordion-region"
-                        role="region"
-                      >
-                        <div
-                          class="MuiAccordionDetails-root css-15v22id-MuiAccordionDetails-root"
-                        >
-                          <ul
-                            class="MuiList-root MuiList-padding css-1lbrbe2-MuiList-root"
-                          />
-                          <br />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <main
-          class="css-1bknh4"
-        >
-          <div>
-            HEADER
-          </div>
-          <div
-            class="main-content"
-            id="main-content"
-            tabindex="-1"
-          />
-          <div
-            class="MuiBox-root css-1ycota"
-          />
-          <div
-            class="css-swko3c"
-          >
-            <div
-              class="Footer-footerBox MuiBox-root css-0"
-            >
-              <div
-                class="MuiGrid-root MuiGrid-container Footer-footerContainer css-11lq3yg-MuiGrid-root"
-              >
-                <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-3 Footer-footerLogo css-c3pvro-MuiGrid-root"
-                >
-                  <div
-                    class="MuiStack-root css-niqf4j-MuiStack-root"
-                  >
-                    <a
-                      aria-label="CyHy Dashboard Icon Navigate Home"
-                      class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways css-fgx9fv-MuiTypography-root-MuiLink-root"
-                      href="/"
-                    >
-                      <img
-                        alt="CyHy Dashboard Icon Navigate Home"
-                        src="cyhydashboard.svg"
-                      />
-                    </a>
-                  </div>
-                </div>
-                <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-16zmhxu-MuiGrid-root"
-                >
-                  <a
-                    class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-fgx9fv-MuiTypography-root-MuiLink-root"
-                    href="/"
-                  >
-                    Home
-                  </a>
-                </div>
-                <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-16zmhxu-MuiGrid-root"
-                >
-                  <p>
-                    <a
-                      class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-fgx9fv-MuiTypography-root-MuiLink-root"
-                      href="https://www.cisa.gov"
-                      rel="noopener noreferrer"
-                      target="_blank"
-                    >
-                      CISA Homepage
-                    </a>
-                  </p>
-                </div>
-                <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-16zmhxu-MuiGrid-root"
-                >
-                  <p>
-                    <a
-                      class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-fgx9fv-MuiTypography-root-MuiLink-root"
-                      href="mailto:vulnerability@mail.cisa.dhs.gov"
-                    >
-                      Contact Us
-                    </a>
-                  </p>
-                </div>
-                <div
-                  class="MuiGrid-root MuiGrid-item MuiGrid-grid-xs-12 MuiGrid-grid-sm-2 Footer-footerNavItem css-16zmhxu-MuiGrid-root"
-                >
-                  <p>
-                    <a
-                      class="MuiTypography-root MuiTypography-inherit MuiLink-root MuiLink-underlineAlways Footer-footerNavLink css-fgx9fv-MuiTypography-root-MuiLink-root"
-                      href="/"
-                    >
-                      Logout
-                    </a>
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </main>
+      <div>
+        GOV_BANNER
       </div>
     </div>
-  </div>
+    <div>
+      HEADER
+    </div>
+    <header
+      class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1duqi3m-MuiPaper-root-MuiAppBar-root"
+      style="--Paper-shadow: none;"
+    >
+      <div
+        class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
+      >
+        <button
+          class="MuiButtonBase-root MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary css-1vd37re-MuiButtonBase-root-MuiButton-root"
+          tabindex="0"
+          type="button"
+        >
+          <span
+            class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeMedium css-1sh91j5-MuiButton-startIcon"
+          >
+            <svg
+              aria-hidden="true"
+              class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+              data-testid="FilterAltIcon"
+              focusable="false"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39c.51-.66.04-1.61-.79-1.61H5.04c-.83 0-1.3.95-.79 1.61"
+              />
+            </svg>
+          </span>
+          Filter
+        </button>
+      </div>
+    </header>
+    <div
+      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-17tm3pi-MuiDrawer-docked"
+    >
+      <div
+        class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-1lwhjos-MuiPaper-root-MuiDrawer-paper"
+        style="--Paper-shadow: none; visibility: hidden; webkit-transform: translateX(-0px); transform: translateX(-0px);"
+      >
+        <div
+          class="MuiStack-root css-ioj9fa-MuiStack-root"
+        >
+          <div
+            class="MuiBox-root css-1wi9kp8"
+            role="presentation"
+          >
+            <div
+              class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
+            />
+            <div
+              class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
+            />
+            <div
+              class="MuiStack-root css-6ehs1v-MuiStack-root"
+            >
+              <h3
+                class="MuiTypography-root MuiTypography-h3 css-wariq0-MuiTypography-root"
+              >
+                Filter
+              </h3>
+              <button
+                aria-label="close-filter-drawer"
+                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-40ya9y-MuiButtonBase-root-MuiIconButton-root"
+                tabindex="0"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                  data-testid="CloseIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                  />
+                </svg>
+              </button>
+            </div>
+            <hr
+              class="MuiDivider-root MuiDivider-fullWidth css-1jpc804-MuiDivider-root"
+            />
+            <div
+              class="MuiBox-root css-19midj6"
+            >
+              <div
+                class="MuiAutocomplete-root MuiAutocomplete-hasPopupIcon css-1tlcqt-MuiAutocomplete-root"
+              >
+                <div
+                  class="MuiFormControl-root MuiFormControl-fullWidth MuiTextField-root css-cmpglg-MuiFormControl-root-MuiTextField-root"
+                >
+                  <label
+                    class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined css-8b3bn2-MuiFormLabel-root-MuiInputLabel-root"
+                    data-shrink="false"
+                    for=":r3:"
+                    id=":r3:-label"
+                  >
+                    Region 1234
+                  </label>
+                  <div
+                    class="MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary Mui-disabled MuiInputBase-fullWidth MuiInputBase-formControl MuiInputBase-adornedEnd MuiAutocomplete-inputRoot css-112gndx-MuiInputBase-root-MuiOutlinedInput-root"
+                  >
+                    <input
+                      aria-autocomplete="list"
+                      aria-expanded="false"
+                      aria-invalid="false"
+                      autocapitalize="none"
+                      autocomplete="off"
+                      class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
+                      disabled=""
+                      id=":r3:"
+                      placeholder="Select Region"
+                      role="combobox"
+                      spellcheck="false"
+                      type="text"
+                      value=""
+                    />
+                    <div
+                      class="MuiAutocomplete-endAdornment css-1uhhrmm-MuiAutocomplete-endAdornment"
+                    >
+                      <button
+                        aria-label="Open"
+                        class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-sizeMedium MuiAutocomplete-popupIndicator css-synw37-MuiButtonBase-root-MuiIconButton-root-MuiAutocomplete-popupIndicator"
+                        disabled=""
+                        tabindex="-1"
+                        title="Open"
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="ArrowDropDownIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M7 10l5 5 5-5z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <fieldset
+                      aria-hidden="true"
+                      class="MuiOutlinedInput-notchedOutline css-1ll44ll-MuiOutlinedInput-notchedOutline"
+                    >
+                      <legend
+                        class="css-81qg8w"
+                      >
+                        <span>
+                          Region 1234
+                        </span>
+                      </legend>
+                    </fieldset>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="MuiBox-root css-19midj6"
+            >
+              <div
+                class="MuiAutocomplete-root MuiAutocomplete-hasPopupIcon css-1tlcqt-MuiAutocomplete-root"
+              >
+                <div
+                  class="MuiFormControl-root MuiFormControl-fullWidth MuiTextField-root css-cmpglg-MuiFormControl-root-MuiTextField-root"
+                >
+                  <div
+                    class="MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary Mui-disabled MuiInputBase-fullWidth MuiInputBase-formControl MuiInputBase-adornedEnd MuiAutocomplete-inputRoot css-112gndx-MuiInputBase-root-MuiOutlinedInput-root"
+                  >
+                    <input
+                      aria-autocomplete="list"
+                      aria-describedby=":r6:-helper-text"
+                      aria-expanded="false"
+                      aria-invalid="false"
+                      autocapitalize="none"
+                      autocomplete="off"
+                      class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
+                      disabled=""
+                      id=":r6:"
+                      placeholder="Select Organization"
+                      role="combobox"
+                      spellcheck="false"
+                      type="text"
+                      value=""
+                    />
+                    <div
+                      class="MuiAutocomplete-endAdornment css-1uhhrmm-MuiAutocomplete-endAdornment"
+                    >
+                      <button
+                        aria-label="Open"
+                        class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-sizeMedium MuiAutocomplete-popupIndicator css-synw37-MuiButtonBase-root-MuiIconButton-root-MuiAutocomplete-popupIndicator"
+                        disabled=""
+                        tabindex="-1"
+                        title="Open"
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="ArrowDropDownIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M7 10l5 5 5-5z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <fieldset
+                      aria-hidden="true"
+                      class="MuiOutlinedInput-notchedOutline css-1ll44ll-MuiOutlinedInput-notchedOutline"
+                    >
+                      <legend
+                        class="css-w4cd9x"
+                      >
+                        <span
+                          aria-hidden="true"
+                          class="notranslate"
+                        >
+                          ​
+                        </span>
+                      </legend>
+                    </fieldset>
+                  </div>
+                  <p
+                    class="MuiFormHelperText-root Mui-disabled MuiFormHelperText-sizeMedium MuiFormHelperText-contained css-13pezgm-MuiFormHelperText-root"
+                    id=":r6:-helper-text"
+                  >
+                    This filter, by default, displays data for all organizations in your region. Use this filter to select an organization.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
 </DocumentFragment>
 `;

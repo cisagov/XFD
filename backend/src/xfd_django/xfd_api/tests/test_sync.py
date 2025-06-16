@@ -68,7 +68,7 @@ def test_sync_invalid_checksum_should_return_500():
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        user_type=UserType.STANDARD,
+        user_type=UserType.GLOBAL_ADMIN,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -81,7 +81,7 @@ def test_sync_invalid_checksum_should_return_500():
             "Authorization": "Bearer {}".format(create_jwt_token(user)),
         },
     )
-    assert response.status_code == 500
+    assert response.status_code == 400
 
 
 # Test: post valid data with missing checksum should return 500
@@ -92,13 +92,13 @@ def test_sync_missing_checksum_should_return_500():
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        user_type=UserType.STANDARD,
+        user_type=UserType.GLOBAL_ADMIN,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
     headers = {"Authorization": "Bearer {}".format(create_jwt_token(user))}
     response = client.post("/sync", json=dummy_org_data, headers=headers)
-    assert response.status_code == 500
+    assert response.status_code == 400
 
 
 # Test: post empty data should return 500
@@ -109,7 +109,7 @@ def test_sync_missing_data_should_return_422():
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        user_type=UserType.STANDARD,
+        user_type=UserType.GLOBAL_ADMIN,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )

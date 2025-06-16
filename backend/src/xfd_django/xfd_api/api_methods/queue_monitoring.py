@@ -6,6 +6,7 @@ import os
 # Third-Party Libraries
 import boto3
 from fastapi import HTTPException
+from xfd_api.helpers.email import _setup_proxy
 from xfd_api.schema_models.queue_monitoring import QueueSearch
 
 from ..auth import is_global_view_admin
@@ -17,6 +18,7 @@ base_queue_url = os.getenv("QUEUE_URL")
 # POST: /queues/search
 def list_queues(search_data: QueueSearch, current_user):
     """Fetch queue metadata including message counts."""
+    _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
     try:
         if not is_global_view_admin(current_user):
             raise HTTPException(status_code=403, detail="Unauthorized access.")

@@ -82,7 +82,9 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
     } catch (e: any) {
       setFeedbackMessage({
         message:
-          e.status === 422 ? 'Error updating scan' : e.message ?? e.toString(),
+          e.status === 422
+            ? 'Error updating scan'
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);

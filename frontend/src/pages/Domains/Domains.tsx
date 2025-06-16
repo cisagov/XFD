@@ -1,17 +1,26 @@
-import React, { useCallback, useState, useEffect } from 'react';
-import { useHistory } from 'react-router-dom';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
-import { Subnav } from 'components';
-import { Domain } from 'types';
+import { DomainSearchApiResponse } from 'types';
 import { useAuthContext } from 'context';
 import { useDomainApi } from 'hooks';
 import { Box, Stack } from '@mui/system';
-import { Alert, Button, IconButton, Paper } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Divider,
+  IconButton,
+  Paper,
+  Typography
+} from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 
 const PAGE_SIZE = 15;
 
@@ -20,34 +29,41 @@ export interface DomainRow {
   organization_name: string;
   name: string;
   ip: string;
-  ports: string[];
-  service: string[];
-  vulnerabilities: (string | null)[];
+  ports_preview: string;
+  services_preview: string;
+  services_count: number;
+  vulnerabilities_count: number;
   updated_at: string;
   created_at: string;
 }
 
 export const Domains: React.FC = () => {
+  const location = useLocation();
+  const state = location.state as
+    | { orgName?: string; orgId?: string }
+    | undefined;
   const { showAllOrganizations } = useAuthContext();
-  const [domains, setDomains] = useState<Domain[]>([]);
+  const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
-  const { listDomains } = useDomainApi(showAllOrganizations);
+  const { listDomains } = useDomainApi(
+    showAllOrganizations,
+    state?.orgId ?? ''
+  );
   const history = useHistory();
-  const [filters, setFilters] = useState<Query<Domain>['filters']>([]);
+  const [initialFilters, setInitialFilters] = useState<
+    Query<DomainSearchApiResponse>['filters']
+  >(() => extractInitialFilters(state ?? {}));
+  const filters = useMemo(() => {
+    return initialFilters.length > 0 ? initialFilters : [];
+  }, [initialFilters]);
+
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [filterModel, setFilterModel] = useState({
-    items: filters.map((filter) => ({
-      id: filter.id,
-      field: filter.field,
-      value: filter.value,
-      operator: filter.operator
-    }))
-  });
+
   // TO-DO
   // Implement regional rollup on domains view to allow for proper domain drilldown from dashboard
   const fetchDomains = useCallback(
-    async (q: Query<Domain>) => {
+    async (q: Query<DomainSearchApiResponse>) => {
       try {
         const { domains, count } = await listDomains(q);
         if (domains.length === 0) {
@@ -82,6 +98,22 @@ export const Domains: React.FC = () => {
     [listDomains]
   );
 
+  function formatPreview(
+    preview: string,
+    totalCount: number,
+    maxFullCount = 3,
+    maxPreviewCount = 2
+  ) {
+    if (totalCount <= maxFullCount) {
+      // Show full preview as-is
+      return preview;
+    } else {
+      // Show first N preview, add (X total)
+      const previewItems = preview.split(',').map((item) => item.trim());
+      const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
+      return `${limitedPreview} (${totalCount} total)`;
+    }
+  }
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: PAGE_SIZE,
@@ -94,7 +126,25 @@ export const Domains: React.FC = () => {
     fetchDomains({
       page: 1,
       pageSize: PAGE_SIZE,
-      filters: []
+      filters: filters
+    });
+  }, [fetchDomains, filters]);
+
+  const resetDomains = useCallback(() => {
+    const clearedFilters: Query<DomainSearchApiResponse>['filters'] = [];
+
+    setInitialFilters(clearedFilters);
+    setPaginationModel({
+      page: 0,
+      pageSize: PAGE_SIZE,
+      pageCount: 0,
+      filters: clearedFilters
+    });
+
+    fetchDomains({
+      page: 1,
+      pageSize: PAGE_SIZE,
+      filters: clearedFilters
     });
   }, [fetchDomains]);
 
@@ -103,11 +153,13 @@ export const Domains: React.FC = () => {
     organization_name: domain.organization.name,
     name: domain.name,
     ip: domain.ip,
-    ports: [domain.services.map((service) => service.port).join(', ')],
-    service: domain.services.map((service) =>
-      service.products.map((p) => p.name).join(', ')
+    ports_preview: formatPreview(domain.ports_preview, domain.services_count),
+    services_preview: formatPreview(
+      domain.services_preview,
+      domain.services_count
     ),
-    vulnerabilities: domain.vulnerabilities.map((vuln) => vuln.title),
+    services_count: domain.services_count,
+    vulnerabilities_count: domain.vulnerabilities_count,
     updated_at: `${differenceInCalendarDays(
       Date.now(),
       parseISO(domain.updated_at)
@@ -123,26 +175,31 @@ export const Domains: React.FC = () => {
       field: 'organization_name',
       headerName: 'Organization',
       minWidth: 100,
+      flex: 1.5
+    },
+    { field: 'name', headerName: 'Domain', minWidth: 100, flex: 1 },
+    { field: 'ip', headerName: 'IP', minWidth: 50, flex: 1 },
+    { field: 'ports_preview', headerName: 'Ports', minWidth: 100, flex: 1.2 },
+    {
+      field: 'services_preview',
+      headerName: 'Services',
+      minWidth: 100,
+      flex: 1.5
+    },
+    {
+      field: 'vulnerabilities_count',
+      headerName: 'Vulnerabilities',
+      minWidth: 50,
       flex: 1
     },
-    { field: 'name', headerName: 'Domain', minWidth: 100, flex: 2 },
-    { field: 'ip', headerName: 'IP', minWidth: 50, flex: 1 },
-    { field: 'ports', headerName: 'Ports', minWidth: 100, flex: 1 },
-    { field: 'service', headerName: 'Services', minWidth: 100, flex: 2 },
-    {
-      field: 'vulnerabilities',
-      headerName: 'Vulnerabilities',
-      minWidth: 100,
-      flex: 2
-    },
-    { field: 'updated_at', headerName: 'Updated At', minWidth: 50, flex: 1 },
-    { field: 'created_at', headerName: 'Created At', minWidth: 50, flex: 1 },
+    { field: 'updated_at', headerName: 'Updated At', minWidth: 50, flex: 0.9 },
+    { field: 'created_at', headerName: 'Created At', minWidth: 50, flex: 0.9 },
 
     {
       field: 'view',
       headerName: 'Details',
       minWidth: 100,
-      flex: 0.5,
+      flex: 0.3,
       disableExport: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
@@ -162,25 +219,57 @@ export const Domains: React.FC = () => {
   ];
 
   const noRowsOverlay = (
-    <Box>
-      <Paper>
-        <Alert severity="warning">
-          No Results Found. Please adjust your filters.
-        </Alert>
-      </Paper>
-    </Box>
+    <Paper>
+      <Alert severity="warning">
+        No Results Found. Please adjust your filters.
+      </Alert>
+    </Paper>
   );
 
   return (
-    <Box>
-      <Subnav
-        items={[
-          { title: 'Search Results', path: '/inventory', exact: true },
-          { title: 'All Domains', path: '/inventory/domains' },
-          { title: 'All Vulnerabilities', path: '/inventory/vulnerabilities' }
-        ]}
-      ></Subnav>
-      <Box mb={3} mt={5} display="flex" justifyContent="center">
+    <FindingsHeader>
+      {!isLoading && !loadingError && state && filters.length > 0 && (
+        <Box sx={{ width: '100%', mb: 1 }}>
+          <Stack direction="row" alignItems="center">
+            <FiberManualRecordRounded sx={{ color: 'primary.main' }} />
+            <Typography variant="body1" color="neutrals.main">
+              &nbsp;Filters Applied:
+            </Typography>
+            {state.orgName ? (
+              <Typography variant="body1" color="neutrals.main" ml={1}>
+                <b>Organization</b> - {state.orgName}
+              </Typography>
+            ) : (
+              ''
+            )}
+            &nbsp;&nbsp;&nbsp;
+            <Divider
+              orientation="vertical"
+              flexItem
+              variant="middle"
+              sx={{
+                height: 24,
+                alignSelf: 'center',
+                borderColor: 'neutrals.light',
+                ml: 2
+              }}
+            />
+            <Button
+              variant="text"
+              onClick={resetDomains}
+              sx={{
+                color: 'primary.dark',
+                fontSize: '14px',
+                letterSpacing: '3px',
+                ml: 2
+              }}
+            >
+              Reset
+            </Button>
+          </Stack>
+        </Box>
+      )}
+      <Box mb={3} display="flex" justifyContent="center">
         {isLoading ? (
           <Paper elevation={2}>
             <Alert severity="info">Loading Domains..</Alert>
@@ -200,7 +289,7 @@ export const Domains: React.FC = () => {
             </Button>
           </Stack>
         ) : isLoading === false && loadingError === false ? (
-          <Paper elevation={2} sx={{ width: '90%', minHeight: 500 }}>
+          <Paper elevation={2} sx={{ width: '100%', minHeight: 500 }}>
             <DataGrid
               rows={domRows}
               rowCount={totalResults}
@@ -211,7 +300,7 @@ export const Domains: React.FC = () => {
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
-                toolbar: { exportTitle: 'Domains' }
+                toolbar: { exportTitle: 'Domains' } as any
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -219,11 +308,9 @@ export const Domains: React.FC = () => {
                 fetchDomains({
                   page: model.page + 1,
                   pageSize: model.pageSize,
-                  filters: paginationModel.filters
+                  filters: filters
                 });
               }}
-              filterMode="server"
-              filterModel={filterModel}
               onFilterModelChange={(model) => {
                 const filters = model.items.map((item) => ({
                   id: item.field,
@@ -231,11 +318,7 @@ export const Domains: React.FC = () => {
                   value: item.value,
                   operator: item.operator
                 }));
-                setFilters(filters);
-                setFilterModel((prevFilterModel) => ({
-                  ...prevFilterModel,
-                  items: filters
-                }));
+                setInitialFilters(filters);
                 fetchDomains({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
@@ -247,6 +330,6 @@ export const Domains: React.FC = () => {
           </Paper>
         ) : null}
       </Box>
-    </Box>
+    </FindingsHeader>
   );
 };

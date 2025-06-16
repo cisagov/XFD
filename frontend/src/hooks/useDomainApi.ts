@@ -1,25 +1,25 @@
-import { Query, Domain } from 'types';
+import { Query, Domain, DomainSearchApiResponse } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
 import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
 
-export interface DomainQuery extends Query<Domain> {
+export interface DomainQuery extends Query<DomainSearchApiResponse> {
   showAll?: boolean;
 }
 
 interface ApiResponse {
-  result: Domain[];
+  result: DomainSearchApiResponse[];
   count: number;
   url?: string;
 }
 
 const PAGE_SIZE = 15;
 
-export const useDomainApi = (showAll?: boolean) => {
-  const { currentOrganization, apiPost, apiGet } = useAuthContext();
+export const useDomainApi = (showAll?: boolean, orgId?: string) => {
+  const { currentOrganization, apiPost, apiGet, user } = useAuthContext();
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
-      const { page, filters, pageSize = PAGE_SIZE } = query;
+      const { page, filters, page_size = PAGE_SIZE } = query;
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
@@ -29,21 +29,26 @@ export const useDomainApi = (showAll?: boolean) => {
           }),
           {}
         );
-      let userOrgIsExcluded = false;
-      ORGANIZATION_EXCLUSIONS.forEach((exc) => {
-        if (currentOrganization?.name.toLowerCase().includes(exc)) {
-          userOrgIsExcluded = true;
-        }
-      });
-      if (currentOrganization && !userOrgIsExcluded) {
+      const isExcludedOrg = ORGANIZATION_EXCLUSIONS.some((exc) =>
+        currentOrganization?.name.toLowerCase().includes(exc)
+      );
+
+      if (
+        currentOrganization &&
+        !isExcludedOrg &&
+        user?.user_type === 'standard'
+      ) {
         tableFilters['organization'] = currentOrganization.id;
+      }
+      if (orgId) {
+        tableFilters['organization'] = orgId;
       }
 
       const { result, count, url } = await apiPost<ApiResponse>(
         doExport ? '/domain/export' : '/domain/search',
         {
           body: {
-            pageSize,
+            page_size,
             page,
             filters: tableFilters
           }
@@ -54,10 +59,10 @@ export const useDomainApi = (showAll?: boolean) => {
         domains: result,
         count,
         url,
-        pageCount: Math.ceil(count / pageSize)
+        pageCount: Math.ceil(count / page_size)
       };
     },
-    [apiPost, currentOrganization]
+    [apiPost, currentOrganization, user, orgId]
   );
 
   const getDomain = useCallback(
