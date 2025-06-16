@@ -134,7 +134,7 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=password
     logging:
-      driver: json-file
+      driver: none
     ports:
       - 3306:3306
 
@@ -156,7 +156,7 @@ services:
       - MATOMO_GENERAL_PROXY_URI_HEADER=1
       - MATOMO_GENERAL_ASSUME_SECURE_PROTOCOL=1
     logging:
-      driver: json-file
+      driver: none
     ports:
       - "8080:80"
 

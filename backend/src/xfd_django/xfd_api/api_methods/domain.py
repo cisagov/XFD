@@ -10,7 +10,7 @@ from django.db.models import Prefetch
 from fastapi import HTTPException
 from xfd_mini_dl.models import Domain, DomainSearchView, Organization, Service
 
-from ..auth import get_org_memberships, is_analytics_user, is_global_view_admin
+from ..auth import get_org_memberships, is_global_view_admin
 from ..helpers.filter_helpers import apply_domain_filters, sort_direction
 from ..helpers.s3_client import S3Client
 from ..schema_models.domain import DomainSearch
@@ -97,7 +97,7 @@ def search_domains(domain_search: DomainSearch, current_user):
 
         # Apply global user permission filters
         if (
-            not is_global_view_admin(current_user) | is_analytics_user(current_user)
+            not is_global_view_admin(current_user)
             and not current_user.user_type == "regionalAdmin"
         ):
             orgs = get_org_memberships(current_user)

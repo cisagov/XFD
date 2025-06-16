@@ -159,16 +159,6 @@ CSRF_COOKIE_SECURE = not IS_LOCAL
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
-# Awaiting implementation of Matomo CSP, uncomment when ready
-MATOMO_CSP_POLICY = {
-    "default-src": ["*", "'unsafe-inline'", "'unsafe-eval'"],
-    "connect-src": ["*"],
-    "img-src": ["*"],
-    "style-src": ["*", "'unsafe-inline'"],
-    "frame-ancestors": ["*"],
-    "frame-src": ["*"],
-}
-
 # SameSite policy to prevent CSRF via cross-origin requests
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
@@ -211,6 +201,7 @@ SECURE_CSP_POLICY = {
         "https://www.ssa.gov/accessibility/andi/fandi.js",
         "https://www.ssa.gov/accessibility/andi/andi.js",
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
+        "'sha256-QOOQu4W1oxGqd2nbXbxiA1Di6OHQOLQD+o+G9oWL8YY='",
         "https://www.dhs.gov",
     ],
     "style-src": [

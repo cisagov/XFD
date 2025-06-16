@@ -147,35 +147,43 @@ async def get_redis_client(request: Request):
 # ========================================
 
 
-# Matomo Logo Redirect
-@api_router.get("/plugins/Morpheus/images/logo.svg")
-async def redirect_logo():
-    """Redirect to the Matomo logo."""
-    return RedirectResponse(
-        url="/matomo/plugins/Morpheus/images/logo.svg?matomo", status_code=308
-    )
-
-
-# Matomo Index Redirect
-@api_router.get("/index.php")
-async def redirect_index():
-    """Redirect to the Matomo index page."""
-    return RedirectResponse(url="/matomo/index.php", status_code=308)
-
-
 # Matomo Proxy
 @api_router.api_route(
     "/matomo/{path:path}",
-    methods=["GET", "POST", "PUT", "DELETE"],
+    dependencies=[Depends(get_current_active_user)],
     tags=["Analytics"],
 )
 async def matomo_proxy(
-    path: str,
-    request: Request,
+    path: str, request: Request, current_user: User = Depends(get_current_active_user)
 ):
     """Proxy requests to the Matomo analytics instance."""
-    MATOMO_URL = os.getenv("REACT_APP_MATOMO_URL", "")
-    return await proxy.matomo_proxy_handler(request, path, MATOMO_URL)
+    # Public paths -- directly allowed
+    allowed_paths = ["/matomo.php", "/matomo.js"]
+    if any(
+        [request.url.path.startswith(allowed_path) for allowed_path in allowed_paths]
+    ):
+        return await proxy.proxy_request(path, request, os.getenv("MATOMO_URL"))
+
+    # Redirects for specific font files
+    if request.url.path in [
+        "/plugins/Morpheus/fonts/matomo.woff2",
+        "/plugins/Morpheus/fonts/matomo.woff",
+        "/plugins/Morpheus/fonts/matomo.ttf",
+    ]:
+        return RedirectResponse(
+            url="https://cdn.jsdelivr.net/gh/matomo-org/matomo@5.2.1{}".format(
+                request.url.path
+            )
+        )
+
+    # Ensure only global admin can access other paths
+    if current_user.user_type != "globalAdmin":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    # Handle the proxy request to Matomo
+    return await proxy.proxy_request(
+        request, os.getenv("MATOMO_URL", ""), path, cookie_name="MATOMO_SESSID"
+    )
 
 
 # P&E Proxy
@@ -186,19 +194,15 @@ async def matomo_proxy(
     tags=["Analytics"],
 )
 async def pe_proxy(
-    path: str,
-    request: Request,
-    current_user: UserSchema = Depends(get_current_active_user),
+    path: str, request: Request, current_user: User = Depends(get_current_active_user)
 ):
     """Proxy requests to the P&E Django application."""
-    PE_API_URL = os.getenv("PE_API_URL", "")
-
     # Ensure only Global Admin and Global View users can access
     if current_user.user_type not in ["globalView", "globalAdmin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
-    # Proxy the request to the P&E Django application
-    return await proxy.proxy_request(request, PE_API_URL, path)
+    # Handle the proxy request to the P&E Django application
+    return await proxy.proxy_request(request, os.getenv("PE_API_URL", ""), path)
 
 
 # ========================================

@@ -16,7 +16,6 @@ from .role import Role
 class UserType(Enum):
     """User Type."""
 
-    ANALYTICS = "analytics"
     GLOBAL_ADMIN = "globalAdmin"
     GLOBAL_VIEW = "globalView"
     REGIONAL_ADMIN = "regionalAdmin"

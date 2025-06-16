@@ -492,12 +492,6 @@ export const UserForm: React.FC<UserFormProps> = ({
               label="Global Administrator"
               disabled={user?.user_type !== 'globalAdmin'}
             />
-            <FormControlLabel
-              value="analytics"
-              control={<Radio color="primary" />}
-              label="Analytics"
-              disabled={user?.user_type !== 'globalAdmin'}
-            />
           </RadioGroup>
           {formErrors.user_type && (
             <Typography pl={2} variant="caption" color="error.main">

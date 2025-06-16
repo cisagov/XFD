@@ -338,11 +338,6 @@ def is_regional_admin(current_user) -> bool:
     return current_user and current_user.user_type in ["regionalAdmin", "globalAdmin"]
 
 
-def is_analytics_user(current_user) -> bool:
-    """Check if the user has analytics permissions."""
-    return current_user and current_user.user_type in ["analytics", "globalAdmin"]
-
-
 def is_org_admin(current_user, organization_id) -> bool:
     """Check if the user is an admin of the given organization."""
     if not organization_id:
@@ -466,7 +461,6 @@ def get_stats_org_ids(current_user, filters):
                 or (is_regional_admin_for_organization(current_user, org_id))
                 or (is_org_admin(current_user, org_id))
                 or (get_org_memberships(current_user))
-                or (is_analytics_user(current_user))
             ):
                 organization_ids.add(org_id)
 
@@ -489,21 +483,11 @@ def get_stats_org_ids(current_user, filters):
         for tag_id in tags_filter:
             organizations_by_tag = get_tag_organizations(current_user, tag_id)
             organization_ids.update(organizations_by_tag)
-    # Case 3: Analytics view
-    elif is_analytics_user(current_user):
-        # Get organizations by region
-        if regions_filter:
-            organizations_by_region = Organization.objects.filter(
-                region_id__in=regions_filter
-            ).values_list("id", flat=True)
-            organization_ids.update(organizations_by_region)
-        # Get organizations by tag
-        for tag_id in tags_filter:
-            organizations_by_tag = get_tag_organizations(current_user, tag_id)
-            organization_ids.update(organizations_by_tag)
-    # Case 4: Regional admin
+
+    # Case 3: Regional admin
     elif current_user.user_type in ["regionalAdmin"]:
         user_region_id = current_user.region_id
+
         # Allow only organizations in the user's region
         organizations_in_region = Organization.objects.filter(
             region_id=user_region_id
@@ -524,7 +508,7 @@ def get_stats_org_ids(current_user, filters):
             ]
             organization_ids.update(regional_tag_organizations)
 
-    # Case 5: Standard user
+    # Case 4: Standard user
     else:
         # Allow only organizations where the user is a member
         user_organization_ids = current_user.roles.values_list(

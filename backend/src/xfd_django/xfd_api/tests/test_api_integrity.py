@@ -18,12 +18,6 @@ PUBLIC_ENDPOINTS = {
     ("POST", "/auth/callback"),
     ("GET", "/notifications"),
     ("GET", "/healthcheck"),
-    ("GET", "/plugins/Morpheus/images/logo.svg"),
-    ("GET", "/index.php"),
-    ("GET", "/matomo/{path:path}"),  # Matomo public endpoints
-    ("PUT", "/matomo/{path:path}"),  # Matomo public endpoints
-    ("POST", "/matomo/{path:path}"),  # Matomo public endpoints
-    ("DELETE", "/matomo/{path:path}"),  # Matomo public endpoints
 }
 
 # HTTP methods to test
@@ -54,15 +48,10 @@ def test_endpoints_require_auth(method, route):
 # TODO: Create response models for any endpoints excluded here that need them
 EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("GET", "/healthcheck"),
-    ("GET", "/plugins/Morpheus/images/logo.svg"),
-    ("GET", "/index.php"),
     ("GET", "/matomo/{path:path}"),
     ("GET", "/pe/{path:path}"),
-    ("PUT", "/matomo/{path:path}"),
     ("PUT", "/pe/{path:path}"),
-    ("POST", "/matomo/{path:path}"),
     ("POST", "/pe/{path:path}"),
-    ("DELETE", "/matomo/{path:path}"),
     ("DELETE", "/pe/{path:path}"),
     ("OPTIONS", "/pe/{path:path}"),
     ("DELETE", "/api-keys/{api_key_id}"),
@@ -115,13 +104,8 @@ EXCLUDED_ENDPOINTS_TESTS = {
     ("GET", "/healthcheck"),  # Test not needed
     ("GET", "/matomo/{path:path}"),  # TODO
     ("GET", "/pe/{path:path}"),  # Tested
-    ("GET", "/plugins/Morpheus/images/logo.svg"),  # Test not needed
-    ("GET", "/index.php"),  # Test not needed
-    ("PUT", "/matomo/{path:path}"),  # TODO
     ("PUT", "/pe/{path:path}"),  # Tested
-    ("POST", "/matomo/{path:path}"),  # TODO
     ("POST", "/pe/{path:path}"),  # Tested
-    ("DELETE", "/matomo/{path:path}"),  # TODO
     ("DELETE", "/pe/{path:path}"),  # Tested
     ("OPTIONS", "/pe/{path:path}"),  # Tested
     ("POST", "/auth/callback"),  # Not used

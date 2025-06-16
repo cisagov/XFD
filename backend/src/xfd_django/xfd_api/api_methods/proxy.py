@@ -5,8 +5,17 @@ from typing import Optional
 
 # Third-Party Libraries
 from fastapi import Request
-from fastapi.responses import RedirectResponse, Response
+from fastapi.responses import Response
 import httpx
+
+
+# Helper function to handle cookie manipulation
+def manipulate_cookie(request: Request, cookie_name: str):
+    """Manipulate cookie."""
+    cookies = request.cookies.get(cookie_name)
+    if cookies:
+        return {cookie_name: cookies}
+    return {}
 
 
 # Helper function to proxy requests
@@ -16,17 +25,17 @@ async def proxy_request(
     path: Optional[str] = None,
     cookie_name: Optional[str] = None,
 ):
-    """Proxy requests to the specified target URL with optional cookie handling."""
+    """Proxy the request to the target URL."""
     headers = dict(request.headers)
 
-    # Include specified cookie in the headers if present
+    # Cookie manipulation for specific cookie names
     if cookie_name:
-        cookies = request.cookies.get(cookie_name)
+        cookies = manipulate_cookie(request, cookie_name)
         if cookies:
-            headers["Cookie"] = "{}={}".format(cookie_name, cookies)
+            headers["Cookie"] = "{}={}".format(cookie_name, cookies[cookie_name])
 
-    # Send the request to the target
-    async with httpx.AsyncClient(timeout=httpx.Timeout(90.0)) as client:
+    # Make the request to the target URL
+    async with httpx.AsyncClient() as client:
         proxy_response = await client.request(
             method=request.method,
             url="{}/{}".format(target_url, path),
@@ -34,39 +43,13 @@ async def proxy_request(
             params=request.query_params,
             content=await request.body(),
         )
-    # Adjust response headers
+
+    # Remove chunked encoding for API Gateway compatibility
     proxy_response_headers = dict(proxy_response.headers)
-    for header in ["content-encoding", "transfer-encoding", "content-length"]:
-        proxy_response_headers.pop(header, None)
+    proxy_response_headers.pop("transfer-encoding", None)
 
     return Response(
         content=proxy_response.content,
         status_code=proxy_response.status_code,
         headers=proxy_response_headers,
-    )
-
-
-async def matomo_proxy_handler(
-    request: Request,
-    path: str,
-    MATOMO_URL: str,
-):
-    """
-    Handle Matomo-specific proxy logic.
-
-    Includes public paths, font redirects, and authentication for private paths.
-    """
-    # Redirect font requests to CDN
-    font_paths = {
-        "/plugins/Morpheus/fonts/matomo.woff2": "https://cdn.jsdelivr.net/gh/matomo-org/matomo@5.2.1/plugins/Morpheus/fonts/matomo.woff2",
-        "/plugins/Morpheus/fonts/matomo.woff": "https://cdn.jsdelivr.net/gh/matomo-org/matomo@5.2.1/plugins/Morpheus/fonts/matomo.woff",
-        "/plugins/Morpheus/fonts/matomo.ttf": "https://cdn.jsdelivr.net/gh/matomo-org/matomo@5.2.1/plugins/Morpheus/fonts/matomo.ttf",
-    }
-    if path in font_paths:
-        return RedirectResponse(url=font_paths[path])
-
-    return await proxy_request(
-        request=request,
-        target_url=MATOMO_URL,
-        path=path,
     )

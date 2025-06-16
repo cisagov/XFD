@@ -62,8 +62,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
   const [chosenTags, setChosenTags] = React.useState<string[]>(
     organization.tags ? organization.tags.map((tag) => tag.name) : []
   );
-  const disableButton =
-    user?.user_type === 'globalView' || user?.user_type === 'analytics';
 
   const updateOrganization = async (body: any) => {
     try {
@@ -181,7 +179,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                   }
                   setIsSaveDisabled(false);
                 }}
-                disabled={disableButton}
+                disabled={user?.user_type === 'globalView'}
               ></Chip>
             </Grid>
           ))}
@@ -204,7 +202,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                     stage: 1
                   });
                 }}
-                disabled={disableButton}
+                disabled={user?.user_type === 'globalView'}
               ></Chip>
             </Grid>
           ))}
@@ -223,7 +221,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                   stage: 0
                 });
               }}
-              disabled={disableButton}
+              disabled={user?.user_type === 'globalView'}
             />
           </Grid>
         )}
@@ -461,7 +459,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                   }
                 }}
                 color="primary"
-                disabled={disableButton}
+                disabled={user?.user_type === 'globalView'}
               />
             </Grid>
           </Grid>
@@ -483,7 +481,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             disabled={
               organization.root_domains.length === 0 ||
               isSaveDisabled ||
-              disableButton
+              user?.user_type === 'globalView'
             }
           >
             Save

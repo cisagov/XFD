@@ -52,8 +52,6 @@ export const RegionUsers: React.FC = () => {
   const { formattedUserType } = useUserLevel();
   const getOrgsURL = `/organizations/region_id/`;
   const getUsersURL = `/v2/users?invite_pending=`;
-  const disableButton =
-    user?.user_type === 'globalView' || user?.user_type === 'analytics';
 
   const pendingCols: GridColDef[] = [
     { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
@@ -79,7 +77,7 @@ export const RegionUsers: React.FC = () => {
               endIcon={<DoneIcon />}
               color="success"
               onClick={() => handleApproveClick(cellValues.row)}
-              disabled={disableButton}
+              disabled={user?.user_type === 'globalView'}
             >
               Approve
             </Button>
@@ -88,7 +86,7 @@ export const RegionUsers: React.FC = () => {
               endIcon={<CloseIcon />}
               color="error"
               onClick={() => handleDenyClick(cellValues.row)}
-              disabled={disableButton}
+              disabled={user?.user_type === 'globalView'}
             >
               Deny
             </Button>

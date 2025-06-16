@@ -23,7 +23,7 @@ from xfd_mini_dl.models import (
     VulnScanSummary,
 )
 
-from ..auth import get_org_memberships, is_analytics_user, is_global_view_admin
+from ..auth import get_org_memberships, is_global_view_admin
 
 
 # GET: /stats
@@ -111,8 +111,7 @@ async def get_stats(filter_data, current_user, redis_client, request: Request):
         }
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail="An unexpected error occurred: {}".format(e),
+            status_code=500, detail="An unexpected error occurred: {}".format(e)
         )
 
 
@@ -445,7 +444,7 @@ def get_vs_condensed_trending_data(filters, current_user):
         raise HTTPException(status_code=404, detail="Organization not found.")
 
     if (
-        not is_global_view_admin(current_user) | is_analytics_user(current_user)
+        not is_global_view_admin(current_user)
         and not current_user.user_type == "regionalAdmin"
     ):
         org_ids = get_org_memberships(current_user)
@@ -530,7 +529,6 @@ def get_vs_trending_data(filters, current_user):
 
     if (
         not is_global_view_admin(current_user)
-        and not is_analytics_user(current_user)
         and not current_user.user_type == "regionalAdmin"
     ):
         org_ids = get_org_memberships(current_user)
