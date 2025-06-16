@@ -277,7 +277,7 @@ export const Logs: FC<LogsProps> = () => {
     },
     {
       field: 'details',
-      headerName: 'Payload',
+      headerName: 'Payload Details',
       maxWidth: 70,
       flex: 0.5,
       renderCell: (cellValues: GridRenderEditCellParams) => (
