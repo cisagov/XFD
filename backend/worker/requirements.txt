@@ -1,6 +1,6 @@
-mitmproxy==11.0.2
+mitmproxy>=11.1.2
 nested_lookup==0.2.25
-numpy==1.24.3
+numpy>=1.26.0,<2.0.0
 pandas==2.2.3
 python-dotenv
 requests-http-signature==0.2.0
