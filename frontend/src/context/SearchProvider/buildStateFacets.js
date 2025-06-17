@@ -64,5 +64,4 @@ export default function buildStateFacets(aggregations) {
   if (Object.keys(facets).length > 0) {
     return facets;
   }
-  console.log('facets:', facets); // Add this line
 }

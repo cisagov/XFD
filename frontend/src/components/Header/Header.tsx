@@ -23,15 +23,27 @@ import { NavMenuDrawer } from './NavMenuDrawer';
 
 interface MenuItemType {
   menuItemTitle: string;
-  path: string;
+  path?: string;
+  objectStoreParams?: { bucket_name: string; object_key: string };
   users?: number;
   onClick?: any;
   href?: string;
 }
 
+// TODO: Update bucket/key names when provided.
+const LEARNING_CENTER_DOC_BUCKET_NAME = process.env
+  .LEARNING_CENTER_DOC_BUCKET_NAME as string;
+
+const LEARNING_CENTER_DOC_KEYS = {
+  glossary: 'vs_glossary.pdf',
+  faq: 'vs_faq.pdf',
+  methodology: 'vs_methodology.pdf',
+  userGuide: 'user_guide.pdf'
+};
+
 export const Header: React.FC = () => {
   const history = useHistory();
-  const { logout } = useAuthContext();
+  const { apiPost, logout } = useAuthContext();
   const theme = useTheme();
   const { userLevel } = useUserLevel();
   const [openDrawer, setOpenDrawer] = React.useState(false);
@@ -109,24 +121,6 @@ export const Header: React.FC = () => {
     }
   ].filter(({ users }) => users <= userLevel);
 
-  const learningCenterMenuItems: MenuItemType[] = [
-    // {
-    //   menuItemTitle: 'Glossary',
-    //   path: '#',
-    //   users: STANDARD_USER
-    // },
-    // {
-    //   menuItemTitle: 'FAQ',
-    //   path: '#',
-    //   users: STANDARD_USER
-    // },
-    {
-      menuItemTitle: 'CISA Resources',
-      path: 'https://www.cisa.gov',
-      users: STANDARD_USER
-    }
-  ].filter(({ users }) => users <= userLevel);
-
   const inventoryMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Findings Library',
@@ -135,24 +129,76 @@ export const Header: React.FC = () => {
     }
   ].filter(({ users }) => users <= userLevel);
 
-  const allMenuItems: { [section: string]: MenuItemType[] }[] = [
-    // { 'Scanning Results': scanningResults },
-    { 'Vulnerability Scanning': vulnScanningMenuItems },
-    { 'Findings Library': inventoryMenuItems },
-    { 'Learning Center': learningCenterMenuItems },
-    { Support: supportMenuItems },
-    userLevel > 1 ? { 'Admin Hub': adminHubMenuItems } : {},
-    { 'My Account': userMenuItems }
-  ];
-
   const handleLogoClick = () => {
     history.push('/VSDashboard');
   };
+
+  const learningCenterMenuItems: MenuItemType[] = [
+    {
+      menuItemTitle: 'VS Glossary',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.glossary
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'VS FAQ',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.faq
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'VS Methodology',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.methodology
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'User Guide',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.userGuide
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'CISA Resources',
+      path: 'https://www.cisa.gov',
+      users: STANDARD_USER
+    }
+  ].filter(({ users }) => users <= userLevel);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       handleLogoClick();
+    }
+  };
+
+  const handleMenuClick = async (item: MenuItemType) => {
+    if (item.path) {
+      window.open(item.path, '_blank');
+    } else if (item.objectStoreParams) {
+      try {
+        const response = await apiPost<{ url: string }>(
+          '/v1/object-store/presigned-url',
+          {
+            body: item.objectStoreParams
+          }
+        );
+        if (response.url) {
+          window.open(response.url, '_blank');
+        } else {
+          console.error('Presigned URL missing');
+        }
+      } catch (err) {
+        console.error('Failed to fetch presigned url:', err);
+      }
     }
   };
 
@@ -171,6 +217,17 @@ export const Header: React.FC = () => {
       </Typography>
     </>
   );
+
+  const allMenuItems: { [section: string]: MenuItemType[] }[] = [
+    // { 'Scanning Results': scanningResults },
+    { 'Vulnerability Scanning': vulnScanningMenuItems },
+    { 'Findings Library': inventoryMenuItems },
+    { 'Learning Center': learningCenterMenuItems },
+    { Support: supportMenuItems },
+    userLevel > 1 ? { 'Admin Hub': adminHubMenuItems } : {},
+    { 'My Account': userMenuItems }
+  ];
+
   const headerLogoWrapper = (
     <Box
       sx={{
@@ -249,7 +306,11 @@ export const Header: React.FC = () => {
               }
               return (
                 <Box key={title + index} sx={{ mr: padding }}>
-                  <NavMenuButton title={title} menuItems={menuItems} />
+                  <NavMenuButton
+                    title={title}
+                    menuItems={menuItems}
+                    onMenuItemClick={handleMenuClick}
+                  />
                 </Box>
               );
             })}
@@ -270,6 +331,7 @@ export const Header: React.FC = () => {
               openDrawer={openDrawer}
               toggleDrawer={toggleDrawer}
               menuItems={allMenuItems}
+              onMenuItemClick={handleMenuClick}
             />
           </>
         )}

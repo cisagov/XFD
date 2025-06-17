@@ -120,7 +120,6 @@ const Feeds = () => {
                     '/inventory' + search.search_path + '&searchId=' + search.id
                   }
                   onClick={() => {
-                    console.log('bbb');
                     localStorage.setItem('savedSearch', JSON.stringify(search));
                   }}
                   key={search.id}

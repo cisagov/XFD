@@ -35,6 +35,7 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
+from .api_methods.object_store import get_object_store_presigned_url
 from .api_methods.queue_monitoring import list_queues
 from .api_methods.saved_search import (
     create_saved_search,
@@ -98,6 +99,10 @@ from .schema_models.dmz_sync import (
 from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
 from .schema_models.notification import CreateNotificationSchema
 from .schema_models.notification import Notification as NotificationSchema
+from .schema_models.object_store import (
+    ObjectStorePresignedUrlRequest,
+    ObjectStorePresignedUrlResponse,
+)
 from .schema_models.queue_monitoring import QueueListResponse, QueueSearch
 from .schema_models.saved_search import (
     SavedSearchCreate,
@@ -1809,3 +1814,31 @@ async def cred_sync(
     return JSONResponse(
         content=response_serializable, headers={"X-Salted-Checksum": checksum}
     )
+
+
+############################
+# Object Store Endpoints  #
+############################
+
+
+# POST
+@api_router.post(
+    "/v1/object-store/presigned-url",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=ObjectStorePresignedUrlResponse,
+    tags=["Object Store"],
+    summary="Generate a presigned URL for a given object",
+)
+def generate_presigned_object_store_url(
+    body: ObjectStorePresignedUrlRequest, current_user=Depends(get_current_active_user)
+) -> ObjectStorePresignedUrlResponse:
+    """Generate an Object Store Presigned URL.
+
+    Args:
+        body (ObjectStorePresignedUrlRequest): _description_
+        current_user (_type_, optional): _description_. Defaults to Depends(get_current_active_user).
+
+    Returns:
+        ObjectStorePresignedUrlResponse: _description_
+    """
+    return get_object_store_presigned_url(current_user, body)

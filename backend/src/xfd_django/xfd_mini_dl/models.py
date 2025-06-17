@@ -1274,6 +1274,11 @@ class User(AutoLengthCheckModel):
         default=False,
         help_text="A boolean field flagging if the user's invite is pending.",
     )
+    first_login = models.BooleanField(
+        db_column="first_login",
+        null=True,
+        help_text="A boolean field identifying a users first approved login for prompts.",
+    )
     date_approved = models.DateTimeField(
         db_column="date_approved",
         blank=True,
