@@ -16,7 +16,7 @@ import {
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 import { useAuthContext } from 'context';
-import { format, parseISO, differenceInCalendarDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 
@@ -115,9 +115,6 @@ export const Logs: FC<LogsProps> = () => {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
-
-  console.log('logs', logs);
-
   const logCols: GridColDef[] = [
     {
       field: 'event_type',
@@ -130,7 +127,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acting User Name',
       minWidth: 100,
       flex: 1.5,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         const p =
           params.row.payload?.user_performed_assignment ||
           params.row.payload?.user_performed_removal ||
@@ -144,7 +142,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acting User Email',
       minWidth: 100,
       flex: 1.5,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         const p =
           params.row.payload?.user_performed_assignment ||
           params.row.payload?.user_performed_removal ||
@@ -158,12 +157,14 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acted-on User Name',
       minWidth: 100,
       flex: 1.5,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         const u =
           params.row.payload?.user ||
           params.row.payload?.removal_result?.role_deleted?.user ||
           params.row.payload?.user_to_approve ||
-          params.row.payload?.approval_results?.role_deleted?.user;
+          params.row.payload?.approval_results?.role_deleted?.user ||
+          params.row.payload?.user_performed_approval;
         return u?.full_name || 'N/A';
       }
     },
@@ -172,7 +173,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acted-on User Email',
       minWidth: 100,
       flex: 1.5,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         const u =
           params.row.payload?.user ||
           params.row.payload?.removal_result?.role_deleted?.user ||
@@ -186,7 +188,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Organization',
       minWidth: 100,
       flex: 1,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         return (
           params.row.payload?.organization?.name ||
           params.row.payload?.from_organization?.name ||
@@ -199,26 +202,34 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Region',
       minWidth: 100,
       flex: 0.75,
-      valueGetter: (params) =>
-        params.row.payload?.user_performed_assignment?.region_id ||
-        params.row.payload?.user_performed_removal?.region_id ||
-        params.row.payload?.user_performed_approval?.region_id ||
-        params.row.payload?.user_performed_invite?.region_id ||
-        'N/A'
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
+        return (
+          params.row.payload?.user_performed_assignment?.region_id ||
+          params.row.payload?.user_performed_removal?.region_id ||
+          params.row.payload?.user_performed_approval?.region_id ||
+          params.row.payload?.user_performed_invite?.region_id ||
+          'N/A'
+        );
+      }
     },
     {
       field: 'role',
       headerName: 'Role',
       minWidth: 100,
       flex: 0.75,
-      valueGetter: (params) => params.row.payload?.role || 'N/A'
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
+        return params.row.payload?.role || 'N/A';
+      }
     },
     {
       field: 'state',
       headerName: 'State',
       minWidth: 100,
       flex: 1,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         return (
           params.row.payload?.state ||
           params.row.payload?.user_performed_assignment?.state ||
@@ -235,7 +246,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'User Type',
       minWidth: 100,
       flex: 1.5,
-      valueGetter: (params) => {
+      valueGetter: (params: any) => {
+        if (!params || !params.row) return 'N/A';
         return (
           params.row.payload?.user?.user_type ||
           params.row.payload?.user_to_approve?.user_type ||
@@ -248,7 +260,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Timestamp',
       minWidth: 100,
       flex: 1.25,
-      valueFormatter: (e) => {
+      valueFormatter: (e: any) => {
+        if (!e.value) return ''; // Prevents the error if value is undefined/null
         const utcDate = parseISO(e.value);
         const localDate = toZonedTime(
           utcDate,

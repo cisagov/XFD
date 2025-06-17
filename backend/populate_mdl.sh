@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-docker exec -i xfd-db-1 psql -U crossfeed -d crossfeed_mini_datalake << EOF
+docker exec -i db psql -U crossfeed -d crossfeed_mini_datalake << EOF
 \i /tmp/location.sql
 \i /tmp/organization.sql
 \i /tmp/cidr.sql
