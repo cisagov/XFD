@@ -3,7 +3,12 @@
     "url": "https://github.com/cisagov/crossfeed/issues"
   },
   "dependencies": {
+    "@mui/icons-material": "^5.17.1",
+    "@mui/lab": "^5.0.0-alpha.141",
+    "@mui/material": "^5.17.1",
     "date-fns-tz": "^3.2.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-router-hash-link": "^2.4.3"
   },
   "devDependencies": {
