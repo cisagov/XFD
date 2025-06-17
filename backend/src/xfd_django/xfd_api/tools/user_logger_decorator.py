@@ -7,6 +7,7 @@ import json
 
 # Third-Party Libraries
 from asgiref.sync import sync_to_async
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Log, Organization, User
 
 
@@ -76,7 +77,7 @@ def log_action(action: str, message_or_cb=None):
                     )
                 except Exception as log_error:
                     # If logging fails, print a warning (or use your logging system).
-                    print("Logging error: {}".format(log_error))
+                    LOGGER.exception("Logging error: %s", log_error)
             return response
 
         return wrapper
