@@ -1,29 +1,28 @@
 import React from 'react';
 import { NavLink, useLocation, Link as RouterLink } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  ButtonProps,
-  Link as MuiLink,
-  Menu,
-  MenuItem
-} from '@mui/material';
+import { Box, Button, ButtonProps, Menu, MenuItem } from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 interface MenuItemType {
   menuItemTitle: string;
-  path: string;
+  path?: string;
   users?: number;
   onClick?: () => void;
+  objectStoreParams?: { bucket_name: string; object_key: string };
 }
 
 interface Props {
   menuItems?: MenuItemType[];
   title: string;
+  onMenuItemClick?: (item: MenuItemType) => void;
 }
 
-export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
+export const NavMenuButton: React.FC<Props> = ({
+  menuItems,
+  title,
+  onMenuItemClick
+}) => {
   const location = useLocation();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const menuRef = React.useRef<HTMLUListElement>(null);
@@ -115,26 +114,6 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
     borderRadius: 0
   };
 
-  const getMenuItemProps = (item: MenuItemType) => {
-    const isExternal =
-      item.path?.startsWith('http') ||
-      item.path?.startsWith('www') ||
-      item.path?.startsWith('mailto');
-    if (isExternal) {
-      return {
-        component: MuiLink,
-        href: item.path,
-        target: '_blank',
-        rel: 'noopener noreferrer'
-      };
-    }
-
-    return {
-      component: NavLink,
-      to: item.onClick ? '#' : item.path
-    };
-  };
-
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
       <Box sx={{ display: { xs: 'none', xl: 'flex' } }}>
@@ -148,26 +127,70 @@ export const NavMenuButton: React.FC<Props> = ({ menuItems, title }) => {
           open={open}
           onClose={handleClose}
           id={id}
-          slotProps={{
-            list: {
-              'aria-labelledby': id,
-              ref: menuRef
-            }
+          MenuListProps={{
+            'aria-labelledby': id,
+            ref: menuRef
           }}
         >
-          {menuItems.map((item, index) => (
-            <MenuItem
-              key={index}
-              {...getMenuItemProps(item)}
-              selected={item.path === location.pathname && !item.onClick}
-              onClick={() => item.onClick?.()}
-              tabIndex={0}
-              role="menuitem"
-              sx={{ minWidth: '150px' }}
-            >
-              {item.menuItemTitle}
-            </MenuItem>
-          ))}
+          {menuItems.map((item, index) => {
+            const isExternal =
+              item.path?.startsWith('http') || item.path?.startsWith('mailto');
+            const isInternal = !!item.path && !isExternal;
+
+            if (isExternal) {
+              return (
+                <MenuItem
+                  key={index}
+                  component="a"
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={handleClose}
+                  tabIndex={0}
+                  role="menuitem"
+                  sx={{ minWidth: '150px' }}
+                >
+                  {item.menuItemTitle}
+                </MenuItem>
+              );
+            }
+
+            if (isInternal) {
+              return (
+                <MenuItem
+                  key={index}
+                  component={NavLink as React.ElementType}
+                  to={item.path!}
+                  onClick={handleClose}
+                  tabIndex={0}
+                  role="menuitem"
+                  sx={{ minWidth: '150px' }}
+                >
+                  {item.menuItemTitle}
+                </MenuItem>
+              );
+            }
+
+            // Case for objectStoreParams (no path present)
+            return (
+              <MenuItem
+                key={index}
+                onClick={() => {
+                  if (onMenuItemClick) {
+                    onMenuItemClick(item);
+                  } else {
+                    item.onClick?.();
+                  }
+                  handleClose();
+                }}
+                tabIndex={0}
+                role="menuitem"
+                sx={{ minWidth: '150px' }}
+              >
+                {item.menuItemTitle}
+              </MenuItem>
+            );
+          })}
         </Menu>
       )}
     </Box>

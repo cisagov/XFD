@@ -9,6 +9,7 @@ export interface User {
   last_name: string;
   full_name: string;
   invite_pending: boolean;
+  first_login: boolean;
   user_type: 'standard' | 'globalView' | 'globalAdmin' | 'regionalAdmin';
   email: string;
   roles: Role[];
@@ -31,6 +32,7 @@ export const initializeUser: User = {
   last_name: '',
   full_name: '',
   invite_pending: true,
+  first_login: true,
   user_type: 'standard',
   email: '',
   roles: [],

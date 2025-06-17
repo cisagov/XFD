@@ -508,6 +508,7 @@ def approve_user_registration(user_id, current_user):
         user = User.objects.get(id=user_id)
         user.date_approved = datetime.now()
         user.approved_by = current_user
+        user.first_login = True
         user.save()
     except ObjectDoesNotExist:
         raise HTTPException(status_code=404, detail="User not found.")
