@@ -3,7 +3,6 @@
 import contextlib
 import datetime
 import json
-import logging
 import os
 import pathlib
 import traceback
@@ -14,10 +13,11 @@ from uuid import uuid4
 import dnstwist
 import dshield
 import requests
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import DataSource, DomainPermutations, Organization, SubDomains
 
 date = datetime.datetime.now().strftime("%Y-%m-%d")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "localhost")
 DMZ_API_KEY = os.getenv("DMZ_API_KEY", "local")
 
@@ -112,7 +112,7 @@ def execute_dnstwist(root_domain, test=0):
     if root_domain.split(".")[-1] == "gov":
         for dom in dnstwist_result:
             if is_not_excluded_fuzzer(dom["fuzzer"]):
-                LOGGER.info("Running again on %s", dom["domain"])
+                logger.info("Running again on %s", dom["domain"])
                 secondlist = dnstwist.run(
                     registered=True,
                     tld=pathtoDict,
@@ -150,10 +150,10 @@ def get_data_source(data_source_name: str) -> Optional[str]:
             description="Data source for DNSTwist",
             last_run=datetime.datetime.now(datetime.timezone.utc),
         )
-        LOGGER.info("Created data source: %s", data_source_name)
+        logger.info("Created data source: %s", data_source_name)
         return data_source_record
     except Exception as e:
-        LOGGER.error("Error retrieving/creating data source: %s", str(e))
+        logger.error("Error retrieving/creating data source: %s", str(e))
         return None
 
 
@@ -187,7 +187,7 @@ def check_domain_in_blocklist(
 
     except Exception as e:
         # Optionally log the error
-        LOGGER.info("Error querying internal blocklist API: %s", str(e))
+        logger.info("Error querying internal blocklist API: %s", str(e))
         attacks = 0
         reports = 0
 
@@ -204,7 +204,7 @@ def check_domain_in_blocklist(
             malicious = True
 
     except Exception as e:
-        LOGGER.info("Error querying DShield API: %s", str(e))
+        logger.info("Error querying DShield API: %s", str(e))
         dshield_attacks = 0
         dshield_count = 0
 
@@ -216,7 +216,7 @@ def get_org_root_domains(org_id):
     sub_domains = SubDomains.objects.filter(
         organization_id=org_id, is_root_domain=True, enumerate_subs=True
     )
-    LOGGER.info("Found %s root domains for org %s", len(sub_domains), org_id)
+    logger.info("Found %s root domains for org %s", len(sub_domains), org_id)
     return sub_domains
 
 
@@ -257,7 +257,7 @@ def execute_dnstwist_data(domain_dict):
             dshield_attack_count=domain_dict["dshield_attack_count"],
         )
     except Exception as e:
-        LOGGER.error("Error adding domain permutation to data lake %s", str(e))
+        logger.error("Error adding domain permutation to data lake %s", str(e))
 
 
 def process_org(org, orgs_list, data_source, failures):
@@ -266,7 +266,7 @@ def process_org(org, orgs_list, data_source, failures):
     org_name = org.name
     pe_org_id = org.name
     if pe_org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
-        LOGGER.info("Running DNSTwist on %s", org_name)
+        logger.info("Running DNSTwist on %s", org_name)
         try:
             # Get root domains
             root_dict = get_org_root_domains(org_id)
@@ -275,7 +275,7 @@ def process_org(org, orgs_list, data_source, failures):
 
             for root in root_dict:
                 root_domain = root.sub_domain
-                LOGGER.info("\tRunning on root domain: %s", root_domain)
+                logger.info("\tRunning on root domain: %s", root_domain)
                 with open("dnstwist_output.txt", "w") as f, contextlib.redirect_stdout(
                     f
                 ):
@@ -292,21 +292,21 @@ def process_org(org, orgs_list, data_source, failures):
             try:
                 for domain in domain_list:
                     execute_dnstwist_data(domain)
-                    LOGGER.info(
+                    logger.info(
                         "Inserted %s into database", domain["domain_permutation"]
                     )
             except Exception:
                 # TODO: Create custom exceptions.
                 # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-                LOGGER.info("Failure inserting data into database.")
+                logger.info("Failure inserting data into database.")
                 failures.append(org_name)
-                LOGGER.info(traceback.format_exc())
+                logger.info(traceback.format_exc())
         except Exception:
             # TODO: Create custom exceptions.
             # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-            LOGGER.info("Failed selecting DNSTwist data.")
+            logger.info("Failed selecting DNSTwist data.")
             failures.append(org_name)
-            LOGGER.info(traceback.format_exc())
+            logger.info(traceback.format_exc())
 
 
 def select_orgs(orgs_list):
@@ -338,14 +338,14 @@ def main(event):
     """Run DNStwist on certain domains and upload findings to database."""
     organizationId = event.get("organizationId")
     org_record = Organization.objects.get(id=organizationId)
-    LOGGER.info("Running DNSTwist on %s", org_record.name)
+    logger.info("Running DNSTwist on %s", org_record.name)
     data_source = get_data_source("DNSTwist")
     failures = []
     orgs_list = [org_record.name]
     process_org(org_record, orgs_list, data_source, failures)
     if failures:
-        LOGGER.error("These orgs failed:")
-        LOGGER.error(failures)
+        logger.error("These orgs failed:")
+        logger.error(failures)
 
 
 def handler(event):
@@ -354,7 +354,7 @@ def handler(event):
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
         if not is_dmz and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exiting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exiting now.")
             return {
                 "statusCode": 200,
                 "body": "Xpanse Alerts sync cannot run outside the DMZ.",

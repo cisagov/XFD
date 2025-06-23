@@ -1,7 +1,6 @@
 """Censys Sync scan hitting DMZ API endpoint."""
 
 # Standard Python Libraries
-import logging
 import os
 
 # Third-Party Libraries
@@ -9,6 +8,7 @@ import django
 from django.utils import timezone
 from xfd_api.helpers.date_time_helpers import calculate_days_back
 from xfd_api.helpers.dmz_sync_helper import query_api
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import DataSource, Organization, SubDomains
 
 # Django setup
@@ -17,8 +17,7 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Constants
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 HEADERS = {
     "X-API-KEY": os.getenv("DMZ_API_KEY"),
@@ -38,7 +37,7 @@ def handler(command_options):
         if not org:
             return {"statusCode": 404, "body": "Organization not found"}
 
-        LOGGER.info("Running Censys Sync for org: %s", organization_name)
+        logger.info("Running Censys Sync for org: %s", organization_name)
 
         data_source, _ = DataSource.objects.get_or_create(
             name="Censys",
@@ -66,7 +65,7 @@ def handler(command_options):
             total_pages = result.get("total_pages", 1)
             subdomains = result.get("data", {}).get("censys_subdomains", [])
 
-            LOGGER.info(
+            logger.info(
                 "Syncing page %s of %s: %s subdomains",
                 current_page,
                 total_pages,
@@ -83,7 +82,7 @@ def handler(command_options):
         return {"statusCode": 200, "body": "Censys sync completed successfully."}
 
     except Exception as e:
-        LOGGER.error(e)
+        logger.error(e)
         return {"statusCode": 500, "body": str(e)}
 
 
@@ -105,4 +104,4 @@ def save_censys_subdomains_to_db(subdomain_array, org, data_source):
                 },
             )
         except Exception as e:
-            LOGGER.error("Error saving Censys subdomain: %s", e)
+            logger.error("Error saving Censys subdomain: %s", e)

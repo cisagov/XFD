@@ -8,7 +8,6 @@ data synchronization by interfacing with the data lake and database models.
 # Standard Python Libraries
 import datetime
 import json
-import logging
 import os
 import time
 from typing import Dict
@@ -20,6 +19,7 @@ from django.db import connections, models, transaction
 from django.db.models import Exists, OuterRef, Prefetch
 from django.db.utils import IntegrityError
 from django.utils import timezone
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
@@ -47,11 +47,12 @@ def safe_parse_date(value):
     return None
 
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s",
-)
-LOGGER = logging.getLogger(__name__)
+# TODO: Incorporate with unified logging configuration
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(levelname)s: %(message)s",
+# )
+logger = LOGGER.getChild(__name__)
 
 
 def save_port_scan_to_datalake(port_scan_obj):
@@ -136,7 +137,7 @@ def save_ticket_event_to_datalake(ticket_event_obj, ticket_id, details):
                     vuln_scan_record.risky_service_group = risky_service_group.group
                     vuln_scan_record.save()
     except Exception as e:
-        LOGGER.info("Error setting NMIServiceGroup or RiskyServiceGroup", e)
+        logger.info("Error setting NMIServiceGroup or RiskyServiceGroup", e)
 
     shaped = {
         "reference": id,
@@ -192,7 +193,7 @@ def save_ticket_to_datalake(ticket_obj, events, details):
             save_ticket_event_to_datalake(event, obj.id, details)
     except Exception as e:
         print("Error saving TicketEvent to Datalake", e)
-        LOGGER.error("Error saving TicketEvent to Datalake, %s", e)
+        logger.error("Error saving TicketEvent to Datalake, %s", e)
         return None
     return None
 
@@ -225,7 +226,7 @@ def truncate_charfields(model_cls, data_dict):
             if not isinstance(val, str):
                 val = str(val)
             if field.max_length and len(val) > field.max_length:
-                LOGGER.warning(
+                logger.warning(
                     "Truncating field %s: %d → %d",
                     field.name,
                     len(val),
@@ -675,11 +676,11 @@ def enforce_latest_flag_port_scan():
         with connections["mini_data_lake"].cursor() as cursor, transaction.atomic(
             using="mini_data_lake"
         ):
-            LOGGER.info("Enforcing `latest` flag on PortScan table...")
+            logger.info("Enforcing `latest` flag on PortScan table...")
             cursor.execute(sql)
-            LOGGER.info("Successfully enforced `latest` flags on PortScan records.")
+            logger.info("Successfully enforced `latest` flags on PortScan records.")
     except Exception as e:
-        LOGGER.error("Failed to enforce `latest` flags on PortScan: %s", e)
+        logger.error("Failed to enforce `latest` flags on PortScan: %s", e)
         raise
 
 
@@ -731,7 +732,7 @@ def fill_cidr_live_ips():
         cidr.save()
 
     duration = time.time() - start_time
-    LOGGER.info("fill_cidr_live_ips completed in %.2f seconds", duration)
+    logger.info("fill_cidr_live_ips completed in %.2f seconds", duration)
 
 
 def fill_cidr_live_ips_bulk_update():
@@ -776,4 +777,4 @@ def fill_cidr_live_ips_bulk_update():
             )
 
     duration = time.time() - start_time
-    LOGGER.info("fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration)
+    logger.info("fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration)

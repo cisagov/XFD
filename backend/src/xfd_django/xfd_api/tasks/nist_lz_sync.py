@@ -4,7 +4,6 @@
 from datetime import datetime
 import hashlib
 import json
-import logging
 import os
 from urllib.parse import urljoin
 
@@ -15,6 +14,7 @@ from django.conf import settings
 from django.db import connections
 from django.utils import timezone
 import requests
+from xfd_api.logger import LOGGER
 
 # --- Django setup ---
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -29,8 +29,7 @@ from xfd_mini_dl.models import Cve as CveModel
 from xfd_mini_dl.models import DataSource
 
 # --- Constants & Logging ---
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 HEADERS = {
@@ -48,7 +47,7 @@ else:
     # fallback: join “/cves” onto whatever they provided
     CVE_API_URL = urljoin(base_url + "/", "dmz_sync/cves")
 
-LOGGER.info("CVE API URL: %s", CVE_API_URL)
+logger.info("CVE API URL: %s", CVE_API_URL)
 
 
 def validate_response_checksum(response):
@@ -57,14 +56,14 @@ def validate_response_checksum(response):
         data = response.json()
         received = response.headers.get("X-Salted-Checksum")
         if not received:
-            LOGGER.warning("No checksum header")
+            logger.warning("No checksum header")
             return False
 
         serialized = json.dumps(data, default=str, sort_keys=True)
         calc = hashlib.sha256((SALT + serialized).encode()).hexdigest()
         return received == calc
     except Exception as e:
-        LOGGER.error("Error validating checksum: %s", e)
+        logger.error("Error validating checksum: %s", e)
         return False
 
 
@@ -126,42 +125,42 @@ def save_cves_to_db(cve_list):
         }
 
         try:
-            LOGGER.info(
+            logger.info(
                 "✏️  Writing to %r via alias %r",
                 CveModel._meta.db_table,
                 CveModel.objects.db_manager("mini_data_lake_secondary").db,
             )
             alias = "mini_data_lake_secondary"
-            LOGGER.info(
+            logger.info(
                 "ENV AT STARTUP: MDL_SECONDARY_NAME=%r",
                 os.environ.get("MDL_SECONDARY_NAME"),
             )
-            LOGGER.info(
+            logger.info(
                 "SECONDARY DB CONFIG: %r",
                 settings.DATABASES["mini_data_lake_secondary"],
             )
 
             # 1) Which database name are we really hitting?
-            LOGGER.info(
+            logger.info(
                 "→ Runtime DB NAME: %r", connections[alias].settings_dict["NAME"]
             )
 
             # 2) What tables are visible?
             tables = connections[alias].introspection.table_names()
-            LOGGER.info("→ %d tables visible: %r", len(tables), tables)
+            logger.info("→ %d tables visible: %r", len(tables), tables)
 
             # 3) Is 'cve' in that list?
-            LOGGER.info("→ 'cve' present? %s", "cve" in tables)
+            logger.info("→ 'cve' present? %s", "cve" in tables)
 
             # 4) What’s the Postgres search_path?
             with connections[alias].cursor() as cur:
                 cur.execute("SHOW search_path")
-                LOGGER.info("→ search_path: %r", cur.fetchone())
+                logger.info("→ search_path: %r", cur.fetchone())
             CveModel.objects.db_manager(alias).update_or_create(
                 id=item["id"], defaults=defaults
             )
         except Exception as e:
-            LOGGER.error("Error saving CVE %s: %s", item["id"], e)
+            logger.error("Error saving CVE %s: %s", item["id"], e)
 
 
 def handler(command_options=None):
@@ -177,7 +176,7 @@ def handler(command_options=None):
     since_date = calculate_days_back(15)
 
     try:
-        LOGGER.info("Starting CVE sync…")
+        logger.info("Starting CVE sync…")
         page = 1
         per_page = 200
         done = False
@@ -189,34 +188,34 @@ def handler(command_options=None):
                 "since_date": since_date,
             }
 
-            LOGGER.info("Fetching page %s with payload: %s", page, payload)
+            logger.info("Fetching page %s with payload: %s", page, payload)
 
             resp = requests.post(CVE_API_URL, headers=HEADERS, json=payload, timeout=60)
-            LOGGER.info("Response status code: %s", resp)
-            LOGGER.info("Response content: %s", resp.status_code)
+            logger.info("Response status code: %s", resp)
+            logger.info("Response content: %s", resp.status_code)
             resp.raise_for_status()
 
             if not validate_response_checksum(resp):
-                LOGGER.error("Checksum mismatch!")
+                logger.error("Checksum mismatch!")
                 return {"statusCode": 500, "body": "Checksum mismatch"}
 
             body = resp.json()
             if body.get("status") != "ok":
-                LOGGER.error("API returned bad status: %s", body)
+                logger.error("API returned bad status: %s", body)
                 return {"statusCode": 500, "body": "Bad status"}
             total_pages = body.get("total_pages", 1)
             current_page = body.get("current_page", 1)
             payload = body.get("payload", [])
-            LOGGER.info("Fetched %s CVEs", len(payload))
+            logger.info("Fetched %s CVEs", len(payload))
             save_cves_to_db(payload)
             if current_page >= total_pages:
                 done = True
             else:
                 page += 1
-        LOGGER.info("CVE sync completed successfully")
+        logger.info("CVE sync completed successfully")
 
         return {"statusCode": 200, "body": "Shodan sync completed successfully."}
 
     except Exception as e:
-        LOGGER.error("Sync error: %s", e)
+        logger.error("Sync error: %s", e)
         return {"statusCode": 500, "body": str(e)}

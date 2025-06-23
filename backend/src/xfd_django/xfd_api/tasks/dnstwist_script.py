@@ -3,7 +3,6 @@
 import contextlib
 import datetime
 import json
-import logging
 import pathlib
 import traceback
 from typing import Optional
@@ -13,10 +12,11 @@ from uuid import uuid4
 import dnstwist
 import dshield
 import requests
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import DataSource, DomainPermutations, Organization, SubDomains
 
 date = datetime.datetime.now().strftime("%Y-%m-%d")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 # Update this function to use the new homebrew blocklist checking system
@@ -109,7 +109,7 @@ def execute_dnstwist(root_domain, test=0):
     if root_domain.split(".")[-1] == "gov":
         for dom in dnstwist_result:
             if is_not_excluded_fuzzer(dom["fuzzer"]):
-                LOGGER.info("Running again on %s", dom["domain"])
+                logger.info("Running again on %s", dom["domain"])
                 secondlist = dnstwist.run(
                     registered=True,
                     tld=pathtoDict,
@@ -225,7 +225,7 @@ def execute_dnstwist_data(domain_dict):
             dshield_attack_count=domain_dict["dshield_attack_count"],
         )
     except Exception as e:
-        LOGGER.error("Error adding domain permutation to data lake %s", str(e))
+        logger.error("Error adding domain permutation to data lake %s", str(e))
 
 
 def process_org(org, orgs_list, data_source, failures):
@@ -234,7 +234,7 @@ def process_org(org, orgs_list, data_source, failures):
     org_name = org.name
     pe_org_id = org.name
     if pe_org_id in orgs_list or orgs_list == "all" or orgs_list == "DEMO":
-        LOGGER.info("Running DNSTwist on %s", org_name)
+        logger.info("Running DNSTwist on %s", org_name)
         try:
             # Get root domains
             root_dict = get_org_root_domains(org_id)
@@ -243,7 +243,7 @@ def process_org(org, orgs_list, data_source, failures):
 
             for root in root_dict:
                 root_domain = root.sub_domain
-                LOGGER.info("\tRunning on root domain: %s", root_domain)
+                logger.info("\tRunning on root domain: %s", root_domain)
                 with open("dnstwist_output.txt", "w") as f, contextlib.redirect_stdout(
                     f
                 ):
@@ -260,18 +260,18 @@ def process_org(org, orgs_list, data_source, failures):
         except Exception:
             # TODO: Create custom exceptions.
             # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-            LOGGER.info("Failed selecting DNSTwist data.")
+            logger.info("Failed selecting DNSTwist data.")
             failures.append(org_name)
-            LOGGER.info(traceback.format_exc())
+            logger.info(traceback.format_exc())
         try:
             for domain in domain_list:
                 execute_dnstwist_data(domain)
         except Exception:
             # TODO: Create custom exceptions.
             # Issue 265: https://github.com/cisagov/pe-reports/issues/265
-            LOGGER.info("Failure inserting data into database.")
+            logger.info("Failure inserting data into database.")
             failures.append(org_name)
-            LOGGER.info(traceback.format_exc())
+            logger.info(traceback.format_exc())
 
 
 def select_orgs(orgs_list):
@@ -307,8 +307,8 @@ def run_dnstwist(orgs_list):
     for org in orgs_final:
         process_org(org, orgs_list, data_source, failures)
     if failures:
-        LOGGER.error("These orgs failed:")
-        LOGGER.error(failures)
+        logger.error("These orgs failed:")
+        logger.error(failures)
 
 
 if __name__ == "__main__":

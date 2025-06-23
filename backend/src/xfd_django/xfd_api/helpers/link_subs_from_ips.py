@@ -2,7 +2,6 @@
 # Standard Python Libraries
 import datetime
 import ipaddress
-import logging
 import os
 import threading
 import time
@@ -10,10 +9,9 @@ import time
 # Third-Party Libraries
 from django.utils import timezone
 import requests
+from xfd_api.logger import LOGGER
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 WHOIS_KEY = os.getenv("WHOIS_XML_KEY")
 thread_count = os.getenv("WHOIS_XML_THREAD_COUNT")
 if thread_count:
@@ -45,17 +43,17 @@ def process_ips(thread_id, org, cidr, ip_list):
         try:
             domain_list, failed_ips = search_whois_for_domains(ip, failed_ips)
         except Exception as e:
-            LOGGER.error(
+            logger.error(
                 "Thread %d: Error identifying domains for %s: %s", thread_id, ip, e
             )
             failed_ips.append(ip)
             continue
 
         if domain_list:
-            LOGGER.info("Found %d domains associated with %s", len(domain_list), ip)
+            logger.info("Found %d domains associated with %s", len(domain_list), ip)
             save_and_link_ip_and_subdomain(ip, cidr, org, domain_list)
 
-    LOGGER.info(
+    logger.info(
         "Thread %d completed. Processed %d IPs in %.2f seconds.",
         thread_id,
         count,
@@ -63,7 +61,7 @@ def process_ips(thread_id, org, cidr, ip_list):
     )
 
     if failed_ips:
-        LOGGER.warning(
+        logger.warning(
             "%d IPs failed to process in thread %d", len(failed_ips), thread_id
         )
 
@@ -87,7 +85,7 @@ def split_into_balanced_chunks(items, num_chunks):
 def process_cidr(cidr, org):
     """Process a given CIDR using stored live IPs."""
     if not cidr.live_ips:
-        LOGGER.warning("No live IPs for CIDR: %s", cidr.network)
+        logger.warning("No live IPs for CIDR: %s", cidr.network)
         return
 
     ip_list = list(cidr.live_ips)
@@ -122,7 +120,7 @@ def search_whois_for_domains(ip, failed_ips):
     retry_count, max_retries, time_delay = 1, 3, 3
     while response.status_code != 200 and retry_count <= max_retries:
         if response.status_code:
-            LOGGER.warning(
+            logger.warning(
                 "Retrying WhoisXML API endpoint (code %d), attempt %d of %s (url: %s)",
                 response.status_code,
                 retry_count,
@@ -136,7 +134,7 @@ def search_whois_for_domains(ip, failed_ips):
         retry_count += 1
     # If API call still unsuccessful
     if response.status_code != 200:
-        LOGGER.error("Max retries reached for %s, labeling as failed", ip)
+        logger.error("Max retries reached for %s, labeling as failed", ip)
         failed_ips.append(ip)
     response = response.json()
     try:
@@ -151,9 +149,9 @@ def search_whois_for_domains(ip, failed_ips):
         else:
             return [], failed_ips
     except Exception as e:
-        LOGGER.error("Failed to return WHOIsXML response")
-        LOGGER.error(response)
-        LOGGER.error(e)
+        logger.error("Failed to return WHOIsXML response")
+        logger.error(response)
+        logger.error(e)
         response = []
     return response, failed_ips
 
@@ -171,10 +169,10 @@ def connect_subs_from_ips(orgs: list[Organization]):
         org_uid = org.id
         # ips_df = query_ips(org_uid, conn)
         cidrs = query_cidrs_by_org(org_uid)
-        LOGGER.info("identified %d cidrs for %s", len(cidrs), org.acronym)
+        logger.info("identified %d cidrs for %s", len(cidrs), org.acronym)
 
         for cidr_row in cidrs:
-            LOGGER.info("Running %s", cidr_row.network)
+            logger.info("Running %s", cidr_row.network)
             process_cidr(cidr_row, org)
 
 
@@ -189,7 +187,7 @@ def query_cidrs_by_org(org_id):
 
 def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
     """Save an IP and associated Subdomains."""
-    LOGGER.info("linking %s to %s", domains, ip)
+    logger.info("linking %s to %s", domains, ip)
     ip_object = create_or_update_ip(
         {
             "ip": ip,
@@ -264,8 +262,8 @@ def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
             )
 
         except KeyError as ke:
-            LOGGER.error("Key error: %s", ke)
+            logger.error("Key error: %s", ke)
             continue
         except Exception as e:
-            LOGGER.error("Unknown error: %s", error=e)
+            logger.error("Unknown error: %s", error=e)
             continue

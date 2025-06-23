@@ -2,7 +2,6 @@
 
 # Standard Python Libraries
 from datetime import datetime, timedelta, timezone
-import logging
 import os
 import sys
 import time
@@ -11,6 +10,7 @@ import time
 import django
 from nested_lookup import nested_lookup
 import requests
+from xfd_api.logger import LOGGER
 
 from ..helpers.nist_helpers import api_cve_insert, get_cve_and_products
 
@@ -19,7 +19,7 @@ api_key = os.getenv("NIST_API_KEY")
 nist_url = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
 # Setup logging
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -62,7 +62,7 @@ def initial_fill(start_index=0):
             result = response.json()
 
         except Exception:
-            LOGGER.error("Issue while querying. Trying again in 5 seconds")
+            logger.error("Issue while querying. Trying again in 5 seconds")
             time.sleep(5)
             error_count += 1
             if error_count < 5:
@@ -72,7 +72,7 @@ def initial_fill(start_index=0):
         for vuln in result["vulnerabilities"]:
             cve_dict = format_vulnerability(vuln)
             api_cve_insert(cve_dict)
-    LOGGER.info("CVEs have been filled.")
+    logger.info("CVEs have been filled.")
 
 
 def update_cves(hours_back=12):
@@ -98,7 +98,7 @@ def update_cves(hours_back=12):
     )
 
     result = response.json()
-    logging.info(result)
+    logger.info(result)
     start_index += result["resultsPerPage"]
     for vuln in result["vulnerabilities"]:
         cve_dict = format_vulnerability(vuln)
@@ -122,7 +122,7 @@ def update_cves(hours_back=12):
             cve_dict = format_vulnerability(vuln)
             api_cve_insert(cve_dict)
 
-    LOGGER.info("CVEs have been filled.")
+    logger.info("CVEs have been filled.")
 
 
 def format_vulnerability(vuln):
@@ -264,7 +264,7 @@ def check_cve_is_synced():
         result = response.json()
         start_index += result["resultsPerPage"]
         if len(result["vulnerabilities"]) == 0:
-            LOGGER.info(
+            logger.info(
                 "No CVEs modified in the last %s hours to compare against. Going further back",
                 str(hours_back),
             )
@@ -274,7 +274,7 @@ def check_cve_is_synced():
             break
 
         if days > 5:
-            LOGGER.info("No update in the last 5 days. Exiting test.")
+            logger.info("No update in the last 5 days. Exiting test.")
             return 0
 
     last_vuln = result["vulnerabilities"][-1]
@@ -292,15 +292,15 @@ def check_cve_is_synced():
         if db_mod_date == live_mod_date:
             print(db_mod_date)
             print(live_mod_date)
-            LOGGER.info("Last Modified Date is synced for most recently updated CVE.")
+            logger.info("Last Modified Date is synced for most recently updated CVE.")
         else:
             print(db_mod_date)
             print(live_mod_date)
-            LOGGER.warning(
+            logger.warning(
                 "Last Modified Date does not match between database and NIST for the last updated CVE."
             )
     else:
-        LOGGER.warning("Most recent update NIST CVE is not in the database.")
+        logger.warning("Most recent update NIST CVE is not in the database.")
 
     return 0
 

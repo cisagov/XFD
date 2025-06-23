@@ -1,17 +1,16 @@
 """Link sub-domains and IPs from sub-domain lookups."""
 # Standard Python Libraries
 import datetime
-import logging
 import socket
 
 # Third-Party Libraries
 from django.core.exceptions import ObjectDoesNotExist
 import dns.resolver
 from xfd_api.helpers.asset_inserts import create_or_update_ip
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Cidr, Organization, SubDomains
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 DATE = datetime.datetime.now(datetime.timezone.utc)
 
 
@@ -29,7 +28,7 @@ def get_matching_cidr(ip, org):
         # If no matching CIDR is found, return None
         return None
     except Exception as e:
-        LOGGER.warning(e)
+        logger.warning(e)
         return None
 
 
@@ -75,7 +74,7 @@ def get_ips_and_type_dns(subdomain, org):
     for ip_address, version in ip_set:
         cidr = get_matching_cidr(ip_address, org)
         if cidr:
-            LOGGER.warning(
+            logger.warning(
                 "Found matching cidr for %s: %s", str(ip_address), cidr.network
             )
             ip_info.append((ip_address, version, cidr))
@@ -99,7 +98,7 @@ def get_ips_and_type_socket(subdomain, org):
 
             cidr = get_matching_cidr(ip_address, org)
             if cidr:
-                LOGGER.info(
+                logger.info(
                     "Found matching cidr for %s: %s", str(ip_address), cidr.network
                 )
 
@@ -115,7 +114,7 @@ def get_ips_and_type_socket(subdomain, org):
             ip_info.append((ip_address, ip_type))
 
     except socket.gaierror as e:
-        LOGGER.error("Error resolving the subdomain %s: %s", subdomain, e)
+        logger.error("Error resolving the subdomain %s: %s", subdomain, e)
 
     return ip_info
 
@@ -150,7 +149,7 @@ def link_ip_from_domain(sub, org):
 def connect_ips_from_subs(orgs_list=list[Organization]):
     """For each org, find all ips associated with its sub_domains and link them in the ips_subs table."""
     # Get P&E organizations DataFram
-    LOGGER.info("Linking Ips from subdomains")
+    logger.info("Linking Ips from subdomains")
     # num_orgs = len(orgs_list)
 
     # Loop through orgs
@@ -166,7 +165,7 @@ def connect_ips_from_subs(orgs_list=list[Organization]):
 
         # Query sub-domains
         subdomains = SubDomains.objects.filter(current=True, organization=org)
-        LOGGER.info("Number of Sub-domains: %d", len(subdomains))
+        logger.info("Number of Sub-domains: %d", len(subdomains))
 
         for sub_row in subdomains:
             sub_domain = sub_row.sub_domain

@@ -1,7 +1,6 @@
 """ASMsync scan."""
 # Standard Python Libraries
 import datetime
-import logging
 import os
 
 # Third-Party Libraries
@@ -11,6 +10,7 @@ from django.utils import timezone
 import requests
 from xfd_api.helpers.date_time_helpers import calculate_days_back
 from xfd_api.helpers.dmz_sync_helper import query_api
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Cidr, DataSource, Ip, IpsSubs, Organization, SubDomains
 
 # Django setup
@@ -18,9 +18,10 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
+# Logger configuration
+logger = LOGGER.getChild(__name__)
+
 # Constants
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 MAX_RETRIES = 3  # Max retries for failed tasks
 TIMEOUT = 60  # Timeout in seconds for waiting on task completion
@@ -48,7 +49,7 @@ def handler(command_options):
         is_local = os.getenv("IS_LOCAL", "true") == "true"
 
         if not is_lz and not is_local:
-            LOGGER.warning("Scan can only be run in the LZ or locally. Exitting now.")
+            logger.warning("Scan can only be run in the LZ or locally. Exitting now.")
             return {
                 "statusCode": 200,
                 "body": "ASM DMZ Sync pull cannot run outside the LZ.",
@@ -77,7 +78,7 @@ def main(command_options):
         organization = orgs_to_sync.first()
         get_data_sources()
 
-        LOGGER.info("Pulling ASM data for %s", organization.acronym)
+        logger.info("Pulling ASM data for %s", organization.acronym)
         acronym = organization.acronym
         page_size = 10
         page_number = 1
@@ -90,7 +91,7 @@ def main(command_options):
         if response:
             total_pages = process_response(response, organization)
         else:
-            LOGGER.error("Failed to query DMZ ASM Sync API.")
+            logger.error("Failed to query DMZ ASM Sync API.")
             return {"statusCode": 500, "body": "Failed to query DMZ ASM Sync API."}
 
         page_number += 1
@@ -102,7 +103,7 @@ def main(command_options):
                 total_pages = process_response(response, organization)
                 page_number += 1
             else:
-                LOGGER.error("Failed to query DMZ ASM Sync API.")
+                logger.error("Failed to query DMZ ASM Sync API.")
                 flag_asset_changes(organization)
                 return {
                     "statusCode": 500,
@@ -110,11 +111,11 @@ def main(command_options):
                 }
 
         flag_asset_changes(organization)
-        LOGGER.info("Completed pulling ASM data for %s", organization.acronym)
+        logger.info("Completed pulling ASM data for %s", organization.acronym)
         return {"statusCode": 200, "body": "ASM sync completed successfully."}
 
     except Exception as e:
-        LOGGER.error("Error Running Sync ASM Sync: %s", e)
+        logger.error("Error Running Sync ASM Sync: %s", e)
         return {"statusCode": 500, "body": "Internal server error during ASM sync."}
 
 
@@ -281,8 +282,8 @@ def save_sub(sub_dict, org):
         return sub_obj
 
     except Exception as e:
-        LOGGER.warning(sub_dict)
-        LOGGER.warning("Failed to save sub domain to mdl: %s", e)
+        logger.warning(sub_dict)
+        logger.warning("Failed to save sub domain to mdl: %s", e)
         return None
 
 

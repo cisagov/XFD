@@ -1,10 +1,11 @@
 """Contains custom exceptions to be thrown when a scan fails."""
 # Standard Python Libraries
 import json
-import logging
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+# Third-Party Libraries
+from xfd_api.logger import LOGGER
+
+logger = LOGGER.getChild(__name__)
 
 
 def build_and_write_log(exception, scan_name, details, context):
@@ -28,7 +29,7 @@ def build_and_write_log(exception, scan_name, details, context):
         "search_pattern": search_pattern,
     }
 
-    LOGGER.error(json.dumps(log_payload))
+    logger.error(json.dumps(log_payload))
 
 
 class ScanError(Exception):

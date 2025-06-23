@@ -2,7 +2,6 @@
 
 # Standard Python Libraries
 import datetime
-import logging
 import os
 import traceback
 
@@ -10,6 +9,7 @@ import traceback
 import django
 from django.utils import timezone
 import pandas as pd
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import CredentialBreaches, DataSource, Organization
 
 from .helpers.sixgill_helpers.api import get_sixgill_organizations
@@ -35,8 +35,7 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Logging
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 # Dates
 TODAY = datetime.date.today()
@@ -70,7 +69,7 @@ class Cybersixgill:
 
     def run(self):
         """Run all selected scan methods for each organization."""
-        LOGGER.info("Cybersixgill.run() started")
+        logger.info("Cybersixgill.run() started")
         failed = []
 
         # Run top CVE scan globally
@@ -83,10 +82,10 @@ class Cybersixgill:
             org_id = org.acronym
             sixgill_id = self.sixgill_org_map.get(org_id, [None])[0]
             if not sixgill_id:
-                LOGGER.warning("%s is not registered in Cybersixgill, skipping", org_id)
+                logger.warning("%s is not registered in Cybersixgill, skipping", org_id)
                 continue
 
-            LOGGER.info(
+            logger.info(
                 "Running CSG on %s (%d/%d)", org_id, idx + 1, len(self.org_objects)
             )
 
@@ -105,7 +104,7 @@ class Cybersixgill:
 
         # Log any failed scans
         if failed:
-            LOGGER.error("Failures: %s", failed)
+            logger.error("Failures: %s", failed)
 
     def get_alerts(self, org, org_id, sixgill_id):
         """Fetch and store alerts for an organization."""
@@ -113,7 +112,7 @@ class Cybersixgill:
             # Fetch alerts for org
             alerts_df = alerts(org_id, sixgill_id)
             if alerts_df.empty:
-                LOGGER.info("No alerts found for %s", org.acronym)
+                logger.info("No alerts found for %s", org.acronym)
                 return 0
 
             # Clean and format alert date field
@@ -141,8 +140,8 @@ class Cybersixgill:
             alerts_df = alerts_df.rename(columns={"id": "sixgill_id"})
             insert_sixgill_alerts(alerts_df, org, SOURCE_OBJ)
         except Exception as e:
-            LOGGER.error("Failed alerts for %s: %s", org.acronym, e)
-            LOGGER.error(traceback.format_exc())
+            logger.error("Failed alerts for %s: %s", org.acronym, e)
+            logger.error(traceback.format_exc())
             return 1
         return 0
 
@@ -160,7 +159,7 @@ class Cybersixgill:
             # Fetch mentions using aliases
             mentions_df = mentions(org_id, DATE_SPAN, aliases, self.soc_med_included)
             if mentions_df.empty:
-                LOGGER.info("No mentions for %s", org.acronym)
+                logger.info("No mentions for %s", org.acronym)
                 return 0
 
             mentions_df = mentions_df.rename(columns={"id": "sixgill_mention_id"})
@@ -174,8 +173,8 @@ class Cybersixgill:
 
             insert_sixgill_mentions(mentions_df, org, SOURCE_OBJ)
         except Exception as e:
-            LOGGER.error("Failed mentions for %s: %s", org.acronym, e)
-            LOGGER.error(traceback.format_exc())
+            logger.error("Failed mentions for %s: %s", org.acronym, e)
+            logger.error(traceback.format_exc())
             return 1
         return 0
 
@@ -185,13 +184,13 @@ class Cybersixgill:
             # Get root domains linked to org
             roots = root_domains(sixgill_id)
             if not roots:
-                LOGGER.info("No root domains for %s", org.acronym)
+                logger.info("No root domains for %s", org.acronym)
                 return 0
 
             # Fetch leaked credentials
             creds_df = creds(roots, START_DATE_TIME, END_DATE_TIME)
             if creds_df.empty:
-                LOGGER.info("No credentials found for %s", org.acronym)
+                logger.info("No credentials found for %s", org.acronym)
                 return 0
 
             creds_df["breach_name"].replace("", pd.NA, inplace=True)
@@ -246,8 +245,8 @@ class Cybersixgill:
                 creds_df, breach_lookup, org, roots[0], SOURCE_OBJ
             )
         except Exception as e:
-            LOGGER.error("Failed credentials for %s: %s", org.acronym, e)
-            LOGGER.error(traceback.format_exc())
+            logger.error("Failed credentials for %s: %s", org.acronym, e)
+            logger.error(traceback.format_exc())
             return 1
         return 0
 
@@ -260,7 +259,7 @@ class Cybersixgill:
             top_df["nvd_base_score"] = top_df["nvd_base_score"].astype(str)
             insert_sixgill_topCVEs(top_df, SOURCE_OBJ)
         except Exception as e:
-            LOGGER.error("Failed top CVEs: %s", e)
+            logger.error("Failed top CVEs: %s", e)
             return 1
         return 0
 
@@ -273,7 +272,7 @@ def handler(event):
         is_local = os.getenv("IS_LOCAL", "1") == "1"
 
         if not is_dmz and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exiting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exiting now.")
             return {
                 "statusCode": 200,
                 "body": "Cybersixgill scan cannot run outside the DMZ.",
@@ -281,7 +280,7 @@ def handler(event):
 
         # Get all organizations
         orgs = Organization.objects.all()
-        LOGGER.info("Number of orgs to scan: %d", orgs.count())
+        logger.info("Number of orgs to scan: %d", orgs.count())
 
         # Define which scan methods to run
         method_list = ["alerts", "mentions", "credentials", "topCVEs"]
@@ -297,5 +296,5 @@ def handler(event):
         }
 
     except Exception as e:
-        LOGGER.exception("Cybersixgill scan failed")
+        logger.exception("Cybersixgill scan failed")
         return {"statusCode": 500, "body": str(e)}

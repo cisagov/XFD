@@ -1,7 +1,6 @@
 """Collect Intelx credential leak data."""
 # Standard Python Libraries
 import datetime
-import logging
 import os
 import sys
 import time
@@ -14,6 +13,7 @@ import numpy as np
 import pandas as pd
 import requests
 from xfd_api.helpers.data_pull_history import get_last_queried, update_query_timestamp
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import (
     CredentialBreaches,
     CredentialExposures,
@@ -28,8 +28,7 @@ DAYS_BACK = datetime.timedelta(days=100)
 START_DATE = (TODAY - DAYS_BACK).strftime("%Y-%m-%d %H:%M:%S")
 END_DATE = TODAY.strftime("%Y-%m-%d %H:%M:%S")
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -57,7 +56,7 @@ def handler(command_options):
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
         if not is_dmz and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exitting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exitting now.")
             return {
                 "status_code": 200,
                 "body": "IntelX Credential scan cannot run outside the DMZ.",
@@ -94,7 +93,7 @@ def main(command_options):
         }
 
     except Exception as e:
-        LOGGER.error("Error running IntelX Credential Scan %s", e)
+        logger.error("Error running IntelX Credential Scan %s", e)
         return {"statusCode": 500, "body": "Internal server error."}
 
 
@@ -107,7 +106,7 @@ class IntelX:
 
     def run_intelx(self):
         """Run IntelX api calls."""
-        LOGGER.info("Running IntelX")
+        logger.info("Running IntelX")
         orgs_objects = self.org_objects
 
         # Run IntelX on each org
@@ -116,7 +115,7 @@ class IntelX:
         index = 0
         total_org_count = len(orgs_objects)
         for org in orgs_objects:
-            LOGGER.info(
+            logger.info(
                 "Running IntelX on %s (%d of %d)",
                 org.acronym,
                 index + 1,
@@ -124,7 +123,7 @@ class IntelX:
             )
 
             if self.get_credentials(org) == 1:
-                LOGGER.error(
+                logger.error(
                     "Failed to retrieve IntelX credentials for %s", org.acronym
                 )
                 failed += 1
@@ -132,12 +131,12 @@ class IntelX:
                 success += 1
             index += 1
         # Log summary statistics
-        LOGGER.info(
+        logger.info(
             "IntelX scan ran successfully for %d/%d organizations",
             success,
             total_org_count,
         )
-        LOGGER.info(
+        logger.info(
             "IntelX scan had significant failures for %d/%d organizations",
             failed,
             total_org_count,
@@ -146,7 +145,7 @@ class IntelX:
     def get_credentials(self, org: Organization):
         """Get credentials for a provided org."""
         # Get the org root domains
-        LOGGER.info("Retrieving root domains for %s", org.acronym)
+        logger.info("Retrieving root domains for %s", org.acronym)
         try:
             roots = (
                 SubDomains.objects.filter(
@@ -157,19 +156,19 @@ class IntelX:
             )
 
         except Exception as e:
-            LOGGER.error("Failed fetching root domains for %s", org.acronym)
-            LOGGER.error(e)
+            logger.error("Failed fetching root domains for %s", org.acronym)
+            logger.error(e)
             return 1
 
         # Catch situation where org has no eligble root domains
         if not roots.exists():
-            LOGGER.warning(
+            logger.warning(
                 "%s does not have any eligible root domains for IntelX", org.acronym
             )
             return 0
 
         # Retrieve credential leaks from IntelX
-        LOGGER.info("Retrieving IntelX findings for %s", org.acronym)
+        logger.info("Retrieving IntelX findings for %s", org.acronym)
         since_timestamp = get_last_queried(org, "intel_x_pull")
         if since_timestamp:
             start = since_timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -178,7 +177,7 @@ class IntelX:
         start_pulling_time = datetime.datetime.now(datetime.timezone.utc)
         count = 0
         for root in roots:
-            LOGGER.info(
+            logger.info(
                 "IntelX working on domain: %s %d/%d",
                 root.sub_domain,
                 count + 1,
@@ -189,31 +188,31 @@ class IntelX:
 
             # Process and format results
             if len(leaks_json) < 1:
-                LOGGER.info("No IntelX credentials found for %s", root.sub_domain)
+                logger.info("No IntelX credentials found for %s", root.sub_domain)
                 continue
             creds_df, breaches_df = self.process_leaks_results(leaks_json, org)
             # Insert breach data into the PE database
-            LOGGER.info("Inserting IntelX breach data for %s", root.sub_domain)
+            logger.info("Inserting IntelX breach data for %s", root.sub_domain)
             try:
                 breach_dict = insert_intelx_breaches(breaches_df)
                 # insert_intelx_breaches(breaches_df)
             except Exception as e:
-                LOGGER.error(
+                logger.error(
                     "Failed inserting IntelX breach data for %s", root.sub_domain
                 )
-                LOGGER.error(e)
+                logger.error(e)
                 continue
 
             # Insert credential data into the PE database
-            LOGGER.info("Inserting IntelX credential data for %s", root.sub_domain)
+            logger.info("Inserting IntelX credential data for %s", root.sub_domain)
             try:
                 insert_intelx_credentials(creds_df, breach_dict, org, root)
 
             except Exception as e:
-                LOGGER.error(
+                logger.error(
                     "Failed inserting IntelX credential data for %s", root.sub_domain
                 )
-                LOGGER.error(e)
+                logger.error(e)
                 continue
         update_query_timestamp(
             org,
@@ -245,11 +244,11 @@ class IntelX:
                 time.sleep(5)
                 attempts += 1
                 if attempts == 5:
-                    LOGGER.error("IntelX identity is not responding. Exiting program.")
+                    logger.error("IntelX identity is not responding. Exiting program.")
                     sys.exit()
-                LOGGER.info("IntelX Identity API response timed out. Trying again.")
+                logger.info("IntelX Identity API response timed out. Trying again.")
             except Exception as e:
-                LOGGER.error("Error occured getting search id: %s", e)
+                logger.error("Error occured getting search id: %s", e)
                 return 0
         time.sleep(5)
         return response.json()
@@ -271,11 +270,11 @@ class IntelX:
             time.sleep(5)
             attempts += 1
             if attempts == 5:
-                LOGGER.error("IntelX identity is not responding. Exiting program.")
+                logger.error("IntelX identity is not responding. Exiting program.")
                 sys.exit()
-            LOGGER.info("IntelX Identity API response timed out. Trying again.")
+            logger.info("IntelX Identity API response timed out. Trying again.")
         except Exception as e:
-            LOGGER.error("Error occured geting search results: %s", e)
+            logger.error("Error occured geting search results: %s", e)
             return 0
         response = response.json()
 
@@ -304,7 +303,7 @@ class IntelX:
                 current_results = results["records"]
                 if current_results:
                     # Add the root_domain to each result object
-                    LOGGER.info(
+                    logger.info(
                         "Intelx returned %d more credentials for %s",
                         len(current_results),
                         root_obj.sub_domain,
@@ -324,7 +323,7 @@ class IntelX:
                 current_results = results["records"]
                 if current_results:
                     # Add the root_domain to each result object
-                    LOGGER.info(
+                    logger.info(
                         "Intelx returned %d more credentials for %s",
                         len(current_results),
                         root_obj.sub_domain,
@@ -337,7 +336,7 @@ class IntelX:
                 break
             # If status is 3, invalid search id error
             elif results["status"] == 3:
-                LOGGER.error("Search id not found")
+                logger.error("Search id not found")
                 break
         # Return all results
         return all_results_list
@@ -354,7 +353,7 @@ class IntelX:
         all_df = all_df.drop_duplicates(subset=["user", "sourceshort"], keep="first")
         # num emails after removing duplicates in the same post
         num_email_dedupe = len(leaks_json)
-        LOGGER.info(
+        logger.info(
             "IntelX results %s: %d unique emails, %d unique posts, %d email/post pairs",
             org.acronym,
             num_email,

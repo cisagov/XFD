@@ -1,12 +1,14 @@
 """Tasks for creating cybersix token for cybersixgill scan."""
 
 # Standard Python Libraries
-import logging
 import os
 import time
 
 # Third-Party Libraries
 import requests
+from xfd_api.logger import LOGGER
+
+logger = LOGGER.getChild(__name__)
 
 
 def cybersix_token():
@@ -34,7 +36,7 @@ def cybersix_token():
             resp.raise_for_status()
             return resp.json()["access_token"]
         except Exception as e:
-            logging.warning("Token request failed (attempt %s): %s", attempt, e)
+            logger.warning("Token request failed (attempt %s): %s", attempt, e)
             time.sleep(10)
 
     raise Exception("Failed to retrieve Cybersixgill token after multiple attempts.")

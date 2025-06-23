@@ -3,7 +3,6 @@
 import datetime
 import hashlib
 import json
-import logging
 import os
 from urllib.parse import urljoin
 
@@ -12,6 +11,7 @@ import django
 from django.utils import timezone
 import requests
 from xfd_api.helpers.date_time_helpers import calculate_days_back
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
 # Django setup
@@ -20,8 +20,7 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Constants
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 HEADERS = {
     "X-API-KEY": os.getenv("DMZ_API_KEY"),
@@ -51,7 +50,7 @@ def handler(command_options):
             return {"statusCode": 500, "body": "Organization not found."}
         organization = orgs_to_sync.first()
 
-        LOGGER.info("Running Shodan Sync on organization: %s", organization_name)
+        logger.info("Running Shodan Sync on organization: %s", organization_name)
 
         shodan_datasource, _ = DataSource.objects.get_or_create(
             name="Shodan",
@@ -81,9 +80,9 @@ def handler(command_options):
             is_valid = validate_response_checksum(response)
 
             if is_valid:
-                LOGGER.info("Checksum is valid!")
+                logger.info("Checksum is valid!")
             else:
-                LOGGER.error("Checksum validation failed!")
+                logger.error("Checksum validation failed!")
                 return {"statusCode": 500, "body": "Checksum validation failed!"}
 
             body = response.json()
@@ -97,7 +96,7 @@ def handler(command_options):
             assets = result.get("data", {}).get("shodan_assets", [])
             vulns = result.get("data", {}).get("shodan_vulns", [])
 
-            LOGGER.info(
+            logger.info(
                 "Syncing page %s of %s: %s assets, %s vulns",
                 current_page,
                 total_pages,
@@ -114,7 +113,7 @@ def handler(command_options):
         return {"statusCode": 200, "body": "Shodan sync completed successfully."}
 
     except Exception as e:
-        LOGGER.error(e)
+        logger.error(e)
         return {"statusCode": 500, "body": str(e)}
 
 
@@ -158,7 +157,7 @@ def save_findings_to_db(shodan_asset_array, shodan_vuln_array, org, data_source)
                 },
             )
         except Exception as e:
-            LOGGER.error("Error saving Shodan Asset: %s", e)
+            logger.error("Error saving Shodan Asset: %s", e)
 
     for vuln in shodan_vuln_array:
         create_default = {
@@ -218,7 +217,7 @@ def save_findings_to_db(shodan_asset_array, shodan_vuln_array, org, data_source)
                 },
             )
         except Exception as e:
-            LOGGER.error("Error saving Shodan Vuln: %s", e)
+            logger.error("Error saving Shodan Vuln: %s", e)
 
 
 def validate_response_checksum(response):
@@ -230,7 +229,7 @@ def validate_response_checksum(response):
         # Extract checksum from response headers
         received_checksum = response.headers.get("X-Salted-Checksum")
         if not received_checksum:
-            LOGGER.warning("No checksum found in headers!")
+            logger.warning("No checksum found in headers!")
             return False
 
         # Recompute the checksum
@@ -242,5 +241,5 @@ def validate_response_checksum(response):
         return received_checksum == calculated_checksum
 
     except Exception as e:
-        LOGGER.error("Error validating checksum: %s", e)
+        logger.error("Error validating checksum: %s", e)
         return False

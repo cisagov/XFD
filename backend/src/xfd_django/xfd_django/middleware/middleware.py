@@ -2,11 +2,11 @@
 # Standard Python Libraries
 from datetime import datetime
 import json
-import logging
 
 # Third-Party Libraries
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
+from xfd_api.logger import LOGGER
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -15,18 +15,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         """Initialize logger."""
         super().__init__(app)
-        self.logger = self._configure_logger()
-
-    def _configure_logger(self):
-        """Configure logger."""
-        logger = logging.getLogger("fastapi")
-        logger.propagate = False  # Prevent duplicate logs
-        if not logger.handlers:
-            log_handler = logging.StreamHandler()
-            log_handler.setFormatter(logging.Formatter("%(message)s"))
-            logger.addHandler(log_handler)
-            logger.setLevel(logging.INFO)
-        return logger
+        self.logger = LOGGER.getChild("middleware.request")
 
     async def dispatch(self, request: Request, call_next):
         """Dispatch logger."""

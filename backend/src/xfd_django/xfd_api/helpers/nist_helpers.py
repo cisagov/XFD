@@ -11,16 +11,16 @@ Log operations and handle exceptions to ensure smooth API interactions.
 # Standard Library Imports
 # Standard Python Libraries
 import datetime
-import logging
 
 # Third-Party Libraries
 from django.forms.models import model_to_dict
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Cpe, Cve
 
 # Third Party Imports
 
 
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 def api_cve_insert(cve_dict):
@@ -81,7 +81,7 @@ def api_cve_insert(cve_dict):
             },
         )
         if created:
-            LOGGER.info("new CVE record created for %s", cve_dict.get("cve_name"))
+            logger.info("new CVE record created for %s", cve_dict.get("cve_name"))
 
         prod_obj_list = []
         for vendor, product_list in vender_prod_dict.items():
@@ -120,7 +120,7 @@ def api_cve_insert(cve_dict):
     except Exception as e:
         print(e)
         print("failed to insert or update")
-        LOGGER.info("API key expired please try again")
+        logger.info("API key expired please try again")
 
 
 def get_cve_and_products(cve_name):
@@ -136,7 +136,7 @@ def get_cve_and_products(cve_name):
               - "products": A dictionary mapping each vendor to a list of related product info.
               If the CVE does not exist, returns {"message": "CVE does not exist"}.
     """
-    LOGGER.info("Retrieving CVE with name: %s", cve_name)
+    logger.info("Retrieving CVE with name: %s", cve_name)
     try:
         # Note: the new model uses the field 'name'
         cve = Cve.objects.get(name=cve_name)
@@ -161,5 +161,5 @@ def get_cve_and_products(cve_name):
     except Cve.DoesNotExist:
         return {"message": "CVE does not exist"}
     except Exception as e:
-        LOGGER.error("An error occurred: %s", e, exc_info=True)
+        logger.error("An error occurred: %s", e, exc_info=True)
         return {"message": "An error occurred"}

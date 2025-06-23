@@ -1,6 +1,5 @@
 """Django ORM models."""
 # Standard Python Libraries
-import logging
 import socket
 import uuid
 
@@ -9,14 +8,14 @@ import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from netfields import InetAddressField
+from xfd_api.logger import LOGGER
 
 # , NetManager
 
 manage_db = True
 app_label_name = "xfd_mini_dl"
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 class AutoLengthCheckModel(models.Model):
@@ -37,7 +36,7 @@ class AutoLengthCheckModel(models.Model):
                     and field.max_length
                     and len(value) > field.max_length
                 ):
-                    LOGGER.warning(
+                    logger.warning(
                         "[%s] Auto-truncating field '%s': %s → %s chars",
                         self.__class__.__name__,
                         field.name,

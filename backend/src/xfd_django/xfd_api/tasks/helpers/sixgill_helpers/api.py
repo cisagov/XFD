@@ -1,16 +1,16 @@
 """Cybersixgill API calls."""
 # Standard Python Libraries
 import json
-import logging
 import time
 
 # Third-Party Libraries
 import pandas as pd
 import requests
+from xfd_api.logger import LOGGER
 
 from .config import cybersix_token
 
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 def alerts_list(auth, organization_id, fetch_size, offset):
@@ -34,19 +34,19 @@ def alerts_list(auth, organization_id, fetch_size, offset):
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
             # Catch 401 token expired code
-            LOGGER.warning(
+            logger.warning(
                 "Refreshing Cybersixgill API auth token due to 401 error code..."
             )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
         if resp.status_code == 400:
             # Log additional output if 400 code encountered
-            LOGGER.error(
+            logger.error(
                 "Received error code 400 from Cybersixgill's /actionable-alert endpoint"
             )
-            LOGGER.error(resp.content)
+            logger.error(resp.content)
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}) for chunk at offset {offset} , attempt {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -73,7 +73,7 @@ def alerts_count(organization_id):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -111,13 +111,13 @@ def intel_post(auth, query, frm, scroll, result_size):
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
             # Catch 401 token expired code
-            LOGGER.warning(
+            logger.warning(
                 "Refreshing Cybersixgill API auth token due to 401 error code..."
             )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -146,12 +146,12 @@ def intel_post_next(auth, scroll_id):
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
             # Catch 401 token expired code
-            LOGGER.warning(
+            logger.warning(
                 "Refreshing Cybersixgill API auth token due to 401 error code..."
             )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /intel_items/next endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -177,13 +177,13 @@ def credential_auth(auth, params):
     while resp.status_code != 200 and retry_count < max_retries:
         if resp.status_code == 401:
             # Catch 401 token expired code
-            LOGGER.warning(
+            logger.warning(
                 "Refreshing Cybersixgill API auth token due to 401 error code..."
             )
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -219,7 +219,7 @@ def dve_top_cves():
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -269,7 +269,7 @@ def get_sixgill_organizations():
     retry_count, max_retries, time_delay = 0, 10, 5
     while orgs.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attempt {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)
@@ -299,7 +299,7 @@ def org_assets(org_id):
     retry_count, max_retries, time_delay = 0, 10, 5
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
-        LOGGER.warning(
+        logger.warning(
             f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attempt {retry_count + 1} of {max_retries}"
         )
         time.sleep(time_delay)

@@ -1,12 +1,13 @@
 """ES client."""
 # Standard Python Libraries
-import logging
 import os
 
 # Third-Party Libraries
 from elasticsearch import Elasticsearch, helpers
+from xfd_api.logger import LOGGER
 
 # Constants
+logging = LOGGER.getChild(__name__)
 DOMAINS_INDEX = "domains-5"
 ORGANIZATIONS_INDEX = "organizations-1"
 

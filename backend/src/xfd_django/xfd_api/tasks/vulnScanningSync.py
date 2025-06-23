@@ -11,7 +11,6 @@ from collections import Counter
 import datetime
 from ipaddress import IPv4Network, IPv6Network, ip_network
 import json
-import logging
 import os
 import traceback
 
@@ -24,6 +23,7 @@ from django.utils import timezone
 import psycopg2
 import requests
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
+from xfd_api.logger import LOGGER
 from xfd_api.tasks.syncdb_helpers import (
     create_domain_view,
     create_service_view,
@@ -67,12 +67,13 @@ from xfd_mini_dl.models import (
     VulnScanSummary,
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
-)
-LOGGER = logging.getLogger(__name__)
+# TODO: Incorporate with unified logger configuration
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(levelname)s: %(message)s",
+#     filename="vuln_scanning_sync.log",
+# )
+logger = LOGGER.getChild(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")
 SCAN_NAME = "VulnScanningSync"
 
@@ -141,32 +142,32 @@ def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
 
 def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
-    LOGGER.info("Started VulnScanningSync scan...")
+    logger.info("Started VulnScanningSync scan...")
 
     call_command("syncmdl", dangerouslyforce=False)
 
     # Load request data
     request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
-    LOGGER.info("Fetched %d requests from Redshift", len(request_list))
+    logger.info("Fetched %d requests from Redshift", len(request_list))
     org_id_dict = process_orgs(request_list)
-    LOGGER.info("Completed saving organizations to the LZ MDL.")
+    logger.info("Completed saving organizations to the LZ MDL.")
 
     # Process Vulnerability Scans
-    LOGGER.info("Started processing vulnerability scans...")
+    logger.info("Started processing vulnerability scans...")
     vuln_scans = fetch_from_redshift(
         f"SELECT * FROM vmtableau.vuln_scans WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days';"  # nosec B608
     )
-    LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
+    logger.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
     if vuln_scans:
         process_vulnerability_scans(vuln_scans, org_id_dict)
-        LOGGER.info("Finished processing vulnerability scans")
+        logger.info("Finished processing vulnerability scans")
 
     # Process Host Scans
-    LOGGER.info("Started processing host scans...")
+    logger.info("Started processing host scans...")
     create_daily_host_summary(org_id_dict)
 
     # Port Scans (Chunked)
-    LOGGER.info("Started processing port scans...")
+    logger.info("Started processing port scans...")
     base_query = (
         "SELECT * FROM vmtableau.port_scans "
         f"WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
@@ -175,7 +176,7 @@ def main():  # pylint: disable=R0915
     total_processed = 0
     chunk_number = 1
     for chunk in fetch_in_chunks(base_query):
-        LOGGER.info(
+        logger.info(
             "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
         )
         process_port_scans(chunk, org_id_dict)
@@ -183,11 +184,11 @@ def main():  # pylint: disable=R0915
         chunk_number += 1
 
     if total_processed == 0:
-        LOGGER.warning(
+        logger.warning(
             f"No port scans found in Redshift for the last {VS_PULL_DATE_RANGE} days."
         )
     else:
-        LOGGER.info(
+        logger.info(
             "Processed %d total port scans across %d chunks",
             total_processed,
             chunk_number - 1,
@@ -195,7 +196,7 @@ def main():  # pylint: disable=R0915
         enforce_latest_flag_port_scan()
         create_port_scan_summary()
         create_port_scan_service_summaries()
-        LOGGER.info("Finished processing port scans")
+        logger.info("Finished processing port scans")
 
     # fill_cidr_live_ips()
     fill_cidr_live_ips_bulk_update()
@@ -204,7 +205,7 @@ def main():  # pylint: disable=R0915
     send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
-    LOGGER.info("Started processing tickets...")
+    logger.info("Started processing tickets...")
     base_query = (
         "SELECT * FROM vmtableau.tickets "
         f"WHERE last_change >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
@@ -213,7 +214,7 @@ def main():  # pylint: disable=R0915
     total_processed = 0
     chunk_number = 1
     for chunk in fetch_in_chunks(base_query):
-        LOGGER.info(
+        logger.info(
             "Processing ticket chunk #%d with %d rows", chunk_number, len(chunk)
         )
         process_tickets(chunk, org_id_dict)
@@ -221,16 +222,16 @@ def main():  # pylint: disable=R0915
         chunk_number += 1
 
     if total_processed == 0:
-        LOGGER.warning(
+        logger.warning(
             f"No tickets found in Redshift for the last {VS_PULL_DATE_RANGE} days."
         )
     else:
-        LOGGER.info(
+        logger.info(
             "Processed %d total tickets across %d chunks",
             total_processed,
             chunk_number - 1,
         )
-        LOGGER.info("Finished processing tickets")
+        logger.info("Finished processing tickets")
         try:
             create_vuln_scan_summary()
         except Exception as e:
@@ -285,7 +286,7 @@ def fetch_from_redshift(query):
         result = query_redshift(query)
         end_time = datetime.datetime.now()
         duration_seconds = (end_time - start_time).total_seconds()
-        LOGGER.info(
+        logger.info(
             "[Redshift] [%ss] [%d records] %s",
             duration_seconds,
             len(result),
@@ -293,8 +294,8 @@ def fetch_from_redshift(query):
         )
         return result
     except Exception as e:
-        LOGGER.info("Error fetching data from Redshift: %s", e)
-        LOGGER.info("Erroneous query: %s", query)
+        logger.info("Error fetching data from Redshift: %s", e)
+        logger.info("Erroneous query: %s", query)
         return []
 
 
@@ -320,13 +321,13 @@ def send_organizations_to_dmz():
         for idx, chunk_info in enumerate(chunks):
             chunk = chunk_info["chunk"]
             bounds = chunk_info["bounds"]
-            LOGGER.info(
+            logger.info(
                 "Sending chunk %d - %d to sync API", bounds["start"], bounds["end"]
             )
             send_csv_to_sync(json.dumps(chunk), bounds)
 
     except Exception as e:
-        LOGGER.error(
+        logger.error(
             "Error sending organizations to DMZ sync endpoint:\n%s",
             traceback.format_exc(),
         )
@@ -340,7 +341,7 @@ def send_csv_to_sync(csv_data, bounds):
     try:
         checksum = create_checksum(csv_data)
     except Exception as e:
-        LOGGER.error("Error creating checksum: %s", e)
+        logger.error("Error creating checksum: %s", e)
         return
 
     headers = {
@@ -358,7 +359,7 @@ def send_csv_to_sync(csv_data, bounds):
             timeout=60,
         )
         response.raise_for_status()
-        LOGGER.info("Successfully sent chunk to sync API")
+        logger.info("Successfully sent chunk to sync API")
     except requests.exceptions.HTTPError as http_err:
         try:
             error_data = response.json()
@@ -366,14 +367,14 @@ def send_csv_to_sync(csv_data, bounds):
             print(http_err)
         except ValueError:
             error_detail = response.text
-        LOGGER.error(
+        logger.error(
             "HTTPError sending chunk to sync API:\nStatus Code: %s\nDetail: %s\nHeaders: %s",
             response.status_code,
             error_detail,
             response.headers,
         )
     except Exception as e:
-        LOGGER.error("Unexpected error sending chunk: %s", str(e))
+        logger.error("Unexpected error sending chunk: %s", str(e))
         raise SyncError(
             SCAN_NAME,
             str(e),
@@ -403,12 +404,12 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
             try:
                 save_vuln_scan(vuln_scan_dict)
             except Exception as e:
-                LOGGER.error("Error saving vulnerability scan: %s", e)
+                logger.error("Error saving vulnerability scan: %s", e)
                 print(traceback.format_exc())
                 # Raise to catch in the outer block
                 raise e
         except Exception as e:
-            LOGGER.error("Error processing Vulnerability Scan: %s", e)
+            logger.error("Error processing Vulnerability Scan: %s", e)
             print(traceback.format_exc())
             raise IngestionError(
                 SCAN_NAME, str(e), "Failed processing vulnerability scans"
@@ -423,7 +424,7 @@ def safe_fromisoformat(date_input) -> datetime.datetime | None:
         try:
             return parser.isoparse(date_input)
         except Exception as e:
-            LOGGER.warning(
+            logger.warning(
                 "Failed to parse datetime from string: %s | Error: %s", date_input, e
             )
             return None
@@ -506,7 +507,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
     if summary_date is None:
         summary_date = timezone.now().date()
 
-    LOGGER.info("Starting host summary creation directly from Redshift...")
+    logger.info("Starting host summary creation directly from Redshift...")
 
     redshift_query = """
         SELECT
@@ -528,10 +529,10 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
     summary_rows = fetch_from_redshift(redshift_query)
 
     if not summary_rows:
-        LOGGER.warning("No host data found in Redshift to summarize.")
+        logger.warning("No host data found in Redshift to summarize.")
         return
 
-    LOGGER.info("Fetched %d host summary records from Redshift", len(summary_rows))
+    logger.info("Fetched %d host summary records from Redshift", len(summary_rows))
 
     for row in summary_rows:
         try:
@@ -539,7 +540,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             owner_id = org_id_dict.get(owner)
 
             if not owner_id:
-                LOGGER.warning(
+                logger.warning(
                     "No matching org_id found for owner %s; skipping.", owner
                 )
                 continue
@@ -561,11 +562,11 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                 },
             )
         except Organization.DoesNotExist:
-            LOGGER.warning(
+            logger.warning(
                 "Organization ID %s not found in local DB; skipping.", owner_id
             )
         except Exception as e:
-            LOGGER.error(
+            logger.error(
                 "Error creating host summary for owner %s (mapped to %s): %s",
                 owner,
                 owner_id,
@@ -575,7 +576,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                 SCAN_NAME, str(e), "Error creating daily host summary"
             ) from e
 
-    LOGGER.info("Completed host summary creation from Redshift.")
+    logger.info("Completed host summary creation from Redshift.")
 
 
 def create_port_scan_summary(summary_date=None):
@@ -1102,7 +1103,7 @@ def process_port_scans(port_scans, org_id_dict):
 
 def process_orgs(request_list):
     """Process organization data, save to MDL and return org ID dict for linking."""
-    LOGGER.info("Processing organizations...")
+    logger.info("Processing organizations...")
     org_id_dict = {}
     sector_child_dict = {}
     parent_child_dict = {}
@@ -1335,7 +1336,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         org_record = save_organization_to_mdl(org_data, network_list, location_dict)
         org_id_dict[request["_id"]] = org_record.id
     except Exception as e:
-        LOGGER.info("Error saving organization: %s - %s", e, request["_id"])
+        logger.info("Error saving organization: %s - %s", e, request["_id"])
         raise IngestionError(
             SCAN_NAME, str(e), "Failed processing organizations"
         ) from e

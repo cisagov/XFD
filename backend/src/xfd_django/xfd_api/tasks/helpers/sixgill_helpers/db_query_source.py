@@ -2,10 +2,10 @@
 
 # Standard Python Libraries
 from datetime import datetime
-import logging
 
 # Third-Party Libraries
 from django.utils import timezone
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import (
     CredentialBreaches,
     CredentialExposures,
@@ -17,7 +17,7 @@ from xfd_mini_dl.models import (
     TopCves,
 )
 
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 def insert_sixgill_alerts(df, org: Organization, source_obj: DataSource):

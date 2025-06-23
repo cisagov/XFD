@@ -3,12 +3,12 @@
 # Standard Python Libraries
 import datetime
 import hashlib
-import logging
 import os
 import time
 
 # Third-Party Libraries
 import shodan
+from xfd_api.logger import LOGGER
 
 API_KEY = os.getenv("SHODAN_API_KEY")
 
@@ -16,8 +16,7 @@ API_KEY = os.getenv("SHODAN_API_KEY")
 from xfd_api.helpers.asset_inserts import create_or_update_ip
 from xfd_mini_dl.models import Cidr, Ip, Organization
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 states = [
     "AL",
@@ -148,7 +147,7 @@ def connect_to_shodan():
         api.info()
         return api
     except Exception:
-        LOGGER.error("Invalid Shodan API key")
+        logger.error("Invalid Shodan API key")
         return 0
 
 
@@ -162,7 +161,7 @@ def cidr_dedupe(cidrs, api, org):
         if result:
             results.append(result)
     found = len([i for i in results if i != 0])
-    LOGGER.info("CIDRs with IPs found: %d", found)
+    logger.info("CIDRs with IPs found: %d", found)
 
     if len(ip_obj) > 0:
         update_shodan_ips(ip_obj, org)
@@ -195,7 +194,7 @@ def update_shodan_ips(ip_list, org):
                 create_or_update_ip(create_default, update_default, linked_sub=None)
 
         except Exception as e:
-            LOGGER.error("Error saving the IP to the db: %s", e)
+            logger.error("Error saving the IP to the db: %s", e)
 
 
 def ip_dedupe(api, ips, org):
@@ -204,7 +203,7 @@ def ip_dedupe(api, ips, org):
     ips = list(ips)
     float_ips = []
     for i in range(int(len(ips) / 100) + 1):
-        LOGGER.info(ips[i * 100 : len(ips)])
+        logger.info(ips[i * 100 : len(ips)])
         if (i + 1) * 100 > len(ips):
             try:
                 hosts = api.host(ips[i * 100 : len(ips)])
@@ -213,7 +212,7 @@ def ip_dedupe(api, ips, org):
                     time.sleep(2)
                     hosts = api.host(ips[i * 100 : len(ips)])
                 except Exception:
-                    LOGGER.error("%s failed again", i)
+                    logger.error("%s failed again", i)
                     continue
         else:
             try:
@@ -223,7 +222,7 @@ def ip_dedupe(api, ips, org):
                 try:
                     hosts = api.host(ips[i * 100 : (i + 1) * 100])
                 except shodan.APIError as err:
-                    LOGGER.error("Error: %s", err)
+                    logger.error("Error: %s", err)
                     continue
         if isinstance(hosts, list):
             for h in hosts:
@@ -328,13 +327,13 @@ def search(api, query, ip_obj, cidr, org_type):
                     )
                 i = i + 1
             except shodan.APIError as e:
-                LOGGER.error("Error: %s", e)
-                LOGGER.error(query)
+                logger.error("Error: %s", e)
+                logger.error(query)
                 results = {"total": 0}
     except shodan.APIError as e:
-        LOGGER.error("Error: %s", e)
+        logger.error("Error: %s", e)
         # IF it breaks to here it fails
-        LOGGER.error("Failed on %s", query)
+        logger.error("Failed on %s", query)
         return 0
     return results["total"]
 
@@ -350,7 +349,7 @@ def dedupe(orgs_obj_list=None):
     org_count = 1
     for org in orgs_obj_list:
         # Connect to database
-        LOGGER.info(
+        logger.info(
             "Running Shodan dedupe on %s, %d/%d",
             org.acronym,
             org_count,
@@ -358,13 +357,13 @@ def dedupe(orgs_obj_list=None):
         )
         # Query CIDRS
         cidrs = Cidr.objects.filter(cidrorgs__organization=org, cidrorgs__current=True)
-        LOGGER.info("%d CIDRs found", len(cidrs))
+        logger.info("%d CIDRs found", len(cidrs))
         # Run cidr dedupe if there are CIDRs
         if len(cidrs) > 0:
             cidr_dedupe(cidrs, api, org)
 
         # Get IPs related to current sub-domains
-        LOGGER.info("Retrieving floating IPs")
+        logger.info("Retrieving floating IPs")
         ips = (
             Ip.objects.filter(
                 origin_cidr__isnull=True,  # No origin_cidr linked
@@ -376,11 +375,11 @@ def dedupe(orgs_obj_list=None):
             .distinct()
             .values_list("ip", flat=True)
         )
-        LOGGER.info("Floating IPs retrieved")
+        logger.info("Floating IPs retrieved")
         if len(ips) > 0:
-            LOGGER.info("Running dedupe on IPs")
+            logger.info("Running dedupe on IPs")
             ip_dedupe(api, ips, org)
-        LOGGER.info("Finished dedupe")
+        logger.info("Finished dedupe")
 
         org_count += 1
 

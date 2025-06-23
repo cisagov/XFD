@@ -2,13 +2,13 @@
 # Standard Python Libraries
 import csv
 import io
-import logging
 import os
 import re
 
 # Third-Party Libraries
 import django
 from xfd_api.helpers.s3_client import S3Client
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Organization, XpanseBusinessUnits
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -17,8 +17,7 @@ django.setup()
 # Third-Party Libraries
 # cisagov Libraries
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 def extract_last_substring_in_square_brackets(input_string):
@@ -40,11 +39,11 @@ def insert_or_update_business_unit(business_unit_dict):
             entity_name=entity_name, defaults=business_unit_dict
         )
         if created:
-            LOGGER.info("Created %s", entity_name)
+            logger.info("Created %s", entity_name)
         else:
-            LOGGER.info("Updated %s", entity_name)
+            logger.info("Updated %s", entity_name)
     except Exception as e:
-        LOGGER.error("Unknown error saving: %s", e)
+        logger.error("Unknown error saving: %s", e)
 
 
 def main(_event):
@@ -54,7 +53,7 @@ def main(_event):
     try:
         xpanse_bu_csv = s3_client.get_xpanse_business_units()
     except Exception as e:
-        LOGGER.error("Error retrieving CSV from S3: %s", e)
+        logger.error("Error retrieving CSV from S3: %s", e)
         return
     orgs_reader = csv.DictReader(io.StringIO(xpanse_bu_csv))
     for org in orgs_reader:
@@ -68,9 +67,9 @@ def main(_event):
                 if mdl_org_record.first():
                     org_record = mdl_org_record[0]
             except Organization.DoesNotExist:
-                LOGGER.error("Organization not found: %s", cyhy_db_name)
+                logger.error("Organization not found: %s", cyhy_db_name)
             except Exception as e:
-                LOGGER.error("Unknown error saving: %s", e)
+                logger.error("Unknown error saving: %s", e)
             business_unit_dict = {
                 "entity_name": org["Entity Name"].strip(),
                 "state": org["State"].strip(),
@@ -84,11 +83,11 @@ def main(_event):
             }
             insert_or_update_business_unit(business_unit_dict)
         except Exception as e:
-            LOGGER.error("Failure saving %s", org["Entity Name"])
-            LOGGER.error("Unknown error saving: %s", e)
+            logger.error("Failure saving %s", org["Entity Name"])
+            logger.error("Unknown error saving: %s", e)
             continue
 
-    LOGGER.info("Finished Updating Xpanse Organizations")
+    logger.info("Finished Updating Xpanse Organizations")
 
 
 def handler(event):
@@ -97,7 +96,7 @@ def handler(event):
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
         if not is_dmz and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exiting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exiting now.")
             return {
                 "statusCode": 200,
                 "body": "Xpanse Alerts sync cannot run outside the DMZ.",

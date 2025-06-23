@@ -1,7 +1,6 @@
 """Shodan scan."""
 # Standard Python Libraries
 import datetime
-import logging
 import os
 import time
 
@@ -10,12 +9,12 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 import requests
 import shodan
+from xfd_api.logger import LOGGER
 from xfd_api.tasks.helpers.get_ips import get_ips_by_cidr
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
-# Constants controlling pagination and rate limiting
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+# Logger setup
+logger = LOGGER.getChild(__name__)
 
 
 def handler(command_options):
@@ -42,8 +41,8 @@ def handler(command_options):
     try:
         ips = get_ips_by_cidr(org_uid)
     except Exception as e:
-        LOGGER.error("Failed fetching IPs for %s.", org_name)
-        LOGGER.error("%s - %s", e, org_name)
+        logger.error("Failed fetching IPs for %s.", org_name)
+        logger.error("%s - %s", e, org_name)
         failed.append("{} fetching IPs".format(org_name))
         return {
             "status_code": 500,
@@ -51,7 +50,7 @@ def handler(command_options):
         }
     # If no IPs, skip this org
     if len(ips) == 0:
-        LOGGER.warning("No IPs for %s.", org_name)
+        logger.warning("No IPs for %s.", org_name)
         return {
             "status_code": 500,
             "body": "No Ips for {}".format(org_name),
@@ -59,11 +58,11 @@ def handler(command_options):
 
     # Get initialized API object
     api_key = os.getenv("SHODAN_API_KEY", "")
-    LOGGER.info("Running on api key: %s", api_key)
+    logger.info("Running on api key: %s", api_key)
     api = shodan_api_init(api_key)
 
     if not api:
-        LOGGER.warning("Not a valid API key: %s.", api_key)
+        logger.warning("Not a valid API key: %s.", api_key)
         return {
             "status_code": 500,
             "body": "No Ips for {}".format(org_name),
@@ -89,7 +88,7 @@ def shodan_api_init(api_key):
         # Test api key
         api.info()
     except Exception:
-        LOGGER.error("Invalid Shodan API key: %s", api_key)
+        logger.error("Invalid Shodan API key: %s", api_key)
         return None
     return api
 
@@ -105,7 +104,7 @@ def search_shodan(
     tot_ips = len(ips)
     ip_chunks = [ips[i : i + 10] for i in range(0, tot_ips, 10)]
     tot = len(ip_chunks)
-    LOGGER.info("Split %s IPs into %s chunks - %s", tot_ips, tot, org_name)
+    logger.info("Split %s IPs into %s chunks - %s", tot_ips, tot, org_name)
 
     # Loop through chunks and query Shodan
     # Fetch or create the Censys data source record.
@@ -266,29 +265,29 @@ def search_shodan(
                 break
             except shodan.APIError as e:
                 if try_count == 5:
-                    LOGGER.error(
+                    logger.error(
                         "Failed 5 times. Continuing to next chunk - %s", org_name
                     )
                     failed.append(
                         "{} chunk {} failed 5 times and skipped".format(org_name, count)
                     )
                     break
-                LOGGER.error("%s - %s", e, org_name)
-                LOGGER.error(
+                logger.error("%s - %s", e, org_name)
+                logger.error(
                     "Try #%s failed. Calling the API again. - %s", try_count, org_name
                 )
                 try_count += 1
                 # Most likely too many API calls per second so sleep
                 time.sleep(5)
             except Exception as e:
-                LOGGER.error("%s - %s", e, org_name)
-                LOGGER.error(
+                logger.error("%s - %s", e, org_name)
+                logger.error(
                     "Not a shodan API error. Continuing to next chunk - %s", org_name
                 )
                 failed.append("{} chunk {} failed and skipped".format(org_name, count))
                 break
 
-        LOGGER.info("chunk %s/%s complete - %s", count, tot, org_name)
+        logger.info("chunk %s/%s complete - %s", count, tot, org_name)
 
     return failed
 
@@ -504,7 +503,7 @@ def insert_shodan_assets(data):
             if created:
                 create_cnt += 1
         except Exception as e:
-            LOGGER.warning("Shodan Asset failed to save to MDL: %s", e)
+            logger.warning("Shodan Asset failed to save to MDL: %s", e)
             continue
 
     return "{} records created in the shodan_assets table".format(create_cnt)
@@ -570,7 +569,7 @@ def insert_shodan_vulns(data):
                 create_cnt += 1
 
         except Exception as e:
-            LOGGER.warning("Shodan Vuln failed to save to MDL: %s", e)
+            logger.warning("Shodan Vuln failed to save to MDL: %s", e)
             continue
 
     return "{} records created in the credential_exposures table".format(create_cnt)

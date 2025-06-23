@@ -1,15 +1,14 @@
 """Update the blocklist with the latest data from blocklist.de."""
 # Standard Python Libraries
 import ipaddress
-import logging
 
 # Third-Party Libraries
 from django.utils import timezone
 import requests
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Blocklist
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 def download_blocklist_as_dict(
@@ -23,7 +22,7 @@ def download_blocklist_as_dict(
         blocklist_dict = {line.strip(): True for line in lines if line.strip()}
         return blocklist_dict
     except requests.RequestException as e:
-        LOGGER.warning("Failed to download blocklist: %s", e)
+        logger.warning("Failed to download blocklist: %s", e)
         return {}
 
 
@@ -58,7 +57,7 @@ def create_new_blocklist_records(blocklist):
                 reports=reports,
             )
         except Exception as e:
-            LOGGER.warning("Failed to create blocklist record for IP %s: %s", ip_str, e)
+            logger.warning("Failed to create blocklist record for IP %s: %s", ip_str, e)
             continue
 
 
@@ -66,15 +65,15 @@ def main():
     """Download blocklist data and query the blocklist API."""
     blocklist = download_blocklist_as_dict()
     if len(blocklist) == 0:
-        LOGGER.warning("No blocklist data downloaded.")
+        logger.warning("No blocklist data downloaded.")
         return
-    LOGGER.info("Blocklist downloaded successfully with %d entries.", len(blocklist))
+    logger.info("Blocklist downloaded successfully with %d entries.", len(blocklist))
     blocklist_records = Blocklist.objects.all()
     # Prune blocklist records that are not in the downloaded blocklist data
     for ip_record in blocklist_records:
         ip_str = str(ipaddress.ip_interface(ip_record.ip).ip)
         if ip_str in blocklist:
-            LOGGER.info("Updating blocklist record for IP: %s", ip_str)
+            logger.info("Updating blocklist record for IP: %s", ip_str)
             # If the IP is in the blocklist, update the record
             malicious, attacks, reports = query_blocklist_api(ip_str)
             if attacks > 0:
@@ -87,7 +86,7 @@ def main():
             del blocklist[ip_str]
         else:
             ip_record.delete()
-            LOGGER.info("Blocklist record deleted for IP: %s", ip_str)
+            logger.info("Blocklist record deleted for IP: %s", ip_str)
     # Add new blocklist records based on the downloaded data
     create_new_blocklist_records(blocklist)
 
@@ -97,4 +96,4 @@ def handler(_):
     try:
         main()
     except Exception as e:
-        LOGGER.info("Error starting update blocklist task: %s", e)
+        logger.info("Error starting update blocklist task: %s", e)

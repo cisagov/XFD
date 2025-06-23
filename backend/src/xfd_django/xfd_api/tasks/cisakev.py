@@ -2,12 +2,12 @@
 
 # Standard Python Libraries
 from datetime import datetime
-import logging
 import uuid
 
 # Third-Party Libraries
 from django.db.models import F
 import requests
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import CisaKevCatalog, Cve
 
 
@@ -27,7 +27,7 @@ class CisaKevScan:
 
     def __init__(self):
         """Initialize the CISA KEV scan with a logger."""
-        self.logger = logging.getLogger(__name__)
+        self.logger = LOGGER.getChild(__name__)
 
     def parse_date(self, date_str):
         """Convert a date string to a date object, or return None."""

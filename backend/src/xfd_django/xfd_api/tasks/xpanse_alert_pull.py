@@ -2,7 +2,6 @@
 # Standard Python Libraries
 import datetime
 import json
-import logging
 import os
 import re
 import time
@@ -11,6 +10,7 @@ from uuid import uuid4
 # Third-Party Libraries
 import django
 import requests
+from xfd_api.logger import LOGGER
 
 # End Standalone Django Setup
 from xfd_mini_dl.models import (
@@ -27,8 +27,7 @@ from xfd_mini_dl.models import (
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 django.setup()
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 api_key = os.getenv("XPANSE_API_KEY")
 auth_id = os.getenv("XPANSE_AUTH_ID")
@@ -124,7 +123,7 @@ def create_cves(cves):
             "created_cve": xpanse_cve,
         }
         cve_records.append(full_cve_data)
-    LOGGER.info("Created Xpanse CVEs: %d", len(cve_records))
+    logger.info("Created Xpanse CVEs: %d", len(cve_records))
     return cve_records
 
 
@@ -167,7 +166,7 @@ def create_service(service_dict, cves, org_record, alert_record):
             },
         )
     except Exception as e:
-        LOGGER.error("Error saving service: %s", e)
+        logger.error("Error saving service: %s", e)
     if xpanse_service is not None and len(cves) > 0:
         for cve in cves:
             try:
@@ -204,7 +203,7 @@ def create_service(service_dict, cves, org_record, alert_record):
         if created_domains:
             for domain in created_domains:
                 xpanse_service.sub_domains.add(domain)
-    LOGGER.info("Created Xpanse Service %s", xpanse_service.service_id)
+    logger.info("Created Xpanse Service %s", xpanse_service.service_id)
     return xpanse_service
 
 
@@ -225,7 +224,7 @@ def create_sub_domain_for_service(sub_domain, ord_record):
             "trustymail_results": [],
         },
     )
-    LOGGER.info("Created Sub Domain %s", sub_domain)
+    logger.info("Created Sub Domain %s", sub_domain)
     return domain_obj
 
 
@@ -279,9 +278,9 @@ def insert_xpanse_alert(alert, org_record, business_unit):
             },
         )
         xpanse_alert.business_units.add(business_unit)
-        LOGGER.info("Created Xpanse Alert %s", xpanse_alert.alert_id)
+        logger.info("Created Xpanse Alert %s", xpanse_alert.alert_id)
     except Exception as e:
-        LOGGER.error("Error saving alert: %s", e)
+        logger.error("Error saving alert: %s", e)
         return None
 
     linked_services = []
@@ -289,7 +288,7 @@ def insert_xpanse_alert(alert, org_record, business_unit):
     # linked_assets = []
     if alert["services"] is not None:
         # This is working, commenting out to work faster
-        LOGGER.info("Creating Services for Xpanse Alert %s", xpanse_alert.alert_id)
+        logger.info("Creating Services for Xpanse Alert %s", xpanse_alert.alert_id)
         for service in alert["services"]:
             service_cves = service["cves"]
             if service_cves:
@@ -300,7 +299,7 @@ def insert_xpanse_alert(alert, org_record, business_unit):
             if xpanse_service is not None:
                 linked_services.append(xpanse_service)
                 xpanse_alert.services.set(linked_services)
-        LOGGER.info(
+        logger.info(
             "Created %d Services for Xpanse Alert %s",
             len(linked_services),
             xpanse_alert.alert_id,
@@ -343,7 +342,7 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
             resp_dict = response.json()
             page_token = resp_dict["reply"]["next_page_token"]
             formatted_alerts = format_alerts(resp_dict["reply"]["alerts"])
-            LOGGER.info("Found %d alerts", len(formatted_alerts))
+            logger.info("Found %d alerts", len(formatted_alerts))
             for alert in formatted_alerts:
                 insert_xpanse_alert(alert, mdl_org_record, business_unit)
 
@@ -363,9 +362,9 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
                 for alert in formatted_alerts:
                     insert_xpanse_alert(alert, mdl_org_record, business_unit)
 
-            LOGGER.info("Done Xpanse alert pull on %s", org)
+            logger.info("Done Xpanse alert pull on %s", org)
         except Exception as e:
-            LOGGER.error("Error querying assets for %s: %s.", org, e)
+            logger.error("Error querying assets for %s: %s.", org, e)
 
 
 def format_alerts(alerts):
@@ -427,9 +426,9 @@ def retry_pull_service_data(service_chunk, max_retries=3, retry_delay=5):
             if service_response is not None:
                 return service_response
         except Exception as e:
-            LOGGER.error("Error querying services: %s", e)
+            logger.error("Error querying services: %s", e)
             if retry_count < max_retries - 1:
-                LOGGER.info("Retrying...")
+                logger.info("Retrying...")
                 time.sleep(retry_delay)
     return None
 
@@ -535,7 +534,7 @@ def match_services(service_ids, services):
                 if match:
                     matched.append(match)
             except (TypeError, AttributeError) as e:
-                LOGGER.warning("Failed to process service ID '%s': %s", service_id, e)
+                logger.warning("Failed to process service ID '%s': %s", service_id, e)
         return matched
     except ValueError:
         return []
@@ -595,7 +594,7 @@ def build_alert_dict(alert, business_units_list, current_services):
 
 def pull_service_data(service_id_list):
     """Pull service info from the Xpanse API using a service_id."""
-    LOGGER.info("Pulling service data")
+    logger.info("Pulling service data")
     url = xpanse_url + "v1/assets/get_external_service"
     request_data = {"service_id_list": service_id_list}
 
@@ -616,7 +615,7 @@ def pull_service_data(service_id_list):
 
 def pull_asset_data(xpanse_asset_id_list=[]):
     """Pull asset data from the Xpanse API."""
-    LOGGER.info("Pulling asset data")
+    logger.info("Pulling asset data")
     assets = []
 
     url = xpanse_url + "v1/assets/get_asset_internet_exposure"
@@ -689,7 +688,7 @@ def get_linked_business_units(acronym):
         org_records = Organization.objects.filter(acronym=acronym)
         return XpanseBusinessUnits.objects.filter(cyhy_db_name__in=org_records)
     except Exception as e:
-        LOGGER.error("Error querying linked business units: %s", e)
+        logger.error("Error querying linked business units: %s", e)
         return None
 
 
@@ -711,7 +710,7 @@ def handler(event):
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
         if not is_dmz and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exiting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exiting now.")
             return {
                 "statusCode": 200,
                 "body": "Xpanse Alerts sync cannot run outside the DMZ.",
@@ -722,7 +721,7 @@ def handler(event):
             "body": "Xpanse Alerts sync completed successfully.",
         }
     except Exception as e:
-        LOGGER.error("Error starting XpanseAlertPull %s", e)
+        logger.error("Error starting XpanseAlertPull %s", e)
         return {"statusCode": 500, "body": str(e)}
 
 

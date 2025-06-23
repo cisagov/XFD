@@ -2,7 +2,6 @@
 # Standard Python Libraries
 import datetime
 import json
-import logging
 import os
 import time
 
@@ -15,6 +14,7 @@ import requests
 from xfd_api.helpers.link_ips_from_subs import connect_ips_from_subs
 from xfd_api.helpers.link_subs_from_ips import connect_subs_from_ips
 from xfd_api.helpers.shodan_dedupe import dedupe
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
@@ -25,8 +25,7 @@ from xfd_mini_dl.models import (
     SubDomains,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -45,7 +44,7 @@ def handler(event):
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
         if not is_dmz and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exitting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exitting now.")
             return {
                 "status_code": 200,
                 "body": "DMZ Shodan Vulnerabilities and Asset cannot run outside the DMZ.",
@@ -68,25 +67,25 @@ def main(event):
 
         orgs_to_sync = Organization.objects.filter(id__in=[organization_id])
         for org in orgs_to_sync:
-            LOGGER.info("Running ASM Sync on organization %s", org.name)
+            logger.info("Running ASM Sync on organization %s", org.name)
         # orgs_to_sync = Organization.objects.filter(acronym__in=event.organization.id)
         enumerate_subs(orgs_to_sync)
 
-        LOGGER.info("Identifying subdomains from ips...")
+        logger.info("Identifying subdomains from ips...")
         connect_subs_from_ips(orgs_to_sync)
-        LOGGER.info("Identifying ips from subdomains...")
+        logger.info("Identifying ips from subdomains...")
         connect_ips_from_subs(orgs_to_sync)
 
-        LOGGER.info("Identifying asset changes...")
+        logger.info("Identifying asset changes...")
         flag_asset_changes()
-        LOGGER.info("Finished identifying asset changes")
+        logger.info("Finished identifying asset changes")
 
         # Run shodan dedupe
-        LOGGER.info("Running Shodan dedupe...")
+        logger.info("Running Shodan dedupe...")
         dedupe(orgs_to_sync)
-        LOGGER.info("Finished running Shodan dedupe")
+        logger.info("Finished running Shodan dedupe")
     except Exception as e:
-        LOGGER.warning("Error running ASM %s", e)
+        logger.warning("Error running ASM %s", e)
     # quit()
 
 
@@ -165,7 +164,7 @@ def enumerate_roots(root_domain):
     retry_count, max_retries, time_delay = 1, 10, 5
     while response.status_code != 200 and retry_count <= max_retries:
         if response.status_code:
-            LOGGER.info(
+            logger.info(
                 "Retrying WhoisXML API endpoint (code %d), attempt %d of %d (url: %s)",
                 response.status_code,
                 retry_count,

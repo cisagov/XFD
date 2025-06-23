@@ -2,16 +2,16 @@
 # Standard Python Libraries
 import hashlib
 import json
-import logging
 import os
 import time
 
 # Third-Party Libraries
 import requests
+from xfd_api.logger import LOGGER
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+# logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = LOGGER.getChild(__name__)
 
 
 def query_api(url_route, acronym, last_seen_after, page_size=50, page_number=1):
@@ -35,7 +35,7 @@ def query_api(url_route, acronym, last_seen_after, page_size=50, page_number=1):
     retry_count, max_retries, time_delay = 1, 10, 5
     while response.status_code != 200 and retry_count <= max_retries:
         if response.status_code:
-            LOGGER.info(
+            logger.info(
                 "Retrying MDL DMZ_sync endpoint (code %d), attempt %d of %d (url: %s)",
                 response.status_code,
                 retry_count,
@@ -48,17 +48,17 @@ def query_api(url_route, acronym, last_seen_after, page_size=50, page_number=1):
         )
         retry_count += 1
         if retry_count > max_retries:
-            LOGGER.warning("Failed to retrieve page %s", page_number)
+            logger.warning("Failed to retrieve page %s", page_number)
             return None
 
     # Validate checksum by passing the response object
     is_valid = validate_response_checksum(response)
 
     if is_valid:
-        LOGGER.info("✅ Checksum is valid!")
+        logger.info("✅ Checksum is valid!")
         return response
     else:
-        LOGGER.warning("❌ Checksum validation failed!")
+        logger.warning("❌ Checksum validation failed!")
         return None
 
     # print(response.text)
@@ -73,7 +73,7 @@ def validate_response_checksum(response):
         # Extract checksum from response headers
         received_checksum = response.headers.get("X-Salted-Checksum")
         if not received_checksum:
-            LOGGER.warning("❌ No checksum found in headers!")
+            logger.warning("❌ No checksum found in headers!")
             return False
 
         # Recompute the checksum

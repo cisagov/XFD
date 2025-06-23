@@ -1,7 +1,6 @@
 """CredentialSync scan."""
 # Standard Python Libraries
 import datetime
-import logging
 import os
 
 # Third-Party Libraries
@@ -11,6 +10,7 @@ from django.utils import timezone
 from xfd_api.helpers.data_pull_history import get_last_queried, update_query_timestamp
 from xfd_api.helpers.date_time_helpers import calculate_days_back
 from xfd_api.helpers.dmz_sync_helper import query_api
+from xfd_api.logger import LOGGER
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -26,8 +26,7 @@ from xfd_mini_dl.models import (
     SubDomains,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 
 # Constants
@@ -52,7 +51,7 @@ def handler(command_options):
         is_local = os.getenv("IS_LOCAL", "true") == "true"
 
         if not is_lz and not is_local:
-            LOGGER.warning("Scan can only be run in the LZ or locally. Exitting now.")
+            logger.warning("Scan can only be run in the LZ or locally. Exitting now.")
             return {
                 "statusCode": 200,
                 "body": "ASM DMZ Sync pull cannot run outside the LZ.",
@@ -88,7 +87,7 @@ def main(command_options):
 
             start_pulling_time = datetime.datetime.now(datetime.timezone.utc)
 
-            LOGGER.info("Processing organization: %s, %s", org.acronym, org.name)
+            logger.info("Processing organization: %s, %s", org.acronym, org.name)
             acronym = org.acronym
             page_size = 10
             page_number = 1
@@ -103,10 +102,10 @@ def main(command_options):
                     page_number,
                 )
                 if response:
-                    LOGGER.info(response.json())
+                    logger.info(response.json())
                     total_pages = process_response(response, org)
                 else:
-                    LOGGER.error("Failed to query DMZ Cred Sync API for %s.", acronym)
+                    logger.error("Failed to query DMZ Cred Sync API for %s.", acronym)
                     return {
                         "statusCode": 500,
                         "body": "Failed to query DMZ Cred Sync API for {acronym}.".format(
@@ -123,7 +122,7 @@ def main(command_options):
         return {"statusCode": 200, "body": "Credential sync completed successfully."}
 
     except Exception as e:
-        LOGGER.error("Scan failed to complete: %s", e)
+        logger.error("Scan failed to complete: %s", e)
         return {
             "statusCode": 500,
             "body": "Internal server error during credential sync.",
