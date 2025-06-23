@@ -197,7 +197,6 @@ const sortFiltersByOrder = (filters: FlatFilters) => {
 
 export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
   const { pathname } = useLocation();
-
   const { userLevel } = useUserLevel();
 
   const disabledFilters = useMemo(() => {
@@ -236,30 +235,6 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
     return sortFiltersByOrder(processedFilters);
   }, [filters]);
 
-  //New code for handling more complex filters
-  // 1. Find all region and org filters
-  // const regionFilter = filters.find(
-  //   (f) => f.field === 'organization.region_id'
-  // );
-  // const orgFilter = filters.find((f) => f.field === 'organization_id');
-
-  // 2. Group orgs by region
-  // let regionOrgMap: Record<string, string[]> = {};
-  // if (regionFilter && orgFilter && Array.isArray(orgFilter.values)) {
-  //   // orgFilter.values should be array of org objects with .region_id and .name
-  //   regionOrgMap = orgFilter.values.reduce(
-  //     (
-  //       acc: { [x: string]: any[] },
-  //       org: { region_id: string | number; name: any }
-  //     ) => {
-  //       if (!acc[org.region_id]) acc[org.region_id] = [];
-  //       acc[org.region_id].push(org.name);
-  //       return acc;
-  //     },
-  //     {} as Record<string, string[]>
-  //   );
-  // }
-
   return (
     <Root aria-live="polite" aria-atomic="true">
       <>
@@ -291,30 +266,6 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
             />
           ))
         )}
-        {/* Uncomment this section if you want to display grouped region/org chips
-         {regionFilter &&
-          Object.entries(regionOrgMap).map(([regionId, orgNames]) => (
-            <Chip
-              key={regionId}
-              color="primary"
-              classes={{ root: classes.chip }}
-              label={`Region ${regionId}: ${orgNames.join(', ')}`}
-              onDelete={() => {
-                // Remove both the region and all orgs in that region
-                removeFilter(
-                  'organization.region_id',
-                  regionId,
-                  regionFilter.type
-                );
-                orgNames.forEach((orgName) => {
-                  const org = orgFilter.values.find(
-                    (o: any) => o.name === orgName
-                  );
-                  if (org) removeFilter('organization_id', org, orgFilter.type);
-                });
-              }}
-            />
-          ))} */}
       </>
     </Root>
   );

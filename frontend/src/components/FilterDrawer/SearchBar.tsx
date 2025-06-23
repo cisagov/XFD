@@ -55,13 +55,8 @@ const Root = styled('div')(({ theme }) => ({
   },
 
   [`& .${classes.icon}`]: {
-    // position: 'absolute',
-    // right: '0.8rem',
-    // top: '50%',
-    // transform: 'translateY(-50%)',
     fontSize: '1.5rem',
     color: theme.palette.neutrals.white
-    // backgroundColor: 'yellow'
   },
 
   [`& .${classes.autocompleteRoot}`]: {

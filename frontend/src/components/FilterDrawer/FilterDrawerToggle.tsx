@@ -1,49 +1,49 @@
 import React from 'react';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
-import { Button, Stack } from '@mui/material';
+import { AppBar, Button, Toolbar } from '@mui/material';
 import { FilterAlt } from '@mui/icons-material';
-import { matchPath } from 'utils/matchPath';
-import { useLocation } from 'react-router-dom';
 
 const FilterDrawerToggle: React.FC = () => {
   const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
     useFilterDrawerContext();
-  const { pathname } = useLocation();
 
   const handleToggle = () => {
     setIsFilterDrawerOpen(!isFilterDrawerOpen);
   };
 
   return (
-    <Stack
+    <AppBar
+      position="sticky"
+      elevation={0}
       sx={{
-        maxWidth: '1152px',
         margin: 'auto',
-        paddingTop: 2,
+
         px: {
-          xs: 0,
-          sm: 0,
+          xs: 1,
+          sm: 1,
           md: 1,
           lg: 1,
           xl: 0
-        }
+        },
+        backgroundColor: 'neutrals.white',
+        borderBottom: '0.5px solid',
+        borderColor: 'neutrals.light',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '84px'
       }}
     >
-      <Stack
-        direction="row"
-        spacing={2}
-        alignItems="center"
-        justifyContent="space-between"
-      >
+      <Toolbar disableGutters sx={{ maxWidth: '1152px', width: '100%', p: 0 }}>
         <Button
           variant="primaryContained"
           onClick={handleToggle}
           startIcon={<FilterAlt />}
         >
-          {matchPath(['/inventory'], pathname) ? 'Search & Filter' : 'Filter'}
+          Filter
         </Button>
-      </Stack>
-    </Stack>
+      </Toolbar>
+    </AppBar>
   );
 };
 

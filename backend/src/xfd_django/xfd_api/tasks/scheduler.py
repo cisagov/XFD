@@ -42,7 +42,6 @@ class Scheduler:
         scan_schema = SCAN_SCHEMA.get(scan.name, {})
         global_scan = getattr(scan_schema, "global_scan", False)
         if global_scan:
-            print("This is a global scan.")
             if not self.should_run_scan(scan):
                 print(
                     "Skipping global scan execution due to recent activity or constraints."

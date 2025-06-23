@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { styled } from '@mui/material/styles';
-import { Link, useHistory } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import {
   Paper,
   Accordion,
@@ -11,15 +11,9 @@ import {
   ListItem,
   ListItemText,
   Collapse,
-  Button,
-  IconButton
+  Button
 } from '@mui/material';
-import {
-  ExpandLess,
-  ExpandMore,
-  Launch as LinkOffIcon,
-  KeyboardBackspace
-} from '@mui/icons-material';
+import { ExpandLess, ExpandMore, KeyboardBackspace } from '@mui/icons-material';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
 import { DefinitionList } from './DefinitionList';
@@ -59,11 +53,7 @@ const StyledPaper = styled(Paper)(({ theme }) => ({
 
   [`& .${classes.title}`]: {
     backgroundColor: theme.palette.primary.main,
-    color: '#fff',
-    cursor: 'pointer',
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    color: theme.palette.neutrals.white,
     padding: '1rem 1.5rem',
     fontSize: '2rem',
     textDecoration: 'none',
@@ -328,11 +318,6 @@ export const DomainDetails: React.FC<Props> = (props) => {
     return null;
   }
 
-  const url =
-    (domain.services.find((service) => service.port === 443)
-      ? 'https://'
-      : 'http://') + domain.name;
-
   const { webpages = [] } = domain;
   webpages.sort((a, b) => (a.url > b.url ? 1 : -1));
   const webpageTree = generateWebpageTree(webpages);
@@ -372,17 +357,11 @@ export const DomainDetails: React.FC<Props> = (props) => {
       >
         Back To Results
       </Button>
-      {/* </Stack> */}
-
       <StyledPaper classes={{ root: classes.root }}>
         <div className={classes.title}>
-          <h4>
-            <Link to={`/inventory/domain/${domain.id}`}>{domain.name}</Link>
-          </h4>
-
-          <IconButton href={url} target="_blank" rel="noopener noreferrer">
-            <LinkOffIcon />
-          </IconButton>
+          <Typography variant="h4" component="h1" color="inherit">
+            {domain.name}
+          </Typography>
         </div>
         <div className={classes.inner}>
           {overviewInfo.length > 0 && (

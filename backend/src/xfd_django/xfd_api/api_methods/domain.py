@@ -8,7 +8,7 @@ import io
 from django.core.paginator import Paginator
 from django.db.models import Prefetch
 from fastapi import HTTPException
-from xfd_mini_dl.models import Domain, Service
+from xfd_mini_dl.models import Domain, DomainSearchView, Organization, Service
 
 from ..auth import get_org_memberships, is_global_view_admin
 from ..helpers.filter_helpers import apply_domain_filters, sort_direction
@@ -91,19 +91,30 @@ def get_domain_by_id(domain_id: str):
 def search_domains(domain_search: DomainSearch, current_user):
     """List domains by search filter."""
     try:
-        domains = (
-            Domain.objects.select_related("organization")
-            .prefetch_related("services", "vulnerabilities")
-            .order_by(sort_direction(domain_search.sort, domain_search.order))
+        domains = DomainSearchView.objects.order_by(
+            sort_direction(domain_search.sort, domain_search.order)
         )
 
         # Apply global user permission filters
-        if not is_global_view_admin(current_user):
+        if (
+            not is_global_view_admin(current_user)
+            and not current_user.user_type == "regionalAdmin"
+        ):
             orgs = get_org_memberships(current_user)
             if not orgs:
-                # No organization memberships, return empty result
                 return [], 0
-            domains = domains.filter(organization__id__in=orgs)
+            domains = domains.filter(organization_id__in=orgs)
+
+        # Regional Admins can only view vulnerabilities in their region
+        if current_user.user_type == "regionalAdmin" and current_user.region_id:
+            # Get all organization IDs in this region
+            region_org_ids = list(
+                Organization.objects.filter(
+                    region_id=current_user.region_id
+                ).values_list("id", flat=True)
+            )
+
+            domains = domains.filter(organization_id__in=region_org_ids)
 
         # Apply filters if provided
         if domain_search.filters:
@@ -111,20 +122,45 @@ def search_domains(domain_search: DomainSearch, current_user):
 
         # Handle pagination
         page_size = domain_search.page_size
-        # If pageSize == -1, return all results without pagination
         if page_size == -1:
-            result = list(domains)
-            return result, len(result)
+            page_obj = domains
+        else:
+            page_size = page_size or 15
+            paginator = Paginator(domains, page_size)
+            page_obj = paginator.get_page(domain_search.page)
 
-        page_size = page_size or 15  # default page size if none provided
-        paginator = Paginator(domains, page_size)
-        page_obj = paginator.get_page(domain_search.page)
-        return list(page_obj), paginator.count
+        # Build result
+        result = []
+        for d in page_obj:
+            result.append(
+                {
+                    "id": d.domain_id,
+                    "name": d.name,
+                    "ip": d.ip,
+                    "created_at": d.created_at,
+                    "updated_at": d.updated_at,
+                    "country": d.country,
+                    "cloud_hosted": d.cloud_hosted,
+                    "organization": {
+                        "id": d.organization_id,
+                        "name": d.organization_name,
+                    },
+                    "ports_preview": d.ports_preview,
+                    "services_preview": d.services_preview,
+                    "services_count": d.services_count,
+                    "vulnerabilities_count": d.vulnerabilities_count,
+                    "webpages": 0,
+                }
+            )
+
+        # Return
+        if page_size == -1:
+            return result, len(result)
+        else:
+            return result, paginator.count
 
     except HTTPException as he:
         raise he
-    except Domain.DoesNotExist as e:
-        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -140,7 +176,7 @@ def export_domains(domain_search: DomainSearch, current_user):
 
         # If no domains, generate empty CSV
         if not domains:
-            csv_content = "name,ip,id,ports,products,createdAt,updatedAt,organization\n"
+            csv_content = "name,ip,id,createdAt,updatedAt,organization\n"
         else:
             # Process domains to flatten organization name,
             # ports as string, products as unique string
@@ -149,30 +185,12 @@ def export_domains(domain_search: DomainSearch, current_user):
                 organization_name = (
                     domain.organization.name if domain.organization else ""
                 )
-                ports = ", ".join(
-                    [str(service.port) for service in domain.services.all()]
-                )
-
-                # Collect unique products
-                products_set = set()
-                for service in domain.services.all():
-                    for product in service.products.all():
-                        if product.name:
-                            product_entry = (
-                                "{} {}".format(product.name, product.version)
-                                if product.version
-                                else product.name
-                            )
-                            products_set.add(product_entry)
-                products = ", ".join(sorted(products_set))
 
                 processed_domains.append(
                     {
                         "name": domain.name,
                         "ip": domain.ip,
                         "id": str(domain.id),
-                        "ports": ports,
-                        "products": products,
                         "created_at": domain.created_at.isoformat()
                         if domain.created_at
                         else "",
@@ -188,8 +206,6 @@ def export_domains(domain_search: DomainSearch, current_user):
                 "name",
                 "ip",
                 "id",
-                "ports",
-                "products",
                 "created_at",
                 "updated_at",
                 "organization",

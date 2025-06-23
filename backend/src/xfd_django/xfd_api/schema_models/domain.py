@@ -41,13 +41,10 @@ class Domain(BaseModel):
 class DomainFilters(BaseModel):
     """DomainFilters schema."""
 
-    port: Optional[int] = None
-    service: Optional[str] = None
     reverse_name: Optional[str] = None
     ip: Optional[str] = None
     organization: Optional[str] = None
     organization_name: Optional[str] = None
-    vulnerabilities: Optional[str] = None
     tag: Optional[str] = None
     name: Optional[str] = None
 
@@ -62,7 +59,7 @@ class DomainSearch(BaseModel):
 
     page: int = 1
     sort: Optional[str] = "ASC"
-    order: Optional[str] = "id"
+    order: Optional[str] = "domain_id"
     filters: Optional[DomainFilters] = None
     page_size: Optional[int] = 25
 
@@ -75,8 +72,26 @@ class DomainSearch(BaseModel):
 class DomainSearchResponse(BaseModel):
     """List of Domain objects."""
 
-    result: List["GetDomainResponse"]
+    result: List["DomainSearchResult"]
     count: int
+
+
+class DomainSearchResult(BaseModel):
+    """Domain search result."""
+
+    id: UUID
+    name: str
+    ip: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    country: Optional[str] = None
+    cloud_hosted: Optional[bool] = False
+    organization: Optional["OrganizationResponse"]
+    vulnerabilities_count: Optional[int]
+    services_count: Optional[int]
+    ports_preview: Optional[str]
+    services_preview: Optional[str]
+    webpages: Optional[int] = None
 
 
 class TotalDomainsResponse(BaseModel):

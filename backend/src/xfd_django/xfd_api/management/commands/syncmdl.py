@@ -5,14 +5,14 @@ import os
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 from django.db import connections
-from xfd_api.tasks.searchSync import handler as sync_es_domains
-from xfd_api.tasks.syncdb_helpers import (
-    drop_all_tables,
+from xfd_api.tasks.helpers.syncdb_helpers.adjust_columns import adjust_column_types
+from xfd_api.tasks.helpers.syncdb_helpers.create_sampe_data import populate_sample_data
+from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (
     manage_elasticsearch_indices,
-    populate_sample_data,
     sync_es_organizations,
-    synchronize,
 )
+from xfd_api.tasks.searchSync import handler as sync_es_domains
+from xfd_api.tasks.syncdb_task import drop_all_tables, synchronize
 
 
 class Command(BaseCommand):
@@ -108,19 +108,22 @@ class Command(BaseCommand):
             drop_all_tables(app_label="xfd_mini_dl")
         synchronize(target_app_label="xfd_mini_dl")
 
+        self.stdout.write("Running Phase 2 column type adjustments …")
+        adjust_column_types(target_app_label="xfd_mini_dl")
+
         self.stdout.write("Database synchronization complete.")
 
         # Step 3: Elasticsearch Index Management
         manage_elasticsearch_indices(dangerouslyforce)
 
-        # Step 4: Sync organizations in ES
-        sync_es_organizations()
-
-        # Step 5: Populate Sample Data
+        # Step 4: Populate Sample Data
         if populate:
             self.stdout.write("Populating the database with sample data...")
             populate_sample_data()
             self.stdout.write("Sample data population complete.")
 
-            # Step 5: Sync domains in ES
+            # Step 4.1: Sync domains in ES
             sync_es_domains({})
+
+        # Step 5: Sync organizations in ES
+        sync_es_organizations()

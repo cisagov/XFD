@@ -65,6 +65,9 @@ repos:
     rev: v3.11.0-1
     hooks:
       - id: shfmt
+        language: python
+        language_version: python3.11
+        entry: shfmt
         args:
           # Indent by two spaces
           - -i
@@ -119,6 +122,9 @@ repos:
     hooks:
       - id: terraform_fmt
       - id: terraform_validate
+        args:
+          - --tf-init-args=-backend=false
+          - --hook-config=--retry-once-with-cleanup=true
   - repo: local
     hooks:
       - id: terraform-dedupe-sort

@@ -15,11 +15,12 @@ exports[`Layout component matches snapshot 1`] = `
     <div>
       HEADER
     </div>
-    <div
-      class="MuiStack-root css-11qrn76-MuiStack-root"
+    <header
+      class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1duqi3m-MuiPaper-root-MuiAppBar-root"
+      style="--Paper-shadow: none;"
     >
       <div
-        class="MuiStack-root css-1a41st4-MuiStack-root"
+        class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
       >
         <button
           class="MuiButtonBase-root MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary css-1vd37re-MuiButtonBase-root-MuiButton-root"
@@ -44,9 +45,9 @@ exports[`Layout component matches snapshot 1`] = `
           Filter
         </button>
       </div>
-    </div>
+    </header>
     <div
-      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-xos5wa-MuiDrawer-docked"
+      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-17tm3pi-MuiDrawer-docked"
     >
       <div
         class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-1lwhjos-MuiPaper-root-MuiDrawer-paper"
@@ -56,7 +57,7 @@ exports[`Layout component matches snapshot 1`] = `
           class="MuiStack-root css-ioj9fa-MuiStack-root"
         >
           <div
-            class="MuiBox-root css-1v5z18m"
+            class="MuiBox-root css-1wi9kp8"
             role="presentation"
           >
             <div
@@ -66,10 +67,10 @@ exports[`Layout component matches snapshot 1`] = `
               class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
             />
             <div
-              class="MuiStack-root css-1ltujv-MuiStack-root"
+              class="MuiStack-root css-6ehs1v-MuiStack-root"
             >
               <h3
-                class="MuiTypography-root MuiTypography-h6 css-w2lrrs-MuiTypography-root"
+                class="MuiTypography-root MuiTypography-h3 css-wariq0-MuiTypography-root"
               >
                 Filter
               </h3>
@@ -92,6 +93,9 @@ exports[`Layout component matches snapshot 1`] = `
                 </svg>
               </button>
             </div>
+            <hr
+              class="MuiDivider-root MuiDivider-fullWidth css-1jpc804-MuiDivider-root"
+            />
             <div
               class="MuiBox-root css-19midj6"
             >
@@ -102,12 +106,12 @@ exports[`Layout component matches snapshot 1`] = `
                   class="MuiFormControl-root MuiFormControl-fullWidth MuiTextField-root css-cmpglg-MuiFormControl-root-MuiTextField-root"
                 >
                   <label
-                    class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined css-8b3bn2-MuiFormLabel-root-MuiInputLabel-root"
-                    data-shrink="false"
+                    class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-shrink MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiFormLabel-filled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-shrink MuiInputLabel-outlined css-n7ilwy-MuiFormLabel-root-MuiInputLabel-root"
+                    data-shrink="true"
                     for=":r3:"
                     id=":r3:-label"
                   >
-                    Region 1234
+                    Region
                   </label>
                   <div
                     class="MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary Mui-disabled MuiInputBase-fullWidth MuiInputBase-formControl MuiInputBase-adornedEnd MuiAutocomplete-inputRoot css-112gndx-MuiInputBase-root-MuiOutlinedInput-root"
@@ -121,7 +125,82 @@ exports[`Layout component matches snapshot 1`] = `
                       class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
                       disabled=""
                       id=":r3:"
-                      placeholder="Select Region"
+                      placeholder=""
+                      role="combobox"
+                      spellcheck="false"
+                      type="text"
+                      value="Region 1234"
+                    />
+                    <div
+                      class="MuiAutocomplete-endAdornment css-1uhhrmm-MuiAutocomplete-endAdornment"
+                    >
+                      <button
+                        aria-label="Open"
+                        class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-sizeMedium MuiAutocomplete-popupIndicator css-synw37-MuiButtonBase-root-MuiIconButton-root-MuiAutocomplete-popupIndicator"
+                        disabled=""
+                        tabindex="-1"
+                        title="Open"
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="ArrowDropDownIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M7 10l5 5 5-5z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <fieldset
+                      aria-hidden="true"
+                      class="MuiOutlinedInput-notchedOutline css-1ll44ll-MuiOutlinedInput-notchedOutline"
+                    >
+                      <legend
+                        class="css-w1u3ce"
+                      >
+                        <span>
+                          Region
+                        </span>
+                      </legend>
+                    </fieldset>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div
+              class="MuiBox-root css-19midj6"
+            >
+              <div
+                class="MuiAutocomplete-root MuiAutocomplete-hasPopupIcon css-1tlcqt-MuiAutocomplete-root"
+              >
+                <div
+                  class="MuiFormControl-root MuiFormControl-fullWidth MuiTextField-root css-cmpglg-MuiFormControl-root-MuiTextField-root"
+                >
+                  <label
+                    class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined css-8b3bn2-MuiFormLabel-root-MuiInputLabel-root"
+                    data-shrink="false"
+                    for=":r6:"
+                    id=":r6:-label"
+                  >
+                    Organization
+                  </label>
+                  <div
+                    class="MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary Mui-disabled MuiInputBase-fullWidth MuiInputBase-formControl MuiInputBase-adornedEnd MuiAutocomplete-inputRoot css-112gndx-MuiInputBase-root-MuiOutlinedInput-root"
+                  >
+                    <input
+                      aria-autocomplete="list"
+                      aria-expanded="false"
+                      aria-invalid="false"
+                      autocapitalize="none"
+                      autocomplete="off"
+                      class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
+                      disabled=""
+                      id=":r6:"
+                      placeholder="Search Organizations"
                       role="combobox"
                       spellcheck="false"
                       type="text"
@@ -159,88 +238,11 @@ exports[`Layout component matches snapshot 1`] = `
                         class="css-81qg8w"
                       >
                         <span>
-                          Region 1234
+                          Organization
                         </span>
                       </legend>
                     </fieldset>
                   </div>
-                </div>
-              </div>
-            </div>
-            <div
-              class="MuiBox-root css-19midj6"
-            >
-              <div
-                class="MuiAutocomplete-root MuiAutocomplete-hasPopupIcon css-1tlcqt-MuiAutocomplete-root"
-              >
-                <div
-                  class="MuiFormControl-root MuiFormControl-fullWidth MuiTextField-root css-cmpglg-MuiFormControl-root-MuiTextField-root"
-                >
-                  <div
-                    class="MuiInputBase-root MuiOutlinedInput-root MuiInputBase-colorPrimary Mui-disabled MuiInputBase-fullWidth MuiInputBase-formControl MuiInputBase-adornedEnd MuiAutocomplete-inputRoot css-112gndx-MuiInputBase-root-MuiOutlinedInput-root"
-                  >
-                    <input
-                      aria-autocomplete="list"
-                      aria-describedby=":r6:-helper-text"
-                      aria-expanded="false"
-                      aria-invalid="false"
-                      autocapitalize="none"
-                      autocomplete="off"
-                      class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
-                      disabled=""
-                      id=":r6:"
-                      placeholder="Select Organization"
-                      role="combobox"
-                      spellcheck="false"
-                      type="text"
-                      value=""
-                    />
-                    <div
-                      class="MuiAutocomplete-endAdornment css-1uhhrmm-MuiAutocomplete-endAdornment"
-                    >
-                      <button
-                        aria-label="Open"
-                        class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-sizeMedium MuiAutocomplete-popupIndicator css-synw37-MuiButtonBase-root-MuiIconButton-root-MuiAutocomplete-popupIndicator"
-                        disabled=""
-                        tabindex="-1"
-                        title="Open"
-                        type="button"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
-                          data-testid="ArrowDropDownIcon"
-                          focusable="false"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            d="M7 10l5 5 5-5z"
-                          />
-                        </svg>
-                      </button>
-                    </div>
-                    <fieldset
-                      aria-hidden="true"
-                      class="MuiOutlinedInput-notchedOutline css-1ll44ll-MuiOutlinedInput-notchedOutline"
-                    >
-                      <legend
-                        class="css-w4cd9x"
-                      >
-                        <span
-                          aria-hidden="true"
-                          class="notranslate"
-                        >
-                          ​
-                        </span>
-                      </legend>
-                    </fieldset>
-                  </div>
-                  <p
-                    class="MuiFormHelperText-root Mui-disabled MuiFormHelperText-sizeMedium MuiFormHelperText-contained css-13pezgm-MuiFormHelperText-root"
-                    id=":r6:-helper-text"
-                  >
-                    This filter, by default, displays data for all organizations in your region. Use this filter to select an organization.
-                  </p>
                 </div>
               </div>
             </div>

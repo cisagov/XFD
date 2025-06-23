@@ -5,7 +5,7 @@ import os
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 from django.db import connections
-from xfd_api.tasks.syncdb_helpers import drop_all_tables, synchronize
+from xfd_api.tasks.syncdb_task import drop_all_tables, synchronize
 
 
 class Command(BaseCommand):

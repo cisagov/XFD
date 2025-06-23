@@ -9,7 +9,7 @@ from django.utils.timezone import now
 from xfd_mini_dl.models import Domain, Ip, SubDomains
 
 from .es_client import ESClient
-from .syncdb_helpers import sync_es_organizations
+from .helpers.syncdb_helpers.es_sync import sync_es_organizations
 
 # Constants
 DOMAIN_CHUNK_SIZE = int(os.getenv("DOMAIN_CHUNK_SIZE", "50"))  # Adjust if needed

@@ -8,11 +8,17 @@ import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import { matchPath } from 'utils/matchPath';
 import { useLocation } from 'react-router-dom';
 import { Stack } from '@mui/system';
-import { Button, IconButton, Toolbar, Typography } from '@mui/material';
+import {
+  Button,
+  Divider,
+  IconButton,
+  Toolbar,
+  Typography
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
 
-export const drawerWidth = 300;
+export const drawerWidth = 278;
 
 export const FilterDrawer: FC<
   ContextType & {
@@ -66,17 +72,13 @@ export const FilterDrawer: FC<
           direction="row"
           alignItems="center"
           justifyContent="space-between"
+          height={63}
           px={2}
         >
-          {matchPath(['/inventory'], pathname) ? (
-            <Typography variant="h6" component="h3">
-              Search & Filter
-            </Typography>
-          ) : (
-            <Typography variant="h6" component="h3">
-              Filter
-            </Typography>
-          )}
+          <Typography variant="h3" component="h3">
+            Filter
+          </Typography>
+
           <IconButton
             onClick={() => setIsFilterDrawerOpen(false)}
             sx={{
@@ -90,6 +92,7 @@ export const FilterDrawer: FC<
             <CloseIcon />
           </IconButton>
         </Stack>
+        {matchPath(['/', '/VSDashboard'], pathname) && <Divider />}
         {matchPath(['/overview', '/inventory'], pathname) && (
           <RegionAndOrganizationFilters
             addFilter={addFilter}

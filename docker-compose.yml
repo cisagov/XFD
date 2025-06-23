@@ -45,6 +45,9 @@ services:
       - '3000:3000'
     env_file:
       - ./.env
+    environment:
+      DMZ_SYNC_ENDPOINT: "http://backend:3000"
+      CF_API_KEY: "${CF_API_KEY}"
     depends_on:
       - db
 

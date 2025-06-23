@@ -17,19 +17,12 @@ import traceback
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
-from django.core.management import call_command
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
 from django.db.models.functions import Power
 from django.utils import timezone
 import psycopg2
 import requests
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
-from xfd_api.tasks.syncdb_helpers import (
-    create_domain_view,
-    create_service_view,
-    create_vuln_materialized_views,
-    create_vuln_normal_views,
-)
 from xfd_api.utils.chunk import chunk_list_by_bytes
 from xfd_api.utils.csv_utils import create_checksum
 from xfd_api.utils.hash import hash_ip
@@ -143,8 +136,6 @@ def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     LOGGER.info("Started VulnScanningSync scan...")
 
-    call_command("syncmdl", dangerouslyforce=False)
-
     # Load request data
     request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
     LOGGER.info("Fetched %d requests from Redshift", len(request_list))
@@ -192,15 +183,20 @@ def main():  # pylint: disable=R0915
             total_processed,
             chunk_number - 1,
         )
+        # Set latest flag
+        LOGGER.info("Setting port scans latest flag")
         enforce_latest_flag_port_scan()
+
+        # Create port scan summaries
+        LOGGER.info("Creating port scan summaries")
         create_port_scan_summary()
         create_port_scan_service_summaries()
         LOGGER.info("Finished processing port scans")
 
-    # fill_cidr_live_ips()
+    # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
 
-    # Process Organizations & Relations
+    # Send organizations to the DMZ MDL
     send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
@@ -237,27 +233,6 @@ def main():  # pylint: disable=R0915
             raise QueryError(
                 SCAN_NAME, str(e), "Error creating vulnerability scan summary"
             ) from e
-
-    try:
-        create_domain_view("mini_data_lake")
-    except Exception as e:
-        raise QueryError(SCAN_NAME, str(e), "Error creating domain view") from e
-    try:
-        create_service_view("mini_data_lake")
-    except Exception as e:
-        raise QueryError(SCAN_NAME, str(e), "Error creating service view") from e
-    try:
-        create_vuln_normal_views("mini_data_lake")
-    except Exception as e:
-        raise QueryError(
-            SCAN_NAME, str(e), "Error creating vulnerability normal views"
-        ) from e
-    try:
-        create_vuln_materialized_views("mini_data_lake")
-    except Exception as e:
-        raise QueryError(
-            SCAN_NAME, str(e), "Error creating vulnerability materialized views"
-        ) from e
 
 
 def detect_data_set(query):
@@ -411,12 +386,17 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
 
 
 def safe_fromisoformat(date_input) -> datetime.datetime | None:
-    """Safely convert input to datetime, or return None if invalid."""
+    """Safely convert input to timezone-aware datetime, or return None if invalid."""
     if isinstance(date_input, datetime.datetime):
-        return date_input
+        return (
+            timezone.make_aware(date_input)
+            if timezone.is_naive(date_input)
+            else date_input
+        )
     if isinstance(date_input, str):
         try:
-            return parser.isoparse(date_input)
+            parsed = parser.parse(date_input)
+            return timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
         except Exception as e:
             LOGGER.warning(
                 "Failed to parse datetime from string: %s | Error: %s", date_input, e
@@ -512,9 +492,9 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             SUM(CASE WHEN status = 'WAITING' THEN 1 ELSE 0 END) AS host_waiting_count,
             SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) AS host_running_count,
             SUM(CASE WHEN status = 'READY' THEN 1 ELSE 0 END) AS host_ready_count,
-            SUM(CASE WHEN json_extract_path_text(state, 'up') = 'true' THEN 1 ELSE 0 END) AS up_host_count,
-            SUM(CASE WHEN json_extract_path_text(state, 'up') = 'false' THEN 1 ELSE 0 END) AS down_host_count,
-            COUNT(ip) AS scanned_asset_count,
+            SUM(CASE WHEN POSITION('\"up\":true' IN json_serialize(state)) > 0 THEN 1 ELSE 0 END) AS up_host_count,
+            SUM(CASE WHEN POSITION('\"up\":false' IN json_serialize(state)) > 0 THEN 1 ELSE 0 END) AS down_host_count,
+            COUNT(DISTINCT ip) AS scanned_asset_count
         FROM vmtableau.hosts
         WHERE last_change >= GETDATE() - INTERVAL '100 days'
         GROUP BY owner;
@@ -1334,7 +1314,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
             request.get("agency", {}).get("location", {}).get("state_name"), None
         ),
         "stakeholder": bool(request.get("stakeholder", False)),
-        "enrolled_in_vs_timestamp": request.get("enrolled") or datetime.datetime.now(),
+        "enrolled_in_vs_timestamp": request.get("enrolled") or timezone.now(),
         "period_start_vs_timestamp": request.get("period_start"),
         "report_types": json.dumps(request.get("report_types", [])),
         "scan_types": json.dumps(request.get("scan_types", [])),

@@ -130,6 +130,10 @@ export interface ServiceData {
 export interface KeyMetrics {
   title: string;
   value: number;
+  hasLink?: boolean;
+  startDate?: string;
+  endDate?: string;
+  dateRange?: string;
 }
 export interface Top5VulnerableHostsGraphData {
   hostName: string;
@@ -157,6 +161,8 @@ export type vulnScanDataTransformed = {
     vulnerabilityScan: string;
     assetsOwned: number;
     assetsScanned: number;
+    startDate: string;
+    endDate: string;
   }[];
   vulnScanKeyMetrics: KeyMetrics[];
   detectedServicesKeyMetrics: KeyMetrics[];

@@ -5,7 +5,6 @@ import {
   AccordionDetails,
   AccordionSummary,
   Autocomplete,
-  Box,
   Button,
   Checkbox,
   Divider,
@@ -22,11 +21,9 @@ import {
   ORGANIZATION_EXCLUSIONS
   // REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS
 } from 'hooks/useUserTypeFilters';
-import { SearchBar } from './SearchBar';
-import { useLocation } from 'react-router-dom';
-import { matchPath } from 'utils/matchPath';
-import { ExpandMore } from '@mui/icons-material';
+import { ExpandMore, FiberManualRecordRounded } from '@mui/icons-material';
 import { useUserLevel } from 'hooks/useUserLevel';
+import { Stack } from '@mui/system';
 
 const GLOBAL_ADMIN = 3;
 const STANDARD_USER = 1;
@@ -64,17 +61,18 @@ interface RegionAndOrganizationFiltersProps {
   initialFilters: any[];
 }
 
+const FiltersApplied: React.FC = () => {
+  const theme = useTheme();
+  return (
+    <FiberManualRecordRounded
+      sx={{ color: theme.palette.primary.main, height: '1rem', width: '1rem' }}
+    />
+  );
+};
+
 export const RegionAndOrganizationFilters: React.FC<
   RegionAndOrganizationFiltersProps
-> = ({
-  addFilter,
-  removeFilter,
-  filters,
-  searchTerm: domainSearchTerm,
-  setSearchTerm: setDomainSearchTerm,
-  autocompletedResults,
-  initialFilters
-}) => {
+> = ({ addFilter, removeFilter, filters, initialFilters }) => {
   const { setShowMaps, user, apiPost } = useAuthContext();
   const { regions } = useStaticsContext();
   const [search_term, setSearchTerm] = useState<string>('');
@@ -219,7 +217,6 @@ export const RegionAndOrganizationFilters: React.FC<
     },
     [regionFilterValues]
   );
-  const location = useLocation();
   const handleAddOrganization = (org: OrganizationShallow) => {
     if (org) {
       const exists = organizationsInFilters?.find((o) => o.id === org.id);
@@ -246,28 +243,47 @@ export const RegionAndOrganizationFilters: React.FC<
     });
   };
 
+  const nonInitialFilters = filters.filter((currentFilter) => {
+    const initial = initialFilters.find(
+      (initFilter) => initFilter.field === currentFilter.field
+    );
+    if (!initial) return true;
+
+    const currentVals = Array.isArray(currentFilter.values)
+      ? currentFilter.values
+      : [currentFilter.values];
+    const initialVals = Array.isArray(initial.values)
+      ? initial.values
+      : [initial.values];
+
+    if (currentFilter.field === 'organization_id') {
+      const currentIds = currentVals.map((org: any) => org.id);
+      const initialIds = initialVals.map((org: any) => org.id);
+      if (currentIds.length !== initialIds.length) return true;
+      return !currentIds.every((id: any) => initialIds.includes(id));
+    } else {
+      if (currentVals.length !== initialVals.length) return true;
+      return !currentVals.every((val: any) => initialVals.includes(val));
+    }
+  });
+
+  const nonInitialRegionFilter = nonInitialFilters.find(
+    (filter) => filter.field === REGION_FILTER_KEY
+  );
+
+  const nonInitialOrgFilter = nonInitialFilters.find(
+    (filter) => filter.field === ORGANIZATION_FILTER_KEY
+  );
+
   return (
     <>
       <Divider />
-      {matchPath(['/inventory'], location.pathname) ? (
-        <Box padding={2}>
-          <SearchBar
-            initialValue={domainSearchTerm}
-            value={domainSearchTerm}
-            onChange={(value) => {
-              setDomainSearchTerm(value, {
-                shouldClearFilters: false
-              });
-            }}
-            autocompletedResults={autocompletedResults}
-          />
-        </Box>
-      ) : (
-        <></>
-      )}
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography>Regions</Typography>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="largeBody">Regions</Typography>
+            {nonInitialRegionFilter?.values.length > 0 && <FiltersApplied />}
+          </Stack>
         </AccordionSummary>
         <AccordionDetails>
           {userLevel !== GLOBAL_ADMIN && (
@@ -343,7 +359,6 @@ export const RegionAndOrganizationFilters: React.FC<
                       : `Region ${user?.region_id}`
                   }
                   value={search_term}
-                  // defaultValue={user?.region_id}
                   onBlur={() => setIsRegOpen(false)}
                   placeholder={
                     organizationsInFilters
@@ -432,7 +447,10 @@ export const RegionAndOrganizationFilters: React.FC<
 
       <Accordion>
         <AccordionSummary expandIcon={<ExpandMore />}>
-          <Typography>Organizations</Typography>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="largeBody">Organizations</Typography>
+            {nonInitialOrgFilter?.values.length > 0 && <FiltersApplied />}
+          </Stack>
         </AccordionSummary>
         <AccordionDetails>
           <Autocomplete
@@ -509,20 +527,10 @@ export const RegionAndOrganizationFilters: React.FC<
                     : `${userOrg}`
                 }
                 onBlur={() => setIsOrgOpen(false)}
-                // helperText={
-                //   userLevel === REGIONAL_ADMIN || GLOBAL_ADMIN
-                //     ? 'This filter, by default, displays data for all organizations in your region. Use this filter to select one or multiple organizations.'
-                //     : ''
-                // }
                 placeholder={
-                  `Regions ${regionFilterValues}`
-                  // organizationsInFilters
-                  //   ? `Organization${
-                  //       organizationsInFilters[0].name
-                  //         ? ` (${organizationsInFilters[0].name})`
-                  //         : ''
-                  //     }`
-                  //   : 'Search Organizations'
+                  regionFilterValues
+                    ? `Regions ${regionFilterValues.join(', ')}`
+                    : 'Search Regions'
                 }
               />
             )}
@@ -535,7 +543,7 @@ export const RegionAndOrganizationFilters: React.FC<
                     <FormGroup>
                       <FormControlLabel
                         sx={{ padding: '0px' }}
-                        label={org?.name}
+                        label={<OrgCheckboxLabel org={org} />}
                         control={
                           <Checkbox
                             sx={{
@@ -606,5 +614,19 @@ const RegionItem: React.FC<RegionItemProps> = ({
         />
       </FormGroup>
     </ListItem>
+  );
+};
+
+interface OrganizationCheckboxLabelProps {
+  org: OrganizationShallow;
+}
+const OrgCheckboxLabel: React.FC<OrganizationCheckboxLabelProps> = ({
+  org
+}) => {
+  return (
+    <>
+      <Typography variant="body1">{org.name}</Typography>
+      <Typography variant="uiElementsIII">{`Region ${org.region_id}`}</Typography>
+    </>
   );
 };

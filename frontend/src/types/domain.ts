@@ -138,6 +138,24 @@ export interface Domain {
   subdomain_source: string | null;
 }
 
+export interface DomainSearchApiResponse {
+  id: string;
+  name: string;
+  ip: string;
+  created_at: string;
+  updated_at: string;
+  country: string | null;
+  cloud_hosted: boolean;
+  organization: {
+    id: string;
+    name: string;
+  };
+  ports_preview: string;
+  services_preview: string;
+  services_count: number;
+  vulnerabilities_count: number;
+}
+
 export interface SSLInfo {
   issuerOrg: string | null;
   issuerCN: string | null;

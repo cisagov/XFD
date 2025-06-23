@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient
 import pytest
 from redis import asyncio as aioredis
 from xfd_api.auth import create_jwt_token
-from xfd_api.tasks.syncdb_helpers import (
-    create_domain_view,
-    create_service_view,
+from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
+    create_domain_materialized_view,
+    create_service_mat_view,
     create_vuln_materialized_views,
     create_vuln_normal_views,
 )
@@ -154,9 +154,7 @@ def organization():
 def ensure_vuln_views_created(django_db_setup, django_db_blocker):
     """Ensure all necessary views for vulnerability testing are created."""
     with django_db_blocker.unblock():
-        create_domain_view("mini_data_lake")
         create_vuln_normal_views("mini_data_lake")
-        create_service_view("mini_data_lake")
 
 
 @pytest.fixture
@@ -165,6 +163,8 @@ def refresh_vuln_views(django_db_blocker):
 
     def _refresh():
         with django_db_blocker.unblock():
+            create_service_mat_view("mini_data_lake")
+            create_domain_materialized_view("mini_data_lake")
             create_vuln_materialized_views("mini_data_lake")
 
     return _refresh

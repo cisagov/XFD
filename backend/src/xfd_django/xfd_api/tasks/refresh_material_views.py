@@ -1,4 +1,4 @@
-"""Lambda to refresh all materialized views in mini_data_lake."""
+"""Task to refresh or create all views/materialized views in mini_data_lake."""
 
 # Standard Python Libraries
 import os
@@ -7,68 +7,176 @@ import os
 import django
 from django.db import connections
 
+# Import your existing view creation functions
+from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
+    DOMAIN_MAT_VIEW_VERSION,
+    DOMAIN_SEARCH_MAT_VIEW_VERSION,
+    MAT_VW_COMBINED_VULNS_VERSION,
+    VW_SERVICE_VERSION,
+    create_domain_materialized_view,
+    create_domain_search_mat_view,
+    create_service_mat_view,
+    create_vuln_materialized_views,
+)
+
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
+# Define your materialized views and their create functions
+MATERIALIZED_VIEWS = [
+    {
+        "name": "mat_vw_domain",
+        "create_fn": create_domain_materialized_view,
+        "version": DOMAIN_MAT_VIEW_VERSION,
+    },
+    {
+        "name": "mat_vw_service",
+        "create_fn": create_service_mat_view,
+        "version": VW_SERVICE_VERSION,
+    },
+    {
+        "name": "mat_vw_combined_vulns",
+        "create_fn": create_vuln_materialized_views,
+        "version": MAT_VW_COMBINED_VULNS_VERSION,
+    },
+    {
+        "name": "mat_vw_domain_search",
+        "create_fn": create_domain_search_mat_view,
+        "version": DOMAIN_SEARCH_MAT_VIEW_VERSION,
+    },
+]
 
-def handler(event, context):
-    """
-    Refresh all materialized views in mini_data_lake.
 
-    Uses CONCURRENTLY if the view has a unique index.
-    """
+def list_matview_versions(database="mini_data_lake"):
+    """Print current materialized views and their version comments."""
+    with connections[database].cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT c.relname AS matviewname,
+                   obj_description(c.oid) AS comment
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE c.relkind = 'm'
+              AND n.nspname = current_schema()
+            ORDER BY matviewname;
+            """
+        )
+        rows = cursor.fetchall()
+        print("\nCurrent materialized views and versions:")
+        for row in rows:
+            name, comment = row
+            version = "unknown"
+            if comment and comment.startswith("version:"):
+                version = comment.split("version:", 1)[1].strip()
+            print("  {} → version: {}".format(name, version))
+        print()
+
+
+def view_exists(cursor, view_name, materialized=False):
+    """Check if a view or materialized view exists."""
+    if materialized:
+        cursor.execute(
+            """
+            SELECT 1 FROM pg_matviews
+            WHERE matviewname = %s AND schemaname = current_schema()
+            """,
+            [view_name],
+        )
+    else:
+        cursor.execute(
+            """
+            SELECT 1 FROM pg_views
+            WHERE viewname = %s AND schemaname = current_schema()
+            """,
+            [view_name],
+        )
+    return cursor.fetchone() is not None
+
+
+def has_unique_index(cursor, matview_name):
+    """Check if a materialized view has a unique index."""
+    cursor.execute(
+        """
+        SELECT 1
+        FROM pg_index i
+        JOIN pg_class c ON c.oid = i.indrelid
+        WHERE c.relname = %s AND i.indisunique = TRUE
+        LIMIT 1
+        """,
+        [matview_name],
+    )
+    return cursor.fetchone() is not None
+
+
+def get_matview_version(cursor, matview_name):
+    """Fetch version comment from materialized view."""
+    cursor.execute(
+        """
+        SELECT obj_description(c.oid)
+        FROM pg_class c
+        WHERE c.relname = %s AND c.relkind = 'm'
+        """,
+        [matview_name],
+    )
+    row = cursor.fetchone()
+    if row and row[0] and row[0].startswith("version:"):
+        return row[0].split(":", 1)[1].strip()
+    return None
+
+
+def handler(event):
+    """Refresh or create key materialized views in mini_data_lake."""
+    list_matview_versions()
     refreshed = []
-    skipped = []
+    created = []
+    errors = []
 
     try:
         with connections["mini_data_lake"].cursor() as cursor:
-            # Get all materialized views in the current schema
-            cursor.execute(
-                """
-                SELECT schemaname, matviewname
-                FROM pg_matviews
-                WHERE schemaname = current_schema()
-            """
-            )
-            matviews = cursor.fetchall()
-
-            for schemaname, matviewname in matviews:
+            for view in MATERIALIZED_VIEWS:
                 try:
-                    # Check if the view has a unique index (required for CONCURRENTLY)
-                    cursor.execute(
-                        """
-                        SELECT 1
-                        FROM pg_index i
-                        JOIN pg_class c ON c.oid = i.indrelid
-                        WHERE c.relname = %s AND i.indisunique = TRUE
-                        LIMIT 1
-                    """,
-                        [matviewname],
-                    )
-                    has_unique_index = cursor.fetchone() is not None
+                    name = view["name"]
+                    create_fn = view["create_fn"]
+                    expected_version = view["version"]
 
-                    if has_unique_index:
-                        cursor.execute(
-                            'REFRESH MATERIALIZED VIEW CONCURRENTLY "{}"'.format(
-                                matviewname
-                            )
-                        )
+                    if view_exists(cursor, name, materialized=True):
+                        current_version = get_matview_version(cursor, name)
+                        if current_version != expected_version:
+                            # View definition changed → recreate it
+                            create_fn("mini_data_lake")
+                            created.append("{} (version updated)".format(name))
+                        else:
+                            # Version matches → refresh
+                            if has_unique_index(cursor, name):
+                                print("Refreshing view {}".format(name))
+                                cursor.execute(
+                                    "REFRESH MATERIALIZED VIEW CONCURRENTLY {};".format(
+                                        name
+                                    )
+                                )
+                            else:
+                                cursor.execute(
+                                    "REFRESH MATERIALIZED VIEW {};".format(name)
+                                )
+                            refreshed.append(name)
                     else:
-                        cursor.execute(
-                            'REFRESH MATERIALIZED VIEW "{}"'.format(matviewname)
-                        )
+                        # View does not exist → create
+                        create_fn("mini_data_lake")
+                        created.append(name)
 
-                    refreshed.append(matviewname)
-                except Exception as ve:
-                    skipped.append({"view": matviewname, "error": str(ve)})
+                except Exception as e:
+                    errors.append({"view": name, "error": str(e)})
 
-        return {
+        result = {
             "status_code": 200,
             "refreshed": refreshed,
-            "skipped": skipped,
+            "created": created,
+            "errors": errors,
         }
+        print(result)
+        return result
 
     except Exception as e:
         return {"status_code": 500, "error": str(e)}

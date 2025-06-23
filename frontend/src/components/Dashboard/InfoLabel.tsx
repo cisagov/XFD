@@ -5,13 +5,14 @@ import {
   Link as MuiLink,
   TypographyProps
 } from '@mui/material';
-import { Link as RouterLink } from 'react-router-dom';
 import InfoTooltipIcon from './InfoTooltipIcon';
+import { useHistory } from 'react-router-dom';
 
 type InfoLabelProps = {
   label: string;
   viewDetails?: boolean;
   link?: string;
+  stateVariables?: {};
   typographyVariant?: TypographyProps['variant'];
   headingLevel?: 'h2' | 'h3' | 'p';
   tooltipContentJson: { content: string; id: string }[];
@@ -23,14 +24,23 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
   link,
   typographyVariant = 'h2',
   headingLevel = 'h2',
-  tooltipContentJson
+  tooltipContentJson,
+  stateVariables = {}
 }) => {
+  const history = useHistory();
+
   const tooltipContent = (label: string): string => {
     const info = tooltipContentJson.find(
       (item: { id: string }) => item.id === label
     );
     return info ? info.content : 'No information available.';
   };
+
+  const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    history.push(link || '/inventory', stateVariables);
+  };
+
   return (
     <Box
       display="flex"
@@ -48,10 +58,9 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
         </Typography>
         <InfoTooltipIcon label={label} tooltipContent={tooltipContent(label)} />
       </Box>
-
       {viewDetails && link && (
-        <MuiLink to={link} component={RouterLink}>
-          <Typography variant="link" component="p" fontWeight="bold">
+        <MuiLink href="#" onClick={handleClick}>
+          <Typography variant="link" component="span" fontWeight="bold">
             View Details
           </Typography>
         </MuiLink>

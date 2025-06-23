@@ -453,6 +453,7 @@ def organization_to_dict(org):
                 "network": str(cidr_org.cidr.network),
                 "start_ip": str(cidr_org.cidr.start_ip),
                 "end_ip": str(cidr_org.cidr.end_ip),
+                "live_ips": cidr_org.cidr.live_ips or [],
             }
             for cidr_org in org.cidrorgs.all()
         ],
@@ -586,7 +587,7 @@ def save_cidr_to_mdl(cidr_dict: dict, org: Organization, db_name="mini_data_lake
                 cidr_obj.start_ip = cidr_dict["start_ip"]
                 cidr_obj.end_ip = cidr_dict["end_ip"]
                 cidr_obj.retired = False
-                cidr_obj.live_ips = cidr_dict["live_ips"]
+                cidr_obj.live_ips = cidr_dict.get("live_ips", [])
                 cidr_obj.save(using=db_name)  # Save updates
 
             else:
@@ -595,7 +596,7 @@ def save_cidr_to_mdl(cidr_dict: dict, org: Organization, db_name="mini_data_lake
                     network=cidr_dict["network"],
                     start_ip=cidr_dict["start_ip"],
                     end_ip=cidr_dict["end_ip"],
-                    live_ips=cidr_dict["live_ips"],
+                    live_ips=cidr_dict.get("live_ips", []),
                     retired=False,
                 )
             # cidr_obj.organizations.add(org, through_defaults={})
@@ -653,34 +654,52 @@ def load_test_data(data_set: str) -> list:
 
 def enforce_latest_flag_port_scan():
     """
-    Enforce the `latest` boolean flag on the PortScan table.
+    Enforce the `latest` boolean flag on the PortScan table per org.
 
     Marks only the most recent scan for each (organization_id, ip_string, port)
     as `latest=True`. All others are set to `False`.
     """
-    sql = """
-        WITH latest_scans AS (
-            SELECT DISTINCT ON (organization_id, ip_string, port)
-                id
-            FROM port_scan
-            WHERE time_scanned IS NOT NULL
-            AND time_scanned > NOW() - INTERVAL '90 days'
-            ORDER BY organization_id, ip_string, port, time_scanned DESC
-        )
-        UPDATE port_scan
-        SET latest = (id IN (SELECT id FROM latest_scans))
-    """
+    start = time.time()
+    db = "mini_data_lake"
+    org_ids = list(Organization.objects.using(db).values_list("id", flat=True))
 
-    try:
-        with connections["mini_data_lake"].cursor() as cursor, transaction.atomic(
-            using="mini_data_lake"
-        ):
-            LOGGER.info("Enforcing `latest` flag on PortScan table...")
-            cursor.execute(sql)
-            LOGGER.info("Successfully enforced `latest` flags on PortScan records.")
-    except Exception as e:
-        LOGGER.error("Failed to enforce `latest` flags on PortScan: %s", e)
-        raise
+    for org_id in org_ids:
+        try:
+            with connections[db].cursor() as cursor, transaction.atomic(using=db):
+                # Step 1: Mark all as latest=False
+                cursor.execute(
+                    """
+                    UPDATE port_scan
+                    SET latest = FALSE
+                    WHERE organization_id = %s;
+                """,
+                    [org_id],
+                )
+
+                # Step 2: Mark latest=True only for the most recent per IP/port
+                cursor.execute(
+                    """
+                    WITH latest_scans AS (
+                        SELECT DISTINCT ON (ip_string, port)
+                            id
+                        FROM port_scan
+                        WHERE organization_id = %s
+                          AND time_scanned IS NOT NULL
+                          AND time_scanned > NOW() - INTERVAL '90 days'
+                        ORDER BY ip_string, port, time_scanned DESC
+                    )
+                    UPDATE port_scan
+                    SET latest = TRUE
+                    WHERE id IN (SELECT id FROM latest_scans);
+                """,
+                    [org_id],
+                )
+
+        except Exception as e:
+            print("Error enforcing latest flag for org {}: {}".format(org_id, e))
+
+    duration = time.time() - start
+    print("Completed enforce_latest_flag in {:.2f}s".format(duration))
 
 
 def map_severity(severity):

@@ -41,12 +41,12 @@ api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
 def user_to_dict(user):
     """Take a user model object from django and sanitize fields for output."""
-    user_dict = model_to_dict(user)  # Convert model to dict
+    user_dict = model_to_dict(user)
     # Convert any UUID fields to strings
-    if isinstance(user_dict.get("id"), uuid.UUID):
-        user_dict["id"] = str(user_dict["id"])
     for key, val in user_dict.items():
-        if isinstance(val, datetime):
+        if isinstance(val, uuid.UUID):
+            user_dict[key] = str(val)
+        elif isinstance(val, datetime):
             user_dict[key] = str(val)
     # Make sure maintenance checks are included in user response
     user_dict["login_blocked_by_maintenance"] = user.login_blocked_by_maintenance
