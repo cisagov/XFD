@@ -118,7 +118,7 @@ export const Users: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet]);
+  }, [apiGet, user?.user_type, user?.region_id]);
 
   useEffect(() => {
     fetchUsers();
