@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import traceback
+from typing import Optional
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
@@ -369,7 +370,7 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
             print(traceback.format_exc())
 
 
-def safe_fromisoformat(date_input) -> datetime.datetime | None:
+def safe_fromisoformat(date_input) -> Optional[datetime.datetime]:
     """Safely convert input to datetime, or return None if invalid."""
     if isinstance(date_input, datetime.datetime):
         return date_input
@@ -1162,7 +1163,7 @@ def parse_request_data(request):
         if isinstance(val, str):
             try:
                 request[field] = json.loads(val)
-            except Exception as e:
+            except Exception:
                 request[field] = {}
         elif not isinstance(val, (dict, list)):  # corrupt or malformed
             request[field] = {} if field == "agency" else []
