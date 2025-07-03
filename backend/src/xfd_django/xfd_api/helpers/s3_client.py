@@ -29,6 +29,7 @@ class S3Client:
         else:
             self.s3 = boto3.client(
                 "s3",
+                region_name=os.getenv("REGION"),
                 config=boto3.session.Config(
                     s3={"addressing_style": "virtual"},
                     retries={"max_attempts": 3},
