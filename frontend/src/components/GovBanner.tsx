@@ -141,7 +141,7 @@ export const GovBanner: React.FC = () => {
                 <ExpandMore fontSize="small" />
               )}
             </button>
-            <SkipToMainContent />
+            {/* <SkipToMainContent /> */}
           </div>
         </div>
       </div>
