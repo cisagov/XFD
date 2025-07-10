@@ -1,19 +1,11 @@
-const { test, expect, Page } = require('../../axe-test');
-
-test.describe.configure({ mode: 'parallel' });
-let page: InstanceType<typeof Page>;
+const { test, expect } = require('../../axe-test');
+import type { TestInfo } from '@playwright/test';
 
 test.describe('Inventory', () => {
-  test.beforeEach(async ({ browser }) => {
-    const context = await browser.newContext();
-    page = await context.newPage();
-    await page.goto('/');
-  });
-
-  test.afterEach(async () => {
-    await page.close();
-  });
-  test('Test inventory accessibility', async ({ makeAxeBuilder }, testInfo) => {
+  test('Test inventory accessibility', async ({
+    page,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
     await page.goto('/inventory');
     const accessibilityScanResults = await makeAxeBuilder().analyze();
 
@@ -25,7 +17,10 @@ test.describe('Inventory', () => {
     expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 
-  test('Test domain accessibility', async ({ makeAxeBuilder }, testInfo) => {
+  test('Test domain accessibility', async ({
+    page,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
     await page.goto('/inventory/domains');
     const accessibilityScanResults = await makeAxeBuilder().analyze();
 
@@ -39,8 +34,9 @@ test.describe('Inventory', () => {
 
   // TODO: Skip this test until the domain table data is loaded in localhost.
   test.skip('Test domain details accessibility', async ({
+    page,
     makeAxeBuilder
-  }, testInfo) => {
+  }, testInfo: TestInfo) => {
     await page.goto('/inventory/domains');
     await page
       .getByRole('row')
@@ -64,7 +60,7 @@ test.describe('Inventory', () => {
   });
 
   // TODO: Skip this test until the domain table data is loaded in localhost.
-  test.skip('Test domain table filter', async () => {
+  test.skip('Test domain table filter', async ({ page }) => {
     await page.goto('/inventory/domains');
     await page.getByLabel('Show filters').click();
     await page.getByPlaceholder('Filter value').click();

@@ -67,8 +67,6 @@ export const Logs: FC<LogsProps> = () => {
     fetchLogs();
   }, [fetchLogs]);
 
-  console.log('logs', logs);
-
   const logCols: GridColDef[] = [
     {
       field: 'event_type',

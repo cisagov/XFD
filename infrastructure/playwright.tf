@@ -55,51 +55,19 @@ resource "aws_iam_role_policy_attachment" "playwright_ecs_execution_policy" {
   role       = aws_iam_role.playwright_worker_task_execution_role.id
 }
 
-resource "aws_ecs_task_definition" "playwright_worker" {
-  family                   = var.playwright_worker_ecs_task_definition_family
-  container_definitions    = <<EOF
-[
-  {
-    "name": "main",
-    "image": "public.ecr.aws/sphmedia/sphmedia/microsoft-playwright:v1.50.1-jammy",
-    "essential": true,
-    "mountPoints": [],
-    "portMappings": [],
-    "volumesFrom": [],
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group": "${var.worker_ecs_log_group_name}",
-        "awslogs-region": "${var.aws_region}",
-        "awslogs-stream-prefix": "playwright"
-      }
-    },
-    "environment": [
-      {
-        "name": "BROWSER_TYPE",
-        "value": "chromium"
-      },
-      {
-        "name": "TEST_URL",
-        "value": "${var.frontend_domain}"
-      }
-    ],
-    "command": [
-      "-c",
-      "echo 'Installing Playwright...'; npx playwright install --with-deps; echo 'Cloning Playwright tests from GitHub...'; git clone https://github.com/cisagov/xfd.git /app/xfd; ",
-      "sh"
-    ]
-  }
-]
-EOF
-  requires_compatibilities = ["FARGATE"]
-  # "awsvpc" is required for Fargate tasks to enable the use of ENIs for networking.
-  network_mode       = "awsvpc"
-  execution_role_arn = aws_iam_role.playwright_worker_task_execution_role.arn # Execution role for ECS tasks
-  task_role_arn      = aws_iam_role.playwright_worker_task_role.arn           # Task role for the application
+resource "aws_ecr_repository" "playwright_worker" {
+  name = var.playwright_worker_repository_name
 
-  cpu    = 256 # .25 vCPU
-  memory = 512 # 512 MB
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  image_tag_mutability = "MUTABLE"
+
+  encryption_configuration {
+    encryption_type = "KMS"
+    kms_key         = aws_kms_key.key.arn
+  }
 
   tags = {
     Project = var.project
@@ -107,6 +75,62 @@ EOF
     Owner   = "Crossfeed managed resource"
   }
 }
+
+
+resource "aws_ecs_task_definition" "playwright_worker" {
+  family                   = var.playwright_worker_ecs_task_definition_family
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 512
+  memory                   = 1024
+
+  execution_role_arn = aws_iam_role.playwright_worker_task_execution_role.arn
+  task_role_arn      = aws_iam_role.playwright_worker_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "main",
+      image     = "${aws_ecr_repository.playwright_worker.repository_url}:latest", # Your custom image
+      essential = true,
+
+      environment = [
+        { name = "AWS_REGION", value = var.aws_region },
+        { name = "BROWSER_TYPE", value = "chromium" },
+        { name = "TEST_URL", value = var.frontend_domain },
+        // additional overrides like S3 paths can still be injected at runtime
+
+        // Required by run_playwright_tests.sh
+        { name = "PW_XFD_URL", value = "" },
+        { name = "PW_XFD_USERNAME", value = "" },
+        { name = "PW_XFD_PASSWORD", value = "" },
+        { name = "PW_XFD_2FA_SECRET", value = "" },
+        { name = "PW_XFD_LOGIN", value = "" },
+        { name = "ENVIRONMENT", value = "" },
+        { name = "DATETIME", value = "" },
+        { name = "GIT_BRANCH", value = "" },
+        { name = "AUTOMATED_TEST_REPORTS_BUCKET_NAME", value = "" },
+        { name = "S3_HTML_PATH", value = "" },
+        { name = "S3_JSON_PATH", value = "" }
+      ],
+
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          awslogs-group         = var.worker_ecs_log_group_name,
+          awslogs-region        = var.aws_region,
+          awslogs-stream-prefix = "playwright"
+        }
+      }
+    }
+  ])
+
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
 
 resource "aws_ecs_cluster" "playwright_ecs_cluster" {
   name = "${var.crossfeed_playwright}-ecs-cluster"

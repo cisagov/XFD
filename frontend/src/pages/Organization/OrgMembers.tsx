@@ -14,13 +14,21 @@ type OrgMemberProps = {
   setUserRoles: Function;
 };
 
-type MemberRow = {
-  row: {
-    approved?: Boolean;
-    role?: String;
-    user: { full_name?: String; email?: String; invite_pending?: String };
-  };
-};
+const flattenUserRoles = (data: any[]) =>
+  data.map((item) => {
+    const nestedUser = item.user?.user || item.user || {};
+    return {
+      id: item.id,
+      role: item.role,
+      approved: item.approved,
+      user_id: nestedUser.id,
+      email: nestedUser.email,
+      first_name: nestedUser.first_name,
+      last_name: nestedUser.last_name,
+      full_name: nestedUser.full_name,
+      invite_pending: nestedUser.invite_pending
+    };
+  });
 
 export const OrgMembers: React.FC<OrgMemberProps> = ({
   organization,
@@ -33,45 +41,35 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   const [selectedRow, setSelectedRow] = React.useState<Role>();
   const [hasError, setHasError] = React.useState('');
 
+  const flatUserRoles = flattenUserRoles(userRoles);
+
   const userRoleColumns: GridColDef[] = [
     {
-      headerName: 'Name',
       field: 'full_name',
-      valueGetter: (params: MemberRow) => params.row?.user?.full_name,
+      headerName: 'Name',
       flex: 1
     },
     {
-      headerName: 'Email',
       field: 'email',
-      valueGetter: (params: MemberRow) => params.row?.user?.email,
+      headerName: 'Email',
       flex: 1.5
     },
     {
-      headerName: 'Role',
       field: 'role',
-      valueGetter: (params: MemberRow) => {
-        if (params.row?.approved) {
-          if (params.row?.user?.invite_pending) {
-            return 'Invite pending';
-          } else if (params.row?.role === 'admin') {
-            return 'Administrator';
-          } else {
-            return 'Member';
-          }
-        }
-      },
+      headerName: 'Role',
       flex: 1
     },
     {
-      headerName: 'Remove',
       field: 'remove',
-      disableExport: true,
+      headerName: 'Remove',
       flex: 0.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        const descriptionId = `description-${cellValues.row.id}`;
-        const description = `Remove ${cellValues.row.user?.full_name} from ${organization?.name}`;
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams) => {
+        const descriptionId = `description-${params.row.id}`;
+        const description = `Remove ${params.row.full_name}`;
         return (
-          <React.Fragment>
+          <>
             <span id={descriptionId} style={{ display: 'none' }}>
               {description}
             </span>
@@ -80,18 +78,13 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
               aria-label={description}
               aria-describedby={descriptionId}
               onClick={() => {
-                const userRole = userRoles.find(
-                  (role: { user: { id: String } }) =>
-                    role.user.id === cellValues.row.user.id
-                );
-                setSelectedRow(userRole);
+                setSelectedRow(params.row);
                 setRemoveUserDialogOpen(true);
               }}
-              disabled={user?.user_type === 'globalView'}
             >
               <RemoveCircleOutline />
             </IconButton>
-          </React.Fragment>
+          </>
         );
       }
     }
@@ -122,7 +115,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
         <DataGrid
-          rows={userRoles}
+          rows={flatUserRoles}
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{

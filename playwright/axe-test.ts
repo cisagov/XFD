@@ -1,4 +1,4 @@
-import { test as base } from '@playwright/test';
+import { test as base, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 type AxeFixture = {
@@ -18,5 +18,4 @@ export const test = base.extend<AxeFixture>({
     await use(makeAxeBuilder);
   }
 });
-export { expect } from '@playwright/test';
-export { Page } from '@playwright/test';
+export { expect };

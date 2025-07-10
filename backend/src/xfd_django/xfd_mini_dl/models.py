@@ -1183,7 +1183,7 @@ class Service(models.Model):
 
         app_label = app_label_name
         managed = False
-        db_table = "vw_service"
+        db_table = "mat_vw_service"
         unique_together = (("port", "domain"),)
 
 
@@ -1272,6 +1272,11 @@ class User(AutoLengthCheckModel):
         db_column="invite_pending",
         default=False,
         help_text="A boolean field flagging if the user's invite is pending.",
+    )
+    first_login = models.BooleanField(
+        db_column="first_login",
+        null=True,
+        help_text="A boolean field identifying a users first approved login for prompts.",
     )
     date_approved = models.DateTimeField(
         db_column="date_approved",
@@ -1918,6 +1923,16 @@ class VulnScanSummary(models.Model):
         blank=True,
         help_text="Age of the longest open high ticket.",
     )
+    medium_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open medium ticket.",
+    )
+    low_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open low ticket.",
+    )
     # median age of current vulns by severity (requires 'firstDiscovered') <- age=enddate() - firstDiscovered(); where ticket.open=true by severity; sum(age)/count(by severity)
     # none_median_age = models.IntegerField(
     #     null=True,
@@ -1973,6 +1988,26 @@ class VulnScanSummary(models.Model):
         null=True,
         blank=True,
         help_text="Age of the longest open KEV ticket.",
+    )
+    critical_kev_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open critical KEV ticket.",
+    )
+    high_kev_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open high KEV ticket.",
+    )
+    medium_kev_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open medium KEV ticket.",
+    )
+    low_kev_max_age = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Age of the longest open low KEV ticket.",
     )
     one_to_five_vulns_count = models.IntegerField(
         null=True,
@@ -4611,7 +4646,7 @@ class Domain(models.Model):
     class Meta:
         """The meta class for Domain."""
 
-        db_table = "vw_domain"
+        db_table = "mat_vw_domain"
         managed = False
         unique_together = (("name", "organization"),)  # Unique constraint
 
@@ -4620,6 +4655,32 @@ class Domain(models.Model):
         self.name = self.name.lower()
         self.reverse_name = ".".join(reversed(self.name.split(".")))
         super().save(*args, **kwargs)
+
+
+class DomainSearchView(models.Model):
+    """Domain Search Material View Model."""
+
+    domain_id = models.UUIDField(primary_key=True)
+    name = models.TextField()
+    ip = models.TextField()
+    organization_id = models.UUIDField()
+    organization_name = models.TextField()
+    source = models.TextField()
+    country = models.TextField(null=True)
+    cloud_hosted = models.BooleanField(null=True)
+    reverse_name = models.TextField(null=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
+    ports_preview = models.TextField(null=True)
+    services_preview = models.TextField(null=True)
+    services_count = models.IntegerField(null=True)
+    vulnerabilities_count = models.IntegerField(null=True)
+
+    class Meta:
+        """Set DomainSearchView metadata."""
+
+        managed = False
+        db_table = "mat_vw_domain_search"
 
 
 class DotgovDomains(models.Model):
@@ -4742,17 +4803,17 @@ class Mentions(models.Model):
     tags = models.TextField(
         blank=True, null=True, help_text="Tags associated with mention alert"
     )
-    organization_uid = models.ForeignKey(
-        Organization,
+    organization = models.ForeignKey(
+        "Organization",
         on_delete=models.CASCADE,
         db_column="organization_uid",
-        help_text="FK: Foreign Key to organizations",
+        help_text="Foreign Key to the related organization",
     )
     data_source = models.ForeignKey(
-        DataSource,
+        "DataSource",
         on_delete=models.CASCADE,
         db_column="data_source_uid",
-        help_text="FK: Foreign Key to data_source",
+        help_text="Foreign Key to the data_source.",
     )
     title_translated = models.TextField(
         blank=True, null=True, help_text="Title of mention post translated to english"

@@ -23,14 +23,14 @@ export interface ContextType {
   resultSearchTerm: string;
   results: Result[];
   resultsPerPage: number;
-  search_term: string;
+  searchTerm: string;
   setCurrent(current: number): void;
   setFilter(): void;
   setResultsPerPage(): void;
   setSort(field: string, direction: 'asc' | 'desc'): void;
-  sort_direction: '' | 'asc' | 'desc';
+  sortDirection: '' | 'asc' | 'desc';
   setResultsPerPage(count: number): void;
-  sort_field: string;
+  sortField: string;
   totalPages: number;
   totalResults: number;
   wasSearched: boolean;

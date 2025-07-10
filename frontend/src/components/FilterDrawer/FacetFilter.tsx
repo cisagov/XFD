@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { FormGroup, FormControlLabel, Checkbox } from '@mui/material';
+import React from 'react';
+import { FormGroup, FormControlLabel, Checkbox, useTheme } from '@mui/material';
 import { styled } from '@mui/material/styles';
 
 interface Props {
@@ -11,6 +11,7 @@ interface Props {
 
 export const FacetFilter: React.FC<Props> = (props) => {
   const { options, selected, onSelect, onDeselect } = props;
+  const theme = useTheme();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -24,18 +25,11 @@ export const FacetFilter: React.FC<Props> = (props) => {
     }
   };
 
-  const fixedOptions = useMemo(() => {
-    return options;
-    // NOTE: Desired functionality is to calculate on mount - Update deps and remove the below rule if this changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <>
       <Root className={classes.root}>
         <FormGroup classes={{ root: classes.root }}>
-          {/* <input className={classes.inp} placeholder="Filter" /> */}
-          {fixedOptions.map((opt) => (
+          {options.map((opt) => (
             <FormControlLabel
               classes={{ label: classes.label, root: classes.root }}
               key={opt.value}
@@ -43,6 +37,11 @@ export const FacetFilter: React.FC<Props> = (props) => {
                 <Checkbox
                   checked={selected.includes(opt.value)}
                   onChange={(e) => handleChange(e, opt.value)}
+                  sx={{
+                    '&.Mui-checked': {
+                      color: theme.palette.primary.dark
+                    }
+                  }}
                 />
               }
               label={
@@ -54,6 +53,26 @@ export const FacetFilter: React.FC<Props> = (props) => {
           ))}
         </FormGroup>
       </Root>
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 0
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 24,
+            pointerEvents: 'none',
+            background:
+              'linear-gradient(to bottom, rgba(255,255,255,0), #fff 90%)'
+          }}
+        />
+      </div>
     </>
   );
 };
@@ -73,7 +92,10 @@ const Root = styled('div')(({ theme }) => ({
   [`&.${classes.root}`]: {
     width: '100%',
     paddingTop: 0,
-    flexWrap: 'nowrap'
+    flexWrap: 'nowrap',
+    maxHeight: 4.75 * 42, // 4.75 items of height 42px. Works with the gradient overlay.
+    overflowY: 'scroll',
+    scrollbarWidth: 'auto'
   },
 
   [`& .${classes.count}`]: {

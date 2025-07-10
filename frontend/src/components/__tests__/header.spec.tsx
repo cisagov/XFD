@@ -36,7 +36,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Inventory', 'My Account'].forEach((expected) => {
+    ['My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
     ['Scans'].forEach((notExpected) => {
@@ -51,7 +51,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Inventory', 'My Account'].forEach((expected) => {
+    ['My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
   });
@@ -63,7 +63,7 @@ describe('Header component', () => {
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Inventory', 'My Account'].forEach((expected) => {
+    ['My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
   });

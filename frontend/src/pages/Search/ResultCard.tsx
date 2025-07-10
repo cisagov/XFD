@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { classes, StyledPaper } from './Styling/resultCardStyle';
-import clsx from 'classnames';
+import { Box, Typography, ButtonBase } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import { Result } from '../../context/SearchProvider';
 // @ts-ignore:next-line
 import { parseISO, formatDistanceToNow } from 'date-fns';
@@ -49,6 +49,26 @@ interface Props extends Result {
     };
   };
 }
+
+const StyledButtonBase = styled(ButtonBase)(({ theme }) => ({
+  display: 'block',
+  textAlign: 'left',
+  width: '100%',
+  borderRadius: theme.shape.borderRadius,
+  border: `2px solid #DCDEE0`,
+  padding: theme.spacing(2),
+  marginBottom: '12px',
+  cursor: 'pointer',
+  backgroundColor: theme.palette.background.paper,
+  '&:hover': {
+    backgroundColor: theme.palette.primary.light
+  },
+  '&:focus-visible': {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: 2,
+    backgroundColor: theme.palette.primary.light
+  }
+}));
 
 const filterExpanded = (
   data: any[],
@@ -107,7 +127,7 @@ export const ResultCard: React.FC<Props> = (props) => {
     []
   );
 
-  const cves = vulnerabilities.raw.reduce(
+  const vulns = vulnerabilities.raw.reduce(
     (acc, nextVuln) => [...acc, nextVuln.cve],
     []
   );
@@ -127,13 +147,10 @@ export const ResultCard: React.FC<Props> = (props) => {
         products.length <= 8 ? null : expanded.products ? 'less' : 'more'
     });
   }
-  if (cves.length > 0) {
+  if (vulns.length > 0) {
     data.push({
-      label: `CVE${cves.length > 1 ? 's' : ''}`,
-      count: cves.length,
-      value: filterExpanded(cves, Boolean(expanded.vulns), 10).join(', '),
-      onExpand: () => toggleExpanded('vulns'),
-      expansionText: cves.length <= 10 ? null : expanded.vulns ? 'less' : 'more'
+      label: vulns.length > 1 ? 'Findings' : 'Finding',
+      count: vulns.length
     });
   }
   if (inner_hits?.webpage?.hits?.hits?.length! > 0) {
@@ -162,64 +179,97 @@ export const ResultCard: React.FC<Props> = (props) => {
   }
 
   return (
-    <StyledPaper
-      elevation={0}
-      classes={{ root: classes.root }}
+    <StyledButtonBase
       aria-label="view domain details"
-      variant="outlined"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick();
+        }
+      }}
     >
-      <div className={classes.inner} onClick={onClick}>
-        <button className={classes.domainRow}>
-          <h4>{name.raw}</h4>
-          <div className={classes.last_seen}>
-            <span className={classes.label}>Last Seen</span>
-            <span className={classes.data}>{last_seen} ago</span>
-          </div>
-        </button>
-
-        {ip.raw && (
-          <div className={clsx(classes.ipRow, classes.row)}>
-            <div>
-              <span className={classes.label}>IP</span>
-              <span className={classes.data}>{ip.raw}</span>
-            </div>
-            {ports.length > 0 && (
-              <div className={classes.last_seen}>
-                <span className={classes.label}>
-                  <span className={classes.count}>{ports.length}</span>
-                  {` Port${ports.length > 1 ? 's' : ''}`}
-                </span>
-                <span className={classes.data}>{ports.join(', ')}</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {data.map(({ label, value, count, onExpand, expansionText }) => (
-          <p className={classes.row} key={label}>
-            <span className={classes.label}>
-              {count !== undefined && (
-                <span className={classes.count}>{count} </span>
-              )}
-              {label}
-            </span>
-            <span className={classes.data}>
-              {value}
-              {expansionText && (
-                <button
-                  className={classes.expandMore}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (onExpand) onExpand();
-                  }}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        width="100%"
+      >
+        <Typography
+          variant="h5"
+          sx={{ color: '#07648D', fontWeight: 400, wordBreak: 'break-all' }}
+        >
+          {name.raw}
+        </Typography>
+        <Box sx={{ textAlign: 'right' }}>
+          <Typography variant="caption" sx={{ color: '#4e4e4e' }}>
+            Last Seen
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#3D4551' }}>
+            {last_seen} ago
+          </Typography>
+        </Box>
+      </Box>
+      {ip.raw && (
+        <Box display="flex" justifyContent="space-between" mt={2}>
+          <Box>
+            <Typography variant="caption" sx={{ color: '#4e4e4e' }}>
+              IP
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#3D4551' }}>
+              {ip.raw}
+            </Typography>
+          </Box>
+          {ports.length > 0 && (
+            <Box textAlign="right">
+              <Typography variant="caption" sx={{ color: '#4e4e4e' }}>
+                <Typography
+                  component="span"
+                  sx={{ color: 'error.light', fontWeight: 'bold' }}
                 >
-                  {expansionText}
-                </button>
-              )}
-            </span>
-          </p>
-        ))}
-      </div>
-    </StyledPaper>
+                  {ports.length}
+                </Typography>
+                {` Port${ports.length > 1 ? 's' : ''}`}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#3D4551' }}>
+                {ports.join(', ')}
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      )}
+      {data.map(({ label, value, count, onExpand, expansionText }) => (
+        <Box key={label} mt={2}>
+          <Typography variant="caption" sx={{ color: '#4e4e4e' }}>
+            {count !== undefined && (
+              <Typography
+                component="span"
+                sx={{ color: 'error.light', fontWeight: 'bold' }}
+              >
+                {count}{' '}
+              </Typography>
+            )}
+            {label}
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#3D4551' }}>
+            {value}
+            {expansionText && (
+              <Box
+                sx={{
+                  ml: 1,
+                  px: 0,
+                  minWidth: 'auto',
+                  color: 'secondary.main',
+                  textTransform: 'none'
+                }}
+              >
+                {expansionText}
+              </Box>
+            )}
+          </Typography>
+        </Box>
+      ))}
+    </StyledButtonBase>
   );
 };

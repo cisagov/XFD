@@ -893,3 +893,9 @@ variable "playwright_worker_ecs_task_definition_family" {
   type        = string
   default     = "crossfeed-playwright-worker-staging-cd"
 }
+
+variable "playwright_worker_repository_name" {
+  description = "playwright_worker_repository_name"
+  type        = string
+  default     = "crossfeed-playwright-worker-staging"
+}

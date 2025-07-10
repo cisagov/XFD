@@ -119,17 +119,15 @@ resource "aws_iam_instance_profile" "db_accessor" {
 }
 
 #Attach Policies to Instance Role
-resource "aws_iam_policy_attachment" "db_accessor_1" {
+resource "aws_iam_role_policy_attachment" "db_accessor_ssm_core" {
   count      = var.create_db_accessor_instance ? 1 : 0
-  name       = "crossfeed-db-accessor-${var.stage}"
-  roles      = [aws_iam_role.db_accessor[0].id, "AmazonSSMRoleForInstancesQuickSetup"]
+  role       = aws_iam_role.db_accessor[0].name
   policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_policy_attachment" "db_accessor_2" {
+resource "aws_iam_role_policy_attachment" "db_accessor_ssm_service" {
   count      = var.create_db_accessor_instance ? 1 : 0
-  name       = "crossfeed-db-accessor-${var.stage}"
-  roles      = [aws_iam_role.db_accessor[0].id]
+  role       = aws_iam_role.db_accessor[0].name
   policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
 }
 

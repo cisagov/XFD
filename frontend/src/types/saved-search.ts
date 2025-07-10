@@ -10,6 +10,6 @@ export interface SavedSearch {
   filters: { field: string; values: any[]; type: string }[];
   created_by: User;
   search_path: string;
-  sort_field: string;
-  sort_direction: string;
+  sortField: string;
+  sortDirection: string;
 }

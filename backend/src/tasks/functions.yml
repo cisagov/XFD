@@ -49,12 +49,6 @@ infraOps:
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
 
-refreshMaterialViews:
-  handler: src/xfd_django/xfd_api/tasks/refresh_material_views.handler
-  events:
-    - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
-
 serviceStatsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
   events:

@@ -31,6 +31,14 @@ const GraphChip: React.FC<GraphChipProps> = ({ data, activeLabel }) => {
             onClick={item.onClick}
             role="radio"
             aria-checked={isActive}
+            disabled={isActive}
+            sx={{
+              '&.Mui-disabled': {
+                opacity: 1,
+                pointerEvents: 'none',
+                cursor: 'not-allowed'
+              }
+            }}
           />
         );
       })}

@@ -1,4 +1,4 @@
-import { generateWebpageTree } from 'components/DomainDetails';
+import { generateWebpageTree } from 'pages/Domains/DomainDetails';
 
 describe('generateWebpageTree', () => {
   it('no path', () => {

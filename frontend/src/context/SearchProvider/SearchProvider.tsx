@@ -19,9 +19,37 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     trackUrlState: false,
     initialState: {
       resultsPerPage: 15,
-      sort_field: 'name',
-      sort_direction: 'asc'
+      sortField: 'name',
+      sortDirection: 'asc'
     },
+    //TODO: Implement or delete these queries CRASM-2819
+    // debug: false,
+    // alwaysSearchOnInitialLoad: false,
+    // trackUrlState: false,
+    // initialState: {
+    //   resultsPerPage: 15,
+    //   sortField: 'name',
+    //   sortDirection: 'asc'
+    // },
+    // searchQuery: {
+    //   search_fields: {
+    //     name: {}
+    //   },
+    //   result_fields: {
+    //     name: {
+    //       raw: {}
+    //     }
+    //   }
+    // },
+    // autocompleteQuery: {
+    //   suggestions: {
+    //     types: {
+    //       documents: {
+    //         fields: ['name']
+    //       }
+    //     }
+    //   }
+    // },
 
     onResultClick: () => {
       /* Not implemented */
@@ -54,17 +82,17 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         current,
         filters,
         resultsPerPage,
-        search_term,
-        sort_direction,
-        sort_field
+        searchTerm,
+        sortDirection,
+        sortField
       } = state;
       const body: any = {
         current,
         filters,
         resultsPerPage,
-        search_term,
-        sort_direction,
-        sort_field
+        searchTerm,
+        sortDirection,
+        sortField
       };
 
       const responseJson = await apiPost<ApiResponse>('/search', {

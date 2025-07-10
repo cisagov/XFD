@@ -45,11 +45,11 @@ unknown_data_source, uds_created = DataSource.objects.using(db_name).get_or_crea
 def handler(command_options):
     """Query ASM data for API endpoint."""
     try:
-        is_lz = os.getenv("IS_DMZ", "0") == "0"
-        is_local = os.getenv("IS_LOCAL", "true") == "true"
+        is_dmz = os.getenv("IS_DMZ")
+        is_local = os.getenv("IS_LOCAL")
 
-        if not is_lz and not is_local:
-            logger.warning("Scan can only be run in the LZ or locally. Exitting now.")
+        if str(is_dmz).lower() in {"true", "1"} and not is_local:
+            LOGGER.warning("Scan can only be run in the LZ or locally. Exitting now.")
             return {
                 "statusCode": 200,
                 "body": "ASM DMZ Sync pull cannot run outside the LZ.",

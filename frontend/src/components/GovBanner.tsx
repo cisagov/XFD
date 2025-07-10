@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { styled } from '@mui/material/styles';
+import { styled, useTheme } from '@mui/material/styles';
 import clsx from 'classnames';
 import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import flagIcon from '../assets/us_flag_small.png';
@@ -120,8 +120,9 @@ const Root = styled('div')(({ theme }) => ({
 export const GovBanner: React.FC = () => {
   const [expanded, setExpanded] = useState(false);
 
+  const theme = useTheme();
   return (
-    <Root>
+    <Root sx={{ zIndex: theme.zIndex.FilterDrawerV2 + 1 }}>
       <div className={classes.root}>
         <div className={classes.inner}>
           <img src={flagIcon} alt="usa flag" className={classes.flag} />

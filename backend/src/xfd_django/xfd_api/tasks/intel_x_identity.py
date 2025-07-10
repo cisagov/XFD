@@ -55,8 +55,8 @@ def handler(command_options):
     try:
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
-        if not is_dmz and not is_local:
-            logger.warning("Scan can only be run in the DMZ or locally. Exitting now.")
+        if str(is_dmz).lower() not in {"true", "1"} and not is_local:
+            LOGGER.warning("Scan can only be run in the DMZ or locally. Exitting now.")
             return {
                 "status_code": 200,
                 "body": "IntelX Credential scan cannot run outside the DMZ.",

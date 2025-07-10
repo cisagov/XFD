@@ -284,6 +284,22 @@ SCAN_SCHEMA = {
         memory="8192",
         description="Pull in NIST cve data from commercial mdl",
     ),
+    "cybersix_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Pull in Cybersixgill data from commercial mdl",
+    ),
+    "cybersix_lz_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Pull in Cybersixgill cve data from commercial mdl",
+    ),
     "portscanner": ScanSchema(
         type="fargate",
         is_passive=False,
@@ -306,8 +322,8 @@ SCAN_SCHEMA = {
         type="fargate",
         is_passive=True,
         global_scan=True,
-        cpu="1024",
-        memory="4096",
+        cpu="4096",
+        memory="16384",
         description="Syncs records with Elasticsearch so that they appear in search results.",
     ),
     "shodan": ScanSchema(
@@ -411,6 +427,14 @@ SCAN_SCHEMA = {
         cpu="1024",
         memory="8192",
         description="Rerun VS Summary fills.",
+    ),
+    "refresh_material_views": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="2048",
+        memory="16384",
+        description="Task to refresh or create all views/materialized views in mini_data_lake.",
     ),
     "cisakev": ScanSchema(
         type="fargate",

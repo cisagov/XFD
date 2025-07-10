@@ -41,12 +41,12 @@ api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 
 def user_to_dict(user):
     """Take a user model object from django and sanitize fields for output."""
-    user_dict = model_to_dict(user)  # Convert model to dict
+    user_dict = model_to_dict(user)
     # Convert any UUID fields to strings
-    if isinstance(user_dict.get("id"), uuid.UUID):
-        user_dict["id"] = str(user_dict["id"])
     for key, val in user_dict.items():
-        if isinstance(val, datetime):
+        if isinstance(val, uuid.UUID):
+            user_dict[key] = str(val)
+        elif isinstance(val, datetime):
             user_dict[key] = str(val)
     # Make sure maintenance checks are included in user response
     user_dict["login_blocked_by_maintenance"] = user.login_blocked_by_maintenance
@@ -212,37 +212,41 @@ async def process_user(decoded_token):
     """Process a user based on decoded token information."""
     user = User.objects.filter(email=decoded_token["email"]).first()
     if not user:
-        # Create a new user if they don't exist from Okta fields in SAML Response
-        user = User(
-            email=decoded_token["email"],
-            okta_id=decoded_token["sub"],
-            first_name=decoded_token.get("given_name"),
-            last_name=decoded_token.get("family_name"),
-            user_type="standard",
-            invite_pending=True,
-            cognito_username=decoded_token.get("cognito:username"),
-            cognito_use_case_description=decoded_token.get("nickname"),
-            cognito_email_verified=decoded_token.get("email_verified"),
-            cognito_groups=decoded_token.get("cognito:groups"),
+        # TODO: per CRASM-2839 temporarily disable new user creation return 403.
+        raise HTTPException(
+            status_code=403, detail="Not authorized. User creation disabled."
         )
+        # # Create a new user if they don't exist from Okta fields in SAML Response
+        # user = User(
+        #     email=decoded_token["email"],
+        #     okta_id=decoded_token["sub"],
+        #     first_name=decoded_token.get("given_name"),
+        #     last_name=decoded_token.get("family_name"),
+        #     user_type="standard",
+        #     invite_pending=True,
+        #     cognito_username=decoded_token.get("cognito:username"),
+        #     cognito_use_case_description=decoded_token.get("nickname"),
+        #     cognito_email_verified=decoded_token.get("email_verified"),
+        #     cognito_groups=decoded_token.get("cognito:groups"),
+        # )
 
-        # Check for active major maintenance window and login status (New User)
-        update_login_block_status(user)
+        # # Check for active major maintenance window and login status (New User)
+        # update_login_block_status(user)
 
-        user.save()
-    else:
-        # Update user oktaId (legacy users) and login time
-        user.okta_id = decoded_token["sub"]
-        user.last_logged_in = datetime.now()
-        user.cognito_username = decoded_token.get("cognito:username")
-        user.cognito_use_case_description = decoded_token.get("nickname")
-        user.cognito_email_verified = decoded_token.get("email_verified")
-        user.cognito_groups = decoded_token.get("cognito:groups")
+        # user.save()
 
-        # Check for active major maintenance window and login status (Existing User)
-        update_login_block_status(user)
+    # Update user oktaId (legacy users) and login time
+    user.okta_id = decoded_token["sub"]
+    user.last_logged_in = datetime.now()
+    user.cognito_username = decoded_token.get("cognito:username")
+    user.cognito_use_case_description = decoded_token.get("nickname")
+    user.cognito_email_verified = decoded_token.get("email_verified")
+    user.cognito_groups = decoded_token.get("cognito:groups")
 
-        user.save()
+    # Check for active major maintenance window and login status (Existing User)
+    update_login_block_status(user)
+
+    user.save()
 
     if user:
         # TODO: Uncomment if we want to fully block logins during maintenance windows.

@@ -12,24 +12,24 @@ import {
 } from '@mui/material';
 import { SavedSearch } from '../../types/saved-search';
 import { useAuthContext } from '../../context';
-import { Save } from '@mui/icons-material';
+import { Add } from '@mui/icons-material';
 
 interface SaveSearchModalProps {
-  search_term: string;
+  searchTerm: string;
   filters: any;
   totalResults: number;
-  sort_field: string;
-  sort_direction: string;
+  sortField: string;
+  sortDirection: string;
   advancedFiltersReq?: boolean;
 }
 
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const {
-    search_term,
+    searchTerm,
     filters,
     totalResults,
-    sort_field,
-    sort_direction,
+    sortField,
+    sortDirection,
     advancedFiltersReq
   } = props;
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -49,18 +49,18 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     const body = {
       body: {
         ...savedSearchValues,
-        search_term,
+        search_term: searchTerm,
         filters,
         count: totalResults,
         search_path: window.location.search,
-        sort_field,
-        sort_direction
+        sort_field: sortField,
+        sort_direction: sortDirection
       }
     };
 
     try {
       if (activeSearch) {
-        await apiPut('/saved-searches' + activeSearch.id, body);
+        await apiPut('/saved-searches/' + activeSearch.id, body);
       } else {
         await apiPost('/saved-searches', body);
       }
@@ -134,13 +134,16 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     <>
       <Button
         tabIndex={0}
-        variant="contained"
+        variant="text"
         onClick={handleUpdate}
-        endIcon={<Save />}
         disabled={!advancedFiltersReq}
-        aria-label={activeSearch ? 'Update Saved Search' : 'Save Search'}
+        aria-label={activeSearch ? 'Update Saved Filter' : 'Save New'}
+        startIcon={<Add />}
+        sx={{
+          paddingLeft: '0.25em'
+        }}
       >
-        {activeSearch ? 'Update Saved Search' : 'Save Search'}
+        {activeSearch ? 'Update Saved Filter' : 'Save New'}
       </Button>
       <Dialog
         open={updateDialogOpen}
@@ -155,7 +158,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         }}
       >
         <DialogTitle id="update-saved-search-title">
-          Update Saved Search
+          Update Saved Filter
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="update-saved-search-description">
@@ -172,7 +175,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               value={savedSearchValues.name}
               onChange={(e) => handleChange(e.target.name, e.target.value)}
               inputProps={{
-                'aria-label': 'Enter a name for your saved search'
+                'aria-label': 'Enter a name for your saved filter'
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -211,7 +214,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
           </Button>
           <Button
             tabIndex={0}
-            variant="contained"
+            variant="primaryContained"
             onClick={() => {
               try {
                 handleSave(savedSearchValues);
@@ -258,19 +261,16 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         aria-labelledby="save-search-dialog-title"
         aria-describedby="dialog-description"
       >
-        <DialogTitle id="dialog-title">Save Search</DialogTitle>
+        <DialogTitle id="dialog-title">Save Filter</DialogTitle>
         <DialogContent>
           <Box paddingBottom={'1em'}>
-            <DialogContentText id="dialog-description">
-              Name Your Search
-            </DialogContentText>
             <TextField
               autoFocus
               required
               margin="dense"
               id="name"
               name="name"
-              placeholder="Enter a name"
+              placeholder="Add custom filter name"
               type="text"
               fullWidth
               variant="outlined"

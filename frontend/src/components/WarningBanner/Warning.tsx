@@ -19,7 +19,11 @@ export const CrossfeedWarning: React.FC = (props) => {
         <Grid container spacing={1}>
           <Grid size={{ xs: 12, sm: 3 }} display="flex" justifyContent="end">
             <Box m="auto">
-              <img alt="CISA LOGO" src={cisa_logo} width="140px" />
+              <img
+                alt="Cybersecurity & Infrastructure Security Agency LOGO"
+                src={cisa_logo}
+                width="140px"
+              />
             </Box>
           </Grid>
           <Grid size={{ xs: 12, sm: 9 }}>

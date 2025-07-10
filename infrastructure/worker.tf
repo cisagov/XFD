@@ -257,6 +257,10 @@ resource "aws_ecs_task_definition" "worker" {
         "value": "${var.db_port}"
       },
       {
+        "name": "IS_DMZ",
+        "value": "${var.is_dmz}"
+      },
+      {
         "name": "XPANSE_ORG_SYNC_BUCKET_NAME",
         "value": "${var.crossfeed-xpanse-org-sync}"
       }

@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient
 import pytest
 from redis import asyncio as aioredis
 from xfd_api.auth import create_jwt_token
-from xfd_api.tasks.syncdb_helpers import (
-    create_domain_view,
-    create_service_view,
+from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
+    create_domain_materialized_view,
+    create_service_mat_view,
     create_vuln_materialized_views,
     create_vuln_normal_views,
 )
@@ -154,9 +154,7 @@ def organization():
 def ensure_vuln_views_created(django_db_setup, django_db_blocker):
     """Ensure all necessary views for vulnerability testing are created."""
     with django_db_blocker.unblock():
-        create_domain_view("mini_data_lake")
         create_vuln_normal_views("mini_data_lake")
-        create_service_view("mini_data_lake")
 
 
 @pytest.fixture
@@ -165,6 +163,8 @@ def refresh_vuln_views(django_db_blocker):
 
     def _refresh():
         with django_db_blocker.unblock():
+            create_service_mat_view("mini_data_lake")
+            create_domain_materialized_view("mini_data_lake")
             create_vuln_materialized_views("mini_data_lake")
 
     return _refresh
@@ -573,12 +573,18 @@ def test_vs_trends_success():
         critical_severity_count=5,
         critical_max_age=90,
         high_max_age=60,
+        medium_max_age=54,
+        low_max_age=100,
         none_kev_count=1,
         low_kev_count=1,
         medium_kev_count=1,
         high_kev_count=1,
         critical_kev_count=1,
         kev_max_age=100,
+        critical_kev_max_age=20,
+        high_kev_max_age=50,
+        medium_kev_max_age=55,
+        low_kev_max_age=100,
         one_to_five_vulns_count=10,
         six_to_nine_vulns_count=5,
         ten_plus_vulns_count=3,
@@ -679,12 +685,18 @@ def test_vs_condensed_trends_success():
         critical_severity_count=0,
         critical_max_age=0,
         high_max_age=0,
+        medium_max_age=12,
+        low_max_age=32,
         none_kev_count=0,
         low_kev_count=0,
         medium_kev_count=0,
         high_kev_count=0,
         critical_kev_count=0,
         kev_max_age=0,
+        critical_kev_max_age=0,
+        high_kev_max_age=0,
+        medium_kev_max_age=0,
+        low_kev_max_age=0,
         one_to_five_vulns_count=0,
         six_to_nine_vulns_count=0,
         ten_plus_vulns_count=0,

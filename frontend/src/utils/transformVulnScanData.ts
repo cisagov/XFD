@@ -1,6 +1,7 @@
 import {
+  SeverityByProminenceGraphData,
   StatsTrendsRawData,
-  vulnScanDataTransformed
+  VulnScanDataTransformed
 } from 'types/vuln-scan-stats';
 
 export function formatShortDate(
@@ -18,6 +19,8 @@ export function formatShortDate(
   });
 }
 
+// Utility function to get the latest summary based on summary_date and transform the data.
+// This function is not needed when no dates are provided, but should be kept in case there are multiple entries.
 function getLatestSummary<T extends { summary_date?: string | null }>(
   summaries: T[]
 ): T | undefined {
@@ -36,7 +39,7 @@ function getLatestSummary<T extends { summary_date?: string | null }>(
 
 export const transformVulnScanData = (
   data: StatsTrendsRawData
-): vulnScanDataTransformed => {
+): VulnScanDataTransformed => {
   const latestVulnSummary = getLatestSummary(data.vuln_scan_summaries);
   const latestHostSummary = getLatestSummary(data.host_summaries);
   const latestPortScanSummary = getLatestSummary(data.port_scan_summaries);
@@ -68,7 +71,9 @@ export const transformVulnScanData = (
           ' - ' +
           formatShortDate(latestVulnSummary?.end_date),
         assetsOwned: latestVulnSummary?.assets_owned_count ?? 0,
-        assetsScanned: latestVulnSummary?.scanned_asset_count ?? 0
+        assetsScanned: latestHostSummary?.scanned_asset_count ?? 0,
+        startDate: latestVulnSummary?.start_date ?? '',
+        endDate: latestVulnSummary?.end_date ?? ''
       }
     ],
     vulnScanKeyMetrics: [
@@ -78,7 +83,14 @@ export const transformVulnScanData = (
           (latestVulnSummary?.low_kev_count ?? 0) +
           (latestVulnSummary?.medium_kev_count ?? 0) +
           (latestVulnSummary?.high_kev_count ?? 0) +
-          (latestVulnSummary?.critical_kev_count ?? 0)
+          (latestVulnSummary?.critical_kev_count ?? 0),
+        hasLink: true,
+        startDate: latestVulnSummary?.start_date ?? '',
+        endDate: latestVulnSummary?.end_date ?? '',
+        dateRange:
+          formatShortDate(latestVulnSummary?.start_date) +
+          ' - ' +
+          formatShortDate(latestVulnSummary?.end_date)
       },
       {
         title: 'Detected Vulnerabilities',
@@ -86,7 +98,14 @@ export const transformVulnScanData = (
           (latestVulnSummary?.low_severity_count ?? 0) +
           (latestVulnSummary?.medium_severity_count ?? 0) +
           (latestVulnSummary?.high_severity_count ?? 0) +
-          (latestVulnSummary?.critical_severity_count ?? 0)
+          (latestVulnSummary?.critical_severity_count ?? 0),
+        hasLink: true,
+        startDate: latestVulnSummary?.start_date ?? '',
+        endDate: latestVulnSummary?.end_date ?? '',
+        dateRange:
+          formatShortDate(latestVulnSummary?.start_date) +
+          ' - ' +
+          formatShortDate(latestVulnSummary?.end_date)
       },
       {
         title: 'Distinct Vulnerabilities',
@@ -191,7 +210,11 @@ export const transformVulnScanData = (
         lowSeverity: latestVulnSummary?.low_kev_count ?? 0,
         mediumSeverity: latestVulnSummary?.medium_kev_count ?? 0,
         highSeverity: latestVulnSummary?.high_kev_count ?? 0,
-        criticalSeverity: latestVulnSummary?.critical_kev_count ?? 0
+        criticalSeverity: latestVulnSummary?.critical_kev_count ?? 0,
+        lowMaxAge: latestVulnSummary?.low_kev_max_age ?? 0,
+        mediumMaxAge: latestVulnSummary?.medium_kev_max_age ?? 0,
+        highMaxAge: latestVulnSummary?.high_kev_max_age ?? 0,
+        criticalMaxAge: latestVulnSummary?.critical_kev_max_age ?? 0
       },
       {
         vulnType: 'Distinct',
@@ -205,8 +228,29 @@ export const transformVulnScanData = (
         lowSeverity: latestVulnSummary?.low_severity_count ?? 0,
         mediumSeverity: latestVulnSummary?.medium_severity_count ?? 0,
         highSeverity: latestVulnSummary?.high_severity_count ?? 0,
-        criticalSeverity: latestVulnSummary?.critical_severity_count ?? 0
+        criticalSeverity: latestVulnSummary?.critical_severity_count ?? 0,
+        lowMaxAge: latestVulnSummary?.low_max_age ?? 0,
+        mediumMaxAge: latestVulnSummary?.medium_max_age ?? 0,
+        highMaxAge: latestVulnSummary?.high_max_age ?? 0,
+        criticalMaxAge: latestVulnSummary?.critical_max_age ?? 0
       }
     ]
   };
 };
+
+export function shouldSkipVulnType(
+  data: SeverityByProminenceGraphData[],
+  typeToCheck: string
+): boolean {
+  const entry = data.find((item) => item.vulnType === typeToCheck);
+  if (!entry) return true;
+
+  const { lowSeverity, mediumSeverity, highSeverity, criticalSeverity } = entry;
+
+  return (
+    lowSeverity === 0 &&
+    mediumSeverity === 0 &&
+    highSeverity === 0 &&
+    criticalSeverity === 0
+  );
+}

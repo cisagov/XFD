@@ -10,7 +10,6 @@ import {
   ModalRef
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
-import { ImportExport } from 'components';
 // import { Column, CellProps } from 'react-table';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
 // import { FaTimes, FaEdit } from 'react-icons/fa';
@@ -232,6 +231,9 @@ const ScansView: React.FC = () => {
       minWidth: 50,
       flex: 0.5,
       disableExport: true,
+      filterable: false,
+      sortable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
@@ -279,6 +281,9 @@ const ScansView: React.FC = () => {
       minWidth: 50,
       flex: 1,
       disableExport: true,
+      filterable: false,
+      sortable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
@@ -390,29 +395,6 @@ const ScansView: React.FC = () => {
         type="create"
         scanSchema={scanSchema}
       ></ScanForm>
-      <ImportExport<Scan>
-        name="scans"
-        fieldsToImport={['name', 'arguments', 'frequency']}
-        onImport={async (results) => {
-          // TODO: use a batch call here instead.
-          const createdScans = [];
-          for (const result of results) {
-            createdScans.push(
-              await apiPost('/scans/', {
-                body: {
-                  ...result,
-                  // These fields are initially parsed as strings, so they need
-                  // to be converted to objects.
-                  arguments: JSON.parse(
-                    (result.arguments as unknown as string) || ''
-                  )
-                }
-              })
-            );
-          }
-          setScans(scans.concat(...createdScans));
-        }}
-      />
       {/* To-Do: Undefined props are needed to avoid errors. This Modal needs to
       be replaced with a MUI Dialog. */}
       <Modal

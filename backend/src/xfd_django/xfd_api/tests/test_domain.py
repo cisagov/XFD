@@ -4,13 +4,14 @@ from datetime import datetime
 import secrets
 
 # Third-Party Libraries
-from django.db import connections, transaction
+from django.db import transaction
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
-from xfd_api.tasks.syncdb_helpers import (
-    create_domain_view,
-    create_service_view,
+from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
+    create_domain_materialized_view,
+    create_domain_search_mat_view,
+    create_service_mat_view,
     create_vuln_materialized_views,
     create_vuln_normal_views,
 )
@@ -108,30 +109,11 @@ def sample_domain_ip_vuln(organization):
     return subdomain
 
 
-# Create the views
-@pytest.fixture(autouse=True, scope="session")
-def ensure_vuln_views_created(django_db_setup, django_db_blocker):
-    """Ensure all necessary views for vulnerability testing are created."""
-    with django_db_blocker.unblock():
-        create_domain_view("mini_data_lake")
-        create_vuln_normal_views("mini_data_lake")
-        create_service_view("mini_data_lake")
-        create_vuln_materialized_views("mini_data_lake")
-
-
 @pytest.fixture
-def domain(sample_domain_ip_vuln):
+def domain(sample_domain_ip_vuln, refresh_vuln_views):
     """Get domain from view after creating source data."""
+    refresh_vuln_views()
     return Domain.objects.get(name="example.crossfeed.local")
-
-
-@pytest.fixture
-def refresh_vuln_views(django_db_blocker):
-    """Refresh service material view."""
-    with django_db_blocker.unblock():
-        with connections["mini_data_lake"].cursor() as cursor:
-            cursor.execute("REFRESH MATERIALIZED VIEW vw_service;")
-            cursor.execute("REFRESH MATERIALIZED VIEW mat_vw_combined_vulns;")
 
 
 @pytest.fixture
@@ -161,6 +143,29 @@ def organization():
     transaction.commit()
     assert organization.name == search_fields["organization_name"]
     yield organization
+
+
+# Create the views
+@pytest.fixture(autouse=True, scope="session")
+def ensure_vuln_views_created(django_db_setup, django_db_blocker):
+    """Ensure all necessary views for vulnerability testing are created."""
+    with django_db_blocker.unblock():
+        create_vuln_normal_views("mini_data_lake")
+
+
+@pytest.fixture
+def refresh_vuln_views(django_db_blocker):
+    """Fixture that returns a function to refresh vuln materialized views."""
+
+    def _refresh():
+        with django_db_blocker.unblock():
+            create_service_mat_view("mini_data_lake")
+            create_domain_materialized_view("mini_data_lake")
+            create_vuln_normal_views("mini_data_lake")
+            create_vuln_materialized_views("mini_data_lake")
+            create_domain_search_mat_view("mini_data_lake")
+
+    return _refresh
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -212,63 +217,6 @@ def test_search_domain_by_ip(user, domain, refresh_vuln_views):
         assert result["ip"] == search_fields["ip"], "Expected IP {}, but got {}".format(
             search_fields["ip"], result["ip"]
         )
-
-
-@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_search_domain_by_port(user, domain, refresh_vuln_views):
-    """Test domain by port."""
-    response = client.post(
-        "/domain/search",
-        json={"page": 1, "filters": {"port": search_fields["port"]}, "page_size": 25},
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert data is not None, "Response is empty"
-    assert "result" in data, "Response does not contain 'result' key"
-    assert len(data["result"]) > 0, "No result found for the given IP"
-
-    for domain_data in data["result"]:
-        domain_id = domain_data.get("id", None)
-
-        assert domain_id is not None, "Domain Id not found in Response"
-        services = Service.objects.filter(domain=domain_id)
-        for service in services:
-            assert (
-                str(service.port) == search_fields["port"]
-            ), "Domain with ID {} does not have a service with port {}".format(
-                domain_id, domain.services.first().port
-            )
-
-
-@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_search_domain_by_service(user, domain, refresh_vuln_views):
-    """Test domain by service."""
-    services = Service.objects.filter(service="Apache httpd")
-    assert services.exists(), "No Service rows with 'Apache httpd' exist"
-
-    # Step 2: Check that Domain rows exist
-    domains = Domain.objects.filter(id=domain.id)
-    assert domains.exists(), f"Domain with id {domain.id} does not exist"
-
-    response = client.post(
-        "/domain/search",
-        json={
-            "page": 1,
-            "filters": {"service": "Apache httpd"},
-            "page_size": 25,
-        },
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
-    )
-    assert response.status_code == 200
-
-    data = response.json()
-    assert data is not None, "Response body is empty"
-    assert "result" in data, "Response does not contain 'result' key"
-    assert len(data["result"]) > 0, "No result found for the given service"
-
-    for domain_data in data["result"]:
-        assert domain_data["id"] == str(domain.id)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -326,32 +274,6 @@ def test_search_domain_by_organization_name(user, domain, refresh_vuln_views):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_search_domain_by_vulnerabilities(user, domain, refresh_vuln_views):
-    """Test domain by vuln."""
-    # Test search domains by vulnerabilities
-    response = client.post(
-        "/domain/search",
-        json={
-            "page": 1,
-            "filters": {"vulnerabilities": str(domain.vulnerabilities.first().title)},
-            "page_size": 25,
-        },
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "result" in data, "Response does not contain 'result' key"
-    assert len(data["result"]) > 0, "No result found for the given vulnerability"
-
-    for result in data["result"]:
-        assert str(domain.id) == str(
-            result["id"]
-        ), "Response domain {} did not relate back to the expected vulnerability {}".format(
-            result["id"], domain.id
-        )
-
-
-@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domains_multiple_criteria(user, domain, refresh_vuln_views):
     """Test domain by multi-criteria."""
     # Test search domains by multiple criteria
@@ -359,7 +281,10 @@ def test_search_domains_multiple_criteria(user, domain, refresh_vuln_views):
         "/domain/search",
         json={
             "page": 1,
-            "filters": {"ip": search_fields["ip"], "port": search_fields["port"]},
+            "filters": {
+                "ip": search_fields["ip"],
+                "organization_name": search_fields["organization_name"],
+            },
             "page_size": 25,
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},

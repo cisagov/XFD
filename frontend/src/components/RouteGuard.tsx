@@ -33,16 +33,14 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
+  // user has authenticated and registered but needs to create an account
   if (user && !user.isRegistered) {
-    // user has authenticated but needs to create an account
-    console.log('User Registered Check');
     history.push('/create-account');
     return null;
   }
 
   // User must accept terms
   if (user && userMustSign) {
-    console.log('User must sign check');
     history.push('/terms');
     return null;
   }

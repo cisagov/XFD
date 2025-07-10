@@ -15,7 +15,6 @@ from uuid import uuid4
 from django.db import transaction
 from fastapi import HTTPException, Request
 from xfd_api.tasks.vulnScanningSync import save_organization_to_mdl
-from xfd_api.utils.scan_utils.alerting import SyncError
 from xfd_mini_dl.models import Organization, Sector
 
 from ..auth import is_global_view_admin
@@ -26,36 +25,23 @@ from ..utils.csv_utils import create_checksum
 
 async def sync_post(sync_body, request: Request, current_user):
     """Ingest and persist organization data to the data lake."""
+    if not is_global_view_admin(current_user):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    headers = request.headers
+    request_checksum = headers.get("x-checksum")
+    if not request_checksum or not sync_body.data:
+        raise HTTPException(status_code=400, detail="Missing checksum or data")
+
+    if request_checksum != create_checksum(sync_body.data):
+        raise HTTPException(status_code=400, detail="Checksum doesn't match error.")
+
     try:
-        if not is_global_view_admin(current_user):
-            raise HTTPException(status_code=403, detail="Unauthorized")
-
-        headers = request.headers
-        request_checksum = headers.get("x-checksum")
-        if not request_checksum or not sync_body.data:
-            raise HTTPException(status_code=500, detail="No checksum error")
-
-        if request_checksum != create_checksum(sync_body.data):
-            raise HTTPException(status_code=500, detail="Checksum doesn't match error.")
-
-        # Use MinIO client to save CSV data to S3
-        try:
-            process_request(headers, sync_body)
-        except Exception as e:
-            raise SyncError(
-                "VulnScanningSync Endpoint", str(e), "Error syncing VS data"
-            )
-
-    except HTTPException as http_exc:
-        raise http_exc
-    except SyncError as sync_exc:
-        raise HTTPException(
-            status_code=500,
-            detail=f"SyncError: {sync_exc.message} - {sync_exc.error_message}",
-        )
+        process_request(headers, sync_body)
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500, detail="Unhandled sync error: {}".format(str(e))
+        )
 
 
 def process_request(headers, sync_body):

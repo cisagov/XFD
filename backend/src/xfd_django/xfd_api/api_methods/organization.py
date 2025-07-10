@@ -1005,9 +1005,9 @@ def list_organizations_v2(state, region_id, current_user):
 
         # Fetch organizations with related userRoles and tags
         organizations = (
-            Organization.objects.filter(filter_criteria)
+            Organization.objects.filter(filter_criteria).order_by("created_at")
             if filter_criteria
-            else Organization.objects.all()
+            else Organization.objects.all().order_by("created_at")
         )
 
         # Serialize organizations using list comprehension

@@ -16,7 +16,6 @@ import traceback
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
-from django.core.management import call_command
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
 from django.db.models.functions import Power
 from django.utils import timezone
@@ -24,12 +23,7 @@ import psycopg2
 import requests
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.logger import LOGGER
-from xfd_api.tasks.syncdb_helpers import (
-    create_domain_view,
-    create_service_view,
-    create_vuln_materialized_views,
-    create_vuln_normal_views,
-)
+from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.utils.chunk import chunk_list_by_bytes
 from xfd_api.utils.csv_utils import create_checksum
 from xfd_api.utils.hash import hash_ip
@@ -193,15 +187,14 @@ def main():  # pylint: disable=R0915
             total_processed,
             chunk_number - 1,
         )
+        # Set latest flag
+        logger.info("Setting port scans latest flag")
         enforce_latest_flag_port_scan()
-        create_port_scan_summary()
-        create_port_scan_service_summaries()
-        logger.info("Finished processing port scans")
 
-    # fill_cidr_live_ips()
+    # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
 
-    # Process Organizations & Relations
+    # Send organizations to the DMZ MDL
     send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
@@ -232,33 +225,39 @@ def main():  # pylint: disable=R0915
             chunk_number - 1,
         )
         logger.info("Finished processing tickets")
-        try:
-            create_vuln_scan_summary()
-        except Exception as e:
-            raise QueryError(
-                SCAN_NAME, str(e), "Error creating vulnerability scan summary"
-            ) from e
 
+    # 🔁 REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES
+    logger.info("Refreshing materialized views before creating summaries...")
+    # Create or refresh materialized views
+    result = refresh_materialized_views({})
+    logger.info(result)
+    logger.info("Finished refreshing materialized views")
+
+    # ✅ Create summaries with individual error handling
+    logger.info("Creating port scan summary...")
     try:
-        create_domain_view("mini_data_lake")
+        create_port_scan_summary()
+        logger.info("Finished port scan summary")
     except Exception as e:
-        raise QueryError(SCAN_NAME, str(e), "Error creating domain view") from e
+        logger.error("Failed to create port scan summary: %s", e, exc_info=True)
+
+    logger.info("Creating port scan service summaries...")
     try:
-        create_service_view("mini_data_lake")
+        create_port_scan_service_summaries()
+        logger.info("Finished port scan service summaries")
     except Exception as e:
-        raise QueryError(SCAN_NAME, str(e), "Error creating service view") from e
+        logger.error(
+            "Failed to create port scan service summaries: %s", e, exc_info=True
+        )
+
+    logger.info("Creating vulnerability scan summary...")
     try:
-        create_vuln_normal_views("mini_data_lake")
+        create_vuln_scan_summary()
+        logger.info("Finished vulnerability scan summary")
     except Exception as e:
-        raise QueryError(
-            SCAN_NAME, str(e), "Error creating vulnerability normal views"
-        ) from e
-    try:
-        create_vuln_materialized_views("mini_data_lake")
-    except Exception as e:
-        raise QueryError(
-            SCAN_NAME, str(e), "Error creating vulnerability materialized views"
-        ) from e
+        logger.error(
+            "Failed to create vulnerability scan summary: %s", e, exc_info=True
+        )
 
 
 def detect_data_set(query):
@@ -417,12 +416,17 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
 
 
 def safe_fromisoformat(date_input) -> datetime.datetime | None:
-    """Safely convert input to datetime, or return None if invalid."""
+    """Safely convert input to timezone-aware datetime, or return None if invalid."""
     if isinstance(date_input, datetime.datetime):
-        return date_input
+        return (
+            timezone.make_aware(date_input)
+            if timezone.is_naive(date_input)
+            else date_input
+        )
     if isinstance(date_input, str):
         try:
-            return parser.isoparse(date_input)
+            parsed = parser.parse(date_input)
+            return timezone.make_aware(parsed) if timezone.is_naive(parsed) else parsed
         except Exception as e:
             logger.warning(
                 "Failed to parse datetime from string: %s | Error: %s", date_input, e
@@ -518,9 +522,9 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             SUM(CASE WHEN status = 'WAITING' THEN 1 ELSE 0 END) AS host_waiting_count,
             SUM(CASE WHEN status = 'RUNNING' THEN 1 ELSE 0 END) AS host_running_count,
             SUM(CASE WHEN status = 'READY' THEN 1 ELSE 0 END) AS host_ready_count,
-            SUM(CASE WHEN json_extract_path_text(state, 'up') = 'true' THEN 1 ELSE 0 END) AS up_host_count,
-            SUM(CASE WHEN json_extract_path_text(state, 'up') = 'false' THEN 1 ELSE 0 END) AS down_host_count,
-            COUNT(ip) AS scanned_asset_count,
+            SUM(CASE WHEN POSITION('\"up\":true' IN json_serialize(state)) > 0 THEN 1 ELSE 0 END) AS up_host_count,
+            SUM(CASE WHEN POSITION('\"up\":false' IN json_serialize(state)) > 0 THEN 1 ELSE 0 END) AS down_host_count,
+            COUNT(DISTINCT ip) AS scanned_asset_count
         FROM vmtableau.hosts
         WHERE last_change >= GETDATE() - INTERVAL '100 days'
         GROUP BY owner;
@@ -559,6 +563,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                     "host_ready_count": row["host_ready_count"],
                     "up_host_count": row["up_host_count"],
                     "down_host_count": row["down_host_count"],
+                    "scanned_asset_count": row["scanned_asset_count"],
                 },
             )
         except Organization.DoesNotExist:
@@ -862,7 +867,15 @@ def create_vuln_scan_summary(summary_date=None):
 
         critical_max = max_ticket_life(included.filter(cvss_severity=4))
         high_max = max_ticket_life(included.filter(cvss_severity=3))
+        medium_max = max_ticket_life(included.filter(cvss_severity=2))
+        low_max = max_ticket_life(included.filter(cvss_severity=1))
         kev_max = max_ticket_life(included.filter(is_kev=True))
+        critical_kev_max = max_ticket_life(
+            included.filter(is_kev=True, cvss_severity=4)
+        )
+        high_kev_max = max_ticket_life(included.filter(is_kev=True, cvss_severity=3))
+        medium_kev_max = max_ticket_life(included.filter(is_kev=True, cvss_severity=2))
+        low_kev_max = max_ticket_life(included.filter(is_kev=True, cvss_severity=1))
 
         # Host vuln distribution
         ip_counts = Counter(included.values_list("ip_string", flat=True))
@@ -1019,7 +1032,13 @@ def create_vuln_scan_summary(summary_date=None):
                 **kev_counts,
                 "critical_max_age": critical_max,
                 "high_max_age": high_max,
+                "medium_max_age": medium_max,
+                "low_max_age": low_max,
                 "kev_max_age": kev_max,
+                "critical_kev_max_age": critical_kev_max,
+                "high_kev_max_age": high_kev_max,
+                "medium_kev_max_age": medium_kev_max,
+                "low_kev_max_age": low_kev_max,
                 "one_to_five_vulns_count": one_to_five,
                 "six_to_nine_vulns_count": six_to_nine,
                 "ten_plus_vulns_count": ten_plus,
@@ -1326,7 +1345,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
             request.get("agency", {}).get("location", {}).get("state_name"), None
         ),
         "stakeholder": bool(request.get("stakeholder", False)),
-        "enrolled_in_vs_timestamp": request.get("enrolled") or datetime.datetime.now(),
+        "enrolled_in_vs_timestamp": request.get("enrolled") or timezone.now(),
         "period_start_vs_timestamp": request.get("period_start"),
         "report_types": json.dumps(request.get("report_types", [])),
         "scan_types": json.dumps(request.get("scan_types", [])),

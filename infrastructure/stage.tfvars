@@ -131,3 +131,4 @@ ssm_qualys_username                          = "/crossfeed/staging/QUALYS_USERNA
 ssm_qualys_password                          = "/crossfeed/staging/QUALYS_PASSWORD"
 ssm_nist_api_key                             = "/crossfeed/staging/NIST_API_KEY"
 playwright_worker_ecs_task_definition_family = "crossfeed-playwright-worker-staging"
+playwright_worker_repository_name            = "crossfeed-playwright-worker-staging"
