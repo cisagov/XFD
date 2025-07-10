@@ -35,18 +35,6 @@ jobs:
       - name: Set environment variables for staging
         run: echo "ENVIRONMENT=staging" >> $GITHUB_ENV
 
-      - name: Create .env for Playwright container
-        run: |
-          cat <<EOF > .env
-          PW_XFD_URL=http://xfd-frontend-1:3000/
-          PW_XFD_USERNAME=${{ secrets.PW_XFD_USERNAME }}
-          PW_XFD_PASSWORD=${{ secrets.PW_XFD_PASSWORD }}
-          PW_XFD_2FA_ISSUER=${{ secrets.PW_XFD_2FA_ISSUER }}
-          PW_XFD_2FA_SECRET=${{ secrets.PW_XFD_2FA_SECRET }}
-          PW_XFD_USER_ROLE=admin
-          PW_HEADLESS=false
-          SESSION_STORAGE=""
-          EOF
       - name: Run Playwright tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -60,6 +48,7 @@ jobs:
           PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
           PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
           PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }}
+          PW_HEADLESS: true
           ENVIRONMENT: staging
           GIT_BRANCH: develop
         run: |
@@ -105,19 +94,6 @@ jobs:
       - name: Set environment variables for integration
         run: echo "ENVIRONMENT=integration" >> $GITHUB_ENV
 
-      - name: Create .env for Playwright container
-        run: |
-          cat <<EOF > .env
-          PW_XFD_URL=http://xfd-frontend-1:3000/
-          PW_XFD_USERNAME=${{ secrets.PW_XFD_USERNAME }}
-          PW_XFD_PASSWORD=${{ secrets.PW_XFD_PASSWORD }}
-          PW_XFD_2FA_ISSUER=${{ secrets.PW_XFD_2FA_ISSUER }}
-          PW_XFD_2FA_SECRET=${{ secrets.PW_XFD_2FA_SECRET }}
-          PW_XFD_USER_ROLE=admin
-          PW_HEADLESS=false
-          SESSION_STORAGE=""
-          EOF
-
       - name: Run Playwright tests
         working-directory: ./playwright
         env:
@@ -132,6 +108,7 @@ jobs:
           PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
           PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
           PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }} # or hardcode if needed
+          PW_HEADLESS: true
           ENVIRONMENT: integration
           GIT_BRANCH: integration
         run: |
