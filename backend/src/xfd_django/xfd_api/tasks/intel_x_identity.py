@@ -56,7 +56,7 @@ def handler(command_options):
         is_dmz = os.getenv("IS_DMZ", "0") == "1"
         is_local = os.getenv("IS_LOCAL", "1") == "1"
         if str(is_dmz).lower() not in {"true", "1"} and not is_local:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exitting now.")
+            logger.warning("Scan can only be run in the DMZ or locally. Exitting now.")
             return {
                 "status_code": 200,
                 "body": "IntelX Credential scan cannot run outside the DMZ.",
@@ -316,7 +316,7 @@ class IntelX:
                 time.sleep(3)
             # If status is 1, IntelX is still working on it (wait)
             elif results["status"] == 1:
-                # LOGGER.info("Intelx still searching for more credentials")
+                # logger.info("Intelx still searching for more credentials")
                 time.sleep(7)
             # if status is 2, collect the final remaining results and exit loop
             elif results["status"] == 2:

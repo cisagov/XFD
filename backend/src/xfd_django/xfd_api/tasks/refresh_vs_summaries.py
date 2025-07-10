@@ -6,10 +6,7 @@ import random
 
 # Third-Party Libraries
 from django.utils import timezone
-
-# Third-Party Libraries
 from xfd_api.logger import LOGGER
-from xfd_api.tasks.syncdb_helpers import build_fake_host_summaries
 from xfd_api.tasks.vulnScanningSync import (
     create_daily_host_summary,
     create_port_scan_service_summaries,
@@ -81,7 +78,7 @@ def handler(event):
     """Retrieve and save NIST update alerts from the DMZ."""
     is_local_value = os.getenv("IS_LOCAL", "1")
     is_local = str(is_local_value).lower() in ["1", "true"]
-    LOGGER.info("IS_LOCAL equal %s", os.getenv("IS_LOCAL", "1"))
+    logger.info("IS_LOCAL equal %s", os.getenv("IS_LOCAL", "1"))
     try:
         try:
             logger.info("Flagging latest port scans.")

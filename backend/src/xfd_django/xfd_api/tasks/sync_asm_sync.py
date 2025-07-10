@@ -49,7 +49,7 @@ def handler(command_options):
         is_local = os.getenv("IS_LOCAL")
 
         if str(is_dmz).lower() in {"true", "1"} and not is_local:
-            LOGGER.warning("Scan can only be run in the LZ or locally. Exitting now.")
+            logger.warning("Scan can only be run in the LZ or locally. Exitting now.")
             return {
                 "statusCode": 200,
                 "body": "ASM DMZ Sync pull cannot run outside the LZ.",

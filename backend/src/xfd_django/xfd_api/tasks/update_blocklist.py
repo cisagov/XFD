@@ -33,8 +33,8 @@ def query_blocklist_api(ip_str):
         timeout=60,
     ).content
     response = str(response)
-    # LOGGER.info("Queried blocklist API for IP: %s", ip_str)
-    # LOGGER.info("Blocklist API response: %s", response)
+    # logger.info("Queried blocklist API for IP: %s", ip_str)
+    # logger.info("Blocklist API response: %s", response)
     malicious = False
     attacks = int(str(response).split("attacks: ")[1].split("<")[0])
     reports = int(str(response).split("reports: ")[1].split("<")[0])

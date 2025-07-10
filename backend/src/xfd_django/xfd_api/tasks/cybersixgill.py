@@ -271,8 +271,11 @@ def handler(event):
         is_dmz = os.getenv("IS_DMZ")
         is_local = os.getenv("IS_LOCAL")
 
-        if str(is_dmz).lower() not in {"true", "1"} and not str(is_local).lower() in {"true", "1"}:
-            LOGGER.warning("Scan can only be run in the DMZ or locally. Exiting now.")
+        if str(is_dmz).lower() not in {"true", "1"} and not str(is_local).lower() in {
+            "true",
+            "1",
+        }:
+            logger.warning("Scan can only be run in the DMZ or locally. Exiting now.")
             return {
                 "statusCode": 200,
                 "body": "Cybersixgill scan cannot run outside the DMZ.",

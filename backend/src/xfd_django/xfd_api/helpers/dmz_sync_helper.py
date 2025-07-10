@@ -10,7 +10,6 @@ import requests
 from xfd_api.logger import LOGGER
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
-# logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = LOGGER.getChild(__name__)
 
 

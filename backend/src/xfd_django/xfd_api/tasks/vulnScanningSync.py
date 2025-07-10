@@ -93,7 +93,7 @@ def handler(event):
         return {"status_code": 200, "body": "VS Sync completed successfully"}
     except Exception as e:
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
-        # LOGGER.info("Error occurred: %s", e)
+        # logger.info("Error occurred: %s", e)
         # return {"status_code": 500, "body": str(e)}
 
 
@@ -138,8 +138,6 @@ def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     logger.info("Started VulnScanningSync scan...")
 
-    call_command("syncmdl", dangerouslyforce=False)
-
     # Load request data
     request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
     logger.info("Fetched %d requests from Redshift", len(request_list))
@@ -179,7 +177,8 @@ def main():  # pylint: disable=R0915
 
     if total_processed == 0:
         logger.warning(
-            f"No port scans found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+            "No port scans found in Redshift for the last %d days.",
+            VS_PULL_DATE_RANGE,
         )
     else:
         logger.info(
@@ -216,7 +215,8 @@ def main():  # pylint: disable=R0915
 
     if total_processed == 0:
         logger.warning(
-            f"No tickets found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+            "No tickets found in Redshift for the last %d days.",
+            VS_PULL_DATE_RANGE,
         )
     else:
         logger.info(

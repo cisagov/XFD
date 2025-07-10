@@ -696,22 +696,14 @@ def enforce_latest_flag_port_scan():
                 """,
                     [org_id],
                 )
-        
+
         except Exception as e:
             logger.error("Error enforcing latest flag for org %s: %s", org_id, e)
 
     duration = time.time() - start
     logger.info("Completed enforce_latest_flag in %.2fs", duration)
 
-try:
-        with connections["mini_data_lake"].cursor() as cursor, transaction.atomic(
-            using="mini_data_lake"
-        ):
-            
-            cursor.execute(sql)
-    except Exception as e:
-        logger.error("Error enforcing latest flag %s", e)
-        raise
+
 def map_severity(severity):
     """Map a severity score to a severity level."""
     if severity == 0 or severity is None:

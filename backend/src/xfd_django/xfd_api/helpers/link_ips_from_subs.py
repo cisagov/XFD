@@ -156,8 +156,8 @@ def connect_ips_from_subs(orgs_list=list[Organization]):
     org_count = 1
     for org in orgs_list:
         # Connect to database
-        # LOGGER.warning(
-        #     "Linkingon %s, %d/%d",
+        # logger.warning(
+        #     "Linking on %s, %d/%d",
         #     org.acronym,
         #     org_count,
         #     num_orgs,

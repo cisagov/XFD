@@ -10,6 +10,8 @@ from asgiref.sync import sync_to_async
 from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import Log, Organization, User
 
+logger = LOGGER.getChild(__name__)
+
 
 async def maybe_async_call(func, *args, **kwargs):
     """Call a function and await it if it is a coroutine."""
@@ -77,7 +79,7 @@ def log_action(action: str, message_or_cb=None):
                     )
                 except Exception as log_error:
                     # If logging fails, print a warning (or use your logging system).
-                    LOGGER.exception("Logging error: %s", log_error)
+                    logger.exception("Logging error: %s", log_error)
             return response
 
         return wrapper

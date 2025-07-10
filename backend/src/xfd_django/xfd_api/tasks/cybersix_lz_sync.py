@@ -8,7 +8,6 @@ and upsert into the local database.
 import datetime
 import hashlib
 import json
-import logging
 import os
 import time
 from urllib.parse import urljoin
@@ -25,6 +24,7 @@ django.setup()
 
 # Third-Party Libraries
 from xfd_api.helpers.date_time_helpers import calculate_days_back
+from xfd_api.logger import LOGGER
 
 # --- Models ---
 from xfd_mini_dl.models import (
@@ -36,8 +36,7 @@ from xfd_mini_dl.models import (
 )
 
 # --- Constants & Logging ---
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 HEADERS = {
@@ -66,7 +65,7 @@ def normalize_dates(payload: dict) -> dict:
                     dt = datetime.datetime.fromisoformat(record["date"])
                     record["date"] = dt.date().isoformat()
                 except (AttributeError, TypeError) as e:
-                    LOGGER.warning(
+                    logger.warning(
                         f"Unable to format record date for {record.get('id', '<unknown>')}: {e}"
                     )
 
@@ -76,7 +75,7 @@ def normalize_dates(payload: dict) -> dict:
                     dt = datetime.datetime.fromisoformat(record["collection_date"])
                     record["collection_date"] = dt.isoformat()
                 except (AttributeError, TypeError) as e:
-                    LOGGER.warning(
+                    logger.warning(
                         f"Unable to format collection_date for {record.get('id', '<unknown>')}: {e}"
                     )
 
@@ -104,7 +103,7 @@ def handler(event):
             "body": "DMZ Sixgill sync completed successfully.",
         }
     except Exception as error:
-        LOGGER.error("Sync error: %s", error)
+        logger.error("Sync error: %s", error)
         return {"status_code": 500, "body": str(error)}
 
 
@@ -132,7 +131,7 @@ def main():
 
     # Loop over every organization
     for organization in Organization.objects.all():
-        LOGGER.info(
+        logger.info(
             "Processing organization: %s (%s)",
             organization.acronym,
             organization.name,
@@ -150,7 +149,7 @@ def main():
                 since_timestamp=since_timestamp_str,
             )
             if not response:
-                LOGGER.error(
+                logger.error(
                     "Failed to fetch page %d for %s", current_page, organization.acronym
                 )
                 break
@@ -168,7 +167,7 @@ def main():
             fetched_page = normalized_payload["current_page"]
             data = normalized_payload
 
-            LOGGER.info(
+            logger.info(
                 "Org %s page %d/%d: alerts=%d, mentions=%d, breaches=%d, subdomains=%d, exposures=%d, topcves=%d",
                 organization.acronym,
                 fetched_page,
@@ -214,7 +213,7 @@ def fetch_sixgill_page(
         response.raise_for_status()
         return response
     except requests.RequestException as error:
-        LOGGER.error(
+        logger.error(
             "Error fetching Sixgill page %d for %s: %s",
             page_number,
             organization_acronym,
@@ -226,7 +225,7 @@ def fetch_sixgill_page(
 def validate_response_checksum(json_obj: dict, received_checksum: str) -> bool:
     """Recompute SHA-256(SALT + stable_json) and compare to provided checksum."""
     if not received_checksum:
-        LOGGER.warning("No X-Salted-Checksum header on response")
+        logger.warning("No X-Salted-Checksum header on response")
         return False
 
     try:
@@ -236,7 +235,7 @@ def validate_response_checksum(json_obj: dict, received_checksum: str) -> bool:
         calculated = hashlib.sha256((SALT + stable).encode()).hexdigest()
 
         if received_checksum != calculated:
-            LOGGER.error(
+            logger.error(
                 "Checksum mismatch! Expected: %s, Got: %s",
                 calculated,
                 received_checksum,
@@ -245,7 +244,7 @@ def validate_response_checksum(json_obj: dict, received_checksum: str) -> bool:
 
         return True
     except Exception as error:
-        LOGGER.error("Checksum validation error: %s", error)
+        logger.error("Checksum validation error: %s", error)
         return False
 
 

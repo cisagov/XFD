@@ -3,7 +3,6 @@
 from datetime import datetime
 import hashlib
 import json
-import logging
 import os
 from typing import Optional
 
@@ -12,6 +11,7 @@ from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Prefetch, Q
 from fastapi import HTTPException, status
 from pydantic import BaseModel, Field
+from xfd_api.logger import LOGGER
 from xfd_mini_dl.models import (
     CredentialBreaches,
     CredentialExposures,
@@ -36,8 +36,7 @@ from ..schema_models.dmz_sync import (
     LooseSub,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-LOGGER = logging.getLogger(__name__)
+logger = LOGGER.getChild(__name__)
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 
@@ -82,16 +81,16 @@ async def fetch_cybersix_data(
     """
     # 1️⃣ enforce permissions
     if not is_global_write_admin(current_user):
-        LOGGER.warning("User is not a global write admin")
+        logger.warning("User is not a global write admin")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access."
         )
 
     try:
         org = Organization.objects.get(acronym=params.acronym)
-        LOGGER.info(f"Found organization: {org.acronym} ({org.name})")
+        logger.info(f"Found organization: {org.acronym} ({org.name})")
     except Organization.DoesNotExist:
-        LOGGER.warning(
+        logger.warning(
             f"Organization not found: {params.acronym}, continuing without org filter"
         )
         org = None
@@ -126,13 +125,13 @@ async def fetch_cybersix_data(
             items = list(page)
 
         except PageNotAnInteger:
-            LOGGER.error("Page number is not an integer")
+            logger.error("Page number is not an integer")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid page number (not an integer).",
             )
         except EmptyPage:
-            LOGGER.warning(
+            logger.warning(
                 f"Page {params.page} is out of range for {model_cls.__name__}"
             )
             items = []  # return an empty list instead of raising
