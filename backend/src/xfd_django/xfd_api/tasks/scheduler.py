@@ -1,282 +1,250 @@
 """Scheduler method containing AWS Lambda handler."""
 
-
 # Standard Python Libraries
-from itertools import islice
+import json
 import os
 
 # Third-Party Libraries
+import boto3
 import django
 from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-
 django.setup()
 
 # Third-Party Libraries
+from xfd_api.helpers.email import _setup_proxy
 from xfd_api.helpers.getScanOrganizations import get_scan_organizations
-from xfd_api.models import Organization, Scan, ScanTask
 from xfd_api.schema_models.scan import SCAN_SCHEMA
-from xfd_api.tasks.ecs_client import ECSClient
+from xfd_api.tasks.scanExecution import handler as scan_execution_handler
 
-
-def chunk(iterable, size):
-    """Chunk a list into a nested list."""
-    it = iter(iterable)
-    return iter(lambda: list(islice(it, size)), [])
+# Import Django models and helper functions
+from xfd_mini_dl.models import Organization, Scan, ScanTask
 
 
 class Scheduler:
-    """Scheduler."""
+    """Scheduler for executing scans by managing ScanTask records and invoking execution."""
 
     def __init__(self):
         """Initialize."""
-        self.ecs = ECSClient()
-        self.num_existing_tasks = 0
-        self.num_launched_tasks = 0
-        self.max_concurrent_tasks = int(os.getenv("FARGATE_MAX_CONCURRENCY", "10"))
         self.scans = []
         self.organizations = []
-        self.queued_scan_tasks = []
-        self.orgs_per_scan_task = 1
 
-    def initialize(self, scans, organizations, queued_scan_tasks, orgs_per_scan_task):
-        """Initialize."""
+    def initialize(self, scans, organizations):
+        """Initialize the scheduler with scans and organizations."""
         self.scans = scans
         self.organizations = organizations
-        self.queued_scan_tasks = queued_scan_tasks
-        self.orgs_per_scan_task = orgs_per_scan_task
-        self.num_existing_tasks = self.ecs.get_num_tasks()
 
-        print("Number of running Fargate tasks: {}".format(self.num_existing_tasks))
-        print("Number of queued scan tasks: {}".format(len(self.queued_scan_tasks)))
-
-    def launch_single_scan_task(
-        self,
-        organizations=None,
-        scan=None,
-        chunk_number=None,
-        num_chunks=None,
-        scan_task=None,
-    ):
-        """Launch single scan."""
-        organizations = organizations or []
+    def launch_scan_execution(self, scan):
+        """Prepare and send scan execution request."""
+        # If global scan, ignore queue and start 1 concurrent task
         scan_schema = SCAN_SCHEMA.get(scan.name, {})
-        task_type = getattr(scan_schema, "type", None)
-        global_scan = getattr(scan_schema, "global_scan", None)
+        global_scan = getattr(scan_schema, "global_scan", False)
+        if global_scan:
+            if not self.should_run_scan(scan):
+                print(
+                    "Skipping global scan execution due to recent activity or constraints."
+                )
+                return
+            # Now pass organizations to scanExecution
+            event_payload = {
+                "scanId": str(scan.id),
+                "scanType": scan.name,
+                "desiredCount": 1,
+                "organizations": [],
+                "isPe": False,
+            }
+            try:
+                response = scan_execution_handler(event_payload, None)
+                print("scanExecution handler response: {}".format(response))
 
-        scan_task = scan_task or ScanTask.objects.create(
-            scan=scan, type=task_type, status="created"
-        )
+                # Set manual_run_pending to False since scan is now launched
+                scan.manual_run_pending = False
+                scan.last_run = timezone.now()
+                scan.save()
+                print("Updated scan: manual_run_pending set to False")
 
-        # Set the many-to-many relationship with organizations
-        if not global_scan:
-            scan_task.organizations.set(organizations)
+            except Exception as e:
+                print("Error invoking scanExecution: {}".format(e))
 
-        command_options = scan_task.input or {
-            "organizations": [
-                {"name": org.name, "id": str(org.id)} for org in organizations
-            ],
-            "scanId": str(scan.id),
-            "scanName": scan.name,
-            "scanTaskId": str(scan_task.id),
-            "numChunks": num_chunks,
-            "chunkNumber": chunk_number,
-            "isSingleScan": scan.isSingleScan,
-        }
-
-        scan_task.input = command_options
-
-        if self.reached_scan_limit():
-            scan_task.status = "queued"
-            if not scan_task.queuedAt:
-                scan_task.queuedAt = timezone.now()
-            print(
-                "Reached maximum concurrency, queueing scantask {}".format(scan_task.id)
-            )
-            scan_task.save()
             return
 
-        try:
-            if task_type == "fargate":
-                result = self.ecs.run_command(command_options)
-                if not result.get("tasks"):
-                    print(
-                        "Failed to start Fargate task for scan {}, failures: {}".format(
-                            scan.name, result.get("failures")
+        # Get organizations to run on
+        orgs = get_scan_organizations(scan) if scan.is_granular else self.organizations
+        filtered_orgs = [org for org in orgs if self.should_run_scan(scan, org)]
+
+        if not filtered_orgs:
+            print(
+                "Skipping scan execution for {} - No organizations to run on.".format(
+                    scan.name
+                )
+            )
+            return
+
+        # Prepare scan specific queue
+        queue_name = "{}-{}-queue".format(os.getenv("STAGE"), scan.name)
+        base_queue_url = os.getenv("QUEUE_URL").rstrip("/")
+        is_local = os.getenv("IS_LOCAL")
+        sqs = boto3.client(
+            "sqs",
+            region_name=os.getenv("AWS_REGION", "us-east-1"),
+            endpoint_url=base_queue_url if is_local else None,
+        )
+        # Create or get queue
+        response = sqs.create_queue(
+            QueueName=queue_name,
+            Attributes={
+                "VisibilityTimeout": "18000",
+                "MaximumMessageSize": "262144",
+                "MessageRetentionPeriod": "604800",
+            },
+        )
+        queue_url = response["QueueUrl"]
+
+        # Check queue URL
+        print("Queue URL: {}".format(queue_url))
+
+        # Send organizations to the queue in batches of 10
+        batch_size = 10
+        org_batches = [
+            filtered_orgs[i : i + batch_size]
+            for i in range(0, len(filtered_orgs), batch_size)
+        ]
+
+        for batch in org_batches:
+            entries = [
+                {
+                    "Id": str(i),  # Unique identifier for the batch request
+                    "MessageBody": json.dumps({"org": org.name, "id": str(org.id)}),
+                }
+                for i, org in enumerate(batch)
+            ]
+
+            try:
+                resp = sqs.send_message_batch(QueueUrl=queue_url, Entries=entries)
+                print("Batch sent successfully")
+
+                # Handle any failed messages
+                if "Failed" in resp:
+                    for failure in resp["Failed"]:
+                        print(
+                            "Failed to send message {}: {}".format(
+                                failure["Id"], failure["Message"]
+                            )
                         )
-                    )
-                    raise Exception(
-                        "Failed to start Fargate task for scan {}".format(scan.name)
-                    )
+            except Exception as e:
+                print("Error sending message batch: {}".format(e))
 
-                task_arn = result["tasks"][0]["taskArn"]
-                scan_task.fargateTaskArn = task_arn
-                print(
-                    "Successfully invoked scan {} with Fargate on {} organizations. Task ARN: {}".format(
-                        scan.name, len(organizations), task_arn
-                    )
-                )
-            else:
-                raise Exception("Invalid task type: {}".format(task_type))
+        # Now pass organizations to scanExecution
+        event_payload = {
+            "scanId": str(scan.id),
+            "scanType": scan.name,
+            "desiredCount": scan.concurrent_tasks,
+            "organizations": list(filtered_orgs),
+            "isPe": False,
+        }
+        try:
+            response = scan_execution_handler(event_payload, None)
+            print("scanExecution handler response: {}".format(response))
 
-            scan_task.status = "requested"
-            scan_task.requestedAt = timezone.now()
-            self.num_launched_tasks += 1
-        except Exception as error:
-            print("Error invoking {} scan: {}".format(scan.name, error))
-            scan_task.output = str(error)
-            scan_task.status = "failed"
-            scan_task.finishedAt = timezone.now()
+            # Set manual_run_pending to False since scan is now launched
+            scan.manual_run_pending = False
+            scan.last_run = timezone.now()
+            scan.save()
+            print("Updated scan: manual_run_pending set to False")
 
-        scan_task.save()
-
-    def launch_scan_task(self, organizations=None, scan=None):
-        """Launch scan task."""
-        organizations = organizations or []
-
-        scan_schema = SCAN_SCHEMA.get(scan.name, None)
-        num_chunks = getattr(scan_schema, "numChunks", None)
-
-        # If num_chunks is set, handle it; otherwise, default to launching a single task
-        if num_chunks:
-            # For running locally, set num_chunks to 1
-            if os.getenv("IS_LOCAL"):
-                num_chunks = 1
-
-            # Sanitize num_chunks to ensure it doesn't exceed 100
-            num_chunks = min(num_chunks, 100)
-
-            for chunk_number in range(num_chunks):
-                self.launch_single_scan_task(
-                    organizations=organizations,
-                    scan=scan,
-                    chunk_number=chunk_number,
-                    num_chunks=num_chunks,
-                )
-        else:
-            # Launch a single scan task when num_chunks is None or 0
-            self.launch_single_scan_task(organizations=organizations, scan=scan)
-
-    def reached_scan_limit(self):
-        """Check scan limit."""
-        return (
-            self.num_existing_tasks + self.num_launched_tasks
-        ) >= self.max_concurrent_tasks
-
-    def run(self):
-        """Run scheduler."""
-        for scan in self.scans:
-            prev_num_launched_tasks = self.num_launched_tasks
-
-            if scan.name not in SCAN_SCHEMA:
-                print("Invalid scan name: {}".format(scan.name))
-                continue
-
-            scan_schema = SCAN_SCHEMA[scan.name]
-            if scan_schema.global_scan:
-                if not self.should_run_scan(scan):
-                    continue
-                self.launch_scan_task(scan=scan)
-            else:
-                organizations = (
-                    get_scan_organizations(scan)
-                    if scan.isGranular
-                    else self.organizations
-                )
-                orgs_to_launch = [
-                    org
-                    for org in organizations
-                    if self.should_run_scan(scan=scan, organization=org)
-                ]
-                for org_chunk in chunk(orgs_to_launch, self.orgs_per_scan_task):
-                    self.launch_scan_task(organizations=org_chunk, scan=scan)
-
-            if self.num_launched_tasks > prev_num_launched_tasks:
-                scan.lastRun = timezone.now()
-                scan.manualRunPending = False
-                scan.save()
-
-    def run_queued(self):
-        """Run queued scans."""
-        for scan_task in self.queued_scan_tasks:
-            self.launch_single_scan_task(scan_task=scan_task, scan=scan_task.scan)
+        except Exception as e:
+            print("Error invoking scanExecution: {}".format(e))
 
     def should_run_scan(self, scan, organization=None):
-        """Check if the scan should run."""
+        """
+        Determine whether the scan should run for a given organization.
+
+        This method uses several criteria:
+         1. If manual_run_pending is set, always run.
+         2. Check if enough time has passed since the scan last ran (using scan.last_run and frequency).
+         3. Check for currently running or recently finished scan tasks.
+        """
         scan_schema = SCAN_SCHEMA.get(scan.name, {})
-        is_passive = getattr(scan_schema, "isPassive", False)
+        is_passive = getattr(scan_schema, "is_passive", False)
         global_scan = getattr(scan_schema, "global_scan", False)
 
         # Don't run non-passive scans on passive organizations.
-        if organization and organization.isPassive and not is_passive:
+        if organization and organization.is_passive and not is_passive:
             return False
 
-        # Always run scans that have manualRunPending set to True.
-        if scan.manualRunPending:
+        # Always run scans that have manual_run_pending set to True.
+        if scan.manual_run_pending:
             return True
 
-        # Function to filter the scan tasks based on whether it's global or organization-specific.
+        # Check if the scan has run recently based on its last_run timestamp.
+        if scan.last_run:
+            if timezone.is_naive(scan.last_run):
+                scan.last_run = timezone.make_aware(
+                    scan.last_run, timezone.get_current_timezone()
+                )
+            # Assuming scan.frequency is expressed in days, convert to seconds.
+            frequency_seconds = scan.frequency * 86400
+            if (timezone.now() - scan.last_run).total_seconds() < frequency_seconds:
+                return False
+
         def filter_scan_tasks(tasks):
             if global_scan:
                 return tasks.filter(scan=scan)
-            else:
-                return tasks.filter(scan=scan).filter(
-                    organizations=organization
-                ) | tasks.filter(organizations__id=organization.id)
+            return tasks.filter(scan=scan).filter(
+                organizations=organization
+            ) | tasks.filter(organizations__id=organization.id)
 
-        # Check if there's a currently running or queued scan task for the given scan.
         last_running_scan_task = filter_scan_tasks(
             ScanTask.objects.filter(
                 status__in=["created", "queued", "requested", "started"]
-            ).order_by("-createdAt")
+            ).order_by("-created_at")
         ).first()
-
-        # If there's a running or queued task, do not run another.
         if last_running_scan_task:
             return False
 
-        # Check for the last finished scan task.
         last_finished_scan_task = filter_scan_tasks(
             ScanTask.objects.filter(
-                status__in=["finished", "failed"], finishedAt__isnull=False
-            ).order_by("-finishedAt")
+                status__in=["finished", "failed"], finished_at__isnull=False
+            ).order_by("-finished_at")
         ).first()
-
-        # If a scan task was finished recently within the scan frequency, do not run.
-        if last_finished_scan_task and last_finished_scan_task.finishedAt:
-            print("Has been run since the last scan frequency")
-            frequency_seconds = (
-                scan.frequency * 1000
-            )  # Assuming frequency is in seconds.
-
-            # Convert finishedAt to an aware datetime if it is naive
-            if timezone.is_naive(last_finished_scan_task.finishedAt):
-                last_finished_scan_task.finishedAt = timezone.make_aware(
-                    last_finished_scan_task.finishedAt, timezone.get_current_timezone()
+        if last_finished_scan_task and last_finished_scan_task.finished_at:
+            frequency_seconds = scan.frequency * 86400
+            if timezone.is_naive(last_finished_scan_task.finished_at):
+                last_finished_scan_task.finished_at = timezone.make_aware(
+                    last_finished_scan_task.finished_at, timezone.get_current_timezone()
                 )
-            # Perform the subtraction and check the time difference
             if (
-                timezone.now() - last_finished_scan_task.finishedAt
+                timezone.now() - last_finished_scan_task.finished_at
             ).total_seconds() < frequency_seconds:
                 return False
 
-        # If the scan is marked as a single scan and has already run once, do not run again.
         if (
             last_finished_scan_task
-            and last_finished_scan_task.finishedAt
-            and scan.isSingleScan
+            and last_finished_scan_task.finished_at
+            and scan.is_single_scan
         ):
             print("Single scan")
             return False
 
         return True
 
+    def run(self):
+        """Execute scans based on their configurations."""
+        for scan in self.scans:
+            if getattr(scan, "concurrent_tasks", 0):
+                self.launch_scan_execution(scan)
 
+
+# -----------------------------------------------------------------------------
+# Lambda Handler
+# -----------------------------------------------------------------------------
 def handler(event, context):
-    """Handle manually invoking the scheduler to run scans."""
+    """Handle invoking the scheduler to run scans."""
     print("Running scheduler...")
+
+    _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
 
     scan_ids = event.get("scanIds", [])
     if "scanId" in event:
@@ -284,7 +252,7 @@ def handler(event, context):
 
     org_ids = event.get("organizationIds", [])
 
-    # Fetch scans based on scan_ids if provided
+    # Fetch scans based on scan_ids if provided. Else, get all scans.
     if scan_ids:
         scans = Scan.objects.filter(id__in=scan_ids).prefetch_related(
             "organizations", "tags"
@@ -292,28 +260,14 @@ def handler(event, context):
     else:
         scans = Scan.objects.all().prefetch_related("organizations", "tags")
 
-    # Fetch organizations based on org_ids if provided
+    # Fetch organizations based on org_ids if provided; otherwise, all organizations.
     if org_ids:
         organizations = Organization.objects.filter(id__in=org_ids)
     else:
         organizations = Organization.objects.all()
 
-    queued_scan_tasks = (
-        ScanTask.objects.filter(scan__in=scan_ids, status="queued")
-        .order_by("queuedAt")
-        .select_related("scan")
-    )
-
     scheduler = Scheduler()
-    scheduler.initialize(
-        scans=scans,
-        organizations=organizations,
-        queued_scan_tasks=queued_scan_tasks,
-        orgs_per_scan_task=event.get("orgsPerScanTask")
-        or int(os.getenv("SCHEDULER_ORGS_PER_SCANTASK", "1")),
-    )
-
-    scheduler.run_queued()
+    scheduler.initialize(scans, organizations)
     scheduler.run()
 
     print("Finished running scheduler.")

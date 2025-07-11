@@ -17,13 +17,14 @@ class Filter(BaseModel):
     def validate_operator(cls, v):
         """Validate operator."""
         allowed = [
-            "contains",
-            "exact",
-            "iexact",
-            "startswith",
-            "istartswith",
-            "endswith",
-            "iendswith",
+            "is",
+            "not",
+            "after",
+            "on_or_after",
+            "before",
+            "on_or_before",
+            "empty",
+            "not_empty",
         ]
         if v and v not in allowed:
             raise ValueError(f"Operator must be one of {allowed}")
@@ -43,11 +44,11 @@ class DateFilter(BaseModel):
             "is",
             "not",
             "after",
-            "onOrAfter",
+            "on_or_after",
             "before",
-            "onOrBefore",
+            "on_or_before",
             "empty",
-            "notEmpty",
+            "not_empty",
         ]
         if v not in allowed:
             raise ValueError(f"Operator must be one of {allowed}")
@@ -57,7 +58,7 @@ class DateFilter(BaseModel):
 class LogSearch(BaseModel):
     """Log search schema."""
 
-    eventType: Optional[Filter] = None
+    event_type: Optional[Filter] = None
     result: Optional[Filter] = None
     timestamp: Optional[DateFilter] = None
     payload: Optional[str] = None

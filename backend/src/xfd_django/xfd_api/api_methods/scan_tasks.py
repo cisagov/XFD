@@ -6,9 +6,9 @@ from typing import Optional
 
 # Third-Party Libraries
 from fastapi import HTTPException, Response, status
+from xfd_mini_dl.models import ScanTask
 
 from ..auth import get_tag_organizations, is_global_view_admin, is_global_write_admin
-from ..models import ScanTask
 from ..schema_models.scan_tasks import ScanTaskSearch
 from ..tasks.ecs_client import ECSClient
 
@@ -28,11 +28,11 @@ def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
         # Ensure that search_data is not None, and set default values if it is
         if search_data is None:
             search_data = ScanTaskSearch(
-                pageSize=PAGE_SIZE, page=1, sort="createdAt", order="DESC", filters={}
+                page_size=PAGE_SIZE, page=1, sort="created_at", order="DESC", filters={}
             )
 
         # Validate and parse the request body
-        pageSize = search_data.pageSize or PAGE_SIZE
+        page_size = search_data.page_size or PAGE_SIZE
         page = search_data.page or 1
 
         # Determine the correct ordering based on the 'order' field
@@ -63,8 +63,8 @@ def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
                 qs = qs.filter(organizations__id__in=orgs)
 
         # Paginate results
-        if pageSize != -1:
-            qs = qs[(page - 1) * pageSize : page * pageSize]
+        if page_size != -1:
+            qs = qs[(page - 1) * page_size : page * page_size]
 
         # Convert queryset into a serialized response
         results = []
@@ -76,27 +76,28 @@ def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
             else:
                 scan_data = {
                     "id": str(task.scan.id),
-                    "createdAt": task.scan.createdAt.isoformat(),
-                    "updatedAt": task.scan.updatedAt.isoformat(),
+                    "created_at": task.scan.created_at.isoformat(),
+                    "updated_at": task.scan.updated_at.isoformat(),
                     "name": task.scan.name,
                     "arguments": task.scan.arguments,
                     "frequency": task.scan.frequency,
-                    "lastRun": task.scan.lastRun.isoformat()
-                    if task.scan.lastRun
+                    "last_run": task.scan.last_run.isoformat()
+                    if task.scan.last_run
                     else None,
-                    "isGranular": task.scan.isGranular,
-                    "isUserModifiable": task.scan.isUserModifiable,
-                    "isSingleScan": task.scan.isSingleScan,
-                    "manualRunPending": task.scan.manualRunPending,
+                    "is_granular": task.scan.is_granular,
+                    "is_user_modifiable": task.scan.is_user_modifiable,
+                    "is_single_scan": task.scan.is_single_scan,
+                    "manual_run_pending": task.scan.manual_run_pending,
+                    "concurrent_tasks": task.scan.concurrent_tasks,
                 }
             results.append(
                 {
                     "id": str(task.id),
-                    "createdAt": task.createdAt.isoformat(),
-                    "updatedAt": task.updatedAt.isoformat(),
+                    "created_at": task.created_at.isoformat(),
+                    "updated_at": task.updated_at.isoformat(),
                     "status": task.status,
                     "type": task.type,
-                    "fargateTaskArn": task.fargateTaskArn,
+                    "fargate_task_arn": task.fargate_task_arn,
                     "input": (
                         task.input.replace("None", "null")
                         .replace("True", "true")
@@ -106,33 +107,36 @@ def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
                         else "null"  # Default to "null" if task.input is None
                     ),
                     "output": task.output,
-                    "requestedAt": task.requestedAt.isoformat()
-                    if task.requestedAt
+                    "requested_at": task.requested_at.isoformat()
+                    if task.requested_at
                     else None,
-                    "startedAt": task.startedAt.isoformat() if task.startedAt else None,
-                    "finishedAt": task.finishedAt.isoformat()
-                    if task.finishedAt
+                    "started_at": task.started_at.isoformat()
+                    if task.started_at
                     else None,
-                    "queuedAt": task.queuedAt.isoformat() if task.queuedAt else None,
+                    "finished_at": task.finished_at.isoformat()
+                    if task.finished_at
+                    else None,
+                    "queued_at": task.queued_at.isoformat() if task.queued_at else None,
+                    "concurrency_index": task.concurrency_index,
                     "scan": scan_data,
                     "organizations": [
                         {
                             "id": str(org.id),
-                            "createdAt": org.createdAt.isoformat(),
-                            "updatedAt": org.updatedAt.isoformat(),
+                            "created_at": org.created_at.isoformat(),
+                            "updated_at": org.updated_at.isoformat(),
                             "acronym": org.acronym,
                             "name": org.name,
-                            "rootDomains": org.rootDomains,
-                            "ipBlocks": org.ipBlocks,
-                            "isPassive": org.isPassive,
-                            "pendingDomains": org.pendingDomains,
+                            "root_domains": org.root_domains,
+                            "ip_blocks": org.ip_blocks,
+                            "is_passive": org.is_passive,
+                            "pending_domains": org.pending_domains,
                             "country": org.country,
                             "state": org.state,
-                            "regionId": org.regionId,
-                            "stateFips": org.stateFips,
-                            "stateName": org.stateName,
+                            "region_id": org.region_id,
+                            "state_fips": org.state_fips,
+                            "state_name": org.state_name,
                             "county": org.county,
-                            "countyFips": org.countyFips,
+                            "county_fips": org.county_fips,
                             "type": org.type,
                         }
                         for org in task.organizations.all()
@@ -176,7 +180,7 @@ def kill_scan_task(scan_task_id, current_user):
         # Update scan task status to 'failed'
         utc_now = datetime.now(timezone.utc)
         scan_task.status = "failed"
-        scan_task.finishedAt = utc_now
+        scan_task.finished_at = utc_now
         scan_task.output = "Manually stopped at {}".format(utc_now.isoformat())
         scan_task.save()
 
@@ -207,14 +211,14 @@ def get_scan_task_logs(scan_task_id, current_user):
             raise HTTPException(status_code=404, detail="ScanTask not found.")
 
         # Ensure fargateTaskArn exists
-        if not scan_task.fargateTaskArn:
+        if not scan_task.fargate_task_arn:
             raise HTTPException(
                 status_code=404, detail="No logs available for this ScanTask."
             )
 
         # Retrieve logs from the ECSClient
         ecs_client = ECSClient()
-        logs = ecs_client.get_logs(scan_task.fargateTaskArn)
+        logs = ecs_client.get_logs(scan_task.fargate_task_arn)
 
         return Response(
             content=logs or "", media_type="text/plain", status_code=status.HTTP_200_OK

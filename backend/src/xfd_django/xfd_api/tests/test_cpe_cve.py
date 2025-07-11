@@ -8,23 +8,23 @@ import uuid
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import Cpe, Cve, User, UserType
 from xfd_django.asgi import app
+from xfd_mini_dl.models import Cpe, Cve, User, UserType
 
 client = TestClient(app)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_cpe_by_id_success():
     """Test successfully retrieving a CPE by ID."""
     # Create a user to authenticate the request
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Create a sample CPE record
@@ -33,7 +33,7 @@ def test_get_cpe_by_id_success():
         name="cpe:/o:test_os:1.0",
         version="1.0.0",
         vendor="TestVendor",
-        lastSeenAt=datetime.now(),
+        last_seen_at=datetime.now(),
     )
 
     # Make the request
@@ -48,17 +48,17 @@ def test_get_cpe_by_id_success():
     assert data["name"] == "cpe:/o:test_os:1.0"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_cpe_by_id_not_found():
     """Test retrieving a non-existent CPE should return a 500 error."""
     # Create a user to authenticate the request
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     fake_cpe_id = uuid.uuid4()
@@ -73,29 +73,29 @@ def test_get_cpe_by_id_not_found():
     assert "detail" in response.json()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_cve_by_id_success():
     """Test successfully retrieving a CVE by ID."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     cve = Cve.objects.create(
         id=uuid.uuid4(),
         name="CVE-2024-1234",
         description="Test CVE description",
-        publishedAt=datetime.now(),
-        modifiedAt=datetime.now(),
+        published_at=datetime.now(),
+        modified_at=datetime.now(),
         status="Active",
-        cvssV3BaseScore="9.8",
-        cvssV3BaseSeverity="Critical",
-        weaknesses="None",
-        references="https://cve.mitre.org",
+        cvss_v3_base_score="9.8",
+        cvss_v3_base_severity="Critical",
+        weaknesses=["None"],
+        reference_urls=["https://cve.mitre.org"],
     )
 
     response = client.get(
@@ -109,17 +109,17 @@ def test_get_cve_by_id_success():
     assert data["name"] == "CVE-2024-1234"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_cve_by_id_not_found():
     """Test retrieving a non-existent CVE should return a 500 error."""
     # Create a user to authenticate the request
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     fake_cve_id = uuid.uuid4()
@@ -134,27 +134,27 @@ def test_get_cve_by_id_not_found():
     assert "detail" in response.json()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_cve_by_name_success():
     """Test successfully retrieving a CVE by name."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     cve = Cve.objects.create(
         id=uuid.uuid4(),
         name="CVE-2024-5678",
         description="Another test CVE",
-        publishedAt=datetime.now(),
-        modifiedAt=datetime.now(),
+        published_at=datetime.now(),
+        modified_at=datetime.now(),
         status="Resolved",
-        cvssV2BaseScore="5.0",
-        cvssV2BaseSeverity="Medium",
+        cvss_v2_base_score="5.0",
+        cvss_v2_base_severity="Medium",
     )
 
     response = client.get(
@@ -169,17 +169,17 @@ def test_get_cve_by_name_success():
     assert data["status"] == "Resolved"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_cve_by_name_not_found():
     """Test retrieving a non-existent CVE by name should return a 500 error."""
     # Create a user to authenticate the request
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Make the request with a non-existent CVE name

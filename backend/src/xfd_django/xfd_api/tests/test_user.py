@@ -9,30 +9,30 @@ import uuid
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import ApiKey, Organization, Role, User, UserType
 from xfd_django.asgi import app
+from xfd_mini_dl.models import ApiKey, Organization, Role, User, UserType
 
 client = TestClient(app)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_by_regular_user_should_not_work():
     """Invite by a regular user should not work."""
     user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Assign standard user role to the user for the organization
@@ -45,8 +45,8 @@ def test_invite_by_regular_user_should_not_work():
     response = client.post(
         "/users",
         json={
-            "firstName": "first name",
-            "lastName": "last name",
+            "first_name": "first name",
+            "last_name": "last name",
             "email": "{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
@@ -56,53 +56,53 @@ def test_invite_by_regular_user_should_not_work():
     assert response.json() == {"detail": "Unauthorized access."}
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_by_global_admin_should_work():
     """Invite by a global admin should work."""
     user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
     response = client.post(
         "/users",
-        json={"firstName": "first name", "lastName": "last name", "email": email},
+        json={"first_name": "first name", "last_name": "last name", "email": email},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == email
-    assert data["invitePending"] is True
-    assert data["firstName"] == "first name"
-    assert data["lastName"] == "last name"
+    assert data["invite_pending"] is True
+    assert data["first_name"] == "first name"
+    assert data["last_name"] == "last name"
     assert data["roles"] == []
-    assert data["userType"] == UserType.STANDARD
+    assert data["user_type"] == UserType.STANDARD
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_by_global_admin_with_user_type_setting():
     """Invite by a global admin should work if setting user type."""
     user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
     response = client.post(
         "/users",
         json={
-            "firstName": "first name",
-            "lastName": "last name",
+            "first_name": "first name",
+            "last_name": "last name",
             "email": email,
-            "userType": UserType.GLOBAL_ADMIN,
+            "user_type": UserType.GLOBAL_ADMIN,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -110,29 +110,29 @@ def test_invite_by_global_admin_with_user_type_setting():
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == email
-    assert data["invitePending"] is True
-    assert data["firstName"] == "first name"
-    assert data["lastName"] == "last name"
+    assert data["invite_pending"] is True
+    assert data["first_name"] == "first name"
+    assert data["last_name"] == "last name"
     assert data["roles"] == []
-    assert data["userType"] == UserType.GLOBAL_ADMIN
+    assert data["user_type"] == UserType.GLOBAL_ADMIN
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_by_global_view_should_not_work():
     """Invite by a global view should not work."""
     user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     response = client.post(
         "/users",
         json={
-            "firstName": "first name",
-            "lastName": "last name",
+            "first_name": "first name",
+            "last_name": "last name",
             "email": "{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
@@ -143,24 +143,24 @@ def test_invite_by_global_view_should_not_work():
     assert response.json() == {"detail": "Unauthorized access."}
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_by_organization_admin_should_work():
     """Invite by an organization admin should work."""
     user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     # Assign admin role to the user for the organization
     Role.objects.create(
@@ -174,11 +174,11 @@ def test_invite_by_organization_admin_should_work():
     response = client.post(
         "/users",
         json={
-            "firstName": "first name",
-            "lastName": "last name",
+            "first_name": "first name",
+            "last_name": "last name",
             "email": email,
             "organization": "{}".format(organization.id),
-            "organizationAdmin": False,
+            "organization_admin": False,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -186,33 +186,33 @@ def test_invite_by_organization_admin_should_work():
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == email
-    assert data["invitePending"] is True
-    assert data["firstName"] == "first name"
-    assert data["lastName"] == "last name"
+    assert data["invite_pending"] is True
+    assert data["first_name"] == "first name"
+    assert data["last_name"] == "last name"
     assert data["roles"][0]["approved"] is True
     assert data["roles"][0]["role"] == "user"
     assert data["roles"][0]["organization"]["id"] == str(organization.id)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_by_organization_admin_should_not_work_if_setting_user_type():
     """Invite by an organization admin should not work if setting user type."""
     user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     # Assign admin role to the user for the organization
     Role.objects.create(
@@ -225,12 +225,12 @@ def test_invite_by_organization_admin_should_not_work_if_setting_user_type():
     response = client.post(
         "/users",
         json={
-            "firstName": "first name",
-            "lastName": "last name",
+            "first_name": "first name",
+            "last_name": "last name",
             "email": email,
             "organization": "{}".format(organization.id),
-            "organizationAdmin": False,
-            "userType": UserType.GLOBAL_ADMIN,
+            "organization_admin": False,
+            "user_type": UserType.GLOBAL_ADMIN,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -239,41 +239,41 @@ def test_invite_by_organization_admin_should_not_work_if_setting_user_type():
     assert response.json() == {"detail": "Unauthorized access."}
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_existing_user_by_different_org_admin_should_not_modify_other_user_details():
     """Invite existing user by a different organization admin should work, and should not modify other user details."""
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     organization2 = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
     user = User.objects.create(
-        firstName="first name", lastName="last name", email=email
+        first_name="first name", last_name="last name", email=email
     )
     Role.objects.create(
         role="user", approved=False, organization=organization, user=user
     )
 
     user2 = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Assign admin role to the user for the organization
@@ -286,11 +286,11 @@ def test_invite_existing_user_by_different_org_admin_should_not_modify_other_use
     response = client.post(
         "/users",
         json={
-            "firstName": "new first name",
-            "lastName": "new last name",
+            "first_name": "new first name",
+            "last_name": "new last name",
             "email": email,
             "organization": "{}".format(organization2.id),
-            "organizationAdmin": False,
+            "organization_admin": False,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user2))},
     )
@@ -299,9 +299,9 @@ def test_invite_existing_user_by_different_org_admin_should_not_modify_other_use
     data = response.json()
     assert data["id"] == str(user.id)
     assert data["email"] == email
-    assert data["invitePending"] is False
-    assert data["firstName"] == "first name"
-    assert data["lastName"] == "last name"
+    assert data["invite_pending"] is False
+    assert data["first_name"] == "first name"
+    assert data["last_name"] == "last name"
     role_for_org2 = [
         role
         for role in data["roles"]
@@ -312,39 +312,39 @@ def test_invite_existing_user_by_different_org_admin_should_not_modify_other_use
     assert role_for_org2[0]["role"] == "user"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_existing_user_by_different_org_admin_should_modify_user_name_if_initially_blank():
     """Invite existing user by a different organization admin should modify user name if user name is initially blank."""
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     organization2 = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    user = User.objects.create(firstName="", lastName="", email=email)
+    user = User.objects.create(first_name="", last_name="", email=email)
     Role.objects.create(
         role="user", approved=False, organization=organization, user=user
     )
 
     user2 = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Assign admin role to the user for the organization
@@ -357,11 +357,11 @@ def test_invite_existing_user_by_different_org_admin_should_modify_user_name_if_
     response = client.post(
         "/users",
         json={
-            "firstName": "new first name",
-            "lastName": "new last name",
+            "first_name": "new first name",
+            "last_name": "new last name",
             "email": email,
             "organization": "{}".format(organization2.id),
-            "organizationAdmin": False,
+            "organization_admin": False,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user2))},
     )
@@ -370,9 +370,9 @@ def test_invite_existing_user_by_different_org_admin_should_modify_user_name_if_
     data = response.json()
     assert data["id"] == str(user.id)
     assert data["email"] == email
-    assert data["invitePending"] is False
-    assert data["firstName"] == "new first name"
-    assert data["lastName"] == "new last name"
+    assert data["invite_pending"] is False
+    assert data["first_name"] == "new first name"
+    assert data["last_name"] == "new last name"
     role_for_org2 = [
         role
         for role in data["roles"]
@@ -383,40 +383,40 @@ def test_invite_existing_user_by_different_org_admin_should_modify_user_name_if_
     assert role_for_org2[0]["role"] == "user"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_existing_user_by_same_org_admin_should_update_user_org_role():
     """Invite existing user by same organization admin should work, and should update the user organization role."""
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-{}".format(secrets.token_hex(4))],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     admin_user = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
     )
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    user = User.objects.create(firstName="first", lastName="last", email=email)
+    user = User.objects.create(first_name="first", last_name="last", email=email)
     Role.objects.create(
         role="user",
         approved=False,
         organization=organization,
         user=user,
-        createdBy=admin_user,
-        approvedBy=admin_user,
+        created_by=admin_user,
+        approved_by=admin_user,
     )
 
     user2 = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Assign admin role to the user for the organization
@@ -429,11 +429,11 @@ def test_invite_existing_user_by_same_org_admin_should_update_user_org_role():
     response = client.post(
         "/users",
         json={
-            "firstName": "first",
-            "lastName": "last",
+            "first_name": "first",
+            "last_name": "last",
             "email": email,
             "organization": "{}".format(organization.id),
-            "organizationAdmin": True,
+            "organization_admin": True,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user2))},
     )
@@ -442,40 +442,40 @@ def test_invite_existing_user_by_same_org_admin_should_update_user_org_role():
     data = response.json()
     assert data["id"] == str(user.id)
     assert data["email"] == email
-    assert data["invitePending"] is False
-    assert data["firstName"] == "first"
-    assert data["lastName"] == "last"
+    assert data["invite_pending"] is False
+    assert data["first_name"] == "first"
+    assert data["last_name"] == "last"
     assert data["roles"][0]["approved"] is True
     assert data["roles"][0]["role"] == "admin"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_existing_user_by_global_admin_should_update_user_type():
     """Invite existing user by global admin that updates user type should work."""
     User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
     )
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    user = User.objects.create(firstName="first", lastName="last", email=email)
+    user = User.objects.create(first_name="first", last_name="last", email=email)
 
     user2 = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.post(
         "/users",
         json={
-            "firstName": "first",
-            "lastName": "last",
+            "first_name": "first",
+            "last_name": "last",
             "email": email,
-            "userType": UserType.GLOBAL_ADMIN,
+            "user_type": UserType.GLOBAL_ADMIN,
         },
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user2))},
     )
@@ -484,36 +484,36 @@ def test_invite_existing_user_by_global_admin_should_update_user_type():
     data = response.json()
     assert data["id"] == str(user.id)
     assert data["email"] == email
-    assert data["invitePending"] is False
-    assert data["firstName"] == "first"
-    assert data["lastName"] == "last"
+    assert data["invite_pending"] is False
+    assert data["first_name"] == "first"
+    assert data["last_name"] == "last"
     assert data["roles"] == []
-    assert data["userType"] == UserType.GLOBAL_ADMIN
+    assert data["user_type"] == UserType.GLOBAL_ADMIN
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_invite_existing_user_by_global_view_should_not_work():
     """Invite existing user by global view should not work."""
     User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
     )
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    User.objects.create(firstName="first", lastName="last", email=email)
+    User.objects.create(first_name="first", last_name="last", email=email)
 
     user2 = User.objects.create(
-        firstName="first",
-        lastName="last",
+        first_name="first",
+        last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.post(
         "/users",
-        json={"firstName": "first", "lastName": "last", "email": email},
+        json={"first_name": "first", "last_name": "last", "email": email},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user2))},
     )
 
@@ -521,27 +521,27 @@ def test_invite_existing_user_by_global_view_should_not_work():
     assert response.json() == {"detail": "Unauthorized access."}
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.api_methods.user.send_registration_approved_email")
 def test_register_approve_success(mock_email):
     """Test successful user registration approval."""
     mock_email.return_value = "test"
     current_user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        regionId="region-1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     user_to_approve = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        regionId="region-1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     # Mock email sending
     response = client.put(
@@ -555,31 +555,31 @@ def test_register_approve_success(mock_email):
     mock_email.assert_called_once_with(
         user_to_approve.email,
         subject="CyHy Dashboard Registration Approved",
-        first_name=user_to_approve.firstName,
-        last_name=user_to_approve.lastName,
+        first_name=user_to_approve.first_name,
+        last_name=user_to_approve.last_name,
         template="crossfeed_approval_notification.html",
     )
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_register_approve_unauthorized_region():
     """Test approval with unauthorized region access."""
     current_user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     user_to_approve = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        regionId="2",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="2",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.put(
@@ -591,27 +591,27 @@ def test_register_approve_unauthorized_region():
     assert response.json()["detail"] == "Unauthorized region access."
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.api_methods.user.send_registration_denied_email")
 def test_register_deny_success(mock_denied_email):
     """Test successful user registration denial."""
     mock_denied_email.return_value = "test"
     current_user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     user_to_deny = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     response = client.put(
         "/users/{}/register/deny".format(user_to_deny.id),
@@ -623,31 +623,31 @@ def test_register_deny_success(mock_denied_email):
     mock_denied_email.assert_called_once_with(
         user_to_deny.email,
         subject="CyHy Dashboard Registration Denied",
-        first_name=user_to_deny.firstName,
-        last_name=user_to_deny.lastName,
+        first_name=user_to_deny.first_name,
+        last_name=user_to_deny.last_name,
         template="crossfeed_denial_notification.html",
     )
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_register_deny_unauthorized_region():
     """Test registration denial with unauthorized region access."""
     current_user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     user_to_deny = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        regionId="2",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="2",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.put(
@@ -660,16 +660,16 @@ def test_register_deny_unauthorized_region():
     assert response.json()["detail"] == "Unauthorized region access."
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_accept_terms_success():
     """Test that a user can successfully accept the latest terms of service."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     version = "1.0"
@@ -684,20 +684,20 @@ def test_accept_terms_success():
     data = response.json()
 
     assert data["id"] == str(user.id)
-    assert data["acceptedTermsVersion"] == version
-    assert data["dateAcceptedTerms"] is not None
+    assert data["accepted_terms_version"] == version
+    assert data["date_accepted_terms"] is not None
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_accept_terms_missing_version():
     """Test that missing version in request body returns a 400 error."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.post(
@@ -709,7 +709,7 @@ def test_accept_terms_missing_version():
     assert response.status_code == 422
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_accept_terms_no_auth():
     """Test that an unauthenticated request returns 401."""
     response = client.post(
@@ -720,25 +720,25 @@ def test_accept_terms_no_auth():
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_user_as_admin():
     """Test that a global admin can successfully delete a user."""
     admin_user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     target_user = User.objects.create(
-        firstName="Target",
-        lastName="User",
+        first_name="Target",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.delete(
@@ -750,31 +750,33 @@ def test_delete_user_as_admin():
     assert response.json()["status"] == "success"
     assert response.json()[
         "message"
-    ] == "User {} has been deleted successfully.".format(target_user.id)
+    ] == "User {} and associated roles have been deleted successfully.".format(
+        target_user.id
+    )
 
     # Ensure the user is deleted from the database
     assert not User.objects.filter(id=target_user.id).exists()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_user_as_standard_user_fails():
     """Test that a standard user cannot delete another user."""
     user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     target_user = User.objects.create(
-        firstName="Target",
-        lastName="User",
+        first_name="Target",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.delete(
@@ -789,16 +791,16 @@ def test_delete_user_as_standard_user_fails():
     assert User.objects.filter(id=target_user.id).exists()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_nonexistent_user():
     """Test that deleting a nonexistent user returns 404."""
     admin_user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     fake_user_id = uuid.uuid4()
@@ -808,19 +810,19 @@ def test_delete_nonexistent_user():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
     )
 
-    assert response.status_code == 500
+    assert response.status_code == 404
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_user_no_auth():
     """Test that an unauthenticated request returns 401."""
     target_user = User.objects.create(
-        firstName="Target",
-        lastName="User",
+        first_name="Target",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.delete("/users/{}".format(target_user.id))
@@ -828,34 +830,34 @@ def test_delete_user_no_auth():
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_as_global_admin():
     """Test that a global admin can retrieve all users."""
     global_admin = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user1 = User.objects.create(
-        firstName="Test",
-        lastName="User1",
+        first_name="Test",
+        last_name="User1",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user2 = User.objects.create(
-        firstName="Test",
-        lastName="User2",
+        first_name="Test",
+        last_name="User2",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -871,16 +873,16 @@ def test_get_users_as_global_admin():
     assert str(user2.id) in returned_user_ids
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_as_standard_user_fails():
     """Test that a standard user cannot retrieve all users."""
     standard_user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -892,7 +894,7 @@ def test_get_users_as_standard_user_fails():
     assert response.json()["detail"] == "Unauthorized"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_no_auth():
     """Test that an unauthenticated request returns 401."""
     response = client.get("/users")
@@ -900,34 +902,34 @@ def test_get_users_no_auth():
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_with_roles():
     """Test that users and their roles are correctly returned."""
     global_admin = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-" + secrets.token_hex(4)],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-" + secrets.token_hex(4)],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     Role.objects.create(
@@ -951,41 +953,41 @@ def test_get_users_with_roles():
     assert found_user["roles"][0]["role"] == "member"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_region_id_as_regional_admin():
     """Test that a regional admin can retrieve users by region ID."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user1 = User.objects.create(
-        firstName="Test",
-        lastName="User1",
+        first_name="Test",
+        last_name="User1",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user2 = User.objects.create(
-        firstName="Test",
-        lastName="User2",
+        first_name="Test",
+        last_name="User2",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        regionId="1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
-        "/users/regionId/1",
+        "/users/region_id/1",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
     print(response.json())
@@ -998,21 +1000,21 @@ def test_get_users_by_region_id_as_regional_admin():
     assert str(user2.id) in returned_user_ids
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_region_id_as_standard_user_fails():
     """Test that a standard user cannot retrieve users by region ID."""
     standard_user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        regionId="R1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        region_id="R1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
-        "/users/regionId/R1",
+        "/users/region_id/R1",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(standard_user))},
     )
 
@@ -1020,67 +1022,67 @@ def test_get_users_by_region_id_as_standard_user_fails():
     assert response.json()["detail"] == "Unauthorized"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_region_id_no_auth():
     """Test that an unauthenticated request returns 401."""
-    response = client.get("/users/regionId/R1")
+    response = client.get("/users/region_id/R1")
 
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_region_id_not_found():
     """Test that retrieving users for a non-existent region returns 404."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        regionId="R1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="R1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
-        "/users/regionId/R999",  # Non-existent region
+        "/users/region_id/R999",  # Non-existent region
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "No users found for the specified regionId"
+    assert response.json()["detail"] == "No users found for the specified region_id"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_state_as_regional_admin():
     """Test that a regional admin can retrieve users by state."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
+        user_type=UserType.REGIONAL_ADMIN,
         state="CA",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user1 = User.objects.create(
-        firstName="Test",
-        lastName="User1",
+        first_name="Test",
+        last_name="User1",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user2 = User.objects.create(
-        firstName="Test",
-        lastName="User2",
+        first_name="Test",
+        last_name="User2",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1096,17 +1098,17 @@ def test_get_users_by_state_as_regional_admin():
     assert str(user2.id) in returned_user_ids
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_state_as_standard_user_fails():
     """Test that a standard user cannot retrieve users by state."""
     standard_user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1118,7 +1120,7 @@ def test_get_users_by_state_as_standard_user_fails():
     assert response.json()["detail"] == "Unauthorized"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_state_no_auth():
     """Test that an unauthenticated request returns 401."""
     response = client.get("/users/state/CA")
@@ -1126,17 +1128,17 @@ def test_get_users_by_state_no_auth():
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_by_state_not_found():
     """Test that retrieving users for a non-existent state returns 404."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
+        user_type=UserType.REGIONAL_ADMIN,
         state="CA",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1148,46 +1150,46 @@ def test_get_users_by_state_not_found():
     assert response.json()["detail"] == "No users found for the specified state"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_v2_as_regional_admin():
     """Test that a regional admin can retrieve users with filters."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
+        user_type=UserType.REGIONAL_ADMIN,
         state="CA",
-        regionId="R1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user1 = User.objects.create(
-        firstName="User1",
-        lastName="Test",
+        first_name="User1",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        regionId="R1",
-        invitePending=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R1",
+        invite_pending=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     User.objects.create(
-        firstName="User2",
-        lastName="Test",
+        first_name="User2",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        regionId="R1",
-        invitePending=True,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R1",
+        invite_pending=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
-        "/v2/users?state=CA&regionId=R1&invitePending=False",
+        "/v2/users?state=CA&region_id=R1&invite_pending=False",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
@@ -1196,21 +1198,21 @@ def test_get_users_v2_as_regional_admin():
     assert len(data) == 2
     assert data[1]["id"] == str(user1.id)
     assert data[0]["state"] == "CA"
-    assert data[0]["regionId"] == "R1"
+    assert data[0]["region_id"] == "R1"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_v2_as_standard_user_fails():
     """Test that a standard user cannot retrieve users with filters."""
     standard_user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        regionId="R1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1222,7 +1224,7 @@ def test_get_users_v2_as_standard_user_fails():
     assert response.json()["detail"] == "Unauthorized"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_v2_no_auth():
     """Test that an unauthenticated request returns 401."""
     response = client.get("/v2/users?state=CA")
@@ -1230,38 +1232,38 @@ def test_get_users_v2_no_auth():
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_v2_no_filters():
     """Test that a regional admin can retrieve users without filters."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     User.objects.create(
-        firstName="User1",
-        lastName="Test",
+        first_name="User1",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        regionId="R1",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     User.objects.create(
-        firstName="User2",
-        lastName="Test",
+        first_name="User2",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="TX",
-        regionId="R2",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R2",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1274,16 +1276,16 @@ def test_get_users_v2_no_filters():
     assert len(data) == 3
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_users_v2_empty_results():
     """Test that a valid request with no matching users returns an empty list."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1295,31 +1297,31 @@ def test_get_users_v2_empty_results():
     assert response.json() == []
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_as_global_admin():
     """Test that a global admin can update user details."""
     global_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Global",
+        first_name="Admin",
+        last_name="Global",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user = User.objects.create(
-        firstName="User",
-        lastName="Test",
+        first_name="User",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
+        user_type=UserType.STANDARD,
         state="CA",
-        regionId="R1",
-        invitePending=True,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        region_id="R1",
+        invite_pending=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
-    payload = {"firstName": "Updated", "lastName": "User"}
+    payload = {"first_name": "Updated", "last_name": "User"}
 
     response = client.put(
         "/v2/users/{}".format(user.id),
@@ -1330,32 +1332,32 @@ def test_update_user_v2_as_global_admin():
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == str(user.id)
-    assert data["firstName"] == "Updated"
-    assert data["lastName"] == "User"
+    assert data["first_name"] == "Updated"
+    assert data["last_name"] == "User"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_as_standard_user_fails():
     """Test that a standard user cannot update another user's details."""
     standard_user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     target_user = User.objects.create(
-        firstName="Target",
-        lastName="User",
+        first_name="Target",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
-    payload = {"firstName": "Hacked", "lastName": "User"}
+    payload = {"first_name": "Hacked", "last_name": "User"}
 
     response = client.put(
         "/v2/users/{}".format(target_user.id),
@@ -1367,40 +1369,40 @@ def test_update_user_v2_as_standard_user_fails():
     assert response.json()["detail"] == "Unauthorized access."
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_no_auth():
     """Test that an unauthenticated request returns 401."""
     user = User.objects.create(
-        firstName="User",
-        lastName="Test",
+        first_name="User",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
-    payload = {"firstName": "Anonymous"}
+    payload = {"first_name": "Anonymous"}
 
     response = client.put("/v2/users/{}".format(user.id), json=payload)
 
     assert response.status_code == 401
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_non_existent_user():
     """Test that updating a non-existent user returns a 404."""
     global_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Global",
+        first_name="Admin",
+        last_name="Global",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     fake_user_id = "00000000-0000-0000-0000-000000000000"
 
-    payload = {"firstName": "DoesNotExist"}
+    payload = {"first_name": "DoesNotExist"}
 
     response = client.put(
         "/v2/users/{}".format(fake_user_id),
@@ -1412,28 +1414,28 @@ def test_update_user_v2_non_existent_user():
     assert response.json()["detail"] == "User not found"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_user_v2_update_userType_by_non_admin_fails():
     """Test that only a global admin can update userType."""
     regional_admin = User.objects.create(
-        firstName="Admin",
-        lastName="Regional",
+        first_name="Admin",
+        last_name="Regional",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.REGIONAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     user = User.objects.create(
-        firstName="User",
-        lastName="Test",
+        first_name="User",
+        last_name="Test",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
-    payload = {"userType": UserType.GLOBAL_ADMIN}
+    payload = {"user_type": UserType.GLOBAL_ADMIN}
 
     response = client.put(
         "/v2/users/{}".format(user.id),
@@ -1445,16 +1447,16 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
     assert response.json()["detail"] == "Only global admins can update userType."
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_me_success():
     """Test that an authenticated user can retrieve their own user data."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1466,28 +1468,28 @@ def test_get_me_success():
     data = response.json()
     assert data["id"] == str(user.id)
     assert data["email"] == user.email
-    assert data["userType"] == user.userType
+    assert data["user_type"] == user.user_type
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_me_with_roles():
     """Test that a user with roles retrieves their associated organizations."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     organization = Organization.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
-        rootDomains=["test-" + secrets.token_hex(4)],
-        ipBlocks=[],
-        isPassive=False,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        root_domains=["test-" + secrets.token_hex(4)],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     Role.objects.create(
@@ -1510,24 +1512,24 @@ def test_get_me_with_roles():
     assert data["roles"][0]["organization"]["name"] == organization.name
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_me_with_api_keys():
     """Test that a user retrieves their associated API keys."""
     user = User.objects.create(
-        firstName="Test",
-        lastName="User",
+        first_name="Test",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     api_key = ApiKey.objects.create(
         user=user,
-        hashedKey="fakehashedkey",
-        lastFour="1234",
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        hashed_key="fakehashedkey",
+        last_four="1234",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     response = client.get(
@@ -1537,12 +1539,12 @@ def test_get_me_with_api_keys():
 
     assert response.status_code == 200
     data = response.json()
-    assert len(data["apiKeys"]) == 1
-    assert data["apiKeys"][0]["id"] == str(api_key.id)
-    assert data["apiKeys"][0]["lastFour"] == "1234"
+    assert len(data["api_keys"]) == 1
+    assert data["api_keys"][0]["id"] == str(api_key.id)
+    assert data["api_keys"][0]["last_four"] == "1234"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_me_unauthenticated():
     """Test that an unauthenticated request returns a 401 error."""
     response = client.get("/users/me")

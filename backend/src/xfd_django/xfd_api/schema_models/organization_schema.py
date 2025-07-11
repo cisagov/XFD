@@ -15,21 +15,21 @@ class Organization(BaseModel):
     """Organization schema reflecting model."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     acronym: Optional[str]
     name: str
-    rootDomains: List[str]
-    ipBlocks: List[str]
-    isPassive: bool
-    pendingDomains: Optional[List[dict]]
+    root_domains: List[str]
+    ip_blocks: List[str]
+    is_passive: bool
+    pending_domains: Optional[List[dict]]
     country: Optional[str]
     state: Optional[str]
-    regionId: Optional[str]
-    stateFips: Optional[int]
-    stateName: Optional[str]
+    region_id: Optional[str]
+    state_fips: Optional[int]
+    state_name: Optional[str]
     county: Optional[str]
-    countyFips: Optional[int]
+    county_fips: Optional[int]
     type: Optional[str]
 
 
@@ -46,8 +46,8 @@ class TagSchema(BaseModel):
     """Tag schema."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     name: str
 
 
@@ -69,16 +69,16 @@ class GranularScanSchema(BaseModel):
     """Granular task schema."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     name: str
     arguments: Any
     frequency: int
-    lastRun: Optional[datetime]
-    isGranular: bool
-    isUserModifiable: Optional[bool]
-    isSingleScan: bool
-    manualRunPending: bool
+    last_run: Optional[datetime]
+    is_granular: bool
+    is_user_modifiable: Optional[bool]
+    is_single_scan: bool
+    manual_run_pending: bool
     tags: Optional[List[OrganizationalTags]] = []
     organizations: Optional[List[Organization]] = []
 
@@ -87,7 +87,7 @@ class ScanTaskSchema(BaseModel):
     """Scan task schema."""
 
     id: UUID
-    createdAt: datetime
+    created_at: datetime
     scan: SimpleScanSchema
 
 
@@ -95,23 +95,23 @@ class GetOrganizationSchema(BaseModel):
     """Schema for listing an organization."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     acronym: Optional[str] = None
     name: str
-    rootDomains: List[str]
-    ipBlocks: List[str]
-    isPassive: bool
-    pendingDomains: Optional[Any] = []
+    root_domains: Optional[Any] = None
+    ip_blocks: Optional[Any] = None
+    is_passive: Optional[bool]
+    pending_domains: Optional[Any] = []
     country: Optional[str] = None
     state: Optional[str] = None
-    regionId: Optional[str] = None
-    stateFips: Optional[int] = None
-    stateName: Optional[str] = None
+    region_id: Optional[str] = None
+    state_fips: Optional[int] = None
+    state_name: Optional[str] = None
     county: Optional[str] = None
-    countyFips: Optional[int] = None
+    county_fips: Optional[int] = None
     type: Optional[str] = None
-    userRoles: Optional[List[UserRoleSchema]] = []
+    user_roles: Optional[List[UserRoleSchema]] = []
     tags: Optional[List[TagSchema]] = []
 
 
@@ -119,29 +119,29 @@ class GetSingleOrganizationSchema(BaseModel):
     """Schema for listing an organization."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     acronym: Optional[str]
     name: str
-    rootDomains: List[str]
-    ipBlocks: List[str]
-    isPassive: bool
-    createdBy: Optional[Any] = {}
-    pendingDomains: Optional[Any] = []
+    root_domains: List[str]
+    ip_blocks: List[str]
+    is_passive: bool
+    created_by: Optional[Any] = {}
+    pending_domains: Optional[Any] = []
     country: Optional[str] = None
     state: Optional[str] = None
-    regionId: Optional[str] = None
-    stateFips: Optional[int] = None
-    stateName: Optional[str] = None
+    region_id: Optional[str] = None
+    state_fips: Optional[int] = None
+    state_name: Optional[str] = None
     county: Optional[str] = None
-    countyFips: Optional[int] = None
+    county_fips: Optional[int] = None
     type: Optional[str] = None
-    userRoles: Optional[List[UserRoleSchema]] = []
+    user_roles: Optional[List[UserRoleSchema]] = []
     tags: Optional[List[TagSchema]] = []
     parent: Optional[Any] = {}
     children: Optional[Any] = {}
-    granularScans: Optional[List[GranularScanSchema]] = []
-    scanTasks: Optional[List[ScanTaskSchema]] = []
+    granular_scans: Optional[List[GranularScanSchema]] = []
+    scan_tasks: Optional[List[ScanTaskSchema]] = []
 
 
 class NewTag(BaseModel):
@@ -155,17 +155,17 @@ class NewOrganization(BaseModel):
 
     acronym: Optional[str]
     name: str
-    rootDomains: List[str]
-    ipBlocks: List[str]
-    isPassive: bool
-    pendingDomains: Optional[Any] = []
+    root_domains: List[str]
+    ip_blocks: List[str]
+    is_passive: bool
+    pending_domains: Optional[Any] = []
     country: Optional[str] = None
     state: Optional[str] = None
-    regionId: Optional[str] = None
-    stateFips: Optional[int] = None
-    stateName: Optional[str] = None
+    region_id: Optional[str] = None
+    state_fips: Optional[int] = None
+    state_name: Optional[str] = None
     county: Optional[str] = None
-    countyFips: Optional[int] = None
+    county_fips: Optional[int] = None
     type: Optional[str] = None
     parent: Optional[str] = None
     tags: Optional[List[NewTag]] = None
@@ -174,7 +174,7 @@ class NewOrganization(BaseModel):
 class NewOrgUser(BaseModel):
     """Add a user to organization schema."""
 
-    userId: str
+    user_id: str
     role: str
 
 
@@ -187,7 +187,7 @@ class NewOrgScan(BaseModel):
 class RegionSchema(BaseModel):
     """Update an organization scan schema."""
 
-    regionId: str
+    region_id: str
 
 
 class GenericMessageResponseModel(BaseModel):
@@ -209,14 +209,14 @@ class DeleteUserResponseModel(BaseModel):
 
     status: str
     message: str
-    userDeleted: Any
+    user_deleted: Any
 
 
 class OrganizationSearchBody(BaseModel):
     """Elastic search orgnaization model."""
 
     regions: Optional[List[str]]
-    searchTerm: str
+    search_term: str
 
 
 class FilterSchema(BaseModel):

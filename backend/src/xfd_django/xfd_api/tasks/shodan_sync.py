@@ -1,15 +1,18 @@
-"""ShodanSync scan."""
+"""Updated Shodan Sync scan hitting new FastAPI endpoint."""
 # Standard Python Libraries
+import datetime
+import hashlib
+import json
+import logging
 import os
-import time
+from urllib.parse import urljoin
 
 # Third-Party Libraries
 import django
-from django.conf import settings
 from django.utils import timezone
 import requests
 from xfd_api.helpers.date_time_helpers import calculate_days_back
-from xfd_mini_dl.models import DataSource, Organization, ShodanAssets, ShodanVulns
+from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -17,231 +20,227 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Constants
-MAX_RETRIES = 3  # Max retries for failed tasks
-TIMEOUT = 60  # Timeout in seconds for waiting on task completion
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+LOGGER = logging.getLogger(__name__)
+SALT = os.getenv("CHECKSUM_SALT", "default_salt")
+HEADERS = {
+    "X-API-KEY": os.getenv("DMZ_API_KEY"),
+    "Content-Type": "application/json",
+}
+# Assume DMZ_SYNC_ENDPOINT is something like 'https://api.staging-cd.crossfeed.cyber.dhs.gov/sync'
+base_url = os.getenv("DMZ_SYNC_ENDPOINT", "").rstrip("/")
 
-headers = settings.DMZ_API_HEADER
+# Replace the final segment `/sync` with `/dmz_sync/shodan_sync`
+if base_url.endswith("/sync"):
+    api_url = base_url.rsplit("/", 1)[0] + "/dmz_sync/shodan_sync"
+else:
+    api_url = urljoin(base_url + "/", "dmz_sync/shodan_sync")
+API_URL = api_url
 
 
-def handler(event):
-    """Retrieve and save shodan vulnerabilities and assets from the DMZ."""
+def handler(command_options):
+    """Retrieve and save Shodan assets/vulns from commercial via sync."""
     try:
-        main()
-        return {
-            "statusCode": 200,
-            "body": "DMZ Shodan Vulnerabilities and Asset sync completed successfully.",
-        }
-    except Exception as e:
-        return {"statusCode": 500, "body": str(e)}
+        organization_name = command_options.get("organizationName")
+        organization_id = command_options.get("organizationId")
+        if not organization_name or not organization_id:
+            return {"statusCode": 400, "body": "Organization name or id not provided."}
 
+        orgs_to_sync = Organization.objects.filter(id=organization_id)
+        if not orgs_to_sync.exists():
+            return {"statusCode": 500, "body": "Organization not found."}
+        organization = orgs_to_sync.first()
 
-def main():
-    """Fetch and save DMZ Shodan vulnerabilities and assets."""
-    try:
-        all_orgs = Organization.objects.all()
-        # all_orgs = Organization.objects.filter(acronym__in=['USAGM', 'DHS'])
+        LOGGER.info("Running Shodan Sync on organization: %s", organization_name)
 
-        shodan_datasource, created = DataSource.objects.get_or_create(
+        shodan_datasource, _ = DataSource.objects.get_or_create(
             name="Shodan",
             defaults={
-                "description": "Scans the internet for publicly accessible devices, concentrating on SCADA (supervisory control and data acquisition) systems.",
-                "last_run": timezone.now().date(),  # Sets the current date and time
+                "description": "Shodan is the world's first search engine for Internet-connected devices.",
+                "last_run": timezone.now().date(),
             },
         )
 
-        since_timestamp_str = calculate_days_back(15)
+        since_date = calculate_days_back(15)
 
-        for org in all_orgs:
-            print(
-                "Processing organization: {acronym}, {name}".format(
-                    acronym=org.acronym, name=org.name
-                )
+        page = 1
+        per_page = 200
+        done = False
+
+        while not done:
+            payload = {
+                "acronym": organization.acronym,
+                "page": page,
+                "page_size": per_page,
+                "since_date": since_date,
+            }
+
+            response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=60)
+            response.raise_for_status()
+            # Validate checksum by passing the response object
+            is_valid = validate_response_checksum(response)
+
+            if is_valid:
+                LOGGER.info("Checksum is valid!")
+            else:
+                LOGGER.error("Checksum validation failed!")
+                return {"statusCode": 500, "body": "Checksum validation failed!"}
+
+            body = response.json()
+
+            if body.get("status") != "ok":
+                raise Exception("Shodan sync returned non-ok status: {}".format(body))
+
+            result = body.get("payload", {})
+            total_pages = result.get("total_pages", 1)
+            current_page = result.get("current_page", 1)
+            assets = result.get("data", {}).get("shodan_assets", [])
+            vulns = result.get("data", {}).get("shodan_vulns", [])
+
+            LOGGER.info(
+                "Syncing page %s of %s: %s assets, %s vulns",
+                current_page,
+                total_pages,
+                len(assets),
+                len(vulns),
             )
-            done = False
-            page = 1
-            total_pages = 2
-            per_page = 200
-            retry_count = 0
+            save_findings_to_db(assets, vulns, organization, shodan_datasource)
 
-            while not done:
-                data = fetch_dmz_shodan_task(
-                    org.acronym, page, per_page, since_timestamp_str
-                )
-                print(data)
-                if not data or data.get("status") != "Processing":
-                    print(
-                        "Failed to start Shodan Sync task for org: {acronym}, {name}".format(
-                            acronym=org.acronym, name=org.name
-                        )
-                    )
+            if current_page >= total_pages:
+                done = True
+            else:
+                page += 1
 
-                    retry_count += 1
+        return {"statusCode": 200, "body": "Shodan sync completed successfully."}
 
-                    if retry_count >= MAX_RETRIES:
-                        print(
-                            "Max retries reached for org: {acronym}. Moving to next organization.".format(
-                                acronym=org.acronym
-                            )
-                        )
-                        break  # Skip to next organization
-
-                    time.sleep(5)
-                    continue
-
-                response = fetch_dmz_shodan_data(data.get("task_id", None))
-
-                while response and response.get("status") == "Pending":
-                    time.sleep(1)
-                    response = fetch_dmz_shodan_data(data.get("task_id", None))
-
-                if response and response.get("status") == "Completed":
-                    shodan_asset_array = (
-                        response.get("result", {})
-                        .get("data", {})
-                        .get("shodan_assets", [])
-                    )
-                    shodan_vuln_array = (
-                        response.get("result", {})
-                        .get("data", {})
-                        .get("shodan_vulns", [])
-                    )
-                    total_pages = response.get("result", {}).get("total_pages", 1)
-                    current_page = response.get("result", {}).get("current_page", 1)
-                    print("vulns")
-                    print(shodan_vuln_array)
-                    print("assets")
-                    print(shodan_asset_array)
-                    save_findings_to_db(
-                        shodan_asset_array, shodan_vuln_array, org, shodan_datasource
-                    )
-
-                    if current_page >= total_pages:
-                        done = True
-                    page += 1
-                else:
-                    raise Exception(
-                        "Task error: {error} - Status: {status}".format(
-                            error=response.get("error"), status=response.get("status")
-                        )
-                    )
     except Exception as e:
-        print("Scan failed to complete: {error}".format(error=e))
-
-
-def fetch_dmz_shodan_task(org_acronym, page, per_page, since_timestamp):
-    """Fetch shodan task id."""
-    print(
-        "Fetching shodan vulnerability and asset task for organization: {acronym}".format(
-            acronym=org_acronym
-        )
-    )
-
-    data = {
-        "org_acronym": org_acronym,
-        "page": page,
-        "per_page": per_page,
-        "since_timestamp": since_timestamp,
-    }
-
-    try:
-        response = requests.post(
-            "https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/get_mdl_shodan_data",
-            headers=headers,
-            json=data,
-            timeout=20,  # Timeout in seconds
-        )
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ task: {error}".format(error=e))
-        return None
-
-
-def fetch_dmz_shodan_data(task_id):
-    """Fetch DMZ Shodan vulnerability and asset data for a task."""
-    url = "https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/get_mdl_shodan_data/task/{t_id}".format(
-        t_id=task_id
-    )
-
-    try:
-        response = requests.get(url, headers=headers, timeout=20)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ Shodan data: {error}".format(error=e))
-        return None
+        LOGGER.error(e)
+        return {"statusCode": 500, "body": str(e)}
 
 
 def save_findings_to_db(shodan_asset_array, shodan_vuln_array, org, data_source):
     """Save Shodan assets and vulns data to the mini datalake using Django ORM."""
-    if shodan_asset_array:
-        for asset in shodan_asset_array:
-            try:
-                ShodanAssets.objects.update_or_create(
-                    timestamp=asset.get("timestamp"),
-                    ip=asset.get("ip"),
-                    port=asset.get("port"),
-                    protocol=asset.get("protocol"),
-                    organization=org,
-                    defaults={
-                        "organization_name": asset.get("organization_name"),
-                        "product": asset.get("product"),
-                        "server": asset.get("server"),
-                        "tags": asset.get("tags"),
-                        "domains": asset.get("domains"),
-                        "hostnames": asset.get("hostnames"),
-                        "isp": asset.get("isp"),
-                        "asn": asset.get("asn"),
-                        "country_code": asset.get("country_code"),
-                        "location": asset.get("location"),
-                        "data_source": data_source,
-                    },
-                )
-            except Exception as e:
-                print("Error saving Shodan Asset: {error}".format(error=e))
+    for asset in shodan_asset_array:
+        create_default = {
+            "ip": asset.get("ip_string"),
+            "organization": org,
+            "has_shodan_results": True,
+            "current": True,
+            "last_seen_timestamp": datetime.datetime.now(datetime.timezone.utc),
+        }
+        ip_hash = hashlib.sha256(create_default.get("ip").encode("utf-8")).hexdigest()
+        create_default["ip_hash"] = ip_hash
+        ip_object, created = Ip.objects.get_or_create(
+            ip=create_default.get("ip"),
+            organization=create_default.get("organization"),
+            defaults=create_default,
+        )
+        try:
+            ShodanAssets.objects.update_or_create(
+                timestamp=asset.get("timestamp"),
+                ip=ip_object,
+                port=asset.get("port"),
+                protocol=asset.get("protocol"),
+                organization=org,
+                defaults={
+                    "ip_string": asset.get("ip_string"),
+                    "organization_name": asset.get("organization_name"),
+                    "product": asset.get("product"),
+                    "server": asset.get("server"),
+                    "tags": asset.get("tags"),
+                    "domains": asset.get("domains"),
+                    "hostnames": asset.get("hostnames"),
+                    "isp": asset.get("isp"),
+                    "asn": asset.get("asn"),
+                    "country_code": asset.get("country_code"),
+                    "location": asset.get("location"),
+                    "data_source": data_source,
+                },
+            )
+        except Exception as e:
+            LOGGER.error("Error saving Shodan Asset: %s", e)
 
-    if shodan_vuln_array:
-        for asset in shodan_vuln_array:
-            try:
-                ShodanVulns.objects.update_or_create(
-                    timestamp=asset.get("timestamp"),
-                    ip=asset.get("ip"),
-                    port=asset.get("port"),
-                    protocol=asset.get("protocol"),
-                    organization=org,
-                    defaults={
-                        "organization_name": asset.get("organization_name"),
-                        "cve": asset.get("cve"),
-                        "severity": asset.get("severity"),
-                        "cvss": asset.get("cvss"),
-                        "summary": asset.get("summary"),
-                        "product": asset.get("product"),
-                        "attack_vector": asset.get("attack_vector"),
-                        "av_description": asset.get("av_description"),
-                        "attack_complexity": asset.get("attack_complexity"),
-                        "ac_description": asset.get("ac_description"),
-                        "confidentiality_impact": asset.get("confidentiality_impact"),
-                        "ci_description": asset.get("ci_description"),
-                        "integrity_impact": asset.get("integrity_impact"),
-                        "ii_description": asset.get("ii_description"),
-                        "availability_impact": asset.get("availability_impact"),
-                        "ai_description": asset.get("ai_description"),
-                        "tags": asset.get("tags"),
-                        "domains": asset.get("domains"),
-                        "hostnames": asset.get("hostnames"),
-                        "isp": asset.get("isp"),
-                        "asn": asset.get("asn"),
-                        "type": asset.get("type"),
-                        "name": asset.get("name"),
-                        "potential_vulns": asset.get("potential_vulns"),
-                        "mitigation": asset.get("mitigation"),
-                        "server": asset.get("server"),
-                        "is_verified": asset.get("is_verified"),
-                        "banner": asset.get("banner"),
-                        "version": asset.get("version"),
-                        "cpe": asset.get("cpe"),
-                        "data_source": data_source,
-                    },
-                )
-            except Exception as e:
-                print("Error saving Shodan Vuln: {error}".format(error=e))
+    for vuln in shodan_vuln_array:
+        create_default = {
+            "ip": vuln.get("ip_string"),
+            "organization": org,
+            "has_shodan_results": True,
+            "current": True,
+            "last_seen_timestamp": datetime.datetime.now(datetime.timezone.utc),
+        }
+        ip_hash = hashlib.sha256(create_default.get("ip").encode("utf-8")).hexdigest()
+        create_default["ip_hash"] = ip_hash
+        ip_object, created = Ip.objects.get_or_create(
+            ip=create_default.get("ip"),
+            organization=create_default.get("organization"),
+            defaults=create_default,
+        )
+        try:
+            ShodanVulns.objects.update_or_create(
+                timestamp=vuln.get("timestamp"),
+                ip=ip_object,
+                port=vuln.get("port"),
+                protocol=vuln.get("protocol"),
+                organization=org,
+                defaults={
+                    "ip_string": vuln.get("ip_string"),
+                    "organization_name": vuln.get("organization_name"),
+                    "cve": vuln.get("cve"),
+                    "severity": vuln.get("severity"),
+                    "cvss": vuln.get("cvss"),
+                    "summary": vuln.get("summary"),
+                    "product": vuln.get("product"),
+                    "attack_vector": vuln.get("attack_vector"),
+                    "av_description": vuln.get("av_description"),
+                    "attack_complexity": vuln.get("attack_complexity"),
+                    "ac_description": vuln.get("ac_description"),
+                    "confidentiality_impact": vuln.get("confidentiality_impact"),
+                    "ci_description": vuln.get("ci_description"),
+                    "integrity_impact": vuln.get("integrity_impact"),
+                    "ii_description": vuln.get("ii_description"),
+                    "availability_impact": vuln.get("availability_impact"),
+                    "ai_description": vuln.get("ai_description"),
+                    "tags": vuln.get("tags"),
+                    "domains": vuln.get("domains"),
+                    "hostnames": vuln.get("hostnames"),
+                    "isp": vuln.get("isp"),
+                    "asn": vuln.get("asn"),
+                    "type": vuln.get("type"),
+                    "name": vuln.get("name"),
+                    "potential_vulns": vuln.get("potential_vulns"),
+                    "mitigation": vuln.get("mitigation"),
+                    "server": vuln.get("server"),
+                    "is_verified": vuln.get("is_verified"),
+                    "banner": vuln.get("banner"),
+                    "version": vuln.get("version"),
+                    "cpe": vuln.get("cpe"),
+                    "data_source": data_source,
+                },
+            )
+        except Exception as e:
+            LOGGER.error("Error saving Shodan Vuln: %s", e)
+
+
+def validate_response_checksum(response):
+    """Validate the checksum from an API response."""
+    try:
+        # Extract response JSON
+        response_data = response.json()
+
+        # Extract checksum from response headers
+        received_checksum = response.headers.get("X-Salted-Checksum")
+        if not received_checksum:
+            LOGGER.warning("No checksum found in headers!")
+            return False
+
+        # Recompute the checksum
+        response_serialized = json.dumps(response_data, default=str, sort_keys=True)
+        calculated_checksum = hashlib.sha256(
+            (SALT + response_serialized).encode()
+        ).hexdigest()
+
+        return received_checksum == calculated_checksum
+
+    except Exception as e:
+        LOGGER.error("Error validating checksum: %s", e)
+        return False

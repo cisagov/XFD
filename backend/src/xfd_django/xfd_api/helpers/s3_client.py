@@ -36,6 +36,17 @@ class S3Client:
                 ),
             )
 
+    def get_xpanse_business_units(self):
+        """Retrieve CSV File from S3. Returns the file contents (as bytes)."""
+        bucket_name = os.getenv("XPANSE_ORG_SYNC_BUCKET_NAME")
+        response = self.s3.list_objects_v2(Bucket=bucket_name)
+        contents = response.get("Contents", [])
+        most_recent = max(contents, key=lambda obj: obj["LastModified"])
+        key = most_recent["Key"]
+        obj = self.s3.get_object(Bucket=bucket_name, Key=key)
+        file_contents = obj["Body"].read().decode("utf-8")  # This will be bytes
+        return file_contents
+
     def save_csv(self, body, name=""):
         """Save a CSV file in S3 and returns a temporary URL for access."""
         try:
@@ -54,12 +65,8 @@ class S3Client:
             )
 
             # Generate signed URL
-            url = self.s3.generate_presigned_url(
-                ClientMethod="get_object",
-                Params={"Bucket": bucket, "Key": key},
-                ExpiresIn=60 * 5,
-            )
-            return url.replace("minio:9000", "localhost:9000") if self.is_local else url
+            url = self.get_presigned_url(bucket_name=bucket, object_key=key)
+            return url
         except ClientError as e:
             print("Error saving CSV to S3: %s", e)
             raise
@@ -70,12 +77,9 @@ class S3Client:
             key = "{}/{}".format(org_id, report_name)
             bucket = os.getenv("REPORTS_BUCKET_NAME")
 
-            url = self.s3.generate_presigned_url(
-                ClientMethod="get_object",
-                Params={"Bucket": bucket, "Key": key},
-                ExpiresIn=60 * 5,
-            )
-            return url.replace("minio:9000", "localhost:9000") if self.is_local else url
+            # Generate signed URL
+            url = self.get_presigned_url(bucket_name=bucket, object_key=key)
+            return url
         except ClientError as e:
             print("Error exporting report from S3: %s", e)
             raise
@@ -128,3 +132,24 @@ class S3Client:
         except ClientError as e:
             print("Error retrieving email asset from S3: %s", e)
             raise
+
+    def get_presigned_url(self, bucket_name, object_key, expiration=60 * 5):
+        """Get Presigned URL from s3.
+
+        Args:
+            bucket_name (_str_): S3 bucket name
+            object_key (_str_): S3 object key
+            expiration (_int): URL expiration in seconds
+
+        Returns:
+            _str_: S3 presigned url string
+        """
+        url = self.s3.generate_presigned_url(
+            ClientMethod="get_object",
+            Params={"Bucket": bucket_name, "Key": object_key},
+            ExpiresIn=expiration,
+        )
+        if self.is_local:
+            url = url.replace("minio:9000", "localhost:9000")
+
+        return url

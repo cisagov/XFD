@@ -8,8 +8,8 @@ import uuid
 
 # Third-Party Libraries
 from fastapi import HTTPException, status
-from xfd_api.models import ApiKey
 from xfd_api.schema_models.api_key import ApiKey as ApiKeySchema
+from xfd_mini_dl.models import ApiKey
 
 from ..auth import is_global_view_admin
 
@@ -29,16 +29,16 @@ def post(current_user):
     # Create ApiKey instance in the database
     api_key_instance = ApiKey.objects.create(
         id=uuid.uuid4(),
-        hashedKey=hashed_key,
-        lastFour=key[-4:],
+        hashed_key=hashed_key,
+        last_four=key[-4:],
         user=current_user,
-        createdAt=datetime.utcnow(),
-        updatedAt=datetime.utcnow(),
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
     )
 
     # Convert the Django model instance to Pydantic, excluding fields like hashedKey and user
     validated_data = ApiKeySchema.model_validate(api_key_instance).model_dump(
-        exclude={"hashedKey", "user"}
+        exclude={"hashed_key", "user"}
     )
 
     # Add the actual API key to the response for initial display to the user
@@ -87,7 +87,7 @@ def get_all(current_user):
         # Return schema validated response
         validated_response = [
             ApiKeySchema.model_validate(item).model_dump(
-                exclude={"hashedKey", "userId"}
+                exclude={"hashed_key", "user_id"}
             )
             for item in api_keys
         ]
@@ -116,7 +116,7 @@ def get_by_id(api_key_id, current_user):
 
         # Return validated output
         return ApiKeySchema.model_validate(obj=api_key).model_dump(
-            exclude={"hashedKey", "userId"}
+            exclude={"hashed_key", "user_id"}
         )
 
     except HTTPException as http_exc:

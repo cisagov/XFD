@@ -36,92 +36,121 @@ class ECSClient:
 
     def run_command(self, command_options):
         """Launch an ECS task or Docker container with the given command options."""
-        scan_id = command_options["scanId"]
         scan_name = command_options["scanName"]
-        num_chunks = command_options.get("numChunks")
-        chunk_number = command_options.get("chunkNumber")
         scan_schema = SCAN_SCHEMA.get(scan_name, {})
         cpu = getattr(scan_schema, "cpu", None)
         memory = getattr(scan_schema, "memory", None)
         global_scan = getattr(scan_schema, "global_scan", False)
-        # These properties are not specified when creating a ScanTask (as a single ScanTask
-        # can correspond to multiple organizations), but they are input into the the
-        # specific task function that runs per organization.
-        organization_id = command_options.get("organizationId")
-        organization_name = command_options.get("organizationName")
+        count = command_options.get("count", 1)  # Number of containers to launch
 
         if self.is_local:
-            # Run the command in a local Docker container
-            try:
-                container_name = to_snake_case(
-                    "crossfeed_worker_{global_str}_{organization}_{scan}_{random}".format(
-                        global_str="global" if global_scan else organization_name,
-                        organization=organization_name,
-                        scan=scan_name,
-                        random=int(os.urandom(4).hex(), 16),
+            print("In the local part of ecs run_command")
+            tasks = []
+            for i in range(count):
+                try:
+                    container_name = to_snake_case(
+                        "crossfeed_worker_{global_str}_{scan}_{random}".format(
+                            global_str="global" if global_scan else "local",
+                            scan=scan_name,
+                            random=int(os.urandom(4).hex(), 16),
+                        )
                     )
-                )
-                container = self.docker.containers.run(
-                    "crossfeed-worker",
-                    name=container_name,
-                    network_mode="xfd_backend",
-                    mem_limit="4g",
-                    environment={
-                        "CROSSFEED_COMMAND_OPTIONS": json.dumps(command_options),
-                        "CF_API_KEY": os.getenv("CF_API_KEY"),
-                        "PE_API_KEY": os.getenv("PE_API_KEY"),
-                        "DB_DIALECT": os.getenv("DB_DIALECT"),
-                        "DB_HOST": os.getenv("DB_HOST"),
-                        "IS_LOCAL": "true",
-                        "DB_PORT": os.getenv("DB_PORT"),
-                        "DB_NAME": os.getenv("DB_NAME"),
-                        "DB_USERNAME": os.getenv("DB_USERNAME"),
-                        "DB_PASSWORD": os.getenv("DB_PASSWORD"),
-                        "MDL_NAME": os.getenv("MDL_NAME"),
-                        "MDL_USERNAME": os.getenv("MDL_USERNAME"),
-                        "MDL_PASSWORD": os.getenv("MDL_PASSWORD"),
-                        "MI_ACCOUNT_NAME": os.getenv("MI_ACCOUNT_NAME"),
-                        "MI_PASSWORD": os.getenv("MI_PASSWORD"),
-                        "PE_DB_NAME": os.getenv("PE_DB_NAME"),
-                        "PE_DB_USERNAME": os.getenv("PE_DB_USERNAME"),
-                        "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD"),
-                        "CENSYS_API_ID": os.getenv("CENSYS_API_ID"),
-                        "CENSYS_API_SECRET": os.getenv("CENSYS_API_SECRET"),
-                        "WORKER_USER_AGENT": os.getenv("WORKER_USER_AGENT"),
-                        "SHODAN_API_KEY": os.getenv("SHODAN_API_KEY"),
-                        "SIXGILL_CLIENT_ID": os.getenv("SIXGILL_CLIENT_ID"),
-                        "SIXGILL_CLIENT_SECRET": os.getenv("SIXGILL_CLIENT_SECRET"),
-                        "PE_SHODAN_API_KEYS": os.getenv("PE_SHODAN_API_KEYS"),
-                        "WORKER_SIGNATURE_PUBLIC_KEY": os.getenv(
-                            "WORKER_SIGNATURE_PUBLIC_KEY"
-                        ),
-                        "WORKER_SIGNATURE_PRIVATE_KEY": os.getenv(
-                            "WORKER_SIGNATURE_PRIVATE_KEY"
-                        ),
-                        "ELASTICSEARCH_ENDPOINT": os.getenv("ELASTICSEARCH_ENDPOINT"),
-                        "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID"),
-                        "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
-                        "LG_API_KEY": os.getenv("LG_API_KEY"),
-                        "LG_WORKSPACE_NAME": os.getenv("LG_WORKSPACE_NAME"),
-                    },
-                    detach=True,
-                )
-                return {"tasks": [{"taskArn": container.name}], "failures": []}
-            except Exception as e:
-                print(e)
-                return {"tasks": [], "failures": [{}]}
+                    container = self.docker.containers.run(
+                        "crossfeed-worker",
+                        name=container_name,
+                        network_mode="backend",
+                        mem_limit="4g",
+                        environment={
+                            "CROSSFEED_COMMAND_OPTIONS": json.dumps(command_options),
+                            "CF_API_KEY": os.getenv("CF_API_KEY"),
+                            "CHECKSUM_SALT": os.getenv("CHECKSUM_SALT"),
+                            "PE_API_KEY": os.getenv("PE_API_KEY"),
+                            "DB_DIALECT": os.getenv("DB_DIALECT"),
+                            "DB_HOST": os.getenv("DB_HOST"),
+                            "INTELX_KEY": os.getenv("INTELX_KEY"),
+                            "IS_LOCAL": "true",
+                            "IS_DMZ": os.getenv("IS_DMZ"),
+                            "DB_PORT": os.getenv("DB_PORT"),
+                            "DB_NAME": os.getenv("DB_NAME"),
+                            "DB_USERNAME": os.getenv("DB_USERNAME"),
+                            "DB_PASSWORD": os.getenv("DB_PASSWORD"),
+                            "MDL_NAME": os.getenv("MDL_NAME"),
+                            "MDL_SECONDARY_NAME": os.getenv("MDL_SECONDARY_NAME"),
+                            "MDL_USERNAME": os.getenv("MDL_USERNAME"),
+                            "MDL_PASSWORD": os.getenv("MDL_PASSWORD"),
+                            "NIST_API_KEY": os.getenv("NIST_API_KEY"),
+                            "PE_DB_NAME": os.getenv("PE_DB_NAME"),
+                            "PE_DB_USERNAME": os.getenv("PE_DB_USERNAME"),
+                            "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD"),
+                            "CENSYS_API_ID": os.getenv("CENSYS_API_ID"),
+                            "CENSYS_API_SECRET": os.getenv("CENSYS_API_SECRET"),
+                            "WORKER_USER_AGENT": os.getenv("WORKER_USER_AGENT"),
+                            "SHODAN_API_KEY": command_options["SHODAN_API_KEY"],
+                            "PE_SHODAN_API_KEYS": os.getenv("PE_SHODAN_API_KEYS"),
+                            "WHOIS_XML_KEY": os.getenv("WHOIS_XML_KEY"),
+                            "WHOIS_XML_THREAD_COUNT": os.getenv(
+                                "WHOIS_XML_THREAD_COUNT"
+                            ),
+                            "WORKER_SIGNATURE_PUBLIC_KEY": os.getenv(
+                                "WORKER_SIGNATURE_PUBLIC_KEY"
+                            ),
+                            "WORKER_SIGNATURE_PRIVATE_KEY": os.getenv(
+                                "WORKER_SIGNATURE_PRIVATE_KEY"
+                            ),
+                            "ELASTICSEARCH_ENDPOINT": os.getenv(
+                                "ELASTICSEARCH_ENDPOINT"
+                            ),
+                            "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID"),
+                            "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
+                            "LG_API_KEY": os.getenv("LG_API_KEY"),
+                            "LG_WORKSPACE_NAME": os.getenv("LG_WORKSPACE_NAME"),
+                            "QUEUE_URL": os.getenv("QUEUE_URL", ""),
+                            "XPANSE_ORG_SYNC_BUCKET_NAME": os.getenv(
+                                "XPANSE_ORG_SYNC_BUCKET_NAME"
+                            ),
+                            "XPANSE_API_KEY": os.getenv("XPANSE_API_KEY"),
+                            "XPANSE_AUTH_ID": os.getenv("XPANSE_AUTH_ID"),
+                            "SERVICE_QUEUE_URL": os.getenv("QUEUE_URL", ""),
+                            "DMZ_SYNC_ENDPOINT": os.getenv("DMZ_SYNC_ENDPOINT", ""),
+                            "DMZ_API_KEY": os.getenv("DMZ_API_KEY", ""),
+                            "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "90"),
+                        },
+                        detach=True,
+                    )
+                    tasks.append({"taskArn": container.name})
+                    print("Started local container: {}".format(container_name))
+                except Exception as e:
+                    print("Error starting local container {}: {}".format(i, e))
+                    return {"tasks": tasks, "failures": [{"error": str(e)}]}
+            return {"tasks": tasks, "failures": []}
 
-        # Run the command on ECS
-        tags = [
-            {"key": "scanId", "value": scan_id},
-            {"key": "scanName", "value": scan_name},
+        # Run the command on ECS (non-local)
+        container_env = [
+            {
+                "name": "CROSSFEED_COMMAND_OPTIONS",
+                "value": json.dumps(command_options),
+            },
+            {"name": "SERVICE_TYPE", "value": scan_name},
+            {
+                "name": "SERVICE_QUEUE_URL",
+                "value": command_options.get("SERVICE_QUEUE_URL"),
+            },
+            {
+                "name": "NODE_OPTIONS",
+                "value": "--max_old_space_size={}".format(memory) if memory else "",
+            },
+            {
+                "name": "SHODAN_API_KEY",
+                "value": command_options.get("SHODAN_API_KEY") or "",
+            },
         ]
-        if organization_name and organization_id:
-            tags.append({"key": "organizationId", "value": organization_id})
-            tags.append({"key": "organizationName", "value": organization_name})
-        if num_chunks is not None and chunk_number is not None:
-            tags.append({"key": "numChunks", "value": str(num_chunks)})
-            tags.append({"key": "chunkNumber", "value": str(chunk_number)})
+
+        # Conditionally add NO_PROXY
+        if os.getenv("IS_DMZ") == "0":
+            container_env.append(
+                {"name": "HTTPS_PROXY", "value": os.getenv("LZ_PROXY_URL")}
+            )
+            print("Adding the HTTPS_PROXY")
 
         response = self.ecs.run_task(
             cluster=os.getenv("FARGATE_CLUSTER_NAME"),
@@ -135,24 +164,14 @@ class ECSClient:
             },
             platformVersion="1.4.0",
             launchType="FARGATE",
+            count=count,  # Pass the count here
             overrides={
                 "cpu": cpu,
                 "memory": memory,
                 "containerOverrides": [
                     {
-                        "name": "main",  # Name from task definition
-                        "environment": [
-                            {
-                                "name": "CROSSFEED_COMMAND_OPTIONS",
-                                "value": json.dumps(command_options),
-                            },
-                            {
-                                "name": "NODE_OPTIONS",
-                                "value": "--max_old_space_size={}".format(memory)
-                                if memory
-                                else "",
-                            },
-                        ],
+                        "name": "main",
+                        "environment": container_env,
                     }
                 ],
             },

@@ -3,7 +3,8 @@
 # Third-Party Libraries
 from fastapi import HTTPException
 
-from ..models import Cpe
+# from xfd_api.schema_models import Cpe
+from xfd_mini_dl.models import Cpe
 
 
 def get_cpes_by_id(cpe_id):

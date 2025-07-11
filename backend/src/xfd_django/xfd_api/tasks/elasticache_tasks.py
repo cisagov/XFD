@@ -6,7 +6,7 @@ import os
 # Third-Party Libraries
 import django
 from django.conf import settings
-from django.db.models import CharField, Count, F, Q, Value
+from django.db.models import CharField, Count, F, Value
 from django.db.models.functions import Concat
 import redis
 
@@ -19,7 +19,7 @@ django.setup()
 
 # Third-Party Libraries
 from xfd_api.helpers.stats_helpers import populate_stats_cache
-from xfd_api.models import Service, Vulnerability
+from xfd_mini_dl.models import Service, Vulnerability
 
 
 def populate_services_cache(event, context):
@@ -91,11 +91,8 @@ def populate_latest_vulns_cache(event, context):
                 domain__isnull=False,
                 domain__organization__isnull=False,
             )
-            .filter(
-                Q(domain__isFceb=True) | Q(domain__fromCidr=True)  # Apply OR condition
-            )
             .select_related("domain", "domain__organization")
-            .order_by("createdAt")
+            .order_by("created_at")
         )
 
         # Organize vulnerabilities by organization
@@ -103,7 +100,7 @@ def populate_latest_vulns_cache(event, context):
         for vuln in vulnerabilities:
             org_id = str(vuln.domain.organization.id)  # Organization ID
             vuln_data = {
-                "createdAt": vuln.createdAt.isoformat(),
+                "created_at": vuln.created_at.isoformat(),
                 "title": vuln.title,
                 "description": vuln.description,
                 "severity": vuln.severity,
@@ -148,9 +145,6 @@ def populate_most_common_vulns_cache(event, context):
                 state="open",  # Only open vulnerabilities
                 domain__isnull=False,
                 domain__organization__isnull=False,
-            )
-            .filter(
-                Q(domain__isFceb=True) | Q(domain__fromCidr=True)  # Apply OR condition
             )
             .values("title", "description", "severity", "domain__organization_id")
             .annotate(count=Count("id"))
@@ -226,9 +220,6 @@ def populate_by_org_cache(event, context):
                 state="open",
                 domain__isnull=False,
                 domain__organization__isnull=False,
-            )
-            .filter(
-                Q(domain__isFceb=True) | Q(domain__fromCidr=True)  # Apply OR condition
             )
             .values("domain__organization__id", "domain__organization__name")
             .annotate(value=Count("id"))

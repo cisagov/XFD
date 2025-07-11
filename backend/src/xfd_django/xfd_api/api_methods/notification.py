@@ -5,8 +5,8 @@ import uuid
 
 # Third-Party Libraries
 from fastapi import HTTPException, status
-from xfd_api.models import Notification
 from xfd_api.schema_models.notification import Notification as NotificationSchema
+from xfd_mini_dl.models import Notification
 
 from ..auth import is_global_view_admin
 
@@ -116,19 +116,3 @@ def put(notification_id, notification_data, current_user):
     except Exception as error:
         print(error)
         raise HTTPException(status_code=500, detail=str(error))
-
-
-# TODO: Adding placeholder until we determine if we still need this.
-# def get_508_banner(current_user):
-#     """GET 508 banner."""
-
-#     # Remove logic if no longer needed or update to actual return object.
-#     try:
-#         # Get the 508 banner from the DB
-#         result = ""
-
-#         # Format/Return Banner
-#         return result
-
-#     except Exception as error:
-#         raise HTTPException(status_code=500, detail=str(error))

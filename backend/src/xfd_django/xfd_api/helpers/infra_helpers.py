@@ -1,5 +1,4 @@
 """Infra Ops helpers."""
-# File: xfd_api/utils/db_utils.py
 # Standard Python Libraries
 import os
 
@@ -7,6 +6,72 @@ import os
 from django.conf import settings
 from django.db import connections
 import pymysql  # type: ignore
+
+
+def create_readonly_user():
+    """Create a read-only user for both the default and mini_data_lake databases."""
+    # Skip user creation if running in the DMZ
+    is_dmz = os.getenv("IS_DMZ", "0") == "1"
+    if is_dmz:
+        print("IS_DMZ is set to 1. Skipping creation of the scanning user.")
+        return
+
+    user = os.getenv("READ_ONLY_DB_USER")
+    password = os.getenv("READ_ONLY_DB_PASSWORD")
+    if not user or not password:
+        print("READ_ONLY_DB_USER or READ_ONLY_DB_PASSWORD is not set.")
+        return
+
+    # Loop through both database aliases
+    for alias in ["default", "mini_data_lake"]:
+        db_name = settings.DATABASES[alias]["NAME"]
+        with connections[alias].cursor() as cursor:
+            try:
+                # Check if the user already exists
+                cursor.execute("SELECT 1 FROM pg_roles WHERE rolname = %s;", [user])
+                user_exists = cursor.fetchone() is not None
+
+                if not user_exists:
+                    # Create the role if it doesn't exist
+                    cursor.execute(
+                        "CREATE ROLE {} LOGIN PASSWORD %s;".format(user), [password]
+                    )
+                    print(
+                        "User '{}' created successfully in {} database.".format(
+                            user, alias
+                        )
+                    )
+                else:
+                    print(
+                        "User '{}' already exists in {} database. Skipping creation.".format(
+                            user, alias
+                        )
+                    )
+
+                # Grant read-only privileges on the specific database
+                cursor.execute(
+                    "GRANT CONNECT ON DATABASE {} TO {};".format(db_name, user)
+                )
+                cursor.execute("GRANT USAGE ON SCHEMA public TO {};".format(user))
+                cursor.execute(
+                    "GRANT SELECT ON ALL TABLES IN SCHEMA public TO {};".format(user)
+                )
+                cursor.execute(
+                    "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO {};".format(
+                        user
+                    )
+                )
+                print(
+                    "User '{}' configured successfully for {} database.".format(
+                        user, alias
+                    )
+                )
+            except Exception as e:
+                print(
+                    "Error creating or configuring scan user for {} database: {}".format(
+                        alias, e
+                    )
+                )
 
 
 def create_scan_user():

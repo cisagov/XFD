@@ -9,7 +9,7 @@ const Settings: React.FC = () => {
   return (
     <div className={classes.root}>
       <h1>My Account</h1>
-      <h2>Name: {user && user.fullName}</h2>
+      <h2>Name: {user && user.full_name}</h2>
       <h2>Email: {user && user.email}</h2>
       <h2>
         Member of:{' '}
@@ -19,7 +19,7 @@ const Settings: React.FC = () => {
             .map((role) => role.organization.name)
             .join(', ')}
       </h2>
-      <h2>Region: {user && user.regionId ? user.regionId : 'None'} </h2>
+      <h2>Region: {user && user.region_id ? user.region_id : 'None'} </h2>
       <Button type="button" onClick={logout}>
         Logout
       </Button>

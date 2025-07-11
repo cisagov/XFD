@@ -26,17 +26,17 @@ export interface Service {
   port: number;
   service: string;
   id: number;
-  lastSeen: string | null;
+  last_seen: string | null;
   banner: string | null;
-  censysMetadata: {
+  censys_metadata: {
     product: string;
     revision: string;
     description: string;
     version: string;
     manufacturer: string;
   } | null;
-  censysIpv4Results: any;
-  intrigueIdentResults: {
+  censys_ipv4_results: any;
+  intrigue_ident_results: {
     fingerprint: {
       type: string;
       vendor: string;
@@ -61,34 +61,34 @@ export interface Service {
       result?: boolean;
     }[];
   };
-  wappalyzerResults: WappalyzerResult[];
+  wappalyzer_results: WappalyzerResult[];
   products: Product[];
   productSource: string | null;
-  serviceSource: string | null;
+  service_source: string | null;
 }
 
 export interface Webpage {
   id: string;
-  createdAt: Date;
-  updatedAt: Date;
-  syncedAt: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  synced_at: Date | null;
   domain: Domain;
-  discoveredBy: Scan;
-  lastSeen: Date | null;
-  s3Key: string | null;
+  discovered_by: Scan;
+  last_seen: Date | null;
+  s3_key: string | null;
   url: string;
   status: number;
-  responseSize: number | null;
+  response_size: number | null;
 }
 
 export interface Vulnerability {
   id: string;
   domain: Domain;
-  createdAt: string;
-  lastSeen: string | null;
+  created_at: string;
+  last_seen: string | null;
   title: string;
   cve: string | null;
-  isKev?: string;
+  is_kev?: string;
   cwe: string | null;
   cpe: string | null;
   description: string;
@@ -96,7 +96,7 @@ export interface Vulnerability {
   severity: string | null;
   state: string;
   source: string;
-  structuredData: { [x: string]: any };
+  structured_data: { [x: string]: any };
   substate: string;
   notes: string;
   actions: {
@@ -105,8 +105,8 @@ export interface Vulnerability {
     substate?: string;
     value?: string;
     automatic: boolean;
-    userId: string | null;
-    userName: string | null;
+    user_id: string | null;
+    userName?: string | null;
     date: string;
   }[];
   references: {
@@ -122,20 +122,38 @@ export interface Domain {
   id: string;
   name: string;
   ip: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   screenshot: string | null;
   country: string | null;
   asn: string | null;
-  cloudHosted: boolean;
+  cloud_hosted: boolean;
   services: Service[];
   vulnerabilities: Vulnerability[];
   webpages: Webpage[];
   organization: Organization;
-  ssl: SSLInfo | null;
-  censysCertificatesResults: any;
-  fromRootDomain: string | null;
-  subdomainSource: string | null;
+  ssl?: SSLInfo | null;
+  censys_certificates_results: any;
+  from_root_domain: string | null;
+  subdomain_source: string | null;
+}
+
+export interface DomainSearchApiResponse {
+  id: string;
+  name: string;
+  ip: string;
+  created_at: string;
+  updated_at: string;
+  country: string | null;
+  cloud_hosted: boolean;
+  organization: {
+    id: string;
+    name: string;
+  };
+  ports_preview: string;
+  services_preview: string;
+  services_count: number;
+  vulnerabilities_count: number;
 }
 
 export interface SSLInfo {

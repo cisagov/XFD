@@ -4,8 +4,13 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install dependencies
+RUN pip install --upgrade pip setuptools wheel
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install the worker requirements for local development
+COPY worker/requirements.txt worker/requirements.txt
+RUN pip install --no-cache-dir -r worker/requirements.txt
 
 # Copy the FastAPI application
 COPY src/xfd_django .

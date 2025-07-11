@@ -3,7 +3,7 @@
 
 # Third-Party Libraries
 from django.db.models import Prefetch
-from xfd_api.models import Cidr, Domain, Organization
+from xfd_mini_dl.models import Cidr, Domain, Organization
 
 
 async def check_ip_in_cidr(ip: str, acronym: str) -> bool:

@@ -3,6 +3,7 @@
 import datetime
 import os
 import time
+from typing import Optional
 
 # Third-Party Libraries
 import django
@@ -28,11 +29,11 @@ def handler(event):
     try:
         main()
         return {
-            "statusCode": 200,
+            "status_code": 200,
             "body": "DMZ WAS Finding sync completed successfully.",
         }
     except Exception as e:
-        return {"statusCode": 500, "body": str(e)}
+        return {"status_code": 500, "body": str(e)}
 
 
 def main():
@@ -149,7 +150,7 @@ def fetch_dmz_was_finding_data(task_id):
         return None
 
 
-def convert_timestamp_to_date(timestamp: str) -> str | None:
+def convert_timestamp_to_date(timestamp: str) -> Optional[str]:
     """Convert an ISO 8601 timestamp to a date string in YYYY-MM-DD format."""
     try:
         date_object = datetime.datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")

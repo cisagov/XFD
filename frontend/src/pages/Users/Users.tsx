@@ -6,7 +6,8 @@ import {
   Paper,
   Typography,
   Stack,
-  Button
+  Button,
+  Tooltip
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import {
@@ -42,12 +43,24 @@ export interface ApiResponse {
   count: number;
   url?: string;
 }
+interface ApprovedBy {
+  id: string;
+  full_name: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  user_type: string;
+  region_id: string;
+  state: string;
+}
 
 interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
-  fullName: string;
+  full_name: string;
+  approved_by?: ApprovedBy | null;
+  date_approved?: string | null;
 }
 
 export const Users: React.FC = () => {
@@ -77,11 +90,11 @@ export const Users: React.FC = () => {
     try {
       const rows = await apiGet<UserType[]>(`/users`);
       rows.forEach((row) => {
-        row.lastLoggedInString = row.lastLoggedIn
-          ? format(new Date(row.lastLoggedIn), 'MM-dd-yyyy hh:mm a')
+        row.lastLoggedInString = row.last_logged_in
+          ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
           : 'None';
-        row.dateToUSigned = row.dateAcceptedTerms
-          ? format(new Date(row.dateAcceptedTerms), 'MM-dd-yyyy hh:mm a')
+        row.dateToUSigned = row.date_accepted_terms
+          ? format(new Date(row.date_accepted_terms), 'MM-dd-yyyy hh:mm a')
           : 'None';
         row.orgs = row.roles
           ? row.roles
@@ -89,7 +102,7 @@ export const Users: React.FC = () => {
               .map((role) => role.organization.name)
               .join(', ')
           : 'None';
-        row.fullName = `${row.firstName} ${row.lastName}`;
+        row.full_name = `${row.first_name} ${row.last_name}`;
       });
       setUsers(rows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
@@ -106,16 +119,63 @@ export const Users: React.FC = () => {
   }, [fetchUsers]);
 
   const userCols: GridColDef[] = [
-    { field: 'fullName', headerName: 'Name', minWidth: 100, flex: 1 },
+    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
     { field: 'email', headerName: 'Email', minWidth: 100, flex: 1.5 },
-    { field: 'regionId', headerName: 'Region', minWidth: 50, flex: 0.4 },
+    { field: 'region_id', headerName: 'Region', minWidth: 50, flex: 0.4 },
     {
       field: 'orgs',
       headerName: 'Organizations',
       minWidth: 100,
       flex: 1
     },
-    { field: 'userType', headerName: 'User Type', minWidth: 100, flex: 0.75 },
+    { field: 'user_type', headerName: 'User Type', minWidth: 100, flex: 0.75 },
+    {
+      field: 'date_approved',
+      headerName: 'Approval Date',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (params: GridRenderCellParams) => {
+        const dateApproved = params.row?.date_approved;
+        return (
+          <Tooltip
+            title={
+              dateApproved
+                ? format(new Date(dateApproved), 'MM-dd-yyyy hh:mm a')
+                : 'None'
+            }
+          >
+            <span>
+              {dateApproved
+                ? format(new Date(dateApproved), 'MM-dd-yyyy hh:mm a')
+                : 'None'}
+            </span>
+          </Tooltip>
+        );
+      }
+    },
+    {
+      field: 'approved_by',
+      headerName: 'Approved By',
+      minWidth: 100,
+      flex: 0.75,
+      renderCell: (params: GridRenderCellParams) => {
+        const approvedBy = params.row?.approved_by;
+        const fullName = approvedBy ? approvedBy.full_name : 'None';
+
+        const fullUserInfo = params.row?.approved_by;
+        return (
+          <Tooltip
+            title={
+              fullUserInfo
+                ? `${fullUserInfo.full_name} ${fullUserInfo.email}`
+                : 'None'
+            }
+          >
+            <span>{fullName}</span>
+          </Tooltip>
+        );
+      }
+    },
     {
       field: 'dateToUSigned',
       headerName: 'Date ToU Signed',
@@ -131,7 +191,7 @@ export const Users: React.FC = () => {
       }
     },
     {
-      field: 'acceptedTermsVersion',
+      field: 'accepted_terms_version',
       headerName: 'ToU Version',
       minWidth: 50,
       flex: 0.5
@@ -156,8 +216,9 @@ export const Users: React.FC = () => {
       headerName: 'View/Edit',
       minWidth: 50,
       flex: 0.5,
+      disableExport: true,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `View or edit user ${cellValues.row.fullName}`;
+        const ariaLabel = `View or edit user ${cellValues.row.full_name}`;
         const descriptionId = `description-${cellValues.row.id}`;
         return (
           <>
@@ -172,14 +233,14 @@ export const Users: React.FC = () => {
                 setSelectedRow(cellValues.row);
                 setFormValues({
                   id: cellValues.row.id,
-                  firstName: cellValues.row.firstName,
-                  lastName: cellValues.row.lastName,
+                  first_name: cellValues.row.first_name,
+                  last_name: cellValues.row.last_name,
                   email: cellValues.row.email,
-                  userType: cellValues.row.userType,
+                  user_type: cellValues.row.user_type,
                   state: cellValues.row.state || '',
-                  regionId: cellValues.row.regionId || '',
-                  orgName: cellValues.row.roles[0]?.organization?.name || '',
-                  orgId: cellValues.row.roles[0]?.organization?.id || '',
+                  region_id: cellValues.row.region_id || '',
+                  org_name: cellValues.row.roles[0]?.organization?.name || '',
+                  org_id: cellValues.row.roles[0]?.organization?.id || '',
                   originalOrgId:
                     cellValues.row.roles[0]?.organization?.id || '',
                   originalRoleId: cellValues.row.roles[0]?.id || ''
@@ -194,14 +255,15 @@ export const Users: React.FC = () => {
       }
     }
   ];
-  if (user?.userType === 'globalAdmin') {
+  if (user?.user_type === 'globalAdmin') {
     userCols.push({
       field: 'delete',
       headerName: 'Delete',
+      disableExport: true,
       minWidth: 50,
       flex: 0.4,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `Delete user ${cellValues.row.fullName}`;
+        const ariaLabel = `Delete user ${cellValues.row.full_name}`;
         const descriptionId = `delete-description-${cellValues.row.id}`;
         return (
           <>
@@ -224,7 +286,7 @@ export const Users: React.FC = () => {
       }
     });
   }
-  const addUserButton = user?.userType === 'globalAdmin' && (
+  const addUserButton = user?.user_type === 'globalAdmin' && (
     <Button
       size="small"
       sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
@@ -262,7 +324,7 @@ export const Users: React.FC = () => {
       content={
         <>
           <Typography mb={3}>
-            This request will permanently remove <b>{selectedRow?.fullName}</b>{' '}
+            This request will permanently remove <b>{selectedRow?.full_name}</b>{' '}
             from Cyhy Dashboard and cannot be undone.
           </Typography>
           {apiErrorStates.getDeleteError && (
@@ -295,7 +357,7 @@ export const Users: React.FC = () => {
   );
 
   return (
-    <Box display="flex" justifyContent="center">
+    <Box display="flex" justifyContent="center" sx={{ height: '100vh' }}>
       <Box
         mb={3}
         mt={3}
@@ -338,7 +400,10 @@ export const Users: React.FC = () => {
                 columns={userCols}
                 slots={{ toolbar: CustomToolbar }}
                 slotProps={{
-                  toolbar: { children: addUserButton }
+                  toolbar: {
+                    children: addUserButton,
+                    exportTitle: 'Users'
+                  } as any
                 }}
                 initialState={{
                   pagination: { paginationModel: { pageSize: 15 } }
@@ -350,7 +415,7 @@ export const Users: React.FC = () => {
         </Box>
         {confirmDeleteUserDialog}
         {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
-        {user?.userType === 'globalAdmin' && (
+        {user?.user_type === 'globalAdmin' && (
           <>
             <ImportExport<
               | User
@@ -360,11 +425,11 @@ export const Users: React.FC = () => {
             >
               name="users"
               fieldsToImport={[
-                'firstName',
-                'lastName',
+                'first_name',
+                'last_name',
                 'email',
                 'roles',
-                'userType',
+                'user_type',
                 'state'
               ]}
               onImport={async (results) => {

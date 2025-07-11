@@ -4,8 +4,7 @@
     "clipboardy": "^3.0.0",
     "cross-spawn": "^7.0.6",
     "nanoid": "^5.0.9",
-    "resolve-url-loader": "^5.0.0",
-    "swagger-jsdoc": "^5.0.1"
+    "resolve-url-loader": "^5.0.0"
   },
   "description": "Crossfeed Documentation",
   "devDependencies": {
@@ -22,8 +21,8 @@
     "eslint-plugin-jsx-a11y": "^6.7.1",
     "eslint-plugin-react": "^7.32.2",
     "eslint-plugin-react-hooks": "^4.6.0",
-    "gatsby": "^5.9.0",
-    "gatsby-cli": "^5.9.0",
+    "gatsby": "^5.14.1",
+    "gatsby-cli": "^5.14.0",
     "gatsby-plugin-manifest": "^5.9.0",
     "gatsby-plugin-meta-redirect": "^1.1.1",
     "gatsby-plugin-react-helmet": "^6.8.0",
@@ -43,7 +42,6 @@
     "react-helmet": "^6.1.0",
     "rimraf": "^3.0.2",
     "sass": "^1.61.0",
-    "swagger-ui-react": "^4.19.0",
     "uswds": "^2.13.3"
   },
   "engineStrict": true,
@@ -73,11 +71,9 @@
   "scripts": {
     "build": "gatsby build",
     "clean": "rimraf .cache public _site",
-    "codegen": "swagger-jsdoc -d ./src/swaggerDef.js -o ./src/generated/swagger.json",
     "develop": "gatsby develop",
     "format": "prettier --write \"**/*.{js,jsx,json,md}\"",
     "lint": "prettier --check \"**/*.{js,jsx,json,md}\"",
-    "postinstall": "npm run codegen",
     "reset": "npx rimraf .git",
     "serve": "gatsby serve",
     "start": "npm run develop"

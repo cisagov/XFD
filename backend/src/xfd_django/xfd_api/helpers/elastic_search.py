@@ -3,7 +3,7 @@
 from typing import Any, Dict, List, Optional
 
 # Define non-keyword fields
-NON_KEYWORD_FIELDS = {"updatedAt", "createdAt"}
+NON_KEYWORD_FIELDS = {"updated_at", "created_at"}
 
 
 def build_from(current: int, results_per_page: int) -> Optional[int]:
@@ -44,11 +44,11 @@ def get_term_filter_value(field, field_value):
     """
     Determine the appropriate term filter value based on the field and its value.
 
-    Handles specific cases for boolean values, 'organization.regionId', numeric values, the 'name' field, and 'vulnerabilities.severity'.
+    Handles specific cases for boolean values, 'organization.region_id', numeric values, the 'name' field, and 'vulnerabilities.severity'.
     """
     if field_value in ["false", "true"]:
         return {field: field_value == "true"}
-    if field == "organization.regionId":
+    if field == "organization.region_id":
         return {field: field_value}
     if isinstance(field_value, (int, float)):
         return {field: field_value}
@@ -73,7 +73,7 @@ def get_term_filter(term_filter):
         search_type = "wildcard"
     elif term_filter["field"] == "services.port":
         search_type = "match"
-    elif term_filter["field"] == "organization.regionId":
+    elif term_filter["field"] == "organization.region_id":
         search_type = "terms"
 
     reg_values = [
@@ -99,7 +99,7 @@ def get_term_filter(term_filter):
     ]
 
     if term_filter["type"] == "any":
-        if term_filter["field"] == "organization.regionId" and term_filter["values"]:
+        if term_filter["field"] == "organization.region_id" and term_filter["values"]:
             search = {
                 "bool": {
                     "should": [
@@ -191,7 +191,7 @@ def get_term_filter(term_filter):
             }
         }
 
-    if len(field_path) > 1 and term_filter["field"] != "organization.regionId":
+    if len(field_path) > 1 and term_filter["field"] != "organization.region_id":
         return {"nested": {"path": field_path[0], "query": search}}
 
     return search
@@ -215,14 +215,16 @@ def build_request(state, options: Dict[str, Any]) -> Dict[str, Any]:
     print(options)
     current = state.current
     filters = state.filters or []
-    results_per_page = state.resultsPerPage
+    results_per_page = state.results_per_page
     search_term = state.searchTerm
     sort_direction = state.sortDirection
     sort_field = state.sortField
 
-    orgs_in_filters = next((f for f in filters if f["field"] == "organizationId"), None)
+    orgs_in_filters = next(
+        (f for f in filters if f["field"] == "organization_id"), None
+    )
     refined_filters = (
-        [f for f in filters if f["field"] != "organizationId"]
+        [f for f in filters if f["field"] != "organization_id"]
         if orgs_in_filters
         else filters
     )
@@ -289,8 +291,14 @@ def build_request(state, options: Dict[str, Any]) -> Dict[str, Any]:
         },
         "aggs": {
             "name": {"terms": {"field": "name.keyword"}},
-            "fromRootDomain": {"terms": {"field": "fromRootDomain.keyword"}},
+            "from_root_domain": {"terms": {"field": "from_root_domain.keyword"}},
             "organization": {"terms": {"field": "organization.name.keyword"}},
+            # The following commented-out code is to be used for future .x releases.
+            # Returning org id and region id with facets will allow for a full range of dynamic filters.
+            # "organization_id": {
+            #   "terms": {"field": "organization.id.keyword"}
+            # },
+            # "region": {"terms": {"field": "organization.region_id.keyword"}},
             "services": {
                 "nested": {"path": "services"},
                 "aggs": {

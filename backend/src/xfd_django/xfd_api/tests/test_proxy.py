@@ -7,24 +7,24 @@ import secrets
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import User, UserType
 from xfd_django.asgi import app
+from xfd_mini_dl.models import User, UserType
 
 # Initialize the test client with the FastAPI app
 client = TestClient(app)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_standard_user_not_authorized_to_access_pe_proxy():
     """Test that a standard user is not authorized to access P&E proxy."""
     # Create a standard user
     user = User.objects.create(
-        firstName="Standard",
-        lastName="User",
+        first_name="Standard",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Generate a JWT token for the user
@@ -38,17 +38,17 @@ def test_standard_user_not_authorized_to_access_pe_proxy():
     assert response.json() == {"detail": "Unauthorized"}
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_global_admin_authorized_to_access_pe_proxy():
     """Test that a global admin is authorized to access P&E proxy."""
     # Create a global admin user
     user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Generate a JWT token for the global admin
@@ -61,17 +61,17 @@ def test_global_admin_authorized_to_access_pe_proxy():
     assert response.status_code in [200, 504]
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_global_view_user_authorized_to_access_pe_proxy():
     """Test that a global view user is authorized to access P&E proxy."""
     # Create a global view user
     user = User.objects.create(
-        firstName="View",
-        lastName="User",
+        first_name="View",
+        last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     # Make a GET request to the P&E proxy endpoint with the global view user's token

@@ -10,9 +10,9 @@ from typing import Any, Dict
 # Third-Party Libraries
 from django.db.models import Q
 from fastapi import HTTPException
+from xfd_mini_dl.models import Log
 
 from ..auth import is_global_view_admin
-from ..models import Log
 
 
 def parse_query_string(query):
@@ -51,21 +51,21 @@ def generate_date_condition(filter_obj: Dict[str, Any]) -> Q:
         raise ValueError("Invalid date format. Use ISO format.")
 
     if operator == "is":
-        return Q(createdAt__exact=date_obj)
+        return Q(created_at__exact=date_obj)
     elif operator == "not":
-        return ~Q(createdAt__exact=date_obj)
+        return ~Q(created_at__exact=date_obj)
     elif operator == "after":
-        return Q(createdAt__gt=date_obj)
-    elif operator == "onOrAfter":
-        return Q(createdAt__gte=date_obj)
+        return Q(created_at__gt=date_obj)
+    elif operator == "on_or_after":
+        return Q(created_at__gte=date_obj)
     elif operator == "before":
-        return Q(createdAt__lt=date_obj)
-    elif operator == "onOrBefore":
-        return Q(createdAt__lte=date_obj)
+        return Q(created_at__lt=date_obj)
+    elif operator == "on_or_before":
+        return Q(created_at__lte=date_obj)
     elif operator == "empty":
-        return Q(createdAt__isnull=True)
-    elif operator == "notEmpty":
-        return Q(createdAt__isnull=False)
+        return Q(created_at__isnull=True)
+    elif operator == "not_empty":
+        return Q(created_at__isnull=False)
     else:
         raise ValueError("Invalid date operator.")
 
@@ -73,9 +73,9 @@ def generate_date_condition(filter_obj: Dict[str, Any]) -> Q:
 def generate_filter_qs(search: Dict[str, Any]) -> Q:
     """Generate a Q object based on the search filters."""
     q = Q()
-    if "eventType" in search and search["eventType"]:
-        event_filter = search["eventType"]
-        q &= Q(eventType__icontains=event_filter["value"])
+    if "eventType" in search and search["event_type"]:
+        event_filter = search["event_type"]
+        q &= Q(event_type__icontains=event_filter["value"])
 
     if "result" in search and search["result"]:
         result_filter = search["result"]
@@ -127,10 +127,10 @@ def search_logs(search_data, current_user):
             logs_serialized.append(
                 {
                     "id": str(log.id),
-                    "eventType": log.eventType,
+                    "event_type": log.event_type,
                     "result": log.result,
                     "payload": payload_dict,
-                    "createdAt": log.createdAt.isoformat(),
+                    "created_at": log.created_at.isoformat(),
                 }
             )
 

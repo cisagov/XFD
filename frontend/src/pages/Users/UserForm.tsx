@@ -41,7 +41,9 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
-  fullName: string;
+  full_name: string;
+  date_approved?: string | null | undefined;
+  approved_by_id?: string | null | undefined;
 }
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
@@ -78,10 +80,10 @@ export const UserForm: React.FC<UserFormProps> = ({
   const initialValuesRef = useRef(values);
   const { user, apiGet, apiPost, apiPut } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
-    firstName: false,
-    lastName: false,
+    first_name: false,
+    last_name: false,
     email: false,
-    userType: false,
+    user_type: false,
     state: false
   });
   const [organizationsInRegion, setOrganizationsInRegion] = useState<
@@ -93,9 +95,9 @@ export const UserForm: React.FC<UserFormProps> = ({
     setIsLoading(true);
     try {
       let rows: Organization[] = [];
-      if (values.regionId) {
+      if (values.region_id) {
         rows = await apiGet<Organization[]>(
-          '/organizations/regionId/' + values.regionId
+          '/organizations/region_id/' + values.region_id
         );
       }
       setOrganizationsInRegion(rows);
@@ -106,7 +108,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet, values.regionId, setApiErrorStates]);
+  }, [apiGet, values.region_id, setApiErrorStates]);
 
   useEffect(() => {
     fetchOrganizations();
@@ -121,12 +123,12 @@ export const UserForm: React.FC<UserFormProps> = ({
     const nameRegex = /^[A-Za-z\s-']+$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const newFormErrors = {
-      firstName:
-        values.firstName.trim() === '' || !nameRegex.test(values.firstName),
-      lastName:
-        values.lastName.trim() === '' || !nameRegex.test(values.lastName),
+      first_name:
+        values.first_name.trim() === '' || !nameRegex.test(values.first_name),
+      last_name:
+        values.last_name.trim() === '' || !nameRegex.test(values.last_name),
       email: !emailRegex.test(values.email),
-      userType: values.userType.trim() === '',
+      user_type: values.user_type.trim() === '',
       state: values.state.trim() === ''
     };
     setFormErrors(newFormErrors);
@@ -137,8 +139,8 @@ export const UserForm: React.FC<UserFormProps> = ({
     const nameRegex = /^[A-Za-z\s-']+$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     switch (name) {
-      case 'firstName':
-      case 'lastName':
+      case 'first_name':
+      case 'last_name':
         return value.trim() === '' || !nameRegex.test(value);
       case 'email':
         return !emailRegex.test(value);
@@ -153,10 +155,10 @@ export const UserForm: React.FC<UserFormProps> = ({
     setInfoDialogOpen(false);
     setValues(initialUserFormValues);
     setFormErrors({
-      firstName: false,
-      lastName: false,
+      first_name: false,
+      last_name: false,
       email: false,
-      userType: false,
+      user_type: false,
       state: false
     });
   };
@@ -173,18 +175,18 @@ export const UserForm: React.FC<UserFormProps> = ({
       return;
     }
     const body = {
-      firstName: values.firstName,
-      lastName: values.lastName,
+      first_name: values.first_name,
+      last_name: values.last_name,
       email: values.email,
-      userType: values.userType,
+      user_type: values.user_type,
       state: values.state,
-      regionId: values.regionId
+      region_id: values.region_id
     };
     try {
       const user = await apiPost('/users', {
         body
       });
-      user.fullName = `${user.firstName} ${user.lastName}`;
+      user.full_name = `${user.first_name} ${user.last_name}`;
       setUsers(users.concat(user));
       setApiErrorStates({ ...apiErrorStates, getAddUserError: '' });
       handleCloseAddUserDialog('closeButtonClick');
@@ -201,28 +203,28 @@ export const UserForm: React.FC<UserFormProps> = ({
   };
 
   const handleEditUserSubmit = async () => {
-    if (!validateForm(values) || values.orgId === '') {
+    if (!validateForm(values) || values.org_id === '') {
       return;
     }
     const body = {
-      firstName: values.firstName,
-      lastName: values.lastName,
+      first_name: values.first_name,
+      last_name: values.last_name,
       email: values.email,
-      userType: values.userType,
+      user_type: values.user_type,
       state: values.state,
-      regionId: values.regionId
+      region_id: values.region_id
     };
     try {
       await apiPut(`/v2/users/${values.id}`, { body });
-      if (values.originalOrgId !== values.orgId) {
+      if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId) {
           await apiPost(
             `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
             { body: {} }
           );
         }
-        await apiPost(`/v2/organizations/${values.orgId}/users`, {
-          body: { userId: values.id, role: 'user' }
+        await apiPost(`/v2/organizations/${values.org_id}/users`, {
+          body: { user_id: values.id, role: 'user' }
         });
       }
       const updatedUsers = users.map((user) =>
@@ -230,7 +232,7 @@ export const UserForm: React.FC<UserFormProps> = ({
           ? {
               ...user,
               ...values,
-              fullName: `${values.firstName} ${values.lastName}`
+              full_name: `${values.first_name} ${values.last_name}`
             }
           : user
       ) as UserType[];
@@ -271,9 +273,9 @@ export const UserForm: React.FC<UserFormProps> = ({
     setValues((values: any) => ({
       ...values,
       [event.target.name]: event.target.value,
-      regionId: REGION_STATE_MAP[String(event.target.value)],
-      orgId: '',
-      orgName: ''
+      region_id: REGION_STATE_MAP[String(event.target.value)],
+      org_id: '',
+      org_name: ''
     }));
   };
 
@@ -285,8 +287,8 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
     setValues((values: any) => ({
       ...values,
-      orgId: event.target.value,
-      orgName: getOrgNameById(event.target.value)
+      org_id: event.target.value,
+      org_name: getOrgNameById(event.target.value)
     }));
   };
 
@@ -301,51 +303,51 @@ export const UserForm: React.FC<UserFormProps> = ({
   const formContents = (
     <DialogContent>
       <Grid container spacing={1}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Typography>First Name</Typography>
           <TextField
             sx={textFieldStyling}
             placeholder="Enter a First Name"
             size="small"
             margin="dense"
-            id="firstName"
+            id="first_name"
             inputProps={{ maxLength: 250 }}
-            name="firstName"
-            error={formErrors.firstName}
+            name="first_name"
+            error={formErrors.first_name}
             helperText={
-              formErrors.firstName &&
+              formErrors.first_name &&
               'First Name is required and cannot contain numbers'
             }
             type="text"
             fullWidth
-            value={values.firstName}
+            value={values.first_name}
             onChange={onTextChange}
-            disabled={user?.userType !== 'globalAdmin'}
+            disabled={user?.user_type !== 'globalAdmin'}
           />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Typography>Last Name</Typography>
           <TextField
             sx={textFieldStyling}
             placeholder="Enter a Last Name"
             size="small"
             margin="dense"
-            id="lastName"
+            id="last_name"
             inputProps={{ maxLength: 250 }}
-            name="lastName"
-            error={formErrors.lastName}
+            name="last_name"
+            error={formErrors.last_name}
             helperText={
-              formErrors.lastName &&
+              formErrors.last_name &&
               'Last Name is required and cannot contain numbers'
             }
             type="text"
             fullWidth
-            value={values.lastName}
+            value={values.last_name}
             onChange={onTextChange}
-            disabled={user?.userType !== 'globalAdmin'}
+            disabled={user?.user_type !== 'globalAdmin'}
           />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Typography>Email</Typography>
           <TextField
             sx={textFieldStyling}
@@ -367,7 +369,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             disabled={editUserDialogOpen}
           />
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Typography>State</Typography>
           <Select
             displayEmpty
@@ -383,7 +385,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                 ? undefined
                 : () => <Typography color="#bdbdbd">Select a State</Typography>
             }
-            disabled={user?.userType !== 'globalAdmin'}
+            disabled={user?.user_type !== 'globalAdmin'}
           >
             {STATE_OPTIONS.map((state: string, index: number) => (
               <MenuItem key={index} value={state}>
@@ -397,7 +399,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             </Typography>
           )}
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Typography>Organization</Typography>
           {newUserDialogOpen ? (
             <Alert severity="info">
@@ -414,7 +416,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             <Alert severity="info">Select a state to make a selection.</Alert>
           ) : organizationsInRegion.length === 0 ? (
             <Alert severity="info">
-              No organizations found. Add orgs to Region {values.regionId} to
+              No organizations found. Add orgs to Region {values.region_id} to
               make a selection.
             </Alert>
           ) : (
@@ -422,14 +424,14 @@ export const UserForm: React.FC<UserFormProps> = ({
               <Select
                 displayEmpty
                 size="small"
-                id="orgId"
-                value={values.orgId === null ? '' : values.orgId}
-                name="orgId"
-                error={values.orgId === ''}
+                id="org_id"
+                value={values.org_id === null ? '' : values.org_id}
+                name="org_id"
+                error={values.org_id === ''}
                 onChange={handleOrgChange}
                 fullWidth
                 renderValue={
-                  values.orgId !== ''
+                  values.org_id !== ''
                     ? undefined
                     : () => (
                         <Typography color="#bdbdbd">
@@ -439,7 +441,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                 }
                 disabled={
                   organizationsInRegion.length === 0 ||
-                  user?.userType !== 'globalAdmin'
+                  user?.user_type !== 'globalAdmin'
                 }
               >
                 {organizationsInRegion
@@ -450,7 +452,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                     </MenuItem>
                   ))}
               </Select>
-              {values.orgId === '' && (
+              {values.org_id === '' && (
                 <Typography pl={2} variant="caption" color="error.main">
                   Organization is required
                 </Typography>
@@ -458,46 +460,46 @@ export const UserForm: React.FC<UserFormProps> = ({
             </>
           )}
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Typography mt={1}>User Type</Typography>
           <RadioGroup
             aria-label="User Type"
-            name="userType"
-            value={values.userType}
+            name="user_type"
+            value={values.user_type}
             onChange={onTextChange}
           >
             <FormControlLabel
               value="standard"
               control={<Radio color="primary" />}
               label="Standard"
-              disabled={user?.userType !== 'globalAdmin'}
+              disabled={user?.user_type !== 'globalAdmin'}
             />
             <FormControlLabel
               value="globalView"
               control={<Radio color="primary" />}
               label="Global View"
-              disabled={user?.userType !== 'globalAdmin'}
+              disabled={user?.user_type !== 'globalAdmin'}
             />
             <FormControlLabel
               value="regionalAdmin"
               control={<Radio color="primary" />}
               label="Regional Administrator"
-              disabled={user?.userType !== 'globalAdmin'}
+              disabled={user?.user_type !== 'globalAdmin'}
             />
             <FormControlLabel
               value="globalAdmin"
               control={<Radio color="primary" />}
               label="Global Administrator"
-              disabled={user?.userType !== 'globalAdmin'}
+              disabled={user?.user_type !== 'globalAdmin'}
             />
           </RadioGroup>
-          {formErrors.userType && (
+          {formErrors.user_type && (
             <Typography pl={2} variant="caption" color="error.main">
               User Type is required
             </Typography>
           )}
         </Grid>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           {apiErrorStates.getAddUserError && (
             <Alert severity="error">
               Error adding user to the database:{' '}
@@ -526,7 +528,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       content={formContents}
       disabled={
         (isEqual(initialValuesRef.current, values) && !initialOrgIdChange) ||
-        values.orgId === ''
+        values.org_id === ''
       }
     />
   );

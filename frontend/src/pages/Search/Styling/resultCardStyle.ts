@@ -54,7 +54,7 @@ export const classes = {
   label: `${PREFIX}-label`,
   count: `${PREFIX}-count`,
   data: `${PREFIX}-data`,
-  lastSeen: `${PREFIX}-lastSeen`,
+  last_seen: `${PREFIX}-last_seen`,
   expandMore: `${PREFIX}-expandMore`
 };
 
@@ -131,7 +131,7 @@ export const StyledPaper = styled(Paper)(({ theme }) => ({
     color: '#3D4551'
   },
 
-  [`& .${classes.lastSeen}`]: {
+  [`& .${classes.last_seen}`]: {
     display: 'block',
     textAlign: 'right'
   },

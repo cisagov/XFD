@@ -5,12 +5,13 @@ export interface Scan {
   name: string;
   arguments: Object;
   frequency: number;
-  lastRun: string;
-  isGranular: boolean;
-  isUserModifiable: boolean;
-  isSingleScan: boolean;
+  last_run: string;
+  is_granular: boolean;
+  is_user_modifiable: boolean;
+  is_single_scan: boolean;
   organizations: [];
   tags: OrganizationTag[];
+  concurrent_tasks: number;
 }
 
 // ScanSchema. TODO: synchronize this with the ScanSchema type in the backend.
@@ -22,7 +23,7 @@ export interface ScanSchema {
     description: string;
 
     // Whether scan is passive (not allowed to hit the domain).
-    isPassive: boolean;
+    is_passive: boolean;
 
     // Whether scan is global. Global scans run once for all organizations, as opposed
     // to non-global scans, which are run for each organization.
@@ -39,5 +40,8 @@ export interface ScanSchema {
     // Chunked scans can only be run on scans whose implementation takes into account the
     // chunkNumber and numChunks parameters specified in commandOptions.
     numChunks?: number;
+
+    // Maximum number of tasks that can run in parallel.
+    max_concurrent_tasks?: number;
   };
 }

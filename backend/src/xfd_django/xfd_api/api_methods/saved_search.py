@@ -8,8 +8,7 @@ import uuid
 # Third-Party Libraries
 from django.http import JsonResponse
 from fastapi import HTTPException
-
-from ..models import SavedSearch, User
+from xfd_mini_dl.models import SavedSearch, User
 
 
 def validate_name(value: str):
@@ -38,8 +37,8 @@ def create_saved_search(request):
                         {
                             "id": value.get("id"),
                             "name": value.get("name"),
-                            "regionId": value.get("regionId"),
-                            "rootDomains": value.get("rootDomains", []),
+                            "region_id": value.get("region_id"),
+                            "root_domains": value.get("root_domains", []),
                         }
                     )
                 else:
@@ -58,26 +57,26 @@ def create_saved_search(request):
         search = SavedSearch.objects.create(
             name=request.get("name"),
             count=request.get("count", 0),  # Default to 0 if count does not exist
-            sortDirection=request.get("sortDirection", ""),
-            sortField=request.get("sortField", ""),
-            searchTerm=request.get("searchTerm", ""),
-            searchPath=request.get("searchPath", ""),
+            sort_direction=request.get("sort_direction", ""),
+            sort_field=request.get("sort_field", ""),
+            search_term=request.get("search_term", ""),
+            search_path=request.get("search_path", ""),
             filters=filters,
-            createdById=request.get("createdById"),
+            created_by=request.get("created_by_id"),
         )
 
         response = {
             "id": str(search.id),
-            "createdAt": search.createdAt,
-            "updatedAt": search.updatedAt,
+            "created_at": search.created_at,
+            "updated_at": search.updated_at,
             "name": search.name,
-            "searchTerm": search.searchTerm,
-            "sortDirection": search.sortDirection,
-            "sortField": search.sortField,
+            "search_term": search.search_term,
+            "sort_direction": search.sort_direction,
+            "sort_field": search.sort_field,
             "count": search.count,
             "filters": search.filters,
-            "searchPath": search.searchPath,
-            "createdById": search.createdById.id,
+            "search_path": search.search_path,
+            "created_by_id": search.created_by.id,
         }
 
         search.save()
@@ -87,6 +86,7 @@ def create_saved_search(request):
         raise HTTPException(status_code=404, detail="User not found")
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=404, detail=str(e))
 
 
@@ -96,20 +96,20 @@ def list_saved_searches(user):
         all_saved_searches = SavedSearch.objects.all()
         saved_search_list = []
         for search in all_saved_searches:
-            if search.createdById != user:
+            if search.created_by != user:
                 continue
             response = {
                 "id": str(search.id),
-                "createdAt": search.createdAt,
-                "updatedAt": search.updatedAt,
+                "created_at": search.created_at,
+                "updated_at": search.updated_at,
                 "name": search.name,
-                "searchTerm": search.searchTerm,
-                "sortDirection": search.sortDirection,
-                "sortField": search.sortField,
+                "search_term": search.search_term,
+                "sort_direction": search.sort_direction,
+                "sort_field": search.sort_field,
                 "count": search.count,
                 "filters": search.filters,
-                "searchPath": search.searchPath,
-                "createdById": search.createdById.id,
+                "search_path": search.search_path,
+                "created_by_id": search.created_by.id,
             }
             saved_search_list.append(response)
         return {
@@ -125,7 +125,7 @@ def list_saved_searches(user):
 
 def get_saved_search(saved_search_id, user):
     """Get saved search."""
-    if user.userType == "globalView":
+    if user.user_type == "globalView":
         raise HTTPException(
             status_code=404, detail="Global View users cannot retrieve saved searches."
         )
@@ -135,21 +135,21 @@ def get_saved_search(saved_search_id, user):
     try:
         saved_search = SavedSearch.objects.get(id=saved_search_id)
 
-        if saved_search.createdById.id != user.id:
+        if saved_search.created_by.id != user.id:
             raise HTTPException(status_code=404, detail="Saved search not found")
 
         response = {
             "id": str(saved_search.id),
-            "createdAt": saved_search.createdAt,
-            "updatedAt": saved_search.updatedAt,
+            "created_at": saved_search.created_at,
+            "updated_at": saved_search.updated_at,
             "name": saved_search.name,
-            "searchTerm": saved_search.searchTerm,
-            "sortDirection": saved_search.sortDirection,
-            "sortField": saved_search.sortField,
+            "search_term": saved_search.search_term,
+            "sort_direction": saved_search.sort_direction,
+            "sort_field": saved_search.sort_field,
             "count": saved_search.count,
             "filters": saved_search.filters,
-            "searchPath": saved_search.searchPath,
-            "createdById": saved_search.createdById.id,
+            "search_path": saved_search.search_path,
+            "created_by_id": saved_search.created_by.id,
         }
         return response
     except SavedSearch.DoesNotExist as dne:
@@ -175,8 +175,8 @@ def update_saved_search(request, user):
                         {
                             "id": value.get("id"),
                             "name": value.get("name"),
-                            "regionId": value.get("regionId"),
-                            "rootDomains": value.get("rootDomains", []),
+                            "region_id": value.get("region_id"),
+                            "root_domains": value.get("root_domains", []),
                         }
                     )
                 else:
@@ -193,7 +193,7 @@ def update_saved_search(request, user):
         ]
 
         saved_search = SavedSearch.objects.get(id=request["saved_search_id"])
-        if saved_search.createdById.id != user.id:
+        if saved_search.created_by.id != user.id:
             raise HTTPException(status_code=404, detail="Saved search not found")
 
         name = request["name"].strip()
@@ -201,17 +201,17 @@ def update_saved_search(request, user):
             raise HTTPException(status_code=400, detail="Name cannot be empty")
 
         saved_search.name = request["name"]
-        saved_search.updatedAt = datetime.now(timezone.utc)
-        saved_search.searchTerm = request["searchTerm"]
+        saved_search.updated_at = datetime.now(timezone.utc)
+        saved_search.search_term = request["search_term"]
         saved_search.save()
         response = {
             "name": saved_search.name,
-            "searchTerm": saved_search.searchTerm,
-            "sortDirection": saved_search.sortDirection,
-            "sortField": saved_search.sortField,
+            "search_term": saved_search.search_term,
+            "sort_direction": saved_search.sort_direction,
+            "sort_field": saved_search.sort_field,
             "count": saved_search.count,
             "filters": filters,
-            "searchPath": saved_search.searchPath,
+            "search_path": saved_search.search_path,
         }
     except User.DoesNotExist:
         raise HTTPException(status_code=404, detail="User not found")
@@ -229,7 +229,7 @@ def delete_saved_search(saved_search_id, user):
         raise HTTPException(status_code=404, detail={"error": "Invalid UUID"})
     try:
         search = SavedSearch.objects.get(id=saved_search_id)
-        if search.createdById.id != user.id:
+        if search.created_by.id != user.id:
             raise HTTPException(status_code=404, detail="Saved search not found")
         search.delete()
         return JsonResponse(

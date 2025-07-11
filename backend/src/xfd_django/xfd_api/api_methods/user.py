@@ -2,13 +2,13 @@
 # Standard Python Libraries
 from datetime import datetime
 import os
-import uuid
 
 # Third-Party Libraries
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from django.forms import model_to_dict
 from fastapi import HTTPException
+from xfd_mini_dl.models import Organization, Role, User
 
 from ..auth import (
     can_access_user,
@@ -24,17 +24,8 @@ from ..helpers.email import (
     send_registration_denied_email,
 )
 from ..helpers.regionStateMap import REGION_STATE_MAP
-from ..models import Organization, Role, User
+from ..helpers.uuid_helpers import is_valid_uuid
 from ..tools.serializers import serialize_user
-
-
-def is_valid_uuid(val: str) -> bool:
-    """Check if the given string is a valid UUID."""
-    try:
-        uuid_obj = uuid.UUID(val, version=4)
-    except ValueError:
-        return False
-    return str(uuid_obj) == val
 
 
 # GET: /users/me
@@ -44,7 +35,7 @@ def get_me(current_user):
         # Fetch the user and related objects from the database
         user = User.objects.prefetch_related(
             Prefetch("roles", queryset=Role.objects.select_related("organization")),
-            Prefetch("apiKeys"),
+            Prefetch("api_keys"),
         ).get(id=str(current_user.id))
 
         # Convert the user object to a dictionary
@@ -65,20 +56,20 @@ def get_me(current_user):
                         fields=[
                             "acronym",
                             "name",
-                            "rootDomains",
-                            "ipBlocks",
-                            "isPassive",
-                            "pendingDomains",
+                            "root_domains",
+                            "ip_blocks",
+                            "is_passive",
+                            "pending_domains",
                             "country",
                             "state",
-                            "regionId",
-                            "stateFips",
-                            "stateName",
+                            "region_id",
+                            "state_fips",
+                            "state_name",
                             "county",
-                            "countyFips",
+                            "county_fips",
                             "type",
                             "parent",
-                            "createdBy",
+                            "created_by",
                         ],
                     ),
                     "id": str(role.organization.id),  # Explicitly add the ID
@@ -90,9 +81,9 @@ def get_me(current_user):
         ]
 
         # Include API keys
-        user_dict["apiKeys"] = list(
-            user.apiKeys.values(
-                "id", "createdAt", "updatedAt", "lastUsed", "hashedKey", "lastFour"
+        user_dict["api_keys"] = list(
+            user.api_keys.values(
+                "id", "created_at", "updated_at", "last_used", "hashed_key", "last_four"
             )
         )
 
@@ -116,47 +107,47 @@ def accept_terms(version_data, current_user):
                 status_code=400, detail="Missing version in request body."
             )
 
-        current_user.dateAcceptedTerms = datetime.now()
-        current_user.acceptedTermsVersion = version
+        current_user.date_accepted_terms = datetime.now()
+        current_user.accepted_terms_version = version
         current_user.save()
 
         return {
             "id": str(current_user.id),
-            "cognitoId": current_user.cognitoId,
-            "oktaId": current_user.oktaId,
-            "loginGovId": current_user.loginGovId,
-            "createdAt": current_user.createdAt.isoformat()
-            if current_user.createdAt
+            "cognito_id": current_user.cognito_id,
+            "okta_id": current_user.okta_id,
+            "login_gov_id": current_user.login_gov_id,
+            "created_at": current_user.created_at.isoformat()
+            if current_user.created_at
             else None,
-            "updatedAt": current_user.updatedAt.isoformat()
-            if current_user.updatedAt
+            "updated_at": current_user.updated_at.isoformat()
+            if current_user.updated_at
             else None,
-            "firstName": current_user.firstName,
-            "lastName": current_user.lastName,
-            "fullName": current_user.fullName,
+            "first_name": current_user.first_name,
+            "last_name": current_user.last_name,
+            "full_name": current_user.full_name,
             "email": current_user.email,
-            "invitePending": current_user.invitePending,
-            "loginBlockedByMaintenance": current_user.loginBlockedByMaintenance,
-            "dateAcceptedTerms": current_user.dateAcceptedTerms.isoformat()
-            if current_user.dateAcceptedTerms
+            "invite_pending": current_user.invite_pending,
+            "login_blocked_by_maintenance": current_user.login_blocked_by_maintenance,
+            "date_accepted_terms": current_user.date_accepted_terms.isoformat()
+            if current_user.date_accepted_terms
             else None,
-            "acceptedTermsVersion": current_user.acceptedTermsVersion,
-            "lastLoggedIn": current_user.lastLoggedIn.isoformat()
-            if current_user.lastLoggedIn
+            "accepted_terms_version": current_user.accepted_terms_version,
+            "last_logged_in": current_user.last_logged_in.isoformat()
+            if current_user.last_logged_in
             else None,
-            "userType": current_user.userType,
-            "regionId": current_user.regionId,
+            "user_type": current_user.user_type,
+            "region_id": current_user.region_id,
             "state": current_user.state,
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# DELETE: /users/{userId}
+# DELETE: /users/{user_id}
 def delete_user(target_user_id, current_user):
     """Delete a user by ID."""
     # Validate that the user ID is a valid UUID
-    if not target_user_id:
+    if not target_user_id or not is_valid_uuid(target_user_id):
         raise HTTPException(status_code=404, detail="User not found")
 
     # Check if the current user has permission to access/update this user
@@ -164,19 +155,26 @@ def delete_user(target_user_id, current_user):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     try:
-        target_user = User.objects.get(id=target_user_id)
+        # Fetch the user to be deleted
+        target_user = User.objects.prefetch_related("roles").get(id=target_user_id)
+
+        # Delete all associated roles before deleting the user
+        target_user.roles.all().delete()
+
+        # Delete the user
         target_user.delete()
+
         # Return success response
         return {
             "status": "success",
-            "message": "User {} has been deleted successfully.".format(target_user_id),
-            "userDeleted": serialize_user(target_user),
+            "message": f"User {target_user_id} and associated roles have been deleted successfully.",
+            "user_deleted": serialize_user(target_user),
         }
 
-    except HTTPException as http_exc:
-        raise http_exc
+    except User.DoesNotExist:
+        raise HTTPException(status_code=404, detail="User not found.")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}")
 
 
 # GET: /users
@@ -184,7 +182,7 @@ def get_users(current_user):
     """Retrieve a list of all users."""
     try:
         # Check if user is a regional admin or global admin
-        if not is_global_view_admin(current_user):
+        if not is_global_view_admin(current_user) | is_regional_admin(current_user):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         users = User.objects.all().prefetch_related("roles__organization")
@@ -193,18 +191,26 @@ def get_users(current_user):
         return [
             {
                 "id": str(user.id),
-                "createdAt": user.createdAt.isoformat(),
-                "updatedAt": user.updatedAt.isoformat(),
-                "firstName": user.firstName,
-                "lastName": user.lastName,
-                "fullName": user.fullName,
+                "created_at": user.created_at.isoformat(),
+                "updated_at": user.updated_at.isoformat(),
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "full_name": user.full_name,
                 "email": user.email,
-                "regionId": user.regionId,
+                "region_id": user.region_id,
                 "state": user.state,
-                "userType": user.userType,
-                "lastLoggedIn": user.lastLoggedIn,
-                "acceptedTermsVersion": user.acceptedTermsVersion,
-                "dateAcceptedTerms": user.dateAcceptedTerms,
+                "user_type": user.user_type,
+                "last_logged_in": user.last_logged_in,
+                "date_approved": user.date_approved,
+                "approved_by": {
+                    "id": str(user.approved_by.id),
+                    "full_name": str(user.approved_by.full_name),
+                    "email": str(user.approved_by.email),
+                }
+                if user.approved_by
+                else None,
+                "accepted_terms_version": user.accepted_terms_version,
+                "date_accepted_terms": user.date_accepted_terms,
                 "roles": [
                     {
                         "id": str(role.id),
@@ -228,36 +234,36 @@ def get_users(current_user):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# GET: /users/regionId/{regionId}
+# GET: /users/region_id/{region_id}
 def get_users_by_region_id(region_id, current_user):
-    """List users with specific regionId."""
+    """List users with specific region_id."""
     try:
         if not is_regional_admin(current_user):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         if not region_id:
             raise HTTPException(
-                status_code=400, detail="Missing regionId in path parameters"
+                status_code=400, detail="Missing region_id in path parameters"
             )
 
-        users = User.objects.filter(regionId=region_id).prefetch_related(
+        users = User.objects.filter(region_id=region_id).prefetch_related(
             "roles__organization"
         )
         if users:
             return [
                 {
                     "id": str(user.id),
-                    "createdAt": user.createdAt.isoformat(),
-                    "updatedAt": user.updatedAt.isoformat(),
-                    "firstName": user.firstName,
-                    "lastName": user.lastName,
-                    "fullName": user.fullName,
+                    "created_at": user.created_at.isoformat(),
+                    "updated_at": user.updated_at.isoformat(),
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "full_name": user.full_name,
                     "email": user.email,
-                    "regionId": user.regionId,
+                    "region_id": user.region_id,
                     "state": user.state,
-                    "userType": user.userType,
-                    "lastLoggedIn": user.lastLoggedIn,
-                    "acceptedTermsVersion": user.acceptedTermsVersion,
+                    "user_type": user.user_type,
+                    "last_logged_in": user.last_logged_in,
+                    "accepted_terms_version": user.accepted_terms_version,
                     "roles": [
                         {
                             "id": str(role.id),
@@ -277,13 +283,14 @@ def get_users_by_region_id(region_id, current_user):
             ]
         else:
             raise HTTPException(
-                status_code=404, detail="No users found for the specified regionId"
+                status_code=404, detail="No users found for the specified region_id"
             )
 
     except HTTPException as http_exc:
         raise http_exc
 
     except Exception as e:
+        print(e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -304,17 +311,17 @@ def get_users_by_state(state, current_user):
             return [
                 {
                     "id": str(user.id),
-                    "createdAt": user.createdAt.isoformat(),
-                    "updatedAt": user.updatedAt.isoformat(),
-                    "firstName": user.firstName,
-                    "lastName": user.lastName,
-                    "fullName": user.fullName,
+                    "created_at": user.created_at.isoformat(),
+                    "updated_at": user.updated_at.isoformat(),
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "full_name": user.full_name,
                     "email": user.email,
-                    "regionId": user.regionId,
+                    "region_id": user.region_id,
                     "state": user.state,
-                    "userType": user.userType,
-                    "lastLoggedIn": user.lastLoggedIn,
-                    "acceptedTermsVersion": user.acceptedTermsVersion,
+                    "user_type": user.user_type,
+                    "last_logged_in": user.last_logged_in,
+                    "accepted_terms_version": user.accepted_terms_version,
                     "roles": [
                         {
                             "id": str(role.id),
@@ -343,21 +350,24 @@ def get_users_by_state(state, current_user):
 
 
 # GET: /v2/users
-def get_users_v2(state, regionId, invitePending, current_user):
+def get_users_v2(state, region_id, invite_pending, current_user):
     """Retrieve a list of users based on optional filter parameters."""
     try:
         # Check if user is a regional admin or global admin
-        if not is_regional_admin(current_user):
+        if not is_regional_admin(current_user) | is_global_view_admin(current_user):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         filters = {}
 
         if state is not None:
             filters["state"] = state
-        if regionId is not None:
-            filters["regionId"] = regionId
-        if invitePending is not None:
-            filters["invitePending"] = invitePending
+        if region_id is not None:
+            filters["region_id"] = region_id
+        if invite_pending is not None:
+            # Convert string to boolean if needed
+            if isinstance(invite_pending, str):
+                invite_pending = invite_pending.lower() == "true"
+            filters["invite_pending"] = invite_pending
 
         users = User.objects.filter(**filters).prefetch_related("roles__organization")
 
@@ -365,17 +375,26 @@ def get_users_v2(state, regionId, invitePending, current_user):
         return [
             {
                 "id": str(user.id),
-                "createdAt": user.createdAt.isoformat(),
-                "updatedAt": user.updatedAt.isoformat(),
-                "firstName": user.firstName,
-                "lastName": user.lastName,
-                "fullName": user.fullName,
+                "cognito_use_case_description": user.cognito_use_case_description,
+                "created_at": user.created_at.isoformat(),
+                "updated_at": user.updated_at.isoformat(),
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "full_name": user.full_name,
                 "email": user.email,
-                "regionId": user.regionId,
+                "region_id": user.region_id,
                 "state": user.state,
-                "userType": user.userType,
-                "lastLoggedIn": user.lastLoggedIn,
-                "acceptedTermsVersion": user.acceptedTermsVersion,
+                "user_type": user.user_type,
+                "last_logged_in": user.last_logged_in,
+                "date_approved": user.date_approved,
+                "approved_by": {
+                    "id": str(user.approved_by.id),
+                    "full_name": str(user.approved_by.full_name),
+                    "email": str(user.approved_by.email),
+                }
+                if user.approved_by
+                else None,
+                "accepted_terms_version": user.accepted_terms_version,
                 "roles": [
                     {
                         "id": str(role.id),
@@ -418,19 +437,19 @@ def update_user_v2(user_id, user_data, current_user):
             raise HTTPException(status_code=404, detail="User not found")
 
         # Global admins only can update the userType
-        if not is_global_write_admin(current_user) and user_data.userType:
+        if not is_global_write_admin(current_user) and user_data.user_type:
             raise HTTPException(
                 status_code=403, detail="Only global admins can update userType."
             )
 
         # Update fields
         if user_data.state:
-            user.regionId = REGION_STATE_MAP.get(user_data.state)
+            user.region_id = REGION_STATE_MAP.get(user_data.state)
 
         print(user_data.dict())
         # Check for invitePending explicitly
-        if "invitePending" in user_data.dict():
-            user.invitePending = user_data.invitePending
+        if user_data.invite_pending is not None:
+            user.invite_pending = user_data.invite_pending
         for field, value in user_data.dict(exclude_defaults=True).items():
             setattr(user, field, value)
 
@@ -445,17 +464,17 @@ def update_user_v2(user_id, user_data, current_user):
         # Return the updated user details
         return {
             "id": str(updated_user.id),
-            "createdAt": updated_user.createdAt.isoformat(),
-            "updatedAt": updated_user.updatedAt.isoformat(),
-            "firstName": updated_user.firstName,
-            "lastName": updated_user.lastName,
-            "fullName": user.fullName,
+            "created_at": updated_user.created_at.isoformat(),
+            "updated_at": updated_user.updated_at.isoformat(),
+            "first_name": updated_user.first_name,
+            "last_name": updated_user.last_name,
+            "full_name": user.full_name,
             "email": updated_user.email,
-            "regionId": updated_user.regionId,
+            "region_id": updated_user.region_id,
             "state": updated_user.state,
-            "userType": updated_user.userType,
-            "lastLoggedIn": user.lastLoggedIn,
-            "acceptedTermsVersion": user.acceptedTermsVersion,
+            "user_type": updated_user.user_type,
+            "last_logged_in": user.last_logged_in,
+            "accepted_terms_version": user.accepted_terms_version,
             "roles": [
                 {
                     "id": str(role.id),
@@ -487,11 +506,15 @@ def approve_user_registration(user_id, current_user):
     try:
         # Retrieve the user by ID
         user = User.objects.get(id=user_id)
+        user.date_approved = datetime.now()
+        user.approved_by = current_user
+        user.first_login = True
+        user.save()
     except ObjectDoesNotExist:
         raise HTTPException(status_code=404, detail="User not found.")
 
     # Ensure authorizer's region matches the user's region
-    if not matches_user_region(current_user, user.regionId):
+    if not matches_user_region(current_user, user.region_id):
         raise HTTPException(status_code=403, detail="Unauthorized region access.")
 
     # Send email notification
@@ -499,8 +522,8 @@ def approve_user_registration(user_id, current_user):
         send_registration_approved_email(
             user.email,
             subject="CyHy Dashboard Registration Approved",
-            first_name=user.firstName,
-            last_name=user.lastName,
+            first_name=user.first_name,
+            last_name=user.last_name,
             template="crossfeed_approval_notification.html",
         )
 
@@ -512,7 +535,10 @@ def approve_user_registration(user_id, current_user):
             status_code=500, detail="Failed to send email: {}".format(str(e))
         )
 
-    return {"statusCode": 200, "body": "User registration approved."}
+    return {
+        "status_code": 200,
+        "body": "User registration approved.",
+    }
 
 
 # PUT: /users/{user_id}/register/deny
@@ -529,19 +555,19 @@ def deny_user_registration(user_id: str, current_user: User):
             raise HTTPException(status_code=404, detail="User not found.")
 
         # Ensure authorizer's region matches the user's region
-        if not matches_user_region(current_user, user.regionId):
+        if not matches_user_region(current_user, user.region_id):
             raise HTTPException(status_code=403, detail="Unauthorized region access.")
 
         # Send registration denial email to the user
         send_registration_denied_email(
             user.email,
             subject="CyHy Dashboard Registration Denied",
-            first_name=user.firstName,
-            last_name=user.lastName,
+            first_name=user.first_name,
+            last_name=user.last_name,
             template="crossfeed_denial_notification.html",
         )
 
-        return {"statusCode": 200, "body": "User registration denied."}
+        return {"status_code": 200, "body": "User registration denied."}
 
     except HTTPException as http_exc:
         raise http_exc
@@ -567,7 +593,7 @@ def invite(new_user_data, current_user):
                 raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Non-global admins cannot set userType
-        if not is_global_write_admin(current_user) and new_user_data.userType:
+        if not is_global_write_admin(current_user) and new_user_data.user_type:
             raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Lowercase the email for consistency
@@ -575,7 +601,7 @@ def invite(new_user_data, current_user):
 
         # Map state to region ID if state is provided
         if new_user_data.state:
-            new_user_data.regionId = REGION_STATE_MAP.get(new_user_data.state)
+            new_user_data.region_id = REGION_STATE_MAP.get(new_user_data.state)
 
         # Check if the user already exists
         user = User.objects.filter(email=new_user_data.email).first()
@@ -588,23 +614,23 @@ def invite(new_user_data, current_user):
         if not user:
             # Create a new user if they do not exist
             user = User.objects.create(
-                invitePending=True,
+                invite_pending=True,
                 **new_user_data.dict(
                     exclude_unset=True,
-                    exclude={"organizationAdmin", "organization", "userType"},
+                    exclude={"organization_admin", "organization", "user_type"},
                 ),
             )
             if not os.getenv("IS_LOCAL"):
                 send_invite_email(user.email, organization)
-        elif not user.firstName and not user.lastName:
+        elif not user.first_name and not user.last_name:
             # Update first and last name if the user exists but has no name set
-            user.firstName = new_user_data.firstName
-            user.lastName = new_user_data.lastName
+            user.first_name = new_user_data.first_name
+            user.last_name = new_user_data.last_name
             user.save()
 
         # Always update userType if specified
-        if new_user_data.userType:
-            user.userType = new_user_data.userType.value
+        if new_user_data.user_type:
+            user.user_type = new_user_data.user_type.value
             user.save()
 
         # Assign role if an organization is specified
@@ -614,18 +640,18 @@ def invite(new_user_data, current_user):
                 organization=organization,
                 defaults={
                     "approved": True,
-                    "createdBy": current_user,
-                    "approvedBy": current_user,
-                    "role": "admin" if new_user_data.organizationAdmin else "user",
+                    "created_by": current_user,
+                    "approved_by": current_user,
+                    "role": "admin" if new_user_data.organization_admin else "user",
                 },
             )
         # Return the updated user with relevant details
         return {
             "id": str(user.id),
-            "firstName": user.firstName,
-            "lastName": user.lastName,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "email": user.email,
-            "userType": user.userType,
+            "user_type": user.user_type,
             "roles": [
                 {
                     "id": str(role.id),
@@ -640,7 +666,7 @@ def invite(new_user_data, current_user):
                 }
                 for role in user.roles.select_related("organization").all()
             ],
-            "invitePending": user.invitePending,
+            "invite_pending": user.invite_pending,
         }
 
     except HTTPException as http_exc:

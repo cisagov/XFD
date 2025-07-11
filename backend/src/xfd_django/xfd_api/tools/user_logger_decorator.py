@@ -7,7 +7,7 @@ import json
 
 # Third-Party Libraries
 from asgiref.sync import sync_to_async
-from xfd_api.models import Log, Organization, User
+from xfd_mini_dl.models import Log, Organization, User
 
 
 async def maybe_async_call(func, *args, **kwargs):
@@ -70,9 +70,9 @@ def log_action(action: str, message_or_cb=None):
                     # Record the log entry using Django ORM.
                     await sync_to_async(Log.objects.create)(
                         payload=json.dumps(payload),
-                        createdAt=payload["timestamp"],
+                        created_at=payload["timestamp"],
                         result=result,
-                        eventType=action,
+                        event_type=action,
                     )
                 except Exception as log_error:
                     # If logging fails, print a warning (or use your logging system).

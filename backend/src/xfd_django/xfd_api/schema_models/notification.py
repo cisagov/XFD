@@ -1,6 +1,4 @@
 """Notification schema."""
-# Third-Party Libraries
-# from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
 from typing import Optional
@@ -14,12 +12,12 @@ class Notification(BaseModel):
     """Notification schema."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
-    startDatetime: Optional[datetime]
-    endDatetime: Optional[datetime]
-    maintenanceType: Optional[str]
-    updatedBy: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    start_datetime: Optional[datetime]
+    end_datetime: Optional[datetime]
+    maintenance_type: Optional[str]
+    updated_by: Optional[str]
     status: Optional[str]
     message: Optional[str]
 
@@ -32,9 +30,9 @@ class Notification(BaseModel):
 class CreateNotificationSchema(BaseModel):
     """Create notification schema."""
 
-    maintenanceType: str
+    maintenance_type: str
     status: str
-    updatedBy: str
+    updated_by: str
     message: str
-    startDatetime: datetime
-    endDatetime: datetime
+    start_datetime: datetime
+    end_datetime: datetime

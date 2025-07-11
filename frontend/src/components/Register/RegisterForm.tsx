@@ -19,8 +19,8 @@ import { STATE_OPTIONS } from '../../constants/constants';
 const StyledDialog = registerFormStyles.StyledDialog;
 
 export interface RegisterFormValues {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email: string;
   state: string;
 }
@@ -38,8 +38,8 @@ export const RegisterForm: React.FC<{
 }> = ({ open, onClose, setRegisterSuccess }) => {
   // Set default Values
   const defaultValues = () => ({
-    firstName: '',
-    lastName: '',
+    first_name: '',
+    last_name: '',
     email: '',
     state: ''
   });
@@ -100,8 +100,8 @@ export const RegisterForm: React.FC<{
   const onSave = async () => {
     setIsLoading(true);
     const body = {
-      firstName: values.firstName,
-      lastName: values.lastName,
+      first_name: values.first_name,
+      last_name: values.last_name,
       email: values.email,
       state: values.state
     };
@@ -190,13 +190,13 @@ export const RegisterForm: React.FC<{
           }}
           margin="dense"
           size="small"
-          id="firstName"
+          id="first_name"
           inputProps={{ maxLength: 250 }}
-          name="firstName"
+          name="first_name"
           placeholder="Enter your First Name"
           type="text"
           fullWidth
-          value={values.firstName}
+          value={values.first_name}
           onChange={onTextChange}
         />
         Last Name
@@ -210,13 +210,13 @@ export const RegisterForm: React.FC<{
           }}
           margin="dense"
           size="small"
-          id="lastName"
+          id="last_name"
           inputProps={{ maxLength: 250 }}
-          name="lastName"
+          name="last_name"
           placeholder="Enter your Last Name"
           type="text"
           fullWidth
-          value={values.lastName}
+          value={values.last_name}
           onChange={onTextChange}
         />
         <Typography my={1}>State</Typography>

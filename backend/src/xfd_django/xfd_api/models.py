@@ -14,18 +14,18 @@ class ApiKey(models.Model):
     """The ApiKey model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
-    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
-    lastUsed = models.DateTimeField(db_column="lastUsed", blank=True, null=True)
-    hashedKey = models.TextField(db_column="hashedKey")
-    lastFour = models.TextField(db_column="lastFour")
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="created_at")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updated_at")
+    lastUsed = models.DateTimeField(db_column="last_used", blank=True, null=True)
+    hashedKey = models.TextField(db_column="hashed_key")
+    lastFour = models.TextField(db_column="last_four")
     user = models.ForeignKey(
         "User",
         models.CASCADE,
-        db_column="userId",
+        db_column="user_id",
         blank=True,
         null=True,
-        related_name="apiKeys",
+        related_name="api_keys",
     )
 
     class Meta:
@@ -42,7 +42,7 @@ class Cpe(models.Model):
     name = models.CharField(max_length=255)
     version = models.CharField(max_length=255)
     vendor = models.CharField(max_length=255)
-    lastSeenAt = models.DateTimeField(db_column="lastSeenAt")
+    lastSeenAt = models.DateTimeField(db_column="last_seen_at")
 
     class Meta:
         """The Meta class for Cpe."""
@@ -57,63 +57,63 @@ class Cve(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(unique=True, blank=True, null=True)
-    publishedAt = models.DateTimeField(db_column="publishedAt", blank=True, null=True)
-    modifiedAt = models.DateTimeField(db_column="modifiedAt", blank=True, null=True)
+    publishedAt = models.DateTimeField(db_column="published_at", blank=True, null=True)
+    modifiedAt = models.DateTimeField(db_column="modified_at", blank=True, null=True)
     status = models.CharField(blank=True, null=True)
     description = models.CharField(blank=True, null=True)
-    cvssV2Source = models.CharField(db_column="cvssV2Source", blank=True, null=True)
-    cvssV2Type = models.CharField(db_column="cvssV2Type", blank=True, null=True)
-    cvssV2Version = models.CharField(db_column="cvssV2Version", blank=True, null=True)
+    cvssV2Source = models.CharField(db_column="cvss_v2_source", blank=True, null=True)
+    cvssV2Type = models.CharField(db_column="cvss_v2_type", blank=True, null=True)
+    cvssV2Version = models.CharField(db_column="cvss_v2_version", blank=True, null=True)
     cvssV2VectorString = models.CharField(
-        db_column="cvssV2VectorString", blank=True, null=True
+        db_column="cvss_v2_vector_string", blank=True, null=True
     )
     cvssV2BaseScore = models.CharField(
-        db_column="cvssV2BaseScore", blank=True, null=True
+        db_column="cvss_v2_base_score", blank=True, null=True
     )
     cvssV2BaseSeverity = models.CharField(
-        db_column="cvssV2BaseSeverity", blank=True, null=True
+        db_column="cvss_v2_base_severity", blank=True, null=True
     )
     cvssV2ExploitabilityScore = models.CharField(
-        db_column="cvssV2ExploitabilityScore", blank=True, null=True
+        db_column="cvss_v2_exploitability_score", blank=True, null=True
     )
     cvssV2ImpactScore = models.CharField(
-        db_column="cvssV2ImpactScore", blank=True, null=True
+        db_column="cvss_v2_impact_score", blank=True, null=True
     )
-    cvssV3Source = models.CharField(db_column="cvssV3Source", blank=True, null=True)
-    cvssV3Type = models.CharField(db_column="cvssV3Type", blank=True, null=True)
-    cvssV3Version = models.CharField(db_column="cvssV3Version", blank=True, null=True)
+    cvssV3Source = models.CharField(db_column="cvss_v3_source", blank=True, null=True)
+    cvssV3Type = models.CharField(db_column="cvss_v3_type", blank=True, null=True)
+    cvssV3Version = models.CharField(db_column="cvss_v3_version", blank=True, null=True)
     cvssV3VectorString = models.CharField(
-        db_column="cvssV3VectorString", blank=True, null=True
+        db_column="cvss_v3_vector_string", blank=True, null=True
     )
     cvssV3BaseScore = models.CharField(
-        db_column="cvssV3BaseScore", blank=True, null=True
+        db_column="cvss_v3_base_score", blank=True, null=True
     )
     cvssV3BaseSeverity = models.CharField(
-        db_column="cvssV3BaseSeverity", blank=True, null=True
+        db_column="cvss_v3_base_severity", blank=True, null=True
     )
     cvssV3ExploitabilityScore = models.CharField(
-        db_column="cvssV3ExploitabilityScore", blank=True, null=True
+        db_column="cvss_v3_exploitability_score", blank=True, null=True
     )
     cvssV3ImpactScore = models.CharField(
-        db_column="cvssV3ImpactScore", blank=True, null=True
+        db_column="cvss_v3_impact_score", blank=True, null=True
     )
-    cvssV4Source = models.CharField(db_column="cvssV4Source", blank=True, null=True)
-    cvssV4Type = models.CharField(db_column="cvssV4Type", blank=True, null=True)
-    cvssV4Version = models.CharField(db_column="cvssV4Version", blank=True, null=True)
+    cvssV4Source = models.CharField(db_column="cvss_v4_source", blank=True, null=True)
+    cvssV4Type = models.CharField(db_column="cvss_v4_type", blank=True, null=True)
+    cvssV4Version = models.CharField(db_column="cvss_v4_version", blank=True, null=True)
     cvssV4VectorString = models.CharField(
-        db_column="cvssV4VectorString", blank=True, null=True
+        db_column="cvss_v4_vector_string", blank=True, null=True
     )
     cvssV4BaseScore = models.CharField(
-        db_column="cvssV4BaseScore", blank=True, null=True
+        db_column="cvss_v4_base_score", blank=True, null=True
     )
     cvssV4BaseSeverity = models.CharField(
-        db_column="cvssV4BaseSeverity", blank=True, null=True
+        db_column="cvss_v4_base_severity", blank=True, null=True
     )
     cvssV4ExploitabilityScore = models.CharField(
-        db_column="cvssV4ExploitabilityScore", blank=True, null=True
+        db_column="cvss_v4_exploitability_score", blank=True, null=True
     )
     cvssV4ImpactScore = models.CharField(
-        db_column="cvssV4ImpactScore", blank=True, null=True
+        db_column="cvss_v4_impact_score", blank=True, null=True
     )
     weaknesses = models.TextField(blank=True, null=True)
     references = models.TextField(blank=True, null=True)
@@ -194,9 +194,9 @@ class Log(models.Model):
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     payload = models.TextField()
-    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
+    createdAt = models.DateTimeField(db_column="created_at", auto_now_add=True)
     eventType = models.CharField(
-        db_column="eventType", max_length=255, null=True, blank=True
+        db_column="event_type", max_length=255, null=True, blank=True
     )
     result = models.CharField(max_length=255)
 
@@ -211,17 +211,17 @@ class Notification(models.Model):
     """The Notification model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
-    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="created_at")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updated_at")
     startDatetime = models.DateTimeField(
-        db_column="startDatetime", blank=True, null=True
+        db_column="start_datetime", blank=True, null=True
     )
-    endDatetime = models.DateTimeField(db_column="endDatetime", blank=True, null=True)
+    endDatetime = models.DateTimeField(db_column="end_datetime", blank=True, null=True)
     maintenanceType = models.CharField(
-        db_column="maintenanceType", blank=True, null=True
+        db_column="maintenance_type", blank=True, null=True
     )
     status = models.CharField(blank=True, null=True)
-    updatedBy = models.CharField(db_column="updatedBy", blank=True, null=True)
+    updatedBy = models.CharField(db_column="updated_by", blank=True, null=True)
     message = models.CharField(blank=True, null=True)
 
     class Meta:
@@ -235,34 +235,34 @@ class Organization(models.Model):
     """The Organization model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
-    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
+    createdAt = models.DateTimeField(db_column="created_at", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updated_at", auto_now=True)
 
     acronym = models.CharField(unique=True, blank=True, null=True, max_length=255)
     name = models.CharField(max_length=255)
-    rootDomains = ArrayField(models.CharField(max_length=255), db_column="rootDomains")
-    ipBlocks = ArrayField(models.CharField(max_length=255), db_column="ipBlocks")
-    isPassive = models.BooleanField(db_column="isPassive", default=False)
+    rootDomains = ArrayField(models.CharField(max_length=255), db_column="root_domains")
+    ipBlocks = ArrayField(models.CharField(max_length=255), db_column="ip_blocks")
+    isPassive = models.BooleanField(db_column="is_passive", default=False)
 
     pendingDomains = models.TextField(
-        db_column="pendingDomains", default="[]"
+        db_column="pending_domains", default="[]"
     )  # ******* Had to change this from JSON TO TEXT**********
     country = models.CharField(max_length=255, blank=True, null=True)
     state = models.CharField(max_length=255, blank=True, null=True)
     regionId = models.CharField(
-        max_length=255, db_column="regionId", blank=True, null=True
+        max_length=255, db_column="region_id", blank=True, null=True
     )
-    stateFips = models.IntegerField(db_column="stateFips", blank=True, null=True)
+    stateFips = models.IntegerField(db_column="state_fips", blank=True, null=True)
     stateName = models.CharField(
-        max_length=255, db_column="stateName", blank=True, null=True
+        max_length=255, db_column="state_name", blank=True, null=True
     )
     county = models.CharField(max_length=255, blank=True, null=True)
-    countyFips = models.IntegerField(db_column="countyFips", blank=True, null=True)
+    countyFips = models.IntegerField(db_column="county_fips", blank=True, null=True)
     type = models.CharField(max_length=255, blank=True, null=True)
 
     parent = models.ForeignKey(
         "self",
-        db_column="parentId",
+        db_column="parent_id",
         on_delete=models.CASCADE,
         related_name="children",
         null=True,
@@ -271,7 +271,7 @@ class Organization(models.Model):
 
     createdBy = models.ForeignKey(
         "User",
-        db_column="createdById",
+        db_column="created_by_id",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -288,8 +288,8 @@ class OrganizationTag(models.Model):
     """The OrganizationTag model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
-    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
+    createdAt = models.DateTimeField(db_column="created_at", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updated_at", auto_now=True)
 
     name = models.CharField(max_length=255, unique=True)
     organizations = models.ManyToManyField(
@@ -325,28 +325,28 @@ class Role(models.Model):
     """The Role model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
-    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="created_at")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updated_at")
 
     role = models.CharField(max_length=10, default="user")
     approved = models.BooleanField(default=False)
 
     user = models.ForeignKey(
-        "User", on_delete=models.CASCADE, db_column="userId", related_name="roles"
+        "User", on_delete=models.CASCADE, db_column="user_id", related_name="roles"
     )
     createdBy = models.ForeignKey(
         "User",
         models.DO_NOTHING,
-        db_column="createdById",
-        related_name="createdRoles",
+        db_column="created_by_id",
+        related_name="created_roles",
         blank=True,
         null=True,
     )
     approvedBy = models.ForeignKey(
         "User",
         models.DO_NOTHING,
-        db_column="approvedById",
-        related_name="approvedRoles",
+        db_column="approved_by_id",
+        related_name="approved_roles",
         blank=True,
         null=True,
     )
@@ -354,8 +354,8 @@ class Role(models.Model):
     organization = models.ForeignKey(
         "Organization",
         on_delete=models.CASCADE,
-        db_column="organizationId",
-        related_name="userRoles",
+        db_column="organization_id",
+        related_name="user_roles",
         blank=True,
         null=True,
     )
@@ -372,18 +372,18 @@ class SavedSearch(models.Model):
     """The SavedSearch model."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    createdAt = models.DateTimeField(db_column="createdAt", auto_now_add=True)
-    updatedAt = models.DateTimeField(db_column="updatedAt", auto_now=True)
+    createdAt = models.DateTimeField(db_column="created_at", auto_now_add=True)
+    updatedAt = models.DateTimeField(db_column="updated_at", auto_now=True)
 
     name = models.CharField()
-    searchTerm = models.CharField(db_column="searchTerm")
-    sortDirection = models.CharField(db_column="sortDirection")
-    sortField = models.CharField(db_column="sortField")
+    searchTerm = models.CharField(db_column="search_term")
+    sortDirection = models.CharField(db_column="sort_direction")
+    sortField = models.CharField(db_column="sort_field")
     count = models.IntegerField()
     filters = models.JSONField()
-    searchPath = models.CharField(db_column="searchPath")
+    searchPath = models.CharField(db_column="search_path")
     createdById = models.ForeignKey(
-        "User", models.DO_NOTHING, db_column="createdById", blank=True, null=True
+        "User", models.DO_NOTHING, db_column="created_by_id", blank=True, null=True
     )
 
     class Meta:
@@ -413,6 +413,7 @@ class Scan(models.Model):
     )
     isSingleScan = models.BooleanField(db_column="isSingleScan", default=False)
     manualRunPending = models.BooleanField(db_column="manualRunPending", default=False)
+    concurrentTasks = models.IntegerField(db_column="concurrentTasks", default=1)
 
     createdBy = models.ForeignKey(
         "User", models.SET_NULL, db_column="createdById", blank=True, null=True
@@ -448,6 +449,7 @@ class ScanTask(models.Model):
     startedAt = models.DateTimeField(db_column="startedAt", blank=True, null=True)
     finishedAt = models.DateTimeField(db_column="finishedAt", blank=True, null=True)
     queuedAt = models.DateTimeField(db_column="queuedAt", blank=True, null=True)
+    concurrencyIndex = models.IntegerField(db_column="concurrencyIndex", default=1)
 
     scan = models.ForeignKey(
         Scan, on_delete=models.SET_NULL, db_column="scanId", blank=True, null=True
@@ -545,40 +547,42 @@ class User(models.Model):
         max_length=255, db_column="cognitoId", unique=True, blank=True, null=True
     )
     oktaId = models.CharField(
-        max_length=255, db_column="oktaId", null=True, blank=True, unique=True
+        max_length=255, db_column="okta_id", null=True, blank=True, unique=True
     )
     loginGovId = models.CharField(
-        max_length=255, db_column="loginGovId", unique=True, blank=True, null=True
+        max_length=255, db_column="login_gov_id", unique=True, blank=True, null=True
     )
-    createdAt = models.DateTimeField(auto_now_add=True, db_column="createdAt")
-    updatedAt = models.DateTimeField(auto_now=True, db_column="updatedAt")
+    createdAt = models.DateTimeField(auto_now_add=True, db_column="created_at")
+    updatedAt = models.DateTimeField(auto_now=True, db_column="updated_at")
 
-    firstName = models.CharField(max_length=255, db_column="firstName")
-    lastName = models.CharField(max_length=255, db_column="lastName")
-    fullName = models.CharField(max_length=255, db_column="fullName")
+    firstName = models.CharField(max_length=255, db_column="first_name")
+    lastName = models.CharField(max_length=255, db_column="last_name")
+    fullName = models.CharField(max_length=255, db_column="full_name")
     email = models.CharField(unique=True)
 
-    invitePending = models.BooleanField(db_column="invitePending", default=False)
+    invitePending = models.BooleanField(db_column="invite_pending", default=False)
     loginBlockedByMaintenance = models.BooleanField(
-        db_column="loginBlockedByMaintenance", default=False
+        db_column="login_blocked_by_maintenance", default=False
     )
     dateAcceptedTerms = models.DateTimeField(
-        db_column="dateAcceptedTerms", blank=True, null=True
+        db_column="date_accepted_terms", blank=True, null=True
     )
     acceptedTermsVersion = models.TextField(
-        db_column="acceptedTermsVersion", blank=True, null=True
+        db_column="accepted_terms_version", blank=True, null=True
     )
 
-    lastLoggedIn = models.DateTimeField(db_column="lastLoggedIn", blank=True, null=True)
+    lastLoggedIn = models.DateTimeField(
+        db_column="last_logged_in", blank=True, null=True
+    )
     userType = models.CharField(
-        db_column="userType",
+        db_column="user_type",
         max_length=50,
         choices=UserType.choices,
         default=UserType.STANDARD,
     )
 
     regionId = models.CharField(
-        db_column="regionId", blank=True, null=True, max_length=255
+        db_column="region_id", blank=True, null=True, max_length=255
     )
     state = models.CharField(blank=True, null=True, max_length=255)
 
@@ -712,15 +716,15 @@ class Webpage(models.Model):
     """The Webpage model."""
 
     id = models.UUIDField(primary_key=True)
-    createdAt = models.DateTimeField(db_column="createdAt")
-    updatedAt = models.DateTimeField(db_column="updatedAt")
-    syncedAt = models.DateTimeField(db_column="syncedAt", blank=True, null=True)
-    lastSeen = models.DateTimeField(db_column="lastSeen", blank=True, null=True)
+    createdAt = models.DateTimeField(db_column="created_at")
+    updatedAt = models.DateTimeField(db_column="updated_at")
+    syncedAt = models.DateTimeField(db_column="synced_at", blank=True, null=True)
+    lastSeen = models.DateTimeField(db_column="last_seen", blank=True, null=True)
     s3key = models.CharField(db_column="s3Key", blank=True, null=True)
     url = models.CharField()
     status = models.DecimalField(max_digits=1000, decimal_places=1000)
     responseSize = models.DecimalField(
-        db_column="responseSize",
+        db_column="response_size",
         max_digits=1000,
         decimal_places=1000,
         blank=True,
@@ -730,13 +734,13 @@ class Webpage(models.Model):
     domainId = models.ForeignKey(
         Domain,
         models.DO_NOTHING,
-        db_column="domainId",
+        db_column="domain_id",
         blank=True,
         null=True,
         related_name="webpages",
     )
     discoveredById = models.ForeignKey(
-        Scan, models.DO_NOTHING, db_column="discoveredById", blank=True, null=True
+        Scan, models.DO_NOTHING, db_column="discovered_by_id", blank=True, null=True
     )
 
     class Meta:

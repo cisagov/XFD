@@ -1,7 +1,7 @@
 """Docker event listener."""
 # Standard Python Libraries
-import asyncio
 import json
+import time
 
 # Third-Party Libraries
 from django.conf import settings
@@ -18,11 +18,15 @@ from xfd_api.tasks.updateScanTaskStatus import handler as update_scan_task_statu
 def listen_for_docker_events():
     """Listen for Docker events."""
     try:
-        if not settings.IS_LOCAL:
-            client = DockerClient.from_env()
-            print("Listening for Docker events...")
+        if settings.IS_LOCAL:
+            try:
+                client = DockerClient.from_env()
+                print("Listening for Docker events...")
+            except Exception as e:
+                print("Failed to connect to Docker:", e)
+                return
         else:
-            print("No docker client")
+            print("Skipping Docker event listener because IS_LOCAL=False")
             return
 
         for event in client.events(decode=True):
@@ -70,8 +74,13 @@ def listen_for_docker_events():
                 print(
                     "Processing Docker event: {}".format(json.dumps(payload, indent=2))
                 )
-                # Use asyncio to process the event
-                asyncio.run(update_scan_task_status(payload, None))
+                # Retry logic to find the ScanTask before updating
+                for attempt in range(3):
+                    response = update_scan_task_status(payload, None)
+                    if response.get("status_code") == 200:
+                        break  # Success, exit loop
+                    time.sleep(1)  # Wait before retrying
+
             except Exception as e:
                 print("Error processing Docker event: {}".format(e))
 

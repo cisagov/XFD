@@ -34,7 +34,7 @@
   "scripts": {
     "lint": "eslint '**/*.{ts,tsx,js,jsx}'",
     "lint:fix": "eslint '**/*.{ts,tsx,js,jsx}' --fix",
-    "start": "docker compose build --parallel && docker compose up --force-recreate",
+    "start": "docker compose -f docker-compose.yml -f docker-compose.override.local.yml build --parallel && docker compose -f docker-compose.yml -f docker-compose.override.local.yml up --force-recreate",
     "ts-prune": "ts-prune"
   },
   "type": "module",

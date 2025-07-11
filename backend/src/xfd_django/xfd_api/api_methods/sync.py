@@ -8,6 +8,7 @@ to parents and sectors.
 
 # Standard Python Libraries
 from datetime import datetime
+import json
 from uuid import uuid4
 
 # Third-Party Libraries
@@ -16,18 +17,23 @@ from fastapi import HTTPException, Request
 from xfd_api.tasks.vulnScanningSync import save_organization_to_mdl
 from xfd_mini_dl.models import Organization, Sector
 
+from ..auth import is_global_view_admin
 from ..helpers.s3_client import S3Client
-from ..utils.csv_utils import convert_csv_to_json, create_checksum
+from ..schema_models.sync import SyncResponse
+from ..utils.csv_utils import create_checksum
 from ..utils.validation import save_validation_checksum
 
 
-async def sync_post(sync_body, request: Request):
+async def sync_post(sync_body, request: Request, current_user):
     """Ingest and persist organization data to the data lake."""
+    if not is_global_view_admin(current_user):
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     headers = request.headers
     request_checksum = headers.get("x-checksum")
     generated_checksum = create_checksum(sync_body.data)
     if not request_checksum or not sync_body.data:
-        raise HTTPException(status_code=500, detail="Missing checksum")
+        raise HTTPException(status_code=400, detail="Missing checksum or data")
 
     if request_checksum != generated_checksum:
         raise HTTPException(status_code=500, detail="Missing checksum")
@@ -40,26 +46,31 @@ async def sync_post(sync_body, request: Request):
 
     s3_url = s3_client.save_csv(sync_body.data, file_name)
     if not s3_url:
-        return {"status": 500}
+        raise HTTPException(status_code=500, detail="No S3 URL.")
 
-    parsed_data = convert_csv_to_json(sync_body.data)
+    parsed_data = json.loads(sync_body.data)
+
     for item in parsed_data:
         try:
             org = save_organization_to_mdl(
                 org_dict=item,
                 network_list=item["cidrs"],
                 location=item["location"],
-                db_name="mini_data_lake_integration",
+                db_name="mini_data_lake",
             )
 
             if org:
-                link_parent_organization(org, item.get("parent"))
-                link_sectors_to_organization(org, item.get("sectors", []))
+                link_parent_organization(
+                    org, item.get("parent"), db_name="mini_data_lake"
+                )
+                link_sectors_to_organization(
+                    org, item.get("sectors", []), db_name="mini_data_lake"
+                )
 
         except Exception as e:
-            print("Error processing item:", e)
+            raise HTTPException(status_code=500, detail=str(e))
 
-    return {"status": 200}
+    return SyncResponse(status="success")
 
 
 def parse_cursor(cursor_header):
@@ -77,7 +88,7 @@ def generate_s3_filename(start_bound, end_bound):
     return f"lz_org_sync/{now.month}-{now.day}-{now.year}/{start_bound}-{end_bound}.csv"
 
 
-def link_parent_organization(org, parent_data):
+def link_parent_organization(org, parent_data, db_name="mini_data_lake_lz"):
     """Link an organization to its parent if applicable."""
     if not isinstance(parent_data, dict):
         return
@@ -87,9 +98,7 @@ def link_parent_organization(org, parent_data):
         return
 
     try:
-        parent_org = Organization.objects.using("mini_data_lake_integration").get(
-            acronym=parent_acronym
-        )
+        parent_org = Organization.objects.using(db_name).get(acronym=parent_acronym)
         org.parent = parent_org
         org.save()
     except Organization.DoesNotExist:
@@ -98,7 +107,7 @@ def link_parent_organization(org, parent_data):
         print("Error while linking parent org to child org:", e)
 
 
-def link_sectors_to_organization(org, sectors):
+def link_sectors_to_organization(org, sectors, db_name="mini_data_lake_lz"):
     """Associate sectors with the organization."""
     if not isinstance(sectors, list):
         return
@@ -110,9 +119,7 @@ def link_sectors_to_organization(org, sectors):
 
         try:
             with transaction.atomic():
-                sector_obj, created = Sector.objects.using(
-                    "mini_data_lake_integration"
-                ).get_or_create(
+                sector_obj, created = Sector.objects.using(db_name).get_or_create(
                     acronym=sector_acronym,
                     defaults={"id": str(uuid4()), "name": sector.get("name")},
                 )

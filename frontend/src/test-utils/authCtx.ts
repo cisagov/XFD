@@ -25,5 +25,6 @@ export const authCtx: AuthContextType = {
   maximumRole: 'user',
   touVersion: 'v1-user',
   userMustSign: false,
-  userType: ''
+  user_type: '',
+  isLoggingOut: false
 };

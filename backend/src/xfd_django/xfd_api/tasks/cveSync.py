@@ -7,7 +7,7 @@ import time
 # Third-Party Libraries
 import django
 import requests
-from xfd_api.models import Cpe, Cve
+from xfd_mini_dl.models import Cpe, Cve
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -19,9 +19,9 @@ def handler(event, context):
     """Lambda handler for syncing CVE data."""
     try:
         main()
-        return {"statusCode": 200, "body": "CVE sync completed successfully."}
+        return {"status_code": 200, "body": "CVE sync completed successfully."}
     except Exception as e:
-        return {"statusCode": 500, "body": str(e)}
+        return {"status_code": 500, "body": str(e)}
 
 
 def main():

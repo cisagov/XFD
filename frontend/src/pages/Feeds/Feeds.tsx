@@ -99,14 +99,14 @@ const Feeds = () => {
               const filterDisplay: string[] = [];
               const filterMap: { [name: string]: string } = {
                 'services.port': 'Port',
-                fromRootDomain: 'Root Domain',
+                from_root_domain: 'Root Domain',
                 'vulnerabilities.cve': 'CVE',
                 'vulnerabilities.severity': 'Severity',
                 ip: 'IP',
                 name: 'Domain'
               };
-              if (search.searchTerm)
-                filterDisplay.push(`Search: ${search.searchTerm}`);
+              if (search.search_term)
+                filterDisplay.push(`Search: ${search.search_term}`);
               for (const filter of search.filters) {
                 const label =
                   filter.field in filterMap
@@ -117,10 +117,9 @@ const Feeds = () => {
               return (
                 <a
                   href={
-                    '/inventory' + search.searchPath + '&searchId=' + search.id
+                    '/inventory' + search.search_path + '&searchId=' + search.id
                   }
                   onClick={() => {
-                    console.log('bbb');
                     localStorage.setItem('savedSearch', JSON.stringify(search));
                   }}
                   key={search.id}
@@ -199,7 +198,16 @@ const Feeds = () => {
           />
         </Paper>
       </div>
-      <Modal ref={modalRef} id="modal">
+
+      {/* To-Do: Undefined props are needed to avoid errors. This Modal needs to
+              be replaced with a MUI Dialog. */}
+      <Modal
+        ref={modalRef}
+        id="modal"
+        placeholder={undefined}
+        onPointerEnterCapture={undefined}
+        onPointerLeaveCapture={undefined}
+      >
         <ModalHeading>Delete search?</ModalHeading>
         <p>Are you sure that you would like to delete this saved search?</p>
         <ModalFooter>

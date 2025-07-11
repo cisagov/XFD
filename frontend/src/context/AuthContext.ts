@@ -10,7 +10,7 @@ export interface AuthUser extends User {
 export type CurrentOrganization = Organization | OrganizationTag;
 
 export interface AuthContextType extends ReturnType<typeof useApi> {
-  userType: string;
+  user_type: string;
   login(token: string): void;
   logout(): Promise<void>;
   user?: AuthUser | null;
@@ -31,6 +31,7 @@ export interface AuthContextType extends ReturnType<typeof useApi> {
   maximumRole: 'user' | 'admin';
   touVersion: string;
   userMustSign: boolean;
+  isLoggingOut: boolean | null;
 }
 
 export const AuthContext = React.createContext<AuthContextType>(undefined!);

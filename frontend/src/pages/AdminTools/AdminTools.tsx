@@ -2,6 +2,7 @@ import React from 'react';
 import Notifications from 'pages/Notifications';
 import ScansView from 'pages/Scans/ScansView';
 import ScanTasksView from 'pages/Scans/ScanTasksView';
+import QueueMonitorView from 'pages/Scans/QueueMonitorView';
 import { Box, Container, Tab } from '@mui/material';
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Logs } from 'components/Logs/Logs';
@@ -9,8 +10,8 @@ import { Logs } from 'components/Logs/Logs';
 export const AdminTools: React.FC = () => {
   const [value, setValue] = React.useState('1');
 
-  const handleChange = (event: React.SyntheticEvent, newValue: string) => {
-    setValue(newValue);
+  const handleChange = (event: React.SyntheticEvent, new_value: string) => {
+    setValue(new_value);
   };
   return (
     <Container maxWidth="lg" sx={{ py: '10px' }}>
@@ -20,8 +21,9 @@ export const AdminTools: React.FC = () => {
             <TabList onChange={handleChange} aria-label="lab API tabs example">
               <Tab label="Scans" value="1" />
               <Tab label="Scan History" value="2" />
-              <Tab label="Notifications" value="3" />
-              <Tab label="User Logs" value="4" />
+              <Tab label="Queue Monitoring" value="3" />
+              <Tab label="Notifications" value="4" />
+              <Tab label="User Logs" value="5" />
             </TabList>
           </Box>
           <TabPanel value="1">
@@ -31,9 +33,12 @@ export const AdminTools: React.FC = () => {
             <ScanTasksView />
           </TabPanel>
           <TabPanel value="3">
-            <Notifications />
+            <QueueMonitorView />
           </TabPanel>
           <TabPanel value="4">
+            <Notifications />
+          </TabPanel>
+          <TabPanel value="5">
             <Logs />
           </TabPanel>
         </TabContext>

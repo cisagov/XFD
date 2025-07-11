@@ -34,8 +34,8 @@ export const Organization: React.FC = () => {
   const [userRoles, setUserRoles] = useState<Role[]>([]);
   const [scanTasks, setScanTasks] = useState<ScanTask[]>([]);
   const [tabValue, setTabValue] = React.useState('1');
-  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
-    setTabValue(newValue);
+  const handleTabChange = (event: React.SyntheticEvent, new_value: string) => {
+    setTabValue(new_value);
   };
 
   const fetchOrganization = useCallback(async () => {
@@ -43,13 +43,13 @@ export const Organization: React.FC = () => {
       const organization = await apiGet<OrganizationType>(
         `/organizations/${organizationId}`
       );
-      organization.scanTasks.sort(
+      organization.scan_tasks.sort(
         (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
       setOrganization(organization);
-      setUserRoles(organization.userRoles);
-      setScanTasks(organization.scanTasks);
+      setUserRoles(organization.user_roles);
+      setScanTasks(organization.scan_tasks);
       const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
       setTags(tags);
     } catch (e) {
@@ -89,7 +89,7 @@ export const Organization: React.FC = () => {
 
   return (
     <Grid container p={2}>
-      <Grid item xs={12} mb={2}>
+      <Grid size={{ xs: 12 }} mb={2}>
         <Breadcrumbs separator={<ChevronRight />}>
           <MuiLink href="/organizations" variant="h5">
             Organizations
@@ -104,8 +104,8 @@ export const Organization: React.FC = () => {
           </Typography>
         </Breadcrumbs>
       </Grid>
-      <Grid item xs={12} md={2} xl={3} />
-      <Grid item xs={12} md={8} xl={6}>
+      <Grid size={{ xs: 12, md: 2, xl: 3 }} />
+      <Grid size={{ xs: 12, md: 8, xl: 6 }}>
         <TabContext value={tabValue}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
             <TabList onChange={handleTabChange}>
@@ -117,7 +117,7 @@ export const Organization: React.FC = () => {
           <TabPanel value="2">{views[1]}</TabPanel>
         </TabContext>
       </Grid>
-      <Grid item xs={12} md={2} xl={3} />
+      <Grid size={{ xs: 12, md: 2, xl: 3 }} />
     </Grid>
   );
 };

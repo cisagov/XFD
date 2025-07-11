@@ -39,30 +39,30 @@ export interface ContextType {
 
 export interface Result {
   asn: { raw: any };
-  cloudHosted: { raw?: boolean };
+  cloud_hosted: { raw?: boolean };
   country: { raw: any };
-  createdAt: { raw: string };
-  fromRootDomain: { raw: string };
+  created_at: { raw: string };
+  from_root_domain: { raw: string };
   id: { raw: string };
   ip: { raw: string };
   name: { raw: string };
   organization: {
     raw: {
-      createdAt: string;
+      created_at: string;
       id: string;
-      ipBlocks: any[];
-      isPassive: boolean;
+      ip_blocks: any[];
+      is_passive: boolean;
       name: string;
-      rootDomains: string[];
-      updatedAt: string;
+      root_domains: string[];
+      updated_at: string;
     };
   };
-  reverseName: { raw: string };
+  reverse_name: { raw: string };
   screenshot: { raw: string };
   services: { raw: any[] };
   ssl: { raw: any };
   suggest: { raw: any[] };
-  syncedAt: { raw: string };
-  updatedAt: { raw: string };
+  synced_at: { raw: string };
+  updated_at: { raw: string };
   vulnerabilities: { raw: any[] };
 }

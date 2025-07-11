@@ -10,7 +10,7 @@ from pydantic import BaseModel
 class SyncResponse(BaseModel):
     """Response model for sync operations."""
 
-    status: int
+    status: str
 
 
 class SyncBody(BaseModel):

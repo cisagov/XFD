@@ -13,8 +13,10 @@ RUN apt-get update && apt-get install -y \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies from worker and application
+RUN pip install --upgrade pip setuptools wheel
 COPY worker/requirements.txt /app/worker/requirements.txt
 COPY requirements.txt /app/requirements.txt
+
 
 RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/worker/requirements.txt
@@ -26,6 +28,7 @@ COPY src/xfd_django .
 # Set environment variables
 ENV DJANGO_SETTINGS_MODULE=xfd_django.settings
 ENV PYTHONPATH="/app:$PYTHONPATH"
+ENV PYTHONUNBUFFERED=1
 
 # Make the entry script executable
 RUN chmod +x worker/worker-entry.sh

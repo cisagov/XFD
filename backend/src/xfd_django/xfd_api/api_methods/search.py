@@ -55,11 +55,11 @@ async def fetch_all_results(
             DomainSearchBody(
                 **{
                     "current": current,
-                    "resultsPerPage": RESULTS_PER_PAGE,
+                    "results_per_page": RESULTS_PER_PAGE,
                     "filters": search_body.filters,
-                    "searchTerm": search_body.searchTerm,
-                    "sortDirection": search_body.sortDirection,
-                    "sortField": search_body.sortField,
+                    "search_term": search_body.searchTerm,
+                    "sort_direction": search_body.sortDirection,
+                    "sort_field": search_body.sortField,
                 }
             ),
             options,
@@ -119,6 +119,10 @@ def generate_csv(results: List[Dict[str, Any]], fields: List[str]) -> str:
 # POST: /search
 async def search_post(search_body: DomainSearchBody, current_user):
     """Handle Elastic Search request."""
+    # Block search for pending users.
+    if current_user.invite_pending:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     options = await get_options(search_body, current_user)
     es_query = build_request(search_body, options)
 
@@ -157,6 +161,10 @@ async def search_post(search_body: DomainSearchBody, current_user):
 # POST: /search/export
 async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str, Any]:
     """Export the search results into a CSV and upload to S3."""
+    # Block search_export for pending users.
+    if current_user.invite_pending:
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
     # Get Elasticsearch options
     options = await get_options(search_body, current_user)
 
@@ -174,26 +182,26 @@ async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str
         "id",
         "ports",
         "products",
-        "createdAt",
-        "updatedAt",
+        "created_at",
+        "updated_at",
         "organization",
         "screenshot",
-        "censysCertificatesResults",
-        "ipOnly",
+        "censys_certificates_results",
+        "ip_only",
         "vulnerabilities",
-        "cloudHosted",
-        "reverseName",
-        "subdomainSource",
+        "cloud_hosted",
+        "reverse_name",
+        "subdomain_source",
         "country",
         "ssl",
         "parent_join",
-        "discoveredBy",
-        "fromCidr",
-        "fromRootDomain",
-        "trustymailResults",
+        "discovered_by",
+        "from_cidr",
+        "from_root_domain",
+        "trustymail_results",
         "asn",
-        "syncedAt",
-        "isFceb",
+        "synced_at",
+        "is_fceb",
         "services",
         "suggest",
     ]

@@ -8,33 +8,33 @@ import uuid
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import Log, User, UserType
 from xfd_django.asgi import app
+from xfd_mini_dl.models import Log, User, UserType
 
 client = TestClient(app)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_logs_success():
     """Test searching logs with filters as a GlobalViewAdmin."""
     user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(uuid.uuid4().hex),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     log = Log.objects.create(
         payload=json.dumps({"user": {"id": "12345", "action": "login"}}),
-        createdAt=datetime.now(),
-        eventType="UserLogin",
+        created_at=datetime.now(),
+        event_type="UserLogin",
         result="Success",
     )
 
     search_payload = {
-        "eventType": {"value": "UserLogin"},
+        "event_type": {"value": "UserLogin"},
         "result": {"value": "Success"},
     }
 
@@ -49,14 +49,14 @@ def test_search_logs_success():
     data = response.json()
     assert data["count"] == 1
     assert data["result"][0]["id"] == str(log.id)
-    assert data["result"][0]["eventType"] == "UserLogin"
+    assert data["result"][0]["event_type"] == "UserLogin"
     assert data["result"][0]["result"] == "Success"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_logs_unauthorized():
     """Test searching logs without authorization."""
-    search_payload = {"eventType": {"value": "UserLogin"}}
+    search_payload = {"event_type": {"value": "UserLogin"}}
 
     response = client.post("/logs/search", json=search_payload)
 
@@ -64,16 +64,16 @@ def test_search_logs_unauthorized():
     assert response.json()["detail"] == "No valid authentication credentials provided"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_logs_no_results():
     """Test searching logs when no logs match the filters."""
     user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(uuid.uuid4().hex),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     search_payload = {
@@ -92,27 +92,27 @@ def test_search_logs_no_results():
     assert len(data["result"]) == 0
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_logs_by_date():
     """Test searching logs by timestamp filter."""
     user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(uuid.uuid4().hex),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     log = Log.objects.create(
         payload=json.dumps({"user": {"id": "67890", "action": "logout"}}),
-        createdAt=datetime(2023, 5, 10, 12, 0, 0),
-        eventType="UserLogout",
+        created_at=datetime(2023, 5, 10, 12, 0, 0),
+        event_type="UserLogout",
         result="Success",
     )
 
     search_payload = {
-        "timestamp": {"operator": "onOrAfter", "value": "2023-05-10T00:00:00"},
+        "timestamp": {"operator": "on_or_after", "value": "2023-05-10T00:00:00"},
     }
 
     response = client.post(
@@ -127,20 +127,20 @@ def test_search_logs_by_date():
     assert any(log_entry["id"] == str(log.id) for log_entry in data["result"])
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_logs_invalid_date_format():
     """Test searching logs with an invalid date format."""
     user = User.objects.create(
-        firstName="Admin",
-        lastName="User",
+        first_name="Admin",
+        last_name="User",
         email="{}@example.com".format(uuid.uuid4().hex),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
     search_payload = {
-        "timestamp": {"operator": "onOrAfter", "value": "invalid-date"},
+        "timestamp": {"operator": "on_or_after", "value": "invalid-date"},
     }
 
     response = client.post(

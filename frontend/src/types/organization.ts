@@ -5,27 +5,44 @@ import { Scan } from './scan';
 export interface Organization {
   id: string;
   name: string;
-  rootDomains: string[];
-  ipBlocks: string[];
-  userRoles: Role[];
-  scanTasks: ScanTask[];
-  isPassive: boolean;
-  granularScans: Scan[];
+  root_domains: string[];
+  ip_blocks: string[];
+  user_roles: Role[];
+  scan_tasks: ScanTask[];
+  is_passive: boolean;
+  granular_scans: Scan[];
   tags: OrganizationTag[];
   parent: Organization | null;
   children: Organization[];
-  pendingDomains: PendingDomain[];
+  pending_domains: PendingDomain[];
   country?: string;
-  regionId?: string;
+  region_id?: string;
   state?: string;
-  stateFips?: number;
-  stateName?: string;
+  state_fips?: number;
+  state_name?: string;
   county?: string;
-  countyFips?: number;
+  county_fips?: number;
   acronym: string;
   type: string;
-  userCount?: number;
-  tagNames?: string[];
+  user_count?: number;
+  tag_names?: string[];
+}
+
+export interface UserOrganization {
+  id: string;
+  name: string;
+  tags: OrganizationTag[];
+  country?: string;
+  region_id?: string;
+  state?: string;
+  state_fips?: number;
+  state_name?: string;
+  county?: string;
+  county_fips?: number;
+  acronym?: string;
+  type?: string;
+  user_count?: number;
+  tag_names?: string[];
 }
 
 export interface PendingDomain {

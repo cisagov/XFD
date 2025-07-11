@@ -6,8 +6,8 @@ import { useAuthContext } from 'context';
 import { User } from 'types';
 
 interface FormData {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   organization?: string;
 }
 
@@ -18,8 +18,8 @@ interface Errors extends Partial<FormData> {
 export const AuthCreateAccount: React.FC = () => {
   const history = useHistory();
   const [values, setValues] = useState<FormData>({
-    firstName: '',
-    lastName: '',
+    first_name: '',
+    last_name: '',
     organization: undefined
   });
   const [errors, setErrors] = useState<Errors>({});
@@ -80,7 +80,7 @@ export const AuthCreateAccount: React.FC = () => {
     <AuthForm onSubmit={onSubmit}>
       <h2>CyHy Dashboard is currently in private beta</h2>
       {(process.env.NODE_ENV === 'development' ||
-        (user && user.userType === 'globalAdmin')) && (
+        (user && user.user_type === 'globalAdmin')) && (
         <>
           <h1>[DEVELOPMENT, FOR GLOBAL ADMINS ONLY] Finish Creating Account</h1>
           <p>
@@ -88,22 +88,22 @@ export const AuthCreateAccount: React.FC = () => {
             your account.
           </p>
 
-          <Label htmlFor="firstName">First Name</Label>
+          <Label htmlFor="first_name">First Name</Label>
           <TextInput
             required
-            id="firstName"
-            name="firstName"
+            id="first_name"
+            name="first_name"
             type="text"
-            value={values.firstName}
+            value={values.first_name}
             onChange={onTextChange}
           />
-          <Label htmlFor="lastName">Last Name</Label>
+          <Label htmlFor="last_name">Last Name</Label>
           <TextInput
             required
-            id="lastName"
-            name="lastName"
+            id="last_name"
+            name="last_name"
             type="text"
-            value={values.lastName}
+            value={values.last_name}
             onChange={onTextChange}
           />
           <Label htmlFor="email">Email</Label>

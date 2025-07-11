@@ -27,47 +27,52 @@ class User(BaseModel):
     """User schema."""
 
     id: UUID
-    cognitoId: Optional[str]
-    loginGovId: Optional[str]
-    createdAt: datetime
-    updatedAt: datetime
-    firstName: str
-    lastName: str
-    fullName: str
+    cognito_id: Optional[str]
+    login_gov_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    first_name: str
+    last_name: str
+    full_name: str
     email: str
-    invitePending: bool
-    loginBlockedByMaintenance: bool
-    dateAcceptedTerms: Optional[datetime]
-    acceptedTermsVersion: Optional[str]
-    lastLoggedIn: Optional[datetime]
-    userType: UserType
-    regionId: Optional[str]
+    invite_pending: bool
+    first_login: Optional[bool] = None
+    login_blocked_by_maintenance: bool
+    cognito_use_case_description: Optional[str] = None
+    date_approved: Optional[datetime] = None
+    approved_by: Optional[Dict[str, str]] = None
+    date_accepted_terms: Optional[datetime]
+    accepted_terms_version: Optional[str]
+    last_logged_in: Optional[datetime]
+    user_type: UserType
+    region_id: Optional[str]
     state: Optional[str]
-    oktaId: Optional[str]
+    okta_id: Optional[str]
     roles: Optional[List[Role]] = []
-    apiKeys: Optional[List[ApiKey]] = []
+    api_keys: Optional[List[ApiKey]] = []
 
 
 class UserResponse(BaseModel):
     """User response schema."""
 
-    cognitoId: Optional[str]
-    loginGovId: Optional[str]
-    firstName: str
-    lastName: str
-    fullName: str
+    cognito_id: Optional[str]
+    login_gov_id: Optional[str]
+    first_name: str
+    last_name: str
+    full_name: str
     email: str
-    invitePending: bool
-    loginBlockedByMaintenance: bool
-    dateAcceptedTerms: Optional[datetime]
-    acceptedTermsVersion: Optional[str]
-    lastLoggedIn: Optional[datetime]
-    userType: UserType
-    regionId: Optional[str]
+    invite_pending: bool
+    first_login: Optional[bool] = None
+    login_blocked_by_maintenance: bool
+    date_accepted_terms: Optional[datetime]
+    accepted_terms_version: Optional[str]
+    last_logged_in: Optional[datetime]
+    user_type: UserType
+    region_id: Optional[str]
     state: Optional[str]
-    oktaId: Optional[str]
+    okta_id: Optional[str]
     roles: Optional[List[Role]] = []
-    apiKeys: Optional[List[ApiKey]] = []
+    api_keys: Optional[List[ApiKey]] = []
 
     @classmethod
     def model_validate(cls, obj):
@@ -116,57 +121,61 @@ class NewUser(BaseModel):
     """New user schema."""
 
     email: str
-    firstName: str
-    lastName: str
+    first_name: str
+    last_name: str
     organization: Optional[str] = None
-    organizationAdmin: Optional[bool] = None
-    regionId: Optional[str] = None
+    organization_admin: Optional[bool] = None
+    region_id: Optional[str] = None
     state: Optional[str] = None
-    userType: Optional[UserType] = None
+    user_type: Optional[UserType] = None
 
 
 class NewUserResponseModel(BaseModel):
     """New user response schema."""
 
     id: str
-    firstName: str
-    lastName: str
+    first_name: str
+    last_name: str
     email: str
-    invitePending: bool
-    userType: UserType
+    invite_pending: bool
+    user_type: UserType
     roles: Optional[List[UserRole]] = []
 
 
 class UpdateUser(BaseModel):
     """Update user schema."""
 
-    firstName: Optional[str]
-    fullName: Optional[str]
-    invitePending: Optional[bool]
-    lastName: Optional[str]
-    loginBlockedByMaintenance: Optional[bool]
+    first_name: Optional[str]
+    full_name: Optional[str]
+    invite_pending: Optional[bool]
+    first_login: Optional[bool]
+    last_name: Optional[str]
+    login_blocked_by_maintenance: Optional[bool]
     organization: Optional[str]
-    regionId: Optional[str]
+    region_d: Optional[str]
     role: Optional[str]
     state: Optional[str]
-    userType: Optional[UserType]
+    user_type: Optional[UserType]
 
 
 class UpdateUserV2(BaseModel):
     """Schema for updating a user."""
 
-    firstName: Optional[str] = None
-    lastName: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     email: Optional[str] = None
     state: Optional[str] = None
-    userType: Optional[str] = None
-    invitePending: Optional[bool] = False
+    user_type: Optional[str] = None
+    invite_pending: Optional[bool] = None
+    first_login: Optional[bool] = None
+    date_approved: Optional[datetime] = None
+    approved_by: Optional[Any] = None
 
 
 class RegisterUserResponse(BaseModel):
     """Register or deny user response."""
 
-    statusCode: int
+    status_code: int
     body: str
 
 
@@ -180,16 +189,20 @@ class UserResponseV2(BaseModel):
     """Schema for returning user data."""
 
     id: str
-    createdAt: str
-    updatedAt: str
-    firstName: str
-    lastName: str
-    fullName: str
+    created_at: str
+    updated_at: str
+    first_name: str
+    last_name: str
+    full_name: str
     email: str
-    acceptedTermsVersion: Optional[str] = None
-    dateAcceptedTerms: Optional[datetime] = None
-    lastLoggedIn: Optional[datetime] = None
-    regionId: Optional[str] = None
+    accepted_terms_version: Optional[str] = None
+    date_accepted_terms: Optional[datetime] = None
+    cognito_use_case_description: Optional[str] = None
+    date_approved: Optional[datetime] = None
+    approved_by: Optional[Dict[str, str]] = None
+    last_logged_in: Optional[datetime] = None
+    region_id: Optional[str] = None
     state: Optional[str] = None
-    userType: Optional[str] = None
+    user_type: Optional[str] = None
     roles: List[Dict[str, Optional[Any]]]
+    first_login: Optional[bool] = None

@@ -12,13 +12,13 @@ class ApiKey(BaseModel):
     """Pydantic model for the ApiKey model."""
 
     id: str
-    createdAt: datetime
-    updatedAt: datetime
-    lastUsed: Optional[datetime]
-    hashedKey: Optional[
+    created_at: datetime
+    updated_at: datetime
+    last_used: Optional[datetime]
+    hashed_key: Optional[
         str
     ] = None  # Make optional to avoid validation error in response
-    lastFour: Optional[str]
+    last_four: Optional[str]
     user: Optional[UUID] = None  # Make optional to avoid validation error in response
     api_key: Optional[
         str

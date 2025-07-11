@@ -2,10 +2,10 @@ import { User } from './user';
 
 export interface ApiKey {
   id: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   user: User;
-  hashedKey: string;
-  lastFour: string;
-  lastUsed: string;
+  hashed_key: string;
+  last_four: string;
+  last_used: string;
 }

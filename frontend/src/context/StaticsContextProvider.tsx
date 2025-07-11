@@ -22,7 +22,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
       const results = await apiGet('/regions');
       setRegions(
         results
-          .map((region: { regionId: string }) => region.regionId)
+          .map((region: { region_id: string }) => region.region_id)
           .sort((a: string, b: string) => {
             if (parseInt(a) < parseInt(b)) {
               return -1;

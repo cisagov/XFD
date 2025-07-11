@@ -13,9 +13,18 @@ class MyAppRouter:
 
     def db_for_write(self, model, **hints):
         """Database for write."""
+        # Check if a target database is provided in hints
+        # print(self)
+        # Uncomment the below "if clause" for local testing
+        # ##################################################
+        target_db = hints["instance"]._state.db if hints.get("instance", None) else None
+        if target_db == "mini_data_lake_secondary":
+            return "mini_data_lake_secondary"
+        # ##################################################
+        # Default behavior based on app label
         if model._meta.app_label == "xfd_mini_dl":
             return "mini_data_lake"
-        return "default"  # All other models go to the default database
+        return "default"
 
     def allow_relation(self, obj1, obj2, **hints):
         """Allow relation."""
