@@ -1,13 +1,13 @@
 """ES client."""
 # Standard Python Libraries
 import os
-
+import logging
 # Third-Party Libraries
 from elasticsearch import Elasticsearch, helpers
 from xfd_api.logger import LOGGER
 
 # Constants
-logging = LOGGER.getChild(__name__)
+logger = LOGGER.getChild(__name__)
 DOMAINS_INDEX = "domains-5"
 ORGANIZATIONS_INDEX = "organizations-1"
 
@@ -27,10 +27,10 @@ domain_mapping = {
 }
 
 # Raise log level for Elasticsearch client to WARNING to suppress request logs
-logging.getLogger("elasticsearch").setLevel(logging.WARNING)
+logger.getChild("elasticsearch").setLevel(logging.WARNING)
 
 # Also suppress low-level logs from urllib3 used by Elasticsearch
-logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logger.getChild("urllib3.connectionpool").setLevel(logging.WARNING)
 
 
 class ESClient:
@@ -45,7 +45,7 @@ class ESClient:
         """Create or updates the organizations index with mappings."""
         try:
             if not self.client.indices.exists(index=ORGANIZATIONS_INDEX):
-                logging.info("Creating index %s...", ORGANIZATIONS_INDEX)
+                logger.info("Creating index %s...", ORGANIZATIONS_INDEX)
                 self.client.indices.create(
                     index=ORGANIZATIONS_INDEX,
                     body={
@@ -54,19 +54,19 @@ class ESClient:
                     },
                 )
             else:
-                logging.info("Updating index %s...", ORGANIZATIONS_INDEX)
+                logger.info("Updating index %s...", ORGANIZATIONS_INDEX)
                 self.client.indices.put_mapping(
                     index=ORGANIZATIONS_INDEX, body=organization_mapping
                 )
         except Exception as e:
-            logging.error("Error syncing organizations index: %s", e)
+            logger.error("Error syncing organizations index: %s", e)
             raise e
 
     def sync_domains_index(self):
         """Create or updates the domains index with mappings."""
         try:
             if not self.client.indices.exists(index=DOMAINS_INDEX):
-                logging.info("Creating index %s...", DOMAINS_INDEX)
+                logger.info("Creating index %s...", DOMAINS_INDEX)
                 self.client.indices.create(
                     index=DOMAINS_INDEX,
                     body={
@@ -75,7 +75,7 @@ class ESClient:
                     },
                 )
             else:
-                logging.info("Updating index %s...", DOMAINS_INDEX)
+                logger.info("Updating index %s...", DOMAINS_INDEX)
                 self.client.indices.put_mapping(
                     index=DOMAINS_INDEX, body=domain_mapping
                 )
@@ -84,7 +84,7 @@ class ESClient:
                 index=DOMAINS_INDEX, body={"settings": {"refresh_interval": "1800s"}}
             )
         except Exception as e:
-            logging.error("Error syncing domains index: %s", e)
+            logger.error("Error syncing domains index: %s", e)
             raise e
 
     def update_organizations(self, organizations):
@@ -125,7 +125,7 @@ class ESClient:
             print("Deleting all indices...")
             self.client.indices.delete(index="*")
         except Exception as e:
-            logging.error("Error deleting all indices: %s", e)
+            logger.error("Error deleting all indices: %s", e)
             raise e
 
     def search_domains(self, body):
@@ -145,13 +145,13 @@ class ESClient:
 
             for idx, item in enumerate(response):
                 if "update" in item and item["update"].get("error"):
-                    logging.error(
+                    logger.error(
                         "Error indexing document %s: %s", idx, item["update"]["error"]
                     )
                 else:
-                    logging.info("Successfully indexed document %s: %s", idx, item)
+                    logger.info("Successfully indexed document %s: %s", idx, item)
 
             self.client.indices.refresh(index="domains-5")
         except Exception as e:
-            logging.error("Bulk operation error: %s", e)
+            logger.error("Bulk operation error: %s", e)
             raise e
