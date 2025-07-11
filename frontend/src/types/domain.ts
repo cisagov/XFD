@@ -89,6 +89,7 @@ export interface Vulnerability {
   title: string;
   cve: string | null;
   is_kev?: string;
+  is_kev_ransomware?: boolean;
   cwe: string | null;
   cpe: string | null;
   description: string;
