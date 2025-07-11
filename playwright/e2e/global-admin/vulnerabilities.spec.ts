@@ -1,22 +1,11 @@
 const { test, expect, Page } = require('../../axe-test');
-
-test.describe.configure({ mode: 'parallel' });
-let page: InstanceType<typeof Page>;
+import type { TestInfo } from '@playwright/test';
 
 test.describe('Vulnerabilities', () => {
-  test.beforeEach(async ({ browser }) => {
-    const context = await browser.newContext();
-    page = await context.newPage();
-    await page.goto('/');
-  });
-
-  test.afterEach(async () => {
-    await page.close();
-  });
-
   test('Test vulnerabilities accessibility', async ({
+    page,
     makeAxeBuilder
-  }, testInfo) => {
+  }, testInfo: TestInfo) => {
     await page.goto('/inventory/vulnerabilities');
 
     const accessibilityScanResults = await makeAxeBuilder().analyze();
@@ -30,7 +19,7 @@ test.describe('Vulnerabilities', () => {
   });
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
-  test.skip('Test vulnerability details NIST link', async () => {
+  test.skip('Test vulnerability details NIST link', async ({ page }) => {
     await page.goto('/inventory/vulnerabilities');
     const newTabPromise = page.waitForEvent('popup');
 
@@ -43,7 +32,7 @@ test.describe('Vulnerabilities', () => {
   });
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
-  test.skip('Test domain details link', async () => {
+  test.skip('Test domain details link', async ({ page }) => {
     await page.goto('/inventory/vulnerabilities');
     await page.getByRole('row').nth(1).getByRole('cell').nth(3).click();
     await expect(page).toHaveURL(new RegExp('/inventory/domain/'));
@@ -51,8 +40,9 @@ test.describe('Vulnerabilities', () => {
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
   test.skip('Test vulnerability details accessibility', async ({
+    page,
     makeAxeBuilder
-  }, testInfo) => {
+  }, testInfo: TestInfo) => {
     await page.goto('/inventory/vulnerabilities');
     await page.getByRole('row').nth(1).getByRole('cell').nth(7).click();
     await expect(page).toHaveURL(new RegExp('/inventory/vulnerability/'));

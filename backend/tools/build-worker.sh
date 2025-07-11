@@ -9,3 +9,5 @@ set -e
 docker build --platform linux/amd64 -t crossfeed-worker -f Dockerfile.worker .
 
 docker build --platform linux/amd64 -t pe-worker -f Dockerfile.pe .
+
+docker build --platform linux/amd64 -t playwright-worker -f Dockerfile.playwright .

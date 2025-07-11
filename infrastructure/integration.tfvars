@@ -118,3 +118,4 @@ ssm_whoisxml_thread_count            = "/crossfeed/integration/WHOIS_XML_THREAD_
 ssm_whoisxml_api_key                 = "/crossfeed/integration/WHOIS_XML_API_KEY"
 crossfeed_playwright                 = "crossfeed-playwright-integration"
 automated_test_reports_bucket_name   = "cisa-crossfeed-integration-automated-test-reports"
+playwright_worker_repository_name    = "crossfeed-playwright-integration-worker"

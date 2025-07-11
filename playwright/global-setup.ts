@@ -1,8 +1,9 @@
 import { chromium, FullConfig } from '@playwright/test';
 import * as OTPAuth from 'otpauth';
 import * as dotenv from 'dotenv';
+import { determineUrl } from './utils/env';
 
-dotenv.config();
+dotenv.config({ path: '../.env' });
 
 const authFile = './storageState.json';
 
@@ -17,8 +18,7 @@ let totp = new OTPAuth.TOTP({
 
 const axios = require('axios');
 
-const waitForFrontend = async (url, timeout = 900000, checkInterval = 5000) => {
-  console.log(`Url: ${url}`);
+const waitForFrontend = async (url, timeout = 600000, checkInterval = 5000) => {
   const startTime = Date.now();
   while (Date.now() - startTime < timeout) {
     try {
@@ -33,7 +33,8 @@ const waitForFrontend = async (url, timeout = 900000, checkInterval = 5000) => {
           `Frontend not ready yet. Status: ${error.response.status}. Retrying...`
         );
       } else {
-        console.log('Error occurred while checking frontend:', error.message);
+        console.log('Error occurred while checking frontend:', error);
+        break;
       }
 
       await new Promise((resolve) => setTimeout(resolve, checkInterval)); // Wait before retrying
@@ -45,16 +46,26 @@ const waitForFrontend = async (url, timeout = 900000, checkInterval = 5000) => {
 };
 
 async function globalSetup(config: FullConfig) {
+  const baseUrl = determineUrl();
+  console.log(`Base URL: ${baseUrl}`);
+  if (!baseUrl) {
+    throw new Error(
+      '❌ PW_XFD_URL is not defined. Make sure it is set as an environment variable.'
+    );
+  }
   const browser = await chromium.launch();
   const page = await browser.newPage();
 
   //Log in with credentials.
-  await waitForFrontend(process.env.PW_XFD_URL);
-  await page.goto(String(process.env.PW_XFD_URL));
+  await waitForFrontend(baseUrl);
+  await page.goto(baseUrl, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60000
+  });
   await page.getByTestId('button').click();
   await page
     .getByLabel('Username (Email)')
-    .fill(String(process.env.PW_XFD_USERNAME));
+    .fill(String(process.env.PW_XFD_LOGIN));
   await page.getByRole('button', { name: 'Next' }).click();
   await page
     .getByLabel('Email address')

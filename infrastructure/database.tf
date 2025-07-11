@@ -33,7 +33,7 @@ resource "aws_db_instance" "db" {
   max_allocated_storage               = 10000
   storage_type                        = "gp2"
   engine                              = "postgres"
-  engine_version                      = "15.8"
+  engine_version                      = "15.12"
   allow_major_version_upgrade         = true
   skip_final_snapshot                 = true
   availability_zone                   = data.aws_availability_zones.available.names[0]
