@@ -357,7 +357,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Ransomware',
         minWidth: 100,
         flex: 0.5,
-        filterable: true, // <-- Make it searchable/filterable
+        filterable: true,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => (
           <Box
             component="span"
