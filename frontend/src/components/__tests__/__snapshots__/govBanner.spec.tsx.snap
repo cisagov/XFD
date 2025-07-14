@@ -40,18 +40,6 @@ exports[`Gov Banner Component matches snapshot 1`] = `
               />
             </svg>
           </button>
-          <div
-            class="MuiBox-root css-1iuj5ih"
-          >
-            <button
-              aria-label="Skip to main content"
-              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeMedium MuiButton-textSizeMedium MuiButton-colorPrimary css-1g3ko6g-MuiButtonBase-root-MuiButton-root"
-              tabindex="0"
-              type="button"
-            >
-              Skip to main content
-            </button>
-          </div>
         </div>
       </div>
     </div>

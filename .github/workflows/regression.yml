@@ -42,7 +42,7 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_SUBNET: ${{ secrets.AWS_SUBNET }}
           AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
-          AUTOMATED_TEST_REPORTS_BUCKET_NAME: ${{ vars.AUTOMATED_TEST_REPORTS_BUCKET_NAME }}
+          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
           PW_XFD_URL: http://xfd-frontend-1:3000/
           PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
           PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
@@ -60,6 +60,8 @@ jobs:
         continue-on-error: false  # Ensure it stops if the ECS task fails
 
       - name: Download test report from S3
+        env:
+          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
         run: |
           mkdir -p ./playwright-report/html
           aws s3 cp \
@@ -67,8 +69,9 @@ jobs:
             ./playwright-report/html/ --recursive
 
           aws s3 cp \
-            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/staging/playwright-reports/latest/results.json \
+            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/staging/playwright-reports/latest/results.json" \
             ./playwright-report/results.json
+
 
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
@@ -102,7 +105,7 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_SUBNET: ${{ secrets.AWS_SUBNET }}
           AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
-          AUTOMATED_TEST_REPORTS_BUCKET_NAME: ${{ vars.AUTOMATED_TEST_REPORTS_BUCKET_NAME }}
+          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-integration-automated-test-reports
           PW_XFD_URL: http://xfd-frontend-1:3000/
           PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
           PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
@@ -120,6 +123,8 @@ jobs:
         continue-on-error: false  # Ensure it stops if the ECS task fails
 
       - name: Download test report from S3
+        env:
+          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
         run: |
           mkdir -p ./playwright-report/html
           aws s3 cp \
@@ -127,8 +132,9 @@ jobs:
           ./playwright-report/html/ --recursive
 
           aws s3 cp \
-          "s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/integration/playwright-reports/results.json" \
-          ./playwright-report/results.json
+            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/integration/playwright-reports/latest/results.json" \
+            ./playwright-report/results.json
+
 
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4

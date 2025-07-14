@@ -2756,6 +2756,11 @@ class Ticket(models.Model):
         blank=True,
         help_text="Boolean field that flags if this ticket is a KEV (Known Exploited Vulnerability) ticket",
     )
+    is_kev_ransomware = models.BooleanField(
+        null=True,
+        blank=True,
+        help_text="Boolean field that flags if this ticket is a KEV and known to be ransomware.",
+    )
     is_risky = models.BooleanField(
         null=True,
         blank=True,
@@ -6667,11 +6672,23 @@ class Vulnerability(models.Model):
         blank=True, null=True, max_length=255, db_column="data_source"
     )
     description = models.TextField(blank=True, null=True)
+    false_positive = models.BooleanField(
+        db_column="false_positive",
+        blank=True,
+        null=True,
+        help_text="A boolean field to flag if a vulnerability has been reported as a false positive.",
+    )
     is_kev = models.BooleanField(
         db_column="is_kev",
         blank=True,
         null=True,
         help_text="A boolean field to flag if a vulnerability has been on the CISA Known Exploited Vulnerability (KEV) list.",
+    )
+    is_kev_ransomware = models.BooleanField(
+        db_column="is_kev_ransomware",
+        blank=True,
+        null=True,
+        help_text="A boolean field to flag if a vulnerability is linked to a known ransomware exploit.",
     )
     service_string = models.CharField(blank=True, null=True, max_length=255)
     # service = models.ForeignKey(

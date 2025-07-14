@@ -97,3 +97,46 @@ def test_okta_callback_missing_code():
 
     assert response.json()["status_code"] == 400
     assert response.json()["detail"] == "Code not found in request body"
+
+
+# Test that the response is JSON serializable
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.auth.get_jwt_from_code", new_callable=AsyncMock)
+def test_okta_callback_user_approved_by_admin(mock_get_jwt_from_code):
+    """Ensure /auth/okta-callback user object is fully JSON serializable."""
+    approver_user_email = "{}@example.com".format(secrets.token_hex(4))
+    approved_user_email = "{}@example.com".format(secrets.token_hex(4))
+
+    approver = User.objects.create(
+        email=approver_user_email,
+        okta_id="okta-approver-id",
+        first_name="Approver",
+        last_name="User",
+        user_type="global_admin",
+        invite_pending=False,
+    )
+
+    User.objects.create(
+        email=approved_user_email,
+        okta_id="okta-user-id-456",
+        first_name="Test",
+        last_name="User",
+        user_type="standard",
+        approved_by=approver,
+        invite_pending=False,
+    )
+
+    mock_get_jwt_from_code.return_value = {
+        "decoded_token": {
+            "email": approved_user_email,
+            "sub": "okta-user-id-456",
+            "given_name": "Test",
+            "family_name": "User",
+        }
+    }
+
+    payload = {"code": "test-auth-code"}
+    response = client.post("/auth/okta-callback", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["user"]

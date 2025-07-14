@@ -116,7 +116,10 @@ def create_ip_within_org_cidr(org: Organization) -> Optional[Ip]:
 def build_fake_cve() -> Cve:
     """Build a fake CVE object."""
     year = random.randint(2000, 2024)
-    cve_id = f"CVE-{year}-{random.randint(1000, 99999)}"
+    if year < 2014:
+        cve_id = f"CVE-{year}-{random.randint(1000, 9999)}"
+    else:
+        cve_id = f"CVE-{year}-{random.randint(1000, 99999)}"
     published_at = fake.date_time_between(
         start_date=f"-{2024 - year + 1}y", end_date=f"-{2024 - year}y"
     )
@@ -340,6 +343,7 @@ def build_fake_ticket(org):
     cvss_base_score = round(random.uniform(*severity_ranges[severity]), 1)
     protocol = random.choice(["tcp", "udp"])
     opened_time = timezone.now() - timedelta(days=random.randint(0, 30))
+    is_kev = random.choice([True, True, False])
     # 80% chance of ticket being open (closed_timestamp = None)
     if random.random() < 0.8:
         closed_time = None
@@ -382,7 +386,7 @@ def build_fake_ticket(org):
         cvss_score_source="nvd",
         cvss_severity=Decimal(severity),
         vpr_score=Decimal("6.9"),
-        false_positive=False,
+        false_positive=random.choices([True, False], weights=[1, 19])[0],
         updated_timestamp=timezone.now(),
         location_latitude=Decimal(str(round(random.uniform(-90, 90), 6))),
         location_longitude=Decimal(str(round(random.uniform(-180, 180), 6))),
@@ -409,7 +413,10 @@ def build_fake_ticket(org):
         vuln_source_id=random.choice([10081, 12345, 34567, 89012]),
         closed_timestamp=closed_time,
         opened_timestamp=opened_time,
-        is_kev=random.choice([True, True, False]),
+        is_kev=is_kev,
+        is_kev_ransomware=random.choices([True, False], weights=[1, 4])[0]
+        if is_kev
+        else False,
         is_risky=random.choice([True, False]),
         is_open=not closed_time,
         service_name="ftp",

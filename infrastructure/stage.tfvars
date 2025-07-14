@@ -10,6 +10,7 @@ frontend_bucket                              = "staging.crossfeed.cyber.dhs.gov"
 api_domain                                   = "api.staging.crossfeed.cyber.dhs.gov"
 db_name                                      = "crossfeed-stage-db"
 db_port                                      = 5432
+xpanse_org_sync_bucket_name                  = "crossfeed-xpanse-org-sync-staging"
 db_table_name                                = "cfstagingdb"
 db_instance_class                            = "db.m5.xlarge"
 log_metric_namespace                         = "LogMetrics"

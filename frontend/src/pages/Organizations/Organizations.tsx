@@ -65,6 +65,9 @@ export const Organizations: React.FC = () => {
       minWidth: 100,
       flex: 1,
       disableExport: true,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         const ariaLabel = `View or edit organization ${cellValues.row.name}`;
         const descriptionId = `description-${cellValues.row.id}`;

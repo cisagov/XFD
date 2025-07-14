@@ -65,7 +65,9 @@ def create_vuln_normal_views(database):
                 END AS state,
                 t.vuln_source as data_source,
                 COALESCE(vs.description, te.reason, 'N/A') as description,
+                t.false_positive::bool as false_positive,
                 t.is_kev::bool as is_kev,
+                t.is_kev_ransomware::bool as is_kev_ransomware,
                 t.service_name as service_string,
                 t.is_risky::bool as is_risky_service,
                 --null as os, --t.os as os --Not seeing this in the ticket
@@ -128,7 +130,9 @@ def create_vuln_normal_views(database):
                 'open' as state,
                 'Shodan' as data_source,
                 COALESCE(sv.summary, sv.mitigation, 'N/A') as description,
+                null::bool as false_positive,
                 null::bool as is_kev,
+                null::bool as is_kev_ransomware,
                 null as service_string,
                 null::bool as is_risky_service,
                 null as os, --t.os as os --Not seeing this in the ticket
@@ -181,7 +185,9 @@ def create_vuln_normal_views(database):
                 state,
                 data_source,
                 description,
+                null::bool as false_positive,
                 null::bool as is_kev,
+                null::bool as is_kev_ransomware,
                 null as service_string,
                 null::bool as is_risky_service,
                 null as os, --t.os as os --Not seeing this in the ticket

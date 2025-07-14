@@ -5,7 +5,6 @@ import { ExpandLess, ExpandMore } from '@mui/icons-material';
 import flagIcon from '../assets/us_flag_small.png';
 import govIcon from '../assets/icon-dot-gov.svg';
 import httpsIcon from '../assets/icon-https.svg';
-import { SkipToMainContent } from './SkipToMainContent';
 
 const PREFIX = 'GovBanner';
 
@@ -141,7 +140,6 @@ export const GovBanner: React.FC = () => {
                 <ExpandMore fontSize="small" />
               )}
             </button>
-            <SkipToMainContent />
           </div>
         </div>
       </div>

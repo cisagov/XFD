@@ -229,7 +229,9 @@ def ticket_vuln_setup(db):
         organization=organization,
         vuln_name="Example vulnerability",
         cve_string=search_fields["public_id"],
+        false_positive=False,
         is_kev=True,
+        is_kev_ransomware=False,
         is_open=True,
         vuln_port=80,
         port_protocol="tcp",
@@ -428,7 +430,11 @@ def test_search_vulnerabilities_id(user, vulnerability, refresh_vuln_views):
     # Search vulnerabilities by ip.
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"id": str(vulnerability.id)}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"id": str(vulnerability.id), "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -452,7 +458,11 @@ def test_search_vulnerabilities_by_title(user, vulnerability, refresh_vuln_views
 
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"title": search_fields["title"]}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"title": search_fields["title"], "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -475,7 +485,11 @@ def test_search_vulnerabilities_by_cpe(user, vulnerability, refresh_vuln_views):
     # Test search vulnerabilities by cpe
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"cpe": search_fields["cpe"]}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"cpe": search_fields["cpe"], "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -502,7 +516,7 @@ def test_search_vulnerabilities_by_severity(user, vulnerability, refresh_vuln_vi
         "/vulnerabilities/search",
         json={
             "page": 1,
-            "filters": {"severity": search_fields["severity"]},
+            "filters": {"severity": search_fields["severity"], "false_positive": None},
             "pageSize": 25,
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
@@ -531,7 +545,11 @@ def test_search_vulnerabilities_by_domain_id(user, vulnerability, refresh_vuln_v
     domain_name = str(vulnerability.domain.name)
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"domain": domain_name}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"domain": domain_name, "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -558,7 +576,11 @@ def test_search_vulnerabilities_by_state(user, vulnerability, refresh_vuln_views
 
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"state": state_to_search}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"state": state_to_search, "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -585,7 +607,11 @@ def test_search_vulnerabilities_by_substate(user, vulnerability, refresh_vuln_vi
 
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"substate": substate_to_search}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"substate": substate_to_search, "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -616,7 +642,7 @@ def test_search_vulnerabilities_by_organization_id(
         "/vulnerabilities/search",
         json={
             "page": 1,
-            "filters": {"organization": organization_id},
+            "filters": {"organization": organization_id, "false_positive": None},
             "pageSize": 25,
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
@@ -659,7 +685,7 @@ def test_search_vulnerabilities_by_is_kev(user, vulnerability, refresh_vuln_view
         "/vulnerabilities/search",
         json={
             "page": 1,
-            "filters": {"is_kev": is_kev_to_search},
+            "filters": {"is_kev": is_kev_to_search, "false_positive": None},
             "pageSize": 25,
         },
         headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
@@ -691,6 +717,7 @@ def test_search_vulnerabilities_by_multiple_criteria(
             "filters": {
                 "state": state_to_search,
                 "substate": substate_to_search,
+                "false_positive": None,
             },
             "page_size": 25,
         },
@@ -728,7 +755,11 @@ def test_search_vulnerabilities_does_not_exist(user, vulnerability, refresh_vuln
     # Test search vulnerabilities by state
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"title": "Does Not Exist"}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"title": "Does Not Exist", "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
@@ -755,6 +786,7 @@ def test_search_vulnerabilities_by_earliest_and_latest_date(
             "filters": {
                 "earliest_date": search_fields["earliest_date"].isoformat(),
                 "latest_date": search_fields["latest_date"].isoformat(),
+                "false_positive": None,
             },
             "pageSize": 25,
         },
@@ -776,7 +808,7 @@ def test_search_vulnerabilities_by_os(user, ticket_vuln_setup, refresh_vuln_view
         "/vulnerabilities/search",
         json={
             "page": 1,
-            "filters": {"os": search_fields["os"]},
+            "filters": {"os": search_fields["os"], "false_positive": None},
             "pageSize": 25,
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
@@ -800,7 +832,10 @@ def test_search_vulnerabilities_by_public_id(
         "/vulnerabilities/search",
         json={
             "page": 1,
-            "filters": {"public_id": search_fields["public_id"]},
+            "filters": {
+                "public_id": search_fields["public_id"],
+                "false_positive": None,
+            },
             "pageSize": 25,
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
@@ -823,7 +858,10 @@ def test_search_vulnerabilities_by_scan_type(
         "/vulnerabilities/search",
         json={
             "page": 1,
-            "filters": {"scan_type": search_fields["scan_type"]},
+            "filters": {
+                "scan_type": search_fields["scan_type"],
+                "false_positive": None,
+            },
             "pageSize": 25,
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
@@ -851,7 +889,11 @@ def test_search_vulnerabilities_by_port(user, shodan_vuln_setup, refresh_vuln_vi
     """Test vulnerability."""
     response = client.post(
         "/vulnerabilities/search",
-        json={"page": 1, "filters": {"port": search_fields["port"]}, "pageSize": 25},
+        json={
+            "page": 1,
+            "filters": {"port": search_fields["port"], "false_positive": None},
+            "pageSize": 25,
+        },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
     assert response.status_code == 200
