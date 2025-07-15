@@ -6512,32 +6512,6 @@ class CpeProduct(models.Model):
         unique_together = (("cpe_product_name", "version_number"),)
 
 
-class SyncChecksum(models.Model):
-    """Define SyncChecksums model."""
-
-    sync_checksums_uid = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid1,
-        help_text="PK: Unique identifier for a sync checksum object.",
-    )
-    sync_type = models.TextField(
-        blank=True, null=True, help_text="Type of sync that was performed."
-    )
-    checksum = models.TextField(
-        blank=True, null=True, help_text="Checksum of the data that was synced."
-    )
-    sync_date = models.DateTimeField(
-        blank=True, null=True, help_text="Datetime the sync was performed."
-    )
-
-    class Meta:
-        """Set SyncChecksums model metadata."""
-
-        app_label = app_label_name
-        managed = manage_db
-        db_table = "sync_checksums"
-
-
 class Blocklist(models.Model):
     """Define Blocklist Model."""
 
