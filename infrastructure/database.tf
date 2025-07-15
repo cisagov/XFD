@@ -505,7 +505,7 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "crossfeed-lz-sync
 
 resource "aws_s3_bucket" "crossfeed-xpanse-org-sync" {
   count  = var.is_dmz ? 1 : 0
-  bucket = var.crossfeed-xpanse-org-sync
+  bucket = var.xpanse_org_sync_bucket_name
   tags = {
     Project = var.project
     Stage   = var.stage
@@ -514,7 +514,7 @@ resource "aws_s3_bucket" "crossfeed-xpanse-org-sync" {
 
 resource "aws_s3_bucket_policy" "crossfeed-xpanse-org-sync" {
   count  = var.is_dmz ? 1 : 0
-  bucket = var.crossfeed-xpanse-org-sync
+  bucket = var.xpanse_org_sync_bucket_name
   policy = jsonencode({
     "Version" : "2012-10-17",
     "Statement" : [

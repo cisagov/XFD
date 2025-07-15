@@ -201,30 +201,35 @@ def create_service(service_dict, cves, org_record, alert_record):
         for domain in service_dict["domain"]:
             sub_domain = create_sub_domain_for_service(domain, org_record)
             created_domains.append(sub_domain)
-        if created_domains:
-            for domain in created_domains:
-                xpanse_service.sub_domains.add(domain)
+        # if created_domains:
+        #     for domain in created_domains:
+        #         xpanse_service.sub_domains.add(domain)
     LOGGER.info("Created Xpanse Service %s", xpanse_service.service_id)
     return xpanse_service
 
 
 def create_sub_domain_for_service(sub_domain, ord_record):
     """Create a sub domain for a service."""
-    domain_obj, _ = SubDomains.objects.update_or_create(
+    # If we're creating it, we want enumerate subs to be false
+    # If we're updating, do not update the enumerate subs
+    domain_obj, created = SubDomains.objects.get_or_create(
         sub_domain=sub_domain,
         defaults={
             "data_source": XPSANSE_DATA_SOURCE,
             "organization": ord_record,
+            "ip_only": False,
+            "enumerate_subs": False,
             "created_at": datetime.datetime.now(datetime.timezone.utc),
             "updated_at": datetime.datetime.now(datetime.timezone.utc),
-            "enumerate_subs": False,
-            "ip_only": False,
             "reverse_name": reverse_domain_name(sub_domain),
-            "cloud_hosted": False,
             "censys_certificates_results": [],
             "trustymail_results": [],
         },
     )
+    if not created:
+        domain_obj.updated_at = datetime.datetime.now(datetime.timezone.utc)
+        domain_obj.save()
+
     LOGGER.info("Created Sub Domain %s", sub_domain)
     return domain_obj
 
@@ -299,7 +304,8 @@ def insert_xpanse_alert(alert, org_record, business_unit):
             )
             if xpanse_service is not None:
                 linked_services.append(xpanse_service)
-                xpanse_alert.services.set(linked_services)
+        print("Attempting to link alert to service")
+        xpanse_alert.services.set(linked_services)
         LOGGER.info(
             "Created %d Services for Xpanse Alert %s",
             len(linked_services),
@@ -343,9 +349,11 @@ def pull_alerts_data(linked_org_list, business_units_list=[]):
             resp_dict = response.json()
             page_token = resp_dict["reply"]["next_page_token"]
             formatted_alerts = format_alerts(resp_dict["reply"]["alerts"])
-            LOGGER.info("Found %d alerts", len(formatted_alerts))
-            for alert in formatted_alerts:
-                insert_xpanse_alert(alert, mdl_org_record, business_unit)
+
+            if isinstance(formatted_alerts, list):
+                LOGGER.info("Found %d alerts", len(formatted_alerts))
+                for alert in formatted_alerts:
+                    insert_xpanse_alert(alert, mdl_org_record, business_unit)
 
             while page_token is not None:
                 request_data = {"next_page_token": page_token}

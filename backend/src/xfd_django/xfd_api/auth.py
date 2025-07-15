@@ -3,6 +3,7 @@
 # Standard Python Libraries
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
+import json
 import os
 import re
 from typing import Optional
@@ -37,6 +38,36 @@ JWT_TIMEOUT_HOURS = settings.JWT_TIMEOUT_HOURS
 LOGIN_BLOCKED_EXCLUSIONS = ["globalAdmin", "regionalAdmin"]
 
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+
+
+def validate_json_serialization(user_object, label="user_object"):
+    """Try to serialize an object to JSON. If it fails, identify which field caused it."""
+    if user_object is None:
+        raise ValueError("{} is None, cannot serialize".format(label))
+    try:
+        json.dumps(user_object)
+    except TypeError as e:
+
+        def traverse_data(user_data, path):
+            if isinstance(user_data, dict):
+                for key, value in user_data.items():
+                    traverse_data(value, path + [str(key)])
+            elif isinstance(user_data, list):
+                for index, item in enumerate(user_data):
+                    traverse_data(item, path + ["[{}]".format(index)])
+            else:
+                try:
+                    json.dumps(user_data)
+                except TypeError:
+                    path_str = ".".join(path)
+                    raise TypeError(
+                        "{} contains unserializable value at `{}`".format(
+                            label, path_str
+                        )
+                    )
+
+        traverse_data(user_object, [])
+        raise TypeError("{} failed JSON serialization: {}".format(label, e))
 
 
 def user_to_dict(user):
@@ -269,6 +300,7 @@ async def process_user(decoded_token):
         )
 
         process_resp = {"token": signed_token, "user": user_to_dict(user)}
+        validate_json_serialization(process_resp["user"], label="User Dict")
         return process_resp
     else:
         raise HTTPException(status_code=400, detail="User not found")

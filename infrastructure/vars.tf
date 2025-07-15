@@ -866,12 +866,6 @@ variable "crossfeed-lz-sync_name" {
   default     = "crossfeed-lz-sync"
 }
 
-variable "crossfeed-xpanse-org-sync" {
-  type        = string
-  description = "The name of the S3 bucket for Crossfeed Xpanse Org sync"
-  default     = "crossfeed-xpanse-org-sync"
-}
-
 variable "image_tag" {
   description = "The tag for the image in ECR"
   type        = string
@@ -892,6 +886,12 @@ variable "playwright_worker_ecs_task_definition_family" {
   description = "playwright_worker_ecs_task_definition_family"
   type        = string
   default     = "crossfeed-playwright-worker-staging-cd"
+}
+
+variable "xpanse_org_sync_bucket_name" {
+  type        = string
+  description = "The name of the S3 bucket for Crossfeed Xpanse Org sync"
+  default     = "crossfeed-xpanse-org-sync"
 }
 
 variable "playwright_worker_repository_name" {

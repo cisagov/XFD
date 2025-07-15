@@ -118,5 +118,5 @@ ssm_whoisxml_api_key                         = "/crossfeed/staging/WHOIS_XML_API
 crossfeed_playwright                         = "crossfeed-playwright-staging-cd"
 automated_test_reports_bucket_name           = "cisa-crossfeed-staging-cd-automated-test-reports"
 playwright_worker_ecs_task_definition_family = "crossfeed-staging-cd-playwright-worker"
-crossfeed-xpanse-org-sync                    = "crossfeed-xpanse-org-sync-staging-cd"
+xpanse_org_sync_bucket_name                  = "crossfeed-xpanse-org-sync-staging-cd"
 playwright_worker_repository_name            = "crossfeed-playwright-staging-worker"

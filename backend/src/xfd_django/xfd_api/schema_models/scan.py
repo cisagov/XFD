@@ -461,6 +461,14 @@ SCAN_SCHEMA = {
         memory="8192",
         description="Pull in Xpanse business units and link them to organizations",
     ),
+    "xpanse_data_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Pull all Xpanse data and push to /xpanse-sync in DMZ",
+    ),
     "cybersixgill": ScanSchema(
         type="fargate",
         is_passive=True,
