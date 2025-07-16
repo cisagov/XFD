@@ -13,19 +13,22 @@ All other modules should *only* use this logger (or a child created via
 
 # Standard Python Libraries
 import logging
-from logging.config import dictConfig
 from logging import Filter
+from logging.config import dictConfig
 
 _DEFAULT_FMT = (
     "%(levelname)s %(asctime)s [%(name)s:%(lineno)d] " "%(request_id)s %(message)s"
 )
+
+
 class RequestIdFilter(Filter):
     """Ensure every LogRecord has a request_id attribute."""
 
     def filter(self, record):
         if not hasattr(record, "request_id"):
-            record.request_id = "-"       # default placeholder
+            record.request_id = "-"  # default placeholder
         return True
+
 
 def _configure_root_logger():
     """
@@ -53,11 +56,7 @@ def _configure_root_logger():
             "handlers": ["console"],
             "level": "INFO",
         },
-        "filters": {
-            "request_id_present": {
-                "()": RequestIdFilter
-            }
-        },
+        "filters": {"request_id_present": {"()": RequestIdFilter}},
     }
 
     dictConfig(config)

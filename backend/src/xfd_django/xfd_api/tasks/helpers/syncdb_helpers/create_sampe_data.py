@@ -20,6 +20,7 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 from faker import Faker
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
+from xfd_api.logger import LOGGER
 from xfd_api.models import Domain, Service, Vulnerability
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.tasks.refresh_vs_summaries import handler as refresh_vs_summaries
@@ -44,6 +45,7 @@ from xfd_mini_dl.models import (
 )
 
 fake = Faker()
+logger = LOGGER.getChild(__name__)
 
 # Constants for sample data generation
 SAMPLE_TAG_NAME = "Sample Data"
@@ -670,7 +672,7 @@ def populate_sample_data():
                 TicketEvent.objects.bulk_create(all_events, batch_size=100)
 
         except Exception as e:
-            print(f"\n❌ Error while processing org {org.name}: {e}")
+            logger.error("Error while processing org %s: %s", org.name, e)
             continue
 
         # Progress bar

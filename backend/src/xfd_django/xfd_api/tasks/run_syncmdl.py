@@ -5,6 +5,7 @@ import os
 # Third-Party Libraries
 import django
 from django.core.management import call_command
+from xfd_api.logger import LOGGER
 
 # Set the Django settings module
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -12,6 +13,7 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
 # Initialize Django
 django.setup()
+logger = LOGGER.getChild(__name__)
 
 
 def handler(event, context):
@@ -32,7 +34,7 @@ def handler(event, context):
             "body": "Database synchronization completed successfully.",
         }
     except Exception as e:
-        print("Error during syncmdl: {}".format(str(e)))
+        logger.error("Error during syncmdl: %s", str(e))
         return {
             "status_code": 500,
             "body": "Database synchronization failed: {}".format(str(e)),
