@@ -1,5 +1,6 @@
 """Update the blocklist with the latest data from blocklist.de."""
 # Standard Python Libraries
+from datetime import timedelta
 import ipaddress
 
 # Third-Party Libraries
@@ -43,7 +44,7 @@ def query_blocklist_api(ip_str):
     return malicious, attacks, reports
 
 
-def create_new_blocklist_records(blocklist):
+def create_new_blocklist_records(blocklist, created_count):
     """Create new blocklist records in the database for each IP address."""
     for ip_str in blocklist:
         try:
@@ -56,6 +57,7 @@ def create_new_blocklist_records(blocklist):
                 attacks=attacks,
                 reports=reports,
             )
+            created_count += 1
         except Exception as e:
             logger.warning("Failed to create blocklist record for IP %s: %s", ip_str, e)
             continue
@@ -70,25 +72,44 @@ def main():
     logger.info("Blocklist downloaded successfully with %d entries.", len(blocklist))
     blocklist_records = Blocklist.objects.all()
     # Prune blocklist records that are not in the downloaded blocklist data
+    updated_count = 0
     for ip_record in blocklist_records:
         ip_str = str(ipaddress.ip_interface(ip_record.ip).ip)
         if ip_str in blocklist:
             logger.info("Updating blocklist record for IP: %s", ip_str)
             # If the IP is in the blocklist, update the record
             malicious, attacks, reports = query_blocklist_api(ip_str)
-            if attacks > 0:
+            updated = False
+            if attacks != ip_record.attacks:
+                # Update the attacks count
                 ip_record.attacks = attacks
-            if reports > 0:
+                updated = True
+            if reports != ip_record.reports:
+                # Update the reports count
                 ip_record.reports = reports
-            ip_record.malicious = malicious
-            ip_record.updated_at = timezone.now()
+                updated = True
+            if malicious != ip_record.malicious:
+                ip_record.malicious = malicious
+                updated = True
+            if updated:
+                ip_record.updated_at = timezone.now()
+
+            ip_record.save()
+            updated_count += 1
             # Remove the IP from blocklist to improve performance
             del blocklist[ip_str]
         else:
             ip_record.delete()
             logger.info("Blocklist record deleted for IP: %s", ip_str)
     # Add new blocklist records based on the downloaded data
-    create_new_blocklist_records(blocklist)
+    LOGGER.info("Updated %d blocklist records.", updated_count)
+    created_count = 0
+    create_new_blocklist_records(blocklist, created_count)
+    LOGGER.info("Created %d new blocklist records.", created_count)
+    # Delete all records that have not been updated in the last 30 days
+    threshold_date = timezone.now() - timedelta(days=30)
+    deleted_count, _ = Blocklist.objects.filter(updated_at__lt=threshold_date).delete()
+    LOGGER.info("Deleted %d old blocklist records.", deleted_count)
 
 
 def handler(_):

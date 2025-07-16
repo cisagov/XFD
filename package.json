@@ -3,6 +3,7 @@
     "url": "https://github.com/cisagov/crossfeed/issues"
   },
   "dependencies": {
+    "date-fns-tz": "^3.2.0",
     "react-router-hash-link": "^2.4.3"
   },
   "devDependencies": {

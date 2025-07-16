@@ -17,7 +17,8 @@ import {
   DataGrid,
   GridColDef,
   GridPaginationModel,
-  GridRenderCellParams
+  GridRenderCellParams,
+  GridSortModel
 } from '@mui/x-data-grid';
 import {
   Checklist,
@@ -60,6 +61,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
+  const [sortModel, setSortModel] = useState<GridSortModel>([
+    {
+      field: 'created_at',
+      sort: 'desc'
+    }
+  ]);
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
 
@@ -83,6 +90,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       filters,
       page,
       pageSize = PAGE_SIZE,
+      order,
+      sort,
       doExport = false,
       group_by,
       showAll = false
@@ -97,7 +106,15 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         return await apiPost<ApiResponse>(
           doExport ? '/vulnerabilities/export' : '/vulnerabilities/search',
           {
-            body: { page, filters: tableFilters, pageSize, group_by, showAll }
+            body: {
+              page,
+              filters: tableFilters,
+              pageSize,
+              group_by,
+              showAll,
+              order,
+              sort
+            }
           }
         );
       } catch (e) {
@@ -118,6 +135,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           filters: query.filters,
           page: query.page,
           pageSize: query.pageSize ?? PAGE_SIZE,
+          order: query.order,
+          sort: query.sort,
           group_by,
           showAll: query.showAll
         });
@@ -176,6 +195,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
+      order: sortModel[0]?.field,
+      sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
     });
@@ -183,6 +204,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     fetchVulnerabilities,
     paginationModel.page,
     paginationModel.pageSize,
+    sortModel,
     filters,
     onlyOpenVulns
   ]);
@@ -445,6 +467,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     [history]
   );
 
+  console.log('Vuln length: ', vulnerabilities.length);
+  console.log(paginationModel);
   return (
     <Box
       display="flex"
@@ -565,6 +589,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               rowCount={totalResults}
               columns={vulCols}
               loading={isLoading}
+              sortModel={sortModel}
+              sortingMode="server"
+              onSortModelChange={(model) => {
+                setSortModel(model);
+              }}
               slots={{
                 toolbar: CustomToolbar,
                 noRowsOverlay: CustomNoRowsOverlay

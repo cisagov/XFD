@@ -477,4 +477,21 @@ SCAN_SCHEMA = {
         memory="8192",
         description="Collect alerts, mentions, credentials, and top CVEs from Cybersixgill dark web monitoring.",
     ),
+    "pshtt_scan": ScanSchema(
+        type="fargate",
+        is_passive=False,
+        global_scan=False,
+        cpu="1024",
+        memory="8192",
+        description="Performs HTTPS security checks on domains using the pshtt tool.",
+        max_concurrent_tasks=10,
+    ),
+    "pshtt_scan_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Syncs pshtt scan results with the database and Elasticsearch.",
+    ),
 }

@@ -1044,7 +1044,13 @@ def create_vuln_scan_summary(summary_date=None):
                 "ten_plus_vulns_count": ten_plus,
                 "top_5_occurring_cves": top_5_occurring_cves,
                 "top_5_occurring_kevs": top_5_occurring_kevs,
-                "included_tickets": list(included.values_list("id", flat=True)),
+                "included_tickets": {
+                    str(ticket.id): {
+                        "severity": severity_map.get(ticket.cvss_severity, "unknown"),
+                        "is_kev": ticket.is_kev,
+                    }
+                    for ticket in included.only("id", "cvss_severity", "is_kev")
+                },
                 "top_5_risky_hosts": top_5_hosts,
             },
         )

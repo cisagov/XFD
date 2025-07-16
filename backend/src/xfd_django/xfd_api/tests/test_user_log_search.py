@@ -1,6 +1,6 @@
 """User event log search tests."""
 # Standard Python Libraries
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import uuid
 
@@ -151,3 +151,43 @@ def test_search_logs_invalid_date_format():
 
     assert response.status_code == 500
     assert "Invalid date format" in response.json()["detail"]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_search_logs_filtered_success():
+    """Test the new filtered log search endpoint."""
+    user = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@example.com".format(uuid.uuid4().hex),
+        user_type=UserType.GLOBAL_VIEW,
+    )
+    Log.objects.create(
+        payload=json.dumps({"info": "Log to be filtered out"}),
+        created_at=datetime.now(tz=timezone.utc),
+        event_type="UserLogout",
+        result="success",
+    )
+    matching_log = Log.objects.create(
+        payload=json.dumps({"info": "This should be found"}),
+        created_at=datetime.now(tz=timezone.utc),
+        event_type="UserLogin",
+        result="success",
+    )
+    search_payload = {
+        "page": 1,
+        "page_size": 10,
+        "filters": {"event_type": {"value": "UserLogin", "operator": "equals"}},
+    }
+    response = client.post(
+        "/logs/filtered-search",
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+        json=search_payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] == 1
+    assert len(data["result"]) == 1
+    assert data["result"][0]["id"] == str(matching_log.id)
+    assert data["result"][0]["event_type"] == "UserLogin"

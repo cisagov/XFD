@@ -35,7 +35,13 @@ def sort_direction(sort, order):
         # Fetch all domains in list
         if sort == "ASC":
             return order
+        elif sort == "asc":
+            return order
         elif sort == "DSC":
+            return "-" + order
+        elif sort == "dsc":
+            return "-" + order
+        elif sort == "desc":
             return "-" + order
         else:
             raise ValueError

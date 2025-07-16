@@ -6,6 +6,8 @@ import {
   Paper
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import CancelIcon from '@mui/icons-material/Cancel';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { Box } from '@mui/system';
 import {
   DataGrid,
@@ -14,53 +16,100 @@ import {
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 import { useAuthContext } from 'context';
-import { differenceInCalendarDays } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+
+import { toZonedTime } from 'date-fns-tz';
 
 interface LogsProps {}
 
 interface LogDetails {
+  id?: number;
   created_at: string;
   event_type: string;
   result: string;
-  payload: string;
+  payload: any;
 }
+
+const PAGE_SIZE = 15;
 
 export const Logs: FC<LogsProps> = () => {
   const { apiPost } = useAuthContext();
   const [filters, setFilters] = useState<Array<GridFilterItem>>([]);
   const [openDialog, setOpenDialog] = useState(false);
-  const [dialogDetails, setDialogDetails] = useState<
-    (LogDetails & { id: number }) | null
-  >(null);
+  const [dialogDetails, setDialogDetails] = useState<LogDetails | null>(null);
   const [logs, setLogs] = useState<{
-    count: Number;
-    result: Array<LogDetails>;
+    count: number;
+    result: LogDetails[];
   }>({
     count: 0,
     result: []
   });
 
   const fetchLogs = useCallback(async () => {
+    const fieldMap: Record<string, string> = {
+      event_type: 'event_type',
+      acting_user_name: 'payload.user_performed_assignment.full_name',
+      acting_user_email: 'payload.user_performed_assignment.email',
+      acted_on_user_name: 'payload.user.full_name',
+      acted_on_user_email: 'payload.user.email',
+      organization: 'payload.organization.name',
+      region: 'payload.user_performed_assignment.region_id',
+      role: 'payload.role',
+      state: 'payload.state',
+      user_type: 'payload.user.user_type',
+      created_at: 'timestamp',
+      result: 'result'
+    };
+
     const tableFilters = filters.reduce(
-      (acc: { [key: string]: { value: any; operator: any } }, cur) => {
-        return {
-          ...acc,
-          [cur.field]: {
-            value: cur.value,
-            operator: cur.operator
-          }
-        };
+      (acc, cur) => {
+        const field = fieldMap[cur.field] || cur.field;
+        let value = cur.value;
+
+        // Convert local time to UTC ISO string for timestamp filter
+        if (field === 'timestamp' && typeof value === 'string' && value) {
+          const localDate = new Date(value);
+          value = localDate.toISOString().slice(0, 16);
+        }
+
+        acc[field] = { value, operator: cur.operator };
+        return acc;
       },
-      {}
+      {} as { [key: string]: { value: any; operator: any } }
     );
-    const results = await apiPost('/logs/search', {
-      body: {
-        ...tableFilters
+
+    const endpoint =
+      Object.keys(tableFilters).length > 0
+        ? '/logs/filtered-search'
+        : '/logs/search';
+
+    try {
+      const body =
+        endpoint === '/logs/filtered-search'
+          ? { page: 1, page_size: PAGE_SIZE, filters: tableFilters }
+          : {};
+      const results = await apiPost(endpoint, { body });
+
+      if (!results || !Array.isArray(results.result)) {
+        console.error('Invalid response format:', results);
+        setLogs({ count: 0, result: [] });
+        return;
       }
-    });
-    setLogs(results);
+
+      const rowsWithId = results.result.map(
+        (log: LogDetails, index: number) => ({
+          ...log,
+          id: index
+        })
+      );
+
+      setLogs({ count: results.count, result: rowsWithId });
+    } catch (e) {
+      console.error(`Fetch logs error from ${endpoint}:`, e);
+      setLogs({ count: 0, result: [] });
+    }
   }, [apiPost, filters]);
 
   useEffect(() => {
@@ -72,79 +121,197 @@ export const Logs: FC<LogsProps> = () => {
       field: 'event_type',
       headerName: 'Event',
       minWidth: 100,
-      flex: 1
+      flex: 1.25
+    },
+    {
+      field: 'acting_user_name',
+      headerName: 'Acting User Name',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (params: any) => {
+        const p =
+          params.row.payload?.user_performed_assignment ||
+          params.row.payload?.user_performed_removal ||
+          params.row.payload?.user_performed_approval ||
+          params.row.payload?.user_performed_invite;
+        return p?.full_name || 'N/A';
+      }
+    },
+    {
+      field: 'acting_user_email',
+      headerName: 'Acting User Email',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (params: any) => {
+        const p =
+          params.row.payload?.user_performed_assignment ||
+          params.row.payload?.user_performed_removal ||
+          params.row.payload?.user_performed_approval ||
+          params.row.payload?.user_performed_invite;
+        return p?.email || 'N/A';
+      }
+    },
+    {
+      field: 'acted_on_user_name',
+      headerName: 'Acted-on User Name',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (params: any) => {
+        const u =
+          params.row.payload?.user ||
+          params.row.payload?.removal_result?.role_deleted?.user ||
+          params.row.payload?.user_to_approve ||
+          params.row.payload?.approval_results?.role_deleted?.user;
+        return u?.full_name || 'N/A';
+      }
+    },
+    {
+      field: 'acted_on_user_email',
+      headerName: 'Acted-on User Email',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (params: any) => {
+        const u =
+          params.row.payload?.user ||
+          params.row.payload?.removal_result?.role_deleted?.user ||
+          params.row.payload?.user_to_approve ||
+          params.row.payload?.approval_results?.role_deleted?.user;
+        return u?.email || 'N/A';
+      }
+    },
+    {
+      field: 'organization',
+      headerName: 'Organization',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (params: any) => {
+        return (
+          params.row.payload?.organization?.name ||
+          params.row.payload?.from_organization?.name ||
+          'N/A'
+        );
+      }
+    },
+    {
+      field: 'region',
+      headerName: 'Region',
+      minWidth: 100,
+      flex: 0.75,
+      renderCell: (params: any) =>
+        params.row.payload?.user_performed_assignment?.region_id ||
+        params.row.payload?.user_performed_removal?.region_id ||
+        params.row.payload?.user_performed_approval?.region_id ||
+        params.row.payload?.user_performed_invite?.region_id ||
+        'N/A'
+    },
+    {
+      field: 'role',
+      headerName: 'Role',
+      minWidth: 100,
+      flex: 0.75,
+      renderCell: (params: any) => {
+        return params.row.payload?.role || 'N/A';
+      }
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (params: any) => {
+        return (
+          params.row.payload?.state ||
+          params.row.payload?.user_performed_assignment?.state ||
+          params.row.payload?.user_performed_removal?.state ||
+          params.row.payload?.user_performed_approval?.state ||
+          params.row.payload?.user_performed_invite?.state ||
+          params.row.payload?.user?.state ||
+          'N/A'
+        );
+      }
+    },
+    {
+      field: 'user_type',
+      headerName: 'User Type',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (params: any) => {
+        return (
+          params.row.payload?.user?.user_type ||
+          params.row.payload?.user_to_approve?.user_type ||
+          'N/A'
+        );
+      }
+    },
+    {
+      field: 'created_at',
+      headerName: 'Timestamp',
+      type: 'dateTime',
+      minWidth: 100,
+      flex: 1.25,
+      valueGetter: (params: any) => {
+        const value = params;
+        if (!value) return null;
+        try {
+          const utcDate = parseISO(value);
+          const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          return toZonedTime(utcDate, timeZone);
+        } catch (error) {
+          console.error('Error parsing date:', error);
+          return null;
+        }
+      },
+
+      // Return formatted string for display
+      valueFormatter: (params: any) => {
+        const value = params;
+        if (!(value instanceof Date)) return 'N/A';
+        try {
+          return format(value, 'MM/dd/yyyy hh:mm a');
+        } catch {
+          return 'N/A';
+        }
+      }
     },
     {
       field: 'result',
       headerName: 'Result',
       minWidth: 100,
-      flex: 1
-    },
-    {
-      field: 'created_at',
-      headerName: 'Timestamp',
-      minWidth: 100,
       flex: 1,
-      renderCell: (cellValues) => {
-        const date = new Date(cellValues.value);
-        const daysAgo = differenceInCalendarDays(new Date(), date);
-        return `${daysAgo} days ago`;
-      }
-    },
-    {
-      field: 'payload',
-      headerName: 'Payload',
-      description: 'Click any payload cell to expand.',
-      sortable: false,
-      minWidth: 300,
-      flex: 2,
-      renderCell: (cellValues) => {
+      renderCell: (params: any) => {
+        const isSuccess = params.row.result === 'success';
         return (
-          <Box
-            sx={{
-              fontSize: '12px',
-              padding: 0,
-              margin: 0,
-              backgroundColor: 'black',
-              color: 'white',
-              width: '100%'
-            }}
-          >
-            <pre>{JSON.stringify(cellValues.row.payload, null, 2)}</pre>
-          </Box>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {isSuccess ? (
+              <CheckCircleIcon sx={{ color: '#6c757d' }} />
+            ) : (
+              <CancelIcon sx={{ color: '#6c757d' }} />
+            )}
+            {params.row.result}
+          </span>
         );
-      },
-      valueFormatter: (e: any) => {
-        return JSON.stringify(e.value, null, 2);
       }
     },
     {
       field: 'details',
-      headerName: 'Details',
+      headerName: 'Payload',
       maxWidth: 70,
-      flex: 1,
-      renderCell: (cellValues: GridRenderEditCellParams) => {
-        return (
-          <IconButton
-            aria-label={`Details for scan task ${cellValues.row.id}`}
-            tabIndex={cellValues.tabIndex}
-            color="primary"
-            onClick={() => {
-              setOpenDialog(true);
-              setDialogDetails(cellValues.row);
-            }}
-          >
-            <OpenInNewIcon />
-          </IconButton>
-        );
-      }
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderEditCellParams) => (
+        <IconButton
+          aria-label={`Details for log ${cellValues.row.id}`}
+          tabIndex={cellValues.tabIndex}
+          color="primary"
+          onClick={() => {
+            setOpenDialog(true);
+            setDialogDetails(cellValues.row);
+          }}
+        >
+          <OpenInNewIcon />
+        </IconButton>
+      )
     }
   ];
-
-  useEffect(() => {
-    fetchLogs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
 
   return (
     <Box display="flex">
@@ -156,12 +323,24 @@ export const Logs: FC<LogsProps> = () => {
           slots={{
             toolbar: CustomToolbar
           }}
-          slotProps={{ toolbar: { multifilter: true } as any }}
+          slotProps={{ toolbar: {} }}
           onFilterModelChange={(model) => {
             setFilters(model.items);
           }}
           initialState={{
-            pagination: { paginationModel: { pageSize: 15 } }
+            pagination: { paginationModel: { pageSize: PAGE_SIZE } },
+            sorting: {
+              sortModel: [{ field: 'created_at', sort: 'desc' }]
+            },
+            columns: {
+              columnVisibilityModel: {
+                role: false,
+                region: false,
+                state: false,
+                acting_user_email: false,
+                acted_on_user_email: false
+              }
+            }
           }}
           pageSizeOptions={[15, 30, 50, 100]}
         />
@@ -179,10 +358,10 @@ export const Logs: FC<LogsProps> = () => {
             sx={{
               fontSize: '12px',
               padding: 2,
-              margin: 0,
               backgroundColor: 'black',
               color: 'white',
-              width: '100%'
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word'
             }}
           >
             <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>

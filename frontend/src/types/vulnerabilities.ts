@@ -51,6 +51,8 @@ export type SearchParams = {
   page: number;
   pageSize?: number;
   doExport?: boolean;
+  order?: string;
+  sort?: 'asc' | 'desc';
   group_by?: string;
   showAll?: boolean;
   is_kev?: boolean;

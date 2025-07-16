@@ -4,10 +4,10 @@ set -euo pipefail
 
 echo "🔁 Cloning into Crossfeed..."
 # Clone Playwright test repo and install dependencies
-RUN git clone --branch "$GIT_BRANCH" https://github.com/cisagov/xfd.git /app/xfd \
- && cd /app/xfd/playwright \
- && npm ci \
- && npx playwright install --with-deps
+ git clone --branch "$GIT_BRANCH" https://github.com/cisagov/xfd.git /app/xfd
+ cd /app/xfd/playwright
+ npm ci
+ npx playwright install --with-deps
 
 echo "🔁 Running Playwright tests..."
 npx playwright test

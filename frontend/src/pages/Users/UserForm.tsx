@@ -209,7 +209,6 @@ export const UserForm: React.FC<UserFormProps> = ({
     const body = {
       first_name: values.first_name,
       last_name: values.last_name,
-      email: values.email,
       user_type: values.user_type,
       state: values.state,
       region_id: values.region_id

@@ -29,6 +29,21 @@ jobs:
     environment: staging
     timeout-minutes: 60
     if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_SUBNET: ${{ secrets.AWS_SUBNET }}
+      AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
+      AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
+      PW_XFD_URL: http://xfd-frontend-1:3000/
+      PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
+      PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
+      PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
+      PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }}
+      PW_HEADLESS: true
+      ENVIRONMENT: staging
+      GIT_BRANCH: develop
     steps:
       - uses: actions/checkout@v3
 
@@ -36,21 +51,6 @@ jobs:
         run: echo "ENVIRONMENT=staging" >> $GITHUB_ENV
 
       - name: Run Playwright tests
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_SUBNET: ${{ secrets.AWS_SUBNET }}
-          AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
-          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
-          PW_XFD_URL: http://xfd-frontend-1:3000/
-          PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
-          PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
-          PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-          PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }}
-          PW_HEADLESS: true
-          ENVIRONMENT: staging
-          GIT_BRANCH: develop
         run: |
          chmod +x run_playwright_tests.sh
          CLUSTER_NAME=crossfeed-playwright-staging-cd-ecs-cluster \
@@ -60,8 +60,6 @@ jobs:
         continue-on-error: false  # Ensure it stops if the ECS task fails
 
       - name: Download test report from S3
-        env:
-          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
         run: |
           mkdir -p ./playwright-report/html
           aws s3 cp \
@@ -91,6 +89,21 @@ jobs:
      environment: integration
      timeout-minutes: 60
      if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
+     env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_SUBNET: ${{ secrets.AWS_SUBNET }}
+      AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
+      AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-integration-automated-test-reports
+      PW_XFD_URL: http://xfd-frontend-1:3000/
+      PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
+      PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
+      PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
+      PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }} # or hardcode if needed
+      PW_HEADLESS: true
+      ENVIRONMENT: integration
+      GIT_BRANCH: integration
      steps:
       - uses: actions/checkout@v3
 
@@ -99,21 +112,6 @@ jobs:
 
       - name: Run Playwright tests
         working-directory: ./playwright
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_SUBNET: ${{ secrets.AWS_SUBNET }}
-          AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
-          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-integration-automated-test-reports
-          PW_XFD_URL: http://xfd-frontend-1:3000/
-          PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
-          PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
-          PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-          PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }} # or hardcode if needed
-          PW_HEADLESS: true
-          ENVIRONMENT: integration
-          GIT_BRANCH: integration
         run: |
           chmod +x run_playwright_tests.sh
           CLUSTER_NAME=crossfeed-playwright-integration-ecs-cluster \
@@ -123,8 +121,6 @@ jobs:
         continue-on-error: false  # Ensure it stops if the ECS task fails
 
       - name: Download test report from S3
-        env:
-          AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
         run: |
           mkdir -p ./playwright-report/html
           aws s3 cp \

@@ -20,5 +20,5 @@ docker push $AWS_ECR_DOMAIN/"$WORKER_TAG":latest
 docker tag pe-worker:latest $AWS_ECR_DOMAIN/"$PE_WORKER_TAG":latest
 docker push $AWS_ECR_DOMAIN/"$PE_WORKER_TAG":latest
 
-docker tag crossfeed-worker:latest $AWS_ECR_DOMAIN/"$PW_WORKER_TAG":latest
+docker tag playwright-worker:latest $AWS_ECR_DOMAIN/"$PW_WORKER_TAG":latest
 docker push $AWS_ECR_DOMAIN/"$PW_WORKER_TAG":latest

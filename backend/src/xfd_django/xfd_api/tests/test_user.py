@@ -1448,6 +1448,180 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_standard_user_cannot_update_own_email():
+    """Test update user v2 standard user."""
+    user = User.objects.create(
+        first_name="Self",
+        last_name="User",
+        email="original@example.com",
+        user_type=UserType.STANDARD,
+    )
+
+    payload = {"email": "hacked@example.com"}
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+
+    assert response.status_code == 403
+    assert "email" in response.json()["detail"]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_standard_user_cannot_approve_themselves():
+    """Test update user v2 standard user."""
+    user = User.objects.create(
+        first_name="Self",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+    )
+
+    payload = {
+        "date_approved": datetime.now().isoformat(),
+        "approved_by": None,
+    }
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+
+    assert response.status_code == 403
+    assert "date_approved" in response.json()["detail"]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_regional_admin_cannot_update_user_type():
+    """Test update user v2 standard user."""
+    regional_admin = User.objects.create(
+        first_name="RA",
+        last_name="Admin",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="X1",
+    )
+    user = User.objects.create(
+        first_name="Target",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="X1",
+    )
+
+    payload = {"user_type": UserType.GLOBAL_ADMIN}
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(regional_admin)}"},
+    )
+
+    assert response.status_code == 403
+    assert "Only global admins can update userType." in response.json()["detail"]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_regional_admin_cannot_update_in_region_state():
+    """Test update user v2 standard user."""
+    regional_admin = User.objects.create(
+        first_name="RA",
+        last_name="Admin",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="X1",
+    )
+    user = User.objects.create(
+        first_name="Target",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="X1",
+    )
+
+    payload = {"state": "NY"}
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(regional_admin)}"},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_standard_user_cannot_update_name():
+    """Test update user v2 standard user."""
+    user = User.objects.create(
+        first_name="Old",
+        last_name="Name",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+    )
+
+    payload = {"first_name": "New", "last_name": "Name"}
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_cannot_clear_invite_pending():
+    """Standard user should not be able to set invite_pending to false on themselves."""
+    user = User.objects.create(
+        first_name="Self",
+        last_name="Invitee",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        invite_pending=True,
+    )
+
+    payload = {"invite_pending": False}
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+
+    assert response.status_code == 403
+    assert "invite_pending" in response.json()["detail"]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_cannot_self_approve():
+    """Standard user should not be able to set 'approved' field via API."""
+    user = User.objects.create(
+        first_name="Self",
+        last_name="Approver",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        invite_pending=True,
+    )
+
+    # 'approved' isn't a direct field, but we simulate by trying to set date_approved
+    payload = {"date_approved": datetime.now().isoformat()}
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+
+    assert response.status_code == 403
+    assert "date_approved" in response.json()["detail"]
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_me_success():
     """Test that an authenticated user can retrieve their own user data."""
     user = User.objects.create(
@@ -1550,3 +1724,241 @@ def test_get_me_unauthenticated():
     response = client.get("/users/me")
 
     assert response.status_code == 401
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_updates_self_user_type_unauthenticated():
+    """Test that a standard user cannot update their own userType."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    payload = {
+        "user_type": UserType.STANDARD,
+    }
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Only global admins can update userType."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_updates_self_unauthenticated():
+    """Test that a standard user cannot update their own details."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    payload = {
+        "first_name": "Updated",
+        "last_name": "User",
+        "email": "adasdasdadsss@example.com",
+        "approved": True,
+        "invite_pending": False,
+        "region_id": "11",
+        "state": "CA",
+    }
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_standard_user_updates_other_unauthenticated():
+    """Test that a standard user cannot update another user's details."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    user_to_update = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    payload = {}
+    response = client.put(
+        f"/v2/users/{user_to_update.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Unauthorized access."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_regional_user_updates_self_confirm_authorized_fields():
+    """Test that a regional admin can update their own user details."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        first_login=True,
+        invite_pending=True,
+    )
+
+    payload = {
+        "first_name": "Updated",
+        "last_name": "New",
+        "invite_pending": False,
+        "first_login": False,
+        "date_approved": datetime.now().isoformat(),
+        "approved_by": None,
+    }
+
+    response = client.put(
+        f"/v2/users/{user.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+    assert response.status_code == 200
+    assert response.json()["first_name"] == "Updated"
+    assert response.json()["last_name"] == "New"
+    assert response.json()["first_login"] is None
+    assert response.json()["approved_by"] is None
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_regional_user_updates_other_confirm_authorized_fields():
+    """Test that a regional admin can update another user's details."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        first_login=True,
+        invite_pending=True,
+    )
+
+    user_to_update = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        first_login=True,
+        invite_pending=True,
+    )
+    payload = {
+        "first_name": "Updated",
+        "last_name": "New",
+        "invite_pending": False,
+        "first_login": False,
+        "date_approved": datetime.now().isoformat(),
+        "approved_by": None,
+    }
+    response = client.put(
+        f"/v2/users/{user_to_update.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["first_name"] == "Updated"
+    assert response.json()["last_name"] == "New"
+    assert response.json()["first_login"] is None
+    assert response.json()["date_approved"] is None
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_global_user_updates_confirm_authorized_fields():
+    """Test that a global admin can update another user's details."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    user_to_update = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        login_blocked_by_maintenance=True,
+    )
+    payload = {
+        "region_id": "2",
+        "state": "NY",
+        "first_name": "Updated",
+        "last_name": "New",
+        "user_type": UserType.REGIONAL_ADMIN,
+        "date_approved": datetime.now().isoformat(),
+        "accepted_terms_version": "1.0",
+        "login_blocked_by_maintenance": False,
+    }
+    response = client.put(
+        f"/v2/users/{user_to_update.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_global_user_updates_confirm_unauthorized_fields():
+    """Test that a global admin cannot update unauthorized fields."""
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    user_to_update = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        login_blocked_by_maintenance=True,
+    )
+    payload = {"email": "{}@example.com".format(secrets.token_hex(4))}
+    response = client.put(
+        f"/v2/users/{user_to_update.id}",
+        json=payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == "Unauthorized to update the following fields: email"
+    )

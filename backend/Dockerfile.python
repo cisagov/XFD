@@ -3,23 +3,28 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Upgrade pip tools
 RUN pip install --upgrade pip setuptools wheel
-COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Install the worker requirements for local development
-COPY worker/requirements.txt worker/requirements.txt
-RUN pip install --no-cache-dir -r worker/requirements.txt
+# Copy base and worker requirements
+COPY requirements.txt .
+COPY worker/requirements.txt ./worker/requirements.txt
 
-# Copy the FastAPI application
+# 👇 Copy the local patched pshtt package before install
+COPY external/pshtt external/pshtt
+
+# Install base and worker requirements
+RUN pip install --no-cache-dir -r requirements.txt \
+ && pip install --no-cache-dir -r worker/requirements.txt
+
+# Copy FastAPI application code
 COPY src/xfd_django .
 
-# Copy the .pylintrc file
+# Copy lint config (optional)
 COPY .pylintrc .
 
-# Set environment variable
+# Set Django settings environment variable
 ENV DJANGO_SETTINGS_MODULE=xfd_django.settings
 
-# Command to run the FastAPI application
+# Launch app
 CMD ["uvicorn", "--workers", "4", "xfd_django.asgi:app", "--host", "0.0.0.0", "--port", "3000", "--reload"]

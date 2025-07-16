@@ -5,3 +5,4 @@ services:
   backend:
     volumes:
       - ./backend/src/xfd_django:/app
+      - ./backend/external:/app/external

@@ -176,11 +176,8 @@ export const NavMenuButton: React.FC<Props> = ({
               <MenuItem
                 key={index}
                 onClick={() => {
-                  if (onMenuItemClick) {
-                    onMenuItemClick(item);
-                  } else {
-                    item.onClick?.();
-                  }
+                  item.onClick?.();
+                  onMenuItemClick?.(item);
                   handleClose();
                 }}
                 tabIndex={0}

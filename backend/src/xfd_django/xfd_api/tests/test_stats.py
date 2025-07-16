@@ -558,7 +558,6 @@ def test_vs_trends_success():
         false_positive_count=5,
         vulnerable_host_count=50,
         unique_service_count=12,
-        unique_none_severity_count=1,
         unique_low_severity_count=2,
         unique_medium_severity_count=3,
         unique_high_severity_count=4,
@@ -566,7 +565,6 @@ def test_vs_trends_success():
         risky_services_count=3,
         unsupported_software_count=7,
         unique_os_count=4,
-        none_severity_count=10,
         low_severity_count=20,
         medium_severity_count=15,
         high_severity_count=25,
@@ -575,7 +573,6 @@ def test_vs_trends_success():
         high_max_age=60,
         medium_max_age=54,
         low_max_age=100,
-        none_kev_count=1,
         low_kev_count=1,
         medium_kev_count=1,
         high_kev_count=1,
@@ -590,7 +587,7 @@ def test_vs_trends_success():
         ten_plus_vulns_count=3,
         top_5_occurring_cves=[],
         top_5_occurring_kevs=[],
-        included_tickets=[],
+        included_tickets={},
         top_5_risky_hosts={},
     )
 
@@ -670,7 +667,6 @@ def test_vs_condensed_trends_success():
         false_positive_count=0,
         vulnerable_host_count=100,
         unique_service_count=5,
-        unique_none_severity_count=0,
         unique_low_severity_count=0,
         unique_medium_severity_count=0,
         unique_high_severity_count=0,
@@ -678,7 +674,6 @@ def test_vs_condensed_trends_success():
         risky_services_count=0,
         unsupported_software_count=0,
         unique_os_count=0,
-        none_severity_count=0,
         low_severity_count=0,
         medium_severity_count=0,
         high_severity_count=0,
@@ -687,7 +682,6 @@ def test_vs_condensed_trends_success():
         high_max_age=0,
         medium_max_age=12,
         low_max_age=32,
-        none_kev_count=0,
         low_kev_count=0,
         medium_kev_count=0,
         high_kev_count=0,
@@ -769,3 +763,214 @@ def test_vs_trends_invalid_org():
     print(response)
     assert response.status_code == 404
     assert response.json()["detail"] == "Invalid organization ID."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_stats_compare_success():
+    """Test /stats/compare returns expected comparison results."""
+    org = Organization.objects.create(
+        id=uuid.uuid4(), name="Test Org", region_id="us-east"
+    )
+
+    user = User.objects.create(
+        email=f"{uuid.uuid4().hex}@example.com",
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-east",
+    )
+
+    base_date = datetime.utcnow().date() - timedelta(days=14)
+    compare_date = datetime.utcnow().date() - timedelta(days=7)
+
+    HostSummary.objects.create(
+        summary_date=base_date,
+        start_date=base_date - timedelta(days=7),
+        end_date=base_date,
+        organization=org,
+        host_done_count=10,
+        host_waiting_count=2,
+        host_running_count=1,
+        host_ready_count=7,
+        up_host_count=8,
+        down_host_count=3,
+        scanned_asset_count=11,
+    )
+
+    HostSummary.objects.create(
+        summary_date=compare_date,
+        start_date=compare_date - timedelta(days=7),
+        end_date=compare_date,
+        organization=org,
+        host_done_count=15,
+        host_waiting_count=1,
+        host_running_count=2,
+        host_ready_count=6,
+        up_host_count=9,
+        down_host_count=2,
+        scanned_asset_count=13,
+    )
+
+    payload = {
+        "organization_id": str(org.id),
+        "base_date": base_date.isoformat(),
+        "compare_date": compare_date.isoformat(),
+        "sources": ["host"],
+        "enhanced_data": True,
+    }
+
+    response = client.post(
+        "/stats/compare",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "host_scans" in data
+    assert data["host_scans"]["delta"]["host_done_count"]["count_change"] == 5
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_stats_compare_unauthorized():
+    """Test /stats/compare returns 401 when no auth is provided."""
+    payload = {
+        "organization_id": str(uuid.uuid4()),
+        "base_date": (datetime.utcnow() - timedelta(days=14)).date().isoformat(),
+        "compare_date": (datetime.utcnow() - timedelta(days=7)).date().isoformat(),
+        "sources": ["host"],
+    }
+
+    response = client.post("/stats/compare", json=payload)
+    assert response.status_code == 401
+    assert response.json()["detail"] == "No valid authentication credentials provided"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_stats_compare_invalid_org():
+    """Test /stats/compare with an invalid org ID format."""
+    user = User.objects.create(
+        email=f"{uuid.uuid4().hex}@example.com",
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-east",
+    )
+
+    payload = {
+        "organization_id": "bad-uuid",
+        "base_date": (datetime.utcnow() - timedelta(days=14)).date().isoformat(),
+        "compare_date": (datetime.utcnow() - timedelta(days=7)).date().isoformat(),
+        "sources": ["host"],
+    }
+
+    response = client.post(
+        "/stats/compare",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Invalid organization ID."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_stats_compare_org_not_found():
+    """Test /stats/compare returns 404 for non-existent org."""
+    user = User.objects.create(
+        email=f"{uuid.uuid4().hex}@example.com",
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-east",
+    )
+
+    payload = {
+        "organization_id": str(uuid.uuid4()),
+        "base_date": (datetime.utcnow() - timedelta(days=14)).date().isoformat(),
+        "compare_date": (datetime.utcnow() - timedelta(days=7)).date().isoformat(),
+        "sources": ["host"],
+    }
+
+    response = client.post(
+        "/stats/compare",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Organization not found."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_stats_compare_included_tickets_open_closed():
+    """Test included_tickets comparison correctly identifies new and closed tickets."""
+    org = Organization.objects.create(
+        id=uuid.uuid4(), name="Ticket Test Org", region_id="us-east"
+    )
+
+    user = User.objects.create(
+        email=f"{uuid.uuid4().hex}@example.com",
+        user_type=UserType.GLOBAL_VIEW,
+        first_name="Test",
+        last_name="User",
+        region_id="us-east",
+    )
+
+    base_date = datetime.utcnow().date() - timedelta(days=14)
+    compare_date = datetime.utcnow().date() - timedelta(days=7)
+
+    # Base summary includes tickets A and B
+    VulnScanSummary.objects.create(
+        summary_date=base_date,
+        start_date=base_date - timedelta(days=7),
+        end_date=base_date,
+        organization=org,
+        included_tickets={
+            "A": {"severity": "high", "is_kev": True},
+            "B": {"severity": "medium", "is_kev": False},
+        },
+    )
+
+    # Compare summary includes tickets B and C (B is still present, A is closed, C is new)
+    VulnScanSummary.objects.create(
+        summary_date=compare_date,
+        start_date=compare_date - timedelta(days=7),
+        end_date=compare_date,
+        organization=org,
+        included_tickets={
+            "B": {"severity": "medium", "is_kev": False},
+            "C": {"severity": "critical", "is_kev": True},
+        },
+    )
+
+    payload = {
+        "organization_id": str(org.id),
+        "base_date": base_date.isoformat(),
+        "compare_date": compare_date.isoformat(),
+        "sources": ["vs"],
+        "enhanced_data": True,
+    }
+
+    response = client.post(
+        "/stats/compare",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    tickets = data["vs_scans"]["included_tickets_comparison"]
+
+    # Expect ticket C to be new, ticket A to be closed
+    assert tickets["new"]["total_count"] == 1
+    assert tickets["new"]["by_severity"]["critical"] == 1
+    assert tickets["new"]["kev_count"] == 1
+
+    assert tickets["closed"]["total_count"] == 1
+    assert tickets["closed"]["by_severity"]["high"] == 1
+    assert tickets["closed"]["kev_count"] == 1
+
+    # Percentages based on one ticket in each category
+    assert tickets["new"]["total_percent"] == 50.0  # 1 of 2 in compare
+    assert tickets["closed"]["total_percent"] == 50.0  # 1 of 2 in base

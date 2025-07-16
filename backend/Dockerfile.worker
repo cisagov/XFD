@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install --upgrade pip setuptools wheel
 COPY worker/requirements.txt /app/worker/requirements.txt
 COPY requirements.txt /app/requirements.txt
-
+COPY external/pshtt external/pshtt
 
 RUN pip install --no-cache-dir -r /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/worker/requirements.txt

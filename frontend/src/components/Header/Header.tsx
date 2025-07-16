@@ -80,7 +80,6 @@ export const Header: React.FC = () => {
     },
     {
       menuItemTitle: 'Logout',
-      path: '/settings',
       users: STANDARD_USER,
       onClick: logout
     }

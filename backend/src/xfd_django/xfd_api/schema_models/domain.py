@@ -69,11 +69,17 @@ class DomainSearch(BaseModel):
         from_attributes = True
 
 
-class DomainSearchResponse(BaseModel):
-    """List of Domain objects."""
+class OrganizationResponse(BaseModel):
+    """Organization response."""
 
-    result: List["DomainSearchResult"]
-    count: int
+    id: UUID
+    name: str
+
+    class Config:
+        """Config."""
+
+        orm_mode = True
+        from_attributes = True
 
 
 class DomainSearchResult(BaseModel):
@@ -94,6 +100,13 @@ class DomainSearchResult(BaseModel):
     webpages: Optional[int] = None
 
 
+class DomainSearchResponse(BaseModel):
+    """List of Domain objects."""
+
+    result: List["DomainSearchResult"]
+    count: int
+
+
 class TotalDomainsResponse(BaseModel):
     """Total domain response."""
 
@@ -102,19 +115,6 @@ class TotalDomainsResponse(BaseModel):
     class Config:
         """Config."""
 
-        from_attributes = True
-
-
-class OrganizationResponse(BaseModel):
-    """Organization response."""
-
-    id: UUID
-    name: str
-
-    class Config:
-        """Config."""
-
-        orm_mode = True
         from_attributes = True
 
 
