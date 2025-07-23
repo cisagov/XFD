@@ -21,7 +21,7 @@ import {
   EditNoteOutlined,
   Delete
 } from '@mui/icons-material';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import UserCustomToolbar from 'components/DataGrid/UserCustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ImportExport } from 'components';
@@ -413,7 +413,7 @@ export const Users: React.FC = () => {
               <DataGrid
                 rows={users}
                 columns={userCols}
-                slots={{ toolbar: CustomToolbar }}
+                slots={{ toolbar: UserCustomToolbar }}
                 slotProps={{
                   toolbar: {
                     children: addUserButton,

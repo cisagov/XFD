@@ -7,7 +7,7 @@ import {
   GridToolbarDensitySelector
 } from '@mui/x-data-grid';
 
-export default function CustomToolbar(props: any) {
+export default function UserCustomToolbar(props: any) {
   return (
     <GridToolbarContainer>
       <GridToolbarColumnsButton />
@@ -15,7 +15,12 @@ export default function CustomToolbar(props: any) {
       <GridToolbarDensitySelector />
       <GridToolbarExport
         csvOptions={{
-          fileName: 'CyHy Dashboard ' + props.exportTitle
+          fileName: 'CyHy Dashboard ' + props.exportTitle,
+          getRowsToExport: ({ apiRef }) =>
+            (props.exportRows ?? []).map((row: any) => row.id),
+          fields: props.exportColumns
+            ? props.exportColumns.map((col: any) => col.field)
+            : undefined
         }}
         printOptions={{ disableToolbarButton: true }}
       />
