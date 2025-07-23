@@ -9,7 +9,12 @@ import {
   Button,
   Tooltip
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridPaginationModel
+} from '@mui/x-data-grid';
 import {
   Add,
   CheckCircleOutline,
@@ -29,6 +34,8 @@ import {
 import { useAuthContext } from 'context';
 import { format } from 'date-fns';
 import UserForm from './UserForm';
+
+const PAGE_SIZE = 15;
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -83,6 +90,14 @@ export const Users: React.FC = () => {
   });
   const [formValues, setFormValues] = useState<UserFormValues>(
     initialUserFormValues
+  );
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: PAGE_SIZE
+  });
+  const paginatedUsers = users.slice(
+    paginationModel.page * paginationModel.pageSize,
+    (paginationModel.page + 1) * paginationModel.pageSize
   );
 
   const fetchUsers = useCallback(async () => {
@@ -402,12 +417,16 @@ export const Users: React.FC = () => {
                 slotProps={{
                   toolbar: {
                     children: addUserButton,
-                    exportTitle: 'Users'
+                    exportTitle: 'Users',
+                    exportRows: paginatedUsers,
+                    exportColumns: userCols
                   } as any
                 }}
                 initialState={{
                   pagination: { paginationModel: { pageSize: 15 } }
                 }}
+                paginationModel={paginationModel}
+                onPaginationModelChange={setPaginationModel}
                 pageSizeOptions={[15, 30, 50, 100]}
               />
             </Paper>
