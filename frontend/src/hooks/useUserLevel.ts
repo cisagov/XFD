@@ -2,9 +2,11 @@ import { AuthContextType, useAuthContext } from 'context';
 
 export const GLOBAL_ADMIN = 3;
 export const REGIONAL_ADMIN = 2;
+export const ANALYTICS = 2;
 export const STANDARD_USER = 1;
 
 type UserType =
+  | 'analytics'
   | 'standard'
   | 'globalAdmin'
   | 'regionalAdmin'
@@ -37,6 +39,9 @@ export const useUserLevel: () => UserLevel = () => {
     } else if (user.user_type === 'globalView') {
       userLevel = REGIONAL_ADMIN;
       formattedUserType = 'Global View';
+    } else if (user.user_type === 'analytics') {
+      userLevel = REGIONAL_ADMIN;
+      formattedUserType = 'Analytics';
     }
   }
   return {

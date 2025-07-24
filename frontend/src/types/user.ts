@@ -10,7 +10,12 @@ export interface User {
   full_name: string;
   invite_pending: boolean;
   first_login: boolean;
-  user_type: 'standard' | 'globalView' | 'globalAdmin' | 'regionalAdmin';
+  user_type:
+    | 'standard'
+    | 'globalView'
+    | 'globalAdmin'
+    | 'regionalAdmin'
+    | 'analytics';
   email: string;
   roles: Role[];
   date_accepted_terms: string | null;
@@ -51,7 +56,12 @@ export type UserFormValues = {
   first_name: string;
   last_name: string;
   email: string;
-  user_type: 'standard' | 'globalView' | 'globalAdmin' | 'regionalAdmin';
+  user_type:
+    | 'standard'
+    | 'globalView'
+    | 'globalAdmin'
+    | 'regionalAdmin'
+    | 'analytics';
   state: string;
   region_id: string;
   org_name: string;

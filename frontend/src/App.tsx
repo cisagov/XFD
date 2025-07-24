@@ -128,7 +128,8 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
@@ -137,7 +138,8 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
@@ -159,7 +161,8 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
@@ -170,7 +173,8 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
@@ -179,7 +183,8 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
@@ -193,7 +198,8 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
@@ -203,7 +209,11 @@ const App: React.FC = () => (
                         <RouteGuard
                           path="/organizations/:organizationId"
                           component={Organization}
-                          permissions={['globalView', 'regionalAdmin']}
+                          permissions={[
+                            'globalView',
+                            'regionalAdmin',
+                            'analytics'
+                          ]}
                         />
                         <RouteGuard
                           path="/organizations"
@@ -211,13 +221,18 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
                           path="/users"
                           component={Users}
-                          permissions={['globalView', 'regionalAdmin']}
+                          permissions={[
+                            'globalView',
+                            'regionalAdmin',
+                            'analytics'
+                          ]}
                         />
                         <RouteGuard
                           path="/settings"
@@ -225,13 +240,18 @@ const App: React.FC = () => (
                           permissions={[
                             'globalView',
                             'regionalAdmin',
-                            'standard'
+                            'standard',
+                            'analytics'
                           ]}
                         />
                         <RouteGuard
                           path="/region-admin-dashboard"
                           component={RegionUsers}
-                          permissions={['regionalAdmin', 'globalView']}
+                          permissions={[
+                            'regionalAdmin',
+                            'globalView',
+                            'analytics'
+                          ]}
                         />
                       </Switch>
                     </LayoutWithSearch>

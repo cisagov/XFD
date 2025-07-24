@@ -65,6 +65,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     () => organization.tags?.map((t) => t.name) || []
   );
   const [localTags, setLocalTags] = useState(chosenTags);
+  const disableButton =
+    user?.user_type === 'globalView' || user?.user_type === 'analytics';
 
   const updateOrganization = async () => {
     try {
@@ -402,7 +404,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                   }
                 }}
                 color="primary"
-                disabled={user?.user_type === 'globalView'}
+                disabled={disableButton}
                 slotProps={{
                   input: {
                     'aria-label': 'Toggle passive mode',
@@ -430,7 +432,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             disabled={
               organization.root_domains.length === 0 ||
               isSaveDisabled ||
-              user?.user_type === 'globalView'
+              disableButton
             }
           >
             Save
