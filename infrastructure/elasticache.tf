@@ -60,30 +60,29 @@ resource "aws_iam_policy" "elasticache_policy" {
       {
         Effect = "Allow"
         Action = [
+          "elasticache:AddTagsToResource",
           "elasticache:CreateCacheCluster",
+          "elasticache:CreateCacheParameterGroup",
           "elasticache:CreateCacheSubnetGroup",
+          "elasticache:DeleteCacheParameterGroup",
           "elasticache:DeleteCacheSubnetGroup",
-          "elasticache:DescribeCacheSubnetGroups",
           "elasticache:DescribeCacheClusters",
           "elasticache:DescribeCacheEngineVersions",
-          "elasticache:DescribeCacheSecurityGroups",
+          "elasticache:DescribeCacheParameterGroups",
           "elasticache:DescribeCacheParameters",
-          "elasticache:DescribeCacheParameterGroups",
-          "elasticache:ModifyCacheSubnetGroup",
-          "elasticache:AddTagsToResource",
+          "elasticache:DescribeCacheSecurityGroups",
+          "elasticache:DescribeCacheSubnetGroups",
           "elasticache:ListTagsForResource",
-          "elasticache:CreateCacheParameterGroup",
-          "elasticache:DeleteCacheParameterGroup",
-          "elasticache:DescribeCacheParameterGroups",
           "elasticache:ModifyCacheParameterGroup",
-          "iam:ListAttachedUserPolicies",
+          "elasticache:ModifyCacheSubnetGroup",
+          "iam:AttachUserPolicy",
           "iam:CreatePolicy",
           "iam:CreatePolicyVersion",
-          "iam:AttachUserPolicy",
-          "iam:GetPolicyVersion",
-          "iam:ListPolicyVersions",
           "iam:DeletePolicy",
-          "iam:DetachUserPolicy"
+          "iam:DetachUserPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListAttachedUserPolicies",
+          "iam:ListPolicyVersions",
         ]
         Resource = "*"
       }

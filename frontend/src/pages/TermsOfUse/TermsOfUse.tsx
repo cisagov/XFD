@@ -6,8 +6,8 @@ import { useAuthContext } from 'context';
 import { User } from 'types';
 
 interface FormData {
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   organization?: string;
 }
 
@@ -166,7 +166,7 @@ export const TermsOfUse: React.FC = () => {
         onChange={(e) => setAccepted(e.target.checked)}
       />
       <p style={{ marginBottom: 0 }}>
-        <strong>Name:</strong> {user?.fullName}
+        <strong>Name:</strong> {user?.full_name}
       </p>
       <p>
         <strong>Email:</strong> {user?.email}

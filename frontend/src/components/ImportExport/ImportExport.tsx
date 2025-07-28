@@ -1,66 +1,69 @@
 import React, { useRef, useState } from 'react';
-import { Button, Label, FormGroup } from '@trussworks/react-uswds';
-import { FileInput } from 'components';
-import { useAuthContext } from 'context';
+import {
+  Button,
+  Paper,
+  Typography,
+  FormGroup,
+  FormLabel,
+  Box
+} from '@mui/material';
 import Papa from 'papaparse';
 import * as FileSaver from 'file-saver';
-import { Paper } from '@mui/material';
+import { FileInput } from 'components';
+import { useAuthContext } from 'context';
 
 interface ImportProps<T> {
-  // Plural name of the model.
   name: string;
-
-  // Callback that handles data on import (usually saves the data).
   onImport: (e: T[]) => void;
-
   fieldsToImport: string[];
 }
 
 export interface ExportProps<T> {
-  // Plural name of the model.
   name: string;
-
-  // List of fields to export.
   fieldsToExport?: string[];
-
-  // Return data to be exported.
   getDataToExport: () => Partial<T>[] | Promise<Partial<T>[]> | Promise<string>;
 }
-
-// interface ImportExportProps<T> extends ImportProps<T>, ExportProps<T> {}
 
 export const Import = <T extends object>(props: ImportProps<T>) => {
   const { setLoading } = useAuthContext();
   const { name, onImport, fieldsToImport } = props;
-  const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
-  const [results, setResults] = React.useState<T[] | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [results, setResults] = useState<T[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   const [key, setKey] = useState(Math.random().toString());
 
   const parseCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (!event.target.files || !event.target.files.length) {
-      return;
-    }
+    if (!event.target.files?.length) return;
+
     const file = event.target.files[0];
-    setSelectedFile(file); // Store the selected file in state.
+    setSelectedFile(file);
     setLoading((l) => l + 1);
 
-    const parsedResults: T[] = await new Promise((resolve, reject) =>
-      Papa.parse(event.target.files![0], {
-        header: true,
-        dynamicTyping: true,
-        complete: ({ data, errors }) =>
-          errors.length ? reject(errors) : resolve(data as T[])
-      })
-    );
-    setLoading((l) => l - 1);
-    setResults(parsedResults); // Store the parsed CSV in state.
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const text = (reader.result as string).replace(/^\uFEFF/, ''); // strip BOM
+      try {
+        const parsedResults: T[] = await new Promise((resolve, reject) =>
+          Papa.parse<T>(text, {
+            header: true,
+            dynamicTyping: true,
+            skipEmptyLines: true,
+            complete: ({ data, errors }) =>
+              errors.length ? reject(errors) : resolve(data)
+          })
+        );
+        setResults(parsedResults);
+        console.log('Parsed Results:', parsedResults);
+      } catch (err) {
+        console.error('Parse error:', err);
+      } finally {
+        setLoading((l) => l - 1);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
   };
-  // Handle submission of uploaded CSV.
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     if (results) {
@@ -69,52 +72,72 @@ export const Import = <T extends object>(props: ImportProps<T>) => {
     }
   };
 
-  // Clear uploaded file.
   const deleteFile = () => {
     setSelectedFile(null);
     setResults(null);
-    setKey(Math.random().toString()); // Change the key.
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    setKey(Math.random().toString());
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   return (
     <form onSubmit={handleSubmit}>
-      <h2>Import {name}</h2>
+      <Typography variant="h5" gutterBottom mt={3} mb={1}>
+        Import {name}
+      </Typography>
       <FormGroup>
-        <Label htmlFor="import">
-          File must be in a CSV format, header must include the following
-          fields: <br /> {fieldsToImport.join(', ')}
-        </Label>
-        <FileInput
-          key={key}
-          id="import"
-          accept=".csv"
-          onChange={(e) => parseCSV(e)}
-        />
+        <FormLabel htmlFor="import">
+          <Typography variant="body2" color="neutrals.main" mb={1}>
+            The file must be in CSV format.
+          </Typography>
+          <Typography variant="body2" color="neutrals.main" mb={1}>
+            The header must be on the first line and include the following
+            fields:
+          </Typography>
+          <Typography variant="body2" color="neutrals.dark">
+            {fieldsToImport.join(', ')}
+          </Typography>
+        </FormLabel>
+        <Box mt={1}>
+          <FileInput
+            key={key}
+            id="import"
+            accept=".csv"
+            onChange={(e) => parseCSV(e)}
+          />
+        </Box>
         {selectedFile && (
-          <Paper sx={{ width: 'fit-content' }}>
-            <p style={{ marginLeft: '0.5rem' }}>
+          <Paper
+            sx={{
+              mt: 2,
+              px: 2,
+              py: 1,
+              display: 'flex',
+              alignItems: 'center',
+              width: 'fit-content'
+            }}
+          >
+            <Typography variant="body2">
               Selected file: {selectedFile.name}
-              <Button
-                type="button"
-                outline
-                onClick={deleteFile}
-                title="Delete file"
-                style={{
-                  fontSize: '1rem',
-                  padding: '0.5rem',
-                  marginLeft: '1rem'
-                }}
-              >
-                X
-              </Button>
-            </p>
+            </Typography>
+            <Button
+              type="button"
+              onClick={deleteFile}
+              title="Delete file"
+              size="small"
+              color="error"
+              sx={{ ml: 2 }}
+            >
+              Remove
+            </Button>
           </Paper>
         )}
-        <Button outline type="submit" style={{ marginTop: '0.5rem' }}>
+
+        <Button
+          variant="contained"
+          type="submit"
+          sx={{ mt: 2, width: 'fit-content' }}
+          disabled={!selectedFile}
+        >
           Upload CSV
         </Button>
       </FormGroup>
@@ -129,15 +152,23 @@ export const exportCSV = async <T extends object>(
   const filename = `${props.name}-${new Date().toISOString()}`;
   setLoading((l) => l + 1);
   const data = await props.getDataToExport();
+
   if (typeof data === 'string') {
+    const link = document.createElement('a');
+    link.href = data;
+    link.download = `${filename}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     setLoading((l) => l - 1);
-    window.open(data);
     return;
   }
+
   const csv = Papa.unparse({
     fields: props.fieldsToExport ?? [],
-    data: data
+    data
   });
+
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
   FileSaver.saveAs(blob, `${filename}.csv`);
   setLoading((l) => l - 1);
@@ -146,8 +177,6 @@ export const exportCSV = async <T extends object>(
 export const ImportExport = <T extends object>(props: ImportProps<T>) => {
   const { name, onImport, fieldsToImport } = props;
   return (
-    <>
-      <Import name={name} onImport={onImport} fieldsToImport={fieldsToImport} />
-    </>
+    <Import name={name} onImport={onImport} fieldsToImport={fieldsToImport} />
   );
 };

@@ -15,7 +15,7 @@ export const getExtendedOrg = (
 };
 
 export const getMaximumRole = (user: AuthUser | null) => {
-  if (user?.userType === 'globalView') return 'user';
+  if (user?.user_type === 'globalView') return 'user';
   return user && user.roles && user.roles.find((role) => role.role === 'admin')
     ? 'admin'
     : 'user';
@@ -27,8 +27,9 @@ export const getTouVersion = (maxRole: string) => {
 
 export const getUserMustSign = (user: AuthUser | null, touVersion: string) => {
   return Boolean(
-    !user?.dateAcceptedTerms ||
-      (user.acceptedTermsVersion && user.acceptedTermsVersion !== touVersion)
+    !user?.date_accepted_terms ||
+      (user.accepted_terms_version &&
+        user.accepted_terms_version !== touVersion)
   );
 };
 
@@ -42,7 +43,7 @@ export const ALL_USERS = GLOBAL_VIEW | STANDARD_USER;
 export const getUserLevel = (user: AuthUser | null | undefined) => {
   let userLevel = 0;
   if (user && user.isRegistered) {
-    if (user.userType === 'standard') {
+    if (user.user_type === 'standard') {
       userLevel = STANDARD_USER;
     } else {
       userLevel = GLOBAL_VIEW;

@@ -24,10 +24,11 @@ export const Root = styled('div')(() => ({
     position: 'relative',
     flex: '1',
     width: '100%',
+    maxWidth: '1152px',
     display: 'flex',
     flexFlow: 'column nowrap',
     alignItems: 'stretch',
-    margin: '0',
+    margin: 'auto',
     height: '100%'
   },
 

@@ -31,10 +31,6 @@ module.exports = {
       {
         items: [{ text: 'Scanning FAQ', link: '/docs/scans/' }],
       },
-      {
-        title: '',
-        items: [{ text: 'API Reference', link: '/docs/api-reference/' }],
-      },
     ],
     secondaryLinks: [
       {

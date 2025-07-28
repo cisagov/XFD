@@ -32,7 +32,7 @@ export const classesRisk = {
   note: `${PREFIX}-note`
 };
 
-export const RiskRoot = styled('div')(({ theme }) => ({
+export const RiskRoot = styled('div')(() => ({
   [`& .${classesRisk.cardRoot}`]: {
     boxSizing: 'border-box',
     marginBottom: '1rem',
@@ -131,20 +131,16 @@ export const RiskRoot = styled('div')(({ theme }) => ({
     position: 'relative',
     flex: '1',
     width: '100%',
-    height: '100%',
     display: 'flex',
     flexFlow: 'row nowrap',
     alignItems: 'stretch',
-    margin: '0',
-    overflowY: 'hidden'
+    margin: '0'
   },
   [`& .${classesRisk.contentWrapper}`]: {
     position: 'relative',
     flex: '1 1 auto',
-    height: '100%',
     display: 'flex',
     flexFlow: 'column nowrap',
-    overflowY: 'hidden',
     marginTop: '1rem'
   },
   [`& .${classesRisk.content}`]: {

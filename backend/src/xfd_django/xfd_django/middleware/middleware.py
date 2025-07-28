@@ -58,7 +58,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "protocol": protocol,
             "originalURL": original_url,
             "path": path,
-            "statusCode": None,  # Status is not known at this point
+            "status_code": None,  # Status is not known at this point
             "headers": headers,
             "userEmail": user_email,
         }
@@ -86,7 +86,7 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "protocol": protocol,
             "originalURL": original_url,
             "path": path,
-            "statusCode": response.status_code,
+            "status_code": response.status_code,
             "headers": headers,
             "userEmail": user_email,
             "durationMs": round(

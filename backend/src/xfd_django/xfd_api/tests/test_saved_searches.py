@@ -7,8 +7,8 @@ import secrets
 from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
-from xfd_api.models import SavedSearch, User, UserType
 from xfd_django.asgi import app
+from xfd_mini_dl.models import SavedSearch, User, UserType
 
 client = TestClient(app)
 
@@ -17,12 +17,12 @@ client = TestClient(app)
 def create_global_admin():
     """Create user fixture."""
     global_admin_user = User.objects.create(
-        firstName="",
-        lastName="",
+        first_name="",
+        last_name="",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_ADMIN,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     yield global_admin_user
     global_admin_user.delete()
@@ -32,12 +32,12 @@ def create_global_admin():
 def create_global_view():
     """Create user fixture."""
     global_view_user = User.objects.create(
-        firstName="",
-        lastName="",
+        first_name="",
+        last_name="",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.GLOBAL_VIEW,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     yield global_view_user
     global_view_user.delete()
@@ -47,12 +47,12 @@ def create_global_view():
 def create_standard_user():
     """Create user fixture."""
     user = User.objects.create(
-        firstName="",
-        lastName="",
+        first_name="",
+        last_name="",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     yield user
     user.delete()
@@ -62,18 +62,18 @@ def create_standard_user():
 def create_secondary_standard_user():
     """Create user fixture."""
     user = User.objects.create(
-        firstName="",
-        lastName="",
+        first_name="",
+        last_name="",
         email="{}@example.com".format(secrets.token_hex(4)),
-        userType=UserType.STANDARD,
-        createdAt=datetime.now(),
-        updatedAt=datetime.now(),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
     yield user
     user.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_create_saved_search_by_user(create_standard_user):
     """
     Ensure that a standard user can successfully create a saved search.
@@ -87,27 +87,27 @@ def test_create_saved_search_by_user(create_standard_user):
     user = create_standard_user
     name = "test-{}".format(secrets.token_hex(4))
     response = client.post(
-        "/saved-searches/",
+        "/saved-searches",
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
         json={
             "name": name,
             "count": 3,
-            "sortDirection": "",
-            "sortField": "",
-            "searchTerm": "",
-            "searchPath": "",
+            "sort_direction": "",
+            "sort_field": "",
+            "search_term": "",
+            "search_path": "",
             "filters": [],
         },
     )
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == name
-    assert data["createdById"] == str(user.id)
+    assert data["created_by_id"] == str(user.id)
     search = SavedSearch.objects.get(id=data["id"])
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_saved_search_by_global_admin_fails(
     create_global_admin, create_standard_user
 ):
@@ -123,17 +123,17 @@ def test_update_saved_search_by_global_admin_fails(
     body = {
         "name": "test-{}".format(secrets.token_hex(4)),
         "count": 3,
-        "sortDirection": "",
-        "sortField": "",
-        "searchTerm": "",
-        "searchPath": "",
+        "sort_direction": "",
+        "sort_field": "",
+        "search_term": "",
+        "search_path": "",
         "filters": [],
-        "updatedAt": datetime.now(),  # Include updatedAt field
+        "updated_at": datetime.now(),  # Include updatedAt field
     }
-    search = SavedSearch.objects.create(**body, createdById=standard_user)
+    search = SavedSearch.objects.create(**body, created_by=standard_user)
     body["name"] = "test-{}".format(secrets.token_hex(4))
-    body["searchTerm"] = "123"
-    body["updatedAt"] = datetime.now().isoformat()  # Update the timestamp
+    body["search_term"] = "123"
+    body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
 
     response = client.put(
         "/saved-searches/{}".format(search.id),
@@ -146,7 +146,7 @@ def test_update_saved_search_by_global_admin_fails(
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_saved_search_by_global_view_fails(
     create_standard_user, create_global_view
 ):
@@ -166,19 +166,19 @@ def test_update_saved_search_by_global_view_fails(
     body = {
         "name": "test-{}".format(secrets.token_hex(4)),
         "count": 3,
-        "sortDirection": "",
-        "sortField": "",
-        "searchTerm": "",
-        "searchPath": "",
+        "sort_direction": "",
+        "sort_field": "",
+        "search_term": "",
+        "search_path": "",
         "filters": [],
-        "updatedAt": datetime.now(),  # Include updatedAt field
+        "updated_at": datetime.now(),  # Include updatedAt field
     }
-    saved_search = SavedSearch.objects.create(**body, createdById=user)
+    saved_search = SavedSearch.objects.create(**body, created_by=user)
 
     # Attempt to update the saved search with the global view user
     body["name"] = "test-{}".format(secrets.token_hex(4))
-    body["searchTerm"] = "123"
-    body["updatedAt"] = datetime.now().isoformat()  # Update the timestamp
+    body["search_term"] = "123"
+    body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
     response = client.put(
         "/saved-searches/{}".format(saved_search.id),
         json=body,
@@ -192,7 +192,7 @@ def test_update_saved_search_by_global_view_fails(
     saved_search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_saved_search_by_standard_user_with_access(create_standard_user):
     """
     Ensure that a standard user with access can successfully update a saved search.
@@ -206,17 +206,17 @@ def test_update_saved_search_by_standard_user_with_access(create_standard_user):
     body = {
         "name": "test-{}".format(secrets.token_hex(4)),
         "count": 3,
-        "sortDirection": "",
-        "sortField": "",
-        "searchTerm": "",
-        "searchPath": "",
+        "sort_direction": "",
+        "sort_field": "",
+        "search_term": "",
+        "search_path": "",
         "filters": [],
-        "updatedAt": datetime.now(),  # Include updatedAt field
+        "updated_at": datetime.now(),  # Include updatedAt field
     }
-    search = SavedSearch.objects.create(**body, createdById=user)
+    search = SavedSearch.objects.create(**body, created_by=user)
     body["name"] = "test-{}".format(secrets.token_hex(4))
-    body["searchTerm"] = "123"
-    body["updatedAt"] = datetime.now().isoformat()  # Update the timestamp
+    body["search_term"] = "123"
+    body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
 
     response = client.put(
         "/saved-searches/{}".format(search.id),
@@ -226,13 +226,13 @@ def test_update_saved_search_by_standard_user_with_access(create_standard_user):
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == body["name"]
-    assert data["searchTerm"] == body["searchTerm"]
+    assert data["search_term"] == body["search_term"]
 
     # Cleanup
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_update_saved_search_by_standard_user_without_access_fails(
     create_standard_user, create_secondary_standard_user
 ):
@@ -248,14 +248,14 @@ def test_update_saved_search_by_standard_user_without_access_fails(
     body = {
         "name": "test-{}".format(secrets.token_hex(4)),
         "count": 3,
-        "sortDirection": "",
-        "sortField": "",
-        "searchTerm": "",
-        "searchPath": "",
+        "sort_direction": "",
+        "sort_field": "",
+        "search_term": "",
+        "search_path": "",
         "filters": [],
-        "updatedAt": str(datetime.now()),  # Include updatedAt field
+        "updated_at": str(datetime.now()),  # Include updatedAt field
     }
-    search = SavedSearch.objects.create(**body, createdById=user_with_access)
+    search = SavedSearch.objects.create(**body, created_by=user_with_access)
     response = client.put(
         "/saved-searches/{}".format(search.id),
         json=body,
@@ -267,7 +267,7 @@ def test_update_saved_search_by_standard_user_without_access_fails(
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_saved_search_by_global_admin_fails(
     create_global_admin, create_standard_user
 ):
@@ -284,12 +284,12 @@ def test_delete_saved_search_by_global_admin_fails(
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=standard_user,
+        created_by=standard_user,
     )
     response = client.delete(
         "/saved-searches/{}".format(search.id),
@@ -302,7 +302,7 @@ def test_delete_saved_search_by_global_admin_fails(
         search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_saved_search_by_global_view_fails(
     create_standard_user, create_global_view
 ):
@@ -323,12 +323,12 @@ def test_delete_saved_search_by_global_view_fails(
     saved_search = SavedSearch.objects.create(
         name="test-search-{}".format(secrets.token_hex(4)),
         count=5,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=user,
+        created_by=user,
     )
 
     # Attempt to delete the saved search with the global view user
@@ -344,7 +344,7 @@ def test_delete_saved_search_by_global_view_fails(
     saved_search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_saved_search_by_user_with_access(create_standard_user):
     """
     Ensure that a standard user with access can successfully delete a saved search.
@@ -357,12 +357,12 @@ def test_delete_saved_search_by_user_with_access(create_standard_user):
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=user,
+        created_by=user,
     )
     response = client.delete(
         "/saved-searches/{}".format(search.id),
@@ -376,7 +376,7 @@ def test_delete_saved_search_by_user_with_access(create_standard_user):
         search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_delete_saved_search_by_user_without_access_fails(
     create_standard_user, create_secondary_standard_user
 ):
@@ -392,12 +392,12 @@ def test_delete_saved_search_by_user_without_access_fails(
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=user_with_access,
+        created_by=user_with_access,
     )
     response = client.delete(
         "/saved-searches/{}".format(search.id),
@@ -410,7 +410,7 @@ def test_delete_saved_search_by_user_without_access_fails(
         search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_list_saved_searches_by_global_view_returns_none(create_global_view):
     """
     Ensure that a global view user cannot list saved searches.
@@ -424,10 +424,10 @@ def test_list_saved_searches_by_global_view_returns_none(create_global_view):
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
     )
     response = client.get(
@@ -442,7 +442,7 @@ def test_list_saved_searches_by_global_view_returns_none(create_global_view):
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_list_saved_searches_by_user_only_gets_their_search(
     create_standard_user, create_secondary_standard_user
 ):
@@ -459,22 +459,22 @@ def test_list_saved_searches_by_user_only_gets_their_search(
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=primary_user,
+        created_by=primary_user,
     )
     search2 = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=secondary_user,
+        created_by=secondary_user,
     )
     response = client.get(
         "/saved-searches",
@@ -491,7 +491,7 @@ def test_list_saved_searches_by_user_only_gets_their_search(
     search2.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_saved_search_by_global_view_fails(create_global_view):
     """
     Ensure that a global view user cannot retrieve a saved search.
@@ -504,10 +504,10 @@ def test_get_saved_search_by_global_view_fails(create_global_view):
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
     )
     response = client.get(
@@ -520,7 +520,7 @@ def test_get_saved_search_by_global_view_fails(create_global_view):
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_saved_search_by_user_passes(create_standard_user):
     """
     Ensure that a standard user can retrieve their saved search by ID.
@@ -534,12 +534,12 @@ def test_get_saved_search_by_user_passes(create_standard_user):
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=user,
+        created_by=user,
     )
     response = client.get(
         "/saved-searches/{}".format(search.id),
@@ -552,7 +552,7 @@ def test_get_saved_search_by_user_passes(create_standard_user):
     search.delete()
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_saved_search_by_different_user_fails(
     create_standard_user, create_secondary_standard_user
 ):
@@ -568,12 +568,12 @@ def test_get_saved_search_by_different_user_fails(
     search = SavedSearch.objects.create(
         name="test-{}".format(secrets.token_hex(4)),
         count=3,
-        sortDirection="",
-        sortField="",
-        searchTerm="",
-        searchPath="",
+        sort_direction="",
+        sort_field="",
+        search_term="",
+        search_path="",
         filters=[],
-        createdById=user_with_access,
+        created_by=user_with_access,
     )
     response = client.get(
         "/saved-searches/{}".format(search.id),

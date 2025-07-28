@@ -6,10 +6,11 @@ export interface ScanTask {
   type: string;
   input: string;
   output: string;
-  createdAt: string;
-  startedAt: string;
-  requestedAt: string;
-  finishedAt: string;
+  created_at: string;
+  started_at: string;
+  requested_at: string;
+  finished_at: string;
   scan: Scan;
-  fargateTaskArn: string;
+  fargate_task_arn: string;
+  concurrency_index: Int16Array;
 }

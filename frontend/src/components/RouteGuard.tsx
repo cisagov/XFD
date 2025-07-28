@@ -33,24 +33,36 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
+  // user has authenticated and registered but needs to create an account
   if (user && !user.isRegistered) {
-    // user has authenticated but needs to create an account
-    console.log('User Registered Check');
     history.push('/create-account');
     return null;
   }
 
+  // User must accept terms
   if (user && userMustSign) {
-    // user has authenticated but needs to sign terms
-    console.log('User must sign check');
     history.push('/terms');
     return null;
   }
 
-  if (user && user.loginBlockedByMaintenance) {
-    logout();
+  // Redirect to landing with request sent message for unapproved users
+  if (
+    user &&
+    user.invite_pending &&
+    window.location.pathname !== '/' &&
+    window.location.pathname !== '/terms' &&
+    window.location.pathname !== '/logout'
+  ) {
+    console.log('User is not approved.');
+    history.push('/');
     return null;
   }
+
+  // TODO: Uncomment if we decide to fully block logins during maintenance windows.
+  // if (user && user.login_blocked_by_maintenance) {
+  //   logout();
+  //   return null;
+  // }
 
   if (typeof unauth === 'string' && !user) {
     history.push(unauth);
@@ -58,10 +70,10 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   }
 
   if (user && permissions && permissions.length > 0) {
-    // user is not globalAdmin and invalid userType permissions
+    // user is not globalAdmin and invalid user_type permissions
     if (
-      user.userType !== 'globalAdmin' &&
-      !permissions.includes(user.userType)
+      user.user_type !== 'globalAdmin' &&
+      !permissions.includes(user.user_type)
     ) {
       console.log('User access denied. Logging out!');
       logout();

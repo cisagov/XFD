@@ -1,13 +1,13 @@
 ---
 api:
-  handler: src.xfd_django.xfd_django.asgi.handler
-  events:
-    - http:
-        path: /  # this matches the base path
-        method: ANY
-        cors: true
-    - http:
-        # this matches any path, the token 'any' doesn't mean anything special
-        path: /{any+}
-        method: ANY
-        cors: true
+    handler: src.xfd_django.xfd_django.asgi.handler
+    events:
+        - http:
+              path: /  # this matches the base path
+              method: ANY
+              cors: true
+        - http:
+              # this matches any path, the token 'any' doesn't mean anything special
+              path: /{any+}
+              method: ANY
+              cors: true

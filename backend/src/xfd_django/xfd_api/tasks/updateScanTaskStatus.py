@@ -13,14 +13,14 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Third-Party Libraries
-from xfd_api.models import ScanTask
+from xfd_mini_dl.models import ScanTask
 
 
 def handler(event, context):
     """Update the status of a ScanTask based on EventBridge event data."""
     detail = event.get("detail")
     if not detail:
-        return {"statusCode": 400, "body": "Event detail is required."}
+        return {"status_code": 400, "body": "Event detail is required."}
 
     task_arn = detail.get("taskArn")
     last_status = detail.get("lastStatus")
@@ -29,7 +29,7 @@ def handler(event, context):
     containers = detail.get("containers", [])
 
     if not task_arn or not last_status:
-        return {"statusCode": 400, "body": "taskArn and lastStatus are required."}
+        return {"status_code": 400, "body": "taskArn and lastStatus are required."}
 
     try:
         # Retry logic for finding the ScanTask
@@ -44,16 +44,17 @@ def handler(event, context):
 
         if last_status == "RUNNING":
             scan_task.status = "started"
+            scan_task.started_at = now()
         elif last_status == "STOPPED":
             if containers and containers[0].get("exitCode") == 0:
                 scan_task.status = "finished"
             else:
                 scan_task.status = "failed"
+            scan_task.finished_at = now()
             scan_task.output = "{}: {}".format(stop_code, stopped_reason)
-            scan_task.finishedAt = now()
         else:
             # No update needed for other statuses
-            return {"statusCode": 204, "body": "No status change required."}
+            return {"status_code": 204, "body": "No status change required."}
 
         print(
             "Updating status of ScanTask {} from {} to {}.".format(
@@ -63,19 +64,19 @@ def handler(event, context):
         scan_task.save()
 
         return {
-            "statusCode": 200,
+            "status_code": 200,
             "body": "ScanTask {} updated successfully.".format(scan_task.id),
         }
 
     except Exception as e:
-        return {"statusCode": 500, "body": str(e)}
+        return {"status_code": 500, "body": str(e)}
 
 
 def retry_find_scan_task(task_arn, retries=3):
     """Retry logic to find a ScanTask by its Fargate Task ARN."""
     for attempt in range(retries):
         try:
-            scan_task = ScanTask.objects.filter(fargateTaskArn=task_arn).first()
+            scan_task = ScanTask.objects.filter(fargate_task_arn=task_arn).first()
             if scan_task:
                 return scan_task
         except OperationalError as e:

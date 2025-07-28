@@ -15,37 +15,37 @@ const VSFindings = () => {
         </div>
         <div className={body}>
           <Grid container spacing={1}>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="button" fontSize={16} color="primary">
                 Organization Details
               </Typography>
               <Divider color="primary" sx={{ border: 1 }} />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <LocationCity />
                 <Typography variant="body1">{summaryData?.org.name}</Typography>
               </Stack>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Public />
                 <Typography variant="body1">
-                  Region {summaryData?.org.regionId}
+                  Region {summaryData?.org.region_id}
                 </Typography>
               </Stack>
             </Grid>
-            <Grid item xs={6}>
-              {summaryData?.org.stateName && (
+            <Grid size={{ xs: 6 }}>
+              {summaryData?.org.state_name && (
                 <Stack direction="row" alignItems="center" spacing={1}>
                   <Place />
                   <Typography variant="body1">
-                    {summaryData?.org.stateName}
+                    {summaryData?.org.state_name}
                   </Typography>
                 </Stack>
               )}
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Groups />
                 <Typography variant="body1">
@@ -53,13 +53,13 @@ const VSFindings = () => {
                 </Typography>
               </Stack>
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Typography variant="button" fontSize={16} color="primary">
                 Asset Details
               </Typography>
               <Divider color="primary" sx={{ border: 1 }} />
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Typography variant="h6" display="inline">
                 {summaryData?.org.rootDomainCount + ' '}
               </Typography>
@@ -74,7 +74,7 @@ const VSFindings = () => {
                 Breaches
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={{ xs: 6 }}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <Typography variant="h6">
                   {vulnSummaryData?.inventory_count + ' '}

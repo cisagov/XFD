@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, testUser, testOrganization } from 'test-utils';
-import { Header } from '../Header';
+import { Header } from '../Header/Header';
 
 jest.mock('@elastic/react-search-ui', () => ({
   withSearch: () => (comp: any) => comp
@@ -20,7 +20,7 @@ describe('Header component', () => {
   it('shows no links for unauthenticated user', () => {
     const { queryByText } = render(<Header />, {
       authContext: {
-        user: { ...testUser, userType: 'standard', isRegistered: false },
+        user: { ...testUser, user_type: 'standard', isRegistered: false },
         currentOrganization: { ...testOrganization }
       }
     });
@@ -32,11 +32,11 @@ describe('Header component', () => {
   it('shows correct links for ORG_USER', () => {
     const { getByText, queryByText } = render(<Header />, {
       authContext: {
-        user: { ...testUser, userType: 'standard', isRegistered: true },
+        user: { ...testUser, user_type: 'standard', isRegistered: true },
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Overview', 'Inventory'].forEach((expected) => {
+    ['My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
     ['Scans'].forEach((notExpected) => {
@@ -47,26 +47,23 @@ describe('Header component', () => {
   it('shows correct links for ORG_ADMIN', () => {
     const { getByText } = render(<Header />, {
       authContext: {
-        user: { ...testUser, userType: 'standard', isRegistered: true },
+        user: { ...testUser, user_type: 'standard', isRegistered: true },
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Overview', 'Inventory'].forEach((expected) => {
+    ['My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
-    // ['Manage Organizations', 'Manage Users'].forEach((notExpected) => {
-    //   expect(queryByText(notExpected)).not.toBeInTheDocument();
-    // });
   });
 
   it('shows correct links for GLOBAL_ADMIN', () => {
     const { getByText } = render(<Header />, {
       authContext: {
-        user: { ...testUser, userType: 'globalAdmin', isRegistered: true },
+        user: { ...testUser, user_type: 'globalAdmin', isRegistered: true },
         currentOrganization: { ...testOrganization }
       }
     });
-    ['Overview', 'Inventory'].forEach((expected) => {
+    ['My Account'].forEach((expected) => {
       expect(getByText(expected)).toBeInTheDocument();
     });
   });

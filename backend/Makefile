@@ -17,15 +17,28 @@ syncdb-dangerously-force:
 syncmdl:
 	docker compose exec backend python manage.py syncmdl
 
+syncmdl-populate:
+	docker compose exec backend python manage.py syncmdl --populate
+
 syncmdl-dangerously-force:
 	docker compose exec backend python manage.py syncmdl --dangerouslyforce
 
+# Syncronize the secondary database
+syncmdl_secondary:
+	docker compose exec backend python manage.py syncmdl_secondary
+
+syncmdl_secondary-dangerously-force:
+	docker compose exec backend python manage.py syncmdl_secondary --dangerouslyforce
 
 # Pytest
 # i.e. make pytest FILE=xfd_api/tests/test_domain.py
 pytest:
 	docker compose exec backend python manage.py makemigrations
+ifeq ($(MODE),reset)
+	docker compose exec backend pytest --create-db $(FILE)
+else
 	docker compose exec backend pytest --no-migrations --reuse-db $(FILE)
+endif
 
 pylint:
 	docker compose exec backend sh -c "PYTHONPATH=/app pylint ."

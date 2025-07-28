@@ -14,7 +14,7 @@ key1=${PE_SHODAN_API_KEYS}
 
 [pe_api]
 pe_api_key=${PE_API_KEY}
-pe_api_url=${PE_API_URL}
+pe_api_url=${PE_API_URL}/apiv1/
 cf_api_key=${CF_API_KEY}
 
 [staging]

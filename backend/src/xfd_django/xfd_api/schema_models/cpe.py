@@ -17,7 +17,7 @@ class Cpe(BaseModel):
     name: Optional[str]
     version: Optional[str]
     vendor: Optional[str]
-    lastSeenAt: datetime
+    last_seen_at: datetime
 
     class Config:
         """Config."""

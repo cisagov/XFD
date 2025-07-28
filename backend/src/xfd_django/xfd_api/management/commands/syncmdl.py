@@ -5,7 +5,18 @@ import os
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 from django.db import connections
-from xfd_api.tasks.syncdb_helpers import drop_all_tables, synchronize
+from xfd_api.tasks.helpers.syncdb_helpers.adjust_columns import adjust_column_types
+from xfd_api.tasks.helpers.syncdb_helpers.create_sampe_data import populate_sample_data
+from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (
+    manage_elasticsearch_indices,
+    sync_es_organizations,
+)
+from xfd_api.tasks.helpers.syncdb_helpers.fill_static_tables import (
+    fill_nmi_service_group_table,
+    fill_risky_service_lookup_table,
+)
+from xfd_api.tasks.searchSync import handler as sync_es_domains
+from xfd_api.tasks.syncdb_task import drop_all_tables, synchronize
 
 
 class Command(BaseCommand):
@@ -21,10 +32,17 @@ class Command(BaseCommand):
             action="store_true",
             help="Force drop and recreate the database.",
         )
+        parser.add_argument(
+            "-p",
+            "--populate",
+            action="store_true",
+            help="Populate the database with sample data.",
+        )
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options):  # pylint: disable=R0915
         """Handle method."""
         dangerouslyforce = options["dangerouslyforce"]
+        populate = options["populate"]
 
         mdl_username = os.getenv("MDL_USERNAME")
         mdl_password = os.getenv("MDL_PASSWORD")
@@ -78,11 +96,40 @@ class Command(BaseCommand):
             except Exception as e:
                 self.stdout.write("Granting privileges failed: {}".format(e))
 
+        # 👉 Step 1.5: Enable btree_gist extension
+        self.stdout.write("Enabling btree_gist extension for GiST indexing...")
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("CREATE EXTENSION IF NOT EXISTS btree_gist;")
+                self.stdout.write("btree_gist extension enabled.")
+        except Exception as e:
+            self.stdout.write(f"Failed to enable btree_gist extension: {e}")
+
         # Step 2: Synchronize or Reset the Database
         self.stdout.write("Synchronizing the MDL database schema...")
         if dangerouslyforce:
             self.stdout.write("Dropping and recreating the database...")
             drop_all_tables(app_label="xfd_mini_dl")
         synchronize(target_app_label="xfd_mini_dl")
+        fill_risky_service_lookup_table()
+        fill_nmi_service_group_table()
+
+        self.stdout.write("Running Phase 2 column type adjustments …")
+        adjust_column_types(target_app_label="xfd_mini_dl")
 
         self.stdout.write("Database synchronization complete.")
+
+        # Step 3: Elasticsearch Index Management
+        manage_elasticsearch_indices(dangerouslyforce)
+
+        # Step 4: Populate Sample Data
+        if populate:
+            self.stdout.write("Populating the database with sample data...")
+            populate_sample_data()
+            self.stdout.write("Sample data population complete.")
+
+            # Step 4.1: Sync domains in ES
+            sync_es_domains({})
+
+        # Step 5: Sync organizations in ES
+        sync_es_organizations()

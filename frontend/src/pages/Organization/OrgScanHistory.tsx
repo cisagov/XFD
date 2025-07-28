@@ -14,7 +14,7 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface OrganizationScan extends Partial<OrganizationType> {
   id: any;
-  granularScans: any;
+  granular_scans: any;
 }
 
 type OrgScanHistoryProps = {
@@ -47,7 +47,7 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
       let { scans } = response;
       const { schema } = response;
 
-      if (user?.userType !== 'globalAdmin')
+      if (user?.user_type !== 'globalAdmin')
         scans = scans.filter(
           (scan) =>
             scan.name !== 'censysIpv4' && scan.name !== 'censysCertificates'
@@ -73,16 +73,18 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
       );
       setOrganization({
         ...organization,
-        granularScans: enabled
-          ? organization.granularScans.concat([scan])
-          : organization.granularScans.filter(
+        granular_scans: enabled
+          ? organization.granular_scans.concat([scan])
+          : organization.granular_scans.filter(
               (granularScan: { id: string }) => granularScan.id !== scan.id
             )
       });
     } catch (e: any) {
       setFeedbackMessage({
         message:
-          e.status === 422 ? 'Error updating scan' : e.message ?? e.toString(),
+          e.status === 422
+            ? 'Error updating scan'
+            : (e.message ?? e.toString()),
         type: 'error'
       });
       console.error(e);
@@ -107,7 +109,7 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
     {
       Header: 'Mode',
       accessor: ({ name }) =>
-        scanSchema[name] && scanSchema[name].isPassive ? 'Passive' : 'Active',
+        scanSchema[name] && scanSchema[name].is_passive ? 'Passive' : 'Active',
       width: 150,
       minWidth: 150,
       id: 'mode',
@@ -119,7 +121,7 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
       maxWidth: 100,
       Cell: ({ row }: { row: { index: number } }) => {
         if (!organization) return null;
-        const enabled = organization.granularScans.find(
+        const enabled = organization.granular_scans.find(
           (scan: { id: string }) => scan.id === scans[row.index].id
         );
         return (
@@ -160,25 +162,25 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
     },
     {
       Header: 'Created At',
-      accessor: ({ createdAt }) => dateAccessor(createdAt),
+      accessor: ({ created_at }) => dateAccessor(created_at),
       disableFilters: true,
       disableSortBy: true
     },
     {
       Header: 'Requested At',
-      accessor: ({ requestedAt }) => dateAccessor(requestedAt),
+      accessor: ({ requested_at }) => dateAccessor(requested_at),
       disableFilters: true,
       disableSortBy: true
     },
     {
       Header: 'Started At',
-      accessor: ({ startedAt }) => dateAccessor(startedAt),
+      accessor: ({ started_at }) => dateAccessor(started_at),
       disableFilters: true,
       disableSortBy: true
     },
     {
       Header: 'Finished At',
-      accessor: ({ finishedAt }) => dateAccessor(finishedAt),
+      accessor: ({ finished_at }) => dateAccessor(finished_at),
       disableFilters: true,
       disableSortBy: true
     },

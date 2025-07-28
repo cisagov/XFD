@@ -14,63 +14,62 @@ type OrgMemberProps = {
   setUserRoles: Function;
 };
 
-type MemberRow = {
-  row: {
-    approved?: Boolean;
-    role?: String;
-    user: { fullName?: String; email?: String; invitePending?: String };
-  };
-};
+const flattenUserRoles = (data: any[]) =>
+  data.map((item) => {
+    const nestedUser = item.user?.user || item.user || {};
+    return {
+      id: item.id,
+      role: item.role,
+      approved: item.approved,
+      user_id: nestedUser.id,
+      email: nestedUser.email,
+      first_name: nestedUser.first_name,
+      last_name: nestedUser.last_name,
+      full_name: nestedUser.full_name,
+      invite_pending: nestedUser.invite_pending
+    };
+  });
 
 export const OrgMembers: React.FC<OrgMemberProps> = ({
   organization,
   userRoles,
   setUserRoles
 }) => {
-  const { apiPost } = useAuthContext();
+  const { apiPost, user } = useAuthContext();
   const [removeUserDialogOpen, setRemoveUserDialogOpen] = React.useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = React.useState(false);
   const [selectedRow, setSelectedRow] = React.useState<Role>();
   const [hasError, setHasError] = React.useState('');
 
+  const flatUserRoles = flattenUserRoles(userRoles);
+
   const userRoleColumns: GridColDef[] = [
     {
+      field: 'full_name',
       headerName: 'Name',
-      field: 'fullName',
-      valueGetter: (params: MemberRow) => params.row?.user?.fullName,
       flex: 1
     },
     {
-      headerName: 'Email',
       field: 'email',
-      valueGetter: (params: MemberRow) => params.row?.user?.email,
+      headerName: 'Email',
       flex: 1.5
     },
     {
-      headerName: 'Role',
       field: 'role',
-      valueGetter: (params: MemberRow) => {
-        if (params.row?.approved) {
-          if (params.row?.user?.invitePending) {
-            return 'Invite pending';
-          } else if (params.row?.role === 'admin') {
-            return 'Administrator';
-          } else {
-            return 'Member';
-          }
-        }
-      },
+      headerName: 'Role',
       flex: 1
     },
     {
-      headerName: 'Remove',
       field: 'remove',
+      headerName: 'Remove',
       flex: 0.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        const descriptionId = `description-${cellValues.row.id}`;
-        const description = `Remove ${cellValues.row.user?.fullName} from ${organization?.name}`;
+      sortable: false,
+      filterable: false,
+      renderCell: (params: GridRenderCellParams) => {
+        const descriptionId = `description-${params.row.id}`;
+        const description = `Remove ${params.row.full_name}`;
         return (
-          <React.Fragment>
+          <>
             <span id={descriptionId} style={{ display: 'none' }}>
               {description}
             </span>
@@ -79,17 +78,13 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
               aria-label={description}
               aria-describedby={descriptionId}
               onClick={() => {
-                const userRole = userRoles.find(
-                  (role: { user: { id: String } }) =>
-                    role.user.id === cellValues.row.user.id
-                );
-                setSelectedRow(userRole);
+                setSelectedRow(params.row);
                 setRemoveUserDialogOpen(true);
               }}
             >
               <RemoveCircleOutline />
             </IconButton>
-          </React.Fragment>
+          </>
         );
       }
     }
@@ -120,13 +115,17 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
     <Box display="flex">
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
         <DataGrid
-          rows={userRoles}
+          rows={flatUserRoles}
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            toolbar: { exportTitle: organization?.name + ' Members' } as any
+          }}
           initialState={{
             pagination: { paginationModel: { pageSize: 15 } }
           }}
           pageSizeOptions={[15, 30, 50, 100]}
+          disableRowSelectionOnClick={user?.user_type === 'globalView'}
         />
       </Paper>
       <ConfirmDialog
@@ -139,7 +138,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           <React.Fragment>
             <Typography mb={3}>
               This request will permanently remove{' '}
-              <b>{selectedRow?.user.fullName}</b> from{' '}
+              <b>{selectedRow?.user.full_name}</b> from{' '}
               <b>{organization.name}</b> and cannot be undone.
             </Typography>
             {hasError && (
@@ -166,7 +165,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
         title={<Typography variant="h4">Success</Typography>}
         content={
           <Typography variant="body1">
-            {selectedRow?.user.fullName} has been removed from{' '}
+            {selectedRow?.user.full_name} has been removed from{' '}
             {organization.name}
           </Typography>
         }

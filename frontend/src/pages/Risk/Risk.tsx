@@ -1,6 +1,6 @@
 import React, { useCallback, useState, useEffect, useMemo } from 'react';
 import classes from './Risk.module.scss';
-import { Box, Card, CardContent, Grid, Paper, Typography } from '@mui/material';
+import { Box, Grid, Paper } from '@mui/material';
 import VulnerabilityCard from './VulnerabilityCard';
 import TopVulnerablePorts from './TopVulnerablePorts';
 import TopVulnerableDomains from './TopVulnerableDomains';
@@ -19,14 +19,16 @@ import {
 } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { Stats, Vulnerability } from 'types';
-import { UpdateStateForm } from 'components/Register';
 import {
   ORGANIZATION_FILTER_KEY,
   OrganizationShallow,
   REGION_FILTER_KEY
-} from 'components/RegionAndOrganizationFilters';
+} from 'components/FilterDrawer/RegionAndOrganizationFilters';
 import { withSearch } from '@elastic/react-search-ui';
 import { FilterTags } from 'pages/Search/FilterTags';
+import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
+import { useStaticsContext } from 'context/StaticsContext';
+import { useUserLevel } from 'hooks/useUserLevel';
 
 export interface Point {
   id: string;
@@ -54,16 +56,16 @@ let colorScale = scaleLinear<string>()
   .domain([0, 1])
   .range(['#c7e8ff', '#135787']);
 
-const Risk: React.FC<ContextType & {}> = ({
+const Risk: React.FC<ContextType> = ({
   filters,
   removeFilter,
+  addFilter,
   searchTerm,
   setSearchTerm
 }) => {
   const { showMaps, user, apiPost } = useAuthContext();
 
   const [stats, setStats] = useState<Stats | undefined>(undefined);
-  const [isUpdateStateFormOpen, setIsUpdateStateFormOpen] = useState(false);
 
   const RiskRoot = RiskStyles.RiskRoot;
   const { cardRoot, content, contentWrapper, header, panel } =
@@ -108,19 +110,34 @@ const Risk: React.FC<ContextType & {}> = ({
     return filters;
   }, [filters, searchTerm, setSearchTerm]);
 
+  const userLevel = useUserLevel().userLevel;
+
+  const { regions } = useStaticsContext();
+  const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
+
   const fetchStats = useCallback(
-    async (orgId?: string) => {
-      const { result } = await apiPost<ApiResponse>('/stats', {
-        body: {
-          filters: riskFilters
-        }
-      });
-      const max = Math.max(...result.vulnerabilities.byOrg.map((p) => p.value));
-      colorScale = scaleLinear<string>()
-        .domain([0, Math.log(max)])
-        .range(['#c7e8ff', '#135787']);
-      setStats(result);
+    async (org_id?: string) => {
+      if (
+        user?.user_type === 'globalAdmin' &&
+        riskFilters.regions.length === 0
+      ) {
+        return;
+      } else {
+        const { result } = await apiPost<ApiResponse>('/stats', {
+          body: {
+            filters: riskFilters
+          }
+        });
+        const max = Math.max(
+          ...result.vulnerabilities.by_org.map((p) => p.value)
+        );
+        colorScale = scaleLinear<string>()
+          .domain([0, Math.log(max)])
+          .range(['#c7e8ff', '#135787']);
+        setStats(result);
+      }
     },
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [riskFilters]
   );
@@ -130,12 +147,22 @@ const Risk: React.FC<ContextType & {}> = ({
   }, [fetchStats, riskFilters]);
 
   useEffect(() => {
-    if (user) {
-      if (!user.state || user.state === '') {
-        setIsUpdateStateFormOpen(true);
+    filters.forEach((filter) => {
+      if (
+        filter.field !== 'organization.region_id' &&
+        filter.field !== 'organization_id'
+      ) {
+        removeFilter(filter.field, filter.values[0], filter.type);
       }
+    });
+    if (filters.length === 0) {
+      initialFiltersForUser.forEach((filter) => {
+        filter.values.forEach((val) => {
+          addFilter(filter.field, val, filter.type);
+        });
+      });
     }
-  }, [user]);
+  }, [removeFilter, filters, addFilter, initialFiltersForUser]);
 
   const MapCard = ({
     title,
@@ -167,7 +194,7 @@ const Risk: React.FC<ContextType & {}> = ({
                 geographies.map((geo) => {
                   const cur = findFn(geo) as
                     | (Point & {
-                        orgId: string;
+                        org_id: string;
                       })
                     | undefined;
                   const centroid = geoCentroid(geo);
@@ -178,7 +205,7 @@ const Risk: React.FC<ContextType & {}> = ({
                         geography={geo}
                         fill={colorScale(cur ? Math.log(cur.value) : 0)}
                         onClick={() => {
-                          if (cur) fetchStats(cur.orgId);
+                          if (cur) fetchStats(cur.org_id);
                         }}
                       />
                       <g>
@@ -222,7 +249,7 @@ const Risk: React.FC<ContextType & {}> = ({
     [key: string]: VulnerabilityCount;
   } = {};
   if (stats) {
-    for (const vuln of stats.vulnerabilities.latestVulnerabilities) {
+    for (const vuln of stats.vulnerabilities.latest_vulnerabilities) {
       if (vuln.title in latestVulnsGrouped)
         latestVulnsGrouped[vuln.title].count++;
       else {
@@ -232,56 +259,25 @@ const Risk: React.FC<ContextType & {}> = ({
   }
 
   const latestVulnsGroupedArr = Object.values(latestVulnsGrouped).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
   );
 
   if (stats) {
     for (const sev of severities) {
-      sev.disable = !stats.domains.numVulnerabilities.some((i) =>
+      sev.disable = !stats.domains.num_vulnerabilities.some((i) =>
         sev.sevList.includes(i.id.split('|')[1])
       );
     }
   }
 
-  if (isUpdateStateFormOpen) {
-    return (
-      <UpdateStateForm
-        open={isUpdateStateFormOpen}
-        userId={user?.id ?? ''}
-        onClose={() => setIsUpdateStateFormOpen(false)}
-      />
-    );
-  }
-
-  if (user?.invitePending) {
-    return (
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          height: '100vh'
-        }}
-      >
-        <Card style={{ maxWidth: 400, textAlign: 'center' }}>
-          <CardContent>
-            <Typography variant="h5" component="h2">
-              REQUEST SENT
-            </Typography>
-            <Typography variant="body1">
-              Thank you for requesting a CyHy Dashboard account, you will
-              receive notification once this request is approved.
-            </Typography>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <Grid container>
-      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
-      <Grid item sm={11} lg={10} xl={8} sx={{ maxWidth: '1500px' }}>
+      <Grid
+        size={{ sm: 0.5, lg: 1, xl: 2 }}
+        display={{ xs: 'none', sm: 'block' }}
+      />
+      <Grid size={{ sm: 11, lg: 10, xl: 8 }} sx={{ maxWidth: '1500px' }}>
         <RiskRoot className={classes.root}>
           <div id="wrapper" className={contentWrapper}>
             <Box sx={{ px: '1rem', pb: '2rem' }}>
@@ -292,7 +288,7 @@ const Risk: React.FC<ContextType & {}> = ({
             </Box>
             {stats && (
               <Grid container>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6} mb={-4}>
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }} mb={-4}>
                   <div className={content}>
                     <div className={panel}>
                       <VulnerabilityCard
@@ -317,32 +313,32 @@ const Risk: React.FC<ContextType & {}> = ({
                     </div>
                   </div>
                 </Grid>
-                <Grid item xs={12} sm={12} md={12} lg={6} xl={6}>
+                <Grid size={{ xs: 12, sm: 12, md: 12, lg: 6, xl: 6 }}>
                   <div className={content}>
                     <div className={panel}>
-                      <Paper elevation={0} className={cardRoot}>
-                        {stats.domains.numVulnerabilities.length > 0 && (
+                      {stats.domains.num_vulnerabilities.length > 0 && (
+                        <Paper elevation={0} className={cardRoot}>
                           <TopVulnerableDomains
-                            data={stats.domains.numVulnerabilities}
+                            data={stats.domains.num_vulnerabilities}
                           />
-                        )}
-                      </Paper>
+                        </Paper>
+                      )}
                       <VulnerabilityCard
                         title={'Most Common Vulnerabilities'}
-                        data={stats.vulnerabilities.mostCommonVulnerabilities}
+                        data={stats.vulnerabilities.most_common_vulnerabilities}
                         showLatest={false}
                         showCommon={true}
                       ></VulnerabilityCard>
                       <div id="mapWrapper">
-                        {(user?.userType === 'globalView' ||
-                          user?.userType === 'globalAdmin') &&
+                        {(user?.user_type === 'globalView' ||
+                          user?.user_type === 'globalAdmin') &&
                           showMaps && (
                             <>
                               <MapCard
                                 title={'State Vulnerabilities'}
                                 geoUrl={geoStateUrl}
                                 findFn={(geo) =>
-                                  stats?.vulnerabilities.byOrg.find(
+                                  stats?.vulnerabilities.by_org.find(
                                     (p) => p.label === geo.properties.name
                                   )
                                 }
@@ -352,7 +348,7 @@ const Risk: React.FC<ContextType & {}> = ({
                                 title={'County Vulnerabilities'}
                                 geoUrl={geoStateUrl}
                                 findFn={(geo) =>
-                                  stats?.vulnerabilities.byOrg.find(
+                                  stats?.vulnerabilities.by_org.find(
                                     (p) =>
                                       p.label ===
                                       geo.properties.name + ' Counties'
@@ -371,18 +367,21 @@ const Risk: React.FC<ContextType & {}> = ({
           </div>
         </RiskRoot>
       </Grid>
-      <Grid item sm={0.5} lg={1} xl={2} display={{ xs: 'none', sm: 'block' }} />
+      <Grid
+        size={{ sm: 0.5, lg: 1, xl: 2 }}
+        display={{ xs: 'none', sm: 'block' }}
+      />
     </Grid>
   );
 };
 
+//Use this as a reference point for the VS Dash UI
 export const RiskWithSearch = withSearch(
   ({
     addFilter,
     removeFilter,
     filters,
     facets,
-    clearFilters,
     searchTerm,
     setSearchTerm
   }: ContextType) => ({
@@ -390,7 +389,6 @@ export const RiskWithSearch = withSearch(
     removeFilter,
     filters,
     facets,
-    clearFilters,
     searchTerm,
     setSearchTerm
   })

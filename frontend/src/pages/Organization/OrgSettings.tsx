@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuthContext } from 'context';
 import {
   PendingDomain,
@@ -8,6 +8,7 @@ import {
 import {
   Alert,
   Autocomplete,
+  Box,
   Button,
   Chip,
   Dialog,
@@ -23,6 +24,7 @@ import {
 } from '@mui/material';
 import { CheckCircleOutline, Place, Public } from '@mui/icons-material';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import ListInput from './ListInput';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -30,11 +32,11 @@ interface AutocompleteType extends Partial<OrganizationTag> {
 
 interface OrgSettingsType extends Partial<OrganizationType> {
   id: any;
-  granularScans: any;
-  rootDomains: string[];
-  ipBlocks: string[];
+  granular_scans: any;
+  root_domains: string[];
+  ip_blocks: string[];
   tags: OrganizationTag[];
-  pendingDomains: PendingDomain[];
+  pending_domains: PendingDomain[];
 }
 
 type OrgSettingsProps = {
@@ -49,23 +51,24 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
   tags
 }) => {
   const { apiPut, apiPost, user, setFeedbackMessage } = useAuthContext();
-  const [inputValue, setInputValue] = React.useState('');
-  const [dialog, setDialog] = React.useState<{
+  const [inputValue, setInputValue] = useState('');
+  const [dialog, setDialog] = useState<{
     open: boolean;
-    type?: 'rootDomains' | 'ipBlocks' | 'tags';
+    type?: string;
     label?: string;
     stage?: number;
     domainVerificationStatusMessage?: string;
   }>({ open: false });
-  const [isSaveDisabled, setIsSaveDisabled] = React.useState(true);
-  const [infoDialogOpen, setInfoDialogOpen] = React.useState(false);
-  const [chosenTags, setChosenTags] = React.useState<string[]>(
-    organization.tags ? organization.tags.map((tag) => tag.name) : []
+  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [chosenTags, setChosenTags] = useState(
+    () => organization.tags?.map((t) => t.name) || []
   );
+  const [localTags, setLocalTags] = useState(chosenTags);
 
-  const updateOrganization = async (body: any) => {
+  const updateOrganization = async () => {
     try {
-      const org = await apiPut('/organizations/' + organization?.id, {
+      const org = await apiPut(`/organizations/${organization.id}`, {
         body: organization
       });
       setOrganization(org);
@@ -79,7 +82,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         message:
           e.status === 422
             ? 'Error updating organization'
-            : e.message ?? e.toString(),
+            : e.message || e.toString(),
         type: 'error'
       });
       console.error(e);
@@ -88,20 +91,17 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
 
   const initiateDomainVerification = async (domain: string) => {
     try {
-      if (!organization) return;
-      const pendingDomains: PendingDomain[] = await apiPost(
-        `/organizations/${organization?.id}/initiateDomainVerification`,
-        {
-          body: { domain }
-        }
+      const pending_domains = await apiPost(
+        `/organizations/${organization.id}/initiateDomainVerification`,
+        { body: { domain } }
       );
-      setOrganization({ ...organization, pendingDomains });
+      setOrganization({ ...organization, pending_domains });
     } catch (e: any) {
       setFeedbackMessage({
         message:
           e.status === 422
             ? 'Error creating domain'
-            : e.message ?? e.toString(),
+            : e.message || e.toString(),
         type: 'error'
       });
       console.error(e);
@@ -110,276 +110,194 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
 
   const checkDomainVerification = async (domain: string) => {
     try {
-      if (!organization) return;
-      const resp: { success: boolean; organization?: OrganizationType } =
-        await apiPost(
-          `/organizations/${organization?.id}/checkDomainVerification`,
-          {
-            body: { domain }
-          }
-        );
+      const resp = await apiPost(
+        `/organizations/${organization.id}/checkDomainVerification`,
+        { body: { domain } }
+      );
       if (resp.success && resp.organization) {
         setOrganization(resp.organization);
         setDialog({ open: false });
         setFeedbackMessage({
-          message: 'Domain ' + inputValue + ' successfully verified!',
+          message: `Domain ${inputValue} successfully verified!`,
           type: 'success'
         });
       } else {
-        setDialog({
-          ...dialog,
+        setDialog((prev) => ({
+          ...prev,
           domainVerificationStatusMessage:
-            'Record not yet found. Note that DNS records may take up to 72 hours to propagate. You can come back later to check the verification status.'
-        });
+            'Record not yet found. DNS records may take up to 72 hours to propagate.'
+        }));
       }
     } catch (e: any) {
       setFeedbackMessage({
         message:
           e.status === 422
             ? 'Error verifying domain'
-            : e.message ?? e.toString(),
+            : e.message || e.toString(),
         type: 'error'
       });
       console.error(e);
     }
   };
 
-  const handleTagChange = (event: any, newValue: any) => {
-    setChosenTags(newValue);
-    setOrganization((prevValues: any) => ({
-      ...prevValues,
-      tags: newValue.map((tag: any) => ({ name: tag }))
-    }));
+  const handleDialogSubmit = async () => {
+    if (dialog.type === 'root_domains' && user?.user_type !== 'globalAdmin') {
+      if (dialog.stage === 0) {
+        await initiateDomainVerification(inputValue);
+        setDialog({ ...dialog, stage: 1 });
+      } else {
+        await checkDomainVerification(inputValue);
+      }
+      return;
+    }
+    if (dialog.type === 'tags') {
+      setChosenTags(localTags);
+      setOrganization((prev: any) => ({
+        ...prev,
+        tags: localTags.map((name: any) => ({ name }))
+      }));
+      setIsSaveDisabled(false);
+      setLocalTags(localTags);
+    } else if (dialog.type && inputValue) {
+      const key = dialog.type as keyof OrgSettingsType;
+      const updated = [
+        ...(organization[key] as string[]),
+        ...inputValue.split(',').map((e) => e.trim())
+      ];
+      setOrganization({ ...organization, [key]: updated });
+    }
+    setDialog({ open: false });
+    setInputValue('');
     setIsSaveDisabled(false);
   };
 
-  const ListInput = (props: {
-    type: 'rootDomains' | 'ipBlocks' | 'tags';
-    label: string;
-  }) => {
-    if (!organization) return null;
-    const elements: (string | OrganizationTag)[] = organization[props.type];
-    return (
-      <Grid container spacing={1}>
-        <Grid item xs={12} sm={3} lg={2} my={1}>
-          <Typography variant="body2">{props.label}</Typography>
-        </Grid>
-        {elements &&
-          elements.map((value: string | OrganizationTag, index: number) => (
-            <Grid item mb={1} key={index}>
-              <Chip
-                color={'primary'}
-                label={typeof value === 'string' ? value : value.name}
-                onDelete={() => {
-                  organization[props.type].splice(index, 1);
-                  setOrganization({ ...organization });
-                  if (chosenTags.length > 0) {
-                    chosenTags.splice(index, 1);
-                    setChosenTags(chosenTags);
-                  }
-                  setIsSaveDisabled(false);
-                }}
-              ></Chip>
-            </Grid>
-          ))}
-        {props.type === 'rootDomains' &&
-          organization.pendingDomains.map((domain, index: number) => (
-            <Grid item mb={1} key={index}>
-              <Chip
-                sx={{ backgroundColor: '#C4C4C4' }}
-                label={domain.name + ' (verification pending)'}
-                onDelete={() => {
-                  organization.pendingDomains.splice(index, 1);
-                  setOrganization({ ...organization });
-                }}
-                onClick={() => {
-                  setInputValue(domain.name);
-                  setDialog({
-                    open: true,
-                    type: props.type,
-                    label: props.label,
-                    stage: 1
-                  });
-                }}
-              ></Chip>
-            </Grid>
-          ))}
-        {(props.type === 'rootDomains' || user?.userType === 'globalAdmin') && (
-          <Grid item mb={1}>
-            <Chip
-              label="ADD"
-              variant="outlined"
-              color="secondary"
-              onClick={() => {
-                setDialog({
-                  open: true,
-                  type: props.type,
-                  label: props.label,
-                  stage: 0
-                });
+  const renderDialogContent = () => {
+    switch (dialog.type) {
+      case 'tags':
+        return (
+          <>
+            <DialogContentText>
+              Use the dropdown to select or deselect existing tags. Type and
+              press enter to add new ones.
+            </DialogContentText>
+            <Autocomplete
+              value={localTags}
+              onChange={(_, value) => {
+                setLocalTags(
+                  value.filter((v): v is string => typeof v === 'string')
+                );
               }}
+              multiple
+              freeSolo
+              options={tags.map((t) => t.name).filter(Boolean)}
+              renderValue={(selected) => (
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                  {selected.map((tag, i) => {
+                    if (tag) {
+                      return (
+                        <Chip key={tag + i} label={tag} variant="outlined" />
+                      );
+                    }
+                    return <></>;
+                  })}
+                </Box>
+              )}
+              renderInput={(params) => (
+                <TextField {...params} placeholder="Select or add tags" />
+              )}
+              sx={{ mt: 1 }}
             />
-          </Grid>
-        )}
-      </Grid>
-    );
+          </>
+        );
+      case 'root_domains':
+        if (dialog.stage === 1) {
+          return (
+            <>
+              <DialogContentText>
+                Add the TXT record below to {inputValue}&apos;s DNS and click
+                Verify.
+              </DialogContentText>
+              <TextField
+                fullWidth
+                value={
+                  organization.pending_domains.find(
+                    (d) => d.name === inputValue
+                  )?.token || ''
+                }
+                onFocus={(e) => e.target.select()}
+              />
+              {dialog.domainVerificationStatusMessage && (
+                <DialogContentText mt={4}>
+                  {dialog.domainVerificationStatusMessage}
+                </DialogContentText>
+              )}
+            </>
+          );
+        }
+        return (
+          <>
+            <DialogContentText>
+              Enter a domain to begin verification.
+            </DialogContentText>
+            <TextField
+              autoFocus
+              fullWidth
+              label="Domain"
+              onChange={(e) => setInputValue(e.target.value)}
+            />
+          </>
+        );
+      default:
+        return (
+          <TextField
+            autoFocus
+            fullWidth
+            placeholder={`Enter ${dialog.label?.slice(0, -1)}(s)`}
+            onChange={(e) => setInputValue(e.target.value)}
+          />
+        );
+    }
   };
 
-  if (!organization) return null;
   return (
     <>
       <Dialog
         open={dialog.open}
-        onClose={() => setDialog({ open: false })}
+        onClose={(event, reason) => {
+          if (reason !== 'backdropClick') {
+            setDialog({ open: false });
+          }
+        }}
+        disableEscapeKeyDown
         aria-labelledby="form-dialog-title"
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle id="form-dialog-title">
+        <DialogTitle>
           {dialog.type === 'tags' ? 'Update ' : 'Add '}
-          {dialog.label && dialog.label.slice(0, -1)}(s)
+          {dialog.label?.slice(0, -1)}(s)
         </DialogTitle>
-        <DialogContent>
-          {dialog.type === 'tags' ? (
-            <>
-              <DialogContentText>
-                Use the dropdown to select or deselect existing tags.
-                <br />
-                -- OR --
-                <br />
-                Type and then press enter to add a new tag.
-              </DialogContentText>
-              <Autocomplete
-                value={chosenTags}
-                onChange={handleTagChange}
-                renderTags={(value: readonly string[], getTagProps) =>
-                  value.map((option: string, index: number) => {
-                    const { key, ...tagProps } = getTagProps({ index });
-                    return (
-                      <Chip
-                        variant="outlined"
-                        label={option}
-                        key={key}
-                        {...tagProps}
-                      />
-                    );
-                  })
-                }
-                sx={{ mt: 1 }}
-                multiple
-                options={tags
-                  .map((option) => option.name)
-                  .filter((name): name is string => name !== undefined)}
-                freeSolo
-                renderInput={(params) => (
-                  <TextField {...params} placeholder="Select or add tags" />
-                )}
-              />
-            </>
-          ) : dialog.type === 'rootDomains' && dialog.stage === 1 ? (
-            <>
-              <DialogContentText>
-                Add the following TXT record to {inputValue}&apos;s DNS
-                configuration and click Verify.
-              </DialogContentText>
-              <TextField
-                sx={{ width: '100%' }}
-                value={
-                  organization.pendingDomains.find(
-                    (domain) => domain.name === inputValue
-                  )?.token
-                }
-                onFocus={(event) => {
-                  event.target.select();
-                }}
-              />
-              {dialog.domainVerificationStatusMessage && (
-                <>
-                  <DialogContentText mt={4}>
-                    {dialog.domainVerificationStatusMessage}
-                  </DialogContentText>
-                </>
-              )}
-            </>
-          ) : user?.userType === 'globalAdmin' ? (
-            <>
-              <DialogContentText>
-                Separate multiple entries by commas.
-              </DialogContentText>
-              <TextField
-                autoFocus
-                margin="dense"
-                id="name"
-                inputProps={{ maxLength: 255 }}
-                placeholder={
-                  dialog.label && 'Enter ' + dialog.label.slice(0, -1) + '(s)'
-                }
-                type="text"
-                fullWidth
-                onChange={(e) => setInputValue(e.target.value)}
-              />
-            </>
-          ) : dialog.type === 'rootDomains' && dialog.stage === 0 ? (
-            <>
-              <DialogContentText>
-                In order to add a root domain, you will need to verify ownership
-                of the domain.
-              </DialogContentText>
-              <TextField
-                autoFocus
-                margin="dense"
-                id="name"
-                label={dialog.label && dialog.label.slice(0, -1)}
-                type="text"
-                fullWidth
-                onChange={(e) => setInputValue(e.target.value)}
-              />
-            </>
-          ) : (
-            <></>
-          )}
-        </DialogContent>
+        <DialogContent>{renderDialogContent()}</DialogContent>
         <DialogActions>
-          <Button variant="outlined" onClick={() => setDialog({ open: false })}>
-            Cancel
-          </Button>
           <Button
-            variant="contained"
-            color="primary"
+            variant="outlined"
             onClick={() => {
-              if (
-                dialog.type === 'rootDomains' &&
-                user?.userType !== 'globalAdmin'
-              ) {
-                if (dialog.stage === 0) {
-                  // Start verification process
-                  initiateDomainVerification(inputValue);
-                  setDialog({ ...dialog, stage: 1 });
-                  return;
-                } else {
-                  checkDomainVerification(inputValue);
-                  return;
-                }
-              } else if (dialog.type && dialog.type !== 'tags') {
-                if (inputValue) {
-                  // Allow adding multiple values with a comma delimiter
-                  organization[dialog.type].push(
-                    ...inputValue.split(',').map((e) => e.trim())
-                  );
-                  setOrganization({ ...organization });
-                  if (organization.rootDomains.length !== 0) {
-                    setIsSaveDisabled(false);
-                  }
-                }
+              if (dialog.type === 'tags') {
+                const currentTagNames =
+                  organization.tags?.map((tag) => tag.name) ?? [];
+                setLocalTags(currentTagNames);
               }
               setDialog({ open: false });
-              setInputValue('');
             }}
           >
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={handleDialogSubmit}>
             {dialog.type === 'tags' ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>
+
       <InfoDialog
         isOpen={infoDialogOpen}
         handleClick={() => {
@@ -387,15 +305,13 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           setIsSaveDisabled(true);
         }}
         icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
-        title={<Typography variant="h4">Success </Typography>}
+        title={<Typography variant="h4">Success</Typography>}
         content={
-          <Typography variant="body1">
-            {organization.name} was successfully updated.
-          </Typography>
+          <Typography>{organization.name} was successfully updated.</Typography>
         }
       />
       <Grid container spacing={1} p={3}>
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <TextField
             fullWidth
             value={organization.name}
@@ -404,76 +320,118 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             InputProps={{
               sx: { fontSize: '18px', fontWeight: 400 }
             }}
-          ></TextField>
+          />
         </Grid>
-        <Grid item xs={12} mt={2} mb={1}>
+        <Grid size={{ xs: 12 }} mt={2} mb={1}>
           <Stack direction="row" alignItems="center" spacing={1}>
-            {organization.regionId && (
+            {organization.region_id && (
               <>
                 <Public sx={{ color: 'gray' }} />
                 <Typography variant="body1" color="gray">
-                  Region {organization.regionId}
+                  Region {organization.region_id}
                 </Typography>
               </>
             )}
-            {(organization.stateName || organization.state) && (
+            {(organization.state_name || organization.state) && (
               <>
                 <Place sx={{ color: 'gray' }} />
                 <Typography variant="body1" color="gray">
-                  {organization.stateName || organization.state}
+                  {organization.state_name || organization.state}
                 </Typography>
               </>
             )}
           </Stack>
         </Grid>
-        <Grid item xs={12}>
-          <ListInput label="Root Domains" type="rootDomains"></ListInput>
+        <Grid size={{ xs: 12 }}>
+          <ListInput
+            label="Root Domains"
+            type="root_domains"
+            organization={organization}
+            userType={user?.user_type}
+            setOrganization={setOrganization}
+            setDialog={setDialog}
+            setInputValue={setInputValue}
+            setIsSaveDisabled={setIsSaveDisabled}
+          />
         </Grid>
-        <Grid item xs={12}>
-          <ListInput label="IP Blocks" type="ipBlocks"></ListInput>
+        <Grid size={{ xs: 12 }}>
+          <ListInput
+            label="IP Blocks"
+            type="ip_blocks"
+            organization={organization}
+            userType={user?.user_type}
+            setOrganization={setOrganization}
+            setDialog={setDialog}
+            setInputValue={setInputValue}
+            setIsSaveDisabled={setIsSaveDisabled}
+          />
         </Grid>
-        {user?.userType === 'globalAdmin' && (
-          <Grid item xs={12}>
-            <ListInput label="Tags" type="tags"></ListInput>
+        {user?.user_type === 'globalAdmin' && (
+          <Grid size={{ xs: 12 }}>
+            <ListInput
+              label="Tags"
+              type="tags"
+              organization={organization}
+              userType={user?.user_type}
+              setOrganization={setOrganization}
+              setDialog={setDialog}
+              setInputValue={setInputValue}
+              setIsSaveDisabled={setIsSaveDisabled}
+              chosenTags={chosenTags}
+              setChosenTags={setChosenTags}
+              localTags={localTags}
+              setLocalTags={setLocalTags}
+            />
           </Grid>
         )}
-        <Grid item xs={12}>
+        <Grid size={{ xs: 12 }}>
           <Grid container spacing={1}>
-            <Grid item xs={12} sm={3} lg={2} my={1}>
+            <Grid size={{ xs: 12, sm: 3, lg: 2 }} my={1}>
               <Typography variant="body2">Passive Mode</Typography>
             </Grid>
-            <Grid item ml={-1}>
+            <Grid ml={-1}>
               <Switch
-                checked={organization.isPassive}
+                checked={organization.is_passive}
                 onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
                   setOrganization({
                     ...organization,
-                    isPassive: event.target.checked
+                    is_passive: event.target.checked
                   });
-                  if (!organization.isPassive) {
+                  if (!organization.is_passive) {
                     setIsSaveDisabled(false);
                   }
                 }}
                 color="primary"
+                disabled={user?.user_type === 'globalView'}
+                slotProps={{
+                  input: {
+                    'aria-label': 'Toggle passive mode',
+                    role: 'switch'
+                  }
+                }}
               />
             </Grid>
           </Grid>
         </Grid>
-        {organization.rootDomains.length === 0 && (
-          <Grid item xs={12}>
+        {organization.root_domains.length === 0 && (
+          <Grid size={{ xs: 12 }}>
             <Alert severity="error">
               An organization must have at least one Root Domain.
             </Alert>
           </Grid>
         )}
-        <Grid item xs={12} mt={2}>
+        <Grid size={{ xs: 12 }} mt={2}>
           <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
             Cancel
           </Button>
           <Button
             variant="contained"
             onClick={updateOrganization}
-            disabled={organization.rootDomains.length === 0 || isSaveDisabled}
+            disabled={
+              organization.root_domains.length === 0 ||
+              isSaveDisabled ||
+              user?.user_type === 'globalView'
+            }
           >
             Save
           </Button>

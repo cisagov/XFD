@@ -25,6 +25,12 @@ domain_mapping = {
     }
 }
 
+# Raise log level for Elasticsearch client to WARNING to suppress request logs
+logging.getLogger("elasticsearch").setLevel(logging.WARNING)
+
+# Also suppress low-level logs from urllib3 used by Elasticsearch
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+
 
 class ESClient:
     """ES Client."""
@@ -112,28 +118,6 @@ class ESClient:
         ]
         self._bulk_update(actions)
 
-    def update_webpages(self, webpages):
-        """Update or insert webpages into Elasticsearch."""
-        actions = [
-            {
-                "_op_type": "update",
-                "_index": DOMAINS_INDEX,
-                "_id": "webpage_{}".format(webpage["webpage_id"]),
-                "routing": webpage["webpage_domainId"],
-                "doc": {
-                    **webpage,
-                    "suggest": [{"input": webpage["webpage_url"], "weight": 1}],
-                    "parent_join": {
-                        "name": "webpage",
-                        "parent": webpage["webpage_domainId"],
-                    },
-                },
-                "doc_as_upsert": True,
-            }
-            for webpage in webpages
-        ]
-        self._bulk_update(actions)
-
     def delete_all(self):
         """Delete all indices in Elasticsearch."""
         try:
@@ -157,7 +141,6 @@ class ESClient:
             success_count, response = helpers.bulk(
                 self.client, actions, raise_on_error=False
             )
-            logging.info("Bulk operation success count: %s", success_count)
 
             for idx, item in enumerate(response):
                 if "update" in item and item["update"].get("error"):

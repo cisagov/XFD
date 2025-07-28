@@ -13,12 +13,12 @@ export const getAllVulnColor = () => {
   return '#ce80ed';
 };
 export const getSeverityColor = ({ id }: { id: string }) => {
-  if (id === 'N/A' || id === '') return '#EFF1F5';
-  else if (id === 'Low') return '#ffe100';
-  else if (id === 'Medium') return '#f66e1f';
-  else if (id === 'High') return '#ed240e';
-  else if (id === 'Other') return '#6BA7F5';
-  else return '#540C03';
+  if (id === 'N/A' || id === '') return '';
+  else if (id === 'Low') return '#FFB38A';
+  else if (id === 'Medium') return '#EC7633';
+  else if (id === 'High') return '#C33200';
+  else if (id === 'Critical') return '#731A00';
+  else return '';
 };
 export const getCVSSColor = (score: number) => {
   if (!score || score === 0) return ['#EFF1F5', 'NONE'];

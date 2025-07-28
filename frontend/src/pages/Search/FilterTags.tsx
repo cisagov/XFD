@@ -5,6 +5,7 @@ import { Chip } from '@mui/material';
 import { REGIONAL_ADMIN, useUserLevel } from 'hooks/useUserLevel';
 import { STANDARD_USER } from 'context/userStateUtils';
 import { REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS } from 'hooks/useUserTypeFilters';
+import { useLocation } from 'react-router-dom';
 
 interface Props {
   filters: ContextType['filters'];
@@ -34,14 +35,16 @@ const ellipsisPastIndex: EllipsisPastIndex<string> = (source, index) => {
 };
 
 const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
-  'organization.regionId': {
+  'organization.region_id': {
     labelAccessor: (t) => {
       return 'Region';
     },
     filterValueAccssor: (t) => {
       if (Array.isArray(t)) {
         return t.sort((a: string, b: string) => {
-          return a.localeCompare(b);
+          const numA = parseInt(a, 10);
+          const numB = parseInt(b, 10);
+          return numA - numB;
         });
       }
       return t;
@@ -98,7 +101,7 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
       return t;
     }
   },
-  fromRootDomain: {
+  from_root_domain: {
     labelAccessor: (t) => {
       return 'Root Domain(s)';
     },
@@ -111,7 +114,7 @@ const FIELD_TO_LABEL_MAP: FieldToLabelMap = {
       return t;
     }
   },
-  organizationId: {
+  organization_id: {
     labelAccessor: (t) => {
       return 'Organization';
     },
@@ -193,6 +196,7 @@ const sortFiltersByOrder = (filters: FlatFilters) => {
 };
 
 export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
+  const { pathname } = useLocation();
   const { userLevel } = useUserLevel();
 
   const disabledFilters = useMemo(() => {
@@ -233,30 +237,36 @@ export const FilterTags: React.FC<Props> = ({ filters, removeFilter }) => {
 
   return (
     <Root aria-live="polite" aria-atomic="true">
-      {filtersByColumn.length === 0 ? (
-        <Chip
-          color="primary"
-          classes={{ root: classes.chip }}
-          label="No Filter(s) Applied"
-        />
-      ) : (
-        filtersByColumn.map((filter, idx) => (
+      <>
+        {filtersByColumn.length === 0 && pathname === '/inventory' ? (
           <Chip
-            key={idx}
-            disabled={disabledFilters?.includes(filter.label)}
             color="primary"
             classes={{ root: classes.chip }}
-            label={`${filter.label}: ${filter.value}`}
-            onDelete={() => {
-              filter.onClear
-                ? filter.onClear()
-                : filter.values.forEach((val) =>
-                    removeFilter(filter.field, val, filter.type)
-                  );
-            }}
+            label="No Filter(s) Applied"
           />
-        ))
-      )}
+        ) : (
+          filtersByColumn.map((filter, idx) => (
+            <Chip
+              key={idx}
+              disabled={disabledFilters?.includes(filter.label)}
+              color="primary"
+              classes={{ root: classes.chip }}
+              label={`${filter.label}: ${filter.value}`}
+              onDelete={
+                !disabledFilters?.includes(filter.label)
+                  ? () => {
+                      filter.onClear
+                        ? filter.onClear()
+                        : filter.values.forEach((val) =>
+                            removeFilter(filter.field, val, filter.type)
+                          );
+                    }
+                  : undefined
+              }
+            />
+          ))
+        )}
+      </>
     </Root>
   );
 };

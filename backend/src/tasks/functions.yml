@@ -45,6 +45,10 @@ updateScanTaskStatus:
             clusterArn:
               - ${file(env.yml):${self:provider.stage}-ecs-cluster, ''}
 
+infraOps:
+  timeout: 900
+  handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
+
 serviceStatsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
   events:

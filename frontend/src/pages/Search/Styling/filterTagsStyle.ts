@@ -6,7 +6,7 @@ export const classes = {
   chip: `${PREFIX}-chip`
 };
 
-export const Root = styled('div')(({ theme }) => ({
+export const Root = styled('div')(() => ({
   [`& .${classes.chip}`]: {
     marginTop: '0.5rem',
     marginRight: '0.5rem'

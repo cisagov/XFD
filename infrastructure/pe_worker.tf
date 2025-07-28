@@ -58,9 +58,9 @@ resource "aws_ecs_task_definition" "pe_worker" {
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
-          "awslogs-group": "${var.pe_worker_ecs_log_group_name}",
-          "awslogs-region": "${var.aws_region}",
-          "awslogs-stream-prefix": "worker"
+        "awslogs-group": "${var.pe_worker_ecs_log_group_name}",
+        "awslogs-region": "${var.aws_region}",
+        "awslogs-stream-prefix": "worker"
       }
     },
     "environment": [
@@ -75,34 +75,6 @@ resource "aws_ecs_task_definition" "pe_worker" {
     ],
     "secrets": [
       {
-        "name": "DB_HOST",
-        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_host.arn}"
-      },
-      {
-        "name": "DB_NAME",
-        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_name.arn}"
-      },
-      {
-        "name": "DB_USERNAME",
-        "valueFrom": "${data.aws_ssm_parameter.db_username.arn}"
-      },
-      {
-        "name": "DB_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.db_password.arn}"
-      },
-      {
-        "name": "PE_DB_NAME",
-        "valueFrom": "${data.aws_ssm_parameter.pe_db_name.arn}"
-      },
-      {
-        "name": "PE_DB_USERNAME",
-        "valueFrom": "${data.aws_ssm_parameter.pe_db_username.arn}"
-      },
-      {
-        "name": "PE_DB_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.pe_db_password.arn}"
-      },
-      {
         "name": "CENSYS_API_ID",
         "valueFrom": "${data.aws_ssm_parameter.censys_api_id.arn}"
       },
@@ -111,44 +83,32 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.censys_api_secret.arn}"
       },
       {
-        "name": "SHODAN_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
+        "name": "CF_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.cf_api_key.arn}"
       },
       {
-        "name": "PE_SHODAN_API_KEYS",
-        "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
+        "name": "DB_HOST",
+        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_host.arn}"
       },
       {
-        "name": "SIXGILL_CLIENT_ID",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
+        "name": "DB_NAME",
+        "valueFrom": "${aws_ssm_parameter.crossfeed_send_db_name.arn}"
       },
       {
-        "name": "SIXGILL_CLIENT_SECRET",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
+        "name": "DB_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.db_password.arn}"
+      },
+      {
+        "name": "DB_USERNAME",
+        "valueFrom": "${data.aws_ssm_parameter.db_username.arn}"
+      },
+      {
+        "name": "ELASTICSEARCH_ENDPOINT",
+        "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
       },
       {
         "name": "INTELX_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.intelx_api_key.arn}"
-      },
-      {
-        "name": "XPANSE_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.xpanse_api_key.arn}"
-      },
-      {
-        "name": "XPANSE_AUTH_ID",
-        "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
-      },
-      {
-        "name": "PE_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
-      },
-      {
-        "name": "PE_API_URL",
-        "valueFrom": "${data.aws_ssm_parameter.pe_api_url.arn}"
-      },
-      {
-        "name": "CF_API_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.cf_api_key.arn}"
       },
       {
         "name": "LG_API_KEY",
@@ -159,33 +119,73 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.lg_workspace_name.arn}"
       },
       {
-        "name": "WORKER_SIGNATURE_PUBLIC_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.worker_signature_public_key.arn}"
+        "name": "PE_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.pe_api_key.arn}"
       },
       {
-        "name": "WORKER_SIGNATURE_PRIVATE_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
+        "name": "PE_API_URL",
+        "valueFrom": "${data.aws_ssm_parameter.pe_api_url.arn}"
       },
       {
-        "name": "ELASTICSEARCH_ENDPOINT",
-        "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
+        "name": "PE_DB_NAME",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_name.arn}"
       },
       {
-        "name": "WHOIS_XML_KEY",
-        "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
+        "name": "PE_DB_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_password.arn}"
+      },
+      {
+        "name": "PE_DB_USERNAME",
+        "valueFrom": "${data.aws_ssm_parameter.pe_db_username.arn}"
+      },
+      {
+        "name": "PE_SHODAN_API_KEYS",
+        "valueFrom": "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}"
+      },
+      {
+        "name": "QUALYS_PASSWORD",
+        "valueFrom": "${data.aws_ssm_parameter.qualys_password.arn}"
       },
       {
         "name": "QUALYS_USERNAME",
         "valueFrom": "${data.aws_ssm_parameter.qualys_username.arn}"
       },
       {
-        "name": "QUALYS_PASSWORD",
-        "valueFrom": "${data.aws_ssm_parameter.qualys_password.arn}"
+        "name": "SHODAN_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
+      },
+      {
+        "name": "SIXGILL_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
+      },
+      {
+        "name": "SIXGILL_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
+      },
+      {
+        "name": "WHOIS_XML_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
+      },
+      {
+        "name": "WORKER_SIGNATURE_PRIVATE_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
+      },
+      {
+        "name": "WORKER_SIGNATURE_PUBLIC_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.worker_signature_public_key.arn}"
+      },
+      {
+        "name": "XPANSE_API_KEY",
+        "valueFrom": "${data.aws_ssm_parameter.xpanse_api_key.arn}"
+      },
+      {
+        "name": "XPANSE_AUTH_ID",
+        "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
       }
     ]
   }
 ]
-  EOF
+EOF
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   execution_role_arn       = aws_iam_role.worker_task_execution_role.arn

@@ -2,7 +2,11 @@ import React from 'react';
 import { render } from 'test-utils/test-utils';
 import { Layout } from '../Layout';
 import { StaticsContext, StaticsContextType } from 'context/StaticsContext';
-import { ContextType, SearchProvider } from 'context';
+import {
+  ContextType,
+  FilterDrawerContextProvider,
+  SearchProvider
+} from 'context';
 
 const testContext: ContextType = {
   addFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
@@ -43,7 +47,7 @@ const value: StaticsContextType = {
   setRegions: (regions: string[]) => {}
 };
 
-jest.mock('components/Header', () => ({
+jest.mock('components/Header/Header', () => ({
   Header: () => <div>HEADER</div>
 }));
 jest.mock('components/GovBanner', () => ({
@@ -59,7 +63,9 @@ describe('Layout component', () => {
     const { asFragment } = render(
       <SearchProvider>
         <StaticsContext.Provider value={value}>
-          <Layout {...testContext} />
+          <FilterDrawerContextProvider>
+            <Layout {...testContext} />
+          </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>
     );
@@ -70,7 +76,9 @@ describe('Layout component', () => {
     const { getByText } = render(
       <SearchProvider>
         <StaticsContext.Provider value={value}>
-          <Layout {...testContext}>some children</Layout>
+          <FilterDrawerContextProvider>
+            <Layout {...testContext}>some children</Layout>
+          </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>
     );

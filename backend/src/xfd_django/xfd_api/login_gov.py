@@ -2,7 +2,6 @@
 # Standard Python Libraries
 import json
 import os
-import secrets
 
 # Third-Party Libraries
 import jwt
@@ -29,34 +28,7 @@ client_options = {
 }
 
 
-# Generate random string for nonce and state
-def random_string(length):
-    """Random string generator."""
-    return secrets.token_hex(length // 2)
-
-
-# Login function that returns authorization URL, state, and nonce
-def login():
-    """Equivalent function to initiate OpenID Connect login."""
-    # Fetch OpenID Connect configuration
-    config_response = requests.get(discovery_url, timeout=20)
-    config = config_response.json()
-
-    nonce = random_string(32)
-    state = random_string(32)
-
-    # Create authorization URL
-    authorization_url = "{}?response_type=code&client_id={}&redirect_uri={}&scope=openid+email&nonce={}&state={}&prompt=select_account".format(
-        config["authorization_endpoint"],
-        client_options["client_id"],
-        client_options["redirect_uris"][0],
-        nonce,
-        state,
-    )
-
-    return {"url": authorization_url, "state": state, "nonce": nonce}
-
-
+# POST: auth/callback
 # Callback function to exchange authorization code for tokens and user info
 def callback(body):
     """Equivalent function to handle OpenID Connect callback."""

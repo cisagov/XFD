@@ -14,7 +14,7 @@ type UserType =
 
 type UserLevel = {
   userLevel: number;
-  userType: UserType;
+  user_type: UserType;
   user: AuthContextType['user'];
   formattedUserType: string;
 };
@@ -23,25 +23,25 @@ export const useUserLevel: () => UserLevel = () => {
   const { user } = useAuthContext();
   let userLevel = 0;
   let formattedUserType = '';
-  const userType: UserType = user?.userType;
+  const user_type: UserType = user?.user_type;
   if (user && user.isRegistered) {
-    if (user.userType === 'standard') {
+    if (user.user_type === 'standard') {
       userLevel = STANDARD_USER;
       formattedUserType = 'Standard User';
-    } else if (user.userType === 'globalAdmin') {
+    } else if (user.user_type === 'globalAdmin') {
       userLevel = GLOBAL_ADMIN;
       formattedUserType = 'Global Admin';
-    } else if (user.userType === 'regionalAdmin') {
+    } else if (user.user_type === 'regionalAdmin') {
       userLevel = REGIONAL_ADMIN;
       formattedUserType = 'Regional Admin';
-    } else if (user.userType === 'globalView') {
+    } else if (user.user_type === 'globalView') {
       userLevel = REGIONAL_ADMIN;
       formattedUserType = 'Global View';
     }
   }
   return {
     userLevel,
-    userType,
+    user_type,
     user,
     formattedUserType
   };

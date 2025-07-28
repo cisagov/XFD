@@ -1,117 +1,142 @@
 """Test auth API."""
 # Standard Python Libraries
+import secrets
+from unittest.mock import AsyncMock, patch
 
 # Third-Party Libraries
 from fastapi.testclient import TestClient
+import pytest
 from xfd_django.asgi import app
+from xfd_mini_dl.models import User
 
 client = TestClient(app)
 
-# TODO: Fix tests
-# @pytest.mark.django_db
-# def test_login_success():
-#     # Mock login request
-#     response = client.post("/auth/login")
-#     assert response.status_code == 200
-#     assert response.json()
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.auth.get_jwt_from_code", new_callable=AsyncMock)
+def test_okta_callback_success(mock_get_jwt_from_code):
+    """Test successful Okta callback authentication with real process_user."""
+    email = "{}@example.com".format(secrets.token_hex(4))
+
+    # Pre-create the user since creation is disabled in prod logic
+    User.objects.create(
+        email=email,
+        okta_id="okta-user-id-123",
+        first_name="Test",
+        last_name="User",
+        user_type="standard",
+        invite_pending=True,
+        last_logged_in="2000-01-01T00:00:00Z",
+    )
+
+    mock_get_jwt_from_code.return_value = {
+        "decoded_token": {
+            "email": email,
+            "sub": "okta-user-id-123",
+            "given_name": "Test",
+            "family_name": "User",
+        }
+    }
+
+    payload = {"code": "test-auth-code"}
+    response = client.post("/auth/okta-callback", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "token" in data
+    assert data["data"]["user"]["email"] == email
+    assert response.cookies["crossfeed-token"] == data["token"]
+    assert User.objects.filter(email=email).exists()
 
 
-# @pytest.mark.django_db
-# def test_callback_success_login_gov():
-#     # Simulate login via login.gov
-#     response = client.post(
-#         "/auth/callback",
-#         json={
-#             "code": "CODE",
-#             "state": "STATE",
-#             "origState": "ORIGSTATE",
-#             "nonce": "NONCE",
-#         },
-#     )
-#     assert response.status_code == 200
-#     assert response.json()["token"]
-#     assert response.json()["user"]
-#     assert response.json()["user"]["email"] == "test@crossfeed.cisa.gov"
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.auth.get_jwt_from_code", new_callable=AsyncMock)
+def test_okta_callback_existing_user(mock_get_jwt_from_code):
+    """Test Okta callback when the user already exists (should update last login)."""
+    email = "{}@example.com".format(secrets.token_hex(4))
+    User.objects.create(
+        email=email,
+        okta_id="okta-user-id-123",
+        first_name="Existing",
+        last_name="User",
+        user_type="standard",
+        invite_pending=True,
+        last_logged_in="2000-01-01T00:00:00Z",  # Old login timestamp
+    )
 
-#     # Verify user in the database
-#     user = User.objects.get(id=response.json()["user"]["id"])
-#     assert user.firstName == ""
-#     assert user.lastName == ""
+    # Mock the response from Okta token exchange
+    mock_get_jwt_from_code.return_value = {
+        "decoded_token": {
+            "email": email,
+            "sub": "okta-user-id-123",
+            "given_name": "Existing",
+            "family_name": "User",
+        }
+    }
 
+    payload = {"code": "test-auth-code"}
 
-# @pytest.mark.django_db
-# def test_callback_success_cognito():
-#     # Simulate Cognito login
-#     response = client.post(
-#         "/auth/callback", json={"token": "TOKEN_test2@crossfeed.cisa.gov"}
-#     )
-#     assert response.status_code == 200
-#     assert response.json()["token"]
-#     assert response.json()["user"]
-#     assert response.json()["user"]["email"] == "test2@crossfeed.cisa.gov"
+    response = client.post("/auth/okta-callback", json=payload)
 
-#     # Verify user in the database
-#     user = User.objects.get(id=response.json()["user"]["id"])
-#     assert user.firstName == ""
-#     assert user.lastName == ""
+    assert response.status_code == 200
 
+    # Ensure user still exists and was NOT duplicated
+    assert User.objects.filter(email=email).count() == 1
 
-# @pytest.mark.django_db
-# def test_callback_cognito_overwrite_cognito_id():
-#     # Simulate Cognito login with two different IDs
-#     response = client.post(
-#         "/auth/callback", json={"token": "TOKEN_test3@crossfeed.cisa.gov"}
-#     )
-#     assert response.status_code == 200
-#     user_id = response.json()["user"]["id"]
-#     cognito_id = response.json()["user"]["cognitoId"]
-
-#     response = client.post(
-#         "/auth/callback", json={"token": "TOKEN_test3@crossfeed.cisa.gov"}
-#     )
-#     user = User.objects.get(id=response.json()["user"]["id"])
-#     assert user.id == user_id
-#     assert user.cognitoId != cognito_id
+    # Ensure last login timestamp was updated
+    updated_user = User.objects.get(email=email)
+    assert updated_user.last_logged_in != "2000-01-01T00:00:00Z"
 
 
-# @pytest.mark.django_db
-# def test_login_gov_then_cognito_preserves_ids():
-#     # Simulate login via login.gov
-#     response = client.post(
-#         "/auth/callback",
-#         json={
-#             "code": "CODE",
-#             "state": "STATE",
-#             "origState": "ORIGSTATE",
-#             "nonce": "NONCE",
-#         },
-#     )
-#     assert response.status_code == 200
-#     user_id = response.json()["user"]["id"]
-#     login_gov_id = response.json()["user"]["loginGovId"]
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_okta_callback_missing_code():
+    """Test Okta callback with missing auth code (should fail)."""
+    payload = {}  # No code provided
 
-#     # Simulate subsequent Cognito login
-#     response = client.post(
-#         "/auth/callback", json={"token": "TOKEN_test@crossfeed.cisa.gov"}
-#     )
-#     assert response.status_code == 200
+    response = client.post("/auth/okta-callback", json=payload)
 
-#     user = User.objects.get(id=response.json()["user"]["id"])
-#     assert user.id == user_id
-#     assert user.loginGovId == login_gov_id
-#     assert user.cognitoId is not None
+    assert response.json()["status_code"] == 400
+    assert response.json()["detail"] == "Code not found in request body"
 
 
-# @pytest.mark.django_db
-# def test_last_logged_in_is_updated():
-#     # Simulate Cognito login and check lastLoggedIn timestamp
-#     time_1 = datetime.now()
-#     response = client.post(
-#         "/auth/callback", json={"token": "TOKEN_test4@crossfeed.cisa.gov"}
-#     )
-#     assert response.status_code == 200
-#     time_2 = datetime.now()
+# Test that the response is JSON serializable
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.auth.get_jwt_from_code", new_callable=AsyncMock)
+def test_okta_callback_user_approved_by_admin(mock_get_jwt_from_code):
+    """Ensure /auth/okta-callback user object is fully JSON serializable."""
+    approver_user_email = "{}@example.com".format(secrets.token_hex(4))
+    approved_user_email = "{}@example.com".format(secrets.token_hex(4))
 
-#     assert response.json()["token"]
-#     assert response.json()["user"]["lastLoggedIn"]
-#     assert time_1 <= response.json()["user"]["lastLoggedIn"] <= time_2
+    approver = User.objects.create(
+        email=approver_user_email,
+        okta_id="okta-approver-id",
+        first_name="Approver",
+        last_name="User",
+        user_type="global_admin",
+        invite_pending=False,
+    )
+
+    User.objects.create(
+        email=approved_user_email,
+        okta_id="okta-user-id-456",
+        first_name="Test",
+        last_name="User",
+        user_type="standard",
+        approved_by=approver,
+        invite_pending=False,
+    )
+
+    mock_get_jwt_from_code.return_value = {
+        "decoded_token": {
+            "email": approved_user_email,
+            "sub": "okta-user-id-456",
+            "given_name": "Test",
+            "family_name": "User",
+        }
+    }
+
+    payload = {"code": "test-auth-code"}
+    response = client.post("/auth/okta-callback", json=payload)
+
+    assert response.status_code == 200
+    assert response.json()["data"]["user"]

@@ -20,40 +20,40 @@ class SavedSearchCreate(BaseModel):
     """Saved search create."""
 
     name: str
-    searchTerm: str
-    sortDirection: str
-    sortField: str
+    search_term: str
+    sort_direction: str
+    sort_field: str
     count: int
     filters: List[SavedSearchFilters]
-    searchPath: str
+    search_path: str
 
 
 class SavedSearchUpdate(BaseModel):
     """Saved search update."""
 
     name: str
-    searchTerm: str
-    sortDirection: str
-    sortField: str
+    search_term: str
+    sort_direction: str
+    sort_field: str
     count: int
     filters: List[SavedSearchFilters]
-    searchPath: str
+    search_path: str
 
 
 class SavedSearch(BaseModel):
     """SavedSearch schema."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     name: str
-    searchTerm: str
-    sortDirection: str
-    sortField: str
+    search_term: str
+    sort_direction: str
+    sort_field: str
     count: int
     filters: List[SavedSearchFilters]
-    searchPath: str
-    createdById: UUID
+    search_path: str
+    created_by_id: UUID
 
 
 class SavedSearchList(BaseModel):

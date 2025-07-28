@@ -5,9 +5,9 @@ import os
 
 # Third-Party Libraries
 from fastapi import HTTPException
+from xfd_mini_dl.models import Organization, OrganizationTag, Scan
 
 from ..auth import is_global_view_admin, is_global_write_admin
-from ..models import Organization, OrganizationTag, Scan
 from ..schema_models.scan import SCAN_SCHEMA, NewScan
 from ..tasks.lambda_client import LambdaClient
 
@@ -31,21 +31,22 @@ def list_scans(current_user):
         for scan in scans:
             scan_data = {
                 "id": scan.id,
-                "createdAt": scan.createdAt,
-                "updatedAt": scan.updatedAt,
+                "created_at": scan.created_at,
+                "updated_at": scan.updated_at,
                 "name": scan.name,
                 "arguments": scan.arguments,
                 "frequency": scan.frequency,
-                "lastRun": scan.lastRun,
-                "isGranular": scan.isGranular,
-                "isUserModifiable": scan.isUserModifiable,
-                "isSingleScan": scan.isSingleScan,
-                "manualRunPending": scan.manualRunPending,
+                "last_run": scan.last_run,
+                "is_granular": scan.is_granular,
+                "is_user_modifiable": scan.is_user_modifiable,
+                "is_single_scan": scan.is_single_scan,
+                "manual_run_pending": scan.manual_run_pending,
+                "concurrent_tasks": scan.concurrent_tasks,
                 "tags": [
                     {
                         "id": tag.id,
-                        "createdAt": tag.createdAt,
-                        "updatedAt": tag.updatedAt,
+                        "created_at": tag.created_at,
+                        "updated_at": tag.updated_at,
                         "name": tag.name,
                     }
                     for tag in scan.tags.all()
@@ -79,8 +80,8 @@ def list_granular_scans(current_user):
 
         # Fetch scans that match the criteria (isGranular, isUserModifiable, isSingleScan)
         scans = Scan.objects.filter(
-            isGranular=True, isUserModifiable=True, isSingleScan=False
-        ).values("id", "name", "isUserModifiable")
+            is_granular=True, is_user_modifiable=True, is_single_scan=False
+        ).values("id", "name", "is_user_modifiable")
 
         response = {"scans": list(scans), "schema": SCAN_SCHEMA}
 
@@ -105,11 +106,28 @@ def create_scan(scan_data: NewScan, current_user):
         if scan_data.name not in SCAN_SCHEMA:
             raise HTTPException(status_code=400, detail="Invalid scan name")
 
+        max_tasks = SCAN_SCHEMA[scan_data.name].max_concurrent_tasks
+        if scan_data.concurrent_tasks is None:
+            raise HTTPException(
+                status_code=400, detail="Concurrent tasks must be provided."
+            )
+        if max_tasks is None:
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: max concurrent tasks not set.",
+            )
+
+        if scan_data.concurrent_tasks > max_tasks:
+            raise HTTPException(
+                status_code=400,
+                detail="Number of concurrent tasks exceeds the max for this scan.",
+            )
+
         # Create the scan instance
         scan_data_dict = scan_data.dict(
             exclude_unset=True, exclude={"organizations", "tags"}
         )
-        scan_data_dict["createdBy"] = current_user
+        scan_data_dict["created_by"] = current_user
 
         # Create the scan object
         scan = Scan.objects.create(**scan_data_dict)
@@ -128,17 +146,17 @@ def create_scan(scan_data: NewScan, current_user):
             "name": scan.name,
             "arguments": scan.arguments,
             "frequency": scan.frequency,
-            "isGranular": scan.isGranular,
-            "isUserModifiable": scan.isUserModifiable,
-            "isSingleScan": scan.isSingleScan,
-            "createdBy": {"id": current_user.id, "name": current_user.fullName},
+            "is_granular": scan.is_granular,
+            "is_user_modifiable": scan.is_user_modifiable,
+            "is_single_scan": scan.is_single_scan,
+            "concurrent_tasks": scan.concurrent_tasks,
+            "created_by": {"id": current_user.id, "name": current_user.full_name},
             "tags": list(scan.tags.values("id")),
             "organizations": list(scan.organizations.values("id")),
         }
 
     except HTTPException as http_exc:
         raise http_exc
-
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Organization not found")
     except OrganizationTag.DoesNotExist:
@@ -168,23 +186,24 @@ def get_scan(scan_id: str, current_user):
     related_organizations = list(scan.organizations.values())
     for org in related_organizations:
         org.pop("parent_id", None)
-        org.pop("createdBy_id", None)
+        org.pop("created_by_id", None)
 
     # Serialize scan data
     scan_data = {
         "id": str(scan.id),
-        "createdAt": scan.createdAt,
-        "updatedAt": scan.updatedAt,
+        "created_at": scan.created_at,
+        "updated_at": scan.updated_at,
         "name": scan.name,
         "arguments": scan.arguments,
-        "lastRun": scan.lastRun,
+        "last_run": scan.last_run,
         "frequency": scan.frequency,
-        "isGranular": scan.isGranular,
-        "isUserModifiable": scan.isUserModifiable,
-        "isSingleScan": scan.isSingleScan,
-        "manualRunPending": scan.manualRunPending,
+        "is_granular": scan.is_granular,
+        "is_user_modifiable": scan.is_user_modifiable,
+        "is_single_scan": scan.is_single_scan,
+        "manual_run_pending": scan.manual_run_pending,
         "organizations": related_organizations,
         "tags": list(scan.tags.values()),
+        "concurrent_tasks": scan.concurrent_tasks,
     }
 
     # Return the scan details along with its related data
@@ -216,12 +235,12 @@ def update_scan(scan_id: str, scan_data: NewScan, current_user):
             scan.arguments = scan_data.arguments
         if scan_data.frequency is not None:
             scan.frequency = scan_data.frequency
-        if scan_data.isGranular is not None:
-            scan.isGranular = scan_data.isGranular
-        if scan_data.isUserModifiable is not None:
-            scan.isUserModifiable = scan_data.isUserModifiable
-        if scan_data.isSingleScan is not None:
-            scan.isSingleScan = scan_data.isSingleScan
+        if scan_data.is_granular is not None:
+            scan.is_granular = scan_data.is_granular
+        if scan_data.is_user_modifiable is not None:
+            scan.is_user_modifiable = scan_data.is_user_modifiable
+        if scan_data.is_single_scan is not None:
+            scan.is_single_scan = scan_data.is_single_scan
 
         # Update ManyToMany relationships
         if scan_data.organizations:
@@ -239,12 +258,13 @@ def update_scan(scan_id: str, scan_data: NewScan, current_user):
             "name": scan.name,
             "arguments": scan.arguments,
             "frequency": scan.frequency,
-            "isGranular": scan.isGranular,
-            "isUserModifiable": scan.isUserModifiable,
-            "isSingleScan": scan.isSingleScan,
-            "createdBy": {"id": current_user.id, "name": current_user.fullName},
+            "is_granular": scan.is_granular,
+            "is_user_modifiable": scan.is_user_modifiable,
+            "is_single_scan": scan.is_single_scan,
+            "created_by": {"id": current_user.id, "name": current_user.full_name},
             "tags": list(scan.tags.values("id")),
             "organizations": list(scan.organizations.values("id")),
+            "concurrent_tasks": scan.concurrent_tasks,
         }
 
     except HTTPException as http_exc:
@@ -296,7 +316,7 @@ def run_scan(scan_id: str, current_user):
         except Scan.DoesNotExist:
             raise HTTPException(status_code=404, detail="Scan not found")
 
-        scan.manualRunPending = True
+        scan.manual_run_pending = True
         scan.save()
         return {
             "status": "success",

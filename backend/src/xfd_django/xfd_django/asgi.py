@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/4.1/howto/deployment/asgi/
 # Standard Python Libraries
 import asyncio
 from asyncio import Semaphore
+import functools
 import os
 import threading
 
@@ -24,6 +25,8 @@ from redis import asyncio as aioredis
 from xfd_api.tasks.scheduler import handler as scheduler_handler
 from xfd_django.docker_events import listen_for_docker_events
 from xfd_django.middleware.middleware import LoggingMiddleware
+
+print = functools.partial(print, flush=True)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
@@ -46,7 +49,7 @@ def set_security_headers(response: Response):
     response.headers["Content-Security-Policy"] = csp_value
 
     # Set Strict-Transport-Security (HSTS)
-    hsts_value = f"max-age={settings.SECURE_HSTS_SECONDS}"
+    hsts_value = "max-age={}".format(settings.SECURE_HSTS_SECONDS)
     if settings.SECURE_HSTS_PRELOAD:
         hsts_value += "; preload"
     if settings.SECURE_HSTS_INCLUDE_SUBDOMAINS:

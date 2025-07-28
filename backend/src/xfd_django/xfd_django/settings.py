@@ -26,7 +26,6 @@ mimetypes.add_type("text/html", ".html", True)
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
@@ -36,6 +35,7 @@ CROSSFEED_SUPPORT_EMAIL_SENDER = os.getenv("CROSSFEED_SUPPORT_EMAIL_SENDER")
 CROSSFEED_SUPPORT_EMAIL_REPLYTO = os.getenv("CROSSFEED_SUPPORT_EMAIL_REPLYTO")
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
 IS_LOCAL = os.getenv("IS_LOCAL")
+NIST_API_KEY = os.getenv("NIST_API_KEY")
 
 # JWT Secret Key
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -63,6 +63,7 @@ MESSAGE_TAGS = {
 # Application definition
 
 INSTALLED_APPS = [
+    "netfields",
     "django.contrib.contenttypes",
     "xfd_api.apps.XfdApiConfig",
     "xfd_mini_dl.apps.XfdMiniDlConfig",
@@ -100,7 +101,18 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST"),
         "PORT": "5432",
         "TEST": {
-            "NAME": "mini_data_lake_test",  # Test database for mini_data_lake
+            "NAME": "mini_data_lake_test",  # Name of the test database
+        },
+    },
+    "mini_data_lake_secondary": {
+        "ENGINE": "django.db.backends.postgresql_psycopg2",  # Replace with your database engine
+        "NAME": os.getenv("MDL_SECONDARY_NAME"),
+        "USER": os.getenv("MDL_USERNAME"),
+        "PASSWORD": os.getenv("MDL_PASSWORD"),
+        "HOST": os.getenv("DB_HOST"),
+        "PORT": "5432",
+        "TEST": {
+            "NAME": "mini_data_lake_secondary_test",  # Name of the test database
         },
     },
 }
@@ -150,6 +162,12 @@ CSRF_COOKIE_HTTPONLY = True
 # SameSite policy to prevent CSRF via cross-origin requests
 SESSION_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SAMESITE = "Lax"
+
+DMZ_API_HEADER = {
+    "X-API-KEY": os.getenv("CF_API_KEY"),
+    "access_token": os.getenv("PE_API_KEY"),
+    "Content-Type": "",
+}
 
 # SECURITY CONFIGURATION
 SECURE_HSTS_SECONDS = 31536000  # Enable HSTS for 1 year

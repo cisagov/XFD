@@ -36,8 +36,12 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   const fetchNotifications = React.useCallback(async () => {
     try {
       const rows = await apiGet('/notifications');
+      // Updated maintenance window banner check
+      const now = new Date();
       const activeRow = rows.find((row: MaintenanceNotification) => {
-        return row.status === 'active';
+        const start = new Date(row.start_datetime);
+        const end = new Date(row.end_datetime);
+        return row.status === 'active' && start <= now && now <= end;
       });
       setNotification(activeRow);
     } catch (e: any) {
@@ -53,7 +57,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   const MaintenanceAlert: React.FC<any> = ({ notification }) => {
     // Determine the conditional title
     const isLoginUnavailable =
-      notification?.maintenanceType === 'major' &&
+      notification?.maintenance_type === 'major' &&
       notification?.status === 'active';
     const titleText = isLoginUnavailable
       ? 'CyHy Dashboard Major Maintenance: Login Not Available'
@@ -63,7 +67,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   };
 
   const platformNotification = (
-    <Grid item xs={12}>
+    <Grid size={{ xs: 12 }}>
       <Alert severity="warning">
         <MaintenanceAlert notification={notification} />
         {notification?.message}
@@ -75,10 +79,10 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
       display="flex"
       flexDirection="column"
       justifyContent="space-around"
-      height="100vh"
+      height="100%"
     >
       {notification?.status === 'active' && platformNotification}
-      <Typography variant="h3" textAlign="center">
+      <Typography variant="h2" textAlign="center" sx={{ mt: 5 }}>
         Welcome to CyHy Dashboard
       </Typography>
       <Box pt={3} mb={3} display="flex" justifyContent="center">

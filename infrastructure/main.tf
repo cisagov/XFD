@@ -17,7 +17,31 @@ resource "aws_ssm_parameter" "prod_api_domain" {
 resource "aws_ssm_parameter" "stage_api_domain" {
   name      = "/crossfeed/staging/DOMAIN"
   type      = "String"
-  value     = var.api_domain
+  value     = "api.staging.crossfeed.cyber.dhs.gov"
+  overwrite = true
+
+  tags = {
+    Project = var.project
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_ssm_parameter" "stage_cd_api_domain" {
+  name      = "/crossfeed/staging-cd/DOMAIN"
+  type      = "String"
+  value     = "api.staging-cd.crossfeed.cyber.dhs.gov"
+  overwrite = true
+
+  tags = {
+    Project = var.project
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_ssm_parameter" "integration_api_domain" {
+  name      = "/crossfeed/integration/DOMAIN"
+  type      = "String"
+  value     = "api.integration.crossfeed.cyber.dhs.gov"
   overwrite = true
 
   tags = {

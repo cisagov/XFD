@@ -1,13 +1,11 @@
 """Cve schema."""
-# Third-Party Libraries
-# from pydantic.types import UUID1, UUID
 # Standard Python Libraries
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class Cve(BaseModel):
@@ -15,32 +13,39 @@ class Cve(BaseModel):
 
     id: UUID
     name: Optional[str]
-    publishedAt: datetime
-    modifiedAt: datetime
+    published_at: datetime
+    modified_at: datetime
     status: str
     description: Optional[str]
-    cvssV2Source: Optional[str]
-    cvssV2Type: Optional[str]
-    cvssV2VectorString: Optional[str]
-    cvssV2BaseSeverity: Optional[str]
-    cvssV2ExploitabilityScore: Optional[str]
-    cvssV2ImpactScore: Optional[str]
-    cvssV3Source: Optional[str]
-    cvssV3Type: Optional[str]
-    cvssV3VectorString: Optional[str]
-    cvssV3BaseSeverity: Optional[str]
-    cvssV3ExploitabilityScore: Optional[str]
-    cvssV3ImpactScore: Optional[str]
-    cvssV4Source: Optional[str]
-    cvssV4Type: Optional[str]
-    cvssV4VectorString: Optional[str]
-    cvssV4BaseSeverity: Optional[str]
-    cvssV4ExploitabilityScore: Optional[str]
-    cvssV4ImpactScore: Optional[str]
-    weaknesses: Optional[str]
-    references: Optional[str]
+    cvss_v2_source: Optional[str]
+    cvss_v2_type: Optional[str]
+    cvss_v2_vector_string: Optional[str]
+    cvss_v2_base_severity: Optional[str]
+    cvss_v2_exploitability_score: Optional[str]
+    cvss_v2_impact_score: Optional[str]
+    cvss_v3_source: Optional[str]
+    cvss_v3_type: Optional[str]
+    cvss_v3_vector_string: Optional[str]
+    cvss_v3_base_severity: Optional[str]
+    cvss_v3_exploitability_score: Optional[str]
+    cvss_v3_impact_score: Optional[str]
+    cvss_v4_source: Optional[str]
+    cvss_v4_type: Optional[str]
+    cvss_v4_vector_string: Optional[str]
+    cvss_v4_base_severity: Optional[str]
+    cvss_v4_exploitability_score: Optional[str]
+    cvss_v4_impact_score: Optional[str]
+    weaknesses: Optional[List[str]] = Field(None)
+    reference_urls: Optional[List[str]] = Field(None)
 
     class Config:
         """Config."""
 
         from_attributes = True
+
+
+class GetAllCvesResponse(BaseModel):
+    """GetAllCvesResponse schema."""
+
+    status: str
+    payload: List[Cve]

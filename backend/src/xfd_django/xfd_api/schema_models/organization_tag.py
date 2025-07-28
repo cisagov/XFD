@@ -12,6 +12,6 @@ class OrganizationalTags(BaseModel):
     """Organization Tags."""
 
     id: UUID
-    createdAt: datetime
-    updatedAt: datetime
+    created_at: datetime
+    updated_at: datetime
     name: str

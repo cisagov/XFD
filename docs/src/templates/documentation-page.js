@@ -4,8 +4,6 @@ import { graphql } from 'gatsby';
 import Layout from '../components/layout';
 import SEO from '../components/seo';
 import { Sidenav } from '../components/sidenav';
-import SwaggerUI from 'swagger-ui-react';
-import spec from '../generated/swagger.json';
 import * as diagramHTML from './architecture-diagram.html';
 
 /*
@@ -35,11 +33,6 @@ const DocumentationPage = ({ data, location }) => {
                 className="usa-prose"
                 dangerouslySetInnerHTML={{ __html: html }}
               />
-              {fields.slug === '/api-reference/' && (
-                <div style={{ marginTop: 20 }}>
-                  <SwaggerUI spec={spec} />
-                </div>
-              )}
               {fields.slug === '/docs/dev/architecture/' && (
                 <div style={{ marginTop: 20 }}>
                   <iframe
