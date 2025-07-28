@@ -121,7 +121,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       "Action": [
         "kms:Decrypt"
       ],
-      "Resource": ${data.aws_ssm_parameter.worker_kms_keys.value}
+      "Resource": "${jsondecode(data.aws_ssm_parameter.worker_kms_keys.value)}"
     }
   ]
 }
