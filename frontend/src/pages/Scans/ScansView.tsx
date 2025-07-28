@@ -92,7 +92,7 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans/');
+      }>('/scans');
       const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
       setScans(scans);
       setScanSchema(schema);
