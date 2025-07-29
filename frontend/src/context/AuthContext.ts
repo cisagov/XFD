@@ -24,6 +24,8 @@ export interface AuthContextType extends ReturnType<typeof useApi> {
   setShowAllOrganizations: (showAllOrganizations: boolean) => void;
   refreshUser: () => Promise<void>;
   setLoading: React.Dispatch<React.SetStateAction<number>>;
+  loadingText?: string | null;
+  setLoadingText: React.Dispatch<React.SetStateAction<string>>;
   setFeedbackMessage: (message: {
     message: string;
     type: AlertProps['severity'];

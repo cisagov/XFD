@@ -28,7 +28,7 @@ import {
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { getSeverityColor } from 'pages/Risk/utils';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO, set } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
 import { Vulnerability } from 'types/domain';
 import {
@@ -51,7 +51,8 @@ interface VulnerabilitiesProps {
 export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   group_by
 }) => {
-  const { currentOrganization, apiPost, user } = useAuthContext();
+  const { currentOrganization, apiPost, user, setLoadingText } =
+    useAuthContext();
   const history = useHistory();
   const location = useLocation();
   const state = location.state as LocationState;
@@ -127,7 +128,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
   const fetchVulnerabilities = useCallback(
     async (query: Query<Vulnerability>) => {
-      setIsLoading(true);
+      // setIsLoading(true);
+      setLoadingText('Loading Vulnerabilities...');
       setLoadingError(false);
       try {
         const resp = await vulnerabilitiesSearch({

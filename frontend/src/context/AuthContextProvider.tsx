@@ -11,9 +11,11 @@ import {
   getUserMustSign
 } from './userStateUtils';
 import Cookies from 'universal-cookie';
-import { Snackbar } from '@mui/material';
+import { Snackbar, Typography } from '@mui/material';
 import { Alert } from '@mui/material';
 import { AlertProps } from '@mui/lab';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
 export const currentTermsVersion = '1';
 
@@ -38,7 +40,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   } | null>(null);
   const cookies = useMemo(() => new Cookies(), []);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
+  const [loadingText, setLoadingText] = useState<string>('');
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
     const shouldReload = !!token;
@@ -175,6 +177,8 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         login: setToken,
         logout,
         setLoading: () => {},
+        loadingText,
+        setLoadingText,
         maximumRole,
         touVersion,
         userMustSign,
@@ -186,8 +190,14 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     >
       {api.loading && (
         <div className="cisa-crossfeed-loading">
-          <div></div>
-          <div></div>
+          <Alert severity="info" sx={{ width: '100%' }}>
+            <CircularProgress />
+            <Typography variant="h6" component="span">
+              {loadingText}
+            </Typography>
+          </Alert>
+          {/* //   <div></div>
+        //   <div></div> */}
         </div>
       )}
       {feedbackMessage && (
