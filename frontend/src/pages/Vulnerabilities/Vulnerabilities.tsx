@@ -170,7 +170,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         console.error(e);
         setLoadingError(true);
       } finally {
-        setIsLoading(false);
+        setIsLoading(true);
       }
     },
     [vulnerabilitiesSearch, group_by]
@@ -571,10 +571,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       )}
       <Box mb={3} display="flex" justifyContent="center">
         {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Vulnerabilities..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
+          <Box></Box>
+        ) : // <Paper elevation={2}>
+        //   <Alert severity="info">Loading Vulnerabilities..</Alert>
+        // </Paper>
+        isLoading === false && loadingError === true ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Vulnerabilities!</Alert>

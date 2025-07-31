@@ -11,7 +11,7 @@ import {
   getUserMustSign
 } from './userStateUtils';
 import Cookies from 'universal-cookie';
-import { Snackbar, Typography } from '@mui/material';
+import { Snackbar, Stack, Typography } from '@mui/material';
 import { Alert } from '@mui/material';
 import { AlertProps } from '@mui/lab';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -189,16 +189,30 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       }}
     >
       {api.loading && (
-        <div className="cisa-crossfeed-loading">
-          <Alert severity="info" sx={{ width: '100%' }}>
-            <CircularProgress />
-            <Typography variant="h6" component="span">
-              {loadingText}
-            </Typography>
+        // <div className="cisa-crossfeed-loading">
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'fixed',
+            // top: 50,
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '30%',
+            zIndex: 1000
+          }}
+        >
+          <Alert severity="info" icon={false}>
+            <Stack spacing={2} alignItems="center">
+              <CircularProgress />
+              <Typography variant="h6" component="span">
+                {loadingText}
+              </Typography>
+            </Stack>
           </Alert>
-          {/* //   <div></div>
-        //   <div></div> */}
-        </div>
+        </Box>
       )}
       {feedbackMessage && (
         <Snackbar
