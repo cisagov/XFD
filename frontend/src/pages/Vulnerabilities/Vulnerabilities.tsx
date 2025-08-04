@@ -619,6 +619,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               paginationModel={paginationModel}
               onPaginationModelChange={handlePaginationModelChange}
               pageSizeOptions={[15, 30, 50, 100]}
+              disableRowSelectionOnClick
             />
           </Paper>
         ) : null}

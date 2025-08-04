@@ -57,6 +57,7 @@ const QueueMonitorView: React.FC = () => {
           rows={queues}
           columns={queueColumns}
           pageSizeOptions={[10, 25]}
+          disableRowSelectionOnClick
         />
       </Paper>
     </>
