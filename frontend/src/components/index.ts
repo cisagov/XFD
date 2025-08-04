@@ -17,3 +17,4 @@ export * from './FilterDrawer/AutoCompletedResults';
 export * from './FilterDrawer/FacetFilter';
 export * from './FindingsLibrary/Subnav';
 export * from './ModalToggleButton';
+export * from './MatomoTracker';

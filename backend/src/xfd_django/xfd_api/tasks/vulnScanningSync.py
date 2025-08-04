@@ -774,13 +774,29 @@ def get_asset_owned_count(org):
         cidrorgs__organization=org, cidrorgs__current=True, network__isnull=False
     ).distinct()
 
+    if not cidrs.exists():
+        LOGGER.warning("No CIDRs found for organization ID: %s (%s)", org.id, org.name)
+
     total_ips = 0
     for cidr in cidrs:
         try:
             network = ip_network(str(cidr.network), strict=False)
             total_ips += network.num_addresses
-        except ValueError:
-            continue  # Skip bad CIDRs
+        except (ValueError, TypeError) as e:
+            LOGGER.warning(
+                "Invalid CIDR '%s' for organization ID: %s (%s) — %s",
+                getattr(cidr, "network", None),
+                org.id,
+                org.name,
+                str(e),
+            )
+        except Exception as e:
+            LOGGER.warning(
+                "Unexpected error while processing CIDR for org ID: %s (%s) — %s",
+                org.id,
+                org.name,
+                str(e),
+            )
 
     return total_ips
 

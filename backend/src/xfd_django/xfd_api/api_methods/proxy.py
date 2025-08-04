@@ -35,7 +35,7 @@ async def proxy_request(
             headers["Cookie"] = "{}={}".format(cookie_name, cookies[cookie_name])
 
     # Make the request to the target URL
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0)) as client:
         proxy_response = await client.request(
             method=request.method,
             url="{}/{}".format(target_url, path),

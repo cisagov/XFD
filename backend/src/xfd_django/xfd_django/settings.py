@@ -168,6 +168,16 @@ DMZ_API_HEADER = {
     "access_token": os.getenv("PE_API_KEY"),
     "Content-Type": "",
 }
+# Awaiting implementation of Matomo CSP, uncomment when ready
+MATOMO_CONTENT_SECURITY_POLICY = {
+    "default-src": ["*", "'unsafe-inline'", "'unsafe-eval'"],
+    "connect-src": ["*"],
+    "img-src": ["*"],
+    "style-src": ["*", "'unsafe-inline'"],
+    "frame-ancestors": ["*"],
+    "frame-src": ["*"],
+}
+
 
 # SECURITY CONFIGURATION
 SECURE_HSTS_SECONDS = 31536000  # Enable HSTS for 1 year

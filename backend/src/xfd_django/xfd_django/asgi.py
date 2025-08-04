@@ -38,17 +38,30 @@ django.setup()
 apps.populate(settings.INSTALLED_APPS)
 
 
-def set_security_headers(response: Response):
+def set_security_headers(response: Response, isMatomo):
     """Apply security headers to the HTTP response."""
-    # Set Content Security Policy (CSP)
-    csp_value = "; ".join(
-        [
-            "{} {}".format(key, " ".join(map(str, value)))
-            for key, value in settings.SECURE_CSP_POLICY.items()
-            if isinstance(value, (list, tuple))
-        ]
-    )
-    response.headers["Content-Security-Policy"] = csp_value
+    # Conditionally set Content Security Policy (CSP) based on the request URL
+
+    # TODO: Uncomment the following lines if you want to set CSP for Matomo
+    if isMatomo:
+        csp_value = "; ".join(
+            [
+                "{} {}".format(key, " ".join(map(str, value)))
+                for key, value in settings.MATOMO_CONTENT_SECURITY_POLICY.items()
+                if isinstance(value, (list, tuple))
+            ]
+        )
+        response.headers["Content-Security-Policy"] = csp_value
+    else:
+        # Set Secure Content Security Policy (CSP)
+        csp_value = "; ".join(
+            [
+                "{} {}".format(key, " ".join(map(str, value)))
+                for key, value in settings.SECURE_CSP_POLICY.items()
+                if isinstance(value, (list, tuple))
+            ]
+        )
+        response.headers["Content-Security-Policy"] = csp_value
 
     # Set Strict-Transport-Security (HSTS)
     hsts_value = "max-age={}".format(settings.SECURE_HSTS_SECONDS)
@@ -92,7 +105,8 @@ def get_application() -> FastAPI:
     @app.middleware("http")
     async def security_headers_middleware(request: Request, call_next):
         response = await call_next(request)
-        return set_security_headers(response)
+        isMatomo = bool(request.url.path.startswith("/matomo"))
+        return set_security_headers(response, isMatomo)
 
     app.add_middleware(LoggingMiddleware)
 

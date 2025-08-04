@@ -534,12 +534,18 @@ def approve_user_registration(user_id, current_user):
     except ObjectDoesNotExist:
         raise HTTPException(status_code=404, detail="User not found.")
 
+    if current_user.invite_pending or not current_user.date_accepted_terms:
+        # Return 403 if user is unapproved or has not accepted terms
+        raise HTTPException(status_code=403, detail="Account not fully activated.")
+
     if not (
         is_global_write_admin(current_user)
         or current_user.user_type == UserType.REGIONAL_ADMIN
     ):
+        # Return 403 if user is not global_write_admin or regional_admin
         raise HTTPException(
-            status_code=403, detail="Only regional or global admins can approve users."
+            status_code=403,
+            detail="Only authorized admins can approve or deny users.",
         )
 
     # Ensure authorizer's region matches the user's region
@@ -594,13 +600,18 @@ def deny_user_registration(user_id: str, current_user: User):
                 status_code=403, detail="Users cannot approve themselves."
             )
 
+        if current_user.invite_pending or not current_user.date_accepted_terms:
+            # Return 403 if user is unapproved or has not accepted terms
+            raise HTTPException(status_code=403, detail="Account not fully activated.")
+
         if not (
             is_global_write_admin(current_user)
             or current_user.user_type == UserType.REGIONAL_ADMIN
         ):
+            # Return 403 if user is not global_write_admin or regional_admin
             raise HTTPException(
                 status_code=403,
-                detail="Only regional or global admins can approve users.",
+                detail="Only authorized admins can approve or deny users.",
             )
 
         # Ensure authorizer's region matches the user's region

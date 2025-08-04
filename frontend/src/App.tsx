@@ -32,7 +32,7 @@ import {
   Vulnerabilities,
   Vulnerability
 } from 'pages';
-import { LayoutWithSearch, RouteGuard } from 'components';
+import { LayoutWithSearch, RouteGuard, MatomoTracker } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
 //import { RiskWithSearch } from 'pages/Risk/Risk';
@@ -87,6 +87,7 @@ const LinkTracker = () => {
 
 const App: React.FC = () => (
   <MatomoProvider value={instance}>
+    <MatomoTracker />
     <Router>
       <CFThemeProvider>
         <AuthContextProvider>
@@ -205,6 +206,7 @@ const App: React.FC = () => (
                         <RouteGuard
                           path="/admin-tools"
                           component={AdminTools}
+                          permissions={['globalAdmin']}
                         />
                         <RouteGuard
                           path="/organizations/:organizationId"

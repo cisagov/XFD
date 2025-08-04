@@ -300,7 +300,7 @@ export const Notifications: React.FC = () => {
         );
       } else if (apiType === 'post') {
         notification = await handleApiCall(
-          () => apiPost('/notifications/', { body }),
+          () => apiPost('/notifications', { body }),
           'The creation of the new notification was successful.',
           'The creation of the new notification was unsuccessful.'
         );

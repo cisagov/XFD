@@ -28,6 +28,7 @@ from xfd_mini_dl.models import User
 # from .schemas import Cpe
 from .api_methods import api_key as api_key_methods
 from .api_methods import dmz_sync as dmz_sync_methods
+from .api_methods import matomo_proxy_handler
 from .api_methods import notification as notification_methods
 from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_check_ip
@@ -84,6 +85,7 @@ from .auth import (
     get_current_active_user,
     get_current_active_user_unsafe,
     handle_okta_callback,
+    set_oauth_cookies_response,
 )
 from .login_gov import callback
 from .schema_models import organization_schema as OrganizationSchema
@@ -167,43 +169,34 @@ async def get_redis_client(request: Request):
 # ========================================
 
 
+# Matomo Logo Redirect
+@api_router.get("/plugins/Morpheus/images/logo.svg")
+async def redirect_logo():
+    """Redirect to the Matomo logo."""
+    return RedirectResponse(
+        url="/matomo/plugins/Morpheus/images/logo.svg?matomo", status_code=308
+    )
+
+
+# Matomo Index Redirect
+@api_router.get("/index.php")
+async def redirect_index():
+    """Redirect to the Matomo index page."""
+    return RedirectResponse(url="/matomo/index.php", status_code=308)
+
+
 # Matomo Proxy
 @api_router.api_route(
     "/matomo/{path:path}",
-    dependencies=[Depends(get_current_active_user)],
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     tags=["Analytics"],
 )
-async def matomo_proxy(
-    path: str, request: Request, current_user: User = Depends(get_current_active_user)
-):
+async def matomo_proxy(path: str, request: Request):
     """Proxy requests to the Matomo analytics instance."""
-    # Public paths -- directly allowed
-    allowed_paths = ["/matomo.php", "/matomo.js"]
-    if any(
-        [request.url.path.startswith(allowed_path) for allowed_path in allowed_paths]
-    ):
-        return await proxy.proxy_request(path, request, os.getenv("MATOMO_URL"))
-
-    # Redirects for specific font files
-    if request.url.path in [
-        "/plugins/Morpheus/fonts/matomo.woff2",
-        "/plugins/Morpheus/fonts/matomo.woff",
-        "/plugins/Morpheus/fonts/matomo.ttf",
-    ]:
-        return RedirectResponse(
-            url="https://cdn.jsdelivr.net/gh/matomo-org/matomo@5.2.1{}".format(
-                request.url.path
-            )
-        )
-
-    # Ensure only global admin can access other paths
-    if current_user.user_type != "globalAdmin":
-        raise HTTPException(status_code=403, detail="Unauthorized")
+    MATOMO_URL = os.getenv("REACT_APP_MATOMO_URL", "")
 
     # Handle the proxy request to Matomo
-    return await proxy.proxy_request(
-        request, os.getenv("MATOMO_URL", ""), path, cookie_name="MATOMO_SESSID"
-    )
+    return await matomo_proxy_handler.matomo_proxy_request(request, MATOMO_URL, path)
 
 
 # P&E Proxy
@@ -286,6 +279,21 @@ async def callback_route(request: Request):
         return user_info
     except Exception as error:
         raise HTTPException(status_code=400, detail=str(error))
+
+
+# Set PKCE and state cookies for OAuth
+@api_router.post("/auth/set-oauth-cookies", tags=["Auth"])
+async def set_oauth_cookies(request: Request):
+    """Set PKCE code_verifier and state cookies for OAuth flow."""
+    body = await request.json()
+    state = body.get("state")
+    code_verifier = body.get("code_verifier")
+
+    if not state or not code_verifier:
+        raise HTTPException(
+            status_code=400, detail="Missing PKCE code_verifier or state"
+        )
+    return set_oauth_cookies_response(state, code_verifier)
 
 
 # ========================================

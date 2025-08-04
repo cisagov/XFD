@@ -534,6 +534,8 @@ def test_register_approve_success(mock_email):
         region_id="region-1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_approve = User.objects.create(
         first_name="Test",
@@ -572,6 +574,8 @@ def test_register_approve_unauthorized_region():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_approve = User.objects.create(
         first_name="Test",
@@ -604,6 +608,8 @@ def test_register_deny_success(mock_denied_email):
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_deny = User.objects.create(
         first_name="Test",
@@ -640,6 +646,8 @@ def test_register_deny_unauthorized_region():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_deny = User.objects.create(
         first_name="Test",
