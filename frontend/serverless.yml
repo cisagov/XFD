@@ -61,7 +61,7 @@ provider:
   name: aws
   region: ${file(env.yml):${self:provider.stage}.REGION, ''}
   endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
-  runtime: nodejs16.x
+  runtime: nodejs22.x
   timeout: 30
   stage: ${opt:stage, 'dev'}
   environment: ${file(env.yml):${self:provider.stage}, ''}
