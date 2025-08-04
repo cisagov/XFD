@@ -53,7 +53,6 @@ OVERRIDES=$(jq -n \
     ]
   }')
 
-
 # 🚀 Launch ECS task
 echo "🚀 Starting ECS task..."
 TASK_ARN=$(aws ecs run-task \
@@ -70,9 +69,9 @@ TASK_ARN=$(aws ecs run-task \
   --region "$AWS_REGION" \
   --overrides "$OVERRIDES" \
   --query 'tasks[0].taskArn' \
-  --output text 2>/dev/null) || {
-    echo "❌ Failed to run ECS task." >&2
-    exit 1
+  --output text 2> /dev/null) || {
+  echo "❌ Failed to run ECS task." >&2
+  exit 1
 }
 
 if [[ -z "$TASK_ARN" || "$TASK_ARN" == "None" ]]; then

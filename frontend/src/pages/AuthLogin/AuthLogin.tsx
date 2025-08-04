@@ -4,6 +4,8 @@ import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
 import { CrossfeedWarning } from 'components/WarningBanner';
 import { initialNotificationValues, MaintenanceNotification } from 'types';
+import { v4 as uuidv4 } from 'uuid';
+import pkceChallenge from 'pkce-challenge';
 
 const LoginButton = () => {
   // TODO: Capture default values here once determined
@@ -11,11 +13,32 @@ const LoginButton = () => {
   const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || 'default_value';
   const callbackUrl =
     import.meta.env.VITE_COGNITO_CALLBACK_URL || 'default_value';
-  const encodedCallbackUrl = encodeURIComponent(callbackUrl);
 
-  const redirectToAuth = () => {
-    // Adjust this callback URL once determined
-    window.location.href = `https://${domain}/oauth2/authorize?identity_provider=Okta&redirect_uri=${encodedCallbackUrl}&response_type=CODE&client_id=${clientId}&scope=email openid profile`;
+  const redirectToAuth = async () => {
+    const { code_challenge, code_verifier } = await pkceChallenge();
+    const state = uuidv4();
+
+    try {
+      await fetch(`${import.meta.env.VITE_API_URL}/auth/set-oauth-cookies`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          code_verifier,
+          state
+        })
+      });
+      console.log('Cookies set, redirecting to Okta...');
+      const authorizeUrl = `https://${domain}/oauth2/authorize?identity_provider=Okta&redirect_uri=${encodeURIComponent(
+        callbackUrl
+      )}&response_type=code&client_id=${clientId}&scope=email+openid+profile&state=${state}&code_challenge=${encodeURIComponent(
+        code_challenge
+      )}&code_challenge_method=S256`;
+
+      window.location.href = authorizeUrl;
+    } catch (err) {
+      console.error('Error setting cookies before redirect:', err);
+    }
   };
 
   return (

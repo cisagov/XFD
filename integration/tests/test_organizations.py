@@ -1,8 +1,6 @@
 """Regression Tests for Organizations Endpoint."""
 
 
-# test_organizations_api.py
-
 # Standard Python Libraries
 from datetime import datetime
 import os
@@ -932,27 +930,22 @@ def test_list_organizations_v2_no_filters():
     assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert isinstance(data, list), f"Expected list, got {type(data).__name__}"
-    assert len(data) > 0, "Expected at least one organization"
+    assert data, "Expected at least one organization"
 
     for org in data:
-        assert "id" in org and "name" in org, "Each org must have id and name"
+        assert "id" in org and "name" in org, "Each org must have 'id' and 'name'"
 
 
 @pytest.mark.integration
 def test_list_organizations_v2_filter_state(v2_state):
     """GET /v2/organizations?state={state} returns only orgs matching that state."""
-    url = f"{BASE_URL}/v2/organizations"
-    resp = requests.get(
-        url,
-        headers=HEADERS,
-        params={"state": v2_state},
-        timeout=TIMEOUT,
-    )
+    url = f"{BASE_URL}/v2/organizations?state={v2_state}"
+    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
 
     assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert isinstance(data, list)
-    assert len(data) > 0, f"Expected at least one org for state={state}"
+    assert data, f"Expected at least one org for state={v2_state}"
 
     for org in data:
         assert (
@@ -963,18 +956,13 @@ def test_list_organizations_v2_filter_state(v2_state):
 @pytest.mark.integration
 def test_list_organizations_v2_filter_region(v2_region_id):
     """GET /v2/organizations?region_id={region_id} returns only orgs matching that region."""
-    url = f"{BASE_URL}/v2/organizations"
-    resp = requests.get(
-        url,
-        headers=HEADERS,
-        params={"region_id": v2_region_id},
-        timeout=TIMEOUT,
-    )
+    url = f"{BASE_URL}/v2/organizations?region_id={v2_region_id}"
+    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert isinstance(data, list)
-    assert len(data) > 0, f"Expected at least one org for region_id={region_id}"
+    assert data, f"Expected at least one org for region_id={v2_region_id}"
 
     for org in data:
         assert str(org.get("region_id")) == str(
@@ -984,38 +972,41 @@ def test_list_organizations_v2_filter_region(v2_region_id):
 
 @pytest.mark.integration
 def test_list_organizations_v2_filter_both(v2_state, v2_region_id):
-    """GET using both state and region id, returns orgs matching *both* filters."""
-    url = f"{BASE_URL}/v2/organizations"
-    resp = requests.get(
-        url,
-        headers=HEADERS,
-        params={"state": v2_state, "region_id": v2_region_id},
-        timeout=TIMEOUT,
-    )
+    """GET /v2/organizations?state={state}&region_id={region_id} returns orgs matching both filters."""
+    url = f"{BASE_URL}/v2/organizations?" f"state={v2_state}&region_id={v2_region_id}"
+    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
 
-    assert resp.status_code == 200
+    assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert isinstance(data, list)
     assert (
-        len(data) > 0
-    ), f"Expected at least one org for state={state}&region_id={region_id}"
+        data
+    ), f"Expected at least one org for state={v2_state}&region_id={v2_region_id}"
 
     for org in data:
-        assert org.get("state") == v2_state
-        assert str(org.get("region_id")) == str(v2_region_id)
+        assert (
+            org.get("state") == v2_state
+        ), f"Expected state={v2_state}, got {org.get('state')}"
+        assert str(org.get("region_id")) == str(
+            v2_region_id
+        ), f"Expected region_id={v2_region_id}, got {org.get('region_id')}"
 
 
 @pytest.mark.integration
 def test_list_organizations_v2_invalid_filter_values():
-    """Query with invalid state and region_id returns 200 and likely empty list."""
-    url = f"{BASE_URL}/v2/organizations"
-    params = {"state": "ZZZ", "region_id": "not-an-id"}
-    resp = requests.get(url, headers=HEADERS, params=params, timeout=TIMEOUT)
+    """
+    GET /v2/organizations?state=ZZZ&region_id=not-an-id.
 
-    assert resp.status_code == 200, f"Expected 200, got {resp.status_code}"
+    returns 200 and likely an empty list (or only orgs not matching invalid filters).
+    """
+    url = f"{BASE_URL}/v2/organizations?state=ZZZ&region_id=not-an-id"
+    resp = requests.get(url, headers=HEADERS, timeout=TIMEOUT)
+
+    assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert isinstance(data, list)
-    assert len(data) == 0 or all(
+    # Either no orgs, or none match the invalid filters
+    assert not data or all(
         org.get("state") != "ZZZ" and str(org.get("region_id")) != "not-an-id"
         for org in data
     )

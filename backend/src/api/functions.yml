@@ -5,9 +5,37 @@ api:
         - http:
               path: /  # this matches the base path
               method: ANY
-              cors: true
+              cors:
+                  origins:
+                      - ${file(env.yml):${self:provider.stage}.FRONTEND_DOMAIN}
+                  headers:
+                      - Content-Type
+                      - Authorization
+                      - X-API-KEY
+                      - X-Amz-Security-Token
+                      - X-Amz-Date
+                      - X-Amzn-Trace-Id
+                      - Accept
+                      - Origin
+                      - Cache-Control
+                      - Pragma
+                  allowCredentials: true
         - http:
               # this matches any path, the token 'any' doesn't mean anything special
               path: /{any+}
               method: ANY
-              cors: true
+              cors:
+                  origins:
+                      - ${file(env.yml):${self:provider.stage}.FRONTEND_DOMAIN}
+                  headers:
+                      - Content-Type
+                      - Authorization
+                      - X-API-KEY
+                      - X-Amz-Security-Token
+                      - X-Amz-Date
+                      - X-Amzn-Trace-Id
+                      - Accept
+                      - Origin
+                      - Cache-Control
+                      - Pragma
+                  allowCredentials: true

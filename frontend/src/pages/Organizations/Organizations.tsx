@@ -158,6 +158,7 @@ export const Organizations: React.FC = () => {
                 pagination: { paginationModel: { pageSize: 15 } }
               }}
               pageSizeOptions={[15, 30, 50, 100]}
+              disableRowSelectionOnClick
             />
           </Paper>
         )}
