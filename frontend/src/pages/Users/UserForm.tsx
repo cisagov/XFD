@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  Autocomplete,
   DialogContent,
   FormControlLabel,
   Grid,
@@ -278,16 +279,17 @@ export const UserForm: React.FC<UserFormProps> = ({
     }));
   };
 
-  const handleOrgChange = (event: SelectChangeEvent) => {
-    if (values.originalOrgId !== event.target.value) {
+  const handleOrgChange = (newOrgId: string | null) => {
+    const orgId = newOrgId ?? '';
+    if (values.originalOrgId !== orgId) {
       setInitialOrgIdChange(true);
     } else {
       setInitialOrgIdChange(false);
     }
     setValues((values: any) => ({
       ...values,
-      org_id: event.target.value,
-      org_name: getOrgNameById(event.target.value)
+      org_id: orgId,
+      org_name: getOrgNameById(orgId)
     }));
   };
 
@@ -298,6 +300,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       }
     }
   };
+
+  const sortedOrgs = organizationsInRegion
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const formContents = (
     <DialogContent>
@@ -310,7 +316,9 @@ export const UserForm: React.FC<UserFormProps> = ({
             size="small"
             margin="dense"
             id="first_name"
-            inputProps={{ maxLength: 250 }}
+            slotProps={{
+              htmlInput: { maxLength: 250 }
+            }}
             name="first_name"
             error={formErrors.first_name}
             helperText={
@@ -332,7 +340,9 @@ export const UserForm: React.FC<UserFormProps> = ({
             size="small"
             margin="dense"
             id="last_name"
-            inputProps={{ maxLength: 250 }}
+            slotProps={{
+              htmlInput: { maxLength: 250 }
+            }}
             name="last_name"
             error={formErrors.last_name}
             helperText={
@@ -354,7 +364,9 @@ export const UserForm: React.FC<UserFormProps> = ({
             size="small"
             margin="dense"
             id="email"
-            inputProps={{ maxLength: 250 }}
+            slotProps={{
+              htmlInput: { maxLength: 250 }
+            }}
             name="email"
             error={formErrors.email}
             helperText={
@@ -369,7 +381,7 @@ export const UserForm: React.FC<UserFormProps> = ({
           />
         </Grid>
         <Grid size={{ xs: 12 }}>
-          <Typography>State</Typography>
+          <Typography mb={1}>State</Typography>
           <Select
             displayEmpty
             size="small"
@@ -399,7 +411,7 @@ export const UserForm: React.FC<UserFormProps> = ({
           )}
         </Grid>
         <Grid size={{ xs: 12 }}>
-          <Typography>Organization</Typography>
+          <Typography mb={1}>Organization</Typography>
           {newUserDialogOpen ? (
             <Alert severity="info">
               An organization cannot be selected until the user is in the
@@ -409,7 +421,8 @@ export const UserForm: React.FC<UserFormProps> = ({
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
-              {apiErrorStates.getOrgsError}. Error retrieving organizations.
+              {apiErrorStates.getOrgsError}. An error occurred retrieving
+              organizations for this state.
             </Alert>
           ) : values.state === '' ? (
             <Alert severity="info">Select a state to make a selection.</Alert>
@@ -419,44 +432,44 @@ export const UserForm: React.FC<UserFormProps> = ({
               make a selection.
             </Alert>
           ) : (
-            <>
-              <Select
-                displayEmpty
-                size="small"
-                id="org_id"
-                value={values.org_id === null ? '' : values.org_id}
-                name="org_id"
-                error={values.org_id === ''}
-                onChange={handleOrgChange}
-                fullWidth
-                renderValue={
-                  values.org_id !== ''
-                    ? undefined
-                    : () => (
-                        <Typography color="#bdbdbd">
-                          Select an Organization
-                        </Typography>
-                      )
+            <Autocomplete
+              size="small"
+              id="org_id"
+              fullWidth
+              disabled={
+                organizationsInRegion.length === 0 ||
+                user?.user_type !== 'globalAdmin'
+              }
+              options={sortedOrgs}
+              getOptionLabel={(option) => option.name}
+              value={sortedOrgs.find((org) => org.id === values.org_id) || null}
+              onChange={(_, newValue) => {
+                handleOrgChange(newValue ? newValue.id : '');
+              }}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              slotProps={{
+                listbox: {
+                  sx: {
+                    maxHeight: 200,
+                    overflow: 'auto'
+                  }
                 }
-                disabled={
-                  organizationsInRegion.length === 0 ||
-                  user?.user_type !== 'globalAdmin'
-                }
-              >
-                {organizationsInRegion
-                  .sort((a, b) => a.name.localeCompare(b.name))
-                  .map((organization) => (
-                    <MenuItem key={organization.id} value={organization.id}>
-                      {organization.name}
-                    </MenuItem>
-                  ))}
-              </Select>
-              {values.org_id === '' && (
-                <Typography pl={2} variant="caption" color="error.main">
-                  Organization is required
-                </Typography>
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select an Organization"
+                  error={values.org_id === ''}
+                  helperText={
+                    values.org_id === '' ? (
+                      <Typography variant="caption" color="error.main">
+                        Organization is required
+                      </Typography>
+                    ) : null
+                  }
+                />
               )}
-            </>
+            />
           )}
         </Grid>
         <Grid size={{ xs: 12 }}>

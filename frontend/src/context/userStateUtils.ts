@@ -32,7 +32,7 @@ export const getUserMustSign = (user: AuthUser | null, touVersion: string) => {
         user.accepted_terms_version !== touVersion)
   );
 };
-
+//To-Do: CRASM-2993 - Remove constants and getUserLevel function when Feeds.tsx removed.
 export const GLOBAL_VIEW = 2;
 export const STANDARD_USER = 1;
 export const ALL_USERS = GLOBAL_VIEW | STANDARD_USER;

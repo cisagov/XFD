@@ -21,11 +21,18 @@ import {
   // REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS
 } from 'hooks/useUserTypeFilters';
 import { ExpandMore, FiberManualRecordRounded } from '@mui/icons-material';
-import { useUserLevel } from 'hooks/useUserLevel';
+import {
+  useUserLevel,
+  GLOBAL_ADMIN,
+  GLOBAL_VIEW,
+  REGIONAL_ADMIN,
+  STANDARD_USER
+} from 'hooks/useUserLevel';
 import { Stack } from '@mui/system';
+// import { GLOBAL_VIEW } from '@/context/userStateUtils';
 
-const GLOBAL_ADMIN = 3;
-const STANDARD_USER = 1;
+// const GLOBAL_ADMIN = 3;
+// const STANDARD_USER = 1;
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = true;
@@ -219,7 +226,8 @@ export const RegionAndOrganizationFilters: React.FC<
   const allRegionsSelected = useMemo(() => {
     return (
       regionFilterValues?.length === regions.length ||
-      (userLevel === GLOBAL_ADMIN && regionFilterValues?.length === 0)
+      ((userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) &&
+        regionFilterValues?.length === 0)
     );
   }, [regionFilterValues, regions.length, userLevel]);
 
@@ -303,7 +311,7 @@ export const RegionAndOrganizationFilters: React.FC<
           </Stack>
         </AccordionSummary>
         <AccordionDetails>
-          {userLevel !== GLOBAL_ADMIN && (
+          {userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW && (
             <Autocomplete
               onInputChange={(e, v) => {
                 if (e && e.type === 'change') {
@@ -311,7 +319,10 @@ export const RegionAndOrganizationFilters: React.FC<
                 }
               }}
               disableClearable
-              disabled={!userLevel || userLevel !== GLOBAL_ADMIN}
+              disabled={
+                !userLevel ||
+                (userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW)
+              }
               open={isRegOpen}
               onOpen={() => {
                 setIsRegOpen(true);
@@ -371,7 +382,7 @@ export const RegionAndOrganizationFilters: React.FC<
                 <TextField
                   {...params}
                   label={
-                    userLevel === GLOBAL_ADMIN
+                    userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
                       ? 'All Regions'
                       : `Region ${user?.region_id}`
                   }
@@ -386,7 +397,7 @@ export const RegionAndOrganizationFilters: React.FC<
               )}
             />
           )}
-          {userLevel === GLOBAL_ADMIN && (
+          {(userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) && (
             <List sx={{ maxHeight: 5 * 42, overflowY: 'auto' }}>
               <ListItem
                 sx={{ padding: '0px' }}
@@ -418,7 +429,7 @@ export const RegionAndOrganizationFilters: React.FC<
                   />
                 </FormGroup>
               </ListItem>
-              {userLevel === GLOBAL_ADMIN &&
+              {(userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) &&
                 regions.map((region) => {
                   return (
                     <RegionItem
@@ -435,7 +446,7 @@ export const RegionAndOrganizationFilters: React.FC<
                 })}
             </List>
           )}
-          {userLevel === GLOBAL_ADMIN && (
+          {(userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) && (
             <div
               style={{
                 position: 'relative',

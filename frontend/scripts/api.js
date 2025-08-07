@@ -74,7 +74,7 @@ app.use((req, res, next) => {
 });
 
 app.use(
-  express.static(path.join(__dirname, '../build'), {
+  express.static(path.join(__dirname, '../dist'), {
     setHeaders: (res, path) => {
       if (path.endsWith('.js')) {
         res.setHeader('Content-Type', 'application/javascript');
@@ -86,7 +86,7 @@ app.use(
 
 app.use((req, res) => {
   res.setHeader('Content-Type', 'text/html');
-  res.sendFile(path.join(__dirname, '../build/index.html'));
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 export const handler = serverless(app, {

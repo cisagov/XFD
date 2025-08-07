@@ -68,6 +68,7 @@
     "react-to-print": "^2.15.1",
     "resolve-url-loader": "^5.0.0",
     "rollup": "^2.79.2",
+    "serverless-http": "^3.2.0",
     "universal-cookie": "^7.2.2",
     "uswds": "^2.13.3",
     "web-vitals": "^2.1.4"
@@ -104,11 +105,12 @@
     "jsdom": "^26.1.0",
     "patch-package": "^8.0.0",
     "prettier": "^3.4.2",
+    "rollup-plugin-visualizer": "^6.0.3",
     "sass": "^1.55.0",
-    "serverless": "^3.30",
+    "serverless": "^3.40.0",
     "serverless-better-credentials": "^1.2.0",
     "serverless-domain-manager": "^7.0",
-    "serverless-http": "^3.2.0",
+    "serverless-esbuild": "^1.55.1",
     "serverless-plugin-ifelse": "^1.0.7",
     "serverless-prune-versions": "^1.0.4",
     "typescript": "^4.8.4",
@@ -117,7 +119,7 @@
     "vitest": "^3.2.4"
   },
   "engines": {
-    "node": ">=22.17.0"
+    "node": ">=20.19.4"
   },
   "eslintConfig": {
     "extends": [
@@ -145,6 +147,7 @@
   },
   "private": true,
   "scripts": {
+    "analyze": "vite build --mode analyze",
     "build": "vite build",
     "dev": "vite",
     "lint": "eslint 'src/**/*.{ts,tsx,js,jsx}'",
