@@ -132,6 +132,19 @@ def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
         yield chunk
         offset += chunk_size
 
+def fetch_in_chunks_keyset(base_query: str, chunk_size: int = 5000):
+    last_id = None
+    while True:
+        where_clause = ""
+        if last_id:
+            where_clause = f" AND _id > '{last_id}'"  # assuming _id is sortable
+        query = f"{base_query} {where_clause} ORDER BY _id LIMIT {chunk_size}"
+        chunk = fetch_from_redshift(query)
+        if not chunk:
+            break
+        last_id = chunk[-1]["_id"]
+        yield chunk
+
 
 def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
@@ -166,11 +179,23 @@ def main():  # pylint: disable=R0915
 
     total_processed = 0
     chunk_number = 1
-    for chunk in fetch_in_chunks(base_query):
+    # Prefetch risky service groups
+    risky_service_groups = {
+        rsg.service_name: rsg.group
+        for rsg in RiskyServiceGroup.objects.all()
+    }
+
+    # Prefetch NMI service groups
+    nmi_service_groups = {
+        nsg.service_name: nsg.group
+        for nsg in NMIServiceGroup.objects.all()
+    }
+
+    for chunk in fetch_in_chunks_keyset(base_query):
         LOGGER.info(
             "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
         )
-        process_port_scans(chunk, org_id_dict)
+        process_port_scans(chunk, org_id_dict, risky_service_groups, nmi_service_groups)
         total_processed += len(chunk)
         chunk_number += 1
 
@@ -203,7 +228,7 @@ def main():  # pylint: disable=R0915
 
     total_processed = 0
     chunk_number = 1
-    for chunk in fetch_in_chunks(base_query):
+    for chunk in fetch_in_chunks_keyset(base_query):
         LOGGER.info(
             "Processing ticket chunk #%d with %d rows", chunk_number, len(chunk)
         )
@@ -381,7 +406,7 @@ def process_vulnerability_scans(vuln_scans, org_id_dict):
                     {
                         "ip": vuln["ip"],
                         "ip_hash": hash_ip(vuln["ip"]),
-                        "organization": {"id": owner_id},
+                        "organization": owner_id,
                     }
                 )
                 if vuln.get("ip")
@@ -446,7 +471,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
         "latest": vuln.get("latest", None),
         "owner": vuln.get("owner", None),
         "osvdb_id": vuln.get("osvdb", None),
-        "organization": Organization.objects.get(id=owner_id),
+        "organization_id": owner_id,
         "patch_publication_timestamp": safe_fromisoformat(
             vuln.get("patch_publication_date", None)
         ),
@@ -706,7 +731,7 @@ def process_tickets(tickets, org_id_dict):
                     {
                         "ip": ticket["ip"],
                         "ip_hash": hash_ip(ticket["ip"]),
-                        "organization": {"id": owner_id},
+                        "organization": owner_id,
                     }
                 )
                 if ticket.get("ip")
@@ -737,7 +762,7 @@ def process_tickets(tickets, org_id_dict):
                 "updated_timestamp": safe_fromisoformat(ticket.get("last_change")),
                 "location_longitude": lon,
                 "location_latitude": lat,
-                "organization": Organization.objects.get(id=owner_id),
+                "organization_id": owner_id,
                 "vuln_port": ticket.get("port"),
                 "port_protocol": ticket.get("protocol"),
                 "snapshots_bool": bool(ticket.get("snapshots", None)),
@@ -1064,8 +1089,10 @@ def create_vuln_scan_summary(summary_date=None):
         )
 
 
-def process_port_scans(port_scans, org_id_dict):
+
+def process_port_scans(port_scans, org_id_dict, risky_service_groups, nmi_service_groups):
     """Process and save port scan data."""
+    batch = []
     for port_scan in port_scans:
         try:
             owner_id = org_id_dict.get(port_scan.get("owner"))
@@ -1074,13 +1101,13 @@ def process_port_scans(port_scans, org_id_dict):
                     f"{port_scan.get('Owner')} is not a recognized organization, skipping host"
                 )
                 continue
-
+            
             ip = (
                 save_ip_to_datalake(
                     {
                         "ip": port_scan.get("ip"),
                         "ip_hash": hash_ip(port_scan.get("ip")),
-                        "organization": {"id": owner_id},
+                        "organization": owner_id,
                     }
                 )
                 if port_scan.get("ip")
@@ -1110,29 +1137,26 @@ def process_port_scans(port_scans, org_id_dict):
                 "source": port_scan.get("source"),
                 "state": port_scan.get("state"),
                 "time_scanned": safe_fromisoformat(port_scan.get("time")),
-                "organization": Organization.objects.get(id=owner_id),
-                "risky_service_group": RiskyServiceGroup.objects.filter(
-                    service_name=service_obj.get("name", None)
-                )
-                .values_list("group", flat=True)
-                .first()
-                if service_obj.get("name", None)
-                else None,
-                "nmi_service_group": NMIServiceGroup.objects.filter(
-                    service_name=service_obj.get("name", None)
-                )
-                .values_list("group", flat=True)
-                .first()
-                if service_obj.get("name", None)
-                else None,
+                "organization_id": owner_id,
+                "risky_service_group": risky_service_groups.get(service_obj.get("name")),
+                "nmi_service_group": nmi_service_groups.get(service_obj.get("name")),
             }
-            save_port_scan_to_datalake(port_scan_dict)
+
+            batch.append(port_scan_dict)
+
+            # save_port_scan_to_datalake(port_scan_dict)
         except Exception as e:
             print(f"Error processing port scan data: {e}")
             raise IngestionError(
                 SCAN_NAME, str(e), "Failed processing port scans"
             ) from e
 
+    if batch:
+        bulk_insert_port_scans(batch)
+
+def bulk_insert_port_scans(batch_dicts):
+    objs = [PortScan(**data) for data in batch_dicts]
+    PortScan.objects.bulk_create(objs, batch_size=1000, ignore_conflicts=True)
 
 def process_orgs(request_list):
     """Process organization data, save to MDL and return org ID dict for linking."""

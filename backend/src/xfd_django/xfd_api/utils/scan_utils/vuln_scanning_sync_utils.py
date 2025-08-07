@@ -306,25 +306,23 @@ def save_ip_to_datalake(ip_obj):
         ip_obj (dict): A dictionary containing IP record data.
 
     Returns:
-        str or None: The ID of the inserted/updated record.
+        Ip instance or None
     """
     ip_address = ip_obj.get("ip")
-    organization = ip_obj.get("organization")
+    organization_id = ip_obj.get("organization")
 
-    # Determine fields to update
+    # Fields to update except IP and organization_id
     ip_updated_values = [
-        key
-        for key in ip_obj.keys()
-        if key not in ["ip", "organization"] and ip_obj[key] is not None
+        key for key in ip_obj.keys() if key not in ["ip", "organization"] and ip_obj[key] is not None
     ]
+
     try:
-        org_record = Organization.objects.get(id=str(organization["id"]))
         with transaction.atomic(using="mini_data_lake"):
             if ip_updated_values:
                 # Upsert: Insert or update if a conflict occurs
                 ip_record, created = Ip.objects.update_or_create(
                     ip=ip_address,
-                    organization=org_record or None,
+                    organization_id=organization_id,
                     defaults={key: ip_obj[key] for key in ip_updated_values},
                 )
                 return ip_record
@@ -332,19 +330,20 @@ def save_ip_to_datalake(ip_obj):
                 # Insert but ignore if the record already exists
                 obj, created = Ip.objects.get_or_create(
                     ip=ip_address,
-                    organization=org_record or None,
+                    organization_id=organization_id,
                     defaults={
                         "ip": ip_address,
-                        "organization": org_record,
+                        "organization_id": organization_id,
                         "ip_hash": ip_obj["ip_hash"],
                     },
                 )
-                print("Created ip")
+                if created:
+                    print("Created ip")
                 return obj
     except Exception as e:
-        print("Error saving IP to Datalake", e)
-    except IntegrityError:
-        pass
+        print("Error saving IP to Datalake:", e)
+        # optionally re-raise or handle accordingly
+        return None
 
 
 # Helper and utility functions
