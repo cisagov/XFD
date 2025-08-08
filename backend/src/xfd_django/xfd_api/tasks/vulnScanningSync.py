@@ -49,6 +49,7 @@ from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_liv
 from xfd_mini_dl.models import (
     Cidr,
     HostSummary,
+    Ip,
     NMIServiceGroup,
     Organization,
     PortScan,
@@ -133,18 +134,24 @@ def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
         offset += chunk_size
 
 def fetch_in_chunks_keyset(base_query: str, chunk_size: int = 5000):
+    def clean_object_id(oid):
+        """Remove ObjectId('...') wrapper if present."""
+        if isinstance(oid, str) and oid.startswith("ObjectId("):
+            return oid.replace("ObjectId('", "").replace("')", "")
+        return str(oid)
+
     last_id = None
     while True:
         where_clause = ""
         if last_id:
-            where_clause = f" AND _id > '{last_id}'"  # assuming _id is sortable
+            clean_id = clean_object_id(last_id)
+            where_clause = f" AND _id > '{clean_id}'"
         query = f"{base_query} {where_clause} ORDER BY _id LIMIT {chunk_size}"
         chunk = fetch_from_redshift(query)
         if not chunk:
             break
         last_id = chunk[-1]["_id"]
         yield chunk
-
 
 def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
@@ -195,7 +202,7 @@ def main():  # pylint: disable=R0915
         LOGGER.info(
             "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
         )
-        process_port_scans(chunk, org_id_dict, risky_service_groups, nmi_service_groups)
+        bulk_insert_ips_and_link_to_port_scans(chunk, org_id_dict, risky_service_groups, nmi_service_groups)
         total_processed += len(chunk)
         chunk_number += 1
 
@@ -1088,7 +1095,96 @@ def create_vuln_scan_summary(summary_date=None):
             },
         )
 
+def bulk_insert_ips_and_link_to_port_scans(port_scans, org_id_dict, risky_service_groups, nmi_service_groups):
+    """Bulk insert IPs and link them to port scans."""
+    ip_key_to_obj = {}
+    port_scan_batch = []
 
+    # Step 1: Prepare IP insertions and staged port scan records
+    for port_scan in port_scans:
+        try:
+            owner_id = org_id_dict.get(port_scan.get("owner"))
+            if not owner_id:
+                print(f"{port_scan.get('owner')} is not a recognized organization, skipping host")
+                continue
+
+            ip_str = port_scan.get("ip")
+            if ip_str:
+                key = (ip_str, owner_id)
+                if key not in ip_key_to_obj:
+                    ip_key_to_obj[key] = Ip(
+                        ip=ip_str,
+                        organization_id=owner_id,
+                        ip_hash=hash_ip(ip_str),
+                    )
+
+            service_obj = json.loads(port_scan.get("service", "{}"))
+            port_scan_batch.append({
+                "raw": port_scan,
+                "service_obj": service_obj,
+                "owner_id": owner_id,
+            })
+        except Exception as e:
+            print(f"Error staging port scan: {e}")
+            raise IngestionError(SCAN_NAME, str(e), "Failed staging port scans") from e
+
+    # Step 2: Bulk insert IPs, ignoring conflicts (safe due to unique_together constraint)
+    ip_objs = list(ip_key_to_obj.values())
+    if ip_objs:
+        Ip.objects.bulk_create(ip_objs, ignore_conflicts=True, batch_size=1000)
+
+    # Step 3: Fetch all inserted or existing IPs to link them
+    ip_records = Ip.objects.filter(
+        ip__in=[ip.ip for ip in ip_objs],
+        organization_id__in=[ip.organization_id for ip in ip_objs]
+    )
+    ip_map = {(ip.ip, ip.organization_id): ip for ip in ip_records}
+
+    # Step 4: Build and bulk insert PortScan records
+    port_scan_objs = []
+    for item in port_scan_batch:
+        port_scan = item["raw"]
+        service_obj = item["service_obj"]
+        owner_id = item["owner_id"]
+
+        ip_str = port_scan.get("ip")
+        ip_obj = ip_map.get((ip_str, owner_id)) if ip_str else None
+
+        try:
+            port_scan_obj = PortScan(
+                id=port_scan["_id"].replace("ObjectId('", "").replace("')", ""),
+                ip_string=ip_str,
+                ip=ip_obj,
+                latest=port_scan.get("latest"),
+                port=port_scan.get("port"),
+                protocol=port_scan.get("protocol"),
+                reason=port_scan.get("reason"),
+                service=port_scan.get("service"),
+                service_name=service_obj.get("name"),
+                service_confidence=service_obj.get("conf"),
+                service_method=service_obj.get("method"),
+                service_cpe=service_obj.get("cpe", [None])[0],
+                service_hostname=service_obj.get("hostname"),
+                service_extra_info=service_obj.get("extrainfo"),
+                service_os_type=service_obj.get("ostype"),
+                service_product=service_obj.get("product"),
+                service_version=service_obj.get("version"),
+                service_tunnel=service_obj.get("tunnel"),
+                service_device_type=service_obj.get("devicetype"),
+                source=port_scan.get("source"),
+                state=port_scan.get("state"),
+                time_scanned=safe_fromisoformat(port_scan.get("time")),
+                organization_id=owner_id,
+                risky_service_group=risky_service_groups.get(service_obj.get("name")),
+                nmi_service_group=nmi_service_groups.get(service_obj.get("name")),
+            )
+            port_scan_objs.append(port_scan_obj)
+        except Exception as e:
+            print(f"Error building PortScan object: {e}")
+            raise IngestionError(SCAN_NAME, str(e), "Failed building port scans") from e
+
+    if port_scan_objs:
+        PortScan.objects.bulk_create(port_scan_objs, batch_size=1000, ignore_conflicts=True)
 
 def process_port_scans(port_scans, org_id_dict, risky_service_groups, nmi_service_groups):
     """Process and save port scan data."""
