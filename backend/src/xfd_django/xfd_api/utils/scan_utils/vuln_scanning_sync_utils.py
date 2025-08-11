@@ -313,7 +313,9 @@ def save_ip_to_datalake(ip_obj):
 
     # Fields to update except IP and organization_id
     ip_updated_values = [
-        key for key in ip_obj.keys() if key not in ["ip", "organization"] and ip_obj[key] is not None
+        key
+        for key in ip_obj.keys()
+        if key not in ["ip", "organization"] and ip_obj[key] is not None
     ]
 
     try:
