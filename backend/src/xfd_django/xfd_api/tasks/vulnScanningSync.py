@@ -1498,12 +1498,12 @@ def dispatch_port_scan_workers(ecs, num_workers=10, worker_chunk_size=5000):
 
     for i, (start_id, end_id) in enumerate(partitions):
         command_options = {
-            "scanName": "port-scan",
+            "scanName": "process_port_scans",
             "chunk_start_id": start_id,
             "chunk_end_id": end_id,
             "worker_chunk_size": worker_chunk_size,
             "chunk_number": i,
-            "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "90"),
+            "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "2"),
             "SHODAN_API_KEY": os.getenv("SHODAN_API_KEY"),
         }
         response = ecs.run_command(command_options)
@@ -1543,7 +1543,7 @@ def wait_for_tasks_completion(
 def get_id_range():
     """Get id range for a chunk of port scans."""
     result = fetch_from_redshift(
-        f"SELECT MIN(CAST(_id AS bigint)) AS min_id, MAX(CAST(_id AS bigint)) AS max_id FROM vmtableau.port_scans WHERE time >= GETDATE() - INTERVAL '{os.getenv('VS_PULL_DATE_RANGE', '90')} days'"  # nosec B608
+        f"SELECT MIN(CAST(_id AS bigint)) AS min_id, MAX(CAST(_id AS bigint)) AS max_id FROM vmtableau.port_scans WHERE time >= GETDATE() - INTERVAL '{os.getenv('VS_PULL_DATE_RANGE', '2')} days'"  # nosec B608
     )
     if not result or result[0]["min_id"] is None or result[0]["max_id"] is None:
         return None, None

@@ -306,6 +306,14 @@ SCAN_SCHEMA = {
         global_scan=False,
         description="Active port scan of common ports",
     ),
+    "process_port_scans": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="4096",
+        memory="16384",
+        description="Process a chunk of port scan results from redshift.",
+    ),
     "rootDomainSync": ScanSchema(
         type="fargate",
         is_passive=True,

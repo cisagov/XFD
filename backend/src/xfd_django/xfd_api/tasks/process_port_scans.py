@@ -1,6 +1,5 @@
 """Worker that processes port scans from Redshift in parallel."""
 # Standard Python Libraries
-import json
 import logging
 import os
 
@@ -17,18 +16,8 @@ logging.basicConfig(
 )
 
 
-def get_command_options():
-    """Read command options from CROSSFEED_COMMAND_OPTIONS environment variable."""
-    try:
-        return json.loads(os.getenv("CROSSFEED_COMMAND_OPTIONS", "{}"))
-    except json.JSONDecodeError:
-        logging.error("Invalid JSON in CROSSFEED_COMMAND_OPTIONS.")
-        return {}
-
-
-def handler():
+def handler(command):
     """Run worker to gather port scan data from redshift."""
-    command = get_command_options()
     chunk_start_id = command.get("chunk_start_id")
     chunk_end_id = command.get(
         "chunk_end_id"
@@ -60,4 +49,4 @@ def handler():
 
 
 if __name__ == "__main__":
-    handler()
+    handler({})
