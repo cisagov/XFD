@@ -32,7 +32,8 @@ import {
   DialogContentText,
   IconButton,
   Paper,
-  DialogTitle
+  DialogTitle,
+  Snackbar
 } from '@mui/material';
 //Needed for the CustomToolbar:
 // import CustomToolbar from 'components/DataGrid/CustomToolbar';
@@ -72,6 +73,8 @@ const ScansView: React.FC = () => {
   const deleteModalRef = useRef<ModalRef>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [open, setOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
 
   const [values] = useState<ScanFormValues>({
     name: 'censys',
@@ -136,6 +139,8 @@ const ScansView: React.FC = () => {
         }
       });
       setScans(scans.concat(scan));
+      setSnackbarMsg('Scan created successfully!');
+      setSnackbarOpen(true);
     } catch (e: any) {
       setErrors({
         global: e.message ?? e.toString()
@@ -431,6 +436,20 @@ const ScansView: React.FC = () => {
           </ButtonGroup>
         </ModalFooter>
       </Modal>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          {snackbarMsg}
+        </Alert>
+      </Snackbar>
     </>
   );
 };
