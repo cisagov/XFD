@@ -9,11 +9,12 @@ from collections import Counter
 
 # Uncomment the above to run the script standalone
 import datetime
+from datetime import timedelta
+from datetime import timezone as dt_timezone
 from ipaddress import IPv4Network, IPv6Network, ip_network
 import json
 import logging
 import os
-import time
 import traceback
 
 # Third-Party Libraries
@@ -24,7 +25,6 @@ from django.utils import timezone
 import psycopg2
 import requests
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
-from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.utils.chunk import chunk_list_by_bytes
 from xfd_api.utils.csv_utils import create_checksum
@@ -51,10 +51,12 @@ from xfd_mini_dl.models import (
     Cidr,
     HostSummary,
     Ip,
+    NMIServiceGroup,
     Organization,
     PortScan,
     PortScanServiceSummary,
     PortScanSummary,
+    RiskyServiceGroup,
     Sector,
     Ticket,
     Vulnerability,
@@ -121,7 +123,7 @@ def query_redshift(query, params=None):
         conn.close()
 
 
-def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
+def fetch_in_chunks(base_query: str, chunk_size: int = 500000):
     """Yield chunks of rows from Redshift using LIMIT/OFFSET pagination."""
     offset = 0
     while True:
@@ -133,8 +135,8 @@ def fetch_in_chunks(base_query: str, chunk_size: int = 5000):
         offset += chunk_size
 
 
-def fetch_in_chunks_keyset(base_query: str, chunk_size: int = 5000):
-    """Fetch chunks of portscans based on _id."""
+def fetch_in_chunks_keyset(base_query: str, chunk_size: int = 500000):
+    """Fetch in chunks keyset."""
 
     def clean_object_id(oid):
         """Remove ObjectId('...') wrapper if present."""
@@ -156,6 +158,72 @@ def fetch_in_chunks_keyset(base_query: str, chunk_size: int = 5000):
         yield chunk
 
 
+# -------------------- NEW HELPERS (minimal additions) --------------------
+
+CHUNK_SIZE = 500_000
+
+
+def _freeze_window(days_back: int = int(VS_PULL_DATE_RANGE)):
+    """Freeze [start, end) once so GETDATE() doesn't slide while we page."""
+    end_dt = timezone.now().astimezone(dt_timezone.utc)
+    start_dt = end_dt - timedelta(days=days_back)
+    return start_dt, end_dt
+
+
+def _to_utc_naive(dt):
+    """Convert aware -> UTC naive for Redshift TIMESTAMP parameters."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(dt_timezone.utc).replace(tzinfo=None)
+
+
+def fetch_in_chunks_keyset_frozen(
+    table: str, time_col: str, start_dt, end_dt, chunk_size: int = CHUNK_SIZE
+):
+    """
+    Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
+
+    Quotes identifiers so Redshift doesn't parse `time` as a type.
+    """
+    last_time = None
+    last_id = None
+    start_param = _to_utc_naive(start_dt)
+    end_param = _to_utc_naive(end_dt)
+
+    # Quote identifiers
+    q_time = f'"{time_col}"'
+    q_id = '"_id"'
+
+    while True:
+        where = f"WHERE {q_time} >= %s AND {q_time} < %s"
+        params = [start_param, end_param]
+
+        if last_time is not None and last_id is not None:
+            where += f" AND ({q_time} > %s OR ({q_time} = %s AND {q_id} > %s))"
+            params.extend([last_time, last_time, last_id])
+
+        query = f"""
+            SELECT *
+            FROM {table}
+            {where}
+            ORDER BY {q_time}, {q_id}
+            LIMIT {chunk_size}
+        """  # nosec B608
+
+        chunk = query_redshift(query, params=params)
+        if not chunk:
+            break
+
+        last_row = chunk[-1]
+        last_time = last_row[time_col]  # keep dict access unquoted
+        last_id = str(last_row["_id"])
+
+        yield chunk
+
+
+# ------------------------------------------------------------------------
+
+
 def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     LOGGER.info("Started VulnScanningSync scan...")
@@ -166,41 +234,72 @@ def main():  # pylint: disable=R0915
     org_id_dict = process_orgs(request_list)
     LOGGER.info("Completed saving organizations to the LZ MDL.")
 
-    # Process Vulnerability Scans
-    LOGGER.info("Started processing vulnerability scans...")
-    vuln_scans = fetch_from_redshift(
-        f"SELECT * FROM vmtableau.vuln_scans WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days';"  # nosec B608
+    # # Process Vulnerability Scans
+    # LOGGER.info("Started processing vulnerability scans...")
+    # vuln_scans = fetch_from_redshift(
+    #     f"SELECT * FROM vmtableau.vuln_scans WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days';"  # nosec B608
+    # )
+    # LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
+    # if vuln_scans:
+    #     process_vulnerability_scans(vuln_scans, org_id_dict)
+    #     LOGGER.info("Finished processing vulnerability scans")
+
+    # # Process Host Scans
+    # LOGGER.info("Started processing host scans...")
+    # create_daily_host_summary(org_id_dict)
+
+    # Port Scans (Chunked)
+    LOGGER.info("Started processing port scans...")
+    base_query = (
+        "SELECT * FROM vmtableau.port_scans "
+        f"WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
     )
-    LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
-    if vuln_scans:
-        process_vulnerability_scans(vuln_scans, org_id_dict)
-        LOGGER.info("Finished processing vulnerability scans")
 
-    # Process Host Scans
-    LOGGER.info("Started processing host scans...")
-    create_daily_host_summary(org_id_dict)
+    total_processed = 0
+    chunk_number = 1
+    # Prefetch risky service groups
+    risky_service_groups = {
+        rsg.service_name: rsg.group for rsg in RiskyServiceGroup.objects.all()
+    }
 
-    LOGGER.info("Dispatching port scan workers...")
-    num_workers = int(os.getenv("PORT_SCAN_NUM_WORKERS", 10))  # configurable via env
-    worker_chunk_size = int(os.getenv("PORT_SCAN_WORKER_CHUNK_SIZE", 5000))
+    # Prefetch NMI service groups
+    nmi_service_groups = {
+        nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
+    }
 
-    ecs = ECSClient()
-    task_arns = dispatch_port_scan_workers(ecs, num_workers, worker_chunk_size)
+    # ---- CHANGED: use fixed window + deterministic keyset on (time, _id)
+    ps_start_dt, ps_end_dt = _freeze_window(int(VS_PULL_DATE_RANGE))
+    LOGGER.info("Frozen port-scan window: [%s .. %s)", ps_start_dt, ps_end_dt)
 
-    if task_arns:
-        LOGGER.info("Waiting for all port scan workers to complete...")
-        wait_for_tasks_completion(ecs, task_arns)
-        LOGGER.info("All port scan workers have completed.")
-    else:
-        LOGGER.warning("No port scan workers were launched.")
-
-    LOGGER.info("Setting port scans latest flag")
-    try:
-        enforce_latest_flag_port_scan()
-    except Exception as e:
-        LOGGER.error(
-            "Failed to enforce latest flag on port scans: %s", e, exc_info=True
+    for chunk in fetch_in_chunks_keyset_frozen(
+        table="vmtableau.port_scans",
+        time_col="time",
+        start_dt=ps_start_dt,
+        end_dt=ps_end_dt,
+        chunk_size=CHUNK_SIZE,
+    ):
+        LOGGER.info(
+            "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
         )
+        bulk_insert_ips_and_link_to_port_scans(
+            chunk, org_id_dict, risky_service_groups, nmi_service_groups
+        )
+        total_processed += len(chunk)
+        chunk_number += 1
+
+    if total_processed == 0:
+        LOGGER.warning(
+            f"No port scans found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+        )
+    else:
+        LOGGER.info(
+            "Processed %d total port scans across %d chunks",
+            total_processed,
+            chunk_number - 1,
+        )
+        # Set latest flag
+        LOGGER.info("Setting port scans latest flag")
+        enforce_latest_flag_port_scan()
 
     # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
@@ -1081,15 +1180,16 @@ def create_vuln_scan_summary(summary_date=None):
 def bulk_insert_ips_and_link_to_port_scans(
     port_scans, org_id_dict, risky_service_groups, nmi_service_groups
 ):
-    """Bulk insert ips and port scans pulled from redshift."""
+    """Bulk insert IPs and link them to port scans."""
     ip_key_to_obj = {}
     port_scan_batch = []
 
+    # Step 1: Prepare IP insertions and staged port scan records
     for port_scan in port_scans:
         try:
             owner_id = org_id_dict.get(port_scan.get("owner"))
             if not owner_id:
-                LOGGER.warning(
+                print(
                     f"{port_scan.get('owner')} is not a recognized organization, skipping host"
                 )
                 continue
@@ -1113,21 +1213,22 @@ def bulk_insert_ips_and_link_to_port_scans(
                 }
             )
         except Exception as e:
-            LOGGER.error(f"Error staging port scan: {e}", exc_info=True)
+            print(f"Error staging port scan: {e}")
             raise IngestionError(SCAN_NAME, str(e), "Failed staging port scans") from e
 
+    # Step 2: Bulk insert IPs, ignoring conflicts (safe due to unique_together constraint)
     ip_objs = list(ip_key_to_obj.values())
     if ip_objs:
         Ip.objects.bulk_create(ip_objs, ignore_conflicts=True, batch_size=1000)
 
-    # Build query to fetch IPs by exact (ip, organization_id) pairs
-
-    q = Q()
-    for ip_obj in ip_objs:
-        q |= Q(ip=ip_obj.ip, organization_id=ip_obj.organization_id)
-    ip_records = Ip.objects.filter(q)
+    # Step 3: Fetch all inserted or existing IPs to link them
+    ip_records = Ip.objects.filter(
+        ip__in=[ip.ip for ip in ip_objs],
+        organization_id__in=[ip.organization_id for ip in ip_objs],
+    )
     ip_map = {(ip.ip, ip.organization_id): ip for ip in ip_records}
 
+    # Step 4: Build and bulk insert PortScan records
     port_scan_objs = []
     for item in port_scan_batch:
         port_scan = item["raw"]
@@ -1167,81 +1268,89 @@ def bulk_insert_ips_and_link_to_port_scans(
             )
             port_scan_objs.append(port_scan_obj)
         except Exception as e:
-            LOGGER.error(f"Error building PortScan object: {e}", exc_info=True)
+            print(f"Error building PortScan object: {e}")
             raise IngestionError(SCAN_NAME, str(e), "Failed building port scans") from e
 
     if port_scan_objs:
+        LOGGER.info("Bulk creating port scans")
         PortScan.objects.bulk_create(
             port_scan_objs, batch_size=1000, ignore_conflicts=True
         )
 
 
-# def process_port_scans(port_scans, org_id_dict, risky_service_groups, nmi_service_groups):
-#     """Process and save port scan data."""
-#     batch = []
-#     for port_scan in port_scans:
-#         try:
-#             owner_id = org_id_dict.get(port_scan.get("owner"))
-#             if not owner_id:
-#                 print(
-#                     f"{port_scan.get('Owner')} is not a recognized organization, skipping host"
-#                 )
-#                 continue
+def process_port_scans(
+    port_scans, org_id_dict, risky_service_groups, nmi_service_groups
+):
+    """Process and save port scan data."""
+    batch = []
+    for port_scan in port_scans:
+        try:
+            owner_id = org_id_dict.get(port_scan.get("owner"))
+            if not owner_id:
+                print(
+                    f"{port_scan.get('Owner')} is not a recognized organization, skipping host"
+                )
+                continue
 
-#             ip = (
-#                 save_ip_to_datalake(
-#                     {
-#                         "ip": port_scan.get("ip"),
-#                         "ip_hash": hash_ip(port_scan.get("ip")),
-#                         "organization": owner_id,
-#                     }
-#                 )
-#                 if port_scan.get("ip")
-#                 else None
-#             )
-#             service_obj = json.loads(port_scan.get("service", "{}"))
-#             port_scan_dict = {
-#                 "id": port_scan["_id"].replace("ObjectId('", "").replace("')", ""),
-#                 "ip_string": port_scan.get("ip"),
-#                 "ip": ip,
-#                 "latest": port_scan.get("latest"),
-#                 "port": port_scan.get("port"),
-#                 "protocol": port_scan.get("protocol"),
-#                 "reason": port_scan.get("reason"),
-#                 "service": port_scan.get("service"),
-#                 "service_name": service_obj.get("name", None),
-#                 "service_confidence": service_obj.get("conf", None),
-#                 "service_method": service_obj.get("method", None),
-#                 "service_cpe": service_obj.get("cpe", [None])[0],
-#                 "service_hostname": service_obj.get("hostname", None),
-#                 "service_extra_info": service_obj.get("extrainfo", None),
-#                 "service_os_type": service_obj.get("ostype", None),
-#                 "service_product": service_obj.get("product", None),
-#                 "service_version": service_obj.get("version", None),
-#                 "service_tunnel": service_obj.get("tunnel", None),
-#                 "service_device_type": service_obj.get("devicetype", None),
-#                 "source": port_scan.get("source"),
-#                 "state": port_scan.get("state"),
-#                 "time_scanned": safe_fromisoformat(port_scan.get("time")),
-#                 "organization_id": owner_id,
-#                 "risky_service_group": risky_service_groups.get(service_obj.get("name")),
-#                 "nmi_service_group": nmi_service_groups.get(service_obj.get("name")),
-#             }
+            ip = (
+                save_ip_to_datalake(
+                    {
+                        "ip": port_scan.get("ip"),
+                        "ip_hash": hash_ip(port_scan.get("ip")),
+                        "organization": owner_id,
+                    }
+                )
+                if port_scan.get("ip")
+                else None
+            )
+            service_obj = json.loads(port_scan.get("service", "{}"))
+            port_scan_dict = {
+                "id": port_scan["_id"].replace("ObjectId('", "").replace("')", ""),
+                "ip_string": port_scan.get("ip"),
+                "ip": ip,
+                "latest": port_scan.get("latest"),
+                "port": port_scan.get("port"),
+                "protocol": port_scan.get("protocol"),
+                "reason": port_scan.get("reason"),
+                "service": port_scan.get("service"),
+                "service_name": service_obj.get("name", None),
+                "service_confidence": service_obj.get("conf", None),
+                "service_method": service_obj.get("method", None),
+                "service_cpe": service_obj.get("cpe", [None])[0],
+                "service_hostname": service_obj.get("hostname", None),
+                "service_extra_info": service_obj.get("extrainfo", None),
+                "service_os_type": service_obj.get("ostype", None),
+                "service_product": service_obj.get("product", None),
+                "service_version": service_obj.get("version", None),
+                "service_tunnel": service_obj.get("tunnel", None),
+                "service_device_type": service_obj.get("devicetype", None),
+                "source": port_scan.get("source"),
+                "state": port_scan.get("state"),
+                "time_scanned": safe_fromisoformat(port_scan.get("time")),
+                "organization_id": owner_id,
+                "risky_service_group": risky_service_groups.get(
+                    service_obj.get("name")
+                ),
+                "nmi_service_group": nmi_service_groups.get(service_obj.get("name")),
+            }
 
-#             batch.append(port_scan_dict)
+            batch.append(port_scan_dict)
 
-#         except Exception as e:
-#             LOGGER.error(f"Error processing port scan {_id}: {e}", exc_info=True)
-#             continue
+            # save_port_scan_to_datalake(port_scan_dict)
+        except Exception as e:
+            print(f"Error processing port scan data: {e}")
+            raise IngestionError(
+                SCAN_NAME, str(e), "Failed processing port scans"
+            ) from e
 
-#     if batch:
-#         bulk_insert_port_scans(batch)
+    if batch:
+        bulk_insert_port_scans(batch)
 
 
-# def bulk_insert_port_scans(batch_dicts):
-#     """Bulk Insert Port scans into """
-#     objs = [PortScan(**data) for data in batch_dicts]
-#     PortScan.objects.bulk_create(objs, batch_size=1000, ignore_conflicts=True)
+def bulk_insert_port_scans(batch_dicts):
+    """Bulk insert port scans."""
+    objs = [PortScan(**data) for data in batch_dicts]
+    PortScan.objects.bulk_create(objs, batch_size=1000, ignore_conflicts=True)
 
 
 def process_orgs(request_list):
@@ -1447,6 +1556,8 @@ def parse_int(value):
 
 def process_organization(request, network_list, location_dict, org_id_dict):
     """Save organization data and update org_id_dict."""
+    ip_blocks: list[str] = [net["network"] for net in network_list]
+
     org_data = {
         "name": request.get("agency", {}).get("name"),
         "acronym": request.get("_id"),
@@ -1473,6 +1584,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         "period_start_vs_timestamp": request.get("period_start"),
         "report_types": json.dumps(request.get("report_types", [])),
         "scan_types": json.dumps(request.get("scan_types", [])),
+        "ip_blocks": ip_blocks,
         "is_passive": False,
     }
     try:
@@ -1483,84 +1595,6 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         raise IngestionError(
             SCAN_NAME, str(e), "Failed processing organizations"
         ) from e
-
-
-def dispatch_port_scan_workers(ecs, num_workers=10, worker_chunk_size=5000):
-    """Launch multiple Fargate workers to process port scans in parallel."""
-    task_arns = []
-
-    min_id, max_id = get_id_range()
-    if not min_id or not max_id:
-        LOGGER.warning("No port scans found for the given date range.")
-        return task_arns
-
-    partitions = generate_partitions(min_id, max_id, num_workers)
-
-    for i, (start_id, end_id) in enumerate(partitions):
-        command_options = {
-            "scanName": "process_port_scans",
-            "chunk_start_id": start_id,
-            "chunk_end_id": end_id,
-            "worker_chunk_size": worker_chunk_size,
-            "chunk_number": i,
-            "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "2"),
-            "SHODAN_API_KEY": os.getenv("SHODAN_API_KEY"),
-        }
-        response = ecs.run_command(command_options)
-        tasks = response.get("tasks", [])
-        for task in tasks:
-            task_arns.append(task.get("taskArn"))
-
-        LOGGER.info(f"Launched worker #{i} with ID range: {start_id} - {end_id}")
-
-    return task_arns
-
-
-def wait_for_tasks_completion(
-    ecs_client, task_arns, poll_interval=30, timeout=60 * 60 * 24
-):
-    """Poll ECS tasks until all are stopped or timeout reached."""
-    start_time = time.time()
-    remaining_tasks = set(task_arns)
-
-    while remaining_tasks:
-        if time.time() - start_time > timeout:
-            LOGGER.error("Timeout waiting for ECS tasks to complete.")
-            break
-
-        response = ecs_client.ecs.describe_tasks(
-            cluster=os.getenv("FARGATE_CLUSTER_NAME"),
-            tasks=list(remaining_tasks),
-        )
-        for task in response.get("tasks", []):
-            if task["lastStatus"] == "STOPPED":
-                remaining_tasks.discard(task["taskArn"])
-
-        LOGGER.info("Waiting for %d tasks to finish...", len(remaining_tasks))
-        time.sleep(poll_interval)
-
-
-def get_id_range():
-    """Get id range for a chunk of port scans."""
-    result = fetch_from_redshift(
-        f"SELECT MIN(CAST(_id AS bigint)) AS min_id, MAX(CAST(_id AS bigint)) AS max_id FROM vmtableau.port_scans WHERE time >= GETDATE() - INTERVAL '{os.getenv('VS_PULL_DATE_RANGE', '2')} days'"  # nosec B608
-    )
-    if not result or result[0]["min_id"] is None or result[0]["max_id"] is None:
-        return None, None
-    return str(result[0]["min_id"]), str(result[0]["max_id"])
-
-
-def generate_partitions(min_id, max_id, num_partitions):
-    """Generate partitions for redshift pull."""
-    min_id = int(min_id)
-    max_id = int(max_id)
-    step = (max_id - min_id) // num_partitions
-    partitions = []
-    for i in range(num_partitions):
-        start = min_id + i * step
-        end = min_id + (i + 1) * step if i < num_partitions - 1 else max_id
-        partitions.append((str(start), str(end)))
-    return partitions
 
 
 if __name__ == "__main__":

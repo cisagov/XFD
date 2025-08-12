@@ -418,8 +418,16 @@ def organization_to_dict(org):
         "country_name": org.country_name,
         "region_id": org.region_id,
         "stakeholder": org.stakeholder,
-        "enrolled_in_vs_timestamp": org.enrolled_in_vs_timestamp.isoformat(),
-        "period_start_vs_timestamp": org.period_start_vs_timestamp.isoformat(),
+        "enrolled_in_vs_timestamp": (
+            org.enrolled_in_vs_timestamp.isoformat()
+            if org.enrolled_in_vs_timestamp
+            else None
+        ),
+        "period_start_vs_timestamp": (
+            org.period_start_vs_timestamp.isoformat()
+            if org.period_start_vs_timestamp
+            else None
+        ),
         "report_types": org.report_types,
         "scan_types": org.scan_types,
         "location": {
@@ -525,6 +533,7 @@ def save_organization_to_mdl(
         organization_obj.state_fips = org_dict["state_fips"]
         organization_obj.country = org_dict["country"]
         organization_obj.country_name = org_dict["country_name"]
+        organization_obj.ip_blocks = org_dict["ip_blocks"]
         organization_obj.save()
         org_obj = organization_obj
     except Organization.DoesNotExist:
@@ -547,6 +556,7 @@ def save_organization_to_mdl(
             period_start_vs_timestamp=org_dict["period_start_vs_timestamp"],
             report_types=org_dict["report_types"],
             scan_types=org_dict["scan_types"],
+            ip_blocks=org_dict["ip_blocks"],
             location=location_obj,
             is_passive=False,
         )
