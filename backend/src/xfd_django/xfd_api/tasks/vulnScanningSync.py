@@ -19,6 +19,7 @@ import traceback
 
 # Third-Party Libraries
 from dateutil import parser  # type: ignore
+from django.db import connections, transaction
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
 from django.db.models.functions import Power
 from django.utils import timezone
@@ -35,8 +36,7 @@ from xfd_api.utils.scan_utils.alerting import (
     ScanExecutionError,
     SyncError,
 )
-from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_live_ips,
-    enforce_latest_flag_port_scan,
+from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_live_ips,; enforce_latest_flag_port_scan,
     fetch_orgs_and_relations,
     fill_cidr_live_ips_bulk_update,
     get_latest_os_type,
@@ -298,8 +298,8 @@ def main():  # pylint: disable=R0915
             chunk_number - 1,
         )
         # Set latest flag
-        LOGGER.info("Setting port scans latest flag")
-        enforce_latest_flag_port_scan()
+        # LOGGER.info("Setting port scans latest flag")
+        # enforce_latest_flag_port_scan()
 
     # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
@@ -1180,9 +1180,10 @@ def create_vuln_scan_summary(summary_date=None):
 def bulk_insert_ips_and_link_to_port_scans(
     port_scans, org_id_dict, risky_service_groups, nmi_service_groups
 ):
-    """Bulk insert IPs and link them to port scans."""
+    """Bulk insert IPs and link them to port scans, then update 'latest' flags efficiently."""
     ip_key_to_obj = {}
     port_scan_batch = []
+    affected_keys = set()  # Collect affected keys for latest flag update
 
     # Step 1: Prepare IP insertions and staged port scan records
     for port_scan in port_scans:
@@ -1195,6 +1196,8 @@ def bulk_insert_ips_and_link_to_port_scans(
                 continue
 
             ip_str = port_scan.get("ip")
+            port_num = port_scan.get("port")
+
             if ip_str:
                 key = (ip_str, owner_id)
                 if key not in ip_key_to_obj:
@@ -1203,6 +1206,9 @@ def bulk_insert_ips_and_link_to_port_scans(
                         organization_id=owner_id,
                         ip_hash=hash_ip(ip_str),
                     )
+
+            if ip_str and port_num is not None and owner_id:
+                affected_keys.add((owner_id, ip_str, port_num))
 
             service_obj = json.loads(port_scan.get("service", "{}"))
             port_scan_batch.append(
@@ -1243,7 +1249,7 @@ def bulk_insert_ips_and_link_to_port_scans(
                 id=port_scan["_id"].replace("ObjectId('", "").replace("')", ""),
                 ip_string=ip_str,
                 ip=ip_obj,
-                latest=port_scan.get("latest"),
+                latest=False,
                 port=port_scan.get("port"),
                 protocol=port_scan.get("protocol"),
                 reason=port_scan.get("reason"),
@@ -1276,6 +1282,61 @@ def bulk_insert_ips_and_link_to_port_scans(
         PortScan.objects.bulk_create(
             port_scan_objs, batch_size=1000, ignore_conflicts=True
         )
+
+    # Step 5: Update 'latest' flag only for affected keys
+    if affected_keys:
+        update_latest_flag_for_keys(affected_keys)
+
+
+def update_latest_flag_for_keys(affected_keys):
+    """
+    Efficiently update the 'latest' flag for the given set of (org_id, ip_string, port) tuples.
+
+    This marks only the most recent PortScan per (organization_id, ip_string, port) as latest=True
+    and sets others to False, but only for the affected keys to limit the workload.
+    """
+    db = "mini_data_lake"
+    logger = LOGGER
+
+    keys_list = list(affected_keys)
+    batch_size = 50000  # tune this for your environment
+
+    def chunked(lst, n):
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
+    try:
+        with transaction.atomic(using=db):
+            with connections[db].cursor() as cursor:
+                for chunk in chunked(keys_list, batch_size):
+                    # Prepare params and placeholders
+                    params = []
+                    placeholders = []
+                    for org_id, ip, port in chunk:
+                        params.extend([org_id, ip, port])
+                        placeholders.append("(%s, %s, %s)")
+                    values_sql = ", ".join(placeholders)
+
+                    sql = f"""
+                    WITH latest_per_key AS (
+                        SELECT DISTINCT ON (organization_id, ip_string, port)
+                            id
+                        FROM port_scan
+                        WHERE (organization_id, ip_string, port) IN (VALUES {values_sql})
+                        ORDER BY organization_id, ip_string, port, time_scanned DESC
+                    )
+                    UPDATE port_scan ps
+                    SET latest = CASE WHEN ps.id = latest_per_key.id THEN TRUE ELSE FALSE END
+                    FROM latest_per_key
+                    WHERE ps.id = latest_per_key.id
+                       OR (ps.organization_id, ps.ip_string, ps.port) IN (VALUES {values_sql});
+                    """  # nosec B608
+
+                    # Params repeated twice for both IN clauses
+                    cursor.execute(sql, params * 2)
+        logger.info(f"Updated latest flags for {len(keys_list)} port scan keys.")
+    except Exception as e:
+        logger.error(f"Failed to update latest flags: {e}", exc_info=True)
 
 
 def process_port_scans(
