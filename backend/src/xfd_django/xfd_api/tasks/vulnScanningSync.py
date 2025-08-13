@@ -221,6 +221,51 @@ def fetch_in_chunks_keyset_frozen(
 
         yield chunk
 
+def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
+    """
+    Fetch tickets in frozen keyset chunks ordered by (updated_timestamp, id).
+    Only retrieves tickets where updated_timestamp is between start_dt and end_dt.
+
+    Yields lists of ticket rows (each up to chunk_size).
+    """
+    # Freeze the window
+    start_param = _to_utc_naive(start_dt)
+    end_param = _to_utc_naive(end_dt)
+
+    last_updated = None
+    last_id = None
+
+    while True:
+        where_clauses = [
+            "updated_timestamp >= %s",
+            "updated_timestamp < %s"
+        ]
+        params = [start_param, end_param]
+
+        # Keyset pagination
+        if last_updated is not None and last_id is not None:
+            where_clauses.append(
+                "(updated_timestamp > %s OR (updated_timestamp = %s AND id > %s))"
+            )
+            params.extend([last_updated, last_updated, last_id])
+
+        query = f"""
+            SELECT *
+            FROM ticket
+            WHERE {" AND ".join(where_clauses)}
+            ORDER BY updated_timestamp, id
+            LIMIT {chunk_size}
+        """
+
+        rows = query_redshift(query, params=params)
+        if not rows:
+            break
+
+        yield rows
+
+        last_updated = rows[-1]["updated_timestamp"]
+        last_id = rows[-1]["id"]
+
 
 # ------------------------------------------------------------------------
 
@@ -301,10 +346,7 @@ def main():  # pylint: disable=R0915
             total_processed,
             chunk_number - 1,
         )
-        # Set latest flag
-        # LOGGER.info("Setting port scans latest flag")
-        # enforce_latest_flag_port_scan()
-
+    
     # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
 
@@ -312,17 +354,16 @@ def main():  # pylint: disable=R0915
     send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
-    LOGGER.info("Started processing tickets...")
-    base_query = (
-        "SELECT * FROM vmtableau.tickets "
-        f"WHERE last_change >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
-    )
+    LOGGER.info("Starting ticket processing...")
 
     total_processed = 0
     chunk_number = 1
-    for chunk in fetch_in_chunks_keyset(base_query):
+
+    for chunk in fetch_ticket_chunks_frozen(ps_start_dt, ps_end_dt):
         LOGGER.info(
-            "Processing ticket chunk #%d with %d rows", chunk_number, len(chunk)
+            "Processing ticket chunk #%d with %d rows",
+            chunk_number,
+            len(chunk),
         )
         process_tickets(chunk, org_id_dict)
         total_processed += len(chunk)
@@ -330,7 +371,8 @@ def main():  # pylint: disable=R0915
 
     if total_processed == 0:
         LOGGER.warning(
-            f"No tickets found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+            "No tickets found in Redshift for the last %d days.",
+            VS_PULL_DATE_RANGE,
         )
     else:
         LOGGER.info(
@@ -338,7 +380,8 @@ def main():  # pylint: disable=R0915
             total_processed,
             chunk_number - 1,
         )
-        LOGGER.info("Finished processing tickets")
+    LOGGER.info("Finished ticket processing.")
+
 
     # 🔁 REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES
     LOGGER.info("Refreshing materialized views before creating summaries...")
@@ -1309,7 +1352,6 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
             with connections[db].cursor() as cursor:
                 batch_num = 1
                 for batch in chunked(list(affected_keys), batch_size):
-                    print(f"Adding update latest flag batch #{batch_num}")
                     params = []
                     placeholders = []
                     for org_id, ip, port in batch:
