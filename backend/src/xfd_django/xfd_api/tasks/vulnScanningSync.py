@@ -1290,51 +1290,55 @@ def bulk_insert_ips_and_link_to_port_scans(
 
 def update_latest_flag_for_keys(affected_keys):
     """
-    Efficiently update the 'latest' flag for the given set of (org_id, ip_string, port) tuples.
+    Mark only the most recent PortScan per (organization_id, ip_string, port) as latest=True.
 
-    This marks only the most recent PortScan per (organization_id, ip_string, port) as latest=True
-    and sets others to False, but only for the affected keys to limit the workload.
+    Set all others to False, for the given affected keys.
+
+    This is done in one pass with a window function for efficiency.
     """
     db = "mini_data_lake"
     logger = LOGGER
 
-    keys_list = list(affected_keys)
-    batch_size = 50000  # tune this for your environment
-
-    def chunked(lst, n):
-        for i in range(0, len(lst), n):
-            yield lst[i : i + n]
+    if not affected_keys:
+        return
 
     try:
+        # Prepare the temp values list for affected keys
+        params = []
+        placeholders = []
+        for org_id, ip, port in affected_keys:
+            params.extend([org_id, ip, port])
+            placeholders.append("(%s, %s, %s)")
+        values_sql = ", ".join(placeholders)
+
+        sql = f"""
+        WITH ranked AS (
+            SELECT
+                ps.id,
+                ROW_NUMBER() OVER (
+                    PARTITION BY ps.organization_id, ps.ip_string, ps.port
+                    ORDER BY ps.time_scanned DESC
+                ) AS rn
+            FROM port_scan ps
+            JOIN (
+                VALUES {values_sql}
+            ) AS keys(org_id, ip_string, port)
+            ON ps.organization_id = keys.org_id
+            AND ps.ip_string = keys.ip_string
+            AND ps.port = keys.port
+        )
+        UPDATE port_scan
+        SET latest = (ranked.rn = 1)
+        FROM ranked
+        WHERE port_scan.id = ranked.id;
+        """  # nosec B608
+
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
-                for chunk in chunked(keys_list, batch_size):
-                    # Prepare params and placeholders
-                    params = []
-                    placeholders = []
-                    for org_id, ip, port in chunk:
-                        params.extend([org_id, ip, port])
-                        placeholders.append("(%s, %s, %s)")
-                    values_sql = ", ".join(placeholders)
+                cursor.execute(sql, params)
 
-                    sql = f"""
-                    WITH latest_per_key AS (
-                        SELECT DISTINCT ON (organization_id, ip_string, port)
-                            id
-                        FROM port_scan
-                        WHERE (organization_id, ip_string, port) IN (VALUES {values_sql})
-                        ORDER BY organization_id, ip_string, port, time_scanned DESC
-                    )
-                    UPDATE port_scan ps
-                    SET latest = CASE WHEN ps.id = latest_per_key.id THEN TRUE ELSE FALSE END
-                    FROM latest_per_key
-                    WHERE ps.id = latest_per_key.id
-                       OR (ps.organization_id, ps.ip_string, ps.port) IN (VALUES {values_sql});
-                    """  # nosec B608
+        logger.info(f"Updated latest flags for {len(affected_keys)} keys in one pass.")
 
-                    # Params repeated twice for both IN clauses
-                    cursor.execute(sql, params * 2)
-        logger.info(f"Updated latest flags for {len(keys_list)} port scan keys.")
     except Exception as e:
         logger.error(f"Failed to update latest flags: {e}", exc_info=True)
 

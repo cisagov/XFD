@@ -3000,6 +3000,15 @@ class PortScan(AutoLengthCheckModel):
                 fields=["organization", "ip_string", "port", "-time_scanned"],
                 name="portscan_latest_lookup_idx",
             ),
+            models.Index(
+                fields=["organization", "ip_string", "port", "latest"],
+                name="portscan_latest_idx",
+            ),
+            models.Index(
+                fields=["organization", "ip_string", "port", "time_scanned"],
+                name="portscan_latest_true_idx",
+                condition=models.Q(latest=True),
+            ),
         ]
         db_table = "port_scan"
 
