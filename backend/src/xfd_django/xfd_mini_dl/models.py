@@ -2787,6 +2787,14 @@ class Ticket(models.Model):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            # 1. Ensure fast lookup by ticket id for upserts
+            models.Index(fields=["id"], name="tickets_id_idx"),
+            # 2. Optional: fast filtering on IP (if you query per IP)
+            models.Index(fields=["ip_string"], name="tickets_ip_idx"),
+            # 3. Optional: cover “open” tickets if you often filter by is_open
+            models.Index(fields=["is_open"], name="tickets_is_open_idx"),
+        ]
         db_table = "ticket"
         unique_together = ["id"]
 

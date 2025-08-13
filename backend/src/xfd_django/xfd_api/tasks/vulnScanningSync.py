@@ -164,9 +164,12 @@ def fetch_in_chunks_keyset(base_query: str, chunk_size: int = 500000):
 CHUNK_SIZE = 500_000
 
 
-def _freeze_window(days_back: int = int(VS_PULL_DATE_RANGE)):
-    """Freeze [start, end) once so GETDATE() doesn't slide while we page."""
-    end_dt = timezone.now().astimezone(dt_timezone.utc)
+def _freeze_window(days_back: int = 2):
+    """Freeze [start, end) from two days ago at midnight to last night at midnight UTC."""
+    now = timezone.now().astimezone(dt_timezone.utc)
+    # Last night midnight UTC
+    end_dt = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    # Start date = midnight 'days_back' days before end_dt
     start_dt = end_dt - timedelta(days=days_back)
     return start_dt, end_dt
 
@@ -221,9 +224,11 @@ def fetch_in_chunks_keyset_frozen(
 
         yield chunk
 
+
 def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
     """
     Fetch tickets in frozen keyset chunks ordered by (updated_timestamp, id).
+
     Only retrieves tickets where updated_timestamp is between start_dt and end_dt.
 
     Yields lists of ticket rows (each up to chunk_size).
@@ -236,10 +241,7 @@ def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
     last_id = None
 
     while True:
-        where_clauses = [
-            "updated_timestamp >= %s",
-            "updated_timestamp < %s"
-        ]
+        where_clauses = ["updated_timestamp >= %s", "updated_timestamp < %s"]
         params = [start_param, end_param]
 
         # Keyset pagination
@@ -255,7 +257,7 @@ def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
             WHERE {" AND ".join(where_clauses)}
             ORDER BY updated_timestamp, id
             LIMIT {chunk_size}
-        """
+        """  # nosec B608
 
         rows = query_redshift(query, params=params)
         if not rows:
@@ -277,32 +279,38 @@ def main():  # pylint: disable=R0915
     LOGGER.info("Running syncdb")
     synchronize(target_app_label="xfd_mini_dl")
 
+    # ---- CHANGED: use fixed window + deterministic keyset on (time, _id)
+    ps_start_dt, ps_end_dt = _freeze_window(int(VS_PULL_DATE_RANGE))
+    LOGGER.info("Frozen port-scan window: [%s .. %s)", ps_start_dt, ps_end_dt)
+
     # Load request data
     request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
     LOGGER.info("Fetched %d requests from Redshift", len(request_list))
     org_id_dict = process_orgs(request_list)
     LOGGER.info("Completed saving organizations to the LZ MDL.")
 
-    # # Process Vulnerability Scans
-    # LOGGER.info("Started processing vulnerability scans...")
-    # vuln_scans = fetch_from_redshift(
-    #     f"SELECT * FROM vmtableau.vuln_scans WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days';"  # nosec B608
-    # )
-    # LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
-    # if vuln_scans:
-    #     process_vulnerability_scans(vuln_scans, org_id_dict)
-    #     LOGGER.info("Finished processing vulnerability scans")
+    # Process Vulnerability Scans
+    LOGGER.info("Started processing vulnerability scans...")
+    # Query with frozen window
+    vuln_scans = fetch_from_redshift(
+        f"""
+        SELECT *
+        FROM vmtableau.vuln_scans
+        WHERE time >= '{ps_start_dt.strftime('%Y-%m-%d %H:%M:%S')}'
+        AND time < '{ps_end_dt.strftime('%Y-%m-%d %H:%M:%S')}'
+        """  # nosec B608
+    )
+    LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
+    if vuln_scans:
+        process_vulnerability_scans(vuln_scans, org_id_dict)
+        LOGGER.info("Finished processing vulnerability scans")
 
-    # # Process Host Scans
-    # LOGGER.info("Started processing host scans...")
-    # create_daily_host_summary(org_id_dict)
+    # Process Host Scans
+    LOGGER.info("Started processing host scans...")
+    create_daily_host_summary(org_id_dict)
 
     # Port Scans (Chunked)
     LOGGER.info("Started processing port scans...")
-    base_query = (
-        "SELECT * FROM vmtableau.port_scans "
-        f"WHERE time >= GETDATE() - INTERVAL '{VS_PULL_DATE_RANGE} days'"  # nosec B608
-    )
 
     total_processed = 0
     chunk_number = 1
@@ -315,10 +323,6 @@ def main():  # pylint: disable=R0915
     nmi_service_groups = {
         nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
     }
-
-    # ---- CHANGED: use fixed window + deterministic keyset on (time, _id)
-    ps_start_dt, ps_end_dt = _freeze_window(int(VS_PULL_DATE_RANGE))
-    LOGGER.info("Frozen port-scan window: [%s .. %s)", ps_start_dt, ps_end_dt)
 
     for chunk in fetch_in_chunks_keyset_frozen(
         table="vmtableau.port_scans",
@@ -346,7 +350,7 @@ def main():  # pylint: disable=R0915
             total_processed,
             chunk_number - 1,
         )
-    
+
     # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
 
@@ -381,7 +385,6 @@ def main():  # pylint: disable=R0915
             chunk_number - 1,
         )
     LOGGER.info("Finished ticket processing.")
-
 
     # 🔁 REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES
     LOGGER.info("Refreshing materialized views before creating summaries...")
