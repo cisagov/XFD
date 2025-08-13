@@ -27,6 +27,7 @@ import psycopg2
 import requests
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
+from xfd_api.tasks.syncdb_task import synchronize
 from xfd_api.utils.chunk import chunk_list_by_bytes
 from xfd_api.utils.csv_utils import create_checksum
 from xfd_api.utils.hash import hash_ip
@@ -227,6 +228,9 @@ def fetch_in_chunks_keyset_frozen(
 def main():  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     LOGGER.info("Started VulnScanningSync scan...")
+
+    LOGGER.info("Running syncdb")
+    synchronize(target_app_label="xfd_mini_dl")
 
     # Load request data
     request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
@@ -551,7 +555,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
         "cvss_temporal_score": vuln.get("cvss_temporal_score", None),
         "cvss_temporal_vector": vuln.get("cvss_temporal_vector", None),
         "cvss_vector": vuln.get("cvss_vector", None),
-        "description": vuln.get("description", None)[:255],
+        "description": vuln.get("description", None),
         "exploit_available": vuln.get("exploit_available", None),
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
@@ -1280,64 +1284,67 @@ def bulk_insert_ips_and_link_to_port_scans(
     if port_scan_objs:
         LOGGER.info("Bulk creating port scans")
         PortScan.objects.bulk_create(
-            port_scan_objs, batch_size=1000, ignore_conflicts=True
+            port_scan_objs, batch_size=5000, ignore_conflicts=True
         )
 
     # Step 5: Update 'latest' flag only for affected keys
     if affected_keys:
-        update_latest_flag_for_keys(affected_keys)
+        update_latest_flag_for_keys_batched(affected_keys, 5000)
 
 
-def update_latest_flag_for_keys(affected_keys):
-    """
-    Mark only the most recent PortScan per (organization_id, ip_string, port) as latest=True.
-
-    Set all others to False, for the given affected keys.
-
-    This is done in one pass with a window function for efficiency.
-    """
+def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
+    """Update the latest flag for a large set of affected keys in manageable batches."""
     db = "mini_data_lake"
     logger = LOGGER
 
     if not affected_keys:
         return
 
+    def chunked(lst, n):
+        for i in range(0, len(lst), n):
+            yield lst[i : i + n]
+
     try:
-        # Prepare the temp values list for affected keys
-        params = []
-        placeholders = []
-        for org_id, ip, port in affected_keys:
-            params.extend([org_id, ip, port])
-            placeholders.append("(%s, %s, %s)")
-        values_sql = ", ".join(placeholders)
-
-        sql = f"""
-        WITH ranked AS (
-            SELECT
-                ps.id,
-                ROW_NUMBER() OVER (
-                    PARTITION BY ps.organization_id, ps.ip_string, ps.port
-                    ORDER BY ps.time_scanned DESC
-                ) AS rn
-            FROM port_scan ps
-            JOIN (
-                VALUES {values_sql}
-            ) AS keys(org_id, ip_string, port)
-            ON ps.organization_id = keys.org_id
-            AND ps.ip_string = keys.ip_string
-            AND ps.port = keys.port
-        )
-        UPDATE port_scan
-        SET latest = (ranked.rn = 1)
-        FROM ranked
-        WHERE port_scan.id = ranked.id;
-        """  # nosec B608
-
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
-                cursor.execute(sql, params)
+                batch_num = 1
+                for batch in chunked(list(affected_keys), batch_size):
+                    print(f"Adding update latest flag batch #{batch_num}")
+                    params = []
+                    placeholders = []
+                    for org_id, ip, port in batch:
+                        params.extend([org_id, ip, port])
+                        placeholders.append("(%s, %s, %s)")
+                    values_sql = ", ".join(placeholders)
 
-        logger.info(f"Updated latest flags for {len(affected_keys)} keys in one pass.")
+                    sql = f"""
+                    WITH ranked AS (
+                        SELECT
+                            ps.id,
+                            ROW_NUMBER() OVER (
+                                PARTITION BY ps.organization_id, ps.ip_string, ps.port
+                                ORDER BY ps.time_scanned DESC
+                            ) AS rn
+                        FROM port_scan ps
+                        JOIN (
+                            VALUES {values_sql}
+                        ) AS keys(org_id, ip_string, port)
+                        ON ps.organization_id = keys.org_id
+                        AND ps.ip_string = keys.ip_string
+                        AND ps.port = keys.port
+                    )
+                    UPDATE port_scan
+                    SET latest = (ranked.rn = 1)
+                    FROM ranked
+                    WHERE port_scan.id = ranked.id;
+                    """  # nosec B608
+
+                    cursor.execute(sql, params)
+                    batch_num += 1
+
+        logger.info(
+            f"Updated latest flags for {len(affected_keys)} keys in batches of {batch_size}."
+        )
 
     except Exception as e:
         logger.error(f"Failed to update latest flags: {e}", exc_info=True)

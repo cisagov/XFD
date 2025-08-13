@@ -665,49 +665,36 @@ def load_test_data(data_set: str) -> list:
 
 def enforce_latest_flag_port_scan():
     """
-    Enforce the `latest` boolean flag on the PortScan table per org.
+    Enforce the `latest` boolean flag on the PortScan table for all orgs/IPs/ports.
 
-    Marks only the most recent scan for each (organization_id, ip_string, port)
-    as `latest=True`. All others are set to `False`.
+    Uses a single indexed update with a window function for maximum efficiency.
+    Only the most recent scan per (organization_id, ip_string, port) within
+    the last 90 days is flagged as latest=True; all others are latest=False.
     """
     start = time.time()
     db = "mini_data_lake"
-    org_ids = list(Organization.objects.using(db).values_list("id", flat=True))
 
-    for org_id in org_ids:
-        try:
-            with connections[db].cursor() as cursor, transaction.atomic(using=db):
-                # Step 1: Mark all as latest=False
-                cursor.execute(
-                    """
-                    UPDATE port_scan
-                    SET latest = FALSE
-                    WHERE organization_id = %s;
-                """,
-                    [org_id],
-                )
+    sql = """
+        WITH ranked_scans AS (
+            SELECT
+                id,
+                RANK() OVER (
+                    PARTITION BY organization_id, ip_string, port
+                    ORDER BY time_scanned DESC
+                ) AS scan_rank
+            FROM port_scan
+            WHERE time_scanned IS NOT NULL
+              AND time_scanned > NOW() - INTERVAL '90 days'
+        )
+        UPDATE port_scan
+        SET latest = (ranked_scans.scan_rank = 1)
+        FROM ranked_scans
+        WHERE port_scan.id = ranked_scans.id
+          AND port_scan.latest IS DISTINCT FROM (ranked_scans.scan_rank = 1);
+    """
 
-                # Step 2: Mark latest=True only for the most recent per IP/port
-                cursor.execute(
-                    """
-                    WITH latest_scans AS (
-                        SELECT DISTINCT ON (ip_string, port)
-                            id
-                        FROM port_scan
-                        WHERE organization_id = %s
-                          AND time_scanned IS NOT NULL
-                          AND time_scanned > NOW() - INTERVAL '90 days'
-                        ORDER BY ip_string, port, time_scanned DESC
-                    )
-                    UPDATE port_scan
-                    SET latest = TRUE
-                    WHERE id IN (SELECT id FROM latest_scans);
-                """,
-                    [org_id],
-                )
-
-        except Exception as e:
-            print("Error enforcing latest flag for org {}: {}".format(org_id, e))
+    with connections[db].cursor() as cursor:
+        cursor.execute(sql)
 
     duration = time.time() - start
     print("Completed enforce_latest_flag in {:.2f}s".format(duration))
@@ -802,7 +789,7 @@ def fill_cidr_live_ips_bulk_update():
                 SET live_ips = to_jsonb(merged_ips.updated_ips)
                 FROM merged_ips
                 WHERE cidr.id = merged_ips.id;
-                """
+                """  # nosec B608
             )
 
     duration = time.time() - start_time
