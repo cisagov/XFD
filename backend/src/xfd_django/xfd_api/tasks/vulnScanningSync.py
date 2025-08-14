@@ -856,6 +856,30 @@ def create_port_scan_service_summaries(summary_date=None):
         ) from e
 
 
+def safe_parse_date(date_str):
+    """
+    Safely parse a date string into a datetime object (UTC).
+
+    Args:
+        date_str (str): The date string to parse.
+
+    Returns:
+        datetime.datetime or None: Parsed datetime in UTC, or None if invalid.
+    """
+    if not date_str:
+        return None
+    try:
+        dt = parser.isoparse(date_str)  # parses ISO 8601 and other common formats
+        if dt.tzinfo is None:
+            # Assume naive datetime is UTC
+            return dt
+        else:
+            # Convert to UTC
+            return dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    except (ValueError, TypeError):
+        return None
+
+
 def process_tickets(
     tickets, org_id_dict, risky_service_groups, nmi_service_groups, chunk_size=20000
 ):
@@ -865,6 +889,7 @@ def process_tickets(
     ticket_objs_to_create = []
     ticket_objs_to_update = []
     ticket_events_data = []
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
 
     # Step 0: Early deduplication by ticket_id keeping the most recently updated
     deduped_tickets = {}
@@ -998,8 +1023,14 @@ def process_tickets(
         else:
             ticket_objs_to_create.append(ticket_obj)
 
-        # Stage ticket events
-        for event in events:
+        # Stage ticket events starting from the newest
+        for event in reversed(events):  # newest events first
+            event_time = safe_parse_date(event.get("time"))
+            if not event_time:
+                continue  # skip invalid dates
+            if event_time < seven_days_ago:
+                break  # stop once older than 7 days
+
             ref_id = event.get("reference")
             ticket_events_data.append(
                 {
