@@ -38,6 +38,7 @@ from xfd_api.utils.scan_utils.alerting import (
     SyncError,
 )
 from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_live_ips,; enforce_latest_flag_port_scan,
+    bulk_create_ticket_events,
     fetch_orgs_and_relations,
     fill_cidr_live_ips_bulk_update,
     get_latest_os_type,
@@ -50,6 +51,7 @@ from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_liv
 )
 from xfd_mini_dl.models import (
     Cidr,
+    Cve,
     HostSummary,
     Ip,
     NMIServiceGroup,
@@ -369,7 +371,7 @@ def main():  # pylint: disable=R0915
             chunk_number,
             len(chunk),
         )
-        process_tickets(chunk, org_id_dict)
+        process_tickets(chunk, org_id_dict, risky_service_groups, nmi_service_groups)
         total_processed += len(chunk)
         chunk_number += 1
 
@@ -855,39 +857,94 @@ def create_port_scan_service_summaries(summary_date=None):
         ) from e
 
 
-def process_tickets(tickets, org_id_dict):
-    """Process and save ticket data."""
-    # To-Do
-    # Add fields to the Django model: is_kev, first_discovered, risky_service_group
-    # Fields that don't exist in the data? OS
+def process_tickets(
+    tickets,
+    org_id_dict,
+    risky_service_groups,
+    nmi_service_groups,
+    event_batch_size=50000,
+):
+    """
+    Process a batch of tickets, bulk-inserting IPs, CVEs, tickets, and ticket events in chunks.
+
+    Args:
+        tickets (list): List of ticket dicts.
+        org_id_dict (dict): Mapping of owner name -> organization ID.
+        risky_service_groups (dict): Mapping of service_name -> risky group.
+        nmi_service_groups (dict): Mapping of service_name -> NMI group.
+        event_batch_size (int): Maximum number of ticket events to bulk insert at once.
+    """
+    ip_key_to_obj = {}
+    cve_name_to_obj = {}
+    ticket_objs = []
+    ticket_events_data = []
+
+    # Step 1: Stage unique IPs & CVEs
     for ticket in tickets:
         try:
             details = json.loads(ticket.get("details", "{}"))
             owner_id = org_id_dict.get(ticket["owner"])
-            ip = (
-                save_ip_to_datalake(
-                    {
-                        "ip": ticket["ip"],
-                        "ip_hash": hash_ip(ticket["ip"]),
-                        "organization": owner_id,
-                    }
-                )
-                if ticket.get("ip")
-                else None
-            )
-            cve = (
-                save_cve_to_datalake({"name": details.get("cve")})
-                if details.get("cve")
-                else None
-            )
+            if not owner_id:
+                continue
+
+            ip_str = ticket.get("ip")
+            if ip_str:
+                ip_key = (ip_str, owner_id)
+                if ip_key not in ip_key_to_obj:
+                    ip_key_to_obj[ip_key] = Ip(
+                        ip=ip_str,
+                        organization_id=owner_id,
+                        ip_hash=hash_ip(ip_str),
+                    )
+
+            cve_name = details.get("cve")
+            if cve_name and cve_name not in cve_name_to_obj:
+                cve_name_to_obj[cve_name] = Cve(name=cve_name)
+        except Exception as e:
+            raise IngestionError("ticket", str(e), "Failed staging IP/CVE") from e
+
+    # Step 2: Bulk insert IPs & CVEs (ignore existing)
+    if ip_key_to_obj:
+        Ip.objects.bulk_create(
+            list(ip_key_to_obj.values()), ignore_conflicts=True, batch_size=1000
+        )
+    if cve_name_to_obj:
+        Cve.objects.bulk_create(
+            list(cve_name_to_obj.values()), ignore_conflicts=True, batch_size=1000
+        )
+
+    # Step 3: Query back ORM objects to link
+    ip_map = {
+        (ip.ip, ip.organization_id): ip
+        for ip in Ip.objects.filter(
+            ip__in=[i.ip for i in ip_key_to_obj.values()],
+            organization_id__in=[i.organization_id for i in ip_key_to_obj.values()],
+        )
+    }
+    cve_map = {
+        cve.name: cve
+        for cve in Cve.objects.filter(name__in=list(cve_name_to_obj.keys()))
+    }
+
+    # Step 4: Process tickets & stage events
+    for ticket in tickets:
+        try:
+            details = json.loads(ticket.get("details", "{}"))
+            owner_id = org_id_dict.get(ticket["owner"])
+            if not owner_id:
+                continue
+
+            ip_str = ticket.get("ip")
+            cve_name = details.get("cve")
             lon, lat = json.loads(ticket.get("loc", "[]"))
             time_closed_str = ticket.get("time_closed")
             time_opened_str = ticket.get("time_opened")
             is_risky = "Potentially Risky Service Detected:" in details.get("name", "")
+
             ticket_dict = {
                 "id": ticket["_id"].replace("ObjectId('", "").replace("')", ""),
-                "cve_string": details.get("cve"),
-                "cve": cve,
+                "cve_string": cve_name,
+                "cve": cve_map.get(cve_name),
                 "cvss_base_score": details.get("cvss_base_score"),
                 "cvss_version": details.get("cvss_version"),
                 "vuln_name": details.get("name"),
@@ -895,8 +952,8 @@ def process_tickets(tickets, org_id_dict):
                 "cvss_severity": details.get("severity"),
                 "vpr_score": details.get("vpr_score"),
                 "false_positive": ticket.get("false_positive"),
-                "ip_string": ticket.get("ip"),
-                "ip": ip,
+                "ip_string": ip_str,
+                "ip": ip_map.get((ip_str, owner_id)),
                 "updated_timestamp": safe_fromisoformat(ticket.get("last_change")),
                 "location_longitude": lon,
                 "location_latitude": lat,
@@ -920,14 +977,39 @@ def process_tickets(tickets, org_id_dict):
                 "operating_system": get_latest_os_type(ticket.get("ip"))
                 if ticket.get("ip")
                 else None,
+                "risky_service_group": risky_service_groups.get(details.get("service")),
+                "nmi_service_group": nmi_service_groups.get(details.get("service")),
             }
+
+            # Upsert ticket
+            ticket_obj = save_ticket_to_datalake(ticket_dict)
+            ticket_objs.append(ticket_obj)
+
+            # Stage ticket events
             events = json.loads(ticket.get("events", "[]"))
-            save_ticket_to_datalake(ticket_dict, events, details)
+            for event in events:
+                ticket_events_data.append(
+                    {
+                        "ticket_obj": ticket_obj,
+                        "raw_event": event,
+                        "vuln_source": ticket.get("source"),
+                    }
+                )
+
+                # Flush events in batches
+                if len(ticket_events_data) >= event_batch_size:
+                    bulk_create_ticket_events(ticket_events_data)
+                    ticket_events_data = []
+
         except Exception as e:
             print(
                 f"Error processing ticket data: {e} - {owner_id} - {ticket.get('owner')}"
             )
-            raise IngestionError(SCAN_NAME, str(e), "Failed processing tickets") from e
+            raise IngestionError("ticket", str(e), "Failed processing tickets") from e
+
+    # Flush remaining ticket events
+    if ticket_events_data:
+        bulk_create_ticket_events(ticket_events_data)
 
 
 def get_asset_owned_count(org):

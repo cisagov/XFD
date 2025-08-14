@@ -82,6 +82,50 @@ def save_port_scan_to_datalake(port_scan_obj):
         return None
 
 
+def bulk_create_ticket_events(events_data):
+    """Bulk insert ticket events only if they link to a valid port or vuln scan."""
+    if not events_data:
+        return
+
+    port_refs = [e["ref_id"] for e in events_data if e["vuln_source"] == "nmap"]
+    vuln_refs = [e["ref_id"] for e in events_data if e["vuln_source"] == "nessus"]
+
+    existing_ports = set(
+        PortScan.objects.filter(id__in=port_refs).values_list("id", flat=True)
+    )
+    existing_vulns = set(
+        VulnScan.objects.filter(id__in=vuln_refs).values_list("id", flat=True)
+    )
+
+    all_events = []
+    for e in events_data:
+        ticket_obj = e["ticket_obj"]
+        raw_event = e["raw_event"]
+        ref_id = e["ref_id"]
+        source = e["vuln_source"]
+
+        # Skip if linked object does not exist
+        if source == "nmap" and ref_id not in existing_ports:
+            continue
+        if source == "nessus" and ref_id not in existing_vulns:
+            continue
+
+        all_events.append(
+            TicketEvent(
+                ticket=ticket_obj,
+                reference=ref_id,
+                port_scan_id=ref_id if source == "nmap" else None,
+                vuln_scan_id=ref_id if source == "nessus" else None,
+                action=raw_event.get("action"),
+                reason=raw_event.get("reason"),
+                event_timestamp=safe_parse_date(raw_event.get("time")),
+            )
+        )
+
+    if all_events:
+        TicketEvent.objects.bulk_create(all_events, batch_size=5000)
+
+
 def save_ticket_event_to_datalake(ticket_event_obj, ticket_id, details):
     """Save ticket events to Datalake."""
     id = ticket_event_obj.get("reference")
@@ -164,37 +208,20 @@ def get_latest_os_type(ip_str):
     return port_scan.service_os_type if port_scan else None
 
 
-def save_ticket_to_datalake(ticket_obj, events, details):
-    """
-    Save a Ticket record to the datalake, performing an upsert if necessary.
-
-    Args:
-        ticket_obj (dict): A dictionary containing Ticket record data.
-
-    Returns:
-        str or None: The ID of the inserted/updated record.
-    """
-    # print("Starting to save Ticket to datalake")
-    obj = None
-    id = ticket_obj.get("id")
-    del ticket_obj["id"]
-
+def save_ticket_to_datalake(ticket_obj):
+    """Upsert a Ticket record and return the ORM object."""
+    ticket_id = ticket_obj.pop("id", None)
+    if not ticket_id:
+        return None
     try:
         with transaction.atomic(using="mini_data_lake"):
-            # Insert but ignore if the record already exists
-
-            obj, created = Ticket.objects.update_or_create(id=id, defaults=ticket_obj)
+            ticket_obj, created = Ticket.objects.update_or_create(
+                id=ticket_id, defaults=ticket_obj
+            )
+        return ticket_obj
     except Exception as e:
         print("Error saving Ticket to Datalake", e)
-
-    try:
-        for event in events:
-            save_ticket_event_to_datalake(event, obj.id, details)
-    except Exception as e:
-        print("Error saving TicketEvent to Datalake", e)
-        LOGGER.error("Error saving TicketEvent to Datalake, %s", e)
         return None
-    return None
 
 
 def save_host(host_data: Dict) -> str:

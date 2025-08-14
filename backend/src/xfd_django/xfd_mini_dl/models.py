@@ -351,6 +351,9 @@ class Cve(AutoLengthCheckModel):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            models.Index(fields=["name"]),
+        ]
         db_table = "cve"
 
 
@@ -1503,6 +1506,13 @@ class TicketEvent(models.Model):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            models.Index(fields=["ticket"]),
+            models.Index(fields=["port_scan"]),
+            models.Index(fields=["vuln_scan"]),
+            models.Index(fields=["ticket", "port_scan"]),
+            models.Index(fields=["ticket", "vuln_scan"]),
+        ]
         db_table = "ticket_event"
         unique_together = ("event_timestamp", "ticket", "action")
 
