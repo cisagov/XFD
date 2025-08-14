@@ -227,11 +227,11 @@ def fetch_in_chunks_keyset_frozen(
         yield chunk
 
 
-def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
+def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=10_000):
     """
-    Fetch tickets in frozen keyset chunks ordered by (updated_timestamp, id).
+    Fetch tickets in frozen keyset chunks ordered by (last_change, _id).
 
-    Only retrieves tickets where updated_timestamp is between start_dt and end_dt.
+    Only retrieves tickets where last_change is between start_dt and end_dt.
 
     Yields lists of ticket rows (each up to chunk_size).
     """
@@ -243,21 +243,21 @@ def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
     last_id = None
 
     while True:
-        where_clauses = ["updated_timestamp >= %s", "updated_timestamp < %s"]
+        where_clauses = ["last_change >= %s", "last_change < %s"]
         params = [start_param, end_param]
 
         # Keyset pagination
         if last_updated is not None and last_id is not None:
             where_clauses.append(
-                "(updated_timestamp > %s OR (updated_timestamp = %s AND id > %s))"
+                "(last_change > %s OR (last_change = %s AND _id > %s))"
             )
             params.extend([last_updated, last_updated, last_id])
 
         query = f"""
             SELECT *
-            FROM ticket
+            FROM vmtableau.tickets
             WHERE {" AND ".join(where_clauses)}
-            ORDER BY updated_timestamp, id
+            ORDER BY last_change, _id
             LIMIT {chunk_size}
         """  # nosec B608
 
@@ -267,8 +267,8 @@ def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=50_000):
 
         yield rows
 
-        last_updated = rows[-1]["updated_timestamp"]
-        last_id = rows[-1]["id"]
+        last_updated = rows[-1]["last_change"]
+        last_id = rows[-1]["_id"]
 
 
 # ------------------------------------------------------------------------
