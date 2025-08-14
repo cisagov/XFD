@@ -46,7 +46,6 @@ from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (  # fill_cidr_liv
     save_cve_to_datalake,
     save_ip_to_datalake,
     save_organization_to_mdl,
-    save_ticket_to_datalake,
     save_vuln_scan,
 )
 from xfd_mini_dl.models import (
@@ -858,26 +857,45 @@ def create_port_scan_service_summaries(summary_date=None):
 
 
 def process_tickets(
-    tickets,
-    org_id_dict,
-    risky_service_groups,
-    nmi_service_groups,
-    event_chunk_size=50000,
+    tickets, org_id_dict, risky_service_groups, nmi_service_groups, chunk_size=20000
 ):
-    """Process a batch of tickets, bulk-inserting IPs, CVEs, tickets, and ticket events."""
+    """Process tickets with early deduplication and bulk upserts for tickets and ticket events."""
     ip_key_to_obj = {}
     cve_name_to_obj = {}
-    ticket_objs = []
+    ticket_objs_to_create = []
+    ticket_objs_to_update = []
     ticket_events_data = []
 
-    # Step 1: Stage unique IPs & CVEs
+    # Step 0: Early deduplication by ticket_id keeping the most recently updated
+    deduped_tickets = {}
     for ticket in tickets:
+        ticket_id = ticket["_id"].replace("ObjectId('", "").replace("')", "")
+        current_updated = safe_fromisoformat(ticket.get("last_change"))
+        if ticket_id in deduped_tickets:
+            last_updated = safe_fromisoformat(
+                deduped_tickets[ticket_id].get("last_change")
+            )
+            if current_updated <= last_updated:
+                continue  # Skip older duplicate
+        deduped_tickets[ticket_id] = ticket
+
+    # Step 1: Stage unique IPs & CVEs
+    ticket_data_map = {}  # map ticket_id -> parsed data
+    for ticket_id, ticket in deduped_tickets.items():
         try:
             details = json.loads(ticket.get("details", "{}"))
+            events = json.loads(ticket.get("events", "[]"))
+            ticket_data_map[ticket_id] = {
+                "details": details,
+                "events": events,
+                "raw": ticket,
+            }
+
             owner_id = org_id_dict.get(ticket["owner"])
             if not owner_id:
                 continue
 
+            # Stage IPs
             ip_str = ticket.get("ip")
             if ip_str:
                 ip_key = (ip_str, owner_id)
@@ -888,6 +906,7 @@ def process_tickets(
                         ip_hash=hash_ip(ip_str),
                     )
 
+            # Stage CVEs
             cve_name = details.get("cve")
             if cve_name and cve_name not in cve_name_to_obj:
                 cve_name_to_obj[cve_name] = Cve(name=cve_name)
@@ -895,7 +914,7 @@ def process_tickets(
         except Exception as e:
             raise IngestionError("ticket", str(e), "Failed staging IP/CVE") from e
 
-    # Step 2: Bulk insert IPs & CVEs (ignore existing)
+    # Step 2: Bulk insert IPs & CVEs
     if ip_key_to_obj:
         Ip.objects.bulk_create(
             list(ip_key_to_obj.values()), ignore_conflicts=True, batch_size=1000
@@ -905,7 +924,7 @@ def process_tickets(
             list(cve_name_to_obj.values()), ignore_conflicts=True, batch_size=1000
         )
 
-    # Step 3: Query back ORM objects to link
+    # Step 3: Query back ORM objects
     ip_map = {
         (ip.ip, ip.organization_id): ip
         for ip in Ip.objects.filter(
@@ -918,93 +937,166 @@ def process_tickets(
         for cve in Cve.objects.filter(name__in=list(cve_name_to_obj.keys()))
     }
 
-    # Step 4: Upsert tickets and stage ticket events
-    for ticket in tickets:
-        try:
-            details = json.loads(ticket.get("details", "{}"))
-            owner_id = org_id_dict.get(ticket["owner"])
-            if not owner_id:
-                continue
+    # Step 4: Separate tickets into new vs existing
+    ticket_ids = list(ticket_data_map.keys())
+    existing_ticket_ids = set(
+        Ticket.objects.filter(id__in=ticket_ids).values_list("id", flat=True)
+    )
 
-            ip_str = ticket.get("ip")
-            cve_name = details.get("cve")
-            lon, lat = json.loads(ticket.get("loc", "[]"))
-            time_closed_str = ticket.get("time_closed")
-            time_opened_str = ticket.get("time_opened")
-            is_risky = "Potentially Risky Service Detected:" in details.get("name", "")
+    for ticket_id, tdata in ticket_data_map.items():
+        raw_ticket = tdata["raw"]
+        details = tdata["details"]
+        events = tdata["events"]
+        owner_id = org_id_dict.get(raw_ticket["owner"])
+        ip_str = raw_ticket.get("ip")
+        cve_name = details.get("cve")
+        lon, lat = json.loads(raw_ticket.get("loc", "[]"))
+        time_closed_str = raw_ticket.get("time_closed")
+        time_opened_str = raw_ticket.get("time_opened")
+        is_risky = "Potentially Risky Service Detected:" in details.get("name", "")
 
-            ticket_dict = {
-                "id": ticket["_id"].replace("ObjectId('", "").replace("')", ""),
-                "cve_string": cve_name,
-                "cve": cve_map.get(cve_name),
-                "cvss_base_score": details.get("cvss_base_score"),
-                "cvss_version": details.get("cvss_version"),
-                "vuln_name": details.get("name"),
-                "cvss_score_source": details.get("score_source"),
-                "cvss_severity": details.get("severity"),
-                "vpr_score": details.get("vpr_score"),
-                "false_positive": ticket.get("false_positive"),
-                "ip_string": ip_str,
-                "ip": ip_map.get((ip_str, owner_id)),
-                "updated_timestamp": safe_fromisoformat(ticket.get("last_change")),
-                "location_longitude": lon,
-                "location_latitude": lat,
-                "organization_id": owner_id,
-                "vuln_port": ticket.get("port"),
-                "port_protocol": ticket.get("protocol"),
-                "snapshots_bool": bool(ticket.get("snapshots", None)),
-                "vuln_source": ticket.get("source"),
-                "vuln_source_id": ticket.get("source_id"),
-                "closed_timestamp": safe_fromisoformat(time_closed_str)
-                if time_closed_str
-                else None,
-                "opened_timestamp": safe_fromisoformat(time_opened_str)
-                if time_opened_str
-                else None,
-                "is_open": ticket.get("open"),
-                "is_kev": details.get("kev"),
-                "is_kev_ransomware": details.get("kev_ransomware"),
-                "is_risky": is_risky,
-                "service_name": details.get("service"),
-                "operating_system": get_latest_os_type(ticket.get("ip"))
-                if ticket.get("ip")
-                else None,
-                "risky_service_group": risky_service_groups.get(details.get("service")),
-                "nmi_service_group": nmi_service_groups.get(details.get("service")),
-            }
+        ticket_obj = Ticket(
+            id=ticket_id,
+            cve_string=cve_name,
+            cve=cve_map.get(cve_name),
+            cvss_base_score=details.get("cvss_base_score"),
+            cvss_version=details.get("cvss_version"),
+            vuln_name=details.get("name"),
+            cvss_score_source=details.get("score_source"),
+            cvss_severity=details.get("severity"),
+            vpr_score=details.get("vpr_score"),
+            false_positive=raw_ticket.get("false_positive"),
+            ip_string=ip_str,
+            ip=ip_map.get((ip_str, owner_id)),
+            updated_timestamp=safe_fromisoformat(raw_ticket.get("last_change")),
+            location_longitude=lon,
+            location_latitude=lat,
+            organization_id=owner_id,
+            vuln_port=raw_ticket.get("port"),
+            port_protocol=raw_ticket.get("protocol"),
+            snapshots_bool=bool(raw_ticket.get("snapshots", None)),
+            vuln_source=raw_ticket.get("source"),
+            vuln_source_id=raw_ticket.get("source_id"),
+            closed_timestamp=safe_fromisoformat(time_closed_str)
+            if time_closed_str
+            else None,
+            opened_timestamp=safe_fromisoformat(time_opened_str)
+            if time_opened_str
+            else None,
+            is_open=raw_ticket.get("open"),
+            is_kev=details.get("kev"),
+            is_kev_ransomware=details.get("kev_ransomware"),
+            is_risky=is_risky,
+            service_name=details.get("service"),
+            operating_system=get_latest_os_type(ip_str) if ip_str else None,
+            risky_service_group=risky_service_groups.get(details.get("service")),
+            nmi_service_group=nmi_service_groups.get(details.get("service")),
+        )
 
-            # Upsert ticket
-            ticket_obj = save_ticket_to_datalake(ticket_dict)
-            ticket_objs.append(ticket_obj)
+        if ticket_id in existing_ticket_ids:
+            ticket_objs_to_update.append(ticket_obj)
+        else:
+            ticket_objs_to_create.append(ticket_obj)
 
-            # Stage ticket events
-            events = json.loads(ticket.get("events", "[]"))
-            for event in events:
-                ref_id = event.get("reference")
-                if isinstance(ref_id, str) and ref_id.startswith("ObjectId('"):
-                    ref_id = ref_id.replace("ObjectId('", "").replace("')", "")
-
-                ticket_events_data.append(
-                    {
-                        "raw_event": event,
-                        "ticket_obj": ticket_obj,
-                        "vuln_source": ticket.get("source"),
-                        "ref_id": ref_id,
-                    }
-                )
-
-                # Bulk insert in chunks to avoid large memory usage
-                if len(ticket_events_data) >= event_chunk_size:
-                    bulk_create_ticket_events(ticket_events_data)
-                    ticket_events_data.clear()
-
-        except Exception as e:
-            print(
-                f"Error processing ticket data: {e} - {owner_id} - {ticket.get('owner')}"
+        # Stage ticket events
+        for event in events:
+            ref_id = event.get("reference")
+            ticket_events_data.append(
+                {
+                    "raw_event": event,
+                    "ticket_obj": ticket_obj,
+                    "vuln_source": raw_ticket.get("source"),
+                    "ref_id": ref_id,
+                }
             )
-            raise IngestionError("ticket", str(e), "Failed processing tickets") from e
 
-    # Insert any remaining events
+        # Flush if events exceed chunk size
+        if len(ticket_events_data) >= chunk_size:
+            if ticket_objs_to_create:
+                Ticket.objects.bulk_create(ticket_objs_to_create, batch_size=5000)
+                ticket_objs_to_create.clear()
+            if ticket_objs_to_update:
+                Ticket.objects.bulk_update(
+                    ticket_objs_to_update,
+                    fields=[
+                        "cve_string",
+                        "cve",
+                        "cvss_base_score",
+                        "cvss_version",
+                        "vuln_name",
+                        "cvss_score_source",
+                        "cvss_severity",
+                        "vpr_score",
+                        "false_positive",
+                        "ip_string",
+                        "ip",
+                        "updated_timestamp",
+                        "location_longitude",
+                        "location_latitude",
+                        "organization_id",
+                        "vuln_port",
+                        "port_protocol",
+                        "snapshots_bool",
+                        "vuln_source",
+                        "vuln_source_id",
+                        "closed_timestamp",
+                        "opened_timestamp",
+                        "is_open",
+                        "is_kev",
+                        "is_kev_ransomware",
+                        "is_risky",
+                        "service_name",
+                        "operating_system",
+                        "risky_service_group",
+                        "nmi_service_group",
+                    ],
+                    batch_size=5000,
+                )
+                ticket_objs_to_update.clear()
+
+            bulk_create_ticket_events(ticket_events_data[:chunk_size])
+            ticket_events_data = ticket_events_data[chunk_size:]
+
+    # Flush remaining tickets & events after loop
+    if ticket_objs_to_create:
+        Ticket.objects.bulk_create(ticket_objs_to_create, batch_size=5000)
+    if ticket_objs_to_update:
+        Ticket.objects.bulk_update(
+            ticket_objs_to_update,
+            fields=[
+                "cve_string",
+                "cve",
+                "cvss_base_score",
+                "cvss_version",
+                "vuln_name",
+                "cvss_score_source",
+                "cvss_severity",
+                "vpr_score",
+                "false_positive",
+                "ip_string",
+                "ip",
+                "updated_timestamp",
+                "location_longitude",
+                "location_latitude",
+                "organization_id",
+                "vuln_port",
+                "port_protocol",
+                "snapshots_bool",
+                "vuln_source",
+                "vuln_source_id",
+                "closed_timestamp",
+                "opened_timestamp",
+                "is_open",
+                "is_kev",
+                "is_kev_ransomware",
+                "is_risky",
+                "service_name",
+                "operating_system",
+                "risky_service_group",
+                "nmi_service_group",
+            ],
+            batch_size=5000,
+        )
     if ticket_events_data:
         bulk_create_ticket_events(ticket_events_data)
 

@@ -101,10 +101,9 @@ def bulk_create_ticket_events(events_data):
     for e in events_data:
         ticket_obj = e["ticket_obj"]
         raw_event = e["raw_event"]
-        source = e["vuln_source"]
         ref_id = e["ref_id"]
+        source = e["vuln_source"]
 
-        # Skip events with missing FK
         if source == "nmap" and ref_id not in existing_ports:
             continue
         if source == "nessus" and ref_id not in existing_vulns:
