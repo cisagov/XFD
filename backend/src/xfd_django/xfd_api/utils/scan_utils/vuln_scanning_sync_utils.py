@@ -83,10 +83,11 @@ def save_port_scan_to_datalake(port_scan_obj):
 
 
 def bulk_create_ticket_events(events_data):
-    """Bulk insert ticket events only if they link to a valid port or vuln scan."""
+    """Bulk insert ticket events if they link to a valid port or vuln scan."""
     if not events_data:
         return
 
+    all_events = []
     port_refs = [e["ref_id"] for e in events_data if e["vuln_source"] == "nmap"]
     vuln_refs = [e["ref_id"] for e in events_data if e["vuln_source"] == "nessus"]
 
@@ -97,30 +98,28 @@ def bulk_create_ticket_events(events_data):
         VulnScan.objects.filter(id__in=vuln_refs).values_list("id", flat=True)
     )
 
-    all_events = []
     for e in events_data:
         ticket_obj = e["ticket_obj"]
         raw_event = e["raw_event"]
-        ref_id = e["ref_id"]
         source = e["vuln_source"]
+        ref_id = e["ref_id"]
 
-        # Skip if linked object does not exist
+        # Skip events with missing FK
         if source == "nmap" and ref_id not in existing_ports:
             continue
         if source == "nessus" and ref_id not in existing_vulns:
             continue
 
-        all_events.append(
-            TicketEvent(
-                ticket=ticket_obj,
-                reference=ref_id,
-                port_scan_id=ref_id if source == "nmap" else None,
-                vuln_scan_id=ref_id if source == "nessus" else None,
-                action=raw_event.get("action"),
-                reason=raw_event.get("reason"),
-                event_timestamp=safe_parse_date(raw_event.get("time")),
-            )
+        shaped_event = TicketEvent(
+            ticket=ticket_obj,
+            reference=ref_id,
+            port_scan_id=ref_id if source == "nmap" else None,
+            vuln_scan_id=ref_id if source == "nessus" else None,
+            action=raw_event.get("action"),
+            reason=raw_event.get("reason"),
+            event_timestamp=safe_parse_date(raw_event.get("time")),
         )
+        all_events.append(shaped_event)
 
     if all_events:
         TicketEvent.objects.bulk_create(all_events, batch_size=5000)

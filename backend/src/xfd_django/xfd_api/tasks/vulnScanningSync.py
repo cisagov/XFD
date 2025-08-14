@@ -862,18 +862,9 @@ def process_tickets(
     org_id_dict,
     risky_service_groups,
     nmi_service_groups,
-    event_batch_size=50000,
+    event_chunk_size=50000,
 ):
-    """
-    Process a batch of tickets, bulk-inserting IPs, CVEs, tickets, and ticket events in chunks.
-
-    Args:
-        tickets (list): List of ticket dicts.
-        org_id_dict (dict): Mapping of owner name -> organization ID.
-        risky_service_groups (dict): Mapping of service_name -> risky group.
-        nmi_service_groups (dict): Mapping of service_name -> NMI group.
-        event_batch_size (int): Maximum number of ticket events to bulk insert at once.
-    """
+    """Process a batch of tickets, bulk-inserting IPs, CVEs, tickets, and ticket events."""
     ip_key_to_obj = {}
     cve_name_to_obj = {}
     ticket_objs = []
@@ -900,6 +891,7 @@ def process_tickets(
             cve_name = details.get("cve")
             if cve_name and cve_name not in cve_name_to_obj:
                 cve_name_to_obj[cve_name] = Cve(name=cve_name)
+
         except Exception as e:
             raise IngestionError("ticket", str(e), "Failed staging IP/CVE") from e
 
@@ -926,7 +918,7 @@ def process_tickets(
         for cve in Cve.objects.filter(name__in=list(cve_name_to_obj.keys()))
     }
 
-    # Step 4: Process tickets & stage events
+    # Step 4: Upsert tickets and stage ticket events
     for ticket in tickets:
         try:
             details = json.loads(ticket.get("details", "{}"))
@@ -988,18 +980,23 @@ def process_tickets(
             # Stage ticket events
             events = json.loads(ticket.get("events", "[]"))
             for event in events:
+                ref_id = event.get("reference")
+                if isinstance(ref_id, str) and ref_id.startswith("ObjectId('"):
+                    ref_id = ref_id.replace("ObjectId('", "").replace("')", "")
+
                 ticket_events_data.append(
                     {
-                        "ticket_obj": ticket_obj,
                         "raw_event": event,
+                        "ticket_obj": ticket_obj,
                         "vuln_source": ticket.get("source"),
+                        "ref_id": ref_id,
                     }
                 )
 
-                # Flush events in batches
-                if len(ticket_events_data) >= event_batch_size:
+                # Bulk insert in chunks to avoid large memory usage
+                if len(ticket_events_data) >= event_chunk_size:
                     bulk_create_ticket_events(ticket_events_data)
-                    ticket_events_data = []
+                    ticket_events_data.clear()
 
         except Exception as e:
             print(
@@ -1007,7 +1004,7 @@ def process_tickets(
             )
             raise IngestionError("ticket", str(e), "Failed processing tickets") from e
 
-    # Flush remaining ticket events
+    # Insert any remaining events
     if ticket_events_data:
         bulk_create_ticket_events(ticket_events_data)
 
