@@ -23,7 +23,7 @@ Some React components contain tests, which are located in the `__tests__` direct
 ### Configuration
 
 To configure properties on the frontend (such as Cognito user pool settings), you can modify
-all environment variables beginning with `REACT_APP_`, which are accessbile to the frontend.
+all environment variables beginning with `VITE_`, which are accessbile to the frontend.
 
 If you are running Crossfeed locally, you can just modify these variables in `.env` in the root
 directory. If you need to configure the frontend for deployment, you should update the
@@ -31,16 +31,16 @@ directory. If you need to configure the frontend for deployment, you should upda
 
 Here is a list of all environment variables:
 
-| Name                            | Description                                                               | Sample value                                  |
-| ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
-| `REACT_APP_API_URL`             | URL for REST API                                                          | `https://api.staging.crossfeed.cyber.dhs.gov` |
-| `REACT_APP_FARGATE_LOG_GROUP`   | Fargate log group (used for linking to the logs of ScanTasks)             | `crossfeed-staging-worker`                    |
-| `REACT_APP_USE_COGNITO`         | Set to use cognito, unset to use login.gov                                | `1`                                           |
-| `REACT_APP_USER_POOL_ID`        | Cognito user pool ID                                                      | `us-east-1_uxiY8DOum`                         |
-| `REACT_APP_USER_POOL_CLIENT_ID` | Cognito user pool client ID                                               | `1qf4cii9v0t9hn1hnr54f2ao0j`                  |
-| `REACT_APP_TERMS_VERSION`       | TOS version                                                               | `1`                                           |
-| `REACT_APP_COOKIE_DOMAIN`       | Cookie domain (stores JWT, used to access Matomo)                         | `staging.crossfeed.cyber.dhs.gov`             |
-| `REACT_APP_TOTP_ISSUER`         | TOTP issuer (shows up as the default name of the credential in a 2FA app) | `Staging Crossfeed`                           |
+| Name                       | Description                                                               | Sample value                                  |
+| -------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
+| `VITE_API_URL`             | URL for REST API                                                          | `https://api.staging.crossfeed.cyber.dhs.gov` |
+| `VITE_FARGATE_LOG_GROUP`   | Fargate log group (used for linking to the logs of ScanTasks)             | `crossfeed-staging-worker`                    |
+| `VITE_USE_COGNITO`         | Set to use cognito, unset to use login.gov                                | `1`                                           |
+| `VITE_USER_POOL_ID`        | Cognito user pool ID                                                      | `us-east-1_uxiY8DOum`                         |
+| `VITE_USER_POOL_CLIENT_ID` | Cognito user pool client ID                                               | `1qf4cii9v0t9hn1hnr54f2ao0j`                  |
+| `VITE_TERMS_VERSION`       | TOS version                                                               | `1`                                           |
+| `VITE_COOKIE_DOMAIN`       | Cookie domain (stores JWT, used to access Matomo)                         | `staging.crossfeed.cyber.dhs.gov`             |
+| `VITE_TOTP_ISSUER`         | TOTP issuer (shows up as the default name of the credential in a 2FA app) | `Staging Crossfeed`                           |
 
 ### Authentication
 

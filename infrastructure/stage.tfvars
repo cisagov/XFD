@@ -133,3 +133,4 @@ ssm_qualys_password                          = "/crossfeed/staging/QUALYS_PASSWO
 ssm_nist_api_key                             = "/crossfeed/staging/NIST_API_KEY"
 playwright_worker_ecs_task_definition_family = "crossfeed-playwright-worker-staging"
 playwright_worker_repository_name            = "crossfeed-playwright-staging-worker"
+zscaler_cert_bucket_name                     = "cisa-crossfeed-staging-zscaler"

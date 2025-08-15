@@ -4,22 +4,22 @@ import React, {
   useEffect,
   useState
 } from 'react';
-import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
+import { withSearch } from '@elastic/react-search-ui';
+import { Alert, AlertTitle, Box, Typography } from '@mui/material';
+import { styled, useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/system';
 import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
 import { matchPath } from 'utils/matchPath';
 import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
-import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
-import { useTheme } from '@mui/material/styles';
-import { useMediaQuery } from '@mui/system';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 
 const Main = styled('main', {
@@ -41,7 +41,15 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   addFilter
   // removeFilter
 }) => {
+  const { pathname } = useLocation();
   const { logout, user } = useAuthContext();
+
+  const noAlertPaths = [
+    '/login-gov-callback',
+    '/okta-callback',
+    '/create-account',
+    '/terms'
+  ];
 
   useEffect(() => {
     localStorage.setItem('es-search-filters', JSON.stringify(filters));
@@ -53,6 +61,15 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 
   const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
     useFilterDrawerContext();
+
+  const [siteWideAlert, setSiteWideAlert] = useState(() => {
+    return localStorage.getItem('siteWideAlertOff') === 'true';
+  });
+
+  const handleAlertClose = () => {
+    setSiteWideAlert(true);
+    localStorage.setItem('siteWideAlertOff', 'true');
+  };
 
   const userLevel = useUserLevel().userLevel;
 
@@ -74,8 +91,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     },
     [logout, resetTimeout]
   );
-
-  const { pathname } = useLocation();
 
   useEffect(() => {
     const pathsAllowed = ['/', '/inventory'];
@@ -116,6 +131,46 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         <div style={{ display: 'flex' }}>
           <GovBanner />
         </div>
+        {!siteWideAlert && user && !noAlertPaths.includes(pathname) && (
+          <Box sx={{ backgroundColor: '#E5F6FD' }}>
+            <Box
+              display="flex"
+              flexDirection="column"
+              maxWidth="1152px"
+              width="100%"
+              margin="auto"
+            >
+              <Alert severity="info" onClose={handleAlertClose}>
+                <Box
+                  display="flex"
+                  flexDirection="column"
+                  maxWidth="1152px"
+                  width="100%"
+                  margin="auto"
+                ></Box>
+                <AlertTitle
+                  variant="largeBody"
+                  color="primary.darker"
+                  sx={{ fontWeight: '700' }}
+                >
+                  CyHy Dashboard - Beta (Early Access)
+                </AlertTitle>
+                <Typography
+                  variant="body1"
+                  color="primary.darker"
+                  fontWeight="600"
+                >
+                  You are using an early release version of the CyHy Dashboard.
+                  This site is fully functional, but some features are still
+                  being improved and refined. Your feedback during this stage
+                  directly shapes improvements. Please go to the Support menu to
+                  share feedback, report bugs, or submit questions so we can
+                  enhance the dashboard to better meet your needs.
+                </Typography>
+              </Alert>
+            </Box>
+          </Box>
+        )}
         <Header />
         {userLevel > 0 && (
           <>

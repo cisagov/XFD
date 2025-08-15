@@ -2,10 +2,9 @@
 
 ## **Overview**
 
-This project uses **Playwright** for automated end-to-end testing. The Playwright testing workflow operates in three distinct modes:
+This project uses **Playwright** for automated end-to-end testing. The Playwright testing workflow operates in two distinct modes:
 
 1. **Local Testing via Terminal** - Running tests directly from the terminal.
-2. **Local Testing via Docker** - Running tests within a Docker container locally.
 3. **AWS Regression Workflow** - Running tests on AWS ECS and uploading results to an S3 bucket.
 
 This README will guide you through setting up, configuring, and running Playwright tests in each mode, as well as handling the deployment process for AWS.
@@ -20,7 +19,7 @@ This README will guide you through setting up, configuring, and running Playwrig
 - [Local Testing via Terminal](#local-testing-via-terminal)
   - [Environment Variables for Local Testing](#environment-variables-for-local-testing)
   - [Environment Variables for Local Testing in VS Code](#environment-variables-for-local-testing-in-vs-code)
-- [Local Testing via Docker](#local-testing-via-docker)
+- [GitHub Actions Testing with Amazon ECS](#github-actions-testing-with-amazon-ecs)
 - [Logging into Crossfeed and Preserving Browser State](#logging-into-crossfeed-and-preserving-browser-state)
 - [Adding Test Cases](#adding-test-cases)
 - [Test Results](#test-results)
@@ -31,9 +30,11 @@ This README will guide you through setting up, configuring, and running Playwrig
 
 ## Playwright configuration for Crossfeed
 
-Since Playwright is intended to run in 3 different modes `[localhost, local Docker, Github Actions/AWS]`, a configuration tool at `utils/env.ts` is created to help set default URLs and headless mode options.
+Since Playwright is intended to run in 2 different modes `[localhost, GitHub Actions/AWS]`, a configuration tool at `utils/env.ts` is created to help set default URLs and headless mode options.
 
-The `PW_XFD_URL` environment variable is to be set by the build processes. If no variable has been set, by default it will try to test against `http://localhost` . The pertinent environment variables are located in `xfd/.env` and are prefixed with `PW_*`
+ Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. A blank dummy file is included in the repository to satisfy linters and checkers. This file can be used to set variables for running Playwright in localhost, but do not check in that file. It is excluded by .gitignore, but be careful when checking in code.
+
+Some environment variables values are defined in this README, but information that is secret will not be shared in this document. Ask the automated testing team for the values to continue setting up the configuration.
 
 ## **Local Testing via Terminal**
 
@@ -56,13 +57,18 @@ This mode is intended for frontend developers to write their own feature test ca
 For local testing, the following variables need to be loaded into your environment.
 
 ```env
+PW_XFD_URL=http://localhost
 PW_XFD_USERNAME
 PW_XFD_PASSWORD
 PW_XFD_2FA_ISSUER
 PW_XFD_2FA_SECRET
 PW_XFD_USER_ROLE
 PW_XFD_LOGIN
+PW_HEADLESS=false
+PW_CI=false
 ```
+
+In local testing, `PW_HEADLESS` can optionally be set to true or false. `PW_CI` should be set to false, as this variable will adjust the behavior of how the global setup will load the other environment variables.
 
 ### **Environment Variables for Local Testing in VS Code**
 
@@ -70,27 +76,29 @@ If you are using testing in VS Code using the Playwright extension, add the foll
 
 ```json
 "playwright.env": {
-        "PW_XFD_URL":"",
+        "PW_XFD_URL":"http://localhost",
         "PW_XFD_USERNAME":"",
         "PW_XFD_PASSWORD":"",
         "PW_XFD_2FA_ISSUER":"",
         "PW_XFD_2FA_SECRET":"",
         "PW_XFD_USER_ROLE":"",
-        "PW_XFD_LOGIN" : ""
+        "PW_XFD_LOGIN" : "",
+        "PW_HEADLESS" : "false",
+        "PW_CI": "false"
 }
 ```
 
-## **Local Testing via Docker**
+## **GitHub Actions Testing with Amazon ECS**
 
-This mode is intended to kick off as part of the build process. A docker container will be created using the same Playwright test.
+In this mode, the Playwright tests are run everytime changes are committed to the develop and integration branches `xfd/frontend/` directory, or to the `xfd/.github/workflows/regression.yml` file itself. The Regression Testing workflow (which so far only encompasses Playwright) calls out to a containerized version of Crossfeed's Playwright testing suite stored on Amazon ECR via an ECS task. When the task is triggered, Playwright ECS will run against either the staging-cd or integration instances of Playwright. Test results are stored in Amazon S3 bucket and downloaded as artifacts to the GitHub Actions workflow.
 
-A wait feature will listen for the frontend to begin accepting requests, as the frontend will take longer to compile than Playwright to be ready for testing. When a code 200 is received from the frontend, the Playwright tests will begin.
+There is no need for any frontend developer to alter any configuration of Playwright ECS. The entire configuration is set by the workflow process.
 
 ## **Logging into Crossfeed and Preserving Browser State**
 
 The global setup script located at `xfd/playwright/global-setup.ts` performs the task of logging into Crossfeed and storing the browsers state to `xfd/playwright/storageState.json`. This script works by manually performing the steps to login to Crossfeed through the browser.
 
-This process does not use the PIV card certificate process, but a username/password process with 2FA tokens. The necessary environment variables are not stored in code, but populated by the build process (manually setting environment variables, set by docker-compose, or populated by Github Actions).
+This process does not use the PIV card certificate process, but a username/password process with 2FA tokens. The necessary environment variables are not stored in code, but populated by the build process (manually setting environment variables, set by docker-compose, or populated by GitHub Actions).
 
 The login process also uses `waitForFrontend()` to listen for a response code 200 from Crossfeed's frontend before performing the login procedure.
 

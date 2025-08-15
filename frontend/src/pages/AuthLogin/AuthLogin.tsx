@@ -9,17 +9,17 @@ import pkceChallenge from 'pkce-challenge';
 
 const LoginButton = () => {
   // TODO: Capture default values here once determined
-  const domain = process.env.REACT_APP_COGNITO_DOMAIN || 'default_value';
-  const clientId = process.env.REACT_APP_COGNITO_CLIENT_ID || 'default_value';
+  const domain = import.meta.env.VITE_COGNITO_DOMAIN || 'default_value';
+  const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || 'default_value';
   const callbackUrl =
-    process.env.REACT_APP_COGNITO_CALLBACK_URL || 'default_value';
+    import.meta.env.VITE_COGNITO_CALLBACK_URL || 'default_value';
 
   const redirectToAuth = async () => {
     const { code_challenge, code_verifier } = await pkceChallenge();
     const state = uuidv4();
 
     try {
-      await fetch(`${process.env.REACT_APP_API_URL}/auth/set-oauth-cookies`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/auth/set-oauth-cookies`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

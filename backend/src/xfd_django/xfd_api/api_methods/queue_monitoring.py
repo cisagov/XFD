@@ -5,20 +5,21 @@ import os
 
 # Third-Party Libraries
 import boto3
+from botocore.session import Session as BotoCoreSession
 from fastapi import HTTPException
-from xfd_api.helpers.email import _setup_proxy
+from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.queue_monitoring import QueueSearch
 
 from ..auth import is_global_view_admin
 
 is_local = os.getenv("IS_LOCAL")
 base_queue_url = os.getenv("QUEUE_URL")
+IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
 # POST: /queues/search
 def list_queues(search_data: QueueSearch, current_user):
     """Fetch queue metadata including message counts."""
-    _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
     try:
         if not is_global_view_admin(current_user):
             raise HTTPException(status_code=403, detail="Unauthorized access.")
@@ -33,6 +34,9 @@ def list_queues(search_data: QueueSearch, current_user):
         page = search_data.page or 1
 
         # Connect to SQS
+        if not IS_DMZ:
+            session = BotoCoreSession()
+            session.set_config_variable("ca_bundle", ensure_zscaler_cert_downloaded())
         sqs = boto3.client(
             "sqs",
             region_name=os.getenv("AWS_REGION", "us-east-1"),

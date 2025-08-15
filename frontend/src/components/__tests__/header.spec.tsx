@@ -1,8 +1,9 @@
 import React from 'react';
 import { render, testUser, testOrganization } from 'test-utils';
+import { describe, expect, it, vi } from 'vitest';
 import { Header } from '../Header/Header';
 
-jest.mock('@elastic/react-search-ui', () => ({
+vi.mock('@elastic/react-search-ui', () => ({
   withSearch: () => (comp: any) => comp
 }));
 

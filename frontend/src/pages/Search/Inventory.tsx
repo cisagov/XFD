@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
-import { ContextType } from '../../context/SearchProvider';
+import { ContextType } from 'context/SearchProvider';
 import { SortBar } from './SortBar';
 import { useAuthContext } from 'context';
 import { NoResults } from 'components/NoResults';

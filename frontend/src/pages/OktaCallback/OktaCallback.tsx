@@ -24,7 +24,7 @@ export const OktaCallback: React.FC = () => {
 
     try {
       const res = await fetch(
-        `${process.env.REACT_APP_API_URL}/auth/okta-callback`,
+        `${import.meta.env.VITE_API_URL}/auth/okta-callback`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

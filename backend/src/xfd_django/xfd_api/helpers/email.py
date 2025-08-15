@@ -6,6 +6,7 @@ import os
 # Third-Party Libraries
 import boto3
 from botocore.exceptions import ClientError
+from botocore.session import Session as BotoCoreSession
 from django.conf import settings
 from jinja2 import Template
 
@@ -17,28 +18,24 @@ logging.basicConfig(
     datefmt="%m-%d-%Y %H:%M:%S",
 )
 LOGGER = logging.getLogger(__name__)
+IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
-def _setup_proxy():
-    """
-    Set in the environment, configure the HTTPS/HTTP proxy.
-
-    This ensures that outbound connections go through the specified proxy.
-    """
-    proxy_url = os.getenv("LZ_PROXY_URL")
-    if proxy_url:
-        os.environ["HTTPS_PROXY"] = proxy_url
-        os.environ["HTTP_PROXY"] = proxy_url
-    else:
-        # If not set, ensure these are not set so traffic is direct
-        os.environ.pop("HTTPS_PROXY", None)
-        os.environ.pop("HTTP_PROXY", None)
+def ensure_zscaler_cert_downloaded():
+    """Ensure zscaler cert downloaded."""
+    cert_path = "/tmp/zscaler.pem"  # nosec B108
+    if not os.path.exists(cert_path):
+        s3 = boto3.client("s3", region_name=os.getenv("AWS_REGION", "us-gov-east-1"))
+        s3.download_file(
+            os.getenv("ZSCALER_CERT_BUCKET_NAME", "cisa-crossfeed-prod-zscaler"),
+            "zscaler.pem",
+            cert_path,
+        )
+    return cert_path
 
 
 def send_invite_email(email, organization=None):
     """Send an invitation email to the specified address."""
-    _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
-
     frontend_domain = settings.FRONTEND_DOMAIN
     reply_to = settings.CROSSFEED_SUPPORT_EMAIL_REPLYTO
 
@@ -70,8 +67,9 @@ def send_invite_email(email, organization=None):
 
 def send_email(recipient, subject, body):
     """Send an email using AWS SES."""
-    _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
-
+    if not IS_DMZ:
+        session = BotoCoreSession()
+        session.set_config_variable("ca_bundle", ensure_zscaler_cert_downloaded())
     ses_client = boto3.client("ses", region_name=os.getenv("EMAIL_REGION"))
     sender = settings.CROSSFEED_SUPPORT_EMAIL_SENDER
     reply_to = settings.CROSSFEED_SUPPORT_EMAIL_REPLYTO
@@ -95,8 +93,6 @@ def send_registration_approved_email(
 ):
     """Send registration approved email."""
     try:
-        _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
-
         # Initialize S3 client and fetch email template
         client = S3Client()
         html_template = client.get_email_asset(template)
@@ -127,6 +123,9 @@ def send_registration_approved_email(
             "ReplyToAddresses": [reply_to],
         }
         # SES client
+        if not IS_DMZ:
+            session = BotoCoreSession()
+            session.set_config_variable("ca_bundle", ensure_zscaler_cert_downloaded())
         if not settings.IS_LOCAL:
             ses_client = boto3.client("ses", region_name=os.getenv("EMAIL_REGION"))
             # Send email
@@ -151,8 +150,6 @@ def send_registration_denied_email(
 ):
     """Send registration denied email."""
     try:
-        _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
-
         # Initialize S3 client and fetch email template
         client = S3Client()
         html_template = client.get_email_asset(template)
@@ -183,6 +180,11 @@ def send_registration_denied_email(
         }
         # SES client
         if not settings.IS_LOCAL:
+            if not IS_DMZ:
+                session = BotoCoreSession()
+                session.set_config_variable(
+                    "ca_bundle", ensure_zscaler_cert_downloaded()
+                )
             ses_client = boto3.client("ses", region_name=os.getenv("EMAIL_REGION"))
             # Send email
             ses_client.send_email(**email_params)

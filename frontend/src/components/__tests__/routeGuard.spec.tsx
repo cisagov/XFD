@@ -2,16 +2,20 @@ import React from 'react';
 import * as router from 'react-router-dom';
 import { RouteGuard } from '../RouteGuard';
 import { render, testUser } from 'test-utils';
+import { afterAll, afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useHistory: jest.fn()
-}));
-const routerMock = jest.mocked(router);
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual<typeof router>('react-router-dom');
+  return {
+    ...actual,
+    useHistory: vi.fn()
+  };
+});
+const routerMock = vi.mocked(router);
 
 const Protected: React.FC = () => <div>PROTECTED ROUTE</div>;
 
-const mockPush = jest.fn();
+const mockPush = vi.fn();
 
 beforeEach(() => {
   const mockHistory = {
@@ -27,7 +31,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 it('renders protected route for authenticated user', () => {

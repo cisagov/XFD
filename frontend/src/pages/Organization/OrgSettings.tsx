@@ -319,8 +319,10 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             value={organization.name}
             disabled
             variant="standard"
-            InputProps={{
-              sx: { fontSize: '18px', fontWeight: 400 }
+            slotProps={{
+              htmlInput: {
+                sx: { fontSize: '18px', fontWeight: 400 }
+              }
             }}
           />
         </Grid>
@@ -348,6 +350,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           <ListInput
             label="Root Domains"
             type="root_domains"
+            disableAddButton
+            disableDelete
             organization={organization}
             userType={user?.user_type}
             setOrganization={setOrganization}
@@ -360,6 +364,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           <ListInput
             label="IP Blocks"
             type="ip_blocks"
+            disableAddButton
+            disableDelete
             organization={organization}
             userType={user?.user_type}
             setOrganization={setOrganization}
@@ -373,6 +379,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             <ListInput
               label="Tags"
               type="tags"
+              disableAddButton
+              disableDelete
               organization={organization}
               userType={user?.user_type}
               setOrganization={setOrganization}

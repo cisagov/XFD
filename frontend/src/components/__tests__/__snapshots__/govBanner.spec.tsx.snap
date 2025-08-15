@@ -1,6 +1,6 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Gov Banner Component matches snapshot 1`] = `
+exports[`Gov Banner Component > matches snapshot 1`] = `
 <DocumentFragment>
   <div
     class="css-30gezn"
@@ -14,7 +14,7 @@ exports[`Gov Banner Component matches snapshot 1`] = `
         <img
           alt="usa flag"
           class="GovBanner-flag"
-          src="us_flag_small.png"
+          src="/src/assets/us_flag_small.png"
         />
         <div
           class="GovBanner-textWrap"

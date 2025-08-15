@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
 import { useAuthContext } from 'context';
@@ -11,45 +17,104 @@ import {
   Stack,
   Typography
 } from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridFilterModel,
+  GridSortModel
+} from '@mui/x-data-grid';
 import { useHistory } from 'react-router-dom';
 import { CheckCircleOutline } from '@mui/icons-material';
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
 
+type OrgsApiResponse = {
+  result: Organization[];
+  count: number;
+  url?: string;
+};
+
 export const Organizations: React.FC = () => {
-  const { apiGet, apiPost, setFeedbackMessage, user } = useAuthContext();
+  const { apiPost, setFeedbackMessage, user } = useAuthContext();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [rowCount, setRowCount] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [chosenTags, setChosenTags] = useState<string[]>([]);
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 15
+  });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [debouncedFilterModel, setDebouncedFilterModel] =
+    useState<GridFilterModel>(filterModel);
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const history = useHistory();
   const region_id = user?.region_id;
+  const reqIdRef = useRef(0);
 
-  const getOrgsUrl = () => {
-    if (user?.user_type === 'regionalAdmin') {
-      return `/organizations/region_id/${region_id}`;
-    }
-    return `/v2/organizations`;
-  };
-  const orgsUrl = getOrgsUrl();
+  useEffect(() => {
+    const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
+    return () => clearTimeout(h);
+  }, [filterModel]);
+
+  const buildFilters = useCallback(
+    (model: GridFilterModel) => {
+      const filters: Record<string, any> = {};
+      model.items.forEach((i) => {
+        if (!i.value) return;
+        if (i.field === 'name') {
+          const v = String(i.value).trim();
+          if (v.length >= 2) filters.name = v; // gate short inputs
+        }
+        if (i.field === 'state') filters.state = String(i.value).trim();
+        if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+      });
+      if (user?.user_type === 'regionalAdmin' && region_id) {
+        filters.region_id = region_id;
+      }
+      return filters;
+    },
+    [user?.user_type, region_id]
+  );
+
+  const requestBody = useMemo(() => {
+    const firstSort = sortModel[0];
+    return {
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
+      sort: firstSort?.field || undefined,
+      order: firstSort?.sort || undefined,
+      filters: buildFilters(debouncedFilterModel)
+    };
+  }, [paginationModel, debouncedFilterModel, sortModel, buildFilters]);
 
   const fetchOrganizations = useCallback(async () => {
+    const myId = ++reqIdRef.current;
     setIsLoading(true);
     setLoadingError(false);
     try {
-      const rows = await apiGet<Organization[]>(orgsUrl);
-      setOrganizations(rows);
+      const data = await apiPost<OrgsApiResponse>('/v2/organizations/search', {
+        body: requestBody
+      });
+      if (myId !== reqIdRef.current) return; // ignore stale responses
+      setOrganizations(data.result);
+      setRowCount(data.count);
     } catch (e) {
-      console.error(e);
-      setLoadingError(true);
+      if (myId === reqIdRef.current) {
+        console.error(e);
+        setLoadingError(true);
+      }
     } finally {
-      setIsLoading(false);
+      if (myId === reqIdRef.current) setIsLoading(false);
     }
-  }, [apiGet, orgsUrl]);
+  }, [apiPost, requestBody]);
 
   useEffect(() => {
     fetchOrganizations();
@@ -129,16 +194,13 @@ export const Organizations: React.FC = () => {
       >
         Organizations
       </Typography>
-      <Box mb={3} mt={3} display="flex" justifyContent="center">
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Organizations...</Alert>
-          </Paper>
-        ) : loadingError ? (
-          <Stack direction="row" spacing={2}>
-            <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Organizations!</Alert>
-            </Paper>
+
+      {loadingError && (
+        <Box mb={2}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Alert severity="warning" sx={{ flex: 1 }}>
+              Error Loading Organizations!
+            </Alert>
             <Button
               onClick={fetchOrganizations}
               variant="contained"
@@ -148,21 +210,44 @@ export const Organizations: React.FC = () => {
               Retry
             </Button>
           </Stack>
-        ) : (
-          <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-            <DataGrid
-              rows={organizations}
-              columns={orgCols}
-              slots={{ toolbar: CustomToolbar }}
-              initialState={{
-                pagination: { paginationModel: { pageSize: 15 } }
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
-              disableRowSelectionOnClick
-            />
-          </Paper>
-        )}
-      </Box>
+        </Box>
+      )}
+
+      <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
+        <DataGrid
+          rows={organizations}
+          columns={orgCols}
+          slots={{ toolbar: CustomToolbar }}
+          slotProps={{
+            basePopper: { placement: 'bottom-start' },
+            toolbar: { disableExport: true } as any
+          }}
+          loading={isLoading}
+          paginationMode="server"
+          rowCount={rowCount}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          filterMode="server"
+          filterModel={filterModel}
+          onFilterModelChange={(m) => {
+            setFilterModel(m);
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          }}
+          sortingMode="server"
+          sortModel={sortModel}
+          onSortModelChange={(m) => {
+            setSortModel(m);
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          }}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 15, page: 0 } }
+          }}
+          pageSizeOptions={[15, 30, 50, 100]}
+          disableRowSelectionOnClick
+          showToolbar
+        />
+      </Paper>
+
       <OrganizationForm
         onSubmit={onSubmit}
         open={dialogOpen}

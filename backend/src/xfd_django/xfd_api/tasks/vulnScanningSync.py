@@ -438,7 +438,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
         "cvss_temporal_score": vuln.get("cvss_temporal_score", None),
         "cvss_temporal_vector": vuln.get("cvss_temporal_vector", None),
         "cvss_vector": vuln.get("cvss_vector", None),
-        "description": vuln.get("description", None)[:255],
+        "description": vuln.get("description", None),
         "exploit_available": vuln.get("exploit_available", None),
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
@@ -1337,6 +1337,8 @@ def parse_int(value):
 
 def process_organization(request, network_list, location_dict, org_id_dict):
     """Save organization data and update org_id_dict."""
+    ip_blocks: list[str] = [net["network"] for net in network_list]
+
     org_data = {
         "name": request.get("agency", {}).get("name"),
         "acronym": request.get("_id"),
@@ -1363,6 +1365,7 @@ def process_organization(request, network_list, location_dict, org_id_dict):
         "period_start_vs_timestamp": request.get("period_start"),
         "report_types": json.dumps(request.get("report_types", [])),
         "scan_types": json.dumps(request.get("scan_types", [])),
+        "ip_blocks": json.dumps(ip_blocks),
         "is_passive": False,
     }
     try:

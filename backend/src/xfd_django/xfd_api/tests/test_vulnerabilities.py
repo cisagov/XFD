@@ -307,6 +307,64 @@ def test_get_vulnerability_by_id_fails_404(user, vulnerability, refresh_vuln_vie
     assert response.status_code == 404
 
 
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_v2_get_vulnerability_by_id(user, vulnerability, refresh_vuln_views):
+    """Test v2 vulnerability by ID endpoint with default query params."""
+    response = client.get(
+        "/v2/vulnerabilities/{}".format(str(vulnerability.id)),
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["id"] == str(vulnerability.id)
+    assert data["domain"]["id"] == str(vulnerability.domain.id)
+    assert data["severity"] == vulnerability.severity
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_v2_get_vulnerability_by_id_with_history(
+    user, vulnerability, refresh_vuln_views
+):
+    """Test v2 vulnerability by ID with ticket history query params."""
+    response = client.get(
+        f"/v2/vulnerabilities/{vulnerability.id}?history=true&scan_limit=5",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["id"] == str(vulnerability.id)
+    # Optional: assert on ticket_history if it's available based on test data
+    assert "ticket_history" in data
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_v2_get_vulnerability_by_source_id(user, vulnerability, refresh_vuln_views):
+    """Test v2 vulnerability_details endpoint with scan_source query param."""
+    response = client.get(
+        "/v2/vulnerability_details/{}".format(str(vulnerability.id)),
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+    data = response.json()
+
+    assert response.status_code == 200
+    assert data["name"] == search_fields["title"]
+    # Depending on which source you’re testing for, add more assertions
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_v2_get_vulnerability_by_id_not_found(user):
+    """Test v2 vulnerability by ID returns 404 when not found."""
+    bad_id = "00000000-0000-0000-0000-000000000000"
+    response = client.get(
+        f"/v2/vulnerabilities/{bad_id}",
+        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+    )
+
+    assert response.status_code == 404
+
+
 # @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 # def test_update_vulnerability(user, vulnerability, refresh_vuln_views):
 #     """Test vulnerability."""

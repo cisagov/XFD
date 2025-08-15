@@ -689,7 +689,7 @@ class Organization(AutoLengthCheckModel):
     )
     created_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="created_by_id",
         blank=True,
         null=True,
@@ -831,7 +831,7 @@ class Role(models.Model):
     )
     created_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="created_by_id",
         blank=True,
         null=True,
@@ -839,7 +839,7 @@ class Role(models.Model):
     )
     approved_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="approved_by_id",
         related_name="approved_roles",
         blank=True,
@@ -848,7 +848,7 @@ class Role(models.Model):
     )
     user = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.CASCADE,
         db_column="user_id",
         related_name="roles",
         blank=True,
@@ -857,7 +857,7 @@ class Role(models.Model):
     )
     organization = models.ForeignKey(
         Organization,
-        models.DO_NOTHING,
+        models.CASCADE,
         db_column="organization_id",
         related_name="user_roles",
         blank=True,
@@ -994,7 +994,7 @@ class Scan(models.Model):
     concurrent_tasks = models.IntegerField(db_column="concurrent_tasks", default=1)
     created_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="created_by",
         blank=True,
         null=True,
@@ -1278,7 +1278,7 @@ class User(AutoLengthCheckModel):
     )
     first_login = models.BooleanField(
         db_column="first_login",
-        null=True,
+        default=True,
         help_text="A boolean field identifying a users first approved login for prompts.",
     )
     can_select_own_state = models.BooleanField(
@@ -1294,7 +1294,7 @@ class User(AutoLengthCheckModel):
     )
     approved_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="approved_by_id",
         blank=True,
         null=True,

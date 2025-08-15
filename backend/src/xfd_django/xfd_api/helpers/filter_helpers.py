@@ -240,3 +240,29 @@ def apply_vuln_filters(
     filtered = vulnerabilities.filter(q)
 
     return filtered.none() if not filtered.exists() else filtered
+
+
+def apply_organization_filters(base_q, filters: dict):
+    """Apply organization filters."""
+    q = base_q
+    name = filters.get("name")
+    state = filters.get("state")
+    region_id = filters.get("region_id")
+
+    if name:
+        q &= Q(name__icontains=str(name).strip())
+
+    if state:
+        if isinstance(state, list):
+            vals = [str(s).strip().upper() for s in state if s]
+            if vals:
+                q &= Q(state__in=vals)
+        else:
+            q &= Q(state__iexact=str(state).strip())
+
+    if region_id:
+        if not isinstance(region_id, list):
+            region_id = [region_id]
+        q &= Q(region_id__in=[int(r) for r in region_id if r is not None and r != ""])
+
+    return q

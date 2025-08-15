@@ -38,7 +38,7 @@ environment variables use values that are stored in SSM.
 
 | Name                            | Description                                                               | Sample value                                  |
 | ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
-| `REACT_APP_API_URL`             | URL for REST API                                                          | `https://api.staging.crossfeed.cyber.dhs.gov` | -->
+| `VITE_API_URL`             | URL for REST API                                                          | `https://api.staging.crossfeed.cyber.dhs.gov` | -->
 
 ### Authentication
 

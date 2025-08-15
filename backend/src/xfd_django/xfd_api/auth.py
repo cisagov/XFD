@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.security import APIKeyHeader
 import jwt
 import requests
+from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 
 # from .helpers import user_to_dict
 from xfd_mini_dl.models import (
@@ -38,6 +39,7 @@ JWT_TIMEOUT_HOURS = settings.JWT_TIMEOUT_HOURS
 LOGIN_BLOCKED_EXCLUSIONS = ["globalAdmin", "regionalAdmin"]
 
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
 def validate_json_serialization(user_object, label="user_object"):
@@ -371,41 +373,42 @@ async def handle_okta_callback(request):
 
 async def process_user(decoded_token):
     """Process a user based on decoded token information."""
-    user = User.objects.filter(okta_id=decoded_token["sub"]).first()
+    okta_id = decoded_token["sub"]
+    email = decoded_token["email"]
+
+    user = User.objects.filter(okta_id=okta_id).first()
+
     if not user:
-        # Create a new user if they don't exist from Okta fields in SAML Response
-        user = User(
-            email=decoded_token["email"],
-            okta_id=decoded_token["sub"],
-            first_name=decoded_token.get("given_name"),
-            last_name=decoded_token.get("family_name"),
-            user_type="standard",
-            invite_pending=True,
-            cognito_username=decoded_token.get("cognito:username"),
-            cognito_use_case_description=decoded_token.get("nickname"),
-            cognito_email_verified=decoded_token.get("email_verified"),
-            cognito_groups=decoded_token.get("cognito:groups"),
-            can_select_own_state=True,
-        )
+        # Look for legacy user by email with null okta_id
+        user = User.objects.filter(email=email, okta_id__isnull=True).first()
 
-        # Check for active major maintenance window and login status (New User)
-        update_login_block_status(user)
+        if user:
+            # Assign new okta_id to legacy user
+            user.okta_id = okta_id
+            user.first_name = user.first_name or decoded_token.get("given_name")
+            user.last_name = user.last_name or decoded_token.get("family_name")
+            user.invite_pending = False
+        else:
+            # Create new user if no match found
+            user = User(
+                email=email,
+                okta_id=okta_id,
+                first_name=decoded_token.get("given_name"),
+                last_name=decoded_token.get("family_name"),
+                user_type="standard",
+                invite_pending=True,
+                can_select_own_state=True,
+            )
 
-        user.save()
+    # Update common fields
+    user.last_logged_in = datetime.now()
+    user.cognito_username = decoded_token.get("cognito:username")
+    user.cognito_use_case_description = decoded_token.get("nickname")
+    user.cognito_email_verified = decoded_token.get("email_verified")
+    user.cognito_groups = decoded_token.get("cognito:groups")
 
-    else:
-        # Update user oktaId (legacy users) and login time
-        user.okta_id = decoded_token["sub"]
-        user.last_logged_in = datetime.now()
-        user.cognito_username = decoded_token.get("cognito:username")
-        user.cognito_use_case_description = decoded_token.get("nickname")
-        user.cognito_email_verified = decoded_token.get("email_verified")
-        user.cognito_groups = decoded_token.get("cognito:groups")
-
-        # Check for active major maintenance window and login status (Existing User)
-        update_login_block_status(user)
-
-        user.save()
+    update_login_block_status(user)
+    user.save()
 
     if user:
         # TODO: Uncomment if we want to fully block logins during maintenance windows.
@@ -437,10 +440,9 @@ async def process_user(decoded_token):
 async def get_jwt_from_code(auth_code: str, code_verifier: str):
     """Exchange authorization code for JWT tokens and decode."""
     try:
-        callback_url = os.getenv("REACT_APP_COGNITO_CALLBACK_URL")
-        client_id = os.getenv("REACT_APP_COGNITO_CLIENT_ID")
-        domain = os.getenv("REACT_APP_COGNITO_DOMAIN")
-        proxy_url = os.getenv("LZ_PROXY_URL")
+        callback_url = os.getenv("VITE_COGNITO_CALLBACK_URL")
+        client_id = os.getenv("VITE_COGNITO_CLIENT_ID")
+        domain = os.getenv("VITE_COGNITO_DOMAIN")
 
         authorize_token_url = "https://{}/oauth2/token".format(domain)
         authorize_token_body = {
@@ -454,16 +456,22 @@ async def get_jwt_from_code(auth_code: str, code_verifier: str):
             "Content-Type": "application/x-www-form-urlencoded",
         }
 
-        # Set up proxies if PROXY_URL is defined
-        proxies = {"http": proxy_url, "https": proxy_url} if proxy_url else None
-
-        response = requests.post(
-            authorize_token_url,
-            headers=headers,
-            data=urlencode(authorize_token_body),
-            proxies=proxies,
-            timeout=20,  # Timeout in seconds
-        )
+        if IS_DMZ:
+            response = requests.post(
+                authorize_token_url,
+                headers=headers,
+                data=urlencode(authorize_token_body),
+                timeout=20,  # Timeout in seconds
+            )
+        else:
+            zscaler_cert_path = ensure_zscaler_cert_downloaded()
+            response = requests.post(
+                authorize_token_url,
+                headers=headers,
+                data=urlencode(authorize_token_body),
+                timeout=20,  # Timeout in seconds
+                verify=zscaler_cert_path,
+            )
         token_response = response.json()
         # Convert the id_token to bytes
         id_token = token_response["id_token"].encode("utf-8")
@@ -570,8 +578,10 @@ def get_allowed_user_update_fields(current_user, target_user):
             "approved_by",
             "accepted_terms_version",
             "login_blocked_by_maintenance",
+            "first_login",
         }
-    elif (
+
+    if (
         is_regional_admin(current_user)
         and current_user.region_id == target_user.region_id
     ):
@@ -583,12 +593,17 @@ def get_allowed_user_update_fields(current_user, target_user):
             "date_approved",
             "approved_by",
         }
-    elif (
-        current_user.id == target_user.id
-        and current_user.can_select_own_state is True
-        and current_user.invite_pending is True
-    ):
-        return {"can_select_own_state", "state", "region_id"}
+
+    # Self-updates:
+    if current_user.id == target_user.id:
+        allowed = {"first_login"}  # allow the user to dismiss their own first_login
+        if (
+            current_user.can_select_own_state is True
+            and current_user.invite_pending is True
+        ):
+            allowed |= {"can_select_own_state", "state", "region_id"}
+        return allowed
+
     return set()
 
 

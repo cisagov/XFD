@@ -1,5 +1,6 @@
 import React from 'react';
 import { render } from 'test-utils/test-utils';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { Layout } from '../Layout';
 import { StaticsContext, StaticsContextType } from 'context/StaticsContext';
 import {
@@ -47,15 +48,15 @@ const value: StaticsContextType = {
   setRegions: (regions: string[]) => {}
 };
 
-jest.mock('components/Header/Header', () => ({
+vi.mock('components/Header/Header', () => ({
   Header: () => <div>HEADER</div>
 }));
-jest.mock('components/GovBanner', () => ({
+vi.mock('components/GovBanner', () => ({
   GovBanner: () => <div>GOV_BANNER</div>
 }));
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('Layout component', () => {

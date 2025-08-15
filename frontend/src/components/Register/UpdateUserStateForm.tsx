@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { Save } from '@mui/icons-material';
 import { SelectChangeEvent } from '@mui/material/Select';
-import { STATE_OPTIONS } from '../../constants/constants';
+import { STATE_OPTIONS } from 'constants/constants';
 import { useAuthContext } from 'context';
 
 const StyledDialog = registerFormStyles.StyledDialog;

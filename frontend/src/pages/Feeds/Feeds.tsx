@@ -1,3 +1,4 @@
+//To-Do: CRASM-2993 - Remove Feeds.tsx as it is no longer needed.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Paper, ButtonGroup } from '@mui/material';
 import { Pagination } from '@mui/material';
@@ -79,7 +80,7 @@ const Feeds = () => {
             {
               title: 'P&E APP',
               path: {
-                pathname: `${process.env.REACT_APP_API_URL}/pe`
+                pathname: `${import.meta.env.VITE_API_URL}/pe`
               },
               users: GLOBAL_VIEW,
               externalLink: true

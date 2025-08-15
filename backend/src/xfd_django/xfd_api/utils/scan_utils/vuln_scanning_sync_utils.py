@@ -524,6 +524,7 @@ def save_organization_to_mdl(
         organization_obj.state_fips = org_dict["state_fips"]
         organization_obj.country = org_dict["country"]
         organization_obj.country_name = org_dict["country_name"]
+        organization_obj.ip_blocks = org_dict["ip_blocks"]
         organization_obj.save()
         org_obj = organization_obj
     except Organization.DoesNotExist:
@@ -546,6 +547,7 @@ def save_organization_to_mdl(
             period_start_vs_timestamp=org_dict["period_start_vs_timestamp"],
             report_types=org_dict["report_types"],
             scan_types=org_dict["scan_types"],
+            ip_blocks=org_dict["ip_blocks"],
             location=location_obj,
             is_passive=False,
         )

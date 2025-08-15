@@ -11,7 +11,7 @@ from xfd_api.schema_models.object_store import (
     ObjectStorePresignedUrlResponse,
 )
 
-ALLOWED_BUCKETS = [os.getenv("REACT_APP_LEARNING_CENTER_DOC_BUCKET_NAME")]
+ALLOWED_BUCKETS = [os.getenv("VITE_LEARNING_CENTER_DOC_BUCKET_NAME")]
 
 
 def get_object_store_presigned_url(

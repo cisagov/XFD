@@ -13,6 +13,7 @@ from fastapi import (
     Body,
     Depends,
     HTTPException,
+    Path,
     Query,
     Request,
     Response,
@@ -56,6 +57,7 @@ from .api_methods.stats import (
     get_stats_comparison_data,
     get_user_ports_count,
     get_user_services_count,
+    get_v2_trending_data,
     get_vs_condensed_trending_data,
     get_vs_trending_data,
     stats_latest_vulns,
@@ -79,6 +81,7 @@ from .api_methods.vulnerability import (
     get_vulnerability_by_id,
     get_vulnerability_by_scan_source_and_id,
     search_vulnerabilities,
+    v2_get_vulnerability_by_id,
 )
 from .api_methods.xpanse_sync import xpanse_sync_post
 from .auth import (
@@ -140,9 +143,12 @@ from .schema_models.user_log_schema import (
 )
 from .schema_models.vulnerability import (
     CredBreachVulnerabilityResponse,
+    GetV2VulnerabilityResponse,
+    GetVulnerabilityByIdRequest,
     GetVulnerabilityResponse,
     ShodanVulnerabiltyResponse,
     VsVulnerabilityResponse,
+    VulnByIdRequest,
     VulnerabilitySearch,
     VulnerabilitySearchResponse,
 )
@@ -193,7 +199,7 @@ async def redirect_index():
 )
 async def matomo_proxy(path: str, request: Request):
     """Proxy requests to the Matomo analytics instance."""
-    MATOMO_URL = os.getenv("REACT_APP_MATOMO_URL", "")
+    MATOMO_URL = os.getenv("VITE_MATOMO_URL", "")
 
     # Handle the proxy request to Matomo
     return await matomo_proxy_handler.matomo_proxy_request(request, MATOMO_URL, path)
@@ -769,19 +775,18 @@ async def update_granular_scan(
     )
 
 
-@api_router.get(
-    "/v2/organizations",
+@api_router.post(
+    "/v2/organizations/search",
     dependencies=[Depends(get_current_active_user)],
-    response_model=List[OrganizationSchema.GetOrganizationSchema],
+    response_model=OrganizationSchema.PaginatedOrganizationsResponse,
     tags=["Organizations"],
 )
-async def list_organizations_v2(
-    state: Optional[List[str]] = Query(None),
-    region_id: Optional[List[str]] = Query(None),
+async def search_organizations_v2(
+    payload: OrganizationSchema.OrganizationSearch,
     current_user: User = Depends(get_current_active_user),
 ):
-    """Retrieve a list of all organizations (version 2)."""
-    return organization.list_organizations_v2(state, region_id, current_user)
+    """Search organizations data grid."""
+    return organization.search_organizations_v2(payload, current_user)
 
 
 @api_router.post(
@@ -1203,6 +1208,22 @@ async def get_vs_trending_stats(
 
 
 @api_router.post(
+    "/v2/stats/trends",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=stat_schema.V2TrendResponse,
+    response_model_exclude_none=True,
+    tags=["Stats"],
+)
+async def get_v2_trending_stats(
+    filter_data: stat_schema.V2TrendStatsPayloadSchema,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Retrieve Summary data filtered by the user - V2."""
+    result = get_v2_trending_data(filter_data, current_user)
+    return result
+
+
+@api_router.post(
     "/stats/condensed_trends",
     dependencies=[Depends(get_current_active_user)],
     response_model=stat_schema.VsTrendCondensedResponse,
@@ -1609,7 +1630,26 @@ async def call_get_vulnerability_by_id(
 
 
 @api_router.get(
-    "/vulnerabilities/{scan_source}/{vulnerability_id}",
+    "/v2/vulnerabilities/{vuln_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=GetV2VulnerabilityResponse,
+    tags=["Vulnerabilities"],
+)
+async def v2_call_get_vulnerability_by_id(
+    vuln_id: str = Path(..., description="Vulnerability ID"),
+    history: Optional[bool] = Query(False, description="Include ticket history"),
+    history_limit: Optional[int] = Query(
+        None, gt=0, description="Limit for scan history"
+    ),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get vulnerability by id."""
+    request = VulnByIdRequest(history=history, history_limit=history_limit)
+    return v2_get_vulnerability_by_id(vuln_id, request, current_user)
+
+
+@api_router.get(
+    "/v2/vulnerability_details/{vulnerability_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=Union[
         CredBreachVulnerabilityResponse,
@@ -1619,13 +1659,22 @@ async def call_get_vulnerability_by_id(
     tags=["Vulnerabilities"],
 )
 async def get_vulnerability_by_source_id_route(
-    scan_source: str,
-    vulnerability_id: str,
+    vulnerability_id: str = Path(..., description="The ID of the vulnerability"),
+    scan_source: Optional[str] = Query(None, description="Scan source (e.g. shodan)"),
+    history: Optional[bool] = Query(False, description="Include ticket history"),
+    history_limit: Optional[int] = Query(
+        10, gt=0, description="Limit for scan history"
+    ),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Get vulnerability by id."""
+    """Get vulnerability details by Id: V2."""
+    request = GetVulnerabilityByIdRequest(
+        scan_source=scan_source, history=history, history_limit=history_limit
+    )
     return get_vulnerability_by_scan_source_and_id(
-        scan_source, vulnerability_id, current_user
+        vulnerability_id=vulnerability_id,
+        request=request,
+        current_user=current_user,
     )
 
 

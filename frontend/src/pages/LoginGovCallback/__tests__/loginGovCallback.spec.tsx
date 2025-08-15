@@ -1,15 +1,16 @@
 import React from 'react';
 import { render, waitFor } from 'test-utils';
+import { vi } from 'vitest';
 import { LoginGovCallback } from '../LoginGovCallback';
 
-jest.spyOn(Storage.prototype, 'getItem');
-const mockGetItem = jest.mocked(localStorage.getItem);
+vi.spyOn(Storage.prototype, 'getItem');
+const mockGetItem = vi.mocked(localStorage.getItem);
 
-jest.spyOn(Storage.prototype, 'removeItem');
-const mockRemoveItem = jest.mocked(localStorage.removeItem);
+vi.spyOn(Storage.prototype, 'removeItem');
+const mockRemoveItem = vi.mocked(localStorage.removeItem);
 
-const mockPost = jest.fn();
-const mockLogin = jest.fn();
+const mockPost = vi.fn();
+const mockLogin = vi.fn();
 const { location: originalLocation } = window;
 
 beforeAll(() => {
@@ -31,7 +32,7 @@ afterAll(() => {
     configurable: true,
     value: originalLocation
   });
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 const renderMocked = () => {

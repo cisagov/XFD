@@ -5,7 +5,6 @@ env:
   node: true
 parser: '@typescript-eslint/parser'
 extends:
-  - react-app
   - plugin:prettier/recommended
   - plugin:react/recommended
   - plugin:@typescript-eslint/eslint-recommended
@@ -26,6 +25,9 @@ rules:
 settings:
   react:
     version: detect
+  import/resolver:
+    typescript:
+      project: '.frontend/tsconfig.json'
 globals:
   Atomics: readonly
   SharedArrayBuffer: readonly

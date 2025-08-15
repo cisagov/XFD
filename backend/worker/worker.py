@@ -9,6 +9,7 @@ import time
 # Third-Party Libraries
 import boto3
 import django
+from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.scan import SCAN_SCHEMA
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -64,6 +65,20 @@ def process_message(message_data):
 
 def main():
     """Worker loop."""
+    is_dmz = os.getenv("IS_DMZ")
+    if str(is_dmz).lower() not in {"true", "1"}:
+        zscaler_cert = ensure_zscaler_cert_downloaded()
+        os.environ["AWS_CA_BUNDLE"] = zscaler_cert
+        os.environ["REQUESTS_CA_BUNDLE"] = zscaler_cert
+        os.environ["SSL_CERT_FILE"] = zscaler_cert
+        print("Set Zscaler cert environment variables for outbound TLS.")
+    else:
+        # If not set, ensure these are not set so traffic is direct
+        os.environ.pop("AWS_CA_BUNDLE", None)
+        os.environ.pop("REQUESTS_CA_BUNDLE", None)
+        os.environ.pop("SSL_CERT_FILE", None)
+        print("DMZ mode enabled. Skipping Zscaler cert injection.")
+
     try:
         command_options = json.loads(os.getenv("CROSSFEED_COMMAND_OPTIONS", "{}"))
     except Exception:

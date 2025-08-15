@@ -400,7 +400,10 @@ export const ScanTasksView: React.FC = () => {
                     (child, index) => <Box key={index}>{child}</Box>
                   ),
                   exportTitle: 'Scans'
-                } as any
+                } as any,
+                basePopper: {
+                  placement: 'bottom-start'
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -426,6 +429,7 @@ export const ScanTasksView: React.FC = () => {
               }}
               pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
+              showToolbar
             />
           </Paper>
         )}
@@ -455,8 +459,7 @@ export const ScanTasksView: React.FC = () => {
                   rel="noopener noreferrer"
                   href={`${
                     process.env.CLOUDWATCH_URL
-                  }#logsV2:log-groups/log-group/${process.env
-                    .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
+                  }#logsV2:log-groups/log-group/${import.meta.env.VITE_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
                     (detailsParams?.row?.fargate_task_arn.match('.*/(.*)') || [
                       ''
                     ])[1]
@@ -468,7 +471,7 @@ export const ScanTasksView: React.FC = () => {
               )}
               <Log
                 token={token ?? ''}
-                url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
+                url={`${import.meta.env.VITE_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
               />
             </>
           )}

@@ -20,8 +20,8 @@ import {
   FiberManualRecordRounded
 } from '@mui/icons-material';
 import { FacetFilter, TaggedArrayInput } from 'components';
-import { ContextType } from '../../context/SearchProvider';
-import { useAuthContext } from '../../context';
+import { ContextType } from 'context/SearchProvider';
+import { useAuthContext } from 'context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';

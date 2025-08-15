@@ -1800,6 +1800,7 @@ def test_standard_user_updates_other_unauthenticated():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        first_login=True,
     )
     user_to_update = User.objects.create(
         first_name="Test",
@@ -1808,6 +1809,7 @@ def test_standard_user_updates_other_unauthenticated():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        first_login=True,
     )
     payload = {}
     response = client.put(
@@ -1830,7 +1832,6 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=False,
     )
 
@@ -1838,9 +1839,9 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         "first_name": "Updated",
         "last_name": "New",
         "invite_pending": False,
-        "first_login": False,
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
+        "first_login": False,
     }
 
     response = client.put(
@@ -1852,8 +1853,8 @@ def test_regional_user_updates_self_confirm_authorized_fields():
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"
-    assert response.json()["first_login"] is None
     assert response.json()["approved_by"] is None
+    assert response.json()["first_login"] is False
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1867,7 +1868,6 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=False,
     )
 
@@ -1879,14 +1879,12 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=True,
     )
     payload = {
         "first_name": "Updated",
         "last_name": "New",
         "invite_pending": False,
-        "first_login": False,
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
     }
@@ -1899,7 +1897,6 @@ def test_regional_user_updates_other_confirm_authorized_fields():
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"
-    assert response.json()["first_login"] is None
     assert response.json()["date_approved"] is None
 
 

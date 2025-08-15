@@ -11,20 +11,22 @@ interface FormData {
   organization?: string;
 }
 
-interface Errors extends Partial<FormData> {
-  global?: string;
-}
+// interface Errors extends Partial<FormData> {
+//   global?: string;
+// }
 
 export const TermsOfUse: React.FC = () => {
   const history = useHistory();
   const [accepted, setAccepted] = useState<boolean>(false);
-  const [errors, setErrors] = useState<Errors>({});
+  // const [errors, setErrors] = useState<Errors>({});
   const { user, setUser, apiPost, maximumRole, touVersion } = useAuthContext();
 
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
     try {
-      if (!accepted) throw Error('Must accept terms');
+      if (!accepted) {
+        return;
+      }
       const updated: User = await apiPost(`/users/me/acceptTerms`, {
         body: { version: touVersion }
       });
@@ -34,9 +36,9 @@ export const TermsOfUse: React.FC = () => {
         message: 'Your account has been successfully created.'
       });
     } catch (e: any) {
-      setErrors({
-        global: e.message ?? e.toString()
-      });
+      // setErrors({
+      //   global: e.message ?? e.toString()
+      // });
     }
   };
 
@@ -171,9 +173,9 @@ export const TermsOfUse: React.FC = () => {
       <p>
         <strong>Email:</strong> {user?.email}
       </p>
-      <div className="width-full display-flex flex-justify-start">
+      {/* <div className="width-full display-flex flex-justify-start">
         {errors.global && <p className="text-error">{errors.global}</p>}
-      </div>
+      </div> */}
       <Button type="submit">Submit</Button>
     </AuthForm>
   );

@@ -19,7 +19,10 @@ import { useAuthContext } from 'context';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
 // import { Link } from 'react-router-dom';
+import { setFrequency } from 'pages/Scan/Scan';
+import { ScanForm, ScanFormValues } from 'components/ScanForm';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
 import {
   Alert,
   Button as MuiButton,
@@ -30,7 +33,9 @@ import {
   DialogContentText,
   IconButton,
   Paper,
-  DialogTitle
+  DialogTitle,
+  Snackbar,
+  SnackbarCloseReason
 } from '@mui/material';
 //Needed for the CustomToolbar:
 // import CustomToolbar from 'components/DataGrid/CustomToolbar';
@@ -62,16 +67,29 @@ const ScansView: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string>('');
   const [selectedName, setSelectedName] = useState<string>('');
   const [scans, setScans] = useState<Scan[]>([]);
-  const [_organizationOptions, setOrganizationOptions] = useState<
+  const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
   >([]);
-  void _organizationOptions; // Suppress unused variable warning
-  const [_tags, setTags] = useState<OrganizationTag[]>([]);
-  void _tags; // Suppress unused variable warning
+  const [tags, setTags] = useState<OrganizationTag[]>([]);
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
   const deleteModalRef = useRef<ModalRef>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [open, setOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
+
+  const [values] = useState<ScanFormValues>({
+    name: 'censys',
+    arguments: '{}',
+    organizations: [],
+    frequency: 1,
+    frequencyUnit: 'minute',
+    is_granular: false,
+    is_user_modifiable: false,
+    is_single_scan: false,
+    tags: [],
+    concurrent_tasks: 1
+  });
 
   const fetchScans = useCallback(async () => {
     try {
@@ -79,7 +97,7 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans/');
+      }>('/scans');
       const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
       setScans(scans);
       setScanSchema(schema);
@@ -103,6 +121,34 @@ const ScansView: React.FC = () => {
             ? 'Unable to delete scan'
             : (e.message ?? e.toString())
       });
+      console.log(e);
+    }
+  };
+
+  const onSubmit = async (body: ScanFormValues) => {
+    try {
+      // For now, parse the arguments as JSON. We'll want to add a GUI for this in the future
+      body.arguments = JSON.parse(body.arguments);
+      setFrequency(body);
+
+      const scan = await apiPost('/scans', {
+        body: {
+          ...body,
+          organizations: body.organizations
+            ? body.organizations.map((e) => e.value)
+            : [],
+          tags: body.tags ? body.tags.map((e) => ({ id: e.value })) : []
+        }
+      });
+      setScans(scans.concat(scan));
+      setSnackbarMsg('Scan created successfully!');
+      setSnackbarOpen(true);
+    } catch (e: any) {
+      setErrors({
+        global: e.message ?? e.toString()
+      });
+      setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
+      setSnackbarOpen(true);
       console.log(e);
     }
   };
@@ -154,6 +200,18 @@ const ScansView: React.FC = () => {
   };
   const handleClose = () => {
     setOpen(false);
+  };
+
+  type SnackbarCloseReason = 'timeout' | 'clickaway';
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleSnackbarClose = (
+    event: React.SyntheticEvent<any> | Event,
+    reason?: SnackbarCloseReason
+  ) => {
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
+    triggerRef.current?.focus();
   };
 
   const handleClick = () => {
@@ -348,6 +406,16 @@ const ScansView: React.FC = () => {
         Manually run scheduler
       </Button>
       {errors.scheduler && <p className={classes.error}>{errors.scheduler}</p>}
+      <h2>Add a scan</h2>
+      {errors.global && <p className={classes.error}>{errors.global}</p>}
+      <ScanForm
+        organizationOption={organizationOptions}
+        tags={tags}
+        propValues={values}
+        onSubmit={onSubmit}
+        type="create"
+        scanSchema={scanSchema}
+      ></ScanForm>
       {/* To-Do: Undefined props are needed to avoid errors. This Modal needs to
       be replaced with a MUI Dialog. */}
       <Modal
@@ -384,6 +452,18 @@ const ScansView: React.FC = () => {
           </ButtonGroup>
         </ModalFooter>
       </Modal>
+      <Snackbar
+        open={snackbarOpen}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarMsg.includes('failed') ? 'error' : 'success'}
+          sx={{ width: '100%' }}
+        >
+          <span tabIndex={0}>{snackbarMsg}</span>
+        </Alert>
+      </Snackbar>
     </>
   );
 };

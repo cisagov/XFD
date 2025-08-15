@@ -1,12 +1,12 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`matches admin snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="root"
+    class="_root_5fbfbe"
   >
     <form
-      class="form"
+      class="_form_5fbfbe"
     >
       <h1>
         Terms of Use
@@ -104,9 +104,6 @@ exports[`matches admin snapshot 1`] = `
         </strong>
          test@crossfeed.gov
       </p>
-      <div
-        class="width-full display-flex flex-justify-start"
-      />
       <button
         class="usa-button"
         data-testid="button"
@@ -122,10 +119,10 @@ exports[`matches admin snapshot 1`] = `
 exports[`matches user snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="root"
+    class="_root_5fbfbe"
   >
     <form
-      class="form"
+      class="_form_5fbfbe"
     >
       <h1>
         Terms of Use
@@ -202,9 +199,6 @@ exports[`matches user snapshot 1`] = `
         </strong>
          test@crossfeed.gov
       </p>
-      <div
-        class="width-full display-flex flex-justify-start"
-      />
       <button
         class="usa-button"
         data-testid="button"

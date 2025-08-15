@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { classes, Root } from './Styling/filterTagsStyle';
-import { ContextType } from '../../context/SearchProvider';
+import { ContextType } from 'context/SearchProvider';
 import { Chip } from '@mui/material';
 import { REGIONAL_ADMIN, useUserLevel } from 'hooks/useUserLevel';
 import { STANDARD_USER } from 'context/userStateUtils';

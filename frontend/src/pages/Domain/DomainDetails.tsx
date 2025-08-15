@@ -16,7 +16,7 @@ import {
 import { ExpandLess, ExpandMore, KeyboardBackspace } from '@mui/icons-material';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
-import { DefinitionList } from '../../components/DefinitionList';
+import { DefinitionList } from 'components/DefinitionList';
 // @ts-ignore:next-line
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';

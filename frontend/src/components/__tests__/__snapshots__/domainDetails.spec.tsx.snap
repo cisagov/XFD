@@ -1,10 +1,10 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`generateWebpageTree basic path 1`] = `
-Object {
-  "a": Object {
-    "b": Object {
-      "c": Object {
+exports[`generateWebpageTree > basic path 1`] = `
+{
+  "a": {
+    "b": {
+      "c": {
         "url": "https://www.cisa.gov/a/b/c",
       },
     },
@@ -12,25 +12,25 @@ Object {
 }
 `;
 
-exports[`generateWebpageTree no path 1`] = `
-Object {
-  "undefined": Object {
+exports[`generateWebpageTree > no path 1`] = `
+{
+  "undefined": {
     "url": "https://www.cisa.gov/",
   },
 }
 `;
 
-exports[`generateWebpageTree single path 1`] = `
-Object {
-  "a": Object {
+exports[`generateWebpageTree > single path 1`] = `
+{
+  "a": {
     "url": "https://www.cisa.gov/a",
   },
 }
 `;
 
-exports[`generateWebpageTree trailing slash 1`] = `
-Object {
-  "a": Object {
+exports[`generateWebpageTree > trailing slash 1`] = `
+{
+  "a": {
     "url": "https://www.cisa.gov/a/",
   },
 }

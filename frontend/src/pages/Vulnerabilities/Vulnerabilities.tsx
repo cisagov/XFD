@@ -613,13 +613,17 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                     : showOpenVulnsButton,
                   exportTitle: 'Vulnerabilities'
                 } as any,
-                noRowsOverlay: { children: noRowsOverlay }
+                noRowsOverlay: { children: noRowsOverlay },
+                basePopper: {
+                  placement: 'bottom-start'
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
               onPaginationModelChange={handlePaginationModelChange}
               pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
+              showToolbar
             />
           </Paper>
         ) : null}

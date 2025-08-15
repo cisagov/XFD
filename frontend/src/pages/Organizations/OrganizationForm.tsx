@@ -16,10 +16,7 @@ import {
   Typography
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
-import {
-  STATE_ABBREVIATED_OPTIONS,
-  STATE_OPTIONS
-} from '../../constants/constants';
+import { STATE_ABBREVIATED_OPTIONS, STATE_OPTIONS } from 'constants/constants';
 import { useAuthContext } from 'context';
 
 const StyledDialog = orgFormStyles.StyledDialog;
@@ -167,7 +164,7 @@ export const OrganizationForm: React.FC<{
           size="small"
           margin="dense"
           id="name"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="name"
           type="text"
           fullWidth
@@ -183,7 +180,7 @@ export const OrganizationForm: React.FC<{
           size="small"
           margin="dense"
           id="acronym"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="acronym"
           type="text"
           fullWidth
@@ -264,7 +261,7 @@ export const OrganizationForm: React.FC<{
           freeSolo
           value={chosenTags}
           onChange={handleTagChange}
-          renderTags={(value: readonly string[], getTagProps) =>
+          renderValue={(value: readonly string[], getTagProps) =>
             value.map((option: string, index: number) => {
               const { key, ...tagProps } = getTagProps({ index });
               return (

@@ -21,7 +21,7 @@ from xfd_mini_dl.models import User
 
 # AWS Configuration
 cognito_client = boto3.client("cognito-idp", region_name=os.getenv("AWS_REGION"))
-user_pool_id = os.getenv("REACT_APP_USER_POOL_ID")
+user_pool_id = os.getenv("VITE_USER_POOL_ID")
 
 
 def check_user_expiration():
@@ -80,7 +80,7 @@ def check_user_expiration():
             cognito_client.admin_set_user_password(
                 UserPoolId=user_pool_id,
                 Username=user.cognito_id,
-                Password=os.getenv("REACT_APP_RANDOM_PASSWORD"),
+                Password=os.getenv("VITE_RANDOM_PASSWORD"),
                 Permanent=False,
             )
             print(

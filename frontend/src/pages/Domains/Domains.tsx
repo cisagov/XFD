@@ -422,7 +422,10 @@ export const Domains: React.FC = () => {
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
-                toolbar: { exportTitle: 'Domains' } as any
+                toolbar: { exportTitle: 'Domains' } as any,
+                basePopper: {
+                  placement: 'bottom-start'
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -435,6 +438,7 @@ export const Domains: React.FC = () => {
               }}
               pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
+              showToolbar
             />
           </Paper>
         ) : null}

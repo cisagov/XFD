@@ -45,21 +45,21 @@ API.configure({
   endpoints: [
     {
       name: 'crossfeed',
-      endpoint: process.env.REACT_APP_API_URL
+      endpoint: import.meta.env.VITE_API_URL
     }
   ]
 });
 
-if (process.env.REACT_APP_USE_COGNITO) {
+if (import.meta.env.VITE_USE_COGNITO) {
   Auth.configure({
-    region: process.env.EMAIL_REGION,
-    userPoolId: process.env.REACT_APP_USER_POOL_ID,
-    userPoolWebClientId: process.env.REACT_APP_USER_POOL_CLIENT_ID
+    region: import.meta.env.VITE_EMAIL_REGION,
+    userPoolId: import.meta.env.VITE_USER_POOL_ID,
+    userPoolWebClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID
   });
 }
 
 const instance = createInstance({
-  urlBase: `${process.env.REACT_APP_API_URL}/matomo`,
+  urlBase: `${import.meta.env.VITE_API_URL}/matomo`,
   siteId: 1,
   disabled: false,
   heartBeat: {

@@ -127,10 +127,7 @@ export const NavMenuButton: React.FC<Props> = ({
           open={open}
           onClose={handleClose}
           id={id}
-          MenuListProps={{
-            'aria-labelledby': id,
-            ref: menuRef
-          }}
+          slotProps={{ list: { 'aria-labelledby': id, ref: menuRef } }}
         >
           {menuItems.map((item, index) => {
             const isExternal =

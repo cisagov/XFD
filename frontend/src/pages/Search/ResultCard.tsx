@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Box, Typography, ButtonBase } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { Result } from '../../context/SearchProvider';
+import { Result } from 'context/SearchProvider';
 // @ts-ignore:next-line
 import { parseISO, formatDistanceToNow } from 'date-fns';
 import DOMPurify from 'dompurify';

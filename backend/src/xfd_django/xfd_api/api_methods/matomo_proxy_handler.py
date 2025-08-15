@@ -1,32 +1,34 @@
-from starlette.responses import Response, StreamingResponse, RedirectResponse
-from fastapi import Request, status
-from xfd_api.api_methods import proxy
+# Standard Python Libraries
 import logging
 
+# Third-Party Libraries
+from fastapi import Request, status
+from starlette.responses import RedirectResponse, Response, StreamingResponse
+from xfd_api.api_methods import proxy
+
 LOGGER = logging.getLogger(__name__)
+
 
 def sanitize_and_stream_response(proxy_response: Response) -> StreamingResponse:
     """Wraps a proxy response in StreamingResponse and strips conflicting headers."""
     # Filter headers that can cause issues when manually constructing a response
     safe_headers = {
-        key: value for key, value in proxy_response.headers.items()
-        if key.lower() not in {"content-length", "transfer-encoding", "content-encoding"}
+        key: value
+        for key, value in proxy_response.headers.items()
+        if key.lower()
+        not in {"content-length", "transfer-encoding", "content-encoding"}
     }
 
     return StreamingResponse(
         iter([proxy_response.body]),
         status_code=proxy_response.status_code,
-        headers=safe_headers
+        headers=safe_headers,
     )
 
 
-async def matomo_proxy_request(
-    request: Request,
-    MATOMO_URL: str,
-    path: str
-):
+async def matomo_proxy_request(request: Request, MATOMO_URL: str, path: str):
     """Proxy requests to the Matomo analytics instance."""
-    
+
     # Public paths -- directly allowed
     allowed_paths = ["/matomo.php", "/matomo.js"]
     if any(
@@ -47,7 +49,9 @@ async def matomo_proxy_request(
         )
     try:
         # Handle the proxy request to Matomo
-        proxy_response = await proxy.proxy_request(path=path, request=request, target_url=MATOMO_URL)
+        proxy_response = await proxy.proxy_request(
+            path=path, request=request, target_url=MATOMO_URL
+        )
         return sanitize_and_stream_response(proxy_response)
     except Exception as e:
         LOGGER.error("Error while proxying request to Matomo: %s", e)

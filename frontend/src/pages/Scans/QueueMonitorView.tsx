@@ -56,7 +56,7 @@ const QueueMonitorView: React.FC = () => {
         <DataGrid
           rows={queues}
           columns={queueColumns}
-          pageSizeOptions={[10, 25]}
+          pageSizeOptions={[10, 25, 100]}
           disableRowSelectionOnClick
         />
       </Paper>

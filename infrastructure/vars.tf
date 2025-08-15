@@ -899,3 +899,9 @@ variable "playwright_worker_repository_name" {
   type        = string
   default     = "crossfeed-playwright-staging-worker"
 }
+
+variable "zscaler_cert_bucket_name" {
+  description = "zscaler_cert_bucket_name"
+  type        = string
+  default     = "cisa-crossfeed-staging-zscaler"
+}

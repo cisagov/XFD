@@ -6,8 +6,10 @@ useDotenv: true
 configValidationMode: error
 
 custom:
-  webpack:
-    webpackConfig: webpack.lambda.config.js
+  esbuild:
+    bundle: true
+    external: []  # Make sure serverless-http is NOT here
+    exclude: []   # Also keep it out of exclude
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -61,7 +63,7 @@ provider:
   name: aws
   region: ${file(env.yml):${self:provider.stage}.REGION, ''}
   endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
-  runtime: nodejs16.x
+  runtime: nodejs20.x
   timeout: 30
   stage: ${opt:stage, 'dev'}
   environment: ${file(env.yml):${self:provider.stage}, ''}
@@ -93,44 +95,49 @@ functions:
           path: /{any+}
           method: GET
     # provisionedConcurrency: 1
-  docs:
-    handler: scripts/docs.handler
-    events:
-      - http:
-          path: /docs
-          method: GET
-      - http:
-          path: /docs/{any+}
-          method: GET
+  # TODO: Reenable docs site CRASM-1070, CRASM-2124
+  # docs:
+  #   handler: scripts/docs.handler
+  #   events:
+  #     - http:
+  #         path: /docs
+  #         method: GET
+  #     - http:
+  #         path: /docs/{any+}
+  #         method: GET
 
-resources:
-  Resources:
-    ApiGatewayPermissionForDocsLambda:
-      Type: AWS::Lambda::Permission
-      Properties:
-        FunctionName:
-          Fn::GetAtt: [DocsLambdaFunction, Arn]
-        Action: lambda:InvokeFunction
-        Principal: apigateway.amazonaws.com
-        SourceArn:
-          Fn::Join:
-            - ""
-            - - "arn:aws:execute-api:"
-              - Ref: AWS::Region
-              - ":"
-              - Ref: AWS::AccountId
-              - ":"
-              - Ref: ApiGatewayRestApi
-              - "/*/*/docs*"
+# TODO: Reenable docs site CRASM-1070, CRASM-2124
+# resources:
+#   Resources:
+#     ApiGatewayPermissionForDocsLambda:
+#       Type: AWS::Lambda::Permission
+#       Properties:
+#         FunctionName:
+#           Fn::GetAtt: [DocsLambdaFunction, Arn]
+#         Action: lambda:InvokeFunction
+#         Principal: apigateway.amazonaws.com
+#         SourceArn:
+#           Fn::Join:
+#             - ""
+#             - - "arn:aws:execute-api:"
+#               - Ref: AWS::Region
+#               - ":"
+#               - Ref: AWS::AccountId
+#               - ":"
+#               - Ref: ApiGatewayRestApi
+#               - "/*/*/docs*"
 package:
-  include:
-    - scripts/**         # Include handler scripts
-    - build/**           # Include React static assets
-    - docs-build/**      # Include copied Gatsby static assets
+  patterns:
+    - dist/**
+    - '!src/**'
+
+
+    # TODO: Reenable docs site CRASM-1070, CRASM-2124
+    # - docs-build/**      # Include copied Gatsby static assets
 
 plugins:
   - serverless-domain-manager
   - serverless-better-credentials
-  - serverless-webpack
   - serverless-plugin-ifelse
   - serverless-prune-versions
+  - serverless-esbuild

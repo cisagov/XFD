@@ -48,8 +48,10 @@ DEBUG = IS_LOCAL != "false"
 ALLOWED_HOSTS = [
     ".execute-api.us-east-1.amazonaws.com",
     os.getenv("BACKEND_DOMAIN"),
-    os.getenv("REACT_APP_API_URL"),
+    os.getenv("VITE_API_URL"),
     os.getenv("FRONTEND_DOMAIN"),
+    os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
+    os.getenv("CROSSFEED_BACKEND_DOMAIN"),
 ]
 
 MESSAGE_TAGS = {
@@ -192,6 +194,7 @@ SECURE_CSP_POLICY = {
         "'self'",
         os.getenv("COGNITO_URL"),
         os.getenv("BACKEND_DOMAIN"),
+        os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
     ],
     "frame-src": ["'self'", "https://www.dhs.gov/ntas/"],
@@ -199,6 +202,7 @@ SECURE_CSP_POLICY = {
         "'self'",
         "data:",
         os.getenv("FRONTEND_DOMAIN"),
+        os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
         "https://www.ssa.gov",
         "https://www.dhs.gov",
         "https://fastapi.tiangolo.com/img/favicon.png",
@@ -207,6 +211,7 @@ SECURE_CSP_POLICY = {
     "script-src": [
         "'self'",
         os.getenv("BACKEND_DOMAIN"),
+        os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
         "https://www.ssa.gov/accessibility/andi/fandi.js",
         "https://www.ssa.gov/accessibility/andi/andi.js",
