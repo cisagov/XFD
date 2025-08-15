@@ -20,6 +20,7 @@ from django.db import connections, models, transaction
 from django.db.models import Exists, OuterRef, Prefetch
 from django.db.utils import IntegrityError
 from django.utils import timezone
+from psycopg2.extras import execute_values
 from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
@@ -819,3 +820,70 @@ def fill_cidr_live_ips_bulk_update():
 
     duration = time.time() - start_time
     LOGGER.info("fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration)
+
+
+def bulk_upsert_tickets_sql(rows, using="mini_data_lake", page_size=5000):
+    """
+    Insert or update Ticket rows, but only update when EXCLUDED.updated_timestamp is newer.
+
+    Expects each row to be a dict with *DB column* keys listed below.
+    """
+    if not rows:
+        return
+
+    # Use the real table name and quote it safely
+    conn = connections[using]
+    qn = conn.ops.quote_name
+    table = qn(Ticket._meta.db_table)
+
+    # Columns in DB (note FK columns are *_id)
+    columns = [
+        "id",
+        "cve_string",
+        "cve_id",
+        "cvss_base_score",
+        "cvss_version",
+        "vuln_name",
+        "cvss_score_source",
+        "cvss_severity",
+        "vpr_score",
+        "false_positive",
+        "ip_string",
+        "ip_id",
+        "updated_timestamp",
+        "location_longitude",
+        "location_latitude",
+        "organization_id",
+        "vuln_port",
+        "port_protocol",
+        "snapshots_bool",
+        "vuln_source",
+        "vuln_source_id",
+        "closed_timestamp",
+        "opened_timestamp",
+        "is_open",
+        "is_kev",
+        "is_kev_ransomware",
+        "is_risky",
+        "service_name",
+        "operating_system",
+        "risky_service_group",
+        "nmi_service_group",
+    ]
+
+    col_list_sql = ", ".join(qn(c) for c in columns)
+    set_sql = ", ".join(f"{qn(c)} = EXCLUDED.{qn(c)}" for c in columns if c != "id")
+    where_sql = f"{table}.updated_timestamp IS NULL OR EXCLUDED.updated_timestamp > {table}.updated_timestamp"
+
+    sql = f"""
+        INSERT INTO {table} ({col_list_sql})
+        VALUES %s
+        ON CONFLICT (id) DO UPDATE
+        SET {set_sql}
+        WHERE {where_sql}
+    """  # nosec B608
+
+    values = [tuple(row.get(col) for col in columns) for row in rows]
+
+    with conn.cursor() as cur:
+        execute_values(cur, sql, values, page_size=page_size)
