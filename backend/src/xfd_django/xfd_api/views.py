@@ -1,6 +1,6 @@
 """This module defines the API endpoints for the FastAPI application."""
 # Standard Python Libraries
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -21,6 +21,7 @@ from fastapi import (
 )
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, RedirectResponse
+import pymysql
 from redis import asyncio as aioredis
 import xfd_api.api_methods.dmz_sync as cybersix_module
 from xfd_api.auth import is_global_write_admin
@@ -185,6 +186,27 @@ async def redirect_logo():
 
 
 # Matomo Index Redirect
+@api_router.get("/matomo/healthcheck")
+def healthz():
+    try:
+        conn = pymysql.connect(
+            host=os.getenv("MATOMO_DB_HOST", "matomodb"),
+            port=int(os.getenv("MATOMO_DB_PORT", "3306")),
+            user=os.getenv("MATOMO_DATABASE_USERNAME", "root"),
+            password=os.getenv("MATOMO_DATABASE_PASSWORD", "password"),
+            database=os.getenv("MATOMO_DATABASE_DBNAME", "matomo"),
+            cursorclass=pymysql.cursors.DictCursor,
+            autocommit=True,
+        )
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1")
+            cur.fetchone()
+        conn.close()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @api_router.get("/index.php")
 async def redirect_index():
     """Redirect to the Matomo index page."""
@@ -203,6 +225,105 @@ async def matomo_proxy(path: str, request: Request):
 
     # Handle the proxy request to Matomo
     return await matomo_proxy_handler.matomo_proxy_request(request, MATOMO_URL, path)
+
+
+# Query Total Visits
+@api_router.get(
+    "/analytics/visits-total",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Analytics"],
+)
+def matomo_visits_total(
+    idsite: int = Query(1, description="Matomo site id"),
+    start_utc: Optional[str] = Query(
+        None, description="UTC start, e.g. 2025-08-18T00:00:00Z"
+    ),
+    end_utc: Optional[str] = Query(None, description="UTC end"),
+):
+    MATOMO_DB_HOST = os.getenv("MATOMO_DB_HOST", "matomodb")
+    MATOMO_DB_PORT = int(os.getenv("MATOMO_DB_PORT", "3306"))
+    MATOMO_DB_USER = os.getenv("MATOMO_DATABASE_USERNAME", "root")
+    MATOMO_DB_PASS = os.getenv("MATOMO_DATABASE_PASSWORD", "password")
+    MATOMO_DB_NAME = os.getenv("MATOMO_DATABASE_DBNAME", "matomo")
+
+    CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
+    READ_TIMEOUT = int(os.getenv("DB_READ_TIMEOUT", "20"))
+    WRITE_TIMEOUT = int(os.getenv("DB_WRITE_TIMEOUT", "20"))
+
+    def parse_iso_utc(s: str) -> datetime:
+        """Accepts 'YYYY-MM-DDTHH:MM:SSZ' or with timezone; returns aware UTC datetime."""
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        return dt
+
+    def _validate_range(start_utc: datetime, end_utc: datetime, max_days: int = 31):
+        if end_utc <= start_utc:
+            raise HTTPException(
+                status_code=400, detail="end_utc must be after start_utc"
+            )
+        if (end_utc - start_utc).days > max_days:
+            raise HTTPException(
+                status_code=400, detail=f"date range too large (max {max_days} days)"
+            )
+
+    def get_conn():
+        # Create a fresh connection per request (simplest & reliable for a first test).
+        # You can switch to a pool later if needed.
+        return pymysql.connect(
+            host=MATOMO_DB_HOST,
+            port=MATOMO_DB_PORT,
+            user=MATOMO_DB_USER,
+            password=MATOMO_DB_PASS,
+            database=MATOMO_DB_NAME,
+            charset="utf8mb4",
+            cursorclass=pymysql.cursors.DictCursor,
+            connect_timeout=CONNECT_TIMEOUT,
+            read_timeout=READ_TIMEOUT,
+            write_timeout=WRITE_TIMEOUT,
+            autocommit=True,
+        )
+
+    now = datetime.now(timezone.utc)
+    end_dt = parse_iso_utc(end_utc) if end_utc else now
+    start_dt = parse_iso_utc(start_utc) if start_utc else end_dt - timedelta(hours=300)
+    _validate_range(start_dt, end_dt, max_days=31)
+
+    sql = """
+        SELECT COUNT(v.idvisit) AS total_visits
+        FROM matomo_log_visit AS v
+        WHERE v.idsite = %s
+          AND v.visit_last_action_time > %s
+          AND v.visit_last_action_time <= %s
+    """
+
+    # Matomo stores UTC; pass naive datetimes (MySQL DATETIME) after stripping tzinfo.
+    params = (idsite, start_dt.replace(tzinfo=None), end_dt.replace(tzinfo=None))
+
+    try:
+        conn = get_conn()
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            row = cur.fetchone() or {"total_visits": 0}
+        conn.close()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"DB error: {e}")
+
+    return {
+        "idsite": idsite,
+        "start_utc": start_dt.isoformat(),
+        "end_utc": end_dt.isoformat(),
+        "total_visits": int(row["total_visits"] or 0),
+    }
+
+
+# ========================================
+#   P&E Endpoints
+# ========================================
 
 
 # P&E Proxy
