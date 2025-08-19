@@ -1,9 +1,11 @@
-import os
+# Standard Python Libraries
 from datetime import datetime, timedelta, timezone
+import os
 from typing import Optional
 
+# Third-Party Libraries
+from fastapi import FastAPI, HTTPException, Query
 import pymysql
-from fastapi import FastAPI, Query, HTTPException
 
 # ---------- Config (env vars recommended) ----------
 MATOMO_DB_HOST = os.getenv("MATOMO_DB_HOST", "matomodb")
@@ -18,6 +20,7 @@ WRITE_TIMEOUT = int(os.getenv("DB_WRITE_TIMEOUT", "20"))
 
 app = FastAPI(title="Matomo minimal API (PyMySQL)")
 
+
 # ---------- Small helpers ----------
 def parse_iso_utc(s: str) -> datetime:
     """Accepts 'YYYY-MM-DDTHH:MM:SSZ' or with timezone; returns aware UTC datetime."""
@@ -30,11 +33,15 @@ def parse_iso_utc(s: str) -> datetime:
         dt = dt.astimezone(timezone.utc)
     return dt
 
+
 def _validate_range(start_utc: datetime, end_utc: datetime, max_days: int = 31):
     if end_utc <= start_utc:
         raise HTTPException(status_code=400, detail="end_utc must be after start_utc")
     if (end_utc - start_utc).days > max_days:
-        raise HTTPException(status_code=400, detail=f"date range too large (max {max_days} days)")
+        raise HTTPException(
+            status_code=400, detail=f"date range too large (max {max_days} days)"
+        )
+
 
 def get_conn():
     # Create a fresh connection per request (simplest & reliable for a first test).
@@ -53,11 +60,14 @@ def get_conn():
         autocommit=True,
     )
 
+
 # ---------- One tiny test endpoint: total visits ----------
 @app.get("/analytics/visits-total")
 def visits_total(
     idsite: int = Query(1, description="Matomo site id"),
-    start_utc: Optional[str] = Query(None, description="UTC start, e.g. 2025-08-18T00:00:00Z"),
+    start_utc: Optional[str] = Query(
+        None, description="UTC start, e.g. 2025-08-18T00:00:00Z"
+    ),
     end_utc: Optional[str] = Query(None, description="UTC end"),
 ):
     """
@@ -95,6 +105,7 @@ def visits_total(
         "end_utc": end_dt.isoformat(),
         "total_visits": int(row["total_visits"] or 0),
     }
+
 
 # ---------- Healthcheck ----------
 @app.get("/healthz")

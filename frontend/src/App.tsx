@@ -13,6 +13,7 @@ import {
   useMatomo
 } from '@jonkoops/matomo-tracker-react';
 import {
+  Analytics,
   AdminTools,
   AuthCreateAccount,
   AuthLogin,
@@ -122,6 +123,16 @@ const App: React.FC = () => (
                           component={AuthCreateAccount}
                         />
                         <Route exact path="/terms" component={TermsOfUse} />
+                        <RouteGuard
+                          path="/analytics"
+                          exact
+                          component={Analytics}
+                          permissions={[
+                            'globalView',
+                            'regionalAdmin',
+                            'standard'
+                          ]}
+                        />
                         <RouteGuard
                           exact
                           path="/inventory"

@@ -8,6 +8,7 @@ export * from './Scans';
 export * from './Search';
 export * from './TermsOfUse';
 export * from './Vulnerability';
+export { default as Analytics } from './Analytics';
 export { default as AdminTools } from './AdminTools';
 export { default as Feeds } from './Feeds';
 export { default as Notifications } from './Notifications';
