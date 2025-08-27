@@ -1,12 +1,15 @@
 """AWS Lambda Client."""
 
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
 import boto3
 
 from .scheduler import handler as scheduler
+
+LOGGER = logging.getLogger(__name__)
 
 
 class LambdaClient:
@@ -24,7 +27,7 @@ class LambdaClient:
 
     def run_command(self, name: str):
         """Invoke a lambda function with the given name."""
-        print("Invoking lambda function: {}".format(name))
+        LOGGER.info("Invoking lambda function: %s", name)
         if self.is_local:
             # If running locally, directly call the scheduler function
             scheduler({}, {})

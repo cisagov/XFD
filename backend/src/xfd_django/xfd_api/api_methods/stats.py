@@ -2,6 +2,7 @@
 # Standard Python Libraries
 from datetime import date, datetime, timedelta
 import json
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
@@ -28,6 +29,9 @@ from xfd_mini_dl.models import (
 
 from ..auth import get_org_memberships, is_analytics_user, is_global_view_admin
 
+# Configure logging
+LOGGER = logging.getLogger(__name__)
+
 
 # GET: /stats
 async def get_stats(filter_data, current_user, redis_client, request: Request):
@@ -38,7 +42,7 @@ async def get_stats(filter_data, current_user, redis_client, request: Request):
         try:
             return await fetch_fn(*args, **kwargs)
         except Exception as e:
-            print("Error fetching stats with {}: {}".format(fetch_fn.__name__, e))
+            LOGGER.exception("Error fetching stats with %s: %s", fetch_fn.__name__, e)
             return []
 
     filtered_org_ids = get_stats_org_ids(current_user, filter_data)
@@ -952,7 +956,12 @@ def get_summary_dict(summary, numeric_fields, complex_fields=None):
             data[field] = getattr(summary, field, None)
 
     # Always include summary_date, start_date, and end_date if present
-    for date_field in ["summary_date", "start_date", "end_date"]:
+    for date_field in [
+        "summary_date",
+        "start_date",
+        "end_date",
+        "enrolled_in_vs_timestamp",
+    ]:
         if hasattr(summary, date_field):
             data[date_field] = getattr(summary, date_field)
 

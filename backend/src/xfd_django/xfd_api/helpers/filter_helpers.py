@@ -1,16 +1,20 @@
 """Filter helpers."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 
 # Third-Party Libraries
 from django.db.models.query import Q, QuerySet
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from ..schema_models.vulnerability import VulnerabilityFilters
 
 # Define the severity levels
 SEVERITY_LEVELS = ["Low", "Medium", "High", "Critical"]
 NULL_VALUES = ["None", "Null", "N/A", "Undefined", ""]
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 def format_severity(severity: str) -> str:
@@ -46,8 +50,8 @@ def sort_direction(sort, order):
         else:
             raise ValueError
     except ValueError as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Invalid sort direction supplied")
+        LOGGER.exception(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def convert_to_naive(dt: datetime) -> datetime:

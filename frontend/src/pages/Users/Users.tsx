@@ -125,21 +125,91 @@ export const Users: React.FC = () => {
   }, [fetchUsers]);
 
   const userCols: GridColDef[] = [
-    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'email', headerName: 'Email', minWidth: 100, flex: 1 },
-    { field: 'region_id', headerName: 'Region', minWidth: 50, flex: 0.4 },
+    {
+      field: 'full_name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 0.9,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
+          >
+            {cellValues.row.full_name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
+          >
+            {cellValues.row.email}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'region_id',
+      headerName: 'Region',
+      minWidth: 50,
+      flex: 0.4,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Region for User ${cellValues.row.full_name}: ${cellValues.row.region_id}`}
+          >
+            {cellValues.row.region_id}
+          </Box>
+        );
+      }
+    },
     {
       field: 'orgs',
-      headerName: 'Organizations',
+      headerName: 'Organization',
       minWidth: 100,
-      flex: 1
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
+          >
+            {cellValues.row.orgs}
+          </Box>
+        );
+      }
     },
-    { field: 'user_type', headerName: 'User Type', minWidth: 100, flex: 0.7 },
+    {
+      field: 'user_type',
+      headerName: 'User Type',
+      minWidth: 100,
+      flex: 0.7,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`User Type for User ${cellValues.row.full_name}: ${cellValues.row.user_type}`}
+          >
+            {cellValues.row.user_type}
+          </Box>
+        );
+      }
+    },
     {
       field: 'date_approved',
       headerName: 'Approval Date',
       minWidth: 100,
-      flex: 0.8,
+      flex: 0.7,
       renderCell: (params: GridRenderCellParams) => {
         const dateApproved = params.row?.date_approved;
         return (
@@ -150,11 +220,14 @@ export const Users: React.FC = () => {
                 : 'None'
             }
           >
-            <span>
+            <Box
+              component="span"
+              aria-label={`Approval Date for User ${params.row.full_name}: ${dateApproved}`}
+            >
               {dateApproved
                 ? format(new Date(dateApproved), 'MM-dd-yyyy hh:mm a')
                 : 'None'}
-            </span>
+            </Box>
           </Tooltip>
         );
       }
@@ -163,7 +236,7 @@ export const Users: React.FC = () => {
       field: 'approved_by',
       headerName: 'Approved By',
       minWidth: 100,
-      flex: 0.8,
+      flex: 0.7,
       renderCell: (params: GridRenderCellParams) => {
         const approvedBy = params.row?.approved_by;
         const fullName = approvedBy ? approvedBy.full_name : 'None';
@@ -177,7 +250,12 @@ export const Users: React.FC = () => {
                 : 'None'
             }
           >
-            <span>{fullName}</span>
+            <Box
+              component="span"
+              aria-label={`User ${params.row.full_name} approved by: ${fullName}`}
+            >
+              {fullName}
+            </Box>
           </Tooltip>
         );
       }
@@ -194,19 +272,39 @@ export const Users: React.FC = () => {
         const date1 = new Date(v1);
         const date2 = new Date(v2);
         return date1.getTime() - date2.getTime();
+      },
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Date ToU signed for User ${cellValues.row.full_name}: ${cellValues.row.dateToUSigned}`}
+          >
+            {cellValues.row.dateToUSigned}
+          </Box>
+        );
       }
     },
     {
       field: 'accepted_terms_version',
       headerName: 'ToU Version',
       minWidth: 50,
-      flex: 0.5
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`ToU Version for User ${cellValues.row.full_name}: ${cellValues.row.accepted_terms_version}`}
+          >
+            {cellValues.row.accepted_terms_version}
+          </Box>
+        );
+      }
     },
     {
       field: 'lastLoggedInString',
       headerName: 'Last Logged In',
       minWidth: 100,
-      flex: 0.8,
+      flex: 0.7,
       sortComparator: (v1, v2) => {
         if (v1 === 'None') return -1;
         if (v2 === 'None') return 1;
@@ -215,6 +313,16 @@ export const Users: React.FC = () => {
         const date2 = new Date(v2);
 
         return date1.getTime() - date2.getTime();
+      },
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Last Logged In Date for User ${cellValues.row.full_name}: ${cellValues.row.lastLoggedInString}`}
+          >
+            {cellValues.row.lastLoggedInString}
+          </Box>
+        );
       }
     },
     {
@@ -224,7 +332,7 @@ export const Users: React.FC = () => {
       flex: 0.5,
       disableExport: true,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `View or edit user ${cellValues.row.full_name}`;
+        const ariaLabel = `View or Edit User ${cellValues.row.full_name}`;
         const descriptionId = `description-${cellValues.row.id}`;
         return (
           <>

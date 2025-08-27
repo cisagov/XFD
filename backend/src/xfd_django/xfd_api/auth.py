@@ -4,18 +4,20 @@
 from datetime import datetime, timedelta, timezone
 from hashlib import sha256
 import json
+import logging
 import os
 import re
 from typing import Optional
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode
 import uuid
 
 # Third-Party Libraries
 from django.conf import settings
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 from fastapi.security import APIKeyHeader
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import jwt
 import requests
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
@@ -34,11 +36,16 @@ JWT_SECRET = settings.JWT_SECRET
 SECRET_KEY = settings.SECRET_KEY
 JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_TIMEOUT_HOURS = settings.JWT_TIMEOUT_HOURS
+OAUTH_META_SECRET = os.getenv("CSRF_SECRET", "super-secret")
+
+
+LOGGER = logging.getLogger(__name__)
 
 # User Types excluded from maintenance login blockers.
 LOGIN_BLOCKED_EXCLUSIONS = ["globalAdmin", "regionalAdmin"]
 
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
+serializer = URLSafeTimedSerializer(OAUTH_META_SECRET)
 IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
@@ -115,7 +122,7 @@ def get_user_by_api_key(api_key: str):
         api_key_instance.save(update_fields=["last_used"])
         return api_key_instance.user
     except ApiKey.DoesNotExist:
-        print("API Key not found")
+        LOGGER.warning("API Key not found")
         return None
 
 
@@ -140,7 +147,7 @@ def get_current_active_user(
                 user_id = payload.get("id")
 
                 if user_id is None:
-                    print("No user ID found in token")
+                    LOGGER.warning("No user ID found in token")
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid token",
@@ -149,14 +156,14 @@ def get_current_active_user(
                 # Fetch the user by ID from the database
                 user = User.objects.get(id=user_id)
             except jwt.ExpiredSignatureError:
-                print("Token has expired")
+                LOGGER.warning("Token has expired")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token has expired",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             except jwt.InvalidTokenError:
-                print("Invalid token")
+                LOGGER.warning("Invalid token")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token",
@@ -169,14 +176,14 @@ def get_current_active_user(
         )
 
     if user is None:
-        print("User not authenticated")
+        LOGGER.warning("User not authenticated")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
         )
 
     if user.invite_pending:
-        print("User is not active or approved")
+        LOGGER.warning("User is not active or approved")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Unauthorized",
@@ -213,7 +220,7 @@ def get_current_active_user_unsafe(
                 user_id = payload.get("id")
 
                 if user_id is None:
-                    print("No user ID found in token")
+                    LOGGER.warning("No user ID found in token")
                     raise HTTPException(
                         status_code=status.HTTP_401_UNAUTHORIZED,
                         detail="Invalid token",
@@ -222,14 +229,14 @@ def get_current_active_user_unsafe(
                 # Fetch the user by ID from the database
                 user = User.objects.get(id=user_id)
             except jwt.ExpiredSignatureError:
-                print("Token has expired")
+                LOGGER.warning("Token has expired")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token has expired",
                     headers={"WWW-Authenticate": "Bearer"},
                 )
             except jwt.InvalidTokenError:
-                print("Invalid token")
+                LOGGER.warning("Invalid token")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token",
@@ -242,7 +249,7 @@ def get_current_active_user_unsafe(
         )
 
     if user is None:
-        print("User not authenticated")
+        LOGGER.warning("User not authenticated")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
@@ -274,40 +281,19 @@ def update_login_block_status(user: User) -> None:
     user.save()
 
 
-def get_cookie_domain(frontend_url: str) -> str:
-    """Convert full URL to cookie domain starting with a dot."""
-    parsed = urlparse(frontend_url)
-    hostname = parsed.hostname or frontend_url  # fallback
-    return ".{}".format(hostname)
+def sign_oauth_data(state: str, code_verifier: str) -> str:
+    """Sign oath data."""
+    return serializer.dumps(
+        {"state": state, "code_verifier": code_verifier}, salt="oauth"
+    )
 
 
-# POST: /auth/set-oauth-cookies
-def set_oauth_cookies_response(state: str, code_verifier: str) -> Response:
-    """Return a Response with OAuth state and PKCE code_verifier cookies set."""
-    response = Response(content="Cookies set", media_type="text/plain")
-    if settings.IS_LOCAL:
-        cookie_domain = None
-    else:
-        cookie_domain = get_cookie_domain(settings.FRONTEND_DOMAIN)
-    response.set_cookie(
-        key="oauth_state",
-        value=state,
-        httponly=True,
-        secure=True,
-        samesite="None",
-        path="/",
-        domain=cookie_domain,
-    )
-    response.set_cookie(
-        key="pkce_code_verifier",
-        value=code_verifier,
-        httponly=True,
-        secure=True,
-        samesite="None",
-        path="/",
-        domain=cookie_domain,
-    )
-    return response
+def verify_oauth_data(token: str, max_age: int = 300):
+    """Verify oauth data."""
+    try:
+        return serializer.loads(token, salt="oauth", max_age=max_age)
+    except (BadSignature, SignatureExpired):
+        return None
 
 
 # POST: /auth/okta-callback
@@ -316,26 +302,25 @@ async def handle_okta_callback(request):
     body = await request.json()
     code = body.get("code")
     state = body.get("state")
+    signed_token = body.get("signedToken")
 
-    # Retrieve from cookies (not from body anymore)
-    cookie_state = request.cookies.get("oauth_state")
-    code_verifier = request.cookies.get("pkce_code_verifier")
-
-    if not code or not state or not cookie_state or not code_verifier:
+    if not code or not state or not signed_token:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing required OAuth parameters",
         )
 
-    # Validate state matches the cookie
-    if state != cookie_state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or missing OAuth state",
-        )
+    # Validate signed token
+    token_data = verify_oauth_data(signed_token)
+    if not token_data:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
+    if token_data["state"] != state:
+        raise HTTPException(status_code=400, detail="State mismatch")
+
+    code_verifier = token_data["code_verifier"]
 
     jwt_data = await get_jwt_from_code(code, code_verifier)
-    print("JWT Data: {}".format(jwt_data))
     if jwt_data is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -343,20 +328,12 @@ async def handle_okta_callback(request):
         )
 
     decoded_token = jwt_data.get("decoded_token")
-
     resp = await process_user(decoded_token)
     token = resp.get("token")
 
-    # Create a JSONResponse object to return the response and clear cookies
+    # Prepare final response
     response = JSONResponse(
         content={"message": "User authenticated", "data": resp, "token": token}
-    )
-    cookie_domain = get_cookie_domain(settings.FRONTEND_DOMAIN)
-    response.delete_cookie(
-        "oauth_state", domain=cookie_domain, path="/", samesite="None"
-    )
-    response.delete_cookie(
-        "pkce_code_verifier", domain=cookie_domain, path="/", samesite="None"
     )
     response.set_cookie(key="token", value=token)
 
@@ -418,7 +395,8 @@ async def process_user(decoded_token):
         #         status_code=403, detail="Login is currently blocked due to maintenance."
         #     )
         if not JWT_SECRET:
-            raise HTTPException(status_code=500, detail="JWT_SECRET is not defined")
+            LOGGER.error("JWT_SECRET is not defined in settings.")
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         # Generate JWT token
         signed_token = jwt.encode(
             {
@@ -480,7 +458,7 @@ async def get_jwt_from_code(auth_code: str, code_verifier: str):
 
         # Decode the token without verifying the signature (if needed)
         decoded_token = jwt.decode(id_token, options={"verify_signature": False})
-        print("decoded token: {}".format(decoded_token))
+        LOGGER.info("decoded token: %s", decoded_token)
         return {
             "refresh_token": refresh_token,
             "id_token": id_token,
@@ -489,7 +467,7 @@ async def get_jwt_from_code(auth_code: str, code_verifier: str):
         }
 
     except Exception as error:
-        print("get_jwt_from_code post error: {}".format(error))
+        LOGGER.error("get_jwt_from_code post error: %s", error)
 
 
 def is_global_write_admin(current_user) -> bool:

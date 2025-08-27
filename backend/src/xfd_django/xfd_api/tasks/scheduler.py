@@ -2,12 +2,17 @@
 
 # Standard Python Libraries
 import json
+import logging
 import os
 
 # Third-Party Libraries
 import boto3
 from botocore.session import Session as BotoCoreSession
 import django
+
+LOGGER = logging.getLogger(__name__)
+
+# Third-Party Libraries
 from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -46,7 +51,7 @@ class Scheduler:
         global_scan = getattr(scan_schema, "global_scan", False)
         if global_scan:
             if not self.should_run_scan(scan):
-                print(
+                LOGGER.info(
                     "Skipping global scan execution due to recent activity or constraints."
                 )
                 return
@@ -60,16 +65,16 @@ class Scheduler:
             }
             try:
                 response = scan_execution_handler(event_payload, None)
-                print("scanExecution handler response: {}".format(response))
+                LOGGER.info("scanExecution handler response: %s", response)
 
                 # Set manual_run_pending to False since scan is now launched
                 scan.manual_run_pending = False
                 scan.last_run = timezone.now()
                 scan.save()
-                print("Updated scan: manual_run_pending set to False")
+                LOGGER.info("Updated scan: manual_run_pending set to False")
 
             except Exception as e:
-                print("Error invoking scanExecution: {}".format(e))
+                LOGGER.error("Error invoking scanExecution: %s", e)
 
             return
 
@@ -78,10 +83,9 @@ class Scheduler:
         filtered_orgs = [org for org in orgs if self.should_run_scan(scan, org)]
 
         if not filtered_orgs:
-            print(
-                "Skipping scan execution for {} - No organizations to run on.".format(
-                    scan.name
-                )
+            LOGGER.info(
+                "Skipping scan execution for %s - No organizations to run on.",
+                scan.name,
             )
             return
 
@@ -110,7 +114,7 @@ class Scheduler:
         queue_url = response["QueueUrl"]
 
         # Check queue URL
-        print("Queue URL: {}".format(queue_url))
+        LOGGER.info("Queue URL: %s", queue_url)
 
         # Send organizations to the queue in batches of 10
         batch_size = 10
@@ -130,18 +134,17 @@ class Scheduler:
 
             try:
                 resp = sqs.send_message_batch(QueueUrl=queue_url, Entries=entries)
-                print("Batch sent successfully")
 
                 # Handle any failed messages
                 if "Failed" in resp:
                     for failure in resp["Failed"]:
-                        print(
-                            "Failed to send message {}: {}".format(
-                                failure["Id"], failure["Message"]
-                            )
+                        LOGGER.warning(
+                            "Failed to send message %s: %s",
+                            failure["Id"],
+                            failure["Message"],
                         )
             except Exception as e:
-                print("Error sending message batch: {}".format(e))
+                LOGGER.error("Error sending message batch: %s", e)
 
         # Now pass organizations to scanExecution
         event_payload = {
@@ -153,16 +156,16 @@ class Scheduler:
         }
         try:
             response = scan_execution_handler(event_payload, None)
-            print("scanExecution handler response: {}".format(response))
+            LOGGER.info("scanExecution handler response: %s", response)
 
             # Set manual_run_pending to False since scan is now launched
             scan.manual_run_pending = False
             scan.last_run = timezone.now()
             scan.save()
-            print("Updated scan: manual_run_pending set to False")
+            LOGGER.info("Updated scan: manual_run_pending set to False")
 
         except Exception as e:
-            print("Error invoking scanExecution: {}".format(e))
+            LOGGER.error("Error invoking scanExecution: %s", e)
 
     def should_run_scan(self, scan, organization=None):
         """
@@ -191,8 +194,7 @@ class Scheduler:
                 scan.last_run = timezone.make_aware(
                     scan.last_run, timezone.get_current_timezone()
                 )
-            # Assuming scan.frequency is expressed in days, convert to seconds.
-            frequency_seconds = scan.frequency * 86400
+            frequency_seconds = scan.frequency
             if (timezone.now() - scan.last_run).total_seconds() < frequency_seconds:
                 return False
 
@@ -217,7 +219,7 @@ class Scheduler:
             ).order_by("-finished_at")
         ).first()
         if last_finished_scan_task and last_finished_scan_task.finished_at:
-            frequency_seconds = scan.frequency * 86400
+            frequency_seconds = scan.frequency
             if timezone.is_naive(last_finished_scan_task.finished_at):
                 last_finished_scan_task.finished_at = timezone.make_aware(
                     last_finished_scan_task.finished_at, timezone.get_current_timezone()
@@ -232,7 +234,7 @@ class Scheduler:
             and last_finished_scan_task.finished_at
             and scan.is_single_scan
         ):
-            print("Single scan")
+            LOGGER.info("Single scan")
             return False
 
         return True
@@ -249,7 +251,7 @@ class Scheduler:
 # -----------------------------------------------------------------------------
 def handler(event, context):
     """Handle invoking the scheduler to run scans."""
-    print("Running scheduler...")
+    LOGGER.info("Running scheduler...")
 
     scan_ids = event.get("scanIds", [])
     if "scanId" in event:
@@ -275,4 +277,4 @@ def handler(event, context):
     scheduler.initialize(scans, organizations)
     scheduler.run()
 
-    print("Finished running scheduler.")
+    LOGGER.info("Finished running scheduler.")

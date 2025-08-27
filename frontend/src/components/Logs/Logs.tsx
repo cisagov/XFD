@@ -116,25 +116,55 @@ export const Logs: FC<LogsProps> = () => {
     fetchLogs();
   }, [fetchLogs]);
 
+  const formatTimestamp = (timestamp: string): string | null => {
+    if (!timestamp) return 'N/A';
+    try {
+      const utcDate = parseISO(timestamp);
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const zonedDate = toZonedTime(utcDate, timeZone);
+      return format(zonedDate, 'MM/dd/yyyy hh:mm a');
+    } catch (error) {
+      console.error('Error parsing date:', error);
+      return null;
+    }
+  };
+
   const logCols: GridColDef[] = [
     {
       field: 'event_type',
       headerName: 'Event',
       minWidth: 100,
-      flex: 1.25
+      flex: 1.25,
+      renderCell: (cellValues: GridRenderEditCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Event Type for Log ${cellValues.row.id}: ${cellValues.row.event_type}`}
+          >
+            {cellValues.row.event_type}
+          </Box>
+        );
+      }
     },
     {
       field: 'acting_user_name',
       headerName: 'Acting User Name',
       minWidth: 100,
       flex: 1.5,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         const p =
-          params.row.payload?.user_performed_assignment ||
-          params.row.payload?.user_performed_removal ||
-          params.row.payload?.user_performed_approval ||
-          params.row.payload?.user_performed_invite;
-        return p?.full_name || 'N/A';
+          cellValues.row.payload?.user_performed_assignment ||
+          cellValues.row.payload?.user_performed_removal ||
+          cellValues.row.payload?.user_performed_approval ||
+          cellValues.row.payload?.user_performed_invite;
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Acting User Name for Log ${cellValues.row.id}: ${p?.full_name || 'N/A'}`}
+          >
+            {p?.full_name || 'N/A'}
+          </Box>
+        );
       }
     },
     {
@@ -142,13 +172,20 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acting User Email',
       minWidth: 100,
       flex: 1.5,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         const p =
-          params.row.payload?.user_performed_assignment ||
-          params.row.payload?.user_performed_removal ||
-          params.row.payload?.user_performed_approval ||
-          params.row.payload?.user_performed_invite;
-        return p?.email || 'N/A';
+          cellValues.row.payload?.user_performed_assignment ||
+          cellValues.row.payload?.user_performed_removal ||
+          cellValues.row.payload?.user_performed_approval ||
+          cellValues.row.payload?.user_performed_invite;
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Acting User Email for Log ${cellValues.row.id}: ${p?.email || 'N/A'}`}
+          >
+            {p?.email || 'N/A'}
+          </Box>
+        );
       }
     },
     {
@@ -156,13 +193,20 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acted-on User Name',
       minWidth: 100,
       flex: 1.5,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         const u =
-          params.row.payload?.user ||
-          params.row.payload?.removal_result?.role_deleted?.user ||
-          params.row.payload?.user_to_approve ||
-          params.row.payload?.approval_results?.role_deleted?.user;
-        return u?.full_name || 'N/A';
+          cellValues.row.payload?.user ||
+          cellValues.row.payload?.removal_result?.role_deleted?.user ||
+          cellValues.row.payload?.user_to_approve ||
+          cellValues.row.payload?.approval_results?.role_deleted?.user;
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Acted-On User Name for Log ${cellValues.row.id}: ${u?.full_name || 'N/A'}`}
+          >
+            {u?.full_name || 'N/A'}
+          </Box>
+        );
       }
     },
     {
@@ -170,13 +214,20 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acted-on User Email',
       minWidth: 100,
       flex: 1.5,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         const u =
-          params.row.payload?.user ||
-          params.row.payload?.removal_result?.role_deleted?.user ||
-          params.row.payload?.user_to_approve ||
-          params.row.payload?.approval_results?.role_deleted?.user;
-        return u?.email || 'N/A';
+          cellValues.row.payload?.user ||
+          cellValues.row.payload?.removal_result?.role_deleted?.user ||
+          cellValues.row.payload?.user_to_approve ||
+          cellValues.row.payload?.approval_results?.role_deleted?.user;
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Acted-On User Email for Log ${cellValues.row.id}: ${u?.email || 'N/A'}`}
+          >
+            {u?.email || 'N/A'}
+          </Box>
+        );
       }
     },
     {
@@ -184,11 +235,16 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Organization',
       minWidth: 100,
       flex: 1,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
-          params.row.payload?.organization?.name ||
-          params.row.payload?.from_organization?.name ||
-          'N/A'
+          <Box
+            component={'span'}
+            aria-label={`Organization for Log ${cellValues.row.id}: ${cellValues.row.payload?.organization?.name || cellValues.row.payload?.from_organization?.name || 'N/A'}`}
+          >
+            {cellValues.row.payload?.organization?.name ||
+              cellValues.row.payload?.from_organization?.name ||
+              'N/A'}
+          </Box>
         );
       }
     },
@@ -197,20 +253,35 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Region',
       minWidth: 100,
       flex: 0.75,
-      renderCell: (params: any) =>
-        params.row.payload?.user_performed_assignment?.region_id ||
-        params.row.payload?.user_performed_removal?.region_id ||
-        params.row.payload?.user_performed_approval?.region_id ||
-        params.row.payload?.user_performed_invite?.region_id ||
-        'N/A'
+      renderCell: (cellValues: GridRenderEditCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Region for Log ${cellValues.row.id}: ${cellValues.row.payload?.user_performed_assignment?.region_id || cellValues.row.payload?.user_performed_removal?.region_id || cellValues.row.payload?.user_performed_approval?.region_id || cellValues.row.payload?.user_performed_invite?.region_id || 'N/A'}`}
+          >
+            {cellValues.row.payload?.user_performed_assignment?.region_id ||
+              cellValues.row.payload?.user_performed_removal?.region_id ||
+              cellValues.row.payload?.user_performed_approval?.region_id ||
+              cellValues.row.payload?.user_performed_invite?.region_id ||
+              'N/A'}
+          </Box>
+        );
+      }
     },
     {
       field: 'role',
       headerName: 'Role',
       minWidth: 100,
       flex: 0.75,
-      renderCell: (params: any) => {
-        return params.row.payload?.role || 'N/A';
+      renderCell: (cellValues: GridRenderEditCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Role for Log ${cellValues.row.id}: ${cellValues.row.payload?.role || 'N/A'}`}
+          >
+            {cellValues.row.payload?.role || 'N/A'}
+          </Box>
+        );
       }
     },
     {
@@ -218,15 +289,28 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'State',
       minWidth: 100,
       flex: 1,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
-          params.row.payload?.state ||
-          params.row.payload?.user_performed_assignment?.state ||
-          params.row.payload?.user_performed_removal?.state ||
-          params.row.payload?.user_performed_approval?.state ||
-          params.row.payload?.user_performed_invite?.state ||
-          params.row.payload?.user?.state ||
-          'N/A'
+          <Box
+            component={'span'}
+            aria-label={`State for Log ${cellValues.row.id}: ${
+              cellValues.row.payload?.state ||
+              cellValues.row.payload?.user_performed_assignment?.state ||
+              cellValues.row.payload?.user_performed_removal?.state ||
+              cellValues.row.payload?.user_performed_approval?.state ||
+              cellValues.row.payload?.user_performed_invite?.state ||
+              cellValues.row.payload?.user?.state ||
+              'N/A'
+            }`}
+          >
+            {cellValues.row.payload?.state ||
+              cellValues.row.payload?.user_performed_assignment?.state ||
+              cellValues.row.payload?.user_performed_removal?.state ||
+              cellValues.row.payload?.user_performed_approval?.state ||
+              cellValues.row.payload?.user_performed_invite?.state ||
+              cellValues.row.payload?.user?.state ||
+              'N/A'}
+          </Box>
         );
       }
     },
@@ -235,42 +319,33 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'User Type',
       minWidth: 100,
       flex: 1.5,
-      renderCell: (params: any) => {
+      renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
-          params.row.payload?.user?.user_type ||
-          params.row.payload?.user_to_approve?.user_type ||
-          'N/A'
+          <Box
+            component={'span'}
+            aria-label={`User Type for Log ${cellValues.row.id}: ${cellValues.row.payload?.user?.user_type || cellValues.row.payload?.user_to_approve?.user_type || 'N/A'}`}
+          >
+            {cellValues.row.payload?.user?.user_type ||
+              cellValues.row.payload?.user_to_approve?.user_type ||
+              'N/A'}
+          </Box>
         );
       }
     },
     {
       field: 'created_at',
       headerName: 'Timestamp',
-      type: 'dateTime',
       minWidth: 100,
       flex: 1.25,
-      valueGetter: (params: any) => {
-        const value = params;
-        if (!value) return null;
-        try {
-          const utcDate = parseISO(value);
-          const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-          return toZonedTime(utcDate, timeZone);
-        } catch (error) {
-          console.error('Error parsing date:', error);
-          return null;
-        }
-      },
-
-      // Return formatted string for display
-      valueFormatter: (params: any) => {
-        const value = params;
-        if (!(value instanceof Date)) return 'N/A';
-        try {
-          return format(value, 'MM/dd/yyyy hh:mm a');
-        } catch {
-          return 'N/A';
-        }
+      renderCell: (cellValues: GridRenderEditCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Timestamp for Log ${cellValues.row.id}: ${cellValues.value}`}
+          >
+            {formatTimestamp(cellValues.row.created_at)}
+          </Box>
+        );
       }
     },
     {
@@ -278,17 +353,21 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Result',
       minWidth: 100,
       flex: 1,
-      renderCell: (params: any) => {
-        const isSuccess = params.row.result === 'success';
+      renderCell: (cellValues: GridRenderEditCellParams) => {
+        const isSuccess = cellValues.row.result === 'success';
         return (
-          <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <Box
+            component={'span'}
+            aria-label={`Result for Log ${cellValues.row.id}: ${cellValues.row.result}`}
+            sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}
+          >
             {isSuccess ? (
               <CheckCircleIcon sx={{ color: '#6c757d' }} />
             ) : (
               <CancelIcon sx={{ color: '#6c757d' }} />
             )}
-            {params.row.result}
-          </span>
+            {cellValues.row.result}
+          </Box>
         );
       }
     },
@@ -299,7 +378,7 @@ export const Logs: FC<LogsProps> = () => {
       flex: 0.5,
       renderCell: (cellValues: GridRenderEditCellParams) => (
         <IconButton
-          aria-label={`Details for log ${cellValues.row.id}`}
+          aria-label={`Details for Log ${cellValues.row.id}`}
           tabIndex={cellValues.tabIndex}
           color="primary"
           onClick={() => {

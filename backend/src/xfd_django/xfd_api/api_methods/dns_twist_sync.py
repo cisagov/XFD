@@ -16,7 +16,6 @@ from requests import Request
 from xfd_api.auth import is_global_view_admin
 from xfd_mini_dl.models import DataSource, DomainPermutations, Organization
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 
@@ -45,7 +44,7 @@ async def dns_twist_sync_post(sync_body, request: Request, current_user):
         last_run=datetime.datetime.now(),
     )
     orgs_with_dps = json.loads(sync_body.data)
-    print("DATA", orgs_with_dps)
+    LOGGER.info("DATA: %s", orgs_with_dps)
     for org in orgs_with_dps:
         domain_permutations = org.get("domain_permutations", [])
         org_record = Organization.objects.using(DB_NAME).get(

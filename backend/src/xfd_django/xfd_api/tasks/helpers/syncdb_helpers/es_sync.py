@@ -1,6 +1,7 @@
 """Sync elasticsearch indexes."""
 # Standard Python Libraries
 from itertools import islice
+import logging
 
 # Third-Party Libraries
 from xfd_api.tasks.es_client import ESClient
@@ -12,6 +13,8 @@ es_client = ESClient()
 # Constants
 ORGANIZATION_CHUNK_SIZE = 50
 
+LOGGER = logging.getLogger(__name__)
+
 
 def manage_elasticsearch_indices(dangerouslyforce):
     """Handle Elasticsearch index setup and teardown."""
@@ -20,9 +23,9 @@ def manage_elasticsearch_indices(dangerouslyforce):
             es_client.delete_all()
         es_client.sync_organizations_index()
         es_client.sync_domains_index()
-        print("Elasticsearch indices synchronized.")
+        LOGGER.info("Elasticsearch indices synchronized.")
     except Exception as e:
-        print("Error managing Elasticsearch indices: {}".format(e))
+        LOGGER.error("Error managing Elasticsearch indices: %s", e)
 
 
 def chunked_iterable(iterable, size):
@@ -45,7 +48,7 @@ def sync_es_organizations():
     try:
         # Fetch all organization IDs
         organization_ids = list(Organization.objects.values_list("id", flat=True))
-        print("Found {} organizations to sync.".format(len(organization_ids)))
+        LOGGER.info("Found %d organizations to sync.", len(organization_ids))
 
         if organization_ids:
             # Split IDs into chunks
@@ -63,15 +66,15 @@ def sync_es_organizations():
                         "tags",
                     )
                 )
-                print("Syncing {} organizations...".format(len(organizations)))
+                LOGGER.info("Syncing %d organizations...", len(organizations))
 
                 # Attempt to update Elasticsearch
                 update_organization_chunk(es_client, organizations)
 
-            print("Organization sync complete.")
+            LOGGER.info("Organization sync complete.")
         else:
-            print("No organizations to sync.")
+            LOGGER.info("No organizations to sync.")
 
     except Exception as e:
-        print("Error syncing organizations: {}".format(e))
+        LOGGER.exception("Error syncing organizations: %s", e)
         raise e

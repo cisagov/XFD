@@ -1,6 +1,7 @@
 """Test scan."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 from unittest.mock import patch
 
@@ -12,6 +13,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import Organization, OrganizationTag, Scan, User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 # Test: list by globalAdmin should return all scans
@@ -273,7 +276,7 @@ def test_update_non_granular_to_granular_by_global_admin():
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "findomain"
@@ -305,7 +308,7 @@ def test_update_by_global_view_fails():
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
     assert response.json() == {"detail": "Unauthorized access."}
 
@@ -425,7 +428,7 @@ def test_scheduler_invoke_by_global_admin(mock_scheduler):
         "/scheduler/invoke",
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     assert response.json() == {}
     mock_scheduler.assert_called_once()

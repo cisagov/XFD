@@ -1,6 +1,7 @@
 """Test proxy."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 
 # Third-Party Libraries
@@ -12,6 +13,8 @@ from xfd_mini_dl.models import User, UserType
 
 # Initialize the test client with the FastAPI app
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -78,6 +81,6 @@ def test_global_view_user_authorized_to_access_pe_proxy():
     response = client.get(
         "/pe", headers={"Authorization": "Bearer " + create_jwt_token(user)}
     )
-    print(response.json())
+    LOGGER.info(response.json())
     # Assert that the global view user is authorized and receives either a 200 or 504 response
     assert response.status_code in [200, 504]

@@ -2,14 +2,19 @@ import * as React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   Box,
+  Collapse,
   Divider,
   Drawer,
   List,
   ListItem,
   ListItemButton,
+  ListItemIcon,
   ListItemText
 } from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import { MenuItemType } from './Header';
+import { useTheme } from '@mui/material/styles';
 
 interface NavMenuDrawerProps {
   toggleDrawer: (open: boolean) => () => void;
@@ -24,15 +29,16 @@ export const NavMenuDrawer: React.FC<NavMenuDrawerProps> = ({
   menuItems,
   onMenuItemClick
 }) => {
+  const [openCollapse, setOpenCollapse] = React.useState<string | false>(false);
+  const theme = useTheme();
   const DrawerList = (
     <Box
-      sx={{ width: 250 }}
+      sx={{ width: 250, pt: 3 }}
       role="presentation"
       onKeyDown={(e) => {
         if (e.key === 'Escape') toggleDrawer(false)();
       }}
     >
-      <Box sx={{ height: '100px' }} />
       <nav aria-label="Main navigation">
         <List>
           {menuItems.map((section, index) => {
@@ -40,7 +46,6 @@ export const NavMenuDrawer: React.FC<NavMenuDrawerProps> = ({
             if (entries.length === 0) return null;
 
             const [, items] = entries[0];
-
             return (
               <React.Fragment key={index}>
                 {items &&
@@ -48,6 +53,8 @@ export const NavMenuDrawer: React.FC<NavMenuDrawerProps> = ({
                   items.map((item, subIndex) => {
                     const isHttpLink = item.path?.startsWith('http');
                     const isMailtoLink = item.path?.startsWith('mailto:');
+                    const isSubMenu =
+                      item.subMenuItems && item.subMenuItems.length > 0;
 
                     // 1. onClick handler
                     if (item.onClick) {
@@ -157,6 +164,75 @@ export const NavMenuDrawer: React.FC<NavMenuDrawerProps> = ({
                         </ListItem>
                       );
                     }
+
+                    // 6. Submenu
+                    if (isSubMenu && onMenuItemClick) {
+                      return (
+                        <React.Fragment key={`${index}-${subIndex}`}>
+                          <ListItem disablePadding role="none">
+                            <ListItemButton
+                              onClick={() => {
+                                setOpenCollapse(
+                                  openCollapse === `${index}-${subIndex}`
+                                    ? false
+                                    : `${index}-${subIndex}`
+                                );
+                              }}
+                              role="menuitem"
+                              aria-haspopup="true"
+                              aria-label={item.menuItemTitle}
+                            >
+                              <ListItemText primary={item.menuItemTitle} />
+                              <ListItemIcon>
+                                {openCollapse === `${index}-${subIndex}` ? (
+                                  <KeyboardArrowUpIcon
+                                    sx={{
+                                      color: theme.palette.primary.dark
+                                    }}
+                                  />
+                                ) : (
+                                  <KeyboardArrowDownIcon
+                                    sx={{
+                                      color: theme.palette.primary.dark
+                                    }}
+                                  />
+                                )}
+                              </ListItemIcon>
+                            </ListItemButton>
+                          </ListItem>
+                          <Collapse
+                            in={openCollapse === `${index}-${subIndex}`}
+                            timeout="auto"
+                            unmountOnExit
+                          >
+                            <List component="div" sx={{ pl: 1 }}>
+                              {item.subMenuItems?.map(
+                                (subItem, subSubIndex) => (
+                                  <ListItem
+                                    key={`${index}-${subIndex}-${subSubIndex}`}
+                                    disablePadding
+                                    role="none"
+                                  >
+                                    <ListItemButton
+                                      role="menuitem"
+                                      aria-label={subItem.menuItemTitle}
+                                      onClick={async () => {
+                                        await onMenuItemClick(subItem);
+                                        toggleDrawer(false)();
+                                      }}
+                                    >
+                                      <ListItemText
+                                        primary={subItem.menuItemTitle}
+                                      />
+                                    </ListItemButton>
+                                  </ListItem>
+                                )
+                              )}
+                            </List>
+                          </Collapse>
+                        </React.Fragment>
+                      );
+                    }
                     return null;
                   })}
                 <Divider />
@@ -175,6 +251,16 @@ export const NavMenuDrawer: React.FC<NavMenuDrawerProps> = ({
       anchor="right"
       role="dialog"
       aria-label="Navigation menu"
+      ModalProps={{
+        keepMounted: true
+      }}
+      slotProps={{
+        paper: {
+          sx: {
+            zIndex: (theme) => theme.zIndex.modal + 1
+          }
+        }
+      }}
     >
       {DrawerList}
     </Drawer>

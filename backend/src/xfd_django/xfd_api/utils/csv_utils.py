@@ -9,7 +9,10 @@ import csv
 from hashlib import sha256
 from io import StringIO
 import json
+import logging
 from typing import Any, Dict, List
+
+LOGGER = logging.getLogger(__name__)
 
 
 def create_checksum(data: str) -> str:
@@ -169,7 +172,8 @@ def convert_csv_to_json(csv_data: str) -> List[Dict[str, Any]]:
         return json_data
 
     except Exception as e:
-        raise ValueError(f"Error processing CSV to JSON: {e}")
+        LOGGER.exception("Error processing CSV to JSON: %s", e)
+        raise ValueError
 
 
 def write_csv_to_file(csv_data: str, file_path: str) -> None:
@@ -185,6 +189,6 @@ def write_csv_to_file(csv_data: str, file_path: str) -> None:
     try:
         with open(file_path, mode="w", encoding="utf-8") as file:
             file.write(csv_data)
-        print(f"CSV data successfully written to file: {file_path}")
+        LOGGER.info("CSV data successfully written to file: %s", file_path)
     except Exception as e:
-        print(f"An error occurred while writing to the file: {e}")
+        LOGGER.error("An error occurred while writing to the file: %s", e)

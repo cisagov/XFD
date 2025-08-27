@@ -12,7 +12,8 @@ import {
   ListItem,
   FormGroup,
   Radio,
-  useTheme
+  useTheme,
+  Checkbox
 } from '@mui/material';
 import {
   DeleteOutline,
@@ -25,6 +26,7 @@ import { useAuthContext } from 'context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
+import { Facet } from '@elastic/react-search-ui';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -162,6 +164,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       ),
     [filters]
   );
+
+  const noServicesFacet = facets?.['no_services']
+    ? facets['no_services'][0].data.sort(
+        (a: { value: string }, b: { value: string }) =>
+          a.value.localeCompare(b.value)
+      )
+    : [];
 
   const portFacet: any[] = facets?.['services.port']
     ? facets['services.port'][0].data.sort(
@@ -312,7 +321,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </AccordionDetails>
         </Accordion>
       )}
-      {portFacet.length > 0 && (
+      {(portFacet.length > 0 || noServicesFacet.length > 0) && (
         <Accordion
           square
           elevation={0}
@@ -323,20 +332,48 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Typography variant="largeBody">Ports</Typography>
-              {filtersByColumn['services.port']?.length > 0 && (
-                <FiltersApplied />
-              )}
+              {filtersByColumn['services.port']?.length > 0 ||
+                (filtersByColumn['no_services']?.length > 0 && (
+                  <FiltersApplied />
+                ))}
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
-            <FacetFilter
-              options={portFacet}
-              selected={filtersByColumn['services.port'] ?? []}
-              onSelect={(value) => addFilter('services.port', value, 'any')}
-              onDeselect={(value) =>
-                removeFilter('services.port', value, 'any')
-              }
-            />
+            <Stack sx={{ overflowY: 'scroll', maxHeight: '300px' }}>
+              {facets.no_services &&
+                facets.no_services[0].data.map((option: { count: any }) => (
+                  <FormControlLabel
+                    key="no_services"
+                    control={
+                      <Checkbox
+                        sx={{
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.dark
+                          }
+                        }}
+                        checked={filters.some((f) => f.field === 'no_services')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            addFilter('no_services', true, 'any');
+                          } else {
+                            removeFilter('no_services', true, 'any');
+                          }
+                        }}
+                      />
+                    }
+                    label={`Unassigned`}
+                  />
+                ))}
+              <FacetFilter
+                options={portFacet}
+                selected={filtersByColumn['services.port'] ?? []}
+                onSelect={(value) => addFilter('services.port', value, 'any')}
+                onDeselect={(value) =>
+                  removeFilter('services.port', value, 'any')
+                }
+                disableScroll={true}
+              />
+            </Stack>
           </AccordionDetails>
         </Accordion>
       )}

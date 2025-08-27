@@ -7,16 +7,30 @@ import {
 export function formatShortDate(
   dateInput: string | Date | null | undefined
 ): string {
-  if (!dateInput) return 'N/A';
+  if (!dateInput) return '';
 
   const date = new Date(dateInput);
-  if (isNaN(date.getTime())) return 'Invalid Date';
+  if (isNaN(date.getTime())) return '';
 
   return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'short',
     day: 'numeric'
   });
+}
+
+export function formatRange(
+  start?: string | Date | null | undefined,
+  end?: string | Date | null | undefined
+): string {
+  const startStr = formatShortDate(start);
+  const endStr = formatShortDate(end);
+
+  if (!startStr || !endStr) {
+    return 'No Dates Available';
+  }
+
+  return `${startStr} - ${endStr}`;
 }
 
 // Utility function to get the latest summary based on summary_date and transform the data.
@@ -48,10 +62,44 @@ export const transformVulnScanData = (
   // );
   if (!latestVulnSummary && !latestHostSummary && !latestPortScanSummary) {
     return {
-      vulnScanSummary: [],
-      vulnScanKeyMetrics: [],
-      detectedServicesKeyMetrics: [],
-      detectedHostsKeyMetrics: [],
+      vulnScanSummary: [
+        {
+          hostScan: 'Not available',
+          vulnerabilityScan: 'Not available',
+          assetsOwned: 0,
+          assetsScanned: 0,
+          startDate: '',
+          endDate: ''
+        }
+      ],
+      vulnScanKeyMetrics: [
+        {
+          title: 'Detected KEVs',
+          value: 0,
+          startDate: '',
+          endDate: '',
+          dateRange: 'Not available'
+        },
+        {
+          title: 'Detected Vulnerabilities',
+          value: 0,
+          startDate: '',
+          endDate: '',
+          dateRange: 'Not available'
+        },
+        { title: 'Distinct Vulnerabilities', value: 0 },
+        { title: 'False Positives', value: 0 }
+      ],
+      detectedServicesKeyMetrics: [
+        { title: 'Detected Services', value: 0 },
+        { title: 'Potentially Risky Services', value: 0 },
+        { title: 'Potential NMI Services', value: 0 }
+      ],
+      detectedHostsKeyMetrics: [
+        { title: 'Detected Hosts', value: 0 },
+        { title: 'Vulnerable Hosts', value: 0 },
+        { title: 'Hosts with Unsupported Software', value: 0 }
+      ],
       detectedHostsTop5VulnerableHosts: [],
       topVulnerabilities: [],
       topKevVulnerabilities: [],
@@ -62,14 +110,14 @@ export const transformVulnScanData = (
   return {
     vulnScanSummary: [
       {
-        hostScan:
-          formatShortDate(latestHostSummary?.start_date) +
-          ' - ' +
-          formatShortDate(latestHostSummary?.end_date),
-        vulnerabilityScan:
-          formatShortDate(latestVulnSummary?.start_date) +
-          ' - ' +
-          formatShortDate(latestVulnSummary?.end_date),
+        hostScan: formatRange(
+          latestHostSummary?.start_date,
+          latestHostSummary?.end_date
+        ),
+        vulnerabilityScan: formatRange(
+          latestVulnSummary?.start_date,
+          latestVulnSummary?.end_date
+        ),
         assetsOwned: latestVulnSummary?.assets_owned_count ?? 0,
         assetsScanned: latestHostSummary?.scanned_asset_count ?? 0,
         startDate: latestVulnSummary?.start_date ?? '',

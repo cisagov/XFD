@@ -1,6 +1,7 @@
 """Test user."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 from unittest.mock import patch
 import uuid
@@ -13,6 +14,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import ApiKey, Organization, Role, User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -138,7 +141,7 @@ def test_invite_by_global_view_should_not_work():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
     assert response.json() == {"detail": "Unauthorized access."}
 
@@ -170,7 +173,7 @@ def test_invite_by_organization_admin_should_work():
     )
 
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    print("here")
+    LOGGER.info("here")
     response = client.post(
         "/users",
         json={
@@ -663,7 +666,7 @@ def test_register_deny_unauthorized_region():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized region access."
 
@@ -999,7 +1002,7 @@ def test_get_users_by_region_id_as_regional_admin():
         "/users/region_id/1",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
-    print(response.json())
+    LOGGER.info(response.json())
 
     assert response.status_code == 200
     data = response.json()
@@ -1849,7 +1852,7 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
-    print("Bang Bang", response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"

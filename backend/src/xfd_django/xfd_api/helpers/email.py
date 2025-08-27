@@ -12,11 +12,7 @@ from jinja2 import Template
 
 from .s3_client import S3Client
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(levelname)s: %(message)s - %(asctime)s",
-    datefmt="%m-%d-%Y %H:%M:%S",
-)
+# Configure logging
 LOGGER = logging.getLogger(__name__)
 IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
@@ -83,9 +79,9 @@ def send_email(recipient, subject, body):
 
     try:
         ses_client.send_email(**email_params)
-        print("Email sent to {}".format(recipient))
+        LOGGER.info("Email sent to %s", recipient)
     except ClientError as e:
-        print("Error sending email: {}".format(e))
+        LOGGER.error("Error sending email: %s", e)
 
 
 def send_registration_approved_email(

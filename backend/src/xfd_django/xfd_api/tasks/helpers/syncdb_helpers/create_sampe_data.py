@@ -6,6 +6,7 @@ from decimal import Decimal
 import hashlib
 import ipaddress
 import json
+import logging
 import os
 import random
 import secrets
@@ -23,9 +24,7 @@ from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.models import Domain, Service, Vulnerability
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.tasks.refresh_vs_summaries import handler as refresh_vs_summaries
-from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (
-    fill_cidr_live_ips_bulk_update,
-)
+from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
 from xfd_mini_dl.models import (
     ApiKey,
     Cidr,
@@ -44,6 +43,7 @@ from xfd_mini_dl.models import (
 )
 
 fake = Faker()
+LOGGER = logging.getLogger(__name__)
 
 # Constants for sample data generation
 SAMPLE_TAG_NAME = "Sample Data"
@@ -109,7 +109,7 @@ def create_ip_within_org_cidr(org: Organization) -> Optional[Ip]:
         except ValueError:
             continue
 
-    print(f"⚠️ Failed to generate IP from any CIDR for org: {org}")
+    LOGGER.warning("⚠️ Failed to generate IP from any CIDR for org: %s", org)
     return None
 
 
@@ -499,7 +499,7 @@ def gen_orgs(num_orgs):
     )
 
     orgs = []
-    print(f"Generating {num_orgs} organizations...")
+    LOGGER.info("Generating %d organizations...", num_orgs)
     for i in range(num_orgs):
         try:
             company = fake.company()
@@ -563,7 +563,7 @@ def gen_orgs(num_orgs):
             create_api_key_for_user(test_user)
         except IntegrityError:
             continue
-    print(f"Generated {len(orgs)} organizations.")
+    LOGGER.info("Generated %d organizations.", len(orgs))
     return orgs
 
 
@@ -616,7 +616,7 @@ def create_cidrs_for_org(org, cidr_list, data_source=None, ips_per_cidr=4):
                 )
 
         except ValueError:
-            print(f"Skipping invalid CIDR: {cidr_str}")
+            LOGGER.warning("Skipping invalid CIDR: %s", cidr_str)
 
 
 def populate_sample_data():
@@ -631,9 +631,11 @@ def populate_sample_data():
         cidrs = generate_cidr_blocks()
         create_cidrs_for_org(org, cidrs)
 
-    print("Populating vuln_scans, port_scans, tickets, and ticket_events...")
+    LOGGER.info("Populating vuln_scans, port_scans, tickets, and ticket_events...")
     for idx, org in enumerate(orgs, start=1):
         try:
+            if idx == 1:
+                continue
             with transaction.atomic():
                 # Bulk create CVEs (once per run)
                 build_fake_cve()  # Generates 1 or skips if exists. You could loop N times if needed.
@@ -670,7 +672,7 @@ def populate_sample_data():
                 TicketEvent.objects.bulk_create(all_events, batch_size=100)
 
         except Exception as e:
-            print(f"\n❌ Error while processing org {org.name}: {e}")
+            LOGGER.error("❌ Error while processing org %s: %s", org.name, e)
             continue
 
         # Progress bar
@@ -683,17 +685,17 @@ def populate_sample_data():
         )
         sys.stdout.flush()
 
-    # fill_cidr_live_ips()
+    # Fill CIDR Live Ips
     fill_cidr_live_ips_bulk_update()
 
     # Create or refresh materialized views
     result = refresh_materialized_views({})
-    print(result)
+    LOGGER.info(result)
 
     # Refresh VS Summaries for local
     refresh_vs_summaries({})
 
-    print("\n✅ Done populating all data.")
+    LOGGER.info("✅ Done populating all data.")
 
 
 def create_sample_user(organization):
@@ -753,10 +755,10 @@ def create_api_key_for_user(user):
     )
 
     # Print the raw key for debugging or manual testing
-    print(
-        "Created API key for user, keep this and enter at .env file CF_API_KEY {}: {}".format(
-            user.email, key
-        )
+    LOGGER.debug(
+        "Created API key for user, keep this and enter at .env file CF_API_KEY %s: %s",
+        user.email,
+        key,
     )
 
 

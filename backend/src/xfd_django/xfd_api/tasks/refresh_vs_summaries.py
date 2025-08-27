@@ -8,17 +8,17 @@ import random
 # Third-Party Libraries
 from django.utils import timezone
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 # Third-Party Libraries
-from xfd_api.tasks.vulnScanningSync import (
-    create_daily_host_summary,
+from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
+from xfd_api.tasks.utils.vs_port_scans import (
     create_port_scan_service_summaries,
     create_port_scan_summary,
-    create_vuln_scan_summary,
-    enforce_latest_flag_port_scan,
 )
+from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_mini_dl.models import HostSummary, Organization
+
+LOGGER = logging.getLogger(__name__)
 
 
 def rebuild_org_id_dict(db_name="mini_data_lake"):
@@ -72,7 +72,9 @@ def build_fake_host_summaries():
                 },
             )
         except Exception as e:
-            print("\n❌ Error while creating host_summary for org %s: %s", org.name, e)
+            LOGGER.error(
+                "\n❌ Error while creating host_summary for org %s: %s", org.name, e
+            )
             continue
 
 
@@ -82,12 +84,13 @@ def handler(event):
     is_local = str(is_local_value).lower() in ["1", "true"]
     LOGGER.info("IS_LOCAL equal %s", os.getenv("IS_LOCAL", "1"))
     try:
-        try:
-            LOGGER.info("Flagging latest port scans.")
-            enforce_latest_flag_port_scan()
+        # Deprecated with new flagging functionality in vs_port_scans
+        # try:
+        #     LOGGER.info("Flagging latest port scans.")
+        #     enforce_latest_flag_port_scan()
 
-        except Exception as e:
-            LOGGER.error("error flagging latest port scans: %s", e)
+        # except Exception as e:
+        #     LOGGER.error("error flagging latest port scans: %s", e)
         try:
             if not is_local:
                 LOGGER.info("Creating Host summaries.")

@@ -177,6 +177,7 @@ class VulnScanSummaryResponse(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     organization: Optional[UUID] = None
+    enrolled_in_vs_timestamp: Optional[datetime] = None
     assets_owned_count: Optional[int] = None
     false_positive_count: Optional[int] = None
     vulnerable_host_count: Optional[int] = None
@@ -282,6 +283,7 @@ class VulnScanSummaryV2Response(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     organization: Optional[UUID] = None
+    enrolled_in_vs_timestamp: Optional[datetime] = None
     assets_owned_count: Optional[int] = None
     false_positive_count: Optional[int] = None
     vulnerable_host_count: Optional[int] = None

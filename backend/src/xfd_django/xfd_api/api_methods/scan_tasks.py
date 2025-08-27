@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from datetime import datetime, timezone
+import logging
 from typing import Optional
 
 # Third-Party Libraries
@@ -13,6 +14,9 @@ from ..schema_models.scan_tasks import ScanTaskSearch
 from ..tasks.ecs_client import ECSClient
 
 PAGE_SIZE = 15
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 # POST: /scan-tasks/search
@@ -71,7 +75,7 @@ def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
         for task in qs:
             # Ensure scan is not None before accessing its properties
             if task.scan is None:
-                print("Warning: ScanTask {} has no scan associated.".format(task.id))
+                LOGGER.warning("ScanTask %s has no scan associated.", task.id)
                 scan_data = None
             else:
                 scan_data = {
@@ -152,8 +156,8 @@ def list_scan_tasks(search_data: Optional[ScanTaskSearch], current_user):
         raise http_exc
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /scan-tasks/{scan_task_id}/kill
@@ -190,8 +194,8 @@ def kill_scan_task(scan_task_id, current_user):
         raise http_exc
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # GET: /scan-tasks/{scan_task_id}/logs
@@ -228,5 +232,5 @@ def get_scan_task_logs(scan_task_id, current_user):
         raise http_exc
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

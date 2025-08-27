@@ -3,7 +3,7 @@
 exports[`Header component > matches snapshot 1`] = `
 <DocumentFragment>
   <header
-    class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1w0xfyq-MuiPaper-root-MuiAppBar-root"
+    class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-11d1y2g-MuiPaper-root-MuiAppBar-root"
     style="--Paper-shadow: none;"
   >
     <div

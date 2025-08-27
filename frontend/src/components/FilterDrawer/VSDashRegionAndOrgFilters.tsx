@@ -202,10 +202,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
   return (
     <>
-      <Box
-        padding={2}
-        sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
-      >
+      <Box padding={2}>
         <Autocomplete
           value={selectedRegion ?? user?.region_id ?? ''}
           onChange={(e, v) => {

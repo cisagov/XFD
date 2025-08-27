@@ -78,13 +78,6 @@ def load_domains(domain_csv):
     return domains
 
 
-# Configure logging level, so logging.debug can hinge on --debug.
-def configure_logging(debug_logging=False):
-    """Configure the logging library."""
-    log_level = logging.DEBUG if debug_logging else logging.WARNING
-    logging.basicConfig(format="%(message)s", level=log_level)
-
-
 def format_domains(domains):
     """Format a given list of domains."""
     formatted_domains = []

@@ -2,15 +2,11 @@
 
 exports[`Layout component > matches snapshot 1`] = `
 <DocumentFragment>
-  <main
-    class="css-o3tih"
+  <div
+    class="MuiBox-root css-yuxl5"
   >
-    <div
-      style="display: flex;"
-    >
-      <div>
-        GOV_BANNER
-      </div>
+    <div>
+      GOV_BANNER
     </div>
     <div
       class="MuiBox-root css-dfy4bm"
@@ -41,9 +37,6 @@ exports[`Layout component > matches snapshot 1`] = `
           <div
             class="MuiAlert-message css-zioonp-MuiAlert-message"
           >
-            <div
-              class="MuiBox-root css-1c00z4o"
-            />
             <div
               class="MuiTypography-root MuiTypography-largeBody MuiTypography-gutterBottom MuiAlertTitle-root css-16l1za6-MuiTypography-root-MuiAlertTitle-root"
             >
@@ -115,8 +108,12 @@ exports[`Layout component > matches snapshot 1`] = `
         </button>
       </div>
     </header>
+  </div>
+  <main
+    class="css-170g0n7"
+  >
     <div
-      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-17tm3pi-MuiDrawer-docked"
+      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-aiqi88-MuiDrawer-docked"
     >
       <div
         class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-1lwhjos-MuiPaper-root-MuiDrawer-paper"
@@ -130,13 +127,7 @@ exports[`Layout component > matches snapshot 1`] = `
             role="presentation"
           >
             <div
-              class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
-            />
-            <div
-              class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
-            />
-            <div
-              class="MuiStack-root css-6ehs1v-MuiStack-root"
+              class="MuiStack-root css-xttitw-MuiStack-root"
             >
               <h3
                 class="MuiTypography-root MuiTypography-h3 css-wariq0-MuiTypography-root"
@@ -163,7 +154,7 @@ exports[`Layout component > matches snapshot 1`] = `
               </button>
             </div>
             <div
-              class="MuiBox-root css-shhb4o"
+              class="MuiBox-root css-19midj6"
             >
               <div
                 class="MuiAutocomplete-root MuiAutocomplete-hasPopupIcon css-1tlcqt-MuiAutocomplete-root"

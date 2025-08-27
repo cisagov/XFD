@@ -25,7 +25,6 @@ from xfd_mini_dl.models import (
     SubDomains,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 # Django setup

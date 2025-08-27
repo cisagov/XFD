@@ -1,11 +1,28 @@
 """Elastic search methods."""
 # Standard Python Libraries
+import logging
 from typing import Any, Dict, List, Optional
 
 from ..schema_models.search import DomainSearchBody
 
+LOGGER = logging.getLogger(__name__)
+
 # Define non-keyword fields
 NON_KEYWORD_FIELDS = {"updated_at", "created_at"}
+
+# Shared severity groupings
+REG_VALUES = [
+    "Low",
+    "low",
+    "Medium",
+    "medium",
+    "High",
+    "high",
+    "Critical",
+    "critical",
+    "N/A",
+]
+NA_VALUES = ["N/A", "n/a", "Null", "null", "None", "none", "", "Undefined", "undefined"]
 
 
 def build_from(current: int | None, results_per_page: int | None) -> Optional[int]:
@@ -63,15 +80,23 @@ def get_term_filter_value(field, field_value):
     return {"{}.keyword".format(field): field_value}
 
 
+def _nested(query: Dict[str, Any], path: str) -> Dict[str, Any]:
+    """Wrap a query into a nested clause for a given path."""
+    return {"nested": {"path": path, "query": query}}
+
+
 def get_term_filter(term_filter):
     """
     Construct the appropriate term filter based on the filter's field and type.
 
     Handles 'any' and 'all' filter types, and manages nested fields appropriately.
+
+    NOTE: For 'vulnerabilities.severity', this returns a dict with a special key
+    '__post_filter__' so we can apply it via post_filter (to preserve facets).
     """
     field_path = term_filter["field"].split(".")
     search_type = "term"
-    search = {}
+    search: Dict[str, Any] = {}
 
     if term_filter["field"] in ["name", "ip"]:
         search_type = "wildcard"
@@ -80,28 +105,97 @@ def get_term_filter(term_filter):
     elif term_filter["field"] == "organization.region_id":
         search_type = "terms"
 
-    reg_values = [
-        "Low",
-        "low",
-        "Medium",
-        "medium",
-        "High",
-        "high",
-        "Critical",
-        "critical",
-    ]
-    na_values = [
-        "N/A",
-        "n/a",
-        "Null",
-        "null",
-        "None",
-        "none",
-        "",
-        "Undefined",
-        "undefined",
-    ]
+    # --- Special handling for vulnerabilities.severity in post_filter ---
+    if (
+        term_filter["field"] == "vulnerabilities.severity"
+        and term_filter["type"] == "any"
+    ):
+        values = term_filter.get("values") or []
+        has_other = "Other" in values
+        has_na = "N/A" in values
+        # Explicit severities (excluding special buckets)
+        explicit = [v for v in values if v not in set(NA_VALUES) and v != "Other"]
 
+        should_clauses: List[Dict[str, Any]] = []
+
+        if has_other:
+            # "Other" = docs where nested severity exists AND is NOT in REG_VALUES + NA_VALUES
+            should_clauses.append(
+                _nested(
+                    {
+                        "bool": {
+                            "must": [
+                                {
+                                    "exists": {
+                                        "field": "vulnerabilities.severity.keyword"
+                                    }
+                                }
+                            ],
+                            "must_not": [
+                                {
+                                    "terms": {
+                                        "vulnerabilities.severity.keyword": REG_VALUES
+                                        + NA_VALUES
+                                    }
+                                }
+                            ],
+                        }
+                    },
+                    "vulnerabilities",
+                )
+            )
+
+        if has_na:
+            # "N/A" group = any of NA_VALUES OR nested row missing the field
+            should_clauses.append(
+                _nested(
+                    {
+                        "terms": {
+                            "vulnerabilities.severity.keyword": NA_VALUES + explicit
+                        }
+                    },
+                    "vulnerabilities",
+                )
+            )
+            should_clauses.append(
+                _nested(
+                    {
+                        "bool": {
+                            "must_not": [
+                                {
+                                    "exists": {
+                                        "field": "vulnerabilities.severity.keyword"
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "vulnerabilities",
+                )
+            )
+
+        # Explicit severities (e.g., "Medium", "High", etc.)
+        if explicit:
+            should_clauses.append(
+                _nested(
+                    {"terms": {"vulnerabilities.severity.keyword": explicit}},
+                    "vulnerabilities",
+                )
+            )
+
+        if should_clauses:
+            # Return as post_filter so aggs remain unaffected
+            return {
+                "__post_filter__": {
+                    "bool": {
+                        "should": should_clauses,
+                        "minimum_should_match": 1,
+                    }
+                }
+            }
+        # If no values, fall through to normal handling (no-op)
+
+    # --- Normal filters (non-severity, or severity with 'all' if ever needed) ---
     if term_filter["type"] == "any":
         if term_filter["field"] == "organization.region_id" and term_filter["values"]:
             search = {
@@ -116,61 +210,6 @@ def get_term_filter(term_filter):
                     "minimum_should_match": 1,
                 }
             }
-
-        # Handle grouping of N/A values for 'vulnerabilities.severity' field. #
-
-        elif (
-            term_filter["field"] == "vulnerabilities.severity"
-            and "N/A" in term_filter["values"]
-        ):
-            search = {
-                "bool": {
-                    "should": [
-                        {"terms": {"vulnerabilities.severity.keyword": na_values}},
-                        {
-                            "bool": {
-                                "must_not": [
-                                    {
-                                        "exists": {
-                                            "field": "vulnerabilities.severity.keyword"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                    ],
-                    "minimum_should_match": 1,
-                }
-            }
-        # Handle grouping of 'Other' values for 'vulnerabilities.severity' field. #
-        elif (
-            term_filter["field"] == "vulnerabilities.severity"
-            and "Other" in term_filter["values"]
-        ):
-            search = {
-                "bool": {
-                    "must_not": [
-                        {
-                            "terms": {
-                                "vulnerabilities.severity.keyword": reg_values
-                                + na_values
-                            }
-                        },
-                        {
-                            "bool": {
-                                "must_not": [
-                                    {
-                                        "exists": {
-                                            "field": "vulnerabilities.severity.keyword"
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                    ],
-                }
-            }
-
         else:
             search = {
                 "bool": {
@@ -195,6 +234,7 @@ def get_term_filter(term_filter):
             }
         }
 
+    # Wrap in nested when needed (excluding organization.region_id)
     if len(field_path) > 1 and term_filter["field"] != "organization.region_id":
         return {"nested": {"path": field_path[0], "query": search}}
 
@@ -203,15 +243,32 @@ def get_term_filter(term_filter):
 
 def build_request_filter(filters, force_return_no_results):
     """
-    Build the request filter for Elasticsearch queries.
+    Build both the regular filters and the post_filter.
 
-    If force_return_no_results is True, returns a filter that matches no results.
-    Otherwise, processes each filter using get_term_filter.
+    Returns: (filter_list, post_filter_clause or None)
     """
     if force_return_no_results:
-        return {"term": {"non_existent_field": ""}}
+        return [{"term": {"non_existent_field": ""}}], None
 
-    return [get_term_filter(f) for f in filters]
+    filter_list: List[Dict[str, Any]] = []
+    post_filters: List[Dict[str, Any]] = []
+
+    for f in filters:
+        built = get_term_filter(f)
+        if "__post_filter__" in built:
+            post_filters.append(built["__post_filter__"])
+        else:
+            filter_list.append(built)
+
+    # Combine multiple post_filters with AND semantics
+    post_filter_clause = None
+    if post_filters:
+        if len(post_filters) == 1:
+            post_filter_clause = post_filters[0]
+        else:
+            post_filter_clause = {"bool": {"filter": post_filters}}
+
+    return filter_list, post_filter_clause
 
 
 def build_request(state: DomainSearchBody) -> Dict[str, Any]:
@@ -241,7 +298,12 @@ def build_request(state: DomainSearchBody) -> Dict[str, Any]:
     match = build_match(search_term)
     size = results_per_page
     from_ = build_from(current, results_per_page)
-    filter_ = build_request_filter(refined_filters, should_return_no_results)
+    filter_list, post_filter_clause = build_request_filter(
+        refined_filters, should_return_no_results
+    )
+    LOGGER.info("Filters: %s", filter_list)
+    if post_filter_clause:
+        LOGGER.info("Post-filter: %s", post_filter_clause)
 
     # Base query
     query = {
@@ -270,7 +332,7 @@ def build_request(state: DomainSearchBody) -> Dict[str, Any]:
                     }
                 },
             ],
-            "filter": filter_,
+            "filter": filter_list,
         }
     }
 
@@ -317,7 +379,7 @@ def build_request(state: DomainSearchBody) -> Dict[str, Any]:
                     "severity": {
                         "terms": {
                             "field": "vulnerabilities.severity.keyword",
-                            "missing": "null",
+                            "missing": "N/A",  # show missing as "N/A" in facets
                             "size": 50,
                         }
                     },
@@ -328,6 +390,8 @@ def build_request(state: DomainSearchBody) -> Dict[str, Any]:
         "query": query,
     }
 
+    if post_filter_clause:
+        body["post_filter"] = post_filter_clause
     if sort:
         body["sort"] = sort
     if size:

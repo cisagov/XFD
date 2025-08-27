@@ -1,4 +1,8 @@
 """Database app router."""
+# Standard Python Libraries
+import logging
+
+LOGGER = logging.getLogger(__name__)
 
 
 class MyAppRouter:
@@ -14,7 +18,7 @@ class MyAppRouter:
     def db_for_write(self, model, **hints):
         """Database for write."""
         # Check if a target database is provided in hints
-        # print(self)
+        LOGGER.debug(self)
         # Uncomment the below "if clause" for local testing
         # ##################################################
         target_db = hints["instance"]._state.db if hints.get("instance", None) else None

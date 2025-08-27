@@ -1,6 +1,7 @@
 """Search sync."""
 # Standard Python Libraries
 from itertools import islice
+import logging
 import os
 
 # Third-Party Libraries
@@ -10,6 +11,9 @@ from xfd_mini_dl.models import Domain, Ip, SubDomains
 
 from .es_client import ESClient
 from .helpers.syncdb_helpers.es_sync import sync_es_organizations
+
+# Set up logging
+LOGGER = logging.getLogger(__name__)
 
 # Constants
 DOMAIN_CHUNK_SIZE = int(os.getenv("DOMAIN_CHUNK_SIZE", "50"))  # Adjust if needed
@@ -27,7 +31,7 @@ def handler(command_options):
     organization_id = command_options.get("organizationId")
     domain_id = command_options.get("domainId")
 
-    print("Running searchSync...")
+    LOGGER.info("Running searchSync...")
     client = ESClient()
 
     # Query to find domains that need to be synced
@@ -47,7 +51,7 @@ def handler(command_options):
     if domain_id:
         domain_queryset = domain_queryset.filter(id=domain_id)
 
-    print("Found {} domains to sync.".format(domain_queryset.count()))
+    LOGGER.info("Found %d domains to sync.", domain_queryset.count())
 
     # Chunk domains for processing
     for domain_chunk in chunked_queryset(domain_queryset, DOMAIN_CHUNK_SIZE):
@@ -56,7 +60,7 @@ def handler(command_options):
             .select_related("organization")
             .prefetch_related("vulnerabilities", "services")
         )
-        print("Syncing {} domains...".format(len(domains)))
+        LOGGER.info("Syncing %d domains...", len(domains))
 
         # Update Elasticsearch
         try:
@@ -156,7 +160,7 @@ def handler(command_options):
                 ]
             )
         except Exception as e:
-            print("Error syncing domains to Elasticsearch: {}".format(e))
+            LOGGER.error("Error syncing domains to Elasticsearch: %s", e)
             continue
 
         # Mark domains as synced
@@ -171,8 +175,8 @@ def handler(command_options):
         if ip_ids:
             Ip.objects.filter(id__in=ip_ids).update(synced_at=now())
 
-    print("Domain sync complete.")
+    LOGGER.info("Domain sync complete.")
 
-    print("Syncing organizations..")
+    LOGGER.info("Syncing organizations..")
     sync_es_organizations()
-    print("Organization sync complete.")
+    LOGGER.info("Organization sync complete.")

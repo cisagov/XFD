@@ -18,17 +18,25 @@ const LoginButton = () => {
     const { code_challenge, code_verifier } = await pkceChallenge();
     const state = uuidv4();
 
+    console.log('Starting OAuth fetch with:', {
+      code_challenge,
+      code_verifier,
+      state
+    });
     try {
-      await fetch(`${import.meta.env.VITE_API_URL}/auth/set-oauth-cookies`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          code_verifier,
-          state
-        })
-      });
-      console.log('Cookies set, redirecting to Okta...');
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/auth/get-oauth-meta`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code_verifier, state })
+        }
+      );
+
+      const json = await res.json();
+      localStorage.setItem('oauthMeta', json.signedToken);
+      console.log('Stored oauthMeta:', json.signedToken);
+
       const authorizeUrl = `https://${domain}/oauth2/authorize?identity_provider=Okta&redirect_uri=${encodeURIComponent(
         callbackUrl
       )}&response_type=code&client_id=${clientId}&scope=email+openid+profile&state=${state}&code_challenge=${encodeURIComponent(
@@ -37,7 +45,7 @@ const LoginButton = () => {
 
       window.location.href = authorizeUrl;
     } catch (err) {
-      console.error('Error setting cookies before redirect:', err);
+      console.error('Error preparing OAuth metadata:', err);
     }
   };
 
@@ -45,6 +53,7 @@ const LoginButton = () => {
     <Button
       onClick={redirectToAuth}
       type={'button'}
+      size="big"
       style={{ width: 'fit-content' }}
     >
       Sign in with LOGIN.GOV
@@ -98,20 +107,25 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
     </Grid>
   );
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      justifyContent="space-around"
-      height="100%"
-    >
-      {notification?.status === 'active' && platformNotification}
-      <Typography variant="h2" textAlign="center" sx={{ mt: 5 }}>
-        Welcome to CyHy Dashboard
-      </Typography>
-      <Box pt={3} mb={3} display="flex" justifyContent="center">
+    <Box display="flex" flexDirection="column" height={'calc(100vh - 108px)'}>
+      <Box flex={0.5} display="flex" />
+      <Box
+        flex={0.5}
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
+      >
+        <Typography variant="h1" textAlign="center">
+          Welcome to CyHy Dashboard
+        </Typography>
+      </Box>
+      <Box flex={1} display="flex" justifyContent="center" alignItems="center">
         <LoginButton />
       </Box>
-      <CrossfeedWarning />
+      <Box flex={1} display="flex" />
+      <Box justifyContent="center" alignItems="center" pb={5}>
+        <CrossfeedWarning />
+      </Box>
     </Box>
   );
 };

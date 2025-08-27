@@ -1,5 +1,6 @@
 """Run infra ops."""
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
@@ -19,6 +20,8 @@ from xfd_api.helpers.infra_helpers import (
     create_scan_user,
 )
 
+LOGGER = logging.getLogger(__name__)
+
 
 def handler(event, context):
     """Trigger infra ops."""
@@ -37,7 +40,7 @@ def handler(event, context):
             "body": "Database synchronization completed successfully.",
         }
     except Exception as e:
-        print("Error during syncdb: {}".format(str(e)))
+        LOGGER.error("Error during syncdb: %s", e)
         return {
             "status_code": 500,
             "body": "Database synchronization failed: {}".format(str(e)),

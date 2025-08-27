@@ -1,6 +1,7 @@
 """XpanseSync scan."""
 # Standard Python Libraries
 import datetime
+import logging
 import os
 import random
 import time
@@ -24,6 +25,8 @@ from xfd_mini_dl.models import (
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
+
+LOGGER = logging.getLogger(__name__)
 
 # Constants
 MAX_RETRIES = 3  # Max retries for failed tasks
@@ -73,10 +76,9 @@ def main():
                         retry_count += 1
 
                         if retry_count >= MAX_RETRIES:
-                            print(
-                                "Max retries reached for org: {acronym}. Moving to next organization.".format(
-                                    acronym=business_unit.cyhy_db_name.acronym
-                                )
+                            LOGGER.warning(
+                                "Max retries reached for org: %s. Moving to next organization.",
+                                business_unit.cyhy_db_name.acronym,
                             )
                             break  # Skip to next organization
 
@@ -92,25 +94,23 @@ def main():
                         total_pages = response.get("result", {}).get("total_pages", 1)
                         current_page = response.get("result", {}).get("current_page", 1)
                         save_alerts_to_db(xpanse_alerts)
-                        print(len(xpanse_alerts))
+                        LOGGER.info(len(xpanse_alerts))
                         if current_page >= total_pages:
                             done = True
                         page += 1
                     else:
-                        raise Exception(
-                            "Task error: {error} - Status: {status}".format(
-                                error=response.get("error"),
-                                status=response.get("status"),
-                            )
+                        LOGGER.exception(
+                            "Task error: %s - Status: %s",
+                            response.get("error"),
+                            response.get("status"),
                         )
+                        raise Exception
             else:
-                print(
-                    "{name} does not have a linked CyHy org".format(
-                        name=business_unit.entity_name
-                    )
+                LOGGER.warning(
+                    "%s does not have a linked CyHy org", business_unit.entity_name
                 )
     except Exception as e:
-        print("Scan failed to complete: {error}".format(error=e))
+        LOGGER.error("Scan failed to complete: %s", e)
 
 
 def is_bu_pull_day():
@@ -122,7 +122,7 @@ def is_bu_pull_day():
 
 def pull_and_save_business_units():
     """Pull xpanse business units and save to db."""
-    print("Fetching Xpanse Business Units")
+    LOGGER.info("Fetching Xpanse Business Units")
     headers = {
         "X-API-KEY": os.getenv("CF_API_KEY"),
         "access_token": os.getenv("PE_API_KEY"),
@@ -138,7 +138,7 @@ def pull_and_save_business_units():
         response.raise_for_status()
 
     except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ Business Unit pull: {error}".format(error=e))
+        LOGGER.error("Error fetching DMZ Business Unit pull: %s", e)
         return None
     try:
         bu_list = []
@@ -172,20 +172,16 @@ def pull_and_save_business_units():
                 )
                 bu_list.append(mdl_business_unit_object)
 
-        print("Business Units saved to MDL.")
+        LOGGER.info("Business Units saved to MDL.")
         return bu_list
     except Exception as e:
-        print("Error fetching DMZ Business Unit pull: {error}".format(error=e))
+        LOGGER.error("Error fetching DMZ Business Unit pull: %s", e)
         return None
 
 
 def fetch_dmz_xpanse_alert_task(org_acronym, page, per_page, modified_datetime):
     """Fetch xpanse alert task id."""
-    print(
-        "Fetching xpanse alert task for organization: {acronym}".format(
-            acronym=org_acronym
-        )
-    )
+    LOGGER.info("Fetching xpanse alert task for organization: %s", org_acronym)
     headers = {
         "X-API-KEY": os.getenv("CF_API_KEY"),
         "access_token": os.getenv("PE_API_KEY"),
@@ -209,7 +205,7 @@ def fetch_dmz_xpanse_alert_task(org_acronym, page, per_page, modified_datetime):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ task: {error}".format(error=e))
+        LOGGER.error("Error fetching DMZ task: %s", e)
         return None
 
 
@@ -229,7 +225,7 @@ def fetch_dmz_xpanse_data(task_id):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ Xpanse data: {error}".format(error=e))
+        LOGGER.error("Error fetching DMZ Xpanse data: %s", e)
         return None
 
 
@@ -294,11 +290,7 @@ def save_alerts_to_db(alert_list):
                         XpanseBusinessUnits.objects.get(entity_name=b_u)
                     )
                 except Exception as e:
-                    print(
-                        "Failed to get business unit {business}: {error}".format(
-                            business=b_u, error=e
-                        )
-                    )
+                    LOGGER.error("Failed to get business unit %s: %s", b_u, e)
                     continue
 
             alert_object.business_units.set(business_unit_objects)
@@ -371,5 +363,5 @@ def save_alerts_to_db(alert_list):
             alert_object.save()
 
         except Exception as e:
-            print("Failed to save alert: %s, moving on to the next alert." % (e))
+            LOGGER.error("Failed to save alert: %s, moving on to the next alert.", e)
             continue

@@ -1,6 +1,7 @@
 """Task to refresh or create all views/materialized views in mini_data_lake."""
 
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
@@ -23,6 +24,8 @@ from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
+
+LOGGER = logging.getLogger(__name__)
 
 # Define your materialized views and their create functions
 MATERIALIZED_VIEWS = [
@@ -64,14 +67,13 @@ def list_matview_versions(database="mini_data_lake"):
             """
         )
         rows = cursor.fetchall()
-        print("\nCurrent materialized views and versions:")
+        LOGGER.info("\nCurrent materialized views and versions:")
         for row in rows:
             name, comment = row
             version = "unknown"
             if comment and comment.startswith("version:"):
                 version = comment.split("version:", 1)[1].strip()
-            print("  {} → version: {}".format(name, version))
-        print()
+            LOGGER.info("  %s → version: %s", name, version)
 
 
 def view_exists(cursor, view_name, materialized=False):
@@ -150,7 +152,7 @@ def handler(event):
                         else:
                             # Version matches → refresh
                             if has_unique_index(cursor, name):
-                                print("Refreshing view {}".format(name))
+                                LOGGER.info("Refreshing view %s", name)
                                 cursor.execute(
                                     "REFRESH MATERIALIZED VIEW CONCURRENTLY {};".format(
                                         name
@@ -175,7 +177,7 @@ def handler(event):
             "created": created,
             "errors": errors,
         }
-        print(result)
+        LOGGER.info(result)
         return result
 
     except Exception as e:

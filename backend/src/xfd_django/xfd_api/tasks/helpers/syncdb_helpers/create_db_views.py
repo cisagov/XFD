@@ -1,4 +1,6 @@
 """Create views helper."""
+# Standard Python Libraries
+import logging
 
 # Third-Party Libraries
 from django.db import connections
@@ -9,11 +11,13 @@ MAT_VW_COMBINED_VULNS_VERSION = "20250609"
 DOMAIN_MAT_VIEW_VERSION = "20250609"
 DOMAIN_SEARCH_MAT_VIEW_VERSION = "20250611"
 
+LOGGER = logging.getLogger(__name__)
+
 
 def create_vuln_normal_views(database):
     """Create vuln normal views."""
     with connections[database].cursor() as cursor:
-        print("Creating normal views...")
+        LOGGER.info("Creating normal views...")
         cursor.execute(
             """
             DROP VIEW IF EXISTS vw_ticket_vulns CASCADE;
@@ -239,14 +243,14 @@ def create_vuln_normal_views(database):
             WHERE row_num = 1;
         """
         )
-        print("Normal views created.")
+        LOGGER.info("Normal views created.")
 
 
 def create_vuln_materialized_views(database):
     """Create vuln materialized views."""
     create_vuln_normal_views("mini_data_lake")
     with connections[database].cursor() as cursor:
-        print("Creating materialized views...")
+        LOGGER.info("Creating materialized views...")
 
         cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mat_vw_combined_vulns;")
 
@@ -277,7 +281,7 @@ def create_vuln_materialized_views(database):
         )
 
         # Additional optimal indexes based on search patterns
-        print("Creating indexes on mat_vw_combined_vulns...")
+        LOGGER.info("Creating indexes on mat_vw_combined_vulns...")
 
         # Make sure pg_trgm extension is enabled (safe if run multiple times)
         cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
@@ -412,15 +416,15 @@ def create_vuln_materialized_views(database):
         """
         )
 
-        print("Indexes created on mat_vw_combined_vulns.")
+        LOGGER.info("Indexes created on mat_vw_combined_vulns.")
 
-        print("Materialized views created.")
+        LOGGER.info("Materialized views created.")
 
 
 def create_domain_materialized_view(database):
     """Create mat_vw_domain view."""
     with connections[database].cursor() as cursor:
-        print("Creating domain view...")
+        LOGGER.info("Creating domain view...")
         cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mat_vw_domain;")
 
         # Example materialized view
@@ -513,9 +517,9 @@ def create_domain_materialized_view(database):
             )
         )
 
-        print("Domain materialized view created.")
+        LOGGER.info("Domain materialized view created.")
 
-        print("Creating indexes on mat_vw_domain...")
+        LOGGER.info("Creating indexes on mat_vw_domain...")
         cursor.execute(
             "CREATE INDEX idx_vw_domain_organization_id ON mat_vw_domain (organization_id);"
         )
@@ -535,13 +539,13 @@ def create_domain_materialized_view(database):
             "CREATE INDEX CONCURRENTLY idx_vw_domain_org_id_id ON mat_vw_domain (organization_id, id);"
         )
 
-        print("Domain Indexes created.")
+        LOGGER.info("Domain Indexes created.")
 
 
 def create_service_mat_view(database):
     """Create or replace the unified 'service' view (starting with Shodan data)."""
     with connections[database].cursor() as cursor:
-        print("Creating 'service' view from ShodanAssets...")
+        LOGGER.info("Creating 'service' view from ShodanAssets...")
         cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mat_vw_service CASCADE;")
         cursor.execute("DROP VIEW IF EXISTS vw_shodan_service CASCADE;")
         cursor.execute("DROP VIEW IF EXISTS vw_portscan_service CASCADE;")
@@ -594,7 +598,7 @@ def create_service_mat_view(database):
         """
         )
 
-        print("Creating 'service' view from PortScans...")
+        LOGGER.info("Creating 'service' view from PortScans...")
 
         cursor.execute(
             """
@@ -645,7 +649,7 @@ def create_service_mat_view(database):
         """
         )
 
-        print("Creating materialized 'mat_vw_service' from union...")
+        LOGGER.info("Creating materialized 'mat_vw_service' from union...")
         cursor.execute(
             """
             CREATE MATERIALIZED VIEW mat_vw_service AS
@@ -659,9 +663,9 @@ def create_service_mat_view(database):
                 VW_SERVICE_VERSION
             )
         )
-        print("Service materialized view created.")
+        LOGGER.info("Service materialized view created.")
 
-        print("Creating unique indexes for service view...")
+        LOGGER.info("Creating unique indexes for service view...")
 
         cursor.execute(
             """
@@ -699,13 +703,13 @@ def create_service_mat_view(database):
         """
         )
 
-        print("Materialized view 'mat_vw_service' created.")
+        LOGGER.info("Materialized view 'mat_vw_service' created.")
 
 
 def create_domain_search_mat_view(database):
     """Create mat_vw_domain_search view."""
     with connections[database].cursor() as cursor:
-        print("Creating domain details materialized view...")
+        LOGGER.info("Creating domain details materialized view...")
         cursor.execute("DROP MATERIALIZED VIEW IF EXISTS mat_vw_domain_search;")
 
         # Create materialized view
@@ -802,7 +806,7 @@ def create_domain_search_mat_view(database):
         )
 
         # Add useful indexes for filtering and ordering
-        print("Creating indexes on mat_vw_domain_search...")
+        LOGGER.info("Creating indexes on mat_vw_domain_search...")
         cursor.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_mat_vw_domain_search_org_id_id
@@ -827,4 +831,4 @@ def create_domain_search_mat_view(database):
             )
         )
 
-        print("Domain details materialized view created.")
+        LOGGER.info("Domain details materialized view created.")

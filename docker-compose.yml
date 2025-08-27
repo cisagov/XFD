@@ -16,6 +16,7 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     command: ['postgres', '-c', 'log_statement=all', '-c', 'log_duration=on']
+    restart: always
 
   frontend:
     container_name: frontend
@@ -29,6 +30,7 @@ services:
     env_file:
       - ./.env
     tty: true
+    restart: always
 
   backend:
     container_name: backend
@@ -50,6 +52,7 @@ services:
       CF_API_KEY: "${CF_API_KEY}"
     depends_on:
       - db
+    restart: always
 
   minio:
     container_name: minio
@@ -67,6 +70,7 @@ services:
       - MINIO_SECRET_KEY=aws_secret_key
     logging:
       driver: json-file
+    restart: always
 
   docs:
     container_name: docs
@@ -81,6 +85,7 @@ services:
     ports:
       - '4000:4000'
       - '44475:44475'
+    restart: always
 
   es:
     container_name: es
@@ -103,6 +108,7 @@ services:
       - 9300:9300
     logging:
       driver: json-file
+    restart: always
 
   redis:
     container_name: redis
@@ -111,6 +117,7 @@ services:
       - "6379:6379"
     networks:
       - backend
+    restart: always
 
   # kib:
   #   image: docker.elastic.co/kibana/kibana:7.9.0
@@ -137,6 +144,7 @@ services:
       driver: none
     ports:
       - 3306:3306
+    restart: always
 
   matomo:
     container_name: matomo
@@ -159,6 +167,7 @@ services:
       driver: none
     ports:
       - "8080:80"
+    restart: always
 
   elasticmq:
     container_name: elasticmq

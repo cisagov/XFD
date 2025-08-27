@@ -2,13 +2,14 @@
 
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import os
 
 # Third-Party Libraries
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from django.forms import model_to_dict
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_mini_dl.models import Organization, Role, User, UserType
 
 from ..auth import (
@@ -29,6 +30,9 @@ from ..helpers.email import (
 from ..helpers.regionStateMap import REGION_STATE_MAP
 from ..helpers.uuid_helpers import is_valid_uuid
 from ..tools.serializers import serialize_user
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 # GET: /users/me
@@ -98,8 +102,8 @@ def get_me(current_user):
         raise HTTPException(status_code=404, detail="User not found")
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Unknown error")
+        LOGGER.exception("Unhandled error occurred: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /users/me/acceptTerms
@@ -306,8 +310,8 @@ def get_users_by_region_id(region_id, current_user):
         raise http_exc
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception("Unhandled error occurred: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # GET: /users/state/{state}
@@ -535,8 +539,8 @@ def update_user_v2(user_id, user_data, current_user):
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
-        print("Error updating user: {}".format(e))
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+        LOGGER.exception("Error updating user: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # PUT: /users/{user_id}/register/approve
@@ -654,10 +658,8 @@ def deny_user_registration(user_id: str, current_user: User):
     except ObjectDoesNotExist:
         raise HTTPException(status_code=404, detail="User not found.")
     except Exception as e:
-        print("Error denying registration: {}".format(e))
-        raise HTTPException(
-            status_code=500, detail="Error processing registration denial."
-        )
+        LOGGER.exception("Error denying registration: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /users
@@ -755,5 +757,5 @@ def invite(new_user_data, current_user):
         raise http_exc
 
     except Exception as e:
-        print("Error inviting user: {}".format(e))
-        raise HTTPException(status_code=500, detail="Error inviting user.")
+        LOGGER.exception("Error inviting user: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

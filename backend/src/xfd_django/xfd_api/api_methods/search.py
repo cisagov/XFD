@@ -2,10 +2,11 @@
 # Standard Python Libraries
 import csv
 import io
+import logging
 from typing import Any, Dict, List
 
 # Third-Party Libraries
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_api.auth import (
     get_organization_region,
     get_tag_organizations,
@@ -19,6 +20,9 @@ from xfd_api.tasks.es_client import ESClient
 from xfd_mini_dl.models import Role
 
 from ..schema_models.search import DomainSearchBody
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 async def get_options(search_body, user) -> Dict[str, Any]:
@@ -69,8 +73,11 @@ async def fetch_all_results(
         try:
             response = client.search_domains(request)
         except Exception as e:
-            print("Elasticsearch error: {}".format(e))
-            raise HTTPException(status_code=500, detail="Error querying Elasticsearch.")
+            LOGGER.exception("Elasticsearch error: %s", e)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error querying Elasticsearch.",
+            )
 
         hits = response.get("hits", {}).get("hits", [])
         if not hits:
@@ -385,7 +392,7 @@ async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str
     try:
         csv_url = s3_client.save_csv(csv_content, "domains")
     except Exception as e:
-        print("S3 upload error: {}".format(e))
-        raise HTTPException(status_code=500, detail="Error uploading CSV to S3.")
+        LOGGER.exception("S3 upload error: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return {"url": csv_url}

@@ -17,7 +17,6 @@ from xfd_mini_dl.models import (
     XpanseServicesMdl,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 
@@ -69,13 +68,15 @@ def chunk_and_post_data(business_units_list):
                 ENDPOINT_URL, json=payload, headers=headers, timeout=60
             )
             if response.status_code == 200:
-                print("Succesfully synced data to DMZ")
+                LOGGER.info("Succesfully synced data to DMZ")
             else:
-                print(
-                    f"Failed to sync data to DMZ: {response.status_code} - {response.text}"
+                LOGGER.error(
+                    "Failed to sync data to DMZ: %d - %s",
+                    response.status_code,
+                    response.text,
                 )
         except Exception as e:
-            LOGGER.error("Error syncing data to DMZ: %s", str(e))
+            LOGGER.exception("Error syncing data to DMZ: %s", str(e))
             raise
 
 

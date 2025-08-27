@@ -1,5 +1,6 @@
 """Update scan task status."""
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
@@ -14,6 +15,8 @@ django.setup()
 
 # Third-Party Libraries
 from xfd_mini_dl.models import ScanTask
+
+LOGGER = logging.getLogger(__name__)
 
 
 def handler(event, context):
@@ -56,10 +59,11 @@ def handler(event, context):
             # No update needed for other statuses
             return {"status_code": 204, "body": "No status change required."}
 
-        print(
-            "Updating status of ScanTask {} from {} to {}.".format(
-                scan_task.id, old_status, scan_task.status
-            )
+        LOGGER.info(
+            "Updating status of ScanTask %s from %s to %s.",
+            scan_task.id,
+            old_status,
+            scan_task.status,
         )
         scan_task.save()
 
@@ -80,9 +84,9 @@ def retry_find_scan_task(task_arn, retries=3):
             if scan_task:
                 return scan_task
         except OperationalError as e:
-            print("Database error on attempt {}: {}".format(attempt + 1, e))
+            LOGGER.error("Database error on attempt %d: %s", attempt + 1, e)
         except Exception as e:
-            print("Unexpected error on attempt {}: {}".format(attempt + 1, e))
+            LOGGER.error("Unexpected error on attempt %d: %s", attempt + 1, e)
         if attempt < retries - 1:
             continue
     return None
