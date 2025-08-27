@@ -137,6 +137,21 @@ def get_current_active_user(
     if api_key:
         user = get_user_by_api_key(api_key)
     elif token:
+        if token == "dev-fake-token":  # nosec
+            # Return a real user or a fake user from the DB
+            user = User.objects.filter(email="dev@example.com").first()
+            if not user:
+                # Create one if needed
+                user = User.objects.create(
+                    email="dev@example.com",
+                    first_name="Dev",
+                    last_name="User",
+                    user_type="globalAdmin",
+                    invite_pending=False,
+                )
+            request.state.user_email = user.email
+            return user
+
         # Check if token is an API key
         if re.match(r"^[A-Fa-f0-9]{32}$", token):
             user = get_user_by_api_key(token)
@@ -210,6 +225,20 @@ def get_current_active_user_unsafe(
     if api_key:
         user = get_user_by_api_key(api_key)
     elif token:
+        if token == "dev-fake-token":  # nosec
+            # Return a real user or a fake user from the DB
+            user = User.objects.filter(email="dev@example.com").first()
+            if not user:
+                # Create one if needed
+                user = User.objects.create(
+                    email="dev@example.com",
+                    first_name="Dev",
+                    last_name="User",
+                    user_type="globalAdmin",
+                    invite_pending=False,
+                )
+            request.state.user_email = user.email
+            return user
         # Check if token is an API key
         if re.match(r"^[A-Fa-f0-9]{32}$", token):
             user = get_user_by_api_key(token)

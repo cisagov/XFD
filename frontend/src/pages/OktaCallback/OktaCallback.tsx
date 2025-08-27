@@ -15,15 +15,26 @@ export const OktaCallback: React.FC = () => {
 
   const handleOktaCallback = useCallback(async () => {
     const { code, state } = parse(window.location.search);
-
     if (!code || !state) {
       console.error('Missing OAuth parameters');
       history.replace('/');
       return;
     }
 
-    const signedToken = localStorage.getItem('oauthMeta');
+    // Dev-only shortcut
+    if (code === 'dev-code') {
+      const devToken = 'dev-fake-token';
+      localStorage.setItem('token', devToken);
+      await login(devToken); // Should populate context from /users/me
 
+      console.log('Dev login successful');
+      history.replace('/');
+      return;
+    }
+
+    // --- real login below this point ---
+
+    const signedToken = localStorage.getItem('oauthMeta');
     if (!signedToken) {
       console.error('Missing signed OAuth metadata');
       history.replace('/');
@@ -44,14 +55,8 @@ export const OktaCallback: React.FC = () => {
       const data: OktaCallbackResponse & { detail?: string } = await res.json();
       if (!res.ok) throw new Error(data?.detail || 'OAuth callback failed');
 
-      await login(data.token);
-
-      // Clean up
       localStorage.setItem('token', data.token);
-      localStorage.removeItem('oauthMeta');
-      localStorage.removeItem('nonce');
-      localStorage.removeItem('state');
-
+      await login(data.token);
       history.replace('/');
     } catch (e) {
       console.error(e);

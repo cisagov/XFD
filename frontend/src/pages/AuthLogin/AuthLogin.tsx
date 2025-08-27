@@ -15,38 +15,23 @@ const LoginButton = () => {
     import.meta.env.VITE_COGNITO_CALLBACK_URL || 'default_value';
 
   const redirectToAuth = async () => {
-    const { code_challenge, code_verifier } = await pkceChallenge();
-    const state = uuidv4();
+    const devToken = 'dev-fake-token';
 
-    console.log('Starting OAuth fetch with:', {
-      code_challenge,
-      code_verifier,
-      state
-    });
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/get-oauth-meta`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code_verifier, state })
-        }
-      );
+    // Add a dummy signedToken so OktaCallback doesn't fail
+    localStorage.setItem('oauthMeta', 'dev-signed-token');
 
-      const json = await res.json();
-      localStorage.setItem('oauthMeta', json.signedToken);
-      console.log('Stored oauthMeta:', json.signedToken);
+    // Optional: simulate /users/me response
+    localStorage.setItem(
+      'mockUser',
+      JSON.stringify({
+        id: 'dev-user-id',
+        email: 'dev@example.com',
+        userType: 'globalAdmin'
+      })
+    );
 
-      const authorizeUrl = `https://${domain}/oauth2/authorize?identity_provider=Okta&redirect_uri=${encodeURIComponent(
-        callbackUrl
-      )}&response_type=code&client_id=${clientId}&scope=email+openid+profile&state=${state}&code_challenge=${encodeURIComponent(
-        code_challenge
-      )}&code_challenge_method=S256`;
-
-      window.location.href = authorizeUrl;
-    } catch (err) {
-      console.error('Error preparing OAuth metadata:', err);
-    }
+    // Fake code and state so OktaCallback doesn't throw
+    window.location.href = `/okta-callback?code=dev-code&state=dev-state`;
   };
 
   return (
