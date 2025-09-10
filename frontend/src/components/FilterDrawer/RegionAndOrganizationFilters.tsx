@@ -302,7 +302,7 @@ export const RegionAndOrganizationFilters: React.FC<
         elevation={0}
         expanded={expanded === 'panel1'}
         onChange={handleExpanded ? handleExpanded('panel1') : undefined}
-        sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
+        disableGutters
       >
         <AccordionSummary expandIcon={<ExpandMore />}>
           <Stack direction="row" alignItems="center" spacing={1}>
@@ -509,13 +509,15 @@ export const RegionAndOrganizationFilters: React.FC<
               return;
             }}
             getOptionLabel={(option) => option.name}
-            ListboxProps={{
-              sx: {
-                ':active': {
-                  bgcolor: 'transparent'
-                },
-                overflow: 'auto',
-                overscrollBehavior: 'contain'
+            slotProps={{
+              listbox: {
+                sx: {
+                  ':active': {
+                    bgcolor: 'transparent'
+                  },
+                  overflow: 'auto',
+                  overscrollBehavior: 'contain'
+                }
               }
             }}
             renderOption={(params, option) => {

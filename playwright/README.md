@@ -2,10 +2,9 @@
 
 ## **Overview**
 
-This project uses **Playwright** for automated end-to-end testing. The Playwright testing workflow operates in three distinct modes:
+This project uses **Playwright** for automated end-to-end testing. The Playwright testing workflow operates in two distinct modes:
 
 1. **Local Testing via Terminal** - Running tests directly from the terminal.
-2. **Local Testing via Docker** - Running tests within a Docker container locally.
 3. **AWS Regression Workflow** - Running tests on AWS ECS and uploading results to an S3 bucket.
 
 This README will guide you through setting up, configuring, and running Playwright tests in each mode, as well as handling the deployment process for AWS.
@@ -20,7 +19,6 @@ This README will guide you through setting up, configuring, and running Playwrig
 - [Local Testing via Terminal](#local-testing-via-terminal)
   - [Environment Variables for Local Testing](#environment-variables-for-local-testing)
   - [Environment Variables for Local Testing in VS Code](#environment-variables-for-local-testing-in-vs-code)
-- [Local Testing via Docker](#local-testing-via-docker)
 - [GitHub Actions Testing with Amazon ECS](#github-actions-testing-with-amazon-ecs)
 - [Logging into Crossfeed and Preserving Browser State](#logging-into-crossfeed-and-preserving-browser-state)
 - [Adding Test Cases](#adding-test-cases)
@@ -32,9 +30,9 @@ This README will guide you through setting up, configuring, and running Playwrig
 
 ## Playwright configuration for Crossfeed
 
-Since Playwright is intended to run in 3 different modes `[localhost, local Docker, GitHub Actions/AWS]`, a configuration tool at `utils/env.ts` is created to help set default URLs and headless mode options.
+Since Playwright is intended to run in 2 different modes `[localhost, GitHub Actions/AWS]`, a configuration tool at `utils/env.ts` is created to help set default URLs and headless mode options.
 
- Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. A blank dummy file is included in the repository to satisfy linters and checkers. This file can be used to set variables for running Playwright in localhost or Docker, but do not check in that file. It is excluded by .gitignore, but be careful when checking in code.
+ Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. A blank dummy file is included in the repository to satisfy linters and checkers. This file can be used to set variables for running Playwright in localhost, but do not check in that file. It is excluded by .gitignore, but be careful when checking in code.
 
 Some environment variables values are defined in this README, but information that is secret will not be shared in this document. Ask the automated testing team for the values to continue setting up the configuration.
 
@@ -89,28 +87,6 @@ If you are using testing in VS Code using the Playwright extension, add the foll
         "PW_CI": "false"
 }
 ```
-
-## **Local Testing via Docker**
-
-For running in a Dockerized environment, the following variable should be set in the `xfd/playwright/.env`
-
-```env
-PW_XFD_URL=http://frontend:3000
-PW_XFD_USERNAME
-PW_XFD_PASSWORD
-PW_XFD_2FA_ISSUER
-PW_XFD_2FA_SECRET
-PW_XFD_USER_ROLE
-PW_XFD_LOGIN
-PW_HEADLESS=true
-PW_CI=false
-```
-
-This mode is intended to kick off as part of the build process. A docker container will be created using the same Playwright test.
-
-A wait feature will listen for the frontend to begin accepting requests, as the frontend will take longer to compile than Playwright to be ready for testing. When a code 200 is received from the frontend, the Playwright tests will begin.
-
-For this Dockerized environment, `PW_HEADLESS` must be set to true and `PW_CI` must be set to false.
 
 ## **GitHub Actions Testing with Amazon ECS**
 

@@ -232,7 +232,7 @@ def format_vulnerability(vuln):
 def query_cve(cve_name):
     """Get CVE and product info from the database through the API."""
     cve_data = get_cve_and_products(cve_name)
-    print(cve_data)
+    LOGGER.info(cve_data)
     return cve_data
 
 
@@ -290,12 +290,12 @@ def check_cve_is_synced():
             cve_from_db["cve_data"]["last_modified_date"]
         ).replace(tzinfo=timezone.utc)
         if db_mod_date == live_mod_date:
-            print(db_mod_date)
-            print(live_mod_date)
+            LOGGER.info(db_mod_date)
+            LOGGER.info(live_mod_date)
             LOGGER.info("Last Modified Date is synced for most recently updated CVE.")
         else:
-            print(db_mod_date)
-            print(live_mod_date)
+            LOGGER.info(db_mod_date)
+            LOGGER.info(live_mod_date)
             LOGGER.warning(
                 "Last Modified Date does not match between database and NIST for the last updated CVE."
             )
@@ -313,7 +313,7 @@ def main():
     # check_cve_is_synced()
 
     # cves = query_all_cves()
-    # print(cves)
+    # LOGGER.info(cves)
 
 
 if __name__ == "__main__":

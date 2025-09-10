@@ -1,31 +1,161 @@
+// utils/transformVulnScanData.ts
 import {
   SeverityByProminenceGraphData,
   StatsTrendsRawData,
   VulnScanDataTransformed
 } from 'types/vuln-scan-stats';
 
+export const NO_DATA_FALLBACK_LABEL =
+  'No results found. if unexpected, please submit an entry using the Support menu.';
+
 export function formatShortDate(
   dateInput: string | Date | null | undefined
 ): string {
-  if (!dateInput) return 'N/A';
-
-  const date = new Date(dateInput);
-  if (isNaN(date.getTime())) return 'Invalid Date';
-
-  return date.toLocaleDateString('en-US', {
+  if (!dateInput) return '';
+  const dateObj = new Date(dateInput);
+  if (Number.isNaN(dateObj.getTime())) return '';
+  return dateObj.toLocaleDateString('en-US', {
     year: 'numeric',
-    month: 'short',
+    month: 'long',
     day: 'numeric'
   });
 }
 
-// Utility function to get the latest summary based on summary_date and transform the data.
-// This function is not needed when no dates are provided, but should be kept in case there are multiple entries.
+export function formatRange(
+  start?: string | Date | null | undefined,
+  end?: string | Date | null | undefined
+): string {
+  const startStr = formatShortDate(start);
+  const endStr = formatShortDate(end);
+  if (!startStr && !endStr) return 'No Dates Available';
+  // Ensures only end date is shown per CRASM-3140
+  if (startStr && endStr) return `${endStr}`;
+  return startStr || endStr;
+}
+
+function enrolledWithinTwoWeeks(timestamp?: string | null): boolean {
+  if (!timestamp) return false;
+
+  const enrolledDate = new Date(timestamp);
+  if (isNaN(enrolledDate.getTime())) return false;
+
+  const now = new Date();
+  const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
+
+  return now.getTime() - enrolledDate.getTime() <= twoWeeksInMs;
+}
+
+// ---------- helpers for fallback ----------
+const isBlankLike = (value: unknown) => {
+  if (value === null || value === undefined) return true;
+  const stringVal = String(value).trim();
+  return (
+    !stringVal ||
+    /^n\/?a$/i.test(stringVal) ||
+    /^null$/i.test(stringVal) ||
+    /^undefined$/i.test(stringVal)
+  );
+};
+
+const parseDate = (value: unknown): Date | null => {
+  if (isBlankLike(value)) return null;
+  const dateObj = new Date(String(value));
+  return Number.isNaN(dateObj.getTime()) ? null : dateObj;
+};
+
+const formatDateLabel = (dateObj: Date) =>
+  new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(dateObj);
+
+const buildRangeLabel = (
+  startValue?: unknown,
+  endValue?: unknown
+): { label: string | null; start?: string; end?: string } => {
+  const startDate = parseDate(startValue);
+  const endDate = parseDate(endValue);
+
+  if (startDate && endDate) {
+    // Ensures only end date is shown per CRASM-3140
+    return { label: formatDateLabel(endDate), end: endDate.toISOString() };
+  }
+  if (endDate) {
+    return { label: formatDateLabel(endDate), end: endDate.toISOString() };
+  }
+  if (startDate) {
+    return {
+      label: formatDateLabel(startDate),
+      start: startDate.toISOString()
+    };
+  }
+
+  // If non-empty raw strings didn’t parse, still surface them
+  const startRaw = isBlankLike(startValue) ? '' : String(startValue);
+  const endRaw = isBlankLike(endValue) ? '' : String(endValue);
+  if (startRaw || endRaw) {
+    return {
+      label:
+        startRaw && endRaw ? `${startRaw} - ${endRaw}` : startRaw || endRaw,
+      start: startRaw || undefined,
+      end: endRaw || undefined
+    };
+  }
+  return { label: null };
+};
+
+// Picks the best label and the dates actually used, following the fallback order.
+function computeVulnerabilityScanLabel(data: StatsTrendsRawData): {
+  label: string;
+  usedStart?: string;
+  usedEnd?: string;
+} {
+  const latestVuln = getLatestSummary(data.vuln_scan_summaries);
+  const latestHost = getLatestSummary(data.host_summaries);
+
+  // 1) vuln_scan_summaries start/end
+  if (
+    latestVuln &&
+    (!isBlankLike(latestVuln.start_date) || !isBlankLike(latestVuln.end_date))
+  ) {
+    const range = buildRangeLabel(latestVuln.start_date, latestVuln.end_date);
+    if (range.label)
+      return { label: range.label, usedStart: range.start, usedEnd: range.end };
+  }
+
+  // 2) host_summaries vuln min/max
+  if (
+    latestHost &&
+    (!isBlankLike((latestHost as any).vuln_scan_min_timestamp) ||
+      !isBlankLike((latestHost as any).vuln_scan_max_timestamp))
+  ) {
+    const range = buildRangeLabel(
+      (latestHost as any).vuln_scan_min_timestamp,
+      (latestHost as any).vuln_scan_max_timestamp
+    );
+    if (range.label)
+      return { label: range.label, usedStart: range.start, usedEnd: range.end };
+  }
+
+  // 3) host_summaries net min/max → explicit message, no dates
+  if (
+    latestHost &&
+    (!isBlankLike((latestHost as any).net_scan1_min_timestamp) ||
+      !isBlankLike((latestHost as any).net_scan1_max_timestamp))
+  ) {
+    return { label: 'No active hosts' };
+  }
+
+  // 4) fallback message (sentinel)
+  return { label: NO_DATA_FALLBACK_LABEL };
+}
+
+// unchanged util
 function getLatestSummary<T extends { summary_date?: string | null }>(
-  summaries: T[]
+  summaries: T[] | undefined
 ): T | undefined {
   if (!summaries || summaries.length === 0) return undefined;
-
   return summaries.reduce((latest, current) => {
     const latestDate = latest.summary_date
       ? new Date(latest.summary_date)
@@ -43,37 +173,76 @@ export const transformVulnScanData = (
   const latestVulnSummary = getLatestSummary(data.vuln_scan_summaries);
   const latestHostSummary = getLatestSummary(data.host_summaries);
   const latestPortScanSummary = getLatestSummary(data.port_scan_summaries);
-  // const latestPortServiceSummary = getLatestSummary(
-  //   data.port_scan_service_summaries
-  // );
+
   if (!latestVulnSummary && !latestHostSummary && !latestPortScanSummary) {
     return {
-      vulnScanSummary: [],
-      vulnScanKeyMetrics: [],
-      detectedServicesKeyMetrics: [],
-      detectedHostsKeyMetrics: [],
+      vulnScanSummary: [
+        {
+          hostScan: 'Not available',
+          vulnerabilityScan: 'Reach out to Vulnerability Mailbox',
+          assetsOwned: 0,
+          hostsScanned: 0,
+          startDate: '',
+          endDate: '',
+          enrolledDate: '',
+          recentlyEnrolled: false
+        }
+      ],
+      vulnScanKeyMetrics: [
+        {
+          title: 'Detected KEVs',
+          value: 0,
+          startDate: '',
+          endDate: '',
+          dateRange: 'Not available'
+        },
+        {
+          title: 'Detected Vulnerabilities',
+          value: 0,
+          startDate: '',
+          endDate: '',
+          dateRange: 'Not available'
+        },
+        { title: 'Distinct Vulnerabilities', value: 0 },
+        { title: 'False Positives', value: 0 }
+      ],
+      detectedServicesKeyMetrics: [
+        { title: 'Detected Services', value: 0 },
+        { title: 'Potentially Risky Services', value: 0 },
+        { title: 'Potential NMI Services', value: 0 }
+      ],
+      detectedHostsKeyMetrics: [
+        { title: 'Detected Hosts', value: 0 },
+        { title: 'Vulnerable Hosts', value: 0 },
+        { title: 'Hosts with Unsupported Software', value: 0 }
+      ],
       detectedHostsTop5VulnerableHosts: [],
       topVulnerabilities: [],
       topKevVulnerabilities: [],
       riskyServices: [],
       severityByProminence: []
-    }; // return empty arrays if no data
+    };
   }
+
+  // Build vulnerabilityScan label with fallback (and capture used dates)
+  const vulLabel = computeVulnerabilityScanLabel(data);
+
   return {
     vulnScanSummary: [
       {
-        hostScan:
-          formatShortDate(latestHostSummary?.start_date) +
-          ' - ' +
-          formatShortDate(latestHostSummary?.end_date),
-        vulnerabilityScan:
-          formatShortDate(latestVulnSummary?.start_date) +
-          ' - ' +
-          formatShortDate(latestVulnSummary?.end_date),
+        hostScan: formatRange(
+          latestHostSummary?.start_date,
+          latestHostSummary?.end_date
+        ),
+        vulnerabilityScan: vulLabel.label,
         assetsOwned: latestVulnSummary?.assets_owned_count ?? 0,
-        assetsScanned: latestHostSummary?.scanned_asset_count ?? 0,
-        startDate: latestVulnSummary?.start_date ?? '',
-        endDate: latestVulnSummary?.end_date ?? ''
+        hostsScanned: latestHostSummary?.up_host_count ?? 0,
+        startDate: vulLabel.usedStart ?? '',
+        endDate: vulLabel.usedEnd ?? '',
+        enrolledDate: latestVulnSummary?.enrolled_in_vs_timestamp ?? '',
+        recentlyEnrolled:
+          enrolledWithinTwoWeeks(latestVulnSummary?.enrolled_in_vs_timestamp) ??
+          false
       }
     ],
     vulnScanKeyMetrics: [
@@ -87,10 +256,10 @@ export const transformVulnScanData = (
         hasLink: true,
         startDate: latestVulnSummary?.start_date ?? '',
         endDate: latestVulnSummary?.end_date ?? '',
-        dateRange:
-          formatShortDate(latestVulnSummary?.start_date) +
-          ' - ' +
-          formatShortDate(latestVulnSummary?.end_date)
+        dateRange: formatRange(
+          latestVulnSummary?.start_date,
+          latestVulnSummary?.end_date
+        )
       },
       {
         title: 'Detected Vulnerabilities',
@@ -102,10 +271,10 @@ export const transformVulnScanData = (
         hasLink: true,
         startDate: latestVulnSummary?.start_date ?? '',
         endDate: latestVulnSummary?.end_date ?? '',
-        dateRange:
-          formatShortDate(latestVulnSummary?.start_date) +
-          ' - ' +
-          formatShortDate(latestVulnSummary?.end_date)
+        dateRange: formatRange(
+          latestVulnSummary?.start_date,
+          latestVulnSummary?.end_date
+        )
       },
       {
         title: 'Distinct Vulnerabilities',
@@ -135,10 +304,7 @@ export const transformVulnScanData = (
       }
     ],
     detectedHostsKeyMetrics: [
-      {
-        title: 'Detected Hosts',
-        value: latestHostSummary?.up_host_count ?? 0
-      },
+      { title: 'Detected Hosts', value: latestHostSummary?.up_host_count ?? 0 },
       {
         title: 'Vulnerable Hosts',
         value: latestVulnSummary?.vulnerable_host_count ?? 0
@@ -246,11 +412,24 @@ export function shouldSkipVulnType(
   if (!entry) return true;
 
   const { lowSeverity, mediumSeverity, highSeverity, criticalSeverity } = entry;
-
   return (
     lowSeverity === 0 &&
     mediumSeverity === 0 &&
     highSeverity === 0 &&
     criticalSeverity === 0
+  );
+}
+
+export default function isDataEmpty(data: VulnScanDataTransformed) {
+  return (
+    !data.vulnScanSummary.length &&
+    !data.vulnScanKeyMetrics.length &&
+    !data.detectedServicesKeyMetrics.length &&
+    !data.detectedHostsKeyMetrics.length &&
+    !data.detectedHostsTop5VulnerableHosts.length &&
+    !data.topVulnerabilities.length &&
+    !data.topKevVulnerabilities.length &&
+    !data.riskyServices.length &&
+    !data.severityByProminence.length
   );
 }

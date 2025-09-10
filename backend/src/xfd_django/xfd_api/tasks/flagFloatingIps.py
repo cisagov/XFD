@@ -1,9 +1,12 @@
 """Flag floating IPs."""
 # Standard Python Libraries
+import logging
 
 # Third-Party Libraries
 from django.db.models import Prefetch
 from xfd_mini_dl.models import Cidr, Domain, Organization
+
+LOGGER = logging.getLogger(__name__)
 
 
 async def check_ip_in_cidr(ip: str, acronym: str) -> bool:
@@ -23,7 +26,7 @@ async def check_ip_in_cidr(ip: str, acronym: str) -> bool:
             network__contains=ip, id__in=organization.cidrs.values_list("id", flat=True)
         ).exists()
     except Exception as e:
-        print("Error checking IP in CIDR: {}".format(e))
+        LOGGER.error("Error checking IP in CIDR: %s", e)
         return False
 
 
@@ -52,7 +55,7 @@ async def check_org_is_fceb(acronym: str) -> bool:
         # Check if the organization or any of its parents belong to the EXECUTIVE sector
         return is_executive(organization)
     except Exception as e:
-        print("Error checking organization is FCEB: {}".format(e))
+        LOGGER.error("Error checking organization is FCEB: %s", e)
         return False
 
 
@@ -61,7 +64,7 @@ async def handler(command_options):
     organization_id = command_options.get("organizationId")
     organization_name = command_options.get("organizationName")
 
-    print("Running flagFloatingIps for {}...".format(organization_name))
+    LOGGER.info("Running flagFloatingIps for %s...", organization_name)
 
     try:
         # Fetch organization with related domains
@@ -74,7 +77,7 @@ async def handler(command_options):
         )
 
         for organization in organizations:
-            print("Processing organization: {}...".format(organization_name))
+            LOGGER.info("Processing organization: %s...", organization_name)
 
             # Check if the organization is executive (isFceb)
             is_executive = await check_org_is_fceb(organization.acronym)
@@ -85,8 +88,8 @@ async def handler(command_options):
                 Domain.objects.filter(
                     id__in=[domain.id for domain in domains_to_update]
                 ).update(isFceb=True)
-                print(
-                    "Marked all domains in {} as isFceb=True.".format(organization_name)
+                LOGGER.info(
+                    "Marked all domains in %s as isFceb=True.", organization_name
                 )
             else:
                 # Update domains' fromCidr status
@@ -98,13 +101,11 @@ async def handler(command_options):
                         if domain.fromCidr != from_cidr:
                             domain.fromCidr = from_cidr
                             domain.save()  # Save domain only if `fromCidr` changes
-                            print(
-                                "Updated domain {}: fromCidr={}".format(
-                                    domain.name, from_cidr
-                                )
+                            LOGGER.info(
+                                "Updated domain %s: fromCidr=%s", domain.name, from_cidr
                             )
 
-        print("Completed processing for organization: {}.".format(organization_name))
+        LOGGER.info("Completed processing for organization: %s.", organization_name)
 
     except Exception as e:
-        print("Error processing organization {}: {}".format(organization_name, e))
+        LOGGER.error("Error processing organization %s: %s", organization_name, e)

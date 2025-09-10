@@ -14,7 +14,6 @@ from xfd_api.tasks.helpers.get_ips import get_ips_by_cidr
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
 # Constants controlling pagination and rate limiting
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 
@@ -33,7 +32,7 @@ def handler(command_options):
     org_uid = organization.id
     org_name = organization.name
 
-    print("Running Shodan on organization: {}".format(organization_name))
+    LOGGER.info("Running Shodan on organization: %s", organization_name)
 
     # Get dates for Shodan query (30 days)
     start, end = get_dates()
@@ -59,11 +58,11 @@ def handler(command_options):
 
     # Get initialized API object
     api_key = os.getenv("SHODAN_API_KEY", "")
-    LOGGER.info("Running on api key: %s", api_key)
+    LOGGER.debug("Running on api key: %s", api_key)
     api = shodan_api_init(api_key)
 
     if not api:
-        LOGGER.warning("Not a valid API key: %s.", api_key)
+        LOGGER.debug("Not a valid API key: %s.", api_key)
         return {
             "status_code": 500,
             "body": "No Ips for {}".format(org_name),
@@ -89,7 +88,8 @@ def shodan_api_init(api_key):
         # Test api key
         api.info()
     except Exception:
-        LOGGER.error("Invalid Shodan API key: %s", api_key)
+        LOGGER.error("Invalid Shodan API key:")
+        LOGGER.debug("%s", api_key)
         return None
     return api
 

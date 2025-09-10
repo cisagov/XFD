@@ -4,10 +4,13 @@ from datetime import datetime
 import functools
 import inspect
 import json
+import logging
 
 # Third-Party Libraries
 from asgiref.sync import sync_to_async
 from xfd_mini_dl.models import Log, Organization, User
+
+LOGGER = logging.getLogger(__name__)
 
 
 async def maybe_async_call(func, *args, **kwargs):
@@ -76,7 +79,7 @@ def log_action(action: str, message_or_cb=None):
                     )
                 except Exception as log_error:
                     # If logging fails, print a warning (or use your logging system).
-                    print("Logging error: {}".format(log_error))
+                    LOGGER.warning("Logging error: %s", log_error)
             return response
 
         return wrapper

@@ -10,7 +10,6 @@ import time
 import requests
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 
@@ -61,8 +60,6 @@ def query_api(url_route, acronym, last_seen_after, page_size=50, page_number=1):
         LOGGER.warning("❌ Checksum validation failed!")
         return None
 
-    # print(response.text)
-
 
 def validate_response_checksum(response):
     """Validate the checksum from an API response."""
@@ -85,5 +82,5 @@ def validate_response_checksum(response):
         return received_checksum == calculated_checksum
 
     except Exception as e:
-        print(f"❌ Error validating checksum: {e}")
+        LOGGER.error("Error validating checksum: %s", e)
         return False

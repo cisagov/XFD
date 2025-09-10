@@ -1,6 +1,7 @@
 import React, { FC } from 'react';
 import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
 import { DrawerInterior } from './DrawerInterior';
@@ -20,6 +21,7 @@ export const FilterDrawer: FC<
     isMobile: boolean;
     setIsFilterDrawerOpen: (isOpen: boolean) => void;
     initialFilters: any[];
+    topOffset: number;
   }
 > = (props) => {
   const {
@@ -35,7 +37,8 @@ export const FilterDrawer: FC<
     initialFilters,
     autocompletedResults,
     autocompletedSuggestions,
-    results
+    results,
+    topOffset
   } = props;
   const { pathname } = useLocation();
 
@@ -63,18 +66,17 @@ export const FilterDrawer: FC<
     (panel: string) => (event: React.SyntheticEvent, newExpanded: boolean) => {
       setExpanded(newExpanded ? panel : false);
     };
-
+  const theme = useTheme();
   const DrawerList = (
     <Stack justifyContent={'space-between'} height="100vh">
       <Box role="presentation">
-        <Toolbar />
-        <Toolbar />
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          height={63}
+          height={84}
           px={2}
+          sx={{ borderBottom: `.5px solid ${theme.palette.neutrals.light}` }}
         >
           <Typography variant="h3" component="h3">
             Filter
@@ -163,18 +165,23 @@ export const FilterDrawer: FC<
 
   return (
     <Drawer
+      container={document.getElementById('main-layout')}
       open={isFilterDrawerOpen}
       variant={isMobile ? 'temporary' : 'persistent'}
       ModalProps={{ keepMounted: isMobile }}
       onClose={() => setIsFilterDrawerOpen(false)}
       sx={{
         width: drawerWidth,
+        flexShrink: 0,
         '& .MuiDrawer-paper': {
+          position: 'fixed',
           width: drawerWidth,
-          overflow: 'auto',
+          overflow: 'visible',
           backgroundColor: 'neutrals.white',
-          overscrollBehavior: 'contain',
-          // Hide scrollbar for Firefox, IE/Edge, and Chrome/Safari/Opera
+          top: isMobile ? 0 : topOffset - 84,
+          height: isMobile ? '100%' : 'auto',
+          minHeight: `calc(100% - ${topOffset}px)`,
+          zIndex: (theme) => theme.zIndex.appBar,
           msOverflowStyle: 'none',
           scrollbarWidth: 'none',
           '&::-webkit-scrollbar': {

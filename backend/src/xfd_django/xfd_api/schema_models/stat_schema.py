@@ -177,6 +177,7 @@ class VulnScanSummaryResponse(BaseModel):
     start_date: Optional[datetime] = None
     end_date: Optional[datetime] = None
     organization: Optional[UUID] = None
+    enrolled_in_vs_timestamp: Optional[datetime] = None
     assets_owned_count: Optional[int] = None
     false_positive_count: Optional[int] = None
     vulnerable_host_count: Optional[int] = None
@@ -230,6 +231,14 @@ class HostScanSummaryResponse(BaseModel):
     up_host_count: Optional[int] = 0
     down_host_count: Optional[int] = 0
     scanned_asset_count: Optional[int] = 0
+    port_scan_min_timestamp: Optional[datetime] = None
+    port_scan_max_timestamp: Optional[datetime] = None
+    vuln_scan_min_timestamp: Optional[datetime] = None
+    vuln_scan_max_timestamp: Optional[datetime] = None
+    net_scan1_min_timestamp: Optional[datetime] = None
+    net_scan1_max_timestamp: Optional[datetime] = None
+    net_scan2_min_timestamp: Optional[datetime] = None
+    net_scan2_max_timestamp: Optional[datetime] = None
 
 
 class PortScanSummaryResponse(BaseModel):
@@ -271,6 +280,131 @@ class VsTrendResponse(BaseModel):
     port_scan_summaries: Optional[List[PortScanSummaryResponse]] = None
     port_scan_service_summaries: Optional[List[PortScanServiceSummaryResponse]] = None
     vuln_scan_summaries: Optional[List[VulnScanSummaryResponse]] = None
+
+
+class VulnScanSummaryV2Response(BaseModel):
+    """Vuln Scan Summary Response model."""
+
+    id: Optional[int] = None
+    summary_date: Optional[date] = None
+    avg_summary_date: Optional[date] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    organization: Optional[UUID] = None
+    enrolled_in_vs_timestamp: Optional[datetime] = None
+    assets_owned_count: Optional[int] = None
+    false_positive_count: Optional[int] = None
+    vulnerable_host_count: Optional[int] = None
+    unique_service_count: Optional[int] = None
+    unique_low_severity_count: Optional[int] = None
+    unique_medium_severity_count: Optional[int] = None
+    unique_high_severity_count: Optional[int] = None
+    unique_critical_severity_count: Optional[int] = None
+    risky_services_count: Optional[int] = None
+    unsupported_software_count: Optional[int] = None
+    unique_os_count: Optional[int] = None
+    low_severity_count: Optional[int] = None
+    medium_severity_count: Optional[int] = None
+    high_severity_count: Optional[int] = None
+    critical_severity_count: Optional[int] = None
+    critical_max_age: Optional[int] = None
+    high_max_age: Optional[int] = None
+    medium_max_age: Optional[int] = None
+    low_max_age: Optional[int] = None
+    low_kev_count: Optional[int] = None
+    medium_kev_count: Optional[int] = None
+    high_kev_count: Optional[int] = None
+    critical_kev_count: Optional[int] = None
+    kev_max_age: Optional[int] = None
+    critical_kev_max_age: Optional[int] = None
+    high_kev_max_age: Optional[int] = None
+    medium_kev_max_age: Optional[int] = None
+    low_kev_max_age: Optional[int] = None
+    one_to_five_vulns_count: Optional[int] = None
+    six_to_nine_vulns_count: Optional[int] = None
+    ten_plus_vulns_count: Optional[int] = None
+    top_5_occurring_cves: Optional[List[CVEItem]] = None
+    top_5_occurring_kevs: Optional[List[CVEItem]] = None
+    included_tickets: Optional[List[UUID]] = None
+    top_5_risky_hosts: Optional[Dict[str, RiskyHostStats]] = None
+
+
+class HostScanSummaryV2Response(BaseModel):
+    """Host Scan Summary Response model."""
+
+    id: Optional[int]
+    summary_date: Optional[date] = None
+    avg_summary_date: Optional[date] = None
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    organization: Optional[UUID] = None
+
+    host_done_count: Optional[int] = 0
+    host_waiting_count: Optional[int] = 0
+    host_running_count: Optional[int] = 0
+    host_ready_count: Optional[int] = 0
+    up_host_count: Optional[int] = 0
+    down_host_count: Optional[int] = 0
+    scanned_asset_count: Optional[int] = 0
+    port_scan_min_timestamp: Optional[datetime] = None
+    port_scan_max_timestamp: Optional[datetime] = None
+    vuln_scan_min_timestamp: Optional[datetime] = None
+    vuln_scan_max_timestamp: Optional[datetime] = None
+    net_scan1_min_timestamp: Optional[datetime] = None
+    net_scan1_max_timestamp: Optional[datetime] = None
+    net_scan2_min_timestamp: Optional[datetime] = None
+    net_scan2_max_timestamp: Optional[datetime] = None
+
+
+class PortScanSummaryV2Response(BaseModel):
+    """Port Scan Summary Response model."""
+
+    id: Optional[int]
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    summary_date: Optional[date] = None
+    avg_summary_date: Optional[date] = None
+    organization: Optional[UUID] = None
+
+    open_port_count: Optional[int] = 0
+    risky_port_count: Optional[int] = 0
+    nmi_service_count: Optional[int] = 0
+    unique_ip_count: Optional[int] = 0
+    unique_service_count: Optional[int] = 0
+    risky_service_group_counts: Optional[dict] = {}
+
+
+class PortScanServiceSummaryV2Response(BaseModel):
+    """Port Scan Service Summary Response model."""
+
+    id: Optional[int]
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    summary_date: Optional[date] = None
+    avg_summary_date: Optional[date] = None
+    organization: Optional[UUID] = None
+
+    service_name: Optional[str] = None
+    risky_ports: Optional[List[int]] = []
+    unique_ip_count: Optional[int] = 0
+    unique_service_count: Optional[int] = 0
+
+
+class V2TrendResponse(BaseModel):
+    """VS Trend Response model."""
+
+    host_summaries: Optional[List[HostScanSummaryV2Response]] = None
+    port_scan_summaries: Optional[List[PortScanSummaryV2Response]] = None
+    port_scan_service_summaries: Optional[List[PortScanServiceSummaryV2Response]] = None
+    vuln_scan_summaries: Optional[List[VulnScanSummaryV2Response]] = None
+
+
+class V2TrendStatsPayloadSchema(BaseModel):
+    """Trend Stats Payload Schema model."""
+
+    filters: Optional[TrendStatsFilterSchema]
+    fields: Optional[Dict[str, List[str]]] = None
+    segment_size: Optional[int] = 14
 
 
 class VsTrendCondensedResponse(BaseModel):
@@ -428,6 +562,14 @@ class HostSummaryModel(BaseSummaryModel):
     up_host_count: Optional[int]
     down_host_count: Optional[int]
     scanned_asset_count: Optional[int]
+    port_scan_min_timestamp: Optional[datetime]
+    port_scan_max_timestamp: Optional[datetime]
+    vuln_scan_min_timestamp: Optional[datetime]
+    vuln_scan_max_timestamp: Optional[datetime]
+    net_scan1_min_timestamp: Optional[datetime]
+    net_scan1_max_timestamp: Optional[datetime]
+    net_scan2_min_timestamp: Optional[datetime]
+    net_scan2_max_timestamp: Optional[datetime]
 
 
 # ---------- Common Comparison Result ----------

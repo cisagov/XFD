@@ -386,11 +386,28 @@ export const UserForm: React.FC<UserFormProps> = ({
             displayEmpty
             size="small"
             id="state"
-            value={values.state === null ? '' : values.state}
+            value={values.state || ''}
             name="state"
             error={formErrors.state}
             onChange={handleStateChange}
             fullWidth
+            MenuProps={{
+              anchorOrigin: {
+                vertical: 'bottom',
+                horizontal: 'left'
+              },
+              transformOrigin: {
+                vertical: 'top',
+                horizontal: 'left'
+              },
+              PaperProps: {
+                style: {
+                  marginTop: 5,
+                  maxHeight: 250,
+                  overflowY: 'auto'
+                }
+              }
+            }}
             renderValue={
               values.state !== ''
                 ? undefined
@@ -449,10 +466,7 @@ export const UserForm: React.FC<UserFormProps> = ({
               isOptionEqualToValue={(option, value) => option.id === value.id}
               slotProps={{
                 listbox: {
-                  sx: {
-                    maxHeight: 200,
-                    overflow: 'auto'
-                  }
+                  sx: { maxHeight: 200, overflow: 'auto' }
                 }
               }}
               renderInput={(params) => (

@@ -1,12 +1,15 @@
 """/api-keys API logic."""
 
 # Standard Python Libraries
+import logging
 import uuid
 
 # Third-Party Libraries
 from fastapi import HTTPException, status
 from xfd_api.schema_models.notification import Notification as NotificationSchema
 from xfd_mini_dl.models import Notification
+
+LOGGER = logging.getLogger(__name__)
 
 from ..auth import is_global_view_admin
 
@@ -57,13 +60,13 @@ def get_all():
         # Get all objects from the database
         result = Notification.objects.all()
 
-        print(result)
+        LOGGER.info("Fetched notifications: %s", result)
         # Convert each object to Schema using from_orm
         return [NotificationSchema.from_orm(item) for item in result]
 
     except Exception as error:
-        print(error)
-        raise HTTPException(status_code=500, detail=str(error))
+        LOGGER.error("Error occurred while fetching all notifications: %s", error)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def get_by_id(notification_id, current_user):
@@ -76,7 +79,7 @@ def get_by_id(notification_id, current_user):
         # Find the item by its id
         result = Notification.objects.get(id=notification_id)
 
-        print(result)
+        LOGGER.info("Fetched notification: %s", result)
         # Convert the result to Schema using from_orm
         return NotificationSchema.from_orm(result)
 
@@ -85,8 +88,8 @@ def get_by_id(notification_id, current_user):
     except Notification.DoesNotExist:
         raise HTTPException(status_code=404, detail="Item not found")
     except Exception as error:
-        print(error)
-        raise HTTPException(status_code=500, detail=str(error))
+        LOGGER.error("Error occurred while fetching notification by ID: %s", error)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def put(notification_id, notification_data, current_user):
@@ -114,5 +117,5 @@ def put(notification_id, notification_data, current_user):
     except Notification.DoesNotExist:
         raise HTTPException(status_code=404, detail="Notification not found")
     except Exception as error:
-        print(error)
-        raise HTTPException(status_code=500, detail=str(error))
+        LOGGER.error("Error occurred while updating notification: %s", error)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

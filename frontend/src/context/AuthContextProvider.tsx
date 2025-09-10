@@ -13,7 +13,7 @@ import {
 import Cookies from 'universal-cookie';
 import { Snackbar, Stack, Typography } from '@mui/material';
 import { Alert } from '@mui/material';
-import { AlertProps } from '@mui/lab';
+import { AlertProps } from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 

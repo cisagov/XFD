@@ -8,17 +8,14 @@ import random
 # Third-Party Libraries
 from django.utils import timezone
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 # Third-Party Libraries
-from xfd_api.tasks.vulnScanningSync import (
-    create_daily_host_summary,
-    create_port_scan_service_summaries,
-    create_port_scan_summary,
-    create_vuln_scan_summary,
-    enforce_latest_flag_port_scan,
-)
+from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
+from xfd_api.tasks.utils.vs_port_scans import create_port_scan_summary
+from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_mini_dl.models import HostSummary, Organization
+
+LOGGER = logging.getLogger(__name__)
 
 
 def rebuild_org_id_dict(db_name="mini_data_lake"):
@@ -30,6 +27,13 @@ def rebuild_org_id_dict(db_name="mini_data_lake"):
     }
 
 
+def random_past_datetime(min_days: int, max_days: int) -> timezone.datetime:
+    """Return a random datetime between `min_days` and `max_days` ago."""
+    days_ago = random.randint(min_days, max_days)
+    seconds = random.randint(0, 86400)  # random time within the day
+    return timezone.now() - timedelta(days=days_ago, seconds=seconds)
+
+
 def build_fake_host_summaries():
     """Build a fake Ticket for a pssed org."""
     all_orgs = Organization.objects.all()
@@ -37,12 +41,8 @@ def build_fake_host_summaries():
     for org in all_orgs:
         try:
             summary_date = timezone.now().date()
-            start_date = timezone.now() - timedelta(
-                days=random.randint(25, 60), seconds=random.randint(0, 86400)
-            )
-            end_date = timezone.now() - timedelta(
-                days=random.randint(1, 5), seconds=random.randint(0, 86400)
-            )
+            start_date = random_past_datetime(25, 60)
+            end_date = random_past_datetime(1, 5)
             host_done_count = random.randint(3000, 5000)
             host_waiting_count = random.randint(0, 50)
             host_running_count = random.randint(0, 50)
@@ -69,10 +69,20 @@ def build_fake_host_summaries():
                     "up_host_count": up_host_count,
                     "down_host_count": down_host_count,
                     "scanned_asset_count": total_count,
+                    "port_scan_min_timestamp": random_past_datetime(25, 60),
+                    "port_scan_max_timestamp": random_past_datetime(1, 5),
+                    "vuln_scan_min_timestamp": random_past_datetime(25, 60),
+                    "vuln_scan_max_timestamp": random_past_datetime(1, 5),
+                    "net_scan1_min_timestamp": random_past_datetime(25, 60),
+                    "net_scan1_max_timestamp": random_past_datetime(1, 5),
+                    "net_scan2_min_timestamp": random_past_datetime(25, 60),
+                    "net_scan2_max_timestamp": random_past_datetime(1, 5),
                 },
             )
         except Exception as e:
-            print("\n❌ Error while creating host_summary for org %s: %s", org.name, e)
+            LOGGER.error(
+                "\n❌ Error while creating host_summary for org %s: %s", org.name, e
+            )
             continue
 
 
@@ -82,12 +92,13 @@ def handler(event):
     is_local = str(is_local_value).lower() in ["1", "true"]
     LOGGER.info("IS_LOCAL equal %s", os.getenv("IS_LOCAL", "1"))
     try:
-        try:
-            LOGGER.info("Flagging latest port scans.")
-            enforce_latest_flag_port_scan()
+        # Deprecated with new flagging functionality in vs_port_scans
+        # try:
+        #     LOGGER.info("Flagging latest port scans.")
+        #     enforce_latest_flag_port_scan()
 
-        except Exception as e:
-            LOGGER.error("error flagging latest port scans: %s", e)
+        # except Exception as e:
+        #     LOGGER.error("error flagging latest port scans: %s", e)
         try:
             if not is_local:
                 LOGGER.info("Creating Host summaries.")
@@ -104,12 +115,14 @@ def handler(event):
 
         except Exception as e:
             LOGGER.error("error saving Port summary: %s", e)
-        try:
-            LOGGER.info("Creating port service summaries.")
-            create_port_scan_service_summaries()
 
-        except Exception as e:
-            LOGGER.error("error saving port service summary: %s", e)
+        # TODO: Not used yet but needs to be optimized (takes 12+ hours to complete)
+        # try:
+        #     LOGGER.info("Creating port service summaries.")
+        #     create_port_scan_service_summaries()
+
+        # except Exception as e:
+        #     LOGGER.error("error saving port service summary: %s", e)
 
         try:
             LOGGER.info("Creating VS summaries.")

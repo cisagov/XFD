@@ -25,7 +25,7 @@ def alerts(org_id, sixgill_org_id):
     # Get overall number of alerts for this org
     count = alerts_count(sixgill_org_id)
     count_total = count["total"]
-    LOGGER.info(f"Total alerts for {org_id}: {count_total}")
+    LOGGER.info("Total alerts for %s: %d", org_id, count_total)
 
     # Begin Retrieving all alerts
     token = cybersix_token()
@@ -35,8 +35,11 @@ def alerts(org_id, sixgill_org_id):
     # Retrieve alert data for each chunk
     for offset in range(0, count_total, fetch_size):
         try:
-            print(
-                f"Working on {org_id} alert chunk at offset {offset} out of {count_total}"
+            LOGGER.info(
+                "Working on %s alert chunk at offset %d out of %d",
+                org_id,
+                offset,
+                count_total,
             )
             # Make API call
             [resp, token] = alerts_list(token, sixgill_org_id, fetch_size, offset)
@@ -46,13 +49,13 @@ def alerts(org_id, sixgill_org_id):
             all_alerts.append(df_alerts)
             df_all_alerts = pd.concat(all_alerts).reset_index(drop=True)
         except Exception as e:
-            LOGGER.error(f"Issue fetching alert data chunk at offset: {offset}")
+            LOGGER.error("Issue fetching alert data chunk at offset: %d", offset)
             LOGGER.error(e)
             continue
 
     # Fetch the full content of each alert
     # for i, r in df_all_alerts.iterrows():
-    #     print(r["id"])
+    #     LOGGER.info(r["id"])
     #     content = alerts_content(org_id, r["id"])
     #     df_all_alerts.at[i, "content"]
 
@@ -85,14 +88,14 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
     all_mentions = []
     try:
         total_mentions = 0
-        LOGGER.info(f"Retrieving total number of mentions for {org_abbrv}")
+        LOGGER.info("Retrieving total number of mentions for %s", org_abbrv)
         [resp, token] = intel_post(token, query, frm=0, scroll=True, result_size=100)
         total_mentions = resp["total_intel_items"]
         scroll_id = resp["scroll_id"]
     except Exception as e:
-        LOGGER.error(f"Total mentions count retrieval failed for {org_abbrv}")
+        LOGGER.error("Total mentions count retrieval failed for %s", org_abbrv)
         LOGGER.error(e)
-    LOGGER.info(f"Total mentions for {org_abbrv}: {total_mentions}")
+    LOGGER.info("Total mentions for %s: %d", org_abbrv, total_mentions)
     # Catch scenario where org has 0 mentions
     if total_mentions == 0:
         return pd.DataFrame()
@@ -107,10 +110,16 @@ def mentions(org_abbrv, date, aliases, soc_media_included=False):
         # Progress logging
         if len(all_mentions) % 1000 == 0:
             LOGGER.info(
-                f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}"
+                "Retrieved %d of %d mentions for %s",
+                len(all_mentions),
+                total_mentions,
+                org_abbrv,
             )
-        print(
-            f"Retrieved {len(all_mentions)} of {total_mentions} mentions for {org_abbrv}"
+        LOGGER.info(
+            "Retrieved %d of %d mentions for %s",
+            len(all_mentions),
+            total_mentions,
+            org_abbrv,
         )
         # Make API call
         [resp, token] = intel_post_next(token, scroll_id)

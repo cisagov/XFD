@@ -1,7 +1,9 @@
 """Stats methods."""
 # Standard Python Libraries
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import json
+import logging
+from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 # Third-Party Libraries
@@ -16,6 +18,7 @@ from xfd_api.helpers.stats_helpers import (
     safe_redis_mget,
 )
 from xfd_api.helpers.uuid_helpers import is_valid_uuid
+from xfd_api.schema_models import stat_schema
 from xfd_mini_dl.models import (
     HostSummary,
     Organization,
@@ -25,6 +28,9 @@ from xfd_mini_dl.models import (
 )
 
 from ..auth import get_org_memberships, is_global_view_admin
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 # GET: /stats
@@ -36,7 +42,7 @@ async def get_stats(filter_data, current_user, redis_client, request: Request):
         try:
             return await fetch_fn(*args, **kwargs)
         except Exception as e:
-            print("Error fetching stats with {}: {}".format(fetch_fn.__name__, e))
+            LOGGER.exception("Error fetching stats with %s: %s", fetch_fn.__name__, e)
             return []
 
     filtered_org_ids = get_stats_org_ids(current_user, filter_data)
@@ -596,6 +602,293 @@ def get_vs_trending_data(filters, current_user):
     }
 
 
+# Allowed fields dictionary — module-level constant
+ALLOWED_FIELDS_BY_SOURCE = {
+    "vs": list(stat_schema.VulnScanSummaryV2Response.model_fields.keys()),
+    "host": list(stat_schema.HostScanSummaryV2Response.model_fields.keys()),
+    "port": list(stat_schema.PortScanSummaryV2Response.model_fields.keys()),
+    "port_service": list(
+        stat_schema.PortScanServiceSummaryV2Response.model_fields.keys()
+    ),
+}
+
+FIELD_AGGREGATION_MAP = {
+    "id": "max",
+    "summary_date": "average_date",  # still handled specially
+    "avg_summary_date": None,  # this is derived, not aggregated
+    "start_date": "min",
+    "end_date": "max",
+    "port_scan_min_timestamp": "min",
+    "port_scan_max_timestamp": "max",
+    "vuln_scan_min_timestamp": "min",
+    "vuln_scan_max_timestamp": "max",
+    "net_scan1_min_timestamp": "min",
+    "net_scan1_max_timestamp": "max",
+    "net_scan2_min_timestamp": "min",
+    "net_scan2_max_timestamp": "max",
+    "cvss_base_score": "max",
+    "rrs": "max",
+    "count": "sum",
+    "vulnerable_host_count": "max",
+    "critical_severity_count": "max",
+    # Add more field-specific logic here
+}
+
+
+def compute_segment_ranges(
+    start: date, end: date, segment_size: int
+) -> List[Tuple[date, date]]:
+    """Compute date ranges for each segment (from newest to oldest)."""
+    segments = []
+    current_end = end
+
+    while current_end > start:
+        current_start = max(start, current_end - timedelta(days=segment_size - 1))
+        segments.append((current_start, current_end))
+        current_end = current_start - timedelta(days=1)
+
+    return list(reversed(segments))
+
+
+def aggregate_segment_data(
+    segment_results: List[dict], selected_fields: List[str], segment_date: date
+) -> Dict[str, Any]:
+    """Aggregate the data for each segment based on selected fields."""
+    if not segment_results:
+        return {
+            **{field: None for field in selected_fields},
+            "summary_date": segment_date,
+        }
+
+    aggregated: Dict[str, Any] = {}
+
+    for field in selected_fields:
+        values: List[Any] = [
+            item.get(field) for item in segment_results if item.get(field) is not None
+        ]
+
+        if not values:
+            continue
+
+        # Special case: calculate avg_summary_date from summary_date field
+        if field == "summary_date":
+            dates = [d for d in values if isinstance(d, date)]
+            if dates:
+                timestamps = [
+                    datetime.combine(d, datetime.min.time()).timestamp() for d in dates
+                ]
+                avg_ts = sum(timestamps) / len(timestamps)
+                aggregated["avg_summary_date"] = datetime.fromtimestamp(avg_ts).date()
+            else:
+                aggregated["avg_summary_date"] = None
+            continue
+
+        # Skip list/dict fields unless explicitly mapped
+        if isinstance(values[0], (list, dict)) and field not in FIELD_AGGREGATION_MAP:
+            continue
+
+        agg_type = FIELD_AGGREGATION_MAP.get(field, "max")
+
+        if agg_type == "max":
+            aggregated[field] = max(values)
+        elif agg_type == "sum":
+            numeric_values = [v for v in values if isinstance(v, (int, float))]
+            aggregated[field] = sum(numeric_values)
+        elif agg_type == "avg":
+            numeric_values = [v for v in values if isinstance(v, (int, float))]
+            aggregated[field] = round(sum(numeric_values) / len(numeric_values), 2)
+        elif agg_type == "min":
+            aggregated[field] = min(values)
+        else:
+            aggregated[field] = values[0]  # fallback
+
+    aggregated["summary_date"] = segment_date
+    return aggregated
+
+
+def get_fields_for_source(
+    source: str, requested_fields: Optional[List[str]]
+) -> List[str]:
+    """Return validated list of fields for a given source. Defaults to all if empty."""
+    allowed = ALLOWED_FIELDS_BY_SOURCE.get(source)
+    if allowed is None:
+        raise HTTPException(status_code=400, detail=f"Unsupported source: {source}")
+
+    if not requested_fields:  # None or empty list
+        return allowed
+
+    invalid = set(requested_fields) - set(allowed)
+    if invalid:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid fields for source '{source}': {list(invalid)}",
+        )
+
+    return requested_fields
+
+
+def filter_fields(summary_list: List[dict], selected_fields: List[str]) -> List[dict]:
+    """Filter out fields that are not requested by the user."""
+    return [
+        {k: v for k, v in item.items() if k in selected_fields} for item in summary_list
+    ]
+
+
+def get_v2_trending_data(payload, current_user):  # pylint: disable=R0915
+    """Query VS scan data based on the user filters and apply optional segment summarization."""
+    filters = payload.filters
+    fields_by_source = payload.fields or {}
+    segment_size = payload.segment_size
+    enhanced_data = (
+        filters.enhanced_data if filters and filters.enhanced_data else False
+    )
+
+    organization_id = filters.organization_id
+
+    if not is_valid_uuid(organization_id):
+        raise HTTPException(status_code=404, detail="Invalid organization ID.")
+
+    try:
+        organization = Organization.objects.get(id=organization_id)
+    except Organization.DoesNotExist:
+        raise HTTPException(status_code=404, detail="Organization not found.")
+
+    if (
+        not is_global_view_admin(current_user)
+        and not current_user.user_type == "regionalAdmin"
+    ):
+        org_ids = get_org_memberships(current_user)
+        if uuid.UUID(organization_id) not in org_ids:
+            raise HTTPException(
+                status_code=404, detail="Access denied to requested organization."
+            )
+
+    if current_user.user_type == "regionalAdmin" and current_user.region_id:
+        if organization.region_id != current_user.region_id:
+            raise HTTPException(
+                status_code=404, detail="Access denied to requested organization."
+            )
+
+    start_date = filters.start_date
+    end_date = filters.end_date
+    sources = filters.sources or []
+    today = datetime.today().date()
+
+    # Ensure end date is set
+    end_date = end_date or today
+    if not start_date:
+        # Fallback start date 30 days before end
+        start_date = end_date - timedelta(days=30)
+
+    duration_days = (end_date - start_date).days
+    is_condensed = bool(segment_size and duration_days > 60)
+
+    segment_ranges = (
+        compute_segment_ranges(start_date, end_date, segment_size)
+        if is_condensed
+        else None
+    )
+
+    # Share with fetch_summaries
+    def fetch_summaries(
+        model,
+        source: str,
+        exclude_fields=None,
+        segment_ranges: Optional[List[Tuple[date, date]]] = None,
+        is_condensed=False,
+    ) -> List[dict]:
+        exclude_fields = exclude_fields or []
+        selected_fields = get_fields_for_source(source, fields_by_source.get(source))
+
+        if not is_condensed:
+            qs = model.objects.filter(organization=organization)
+            if start_date:
+                qs = qs.filter(summary_date__gte=start_date)
+            if end_date:
+                qs = qs.filter(summary_date__lte=end_date)
+
+            qs = qs.order_by("summary_date")
+
+            if exclude_fields:
+                qs = qs.defer(*exclude_fields)
+
+            all_results = [model_to_dict(obj, exclude=exclude_fields) for obj in qs]
+            return filter_fields(all_results, selected_fields)
+
+        if not segment_ranges:
+            return []
+
+        condensed = []
+        for seg_start, seg_end in segment_ranges:
+            qs = model.objects.filter(
+                organization=organization, summary_date__range=(seg_start, seg_end)
+            ).order_by("summary_date")
+
+            if exclude_fields:
+                qs = qs.defer(*exclude_fields)
+
+            segment_results = [model_to_dict(obj, exclude=exclude_fields) for obj in qs]
+            summary = aggregate_segment_data(
+                segment_results, selected_fields, segment_date=seg_end
+            )
+            condensed.append(summary)
+
+        return condensed
+
+    # Retrieve summaries by source
+    host_dicts = (
+        fetch_summaries(
+            HostSummary,
+            "host",
+            segment_ranges=segment_ranges,
+            is_condensed=is_condensed,
+        )
+        if "host" in sources
+        else None
+    )
+
+    ports_dicts = (
+        fetch_summaries(
+            PortScanSummary,
+            "port",
+            segment_ranges=segment_ranges,
+            is_condensed=is_condensed,
+        )
+        if "port" in sources
+        else None
+    )
+
+    port_services_dicts = (
+        fetch_summaries(
+            PortScanServiceSummary,
+            "port_service",
+            segment_ranges=segment_ranges,
+            is_condensed=is_condensed,
+        )
+        if "port_service" in sources
+        else None
+    )
+
+    vuln_scan_summaries = (
+        fetch_summaries(
+            VulnScanSummary,
+            source="vs",
+            exclude_fields=["included_tickets"] if not enhanced_data else [],
+            segment_ranges=segment_ranges,
+            is_condensed=is_condensed,
+        )
+        if "vs" in sources
+        else None
+    )
+
+    return {
+        "host_summaries": host_dicts,
+        "port_scan_summaries": ports_dicts,
+        "port_scan_service_summaries": port_services_dicts,
+        "vuln_scan_summaries": vuln_scan_summaries,
+    }
+
+
 SUMMARY_CONFIG = {
     "host": {
         "model": HostSummary,
@@ -670,7 +963,20 @@ def get_summary_dict(summary, numeric_fields, complex_fields=None):
             data[field] = getattr(summary, field, None)
 
     # Always include summary_date, start_date, and end_date if present
-    for date_field in ["summary_date", "start_date", "end_date"]:
+    for date_field in [
+        "summary_date",
+        "start_date",
+        "end_date",
+        "enrolled_in_vs_timestamp",
+        "port_scan_min_timestamp",
+        "port_scan_max_timestamp",
+        "vuln_scan_min_timestamp",
+        "vuln_scan_max_timestamp",
+        "net_scan1_min_timestamp",
+        "net_scan1_max_timestamp",
+        "net_scan2_min_timestamp",
+        "net_scan2_max_timestamp",
+    ]:
         if hasattr(summary, date_field):
             data[date_field] = getattr(summary, date_field)
 
@@ -950,6 +1256,7 @@ def get_stats_comparison_data(filters, current_user):
             )  # User has no accessible organizations
 
     # Regional Admins can only view vulnerabilities in their region
+
     if current_user.user_type == "regionalAdmin" and current_user.region_id:
         if organization.region_id != current_user.region_id:
             raise HTTPException(

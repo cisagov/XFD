@@ -19,13 +19,11 @@ from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
     DataSource,
-    Ip,
     IpsSubs,
     Organization,
     SubDomains,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 # Django setup
@@ -62,15 +60,34 @@ def handler(event):
 def main(event):
     """Identify assets owned by each stakeholder."""
     try:
-        flag_cidr_changes()
-
         organization_id = event.get("organizationId")
-
+        subdomain_found = False
+        cidr_found = False
         orgs_to_sync = Organization.objects.filter(id__in=[organization_id])
         for org in orgs_to_sync:
-            LOGGER.info("Running ASM Sync on organization %s", org.name)
-        # orgs_to_sync = Organization.objects.filter(acronym__in=event.organization.id)
-        enumerate_subs(orgs_to_sync)
+            LOGGER.info(
+                "Running ASM Sync on organization %s (%s)", org.name, org.acronym
+            )
+
+        # Process CIDRs
+        try:
+            flag_cidr_changes()
+            cidr_found = Cidr.objects.filter(
+                cidrorgs__organization__in=orgs_to_sync, cidrorgs__current=True
+            ).exists()
+        except Exception as e:
+            message = "Error processing CIDRs: {}".format(e)
+            LOGGER.warning(message)
+
+        # Process subdomains
+        try:
+            enumerate_subs(orgs_to_sync)
+            subdomain_found = SubDomains.objects.filter(
+                organization__in=orgs_to_sync, current=True
+            ).exists()
+        except Exception as e:
+            message = "Error processing subdomains: {}".format(e)
+            LOGGER.warning(message)
 
         LOGGER.info("Identifying subdomains from ips...")
         connect_subs_from_ips(orgs_to_sync)
@@ -85,15 +102,24 @@ def main(event):
         LOGGER.info("Running Shodan dedupe...")
         dedupe(orgs_to_sync)
         LOGGER.info("Finished running Shodan dedupe")
+        if cidr_found or subdomain_found:
+            LOGGER.info("ASM Sync completed successfully.")
+            return {"status_code": 200, "body": "ASM Sync completed successfully."}
+        else:
+            return {
+                "status_code": 204,
+                "body": "ASM Sync finished without finding new CIDR blocks and subdomains.",
+            }
+
     except Exception as e:
-        LOGGER.warning("Error running ASM %s", e)
-    # quit()
+        LOGGER.warning("Error running ASM Sync %s", e)
+        return {"status_code": 500, "body": "Error running ASM Sync: {}".format(e)}
 
 
 def flag_asset_changes():
     """Mark Ips and Subdomains that are were not seen in the last scan as not current."""
     cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-        days=15
+        days=90
     )
 
     SubDomains.objects.filter(Q(last_seen__lt=cutoff_date)).exclude(
@@ -102,34 +128,42 @@ def flag_asset_changes():
 
     IpsSubs.objects.filter(last_seen__lt=cutoff_date).update(current=False)
 
-    Ip.objects.filter(last_seen_timestamp__lt=cutoff_date).update(current=False)
-
-    # Ip.objects.filter(
-    #     (Q(sub_domains__current=False) | Q(sub_domains__isnull=True)) &  # No current subdomains or no subdomains at all
-    #     Q(origin_cidr__current=False)  # The associated origin_cidr is not current
-    # ).update(current=False)
+    # Ip.objects.filter(last_seen_timestamp__lt=cutoff_date).update(current=False)
 
 
 def flag_cidr_changes():
-    """Mark Cidrs that are were not seen in the last scan as not current."""
-    # Get all CidrOrgs where the last_seen date is older than 3 days
+    """Mark Cidrs that were not seen in the last scan as not current.
+
+    return (organization_id, cidr_id) for cidrorgs that were closed.
+    """
     cutoff_date = timezone.now().date() - datetime.timedelta(days=3)
 
-    CidrOrgs.objects.filter(last_seen__lt=cutoff_date).update(current=False)
-    CidrOrgs.objects.filter(last_seen__gte=cutoff_date).update(current=True)
-    # Step 1: Get all Cidr objects that:
-    # - Have no associated CidrOrgs at all, or
-    # - Have associated CidrOrgs, but all of them have current=False or current is null
-    cidrs_to_retire = Cidr.objects.filter(
-        Q(cidrorgs__isnull=True)
-        | Q(cidrorgs__current=False)  # No CidrOrgs associated
-        | Q(cidrorgs__current__isnull=True)  # Associated CidrOrgs are not current
+    # Find CidrOrgs that will be closed
+    cidrorgs_to_close = CidrOrgs.objects.filter(last_seen__lt=cutoff_date)
+
+    # Capture their (org_id, cidr_id) before updating
+    closed_pairs = cidrorgs_to_close.values_list(
+        "organization_id", "cidr_id"
     ).distinct()
 
-    # Step 2: Update the retired field to True for those Cidr objects
+    # Mark them as not current
+    cidrorgs_to_close.update(current=False)
+
+    # Keep others marked current
+    CidrOrgs.objects.filter(last_seen__gte=cutoff_date).update(current=True)
+
+    # Retire cidrs that no longer have current orgs
+    cidrs_to_retire = Cidr.objects.filter(
+        Q(cidrorgs__isnull=True)
+        | Q(cidrorgs__current=False)
+        | Q(cidrorgs__current__isnull=True)
+    ).distinct()
     cidrs_to_retire.update(retired=True)
 
-    Cidr.objects.filter(Q(cidrorgs__current=True)).distinct().update(retired=False)
+    # Unretire cidrs that still have current orgs
+    Cidr.objects.filter(cidrorgs__current=True).distinct().update(retired=False)
+
+    return list(closed_pairs)
 
 
 def enumerate_subs(org_list=None):

@@ -2,14 +2,76 @@
 
 exports[`Layout component > matches snapshot 1`] = `
 <DocumentFragment>
-  <main
-    class="css-o3tih"
+  <div
+    class="MuiBox-root css-yuxl5"
   >
+    <div>
+      GOV_BANNER
+    </div>
     <div
-      style="display: flex;"
+      class="MuiBox-root css-dfy4bm"
     >
-      <div>
-        GOV_BANNER
+      <div
+        class="MuiBox-root css-1c00z4o"
+      >
+        <div
+          class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation0 MuiAlert-root MuiAlert-colorInfo MuiAlert-standardInfo MuiAlert-standard css-172si4r-MuiPaper-root-MuiAlert-root"
+          role="alert"
+          style="--Paper-shadow: none;"
+        >
+          <div
+            class="MuiAlert-icon css-vab54s-MuiAlert-icon"
+          >
+            <svg
+              aria-hidden="true"
+              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+              data-testid="InfoOutlinedIcon"
+              focusable="false"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20, 12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10, 10 0 0,0 12,2M11,17H13V11H11V17Z"
+              />
+            </svg>
+          </div>
+          <div
+            class="MuiAlert-message css-zioonp-MuiAlert-message"
+          >
+            <div
+              class="MuiTypography-root MuiTypography-largeBody MuiTypography-gutterBottom MuiAlertTitle-root css-16l1za6-MuiTypography-root-MuiAlertTitle-root"
+            >
+              CyHy Dashboard - Beta (Early Access)
+            </div>
+            <p
+              class="MuiTypography-root MuiTypography-body1 css-l19xdt-MuiTypography-root"
+            >
+              You are using an early release version of the CyHy Dashboard. This site is fully functional, but some features are still being improved and refined. Your feedback during this stage directly shapes improvements. Please go to the Support menu to share feedback, report bugs, or submit questions so we can enhance the dashboard to better meet your needs.
+            </p>
+          </div>
+          <div
+            class="MuiAlert-action css-rgppqo-MuiAlert-action"
+          >
+            <button
+              aria-label="Close"
+              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-sizeSmall css-11jejgn-MuiButtonBase-root-MuiIconButton-root"
+              tabindex="0"
+              title="Close"
+              type="button"
+            >
+              <svg
+                aria-hidden="true"
+                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall css-120dh41-MuiSvgIcon-root"
+                data-testid="CloseIcon"
+                focusable="false"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     <div>
@@ -46,8 +108,12 @@ exports[`Layout component > matches snapshot 1`] = `
         </button>
       </div>
     </header>
+  </div>
+  <main
+    class="css-170g0n7"
+  >
     <div
-      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-17tm3pi-MuiDrawer-docked"
+      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-aiqi88-MuiDrawer-docked"
     >
       <div
         class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-1lwhjos-MuiPaper-root-MuiDrawer-paper"
@@ -61,13 +127,7 @@ exports[`Layout component > matches snapshot 1`] = `
             role="presentation"
           >
             <div
-              class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
-            />
-            <div
-              class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular css-t4299j-MuiToolbar-root"
-            />
-            <div
-              class="MuiStack-root css-6ehs1v-MuiStack-root"
+              class="MuiStack-root css-xttitw-MuiStack-root"
             >
               <h3
                 class="MuiTypography-root MuiTypography-h3 css-wariq0-MuiTypography-root"
@@ -94,7 +154,7 @@ exports[`Layout component > matches snapshot 1`] = `
               </button>
             </div>
             <div
-              class="MuiBox-root css-shhb4o"
+              class="MuiBox-root css-19midj6"
             >
               <div
                 class="MuiAutocomplete-root MuiAutocomplete-hasPopupIcon css-1tlcqt-MuiAutocomplete-root"
@@ -105,8 +165,8 @@ exports[`Layout component > matches snapshot 1`] = `
                   <label
                     class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-shrink MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiFormLabel-filled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-shrink MuiInputLabel-outlined css-n7ilwy-MuiFormLabel-root-MuiInputLabel-root"
                     data-shrink="true"
-                    for=":r3:"
-                    id=":r3:-label"
+                    for=":r5:"
+                    id=":r5:-label"
                   >
                     Region
                   </label>
@@ -121,7 +181,7 @@ exports[`Layout component > matches snapshot 1`] = `
                       autocomplete="off"
                       class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
                       disabled=""
-                      id=":r3:"
+                      id=":r5:"
                       placeholder=""
                       role="combobox"
                       spellcheck="false"
@@ -154,10 +214,10 @@ exports[`Layout component > matches snapshot 1`] = `
                     </div>
                     <fieldset
                       aria-hidden="true"
-                      class="MuiOutlinedInput-notchedOutline css-1ll44ll-MuiOutlinedInput-notchedOutline"
+                      class="MuiOutlinedInput-notchedOutline css-18p5xg2-MuiNotchedOutlined-root-MuiOutlinedInput-notchedOutline"
                     >
                       <legend
-                        class="css-w1u3ce"
+                        class="css-ex8a5f-MuiNotchedOutlined-root"
                       >
                         <span>
                           Region
@@ -180,8 +240,8 @@ exports[`Layout component > matches snapshot 1`] = `
                   <label
                     class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined css-8b3bn2-MuiFormLabel-root-MuiInputLabel-root"
                     data-shrink="false"
-                    for=":r6:"
-                    id=":r6:-label"
+                    for=":r8:"
+                    id=":r8:-label"
                   >
                     Organization
                   </label>
@@ -196,7 +256,7 @@ exports[`Layout component > matches snapshot 1`] = `
                       autocomplete="off"
                       class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
                       disabled=""
-                      id=":r6:"
+                      id=":r8:"
                       placeholder="Search Organizations"
                       role="combobox"
                       spellcheck="false"
@@ -229,10 +289,10 @@ exports[`Layout component > matches snapshot 1`] = `
                     </div>
                     <fieldset
                       aria-hidden="true"
-                      class="MuiOutlinedInput-notchedOutline css-1ll44ll-MuiOutlinedInput-notchedOutline"
+                      class="MuiOutlinedInput-notchedOutline css-18p5xg2-MuiNotchedOutlined-root-MuiOutlinedInput-notchedOutline"
                     >
                       <legend
-                        class="css-81qg8w"
+                        class="css-1n64csd-MuiNotchedOutlined-root"
                       >
                         <span>
                           Organization

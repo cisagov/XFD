@@ -10,6 +10,9 @@ on:
       - integration
     paths:
       - frontend/**
+      - backend/**
+      - playwright/e2e/**
+      - integration/**
       - .github/workflows/regression.yml
   pull_request:
     branches:
@@ -17,14 +20,17 @@ on:
       - integration
     paths:
       - frontend/**
-      - .github/workflows/frontend.yml
+      - backend/**
+      - playwright/e2e/**
+      - integration/**
+      - .github/workflows/regression.yml
 
 defaults:
   run:
     working-directory: ./playwright
 
 jobs:
-  test_staging:
+  test_staging_frontend:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 60
@@ -40,7 +46,7 @@ jobs:
       PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
       PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
       PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-      PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }}
+      PW_XFD_LOGIN: ${{ secrets.PW_XFD_LOGIN }}
       PW_HEADLESS: true
       PW_CI: true
       ENVIRONMENT: staging
@@ -52,12 +58,12 @@ jobs:
         run: echo "ENVIRONMENT=staging" >> $GITHUB_ENV
 
       - name: Run Playwright tests
+        id: run_tests
         run: |
          chmod +x run_playwright_tests.sh
          CLUSTER_NAME=crossfeed-playwright-staging-cd-ecs-cluster \
          TASK_DEFINITION=crossfeed-staging-cd-playwright-worker \
          ./run_playwright_tests.sh
-
         continue-on-error: true
 
       - name: Download test report from S3
@@ -75,7 +81,7 @@ jobs:
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-html-report
+          name: playwright-html-report-staging
           path: playwright/playwright-report/html/
 
       - name: Upload Playwright results JSON
@@ -84,6 +90,64 @@ jobs:
           name: playwright-results-json
           path: playwright/playwright-report/results.json
 
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome != 'success'
+        run: exit 1
+
+
+  test_staging_api:
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 20
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    defaults:
+      run:
+        working-directory: ./integration
+    env:
+      BACKEND_DOMAIN: https://api.staging-cd.crossfeed.cyber.dhs.gov
+      X_API_KEY: ${{ secrets.X_API_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest with HTML and JSON reports
+        id: run_tests
+        run: |
+          mkdir -p test-reports
+          pytest -m integration \
+            --tb=short \
+            --maxfail=5 \
+            --capture=tee-sys \
+            --html=test-reports/report.html \
+            --self-contained-html \
+            --json-report \
+            --json-report-file=test-reports/report.json
+        continue-on-error: true
+
+      - name: Upload Pytest HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-html-report
+          path: integration/test-reports/report.html
+
+      - name: Upload Pytest JSON Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-json-report
+          path: integration/test-reports/report.json
+
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome != 'success'
+        run: exit 1
 
   test_integration:
      runs-on: ubuntu-latest
@@ -101,7 +165,7 @@ jobs:
       PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
       PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
       PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-      PW_XFD_LOGIN: ${{ secrets.PW_XFD_USERNAME }} # or hardcode if needed
+      PW_XFD_LOGIN: ${{ secrets.PW_XFD_LOGIN }}
       PW_HEADLESS: true
       ENVIRONMENT: integration
       GIT_BRANCH: integration
@@ -113,12 +177,12 @@ jobs:
 
       - name: Run Playwright tests
         working-directory: ./playwright
+        id: run_tests
         run: |
           chmod +x run_playwright_tests.sh
           CLUSTER_NAME=crossfeed-playwright-integration-ecs-cluster \
           TASK_DEFINITION=crossfeed-integration-playwright-worker \
           ./run_playwright_tests.sh
-
         continue-on-error: true
 
       - name: Download test report from S3
@@ -136,7 +200,7 @@ jobs:
       - name: Upload Playwright HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-html-report
+          name: playwright-html-report-integration
           path: playwright/playwright-report/html/
 
       - name: Upload Playwright results JSON
@@ -144,3 +208,61 @@ jobs:
         with:
           name: playwright-results-json
           path: playwright/playwright-report/results.json
+
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome != 'success'
+        run: exit 1
+
+  test_integration_api:
+    runs-on: ubuntu-latest
+    environment: integration
+    timeout-minutes: 20
+    if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
+    defaults:
+      run:
+        working-directory: ./integration
+    env:
+      BACKEND_DOMAIN: https://api.integration.crossfeed.cyber.dhs.gov
+      X_API_KEY: ${{ secrets.X_API_KEY }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest with HTML and JSON reports
+        id: run_tests
+        run: |
+          mkdir -p test-reports
+          pytest -m integration \
+          --tb=short \
+          --maxfail=5 \
+          --capture=tee-sys \
+          --html=test-reports/report.html \
+          --self-contained-html \
+          --json-report \
+          --json-report-file=test-reports/report.json
+        continue-on-error: true
+
+      - name: Upload Pytest HTML Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-html-report
+          path: integration/test-reports/report.html
+
+      - name: Upload Pytest JSON Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-json-report
+          path: integration/test-reports/report.json
+
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome != 'success'
+        run: exit 1

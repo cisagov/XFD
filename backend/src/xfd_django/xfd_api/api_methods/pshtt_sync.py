@@ -70,7 +70,7 @@ def process_data(data):
                 acronym=organization.get("acronym")
             )
         except Organization.DoesNotExist:
-            print("Organization does not exist for ")
+            LOGGER("Organization does not exist for record")
 
         if root_domain:
             try:
@@ -139,15 +139,14 @@ def process_data(data):
                 },
             )
         except SubDomains.DoesNotExist:
-            print("SubDomain does not exist for record")
+            LOGGER.error("SubDomain does not exist for record", exc_info=True)
         try:
             create_or_update_pshtt_result(
                 pshtt_record, pshtt_result_ds_record, org_record, sub_domain_record
             )
         except Exception as e:
-            raise IngestionError(
-                "PshttSync Endpoint", str(e), "Failed processing pshtt record"
-            ) from e
+            LOGGER.error("Error occurred while processing Pshtt record: %s", e)
+            raise IngestionError
 
 
 def create_or_update_pshtt_result(pshtt_dict, data_source, organization, sub_domain):

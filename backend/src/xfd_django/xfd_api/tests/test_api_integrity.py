@@ -16,7 +16,7 @@ client = TestClient(app)
 PUBLIC_ENDPOINTS = {
     ("POST", "/auth/okta-callback"),
     ("POST", "/auth/callback"),
-    ("POST", "/auth/set-oauth-cookies"),
+    ("POST", "/auth/get-oauth-meta"),
     ("GET", "/notifications"),
     ("GET", "/healthcheck"),
 }
@@ -58,7 +58,7 @@ EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("DELETE", "/api-keys/{api_key_id}"),
     ("POST", "/auth/callback"),
     ("POST", "/auth/okta-callback"),
-    ("POST", "/auth/set-oauth-cookies"),
+    ("POST", "/auth/get-oauth-meta"),
     ("POST", "/domain/export"),
     ("POST", "/vulnerabilities/export"),
     ("DELETE", "/notifications/{notification_id}"),

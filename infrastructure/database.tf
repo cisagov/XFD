@@ -567,3 +567,71 @@ resource "aws_s3_bucket_logging" "crossfeed-xpanse-org-sync" {
   target_bucket = aws_s3_bucket.logging_bucket.id
   target_prefix = "crossfeed-xpanse-org-sync/"
 }
+
+resource "aws_s3_bucket" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = var.zscaler_cert_bucket_name
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_s3_bucket_policy" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "RequireSSLRequests",
+        "Action" : "s3:*",
+        "Effect" : "Deny",
+        "Principal" : "*",
+        "Resource" : [
+          aws_s3_bucket.zscaler_cert_bucket[0].arn,
+          "${aws_s3_bucket.zscaler_cert_bucket[0].arn}/*"
+        ],
+        "Condition" : {
+          "Bool" : {
+            "aws:SecureTransport" : "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_s3_bucket_ownership_controls" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  rule {
+    object_ownership = "ObjectWriter"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_logging" "zscaler_cert_bucket" {
+  count         = var.is_dmz ? 0 : 1
+  bucket        = aws_s3_bucket.zscaler_cert_bucket[0].id
+  target_bucket = aws_s3_bucket.logging_bucket.id
+  target_prefix = "zscaler_cert_bucket/"
+}

@@ -2,11 +2,11 @@
 
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 # Third-Party Libraries
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .organization_tag import OrganizationalTags
 
@@ -22,7 +22,7 @@ class Organization(BaseModel):
     root_domains: List[str]
     ip_blocks: List[str]
     is_passive: bool
-    pending_domains: Optional[List[dict]]
+    pending_domains: Optional[List[Union[Dict[str, Any], str]]]
     country: Optional[str]
     state: Optional[str]
     region_id: Optional[str]
@@ -88,7 +88,7 @@ class ScanTaskSchema(BaseModel):
 
     id: UUID
     created_at: datetime
-    scan: SimpleScanSchema
+    scan: Optional[SimpleScanSchema] = None
 
 
 class GetOrganizationSchema(BaseModel):
@@ -231,3 +231,20 @@ class StatsPayloadSchema(BaseModel):
     """Elastic search orgnaization model."""
 
     filters: Optional[FilterSchema]
+
+
+class OrganizationSearch(BaseModel):
+    """Organization search schema."""
+
+    page: int = Field(1, ge=1)
+    pageSize: int = Field(15, ge=1, le=200)
+    filters: Dict[str, Any] = Field(default_factory=dict)
+    sort: Optional[str] = None  # e.g., "name"
+    order: Optional[Literal["asc", "desc"]] = None
+
+
+class PaginatedOrganizationsResponse(BaseModel):
+    """Paginated organization response schema."""
+
+    result: List[GetOrganizationSchema]
+    count: int

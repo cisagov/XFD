@@ -1,16 +1,20 @@
 """Filter helpers."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 
 # Third-Party Libraries
 from django.db.models.query import Q, QuerySet
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 
 from ..schema_models.vulnerability import VulnerabilityFilters
 
 # Define the severity levels
 SEVERITY_LEVELS = ["Low", "Medium", "High", "Critical"]
 NULL_VALUES = ["None", "Null", "N/A", "Undefined", ""]
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 def format_severity(severity: str) -> str:
@@ -46,8 +50,8 @@ def sort_direction(sort, order):
         else:
             raise ValueError
     except ValueError as e:
-        print(e)
-        raise HTTPException(status_code=500, detail="Invalid sort direction supplied")
+        LOGGER.exception(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def convert_to_naive(dt: datetime) -> datetime:
@@ -240,3 +244,29 @@ def apply_vuln_filters(
     filtered = vulnerabilities.filter(q)
 
     return filtered.none() if not filtered.exists() else filtered
+
+
+def apply_organization_filters(base_q, filters: dict):
+    """Apply organization filters."""
+    q = base_q
+    name = filters.get("name")
+    state = filters.get("state")
+    region_id = filters.get("region_id")
+
+    if name:
+        q &= Q(name__icontains=str(name).strip())
+
+    if state:
+        if isinstance(state, list):
+            vals = [str(s).strip().upper() for s in state if s]
+            if vals:
+                q &= Q(state__in=vals)
+        else:
+            q &= Q(state__iexact=str(state).strip())
+
+    if region_id:
+        if not isinstance(region_id, list):
+            region_id = [region_id]
+        q &= Q(region_id__in=[int(r) for r in region_id if r is not None and r != ""])
+
+    return q

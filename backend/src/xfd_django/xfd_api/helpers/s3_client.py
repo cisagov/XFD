@@ -1,11 +1,17 @@
 """S3 Client."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import os
 import random
 
 # Third-Party Libraries
 import boto3
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
+
+# Third-Party Libraries
 from botocore.exceptions import ClientError
 
 
@@ -68,7 +74,7 @@ class S3Client:
             url = self.get_presigned_url(bucket_name=bucket, object_key=key)
             return url
         except ClientError as e:
-            print("Error saving CSV to S3: %s", e)
+            LOGGER.exception("Error saving CSV to S3: %s", e)
             raise
 
     def export_report(self, report_name, org_id):
@@ -81,7 +87,7 @@ class S3Client:
             url = self.get_presigned_url(bucket_name=bucket, object_key=key)
             return url
         except ClientError as e:
-            print("Error exporting report from S3: %s", e)
+            LOGGER.exception("Error exporting report from S3: %s", e)
             raise
 
     def list_reports(self, org_id):
@@ -95,7 +101,7 @@ class S3Client:
             )
             return response.get("Contents", [])
         except ClientError as e:
-            print("Error listing reports from S3: %s", e)
+            LOGGER.exception("Error listing reports from S3: %s", e)
             raise
 
     def pull_daily_vs(self, filename):
@@ -105,19 +111,19 @@ class S3Client:
         try:
             response = self.s3.head_object(Bucket=bucket, Key=filename)
             if response:
-                print("File '{}' exists in bucket {}.".format(filename, bucket))
+                LOGGER.info("File '%s' exists in bucket %s.", filename, bucket)
         except self.s3.exceptions.NoSuchKey:
-            print("File '{}' does not exist in bucket {}.".format(filename, bucket))
+            LOGGER.info("File '%s' does not exist in bucket %s.", filename, bucket)
             return None
         except ClientError as e:
-            print("Error checking for file in S3: %s", e)
+            LOGGER.exception("Error checking for file in S3: %s", e)
             raise
 
         try:
             response = self.s3.get_object(Bucket=bucket, Key=filename)
             return response["Body"].read() if "Body" in response else None
         except ClientError as e:
-            print("Error downloading file from S3: %s", e)
+            LOGGER.exception("Error downloading file from S3: %s", e)
             raise
 
     def get_email_asset(self, file_name):
@@ -130,7 +136,7 @@ class S3Client:
                 response["Body"].read().decode("utf-8") if "Body" in response else None
             )
         except ClientError as e:
-            print("Error retrieving email asset from S3: %s", e)
+            LOGGER.exception("Error retrieving email asset from S3: %s", e)
             raise
 
     def get_presigned_url(self, bucket_name, object_key, expiration=60 * 5):

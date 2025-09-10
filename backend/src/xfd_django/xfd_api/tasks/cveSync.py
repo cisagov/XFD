@@ -1,6 +1,7 @@
 """CVE sync scan."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import os
 import time
 
@@ -13,6 +14,8 @@ from xfd_mini_dl.models import Cpe, Cve
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
+
+LOGGER = logging.getLogger(__name__)
 
 
 def handler(event, context):
@@ -63,7 +66,7 @@ def main():
 
 def fetch_cve_data(page):
     """Fetch CVE data for a specific page."""
-    print("Fetching CVE data for page {}".format(page))
+    LOGGER.info("Fetching CVE data for page %d", page)
     headers = {
         "X-API-KEY": os.getenv("CF_API_KEY"),
         "access_token": os.getenv("PE_API_KEY"),
@@ -81,7 +84,7 @@ def fetch_cve_data(page):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching CVE data: {}".format(e))
+        LOGGER.error("Error fetching CVE data: %s", e)
         return None
 
 
@@ -101,7 +104,7 @@ def fetch_cve_data_task(task_id):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching CVE task data: {}".format(e))
+        LOGGER.error("Error fetching CVE task data: %s", e)
         return None
 
 
@@ -144,7 +147,7 @@ def save_cpes_to_db(cpes):
             )
             cpe_ids.append(cpe_obj.id)
         except Exception as e:
-            print("Error saving CPE: {}".format(e))
+            LOGGER.error("Error saving CPE: %s", e)
     return cpe_ids
 
 
@@ -169,4 +172,4 @@ def save_cve_to_db(cve, cpe_ids):
         cve_obj.cpes.add(*cpe_ids)
         cve_obj.save()
     except Exception as e:
-        print("Error saving CVE: {}".format(e))
+        LOGGER.error("Error saving CVE: %s", e)

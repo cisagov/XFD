@@ -4,11 +4,17 @@ import { Link, Tooltip, Typography } from '@mui/material';
 interface TruncatedLinkProps {
   text: string | null;
   linkHandler: (value: string) => void;
+  tooltipText?: string;
 }
 
-const TruncatedLink = ({ text = '', linkHandler }: TruncatedLinkProps) => {
+const TruncatedLink = ({
+  text = '',
+  linkHandler,
+  tooltipText
+}: TruncatedLinkProps) => {
   const safeText = text || '';
-  const showTooltip = safeText.length > 0;
+  const safeTooltipText = tooltipText || '';
+  const showTooltip = safeTooltipText.length > 0;
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -19,7 +25,7 @@ const TruncatedLink = ({ text = '', linkHandler }: TruncatedLinkProps) => {
 
   return (
     <Tooltip
-      title={showTooltip ? safeText : ''}
+      title={showTooltip ? safeTooltipText : ''}
       placement={'right'}
       enterDelay={300}
       leaveDelay={200}

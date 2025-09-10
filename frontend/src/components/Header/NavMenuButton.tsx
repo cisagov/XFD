@@ -3,6 +3,7 @@ import { NavLink, useLocation, Link as RouterLink } from 'react-router-dom';
 import { Box, Button, ButtonProps, Menu, MenuItem } from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 interface MenuItemType {
   menuItemTitle: string;
@@ -10,6 +11,7 @@ interface MenuItemType {
   users?: number;
   onClick?: () => void;
   objectStoreParams?: { bucket_name: string; object_key: string };
+  subMenuItems?: MenuItemType[];
 }
 
 interface Props {
@@ -28,7 +30,12 @@ export const NavMenuButton: React.FC<Props> = ({
   const menuRef = React.useRef<HTMLUListElement>(null);
   const isLink = !!menuItems?.[0]?.path || '';
   const open = Boolean(anchorEl);
-
+  const [openSubMenuIndex, setOpenSubMenuIndex] = React.useState<number | null>(
+    null
+  );
+  const [subAnchorEl, setSubAnchorEl] = React.useState<HTMLElement | null>(
+    null
+  );
   const findingsLibraryPaths = [
     '/inventory',
     '/inventory/domains',
@@ -77,7 +84,7 @@ export const NavMenuButton: React.FC<Props> = ({
     sx: { display: { xs: 'none', xl: 'flex' }, px: 1 },
     'aria-current': isActive ? 'page' : undefined
   };
-  // TODO: Once Learning Center and Support have more items change this to menuItems.length > 1
+
   if (title === 'Vulnerability Scanning' || title === 'Findings Library') {
     buttonProps.component = RouterLink;
     buttonProps.to = menuItems?.[0]?.path || '';
@@ -121,74 +128,126 @@ export const NavMenuButton: React.FC<Props> = ({
           <Box sx={borderBoxStyle}>{title}</Box>
         </Button>
       </Box>
+
       {menuItems && menuItems.length > 0 && (
-        <Menu
-          anchorEl={anchorEl}
-          open={open}
-          onClose={handleClose}
-          id={id}
-          MenuListProps={{
-            'aria-labelledby': id,
-            ref: menuRef
-          }}
-        >
-          {menuItems.map((item, index) => {
-            const isExternal =
-              item.path?.startsWith('http') || item.path?.startsWith('mailto');
-            const isInternal = !!item.path && !isExternal;
+        <>
+          <Menu
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleClose}
+            id={id}
+            slotProps={{ list: { 'aria-labelledby': id, ref: menuRef } }}
+            disableScrollLock
+          >
+            {menuItems.map((item: MenuItemType, index: number) => {
+              const isExternal =
+                item.path?.startsWith('http') ||
+                item.path?.startsWith('mailto');
+              const isInternal = !!item.path && !isExternal;
+              const isSubMenu = (item.subMenuItems?.length ?? 0) > 0;
+              if (isExternal) {
+                return (
+                  <MenuItem
+                    key={index}
+                    component="a"
+                    href={item.path}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={handleClose}
+                    role="menuitem"
+                    sx={{ minWidth: '150px' }}
+                  >
+                    {item.menuItemTitle}
+                  </MenuItem>
+                );
+              }
 
-            if (isExternal) {
+              if (isInternal) {
+                return (
+                  <MenuItem
+                    key={index}
+                    component={NavLink as React.ElementType}
+                    to={item.path!}
+                    onClick={handleClose}
+                    role="menuitem"
+                    sx={{ minWidth: '150px' }}
+                  >
+                    {item.menuItemTitle}
+                  </MenuItem>
+                );
+              }
+              if (isSubMenu) {
+                return (
+                  <MenuItem
+                    key={index}
+                    onClick={(e) => {
+                      setOpenSubMenuIndex(index);
+                      setSubAnchorEl(e.currentTarget);
+                    }}
+                    role="menuitem"
+                    sx={{
+                      minWidth: '150px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    {item.menuItemTitle}
+                    <KeyboardArrowRightIcon fontSize="small" />
+                  </MenuItem>
+                );
+              }
               return (
                 <MenuItem
                   key={index}
-                  component="a"
-                  href={item.path}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={handleClose}
-                  tabIndex={0}
+                  onClick={() => {
+                    item.onClick?.();
+                    onMenuItemClick?.(item);
+                    handleClose();
+                  }}
                   role="menuitem"
                   sx={{ minWidth: '150px' }}
                 >
                   {item.menuItemTitle}
                 </MenuItem>
               );
-            }
-
-            if (isInternal) {
-              return (
-                <MenuItem
-                  key={index}
-                  component={NavLink as React.ElementType}
-                  to={item.path!}
-                  onClick={handleClose}
-                  tabIndex={0}
-                  role="menuitem"
-                  sx={{ minWidth: '150px' }}
-                >
-                  {item.menuItemTitle}
-                </MenuItem>
-              );
-            }
-
-            // Case for objectStoreParams (no path present)
-            return (
-              <MenuItem
-                key={index}
-                onClick={() => {
-                  item.onClick?.();
-                  onMenuItemClick?.(item);
-                  handleClose();
+            })}
+          </Menu>
+          {subAnchorEl &&
+            openSubMenuIndex !== null &&
+            menuItems[openSubMenuIndex]?.subMenuItems && (
+              <Menu
+                anchorEl={subAnchorEl}
+                open
+                onClose={() => {
+                  setOpenSubMenuIndex(null);
+                  setSubAnchorEl(null);
                 }}
-                tabIndex={0}
-                role="menuitem"
-                sx={{ minWidth: '150px' }}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                sx={{ mt: -1, ml: -1 }}
               >
-                {item.menuItemTitle}
-              </MenuItem>
-            );
-          })}
-        </Menu>
+                {menuItems[openSubMenuIndex].subMenuItems!.map(
+                  (subItem, subIndex) => (
+                    <MenuItem
+                      key={subIndex}
+                      onClick={() => {
+                        subItem.onClick?.();
+                        onMenuItemClick?.(subItem);
+                        setOpenSubMenuIndex(null);
+                        setSubAnchorEl(null);
+                        handleClose();
+                      }}
+                      role="menuitem"
+                      sx={{ minWidth: '150px' }}
+                    >
+                      {subItem.menuItemTitle}
+                    </MenuItem>
+                  )
+                )}
+              </Menu>
+            )}
+        </>
       )}
     </Box>
   );

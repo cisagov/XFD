@@ -180,7 +180,7 @@ export const ResultCard: React.FC<Props> = (props) => {
 
   return (
     <StyledButtonBase
-      aria-label="view domain details"
+      aria-label={`View domain details for ${name.raw}`}
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => {

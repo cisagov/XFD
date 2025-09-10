@@ -1,8 +1,9 @@
 """This module defines the API endpoints for the FastAPI application."""
 # Standard Python Libraries
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import hashlib
 import json
+import logging
 import os
 from typing import List, Optional, Union
 from uuid import UUID
@@ -24,6 +25,9 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from redis import asyncio as aioredis
 import xfd_api.api_methods.dmz_sync as cybersix_module
 from xfd_api.auth import is_global_write_admin
+
+# xfd_api helpers
+from xfd_api.helpers.checksum_response import build_checksum_response
 from xfd_mini_dl.models import User
 
 # from .schemas import Cpe
@@ -37,6 +41,12 @@ from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.dns_twist_sync import dns_twist_sync_post
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
+from .api_methods.export import export
+from .api_methods.metrics import (
+    default_metrics_window,
+    get_scan_daily_status_counts,
+    list_scans_org_count_by_status,
+)
 from .api_methods.object_store import get_object_store_presigned_url
 from .api_methods.pshtt_sync import pshtt_sync_post
 from .api_methods.queue_monitoring import list_queues
@@ -56,6 +66,7 @@ from .api_methods.stats import (
     get_stats_comparison_data,
     get_user_ports_count,
     get_user_services_count,
+    get_v2_trending_data,
     get_vs_condensed_trending_data,
     get_vs_trending_data,
     stats_latest_vulns,
@@ -81,12 +92,17 @@ from .api_methods.vulnerability import (
     search_vulnerabilities,
     v2_get_vulnerability_by_id,
 )
+from .api_methods.was_sync import (
+    get_all_was_scan_summaries,
+    get_was_findings_queryset,
+    paginate_queryset,
+)
 from .api_methods.xpanse_sync import xpanse_sync_post
 from .auth import (
     get_current_active_user,
     get_current_active_user_unsafe,
     handle_okta_callback,
-    set_oauth_cookies_response,
+    sign_oauth_data,
 )
 from .login_gov import callback
 from .schema_models import organization_schema as OrganizationSchema
@@ -109,6 +125,11 @@ from .schema_models.dmz_sync import (
 )
 from .schema_models.dns_twist_sync import DnsTwistSyncBody, DnsTwistSyncResponse
 from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
+from .schema_models.export import ExportPayload, ExportResponse
+from .schema_models.metrics import (
+    GetScanDailyStatusCountsResponse,
+    ListScansOrgCountByStatusResponse,
+)
 from .schema_models.notification import CreateNotificationSchema
 from .schema_models.notification import Notification as NotificationSchema
 from .schema_models.object_store import (
@@ -150,12 +171,20 @@ from .schema_models.vulnerability import (
     VulnerabilitySearch,
     VulnerabilitySearchResponse,
 )
+from .schema_models.was_sync import (
+    GetAllWasFindingsResponse,
+    GetWasScanSummariesResponse,
+    WasFinding,
+    WasScanSummarySchema,
+)
 from .tools.serializers import serialize_organization, serialize_user
 from .tools.user_logger_decorator import (
     get_organization_sync,
     get_user_sync,
     log_action,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 # Define API router
 api_router = APIRouter()
@@ -294,19 +323,16 @@ async def callback_route(request: Request):
         raise HTTPException(status_code=400, detail=str(error))
 
 
-# Set PKCE and state cookies for OAuth
-@api_router.post("/auth/set-oauth-cookies", tags=["Auth"])
-async def set_oauth_cookies(request: Request):
-    """Set PKCE code_verifier and state cookies for OAuth flow."""
-    body = await request.json()
-    state = body.get("state")
-    code_verifier = body.get("code_verifier")
-
+# Return signed OAuth metadata
+@api_router.post("/auth/get-oauth-meta", tags=["Auth"])
+async def get_oauth_meta(payload: dict):
+    """Return signed OAuth metadata."""
+    state = payload.get("state")
+    code_verifier = payload.get("code_verifier")
     if not state or not code_verifier:
-        raise HTTPException(
-            status_code=400, detail="Missing PKCE code_verifier or state"
-        )
-    return set_oauth_cookies_response(state, code_verifier)
+        raise HTTPException(status_code=400, detail="Missing parameters")
+    signed_token = sign_oauth_data(state, code_verifier)
+    return {"signedToken": signed_token}
 
 
 # ========================================
@@ -384,7 +410,7 @@ async def get_call_all_cves(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {e}",
+            detail="Unexpected error: {}".format(e),
         )
 
     # serialize
@@ -407,6 +433,24 @@ async def get_call_all_cves(
         content=response_obj,
         headers={"X-Salted-Checksum": checksum},
     )
+
+
+# ========================================
+#   New Export Endpoint
+# ========================================
+
+
+@api_router.post(
+    "/export",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=ExportResponse,
+    tags=["Export"],
+)
+async def export_post(
+    request_body: ExportPayload, current_user: User = Depends(get_current_active_user)
+):
+    """Call export."""
+    return export(request_body, current_user)
 
 
 # ========================================
@@ -492,6 +536,54 @@ async def call_search_logs_filtered(
             status_code=500, detail="Serialization error: {}".format(str(e))
         )
     return LogSearchResponseFilters(result=result, count=count)
+
+
+# ========================================
+#   Metrics Dashboard Endpoints
+# ========================================
+
+
+@api_router.get(
+    "/metrics/scans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=ListScansOrgCountByStatusResponse,
+    tags=["metrics"],
+)
+async def call_list_scans_org_count_by_status(
+    window_days: int = default_metrics_window,
+    current_user: User = Depends(get_current_active_user),
+):
+    """List scans and annotate with metrics."""
+    try:
+        return list_scans_org_count_by_status(window_days, current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching scan metrics: {}".format(e),
+        )
+
+
+@api_router.get(
+    "/metrics/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=GetScanDailyStatusCountsResponse,
+    tags=["metrics"],
+)
+async def call_get_scan_daily_status_counts(
+    scan_id: str,
+    window_days: int = default_metrics_window,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get daily http status counts for a specific scan."""
+    try:
+        return get_scan_daily_status_counts(scan_id, window_days, current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching daily status counts for scan {}: {}".format(
+                scan_id, e
+            ),
+        )
 
 
 # ========================================
@@ -782,19 +874,18 @@ async def update_granular_scan(
     )
 
 
-@api_router.get(
-    "/v2/organizations",
+@api_router.post(
+    "/v2/organizations/search",
     dependencies=[Depends(get_current_active_user)],
-    response_model=List[OrganizationSchema.GetOrganizationSchema],
+    response_model=OrganizationSchema.PaginatedOrganizationsResponse,
     tags=["Organizations"],
 )
-async def list_organizations_v2(
-    state: Optional[List[str]] = Query(None),
-    region_id: Optional[List[str]] = Query(None),
+async def search_organizations_v2(
+    payload: OrganizationSchema.OrganizationSearch,
     current_user: User = Depends(get_current_active_user),
 ):
-    """Retrieve a list of all organizations (version 2)."""
-    return organization.list_organizations_v2(state, region_id, current_user)
+    """Search organizations data grid."""
+    return organization.search_organizations_v2(payload, current_user)
 
 
 @api_router.post(
@@ -1160,7 +1251,7 @@ async def dns_twist_sync(
     try:
         return await dns_twist_sync_post(sync_body, request, current_user)
     except Exception as e:
-        print(e)
+        LOGGER.error("Error occurred during DNSTwist sync: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -1213,6 +1304,22 @@ async def get_vs_trending_stats(
 ):
     """Retrieve VS Summary data filtered by the user."""
     return get_vs_trending_data(filter_data.filters, current_user)
+
+
+@api_router.post(
+    "/v2/stats/trends",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=stat_schema.V2TrendResponse,
+    response_model_exclude_none=True,
+    tags=["Stats"],
+)
+async def get_v2_trending_stats(
+    filter_data: stat_schema.V2TrendStatsPayloadSchema,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Retrieve Summary data filtered by the user - V2."""
+    result = get_v2_trending_data(filter_data, current_user)
+    return result
 
 
 @api_router.post(
@@ -1752,8 +1859,10 @@ async def get_call_all_cybersixgill(
     except HTTPException:
         raise
     except Exception as e:
+        LOGGER.error("Sync error: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync error: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Sync error: {}".format(e),
         )
 
     # attach checksum header
@@ -1976,3 +2085,114 @@ def generate_presigned_object_store_url(
         ObjectStorePresignedUrlResponse: _description_
     """
     return get_object_store_presigned_url(current_user, body)
+
+
+# ==========================
+# WAS Scan Endpoints  #
+# ==========================
+
+
+# POST
+@api_router.post(
+    "/was_scan_summaries",
+    response_model=GetWasScanSummariesResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_current_active_user)],
+    tags=["WAS Scan Summaries"],
+)
+async def get_was_scan_summaries_endpoint(
+    response: Response,
+    page: int = Query(1, ge=1, description="Which page to fetch (1-indexed)."),
+    per_page: int = Query(100, ge=1, description="How many items per page."),
+):
+    """
+    Return paginated WAS scan summaries plus an X‑Salted‑Checksum header for integrity.
+
+    - `page` & `per_page` control pagination.
+    - Only authenticated users may call this.
+    """
+    try:
+        total_pages, records = await get_all_was_scan_summaries(
+            page=page,
+            per_page=per_page,
+        )
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Unexpected error: {error}",
+        )
+
+    # Serialize ORM objects to plain dicts
+    payload = [
+        WasScanSummarySchema.model_validate(record, from_attributes=True).model_dump()
+        for record in records
+    ]
+
+    response_body = {
+        "status": "ok",
+        "payload": jsonable_encoder(payload),
+        "total_pages": total_pages,
+        "current_page": page,
+    }
+
+    return build_checksum_response(response_body, response, status.HTTP_200_OK)
+
+
+# WAS Findings Sync
+@api_router.post(
+    "/dmz_sync/was_findings",
+    response_model=GetAllWasFindingsResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_active_user)],
+    tags=["WAS findings to sync to LZ db"],
+)
+async def get_call_all_was_findings(  # noqa: D401
+    response: Response,
+    current_user: User = Depends(get_current_active_user),
+    page: int = Query(1, ge=1, description="Which page to fetch (1-indexed)."),
+    per_page: int = Query(
+        200, ge=1, le=1000, description="How many items per page (max 1000)."
+    ),
+    since_date: date
+    | None = Query(
+        default=None,
+        description="Optional date filter (records last_detected >= this).",
+    ),
+):
+    """
+    Return paginated WAS findings plus an X-Salted-Checksum header for integrity.
+
+    Notes:
+    - Authorization is enforced via `is_global_write_admin`.
+    - Pagination is controlled by `page` and `per_page`.
+    - The response body is JSON-serializable and signed with a salted checksum header.
+    """
+    # Enforce write-admin access using the shared helper (no functional change)
+    if not is_global_write_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized access.",
+        )
+
+    try:
+        queryset = get_was_findings_queryset(since_date)
+        total_pages, records = paginate_queryset(queryset, page, per_page)
+    except Exception as error:
+        LOGGER.exception("Failed to build WAS findings page: %s", error)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected error: {}".format(error),
+        ) from error
+
+    payload_items = [
+        WasFinding.model_validate(record, from_attributes=True) for record in records
+    ]
+    response_body = {
+        "status": "ok",
+        "payload": jsonable_encoder(payload_items),
+        "total_pages": total_pages,
+        "current_page": page,
+    }
+
+    # Keep the same 201 return and checksum behavior
+    return build_checksum_response(response_body, response, status.HTTP_201_CREATED)

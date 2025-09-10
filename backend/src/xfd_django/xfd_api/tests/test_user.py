@@ -1,6 +1,7 @@
 """Test user."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 from unittest.mock import patch
 import uuid
@@ -13,6 +14,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import ApiKey, Organization, Role, User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -138,7 +141,7 @@ def test_invite_by_global_view_should_not_work():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
     assert response.json() == {"detail": "Unauthorized access."}
 
@@ -170,7 +173,7 @@ def test_invite_by_organization_admin_should_work():
     )
 
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    print("here")
+    LOGGER.info("here")
     response = client.post(
         "/users",
         json={
@@ -556,7 +559,7 @@ def test_register_approve_success(mock_email):
     assert data["body"] == "User registration approved."
     mock_email.assert_called_once_with(
         user_to_approve.email,
-        subject="CyHy Dashboard Registration Approved",
+        subject="CISA CyHy Dashboard Account Approved",
         first_name=user_to_approve.first_name,
         last_name=user_to_approve.last_name,
         template="crossfeed_approval_notification.html",
@@ -663,7 +666,7 @@ def test_register_deny_unauthorized_region():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized region access."
 
@@ -999,7 +1002,7 @@ def test_get_users_by_region_id_as_regional_admin():
         "/users/region_id/1",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
-    print(response.json())
+    LOGGER.info(response.json())
 
     assert response.status_code == 200
     data = response.json()
@@ -1800,6 +1803,7 @@ def test_standard_user_updates_other_unauthenticated():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        first_login=True,
     )
     user_to_update = User.objects.create(
         first_name="Test",
@@ -1808,6 +1812,7 @@ def test_standard_user_updates_other_unauthenticated():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        first_login=True,
     )
     payload = {}
     response = client.put(
@@ -1830,7 +1835,6 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=False,
     )
 
@@ -1838,9 +1842,9 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         "first_name": "Updated",
         "last_name": "New",
         "invite_pending": False,
-        "first_login": False,
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
+        "first_login": False,
     }
 
     response = client.put(
@@ -1848,12 +1852,12 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
-    print("Bang Bang", response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"
-    assert response.json()["first_login"] is None
     assert response.json()["approved_by"] is None
+    assert response.json()["first_login"] is False
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1867,7 +1871,6 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=False,
     )
 
@@ -1879,14 +1882,12 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=True,
     )
     payload = {
         "first_name": "Updated",
         "last_name": "New",
         "invite_pending": False,
-        "first_login": False,
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
     }
@@ -1899,7 +1900,6 @@ def test_regional_user_updates_other_confirm_authorized_fields():
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"
-    assert response.json()["first_login"] is None
     assert response.json()["date_approved"] is None
 
 

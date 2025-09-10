@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, TextField, useTheme } from '@mui/material';
+import { Box, Button, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { useAuthContext } from 'context';
 import { useStaticsContext } from 'context/StaticsContext';
@@ -46,7 +46,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
     undefined
   );
-  const theme = useTheme();
+
   const userLevel = useUserLevel().userLevel;
 
   const shallowCurrentOrg = (currentOrganization: Organization | null) => {
@@ -68,91 +68,107 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
-      try {
-        const results = await apiPost<{
-          body: { hits: { hits: { _source: OrganizationShallow }[] } };
-        }>('/search/organizations', {
-          body: {
-            search_term,
-            regions
-          }
-        });
-
-        const body = results?.body?.hits?.hits;
-        if (!Array.isArray(body)) {
-          return [];
-        }
-
-        const orgs = results.body.hits.hits.map((hit) => hit._source);
-
-        // Filter out organizations that match the exclusions
-        const refinedOrgs = orgs.filter((org) => {
-          let exlude = false;
-          ORGANIZATION_EXCLUSIONS.forEach((exc) => {
-            if (org.name.toLowerCase().includes(exc)) {
-              exlude = true;
+      if (userLevel !== STANDARD_USER) {
+        try {
+          const results = await apiPost<{
+            body: { hits: { hits: { _source: OrganizationShallow }[] } };
+          }>('/search/organizations', {
+            body: {
+              search_term,
+              regions
             }
           });
-          return !exlude;
-        });
-        // Filter out organizations that are already in the filters
-        const filteredOrgs = refinedOrgs.filter(
-          (org) =>
-            !filters.find(
-              (filter) =>
-                filter.field === ORGANIZATION_FILTER_KEY &&
-                filter.values.find(
-                  (value: { id: string }) => value.id === org.id
-                )
-            )
-        );
-        // Sort filtered orgs by name
-        const sortedOrgs = filteredOrgs.sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
 
-        // Utility function to replce HTML encodings
-        const decodeHtml = (org_name: string): string => {
-          const encodings: { [key: string]: string } = {
-            '&amp;': '&',
-            '&lt;': '<',
-            '&gt;': '>',
-            '&quot;': '"',
-            '&#039;': "'"
-          };
-          return org_name.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, (m) => {
-            return encodings[m];
+          const body = results?.body?.hits?.hits;
+          if (!Array.isArray(body)) {
+            return [];
+          }
+
+          const orgs = results.body.hits.hits.map((hit) => hit._source);
+
+          // Filter out organizations that match the exclusions
+          const refinedOrgs = orgs.filter((org) => {
+            let exlude = false;
+            ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+              if (org.name.toLowerCase().includes(exc)) {
+                exlude = true;
+              }
+            });
+            return !exlude;
           });
-        };
-        // Decode HTML encodings in org names
-        sortedOrgs.forEach((org) => {
-          org.name = decodeHtml(org.name);
-        });
+          // Filter out organizations that are already in the filters
+          const filteredOrgs = refinedOrgs.filter(
+            (org) =>
+              !filters.find(
+                (filter) =>
+                  filter.field === ORGANIZATION_FILTER_KEY &&
+                  filter.values.find(
+                    (value: { id: string }) => value.id === org.id
+                  )
+              )
+          );
+          // Sort filtered orgs by name
+          const sortedOrgs = filteredOrgs.sort((a, b) =>
+            a.name.localeCompare(b.name)
+          );
 
-        setOrgResults(sortedOrgs);
-      } catch (e) {
-        console.log(e);
+          // Utility function to replce HTML encodings
+          const decodeHtml = (org_name: string): string => {
+            const encodings: { [key: string]: string } = {
+              '&amp;': '&',
+              '&lt;': '<',
+              '&gt;': '>',
+              '&quot;': '"',
+              '&#039;': "'"
+            };
+            return org_name.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, (m) => {
+              return encodings[m];
+            });
+          };
+          // Decode HTML encodings in org names
+          sortedOrgs.forEach((org) => {
+            org.name = decodeHtml(org.name);
+          });
+
+          setOrgResults(sortedOrgs);
+        } catch (e) {
+          console.log(e);
+        }
       }
     },
     [apiPost, setOrgResults, filters]
   );
+
+  const allRegionsOption = 'All Regions';
+
+  const allRegions = useMemo(() => {
+    if (userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) {
+      return [allRegionsOption, ...regions];
+    }
+    return regions;
+  }, [allRegionsOption, regions]);
 
   const regionFilterValues = useMemo(() => {
     const regionFilter = filters.find(
       (filter) => filter.field === REGION_FILTER_KEY
     );
     const userRegion = user?.region_id;
-    //Applies user's region id on initial load
+
+    if (selectedRegion === allRegionsOption) {
+      // If "All Regions" is selected, include all regions
+      return regions;
+    }
+    // Applies user's region id on initial load
     if (
       !regionFilter ||
       !Array.isArray(regionFilter.values) ||
-      (regionFilter.values.length === 10 &&
+      (regionFilter.values.length === regions.length &&
         regionFilter.values.includes(userRegion))
     ) {
       return userRegion ? [userRegion] : [];
     }
     return regionFilter.values as string[];
-  }, [filters, user?.region_id]);
+  }, [filters, user?.region_id, selectedRegion, regions]);
 
   useEffect(() => {
     searchOrganizations(search_term, regionFilterValues ?? []);
@@ -176,8 +192,14 @@ export const VSDashRegionAndOrgFilters: React.FC<
       existingOrgs.forEach((existingOrg: OrganizationShallow) => {
         removeFilter(ORGANIZATION_FILTER_KEY, existingOrg, 'any');
       });
+      if (region_id === allRegionsOption) {
+        regions.forEach((region) => {
+          addFilter(REGION_FILTER_KEY, region, 'any');
+        });
+      } else {
+        addFilter(REGION_FILTER_KEY, region_id, 'any');
+      }
 
-      addFilter(REGION_FILTER_KEY, region_id, 'any');
       setSelectedRegion(region_id);
       setSelectedOrg(undefined);
       setSearchTerm('');
@@ -202,10 +224,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
   return (
     <>
-      <Box
-        padding={2}
-        sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
-      >
+      <Box padding={2}>
         <Autocomplete
           value={selectedRegion ?? user?.region_id ?? ''}
           onChange={(e, v) => {
@@ -229,8 +248,10 @@ export const VSDashRegionAndOrgFilters: React.FC<
           onOpen={() => {
             setIsRegOpen(true);
           }}
-          options={regions}
-          getOptionLabel={(option) => `Region ${option}`}
+          options={allRegions}
+          getOptionLabel={(option) =>
+            allRegionsOption === option ? allRegionsOption : `Region ${option}`
+          }
           slotProps={{
             listbox: {
               sx: {
@@ -268,7 +289,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
                     }, 250)
                   }
                 >
-                  {`Region ${option}`}
+                  {option === allRegionsOption
+                    ? allRegionsOption
+                    : `Region ${option}`}
                 </Button>
               </li>
             );
@@ -277,7 +300,11 @@ export const VSDashRegionAndOrgFilters: React.FC<
             <TextField
               {...params}
               label="Region"
-              placeholder={userLevel === GLOBAL_ADMIN ? 'Select Region' : ''}
+              placeholder={
+                userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
+                  ? 'Select Region'
+                  : ''
+              }
               onBlur={() => setIsRegOpen(false)}
             />
           )}

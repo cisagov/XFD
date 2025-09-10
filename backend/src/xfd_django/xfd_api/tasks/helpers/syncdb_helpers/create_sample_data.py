@@ -6,7 +6,9 @@ from decimal import Decimal
 import hashlib
 import ipaddress
 import json
+import logging
 import os
+from pathlib import Path
 import random
 import secrets
 import string
@@ -21,11 +23,10 @@ from django.utils import timezone
 from faker import Faker
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
 from xfd_api.models import Domain, Service, Vulnerability
+from xfd_api.schema_models.scan import SCAN_SCHEMA
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.tasks.refresh_vs_summaries import handler as refresh_vs_summaries
-from xfd_api.utils.scan_utils.vuln_scanning_sync_utils import (
-    fill_cidr_live_ips_bulk_update,
-)
+from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
 from xfd_mini_dl.models import (
     ApiKey,
     Cidr,
@@ -36,6 +37,8 @@ from xfd_mini_dl.models import (
     Location,
     Organization,
     PortScan,
+    Scan,
+    ScanResult,
     Ticket,
     TicketEvent,
     User,
@@ -44,6 +47,7 @@ from xfd_mini_dl.models import (
 )
 
 fake = Faker()
+LOGGER = logging.getLogger(__name__)
 
 # Constants for sample data generation
 SAMPLE_TAG_NAME = "Sample Data"
@@ -109,7 +113,7 @@ def create_ip_within_org_cidr(org: Organization) -> Optional[Ip]:
         except ValueError:
             continue
 
-    print(f"⚠️ Failed to generate IP from any CIDR for org: {org}")
+    LOGGER.warning("⚠️ Failed to generate IP from any CIDR for org: %s", org)
     return None
 
 
@@ -499,7 +503,7 @@ def gen_orgs(num_orgs):
     )
 
     orgs = []
-    print(f"Generating {num_orgs} organizations...")
+    LOGGER.info("Generating %d organizations...", num_orgs)
     for i in range(num_orgs):
         try:
             company = fake.company()
@@ -563,7 +567,7 @@ def gen_orgs(num_orgs):
             create_api_key_for_user(test_user)
         except IntegrityError:
             continue
-    print(f"Generated {len(orgs)} organizations.")
+    LOGGER.info("Generated %d organizations.", len(orgs))
     return orgs
 
 
@@ -616,7 +620,7 @@ def create_cidrs_for_org(org, cidr_list, data_source=None, ips_per_cidr=4):
                 )
 
         except ValueError:
-            print(f"Skipping invalid CIDR: {cidr_str}")
+            LOGGER.warning("Skipping invalid CIDR: %s", cidr_str)
 
 
 def populate_sample_data():
@@ -631,9 +635,11 @@ def populate_sample_data():
         cidrs = generate_cidr_blocks()
         create_cidrs_for_org(org, cidrs)
 
-    print("Populating vuln_scans, port_scans, tickets, and ticket_events...")
+    LOGGER.info("Populating vuln_scans, port_scans, tickets, and ticket_events...")
     for idx, org in enumerate(orgs, start=1):
         try:
+            if idx == 1:
+                continue
             with transaction.atomic():
                 # Bulk create CVEs (once per run)
                 build_fake_cve()  # Generates 1 or skips if exists. You could loop N times if needed.
@@ -670,7 +676,7 @@ def populate_sample_data():
                 TicketEvent.objects.bulk_create(all_events, batch_size=100)
 
         except Exception as e:
-            print(f"\n❌ Error while processing org {org.name}: {e}")
+            LOGGER.error("❌ Error while processing org %s: %s", org.name, e)
             continue
 
         # Progress bar
@@ -683,17 +689,17 @@ def populate_sample_data():
         )
         sys.stdout.flush()
 
-    # fill_cidr_live_ips()
+    # Fill CIDR Live Ips
     fill_cidr_live_ips_bulk_update()
 
     # Create or refresh materialized views
     result = refresh_materialized_views({})
-    print(result)
+    LOGGER.info(result)
 
     # Refresh VS Summaries for local
     refresh_vs_summaries({})
 
-    print("\n✅ Done populating all data.")
+    LOGGER.info("✅ Done populating all data.")
 
 
 def create_sample_user(organization):
@@ -737,6 +743,14 @@ def create_test_user(organization):
 
 def create_api_key_for_user(user):
     """Create a sample API key linked to a user."""
+    "Check if an API key already exists for the user"
+    existing_key = ApiKey.objects.filter(user=user).order_by("-created_at").first()
+    if existing_key:
+        # We can't return the full raw key since only the hash is stored.
+        # Instead, raise an error to prevent duplicate creation or handle accordingly.
+        raise ValueError(
+            f"User {user.email} already has an API key (last four: {existing_key.last_four})."
+        )
     # Generate a random 16-byte API key
     key = secrets.token_hex(16)
 
@@ -753,11 +767,55 @@ def create_api_key_for_user(user):
     )
 
     # Print the raw key for debugging or manual testing
-    print(
-        "Created API key for user, keep this and enter at .env file CF_API_KEY {}: {}".format(
-            user.email, key
-        )
+    LOGGER.debug(
+        "Created API key for user, keep this and enter at .env file CF_API_KEY %s: %s",
+        user.email,
+        key,
     )
+    return key
+
+
+def write_api_key_to_env_file(key):
+    """
+    In the app/xfd_api/tasks directory, replace or append CF_API_KEY=<key>.
+
+    in .env. If .env does not exist there, create it.
+    """
+    # 1) Construct the path to app/xfd_api/tasks relative to the container’s /app cwd
+    tasks_directory = Path.cwd() / "xfd_api" / "tasks"
+    env_path = tasks_directory / ".env"
+
+    # 2) Ensure the tasks directory exists
+    if not tasks_directory.exists() or not tasks_directory.is_dir():
+        LOGGER.error(
+            "Error: tasks directory does not exist ",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    # 3) If .env exists in that directory, read + replace or append CF_API_KEY
+    key_prefix = "CF_API_KEY="
+    if env_path.exists() and env_path.is_file():
+        existing_lines = env_path.read_text(encoding="utf-8").splitlines()
+        updated_lines = []
+        did_replace = False
+
+        for line in existing_lines:
+            if line.startswith(key_prefix):
+                updated_lines.append(f"{key_prefix}{key}")
+                did_replace = True
+            else:
+                updated_lines.append(line)
+
+        if not did_replace:
+            # No existing CF_API_KEY line → append it
+            updated_lines.append(f"{key_prefix}{key}")
+
+        env_path.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+
+    # 4) If .env doesn’t exist, create it and write CF_API_KEY
+    else:
+        env_path.write_text(f"{key_prefix}{key}\n", encoding="utf-8")
 
 
 def generate_random_name():
@@ -851,3 +909,86 @@ def create_sample_services_and_vulnerabilities(domain):
             actions=[],
             structuredData={},
         )
+
+
+def generate_scan_results(num_results=7360, days_back=92):
+    """Generate list of dummy ScanResult records."""
+    non_global_scans = {
+        name
+        for name, schema in SCAN_SCHEMA.items()
+        if getattr(schema, "global_scan", True) is False
+    }
+
+    scan_ids = list(
+        Scan.objects.filter(name__in=non_global_scans).values_list("id", flat=True)
+    )
+    org_ids = list(Organization.objects.values_list("id", flat=True))
+
+    status_weights = {
+        200: 60,  # Heavily favored
+        500: 10,
+        204: 8,
+        400: 5,
+        401: 4,
+        403: 4,
+        404: 4,
+        502: 2,
+        503: 2,
+        100: 1,
+        301: 1,
+    }
+
+    weighted_status_pool = [
+        code for code, weight in status_weights.items() for _ in range(weight)
+    ]
+
+    status_messages = {
+        100: "Continue",
+        200: "OK",
+        204: "No Content",
+        301: "Moved Permanently",
+        400: "Bad Request",
+        401: "Unauthorized",
+        403: "Forbidden",
+        404: "Not Found",
+        500: "Internal Server Error",
+        502: "Bad Gateway",
+        503: "Service Unavailable",
+    }
+
+    scans = {s.id: s for s in Scan.objects.filter(id__in=scan_ids)}
+    orgs = {o.id: o for o in Organization.objects.filter(id__in=org_ids)}
+
+    now = timezone.now()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(
+        days=days_back
+    )
+    total_seconds = (now - start).total_seconds()
+
+    records = []
+    for _ in range(num_results):
+        scan_id = random.choice(scan_ids)
+        org_id = random.choice(org_ids)
+        status = random.choice(weighted_status_pool)
+
+        records.append(
+            ScanResult(
+                id=uuid.uuid4(),
+                scanned_at=start + timedelta(seconds=random.uniform(0, total_seconds)),
+                http_status=status,
+                message=status_messages.get(status, ""),
+                scan=scans[scan_id],
+                organization=orgs[org_id],
+            )
+        )
+
+    return records
+
+
+@transaction.atomic
+def populate_scan_results():
+    """Populate the ScanResult table with dummy data."""
+    LOGGER.info("Populating scan results...")
+    records = generate_scan_results()
+    ScanResult.objects.bulk_create(records, batch_size=4000)
+    LOGGER.info("Inserted {} scan results.".format(len(records)))

@@ -52,7 +52,7 @@ update-ca-certificates
 
 # Main code
 echo "Running main worker script..."
-timeout 1d python worker/worker.py "$@"
+timeout 30d python worker/worker.py "$@"
 
 # Stop the proxy
 echo "Stopping proxy..."

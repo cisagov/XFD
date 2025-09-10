@@ -169,7 +169,7 @@ export const RegisterForm: React.FC<{
           margin="dense"
           size="small"
           id="email"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="email"
           placeholder="Enter your Email Address"
           type="text"
@@ -191,7 +191,7 @@ export const RegisterForm: React.FC<{
           margin="dense"
           size="small"
           id="first_name"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="first_name"
           placeholder="Enter your First Name"
           type="text"
@@ -211,7 +211,7 @@ export const RegisterForm: React.FC<{
           margin="dense"
           size="small"
           id="last_name"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="last_name"
           placeholder="Enter your Last Name"
           type="text"

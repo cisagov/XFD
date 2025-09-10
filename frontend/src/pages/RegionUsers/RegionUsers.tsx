@@ -17,6 +17,7 @@ import { CheckCircleOutline as CheckIcon } from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { formatDate, parseISO } from 'date-fns';
+import { render } from '@testing-library/react';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -54,15 +55,85 @@ export const RegionUsers: React.FC = () => {
   const getUsersURL = `/v2/users?invite_pending=`;
 
   const pendingCols: GridColDef[] = [
-    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'email', headerName: 'Email', minWidth: 100, flex: 2 },
-    { field: 'state', headerName: 'State', minWidth: 100, flex: 1 },
-    { field: 'created_at', headerName: 'Created At', minWidth: 100, flex: 1.5 },
+    {
+      field: 'full_name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
+          >
+            {cellValues.row.full_name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
+          >
+            {cellValues.row.email}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State for User ${cellValues.row.full_name}: ${cellValues.row.state}`}
+          >
+            {cellValues.row.state}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'created_at',
+      headerName: 'Created At',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Created At Date for User ${cellValues.row.full_name}: ${cellValues.row.created_at}`}
+          >
+            {cellValues.row.created_at}
+          </Box>
+        );
+      }
+    },
     {
       field: 'cognito_use_case_description',
       headerName: 'Use Case',
       minWidth: 255,
-      flex: 1.5
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Use Case for ${cellValues.row.full_name}: ${cellValues.row.cognito_use_case_description}`}
+          >
+            {cellValues.row.cognito_use_case_description}
+          </Box>
+        );
+      }
     },
     {
       field: 'status',
@@ -71,13 +142,14 @@ export const RegionUsers: React.FC = () => {
       flex: 2,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} mt={1}>
             <Button
               variant="contained"
               endIcon={<DoneIcon />}
               color="success"
               onClick={() => handleApproveClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
+              aria-label={`Approve User: ${cellValues.row.full_name}`}
             >
               Approve
             </Button>
@@ -87,6 +159,7 @@ export const RegionUsers: React.FC = () => {
               color="error"
               onClick={() => handleDenyClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
+              aria-label={`Deny User: ${cellValues.row.full_name}`}
             >
               Deny
             </Button>
@@ -96,36 +169,156 @@ export const RegionUsers: React.FC = () => {
     }
   ];
   const memberCols: GridColDef[] = [
-    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'email', headerName: 'Email', minWidth: 100, flex: 2 },
-    { field: 'state', headerName: 'State', minWidth: 100, flex: 1 },
+    {
+      field: 'full_name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
+          >
+            {cellValues.row.full_name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
+          >
+            {cellValues.row.email}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State for User ${cellValues.row.full_name}: ${cellValues.row.state}`}
+          >
+            {cellValues.row.state}
+          </Box>
+        );
+      }
+    },
     {
       field: 'last_logged_in',
       headerName: 'Last Logged In',
       minWidth: 100,
-      flex: 1.5
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Last Logged In Date for User ${cellValues.row.full_name}: ${cellValues.row.last_logged_in}`}
+          >
+            {cellValues.row.last_logged_in}
+          </Box>
+        );
+      }
     },
     {
       field: 'organizations',
       headerName: 'Organizations',
       minWidth: 250,
-      flex: 2
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.organizations.join(', ')}`}
+          >
+            {cellValues.row.organizations.join(', ')}
+          </Box>
+        );
+      }
     }
   ];
   const regionIdColumn = {
     field: 'region_id',
     headerName: 'Region',
     minWidth: 100,
-    flex: 0.5
+    flex: 0.5,
+    renderCell: (cellValues: GridRenderCellParams) => {
+      return (
+        <Box
+          component="span"
+          aria-label={`Region ID for User ${cellValues.row.full_name}: ${cellValues.row.region_id}`}
+        >
+          {cellValues.row.region_id}
+        </Box>
+      );
+    }
   };
   if (user?.user_type !== 'regionalAdmin') {
     pendingCols.unshift(regionIdColumn);
     memberCols.unshift(regionIdColumn);
   }
   const orgCols: GridColDef[] = [
-    { field: 'name', headerName: 'Name', minWidth: 100, flex: 2 },
-    { field: 'updated_at', headerName: 'Updated At', minWidth: 100, flex: 1 },
-    { field: 'state_name', headerName: 'State', minWidth: 100, flex: 1 }
+    {
+      field: 'name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization Name: ${cellValues.row.name}`}
+          >
+            {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'updated_at',
+      headerName: 'Updated At',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Date Updated At for Organization ${cellValues.row.name}: ${cellValues.row.updated_at}`}
+          >
+            {cellValues.row.updated_at}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state_name',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State Name for Organization ${cellValues.row.name}: ${cellValues.row.state_name}`}
+          >
+            {cellValues.row.state_name}
+          </Box>
+        );
+      }
+    }
   ];
   const [dialogStates, setDialogStates] = useState<DialogStates>({
     isOrgDialogOpen: false,
@@ -140,18 +333,32 @@ export const RegionUsers: React.FC = () => {
     getDeleteError: ''
   });
   const [selectedUser, selectUser] = useState<User>(initializeUser);
-  const [selectedOrg, selectOrg] = useState<GridRowSelectionModel>([]);
+  const [selectedOrg, setSelectedOrg] = React.useState<GridRowSelectionModel>({
+    type: 'include',
+    ids: new Set<string | number>()
+  });
   const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
 
   const fetchOrganizations = async (row: User) => {
+    if (!row.region_id) {
+      setOrganizations([]);
+      setErrorStates((prev) => ({
+        ...prev,
+        getOrgsError: 'This user has no region assigned.'
+      }));
+      return;
+    }
     try {
       const rows = await apiGet<OrganizationType[]>(getOrgsURL + row.region_id);
       setOrganizations(rows);
       if (row.roles.length > 0) {
-        selectOrg([row.roles[0].organization.id]);
+        setSelectedOrg({
+          type: 'include',
+          ids: new Set([row.roles[0].organization.id])
+        });
       }
       setErrorStates({ ...errorStates, getOrgsError: '', getUpdateError: '' });
     } catch (e: any) {
@@ -197,7 +404,7 @@ export const RegionUsers: React.FC = () => {
     (user_id: string): Promise<boolean> => {
       return apiDelete(`/users/${user_id}`).then(
         () => {
-          apiRefPendingUsers.current.updateRows([
+          apiRefPendingUsers.current?.updateRows([
             { id: user_id, _action: 'delete' }
           ]);
           setPendingUsers((prevPendingUsers) =>
@@ -238,14 +445,14 @@ export const RegionUsers: React.FC = () => {
         body: { invite_pending: false }
       }).then(
         (res) => {
-          apiRefPendingUsers.current.updateRows([
+          apiRefPendingUsers.current?.updateRows([
             { id: user_id, _action: 'delete' }
           ]);
           setPendingUsers((prevPendingUsers) =>
             prevPendingUsers.filter((user) => user.id !== user_id)
           );
           res['organizations'] = org_name;
-          apiRefCurrentUsers.current.updateRows([res]);
+          apiRefCurrentUsers.current?.updateRows([res]);
           setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
           return sendApprovalEmail(user_id);
         },
@@ -297,7 +504,10 @@ export const RegionUsers: React.FC = () => {
   };
 
   const handleApproveClick = (row: typeof initializeUser) => {
-    selectOrg([]);
+    setSelectedOrg({
+      type: 'include',
+      ids: new Set<string | number>()
+    });
     setDialogStates({
       ...dialogStates,
       isOrgDialogOpen: true
@@ -351,7 +561,10 @@ export const RegionUsers: React.FC = () => {
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
         : '';
-      const selectedOrgId = selectedOrg[0].toString();
+      const selectedOrgId =
+        selectedOrg.ids.size > 0
+          ? Array.from(selectedOrg.ids)[0].toString()
+          : null;
       let success = false;
       // If the user's org was already added and not modified, only update the user.
       if (userHadOrg && originalOrgId === selectedOrgId) {
@@ -385,76 +598,81 @@ export const RegionUsers: React.FC = () => {
       setErrorStates({ ...errorStates, getUpdateError: e.message });
     }
   };
-  const onRowSelectionModelChange = (newRowSelectionModel: any) => {
-    if (newRowSelectionModel.length > 1) {
-      const selectionSet = new Set(selectedOrg);
-      const result = newRowSelectionModel.filter(
-        (s: any) => !selectionSet.has(s)
-      );
-      selectOrg(result);
+  const onRowSelectionModelChange = (
+    newRowSelectionModel: GridRowSelectionModel
+  ) => {
+    const newIds = Array.isArray(newRowSelectionModel)
+      ? newRowSelectionModel
+      : Array.from(newRowSelectionModel.ids);
+
+    if (newIds.length > 1) {
+      const lastSelected = newIds[newIds.length - 1];
+      setSelectedOrg({
+        type: 'include',
+        ids: new Set([lastSelected])
+      });
+    } else if (newIds.length === 1) {
+      setSelectedOrg({
+        type: 'include',
+        ids: new Set(newIds)
+      });
     } else {
-      selectOrg(newRowSelectionModel);
+      setSelectedOrg({
+        type: 'include',
+        ids: new Set()
+      });
     }
   };
 
   return (
-    <Box m={5} sx={{ minHeight: '1500px' }}>
-      <Box
-        sx={{
-          maxWidth: '1700px',
-          m: 'auto'
-        }}
-      >
-        <Box sx={{ m: 'auto', maxWidth: '1500px', px: 2, py: 5 }}>
-          <Typography variant="h1" style={{ fontSize: '2.125rem' }}>
-            {`${formattedUserType} Dashboard`}
-          </Typography>
-          <br />
-          <Typography
-            variant="h2"
-            style={{ fontSize: '1.25rem' }}
-            pb={2}
-            pt={2}
-          >
-            Pending Requests
-          </Typography>
-          <Paper sx={{ height: '387px' }}>
-            <DataGrid
-              apiRef={apiRefPendingUsers}
-              columns={pendingCols}
-              rows={pendingUsers}
-              disableRowSelectionOnClick
-              autoPageSize
-            />
-          </Paper>
-          {errorStates.getUsersError && (
-            <Alert severity="error">
-              Error retrieving users from the database:{' '}
-              {errorStates.getUsersError}
-            </Alert>
-          )}
-          <Typography
-            variant="h2"
-            style={{ fontSize: '1.25rem' }}
-            pb={2}
-            pt={5}
-          >
-            Members of
-            {user?.user_type === 'regionalAdmin'
-              ? ` Region ${regionalAdminId}`
-              : ' all regions'}
-          </Typography>
-          <Paper sx={{ height: '667px' }}>
-            <DataGrid
-              apiRef={apiRefCurrentUsers}
-              columns={memberCols}
-              rows={currentUsers}
-              disableRowSelectionOnClick
-              slots={{ toolbar: GridToolbar }}
-              autoPageSize
-            />
-          </Paper>
-        </Box>
+    <Box
+      display="flex"
+      flexDirection="column"
+      minHeight="100vh"
+      maxWidth="1152px"
+      width="100%"
+      margin="auto"
+    >
+      <Box sx={{ px: 2, py: 5 }}>
+        <Typography variant="h1" style={{ fontSize: '2.125rem' }}>
+          {`${formattedUserType} Dashboard`}
+        </Typography>
+        <br />
+        <Typography variant="h2" style={{ fontSize: '1.25rem' }} pb={2} pt={2}>
+          Pending Requests
+        </Typography>
+        <Paper sx={{ height: '387px' }}>
+          <DataGrid
+            apiRef={apiRefPendingUsers}
+            columns={pendingCols}
+            rows={pendingUsers}
+            disableRowSelectionOnClick
+            autoPageSize
+          />
+        </Paper>
+        {errorStates.getUsersError && (
+          <Alert severity="error">
+            Error retrieving users from the database:{' '}
+            {errorStates.getUsersError}
+          </Alert>
+        )}
+        <Typography variant="h2" style={{ fontSize: '1.25rem' }} pb={2} pt={5}>
+          Members of
+          {user?.user_type === 'regionalAdmin'
+            ? ` Region ${regionalAdminId}`
+            : ' all regions'}
+        </Typography>
+        <Paper sx={{ height: '667px' }}>
+          <DataGrid
+            apiRef={apiRefCurrentUsers}
+            columns={memberCols}
+            rows={currentUsers}
+            disableRowSelectionOnClick
+            slots={{ toolbar: GridToolbar }}
+            autoPageSize
+            showToolbar
+          />
+        </Paper>
       </Box>
       <ConfirmDialog
         isOpen={dialogStates.isOrgDialogOpen}
@@ -473,7 +691,7 @@ export const RegionUsers: React.FC = () => {
                 checkboxSelection
                 onRowSelectionModelChange={onRowSelectionModelChange}
                 rowSelectionModel={selectedOrg}
-                rows={organizations}
+                rows={organizations ?? []}
                 columns={orgCols}
                 slots={{ toolbar: GridToolbar }}
                 slotProps={{
@@ -487,6 +705,8 @@ export const RegionUsers: React.FC = () => {
                       display: 'none'
                     }
                 }}
+                disableRowSelectionOnClick
+                showToolbar
               />
             </Paper>
             {errorStates.getOrgsError && (
@@ -494,9 +714,9 @@ export const RegionUsers: React.FC = () => {
                 Error retrieving organizations: {errorStates.getOrgsError}
               </Alert>
             )}
-            {selectedOrg.length !== 0 &&
+            {selectedOrg.ids.size !== 0 &&
               errorStates.getUpdateError.length === 0 && (
-                <Alert severity="info">
+                <Alert severity="info" sx={{ mt: 2 }}>
                   {selectedUser.full_name} will become a member of the selected
                   organization.
                 </Alert>
@@ -509,7 +729,7 @@ export const RegionUsers: React.FC = () => {
             )}
           </>
         }
-        disabled={selectedOrg.length === 0 ? true : false}
+        disabled={selectedOrg.ids.size === 0}
         screenWidth="lg"
       />
       <ConfirmDialog

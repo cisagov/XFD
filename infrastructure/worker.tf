@@ -170,7 +170,7 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
         "s3:PutObjectAcl"
       ],
       "Resource": [
-        "${aws_s3_bucket.export_bucket.arn}/*"
+        "*"
       ]
     },
     {
@@ -263,6 +263,10 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "XPANSE_ORG_SYNC_BUCKET_NAME",
         "value": "${var.xpanse_org_sync_bucket_name}"
+      },
+      {
+        "name": "ZSCALER_CERT_BUCKET_NAME",
+        "value": "${var.zscaler_cert_bucket_name}"
       }
     ],
     "secrets": [

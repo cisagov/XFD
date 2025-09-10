@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 # Standard Python Libraries
+import logging.config
 import mimetypes
 import os
 
@@ -20,8 +21,12 @@ from pathlib import Path
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.log_helpers import install_xfd_prefix
+
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
+
+install_xfd_prefix()  # Install custom logger prefix
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -50,6 +55,8 @@ ALLOWED_HOSTS = [
     os.getenv("BACKEND_DOMAIN"),
     os.getenv("VITE_API_URL"),
     os.getenv("FRONTEND_DOMAIN"),
+    os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
+    os.getenv("CROSSFEED_BACKEND_DOMAIN"),
 ]
 
 MESSAGE_TAGS = {
@@ -130,6 +137,41 @@ ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 
 LANGUAGE_CODE = "en-us"
 
+# Log Level defaults to INFO, can be changed to DEBUG in development
+LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
+ROOT_LEVEL = "INFO"
+# Logging configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "standard": {
+            "format": "[%(asctime)s.%(msecs)03d] %(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": LOGGING_LEVEL,
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": ROOT_LEVEL,
+    },
+    "loggers": {
+        "xfd": {
+            "handlers": ["console"],
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+    },
+}
+# Apply the logging configuration
+logging.config.dictConfig(LOGGING)
+
 TIME_ZONE = "UTC"
 
 USE_I18N = True
@@ -182,6 +224,7 @@ SECURE_CSP_POLICY = {
         "'self'",
         os.getenv("COGNITO_URL"),
         os.getenv("BACKEND_DOMAIN"),
+        os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
     ],
     "frame-src": ["'self'", "https://www.dhs.gov/ntas/"],
@@ -189,6 +232,7 @@ SECURE_CSP_POLICY = {
         "'self'",
         "data:",
         os.getenv("FRONTEND_DOMAIN"),
+        os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
         "https://www.ssa.gov",
         "https://www.dhs.gov",
         "https://fastapi.tiangolo.com/img/favicon.png",
@@ -197,6 +241,7 @@ SECURE_CSP_POLICY = {
     "script-src": [
         "'self'",
         os.getenv("BACKEND_DOMAIN"),
+        os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
         "https://www.ssa.gov/accessibility/andi/fandi.js",
         "https://www.ssa.gov/accessibility/andi/andi.js",

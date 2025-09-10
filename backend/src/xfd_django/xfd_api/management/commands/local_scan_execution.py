@@ -1,11 +1,15 @@
 """Scan execution."""
 # Standard Python Libraries
 import json
+import logging
 
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 import pika  # For RabbitMQ
 from xfd_api.tasks.scanExecution import handler as scan_execution
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 class Command(BaseCommand):
@@ -71,17 +75,17 @@ class Command(BaseCommand):
                 ),  # Make message persistent
             )
 
-            print("Message sent:", message)
+            LOGGER.info("Message sent: %s", message)
 
             # Close the connection
             connection.close()
         except Exception as e:
-            print("Error sending message to queue {}: {}".format(queue, e))
+            LOGGER.error("Error sending message to queue %s: %s", queue, e)
 
     @staticmethod
     def local_scan_execution(scan_type, desired_count, api_key_list=""):
         """Run the scan execution handler locally."""
-        print("Starting local scan execution...")
+        LOGGER.info("Starting local scan execution...")
         payload = {
             "scanType": scan_type,
             "desiredCount": desired_count,

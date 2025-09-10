@@ -9,7 +9,6 @@ from django.utils import timezone
 import requests
 from xfd_mini_dl.models import Blocklist
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 

@@ -36,7 +36,6 @@ from xfd_mini_dl.models import (
 )
 
 # --- Constants & Logging ---
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
@@ -67,7 +66,9 @@ def normalize_dates(payload: dict) -> dict:
                     record["date"] = dt.date().isoformat()
                 except (AttributeError, TypeError) as e:
                     LOGGER.warning(
-                        f"Unable to format record date for {record.get('id', '<unknown>')}: {e}"
+                        "Unable to format record date for %s: %s",
+                        record.get("id", "<unknown>"),
+                        e,
                     )
 
             # for mentions, keep the full timestamp on collection_date
@@ -77,7 +78,9 @@ def normalize_dates(payload: dict) -> dict:
                     record["collection_date"] = dt.isoformat()
                 except (AttributeError, TypeError) as e:
                     LOGGER.warning(
-                        f"Unable to format collection_date for {record.get('id', '<unknown>')}: {e}"
+                        "Unable to format collection_date for %s: %s",
+                        record.get("id", "<unknown>"),
+                        e,
                     )
 
     return payload
@@ -162,7 +165,8 @@ def main():
             normalized_payload = normalize_dates(wrapper["payload"])
             wrapped_obj = {"status": "ok", "payload": normalized_payload}
             if not validate_response_checksum(wrapped_obj, received_checksum):
-                raise RuntimeError(f"Checksum mismatch on page {current_page}")
+                LOGGER.exception("Checksum mismatch on page %d", current_page)
+                raise RuntimeError
 
             total_pages = normalized_payload["total_pages"]
             fetched_page = normalized_payload["current_page"]

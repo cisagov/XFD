@@ -1,10 +1,13 @@
 """Docker event listener."""
 # Standard Python Libraries
 import json
+import logging
 import time
 
 # Third-Party Libraries
 from django.conf import settings
+
+LOGGER = logging.getLogger(__name__)
 
 if settings.IS_LOCAL:
     # Third-Party Libraries
@@ -21,12 +24,12 @@ def listen_for_docker_events():
         if settings.IS_LOCAL:
             try:
                 client = DockerClient.from_env()
-                print("Listening for Docker events...")
+                LOGGER.info("Listening for Docker events...")
             except Exception as e:
-                print("Failed to connect to Docker:", e)
+                LOGGER.error("Failed to connect to Docker: %s", e)
                 return
         else:
-            print("Skipping Docker event listener because IS_LOCAL=False")
+            LOGGER.warning("Skipping Docker event listener because IS_LOCAL=False")
             return
 
         for event in client.events(decode=True):
@@ -71,8 +74,8 @@ def listen_for_docker_events():
                     continue
 
                 # Log and process the event
-                print(
-                    "Processing Docker event: {}".format(json.dumps(payload, indent=2))
+                LOGGER.info(
+                    "Processing Docker event: %s", json.dumps(payload, indent=2)
                 )
                 # Retry logic to find the ScanTask before updating
                 for attempt in range(3):
@@ -82,7 +85,7 @@ def listen_for_docker_events():
                     time.sleep(1)  # Wait before retrying
 
             except Exception as e:
-                print("Error processing Docker event: {}".format(e))
+                LOGGER.error("Error processing Docker event: %s", e)
 
     except Exception as e:
-        print("Error connecting to Docker: {}".format(e))
+        LOGGER.error("Error connecting to Docker: %s", e)

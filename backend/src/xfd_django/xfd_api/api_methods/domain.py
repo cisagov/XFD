@@ -3,17 +3,20 @@
 # Standard Python Libraries
 import csv
 import io
+import logging
 
 # Third-Party Libraries
 from django.core.paginator import Paginator
 from django.db.models import Prefetch
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_mini_dl.models import Domain, DomainSearchView, Organization, Service
 
 from ..auth import get_org_memberships, is_global_view_admin
 from ..helpers.filter_helpers import apply_domain_filters, sort_direction
 from ..helpers.s3_client import S3Client
 from ..schema_models.domain import DomainSearch
+
+LOGGER = logging.getLogger(__name__)
 
 
 def get_domain_by_id(domain_id: str):
@@ -39,7 +42,7 @@ def get_domain_by_id(domain_id: str):
             .first()
         )
     except Exception as e:
-        print(e)
+        LOGGER.error("Error occurred while fetching domain by ID: %s", e)
         raise HTTPException(status_code=404, detail="Domain not found.")
 
     try:
@@ -229,5 +232,5 @@ def export_domains(domain_search: DomainSearch, current_user):
 
     except Exception as e:
         # Log the exception for debugging (optional)
-        print("Error exporting domains: {}".format(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error exporting domains: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -1,10 +1,14 @@
 """Run syncdb."""
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
 import django
 from django.core.management import call_command
+
+LOGGER = logging.getLogger(__name__)
+
 
 # Set the Django settings module
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -33,7 +37,7 @@ def handler(event, context):
             "body": "Database synchronization completed successfully.",
         }
     except Exception as e:
-        print("Error during syncdb: {}".format(str(e)))
+        LOGGER.error("Error during syncdb: %s", str(e))
         return {
             "status_code": 500,
             "body": "Database synchronization failed: {}".format(str(e)),

@@ -35,6 +35,7 @@ httpx==0.28.0
 idna==3.10
 iniconfig==2.0.0
 isort==5.13.2
+itsdangerous==2.2.0
 Jinja2==3.1.4
 jmespath==1.0.1
 mangum==0.17.0

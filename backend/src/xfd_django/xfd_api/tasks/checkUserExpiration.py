@@ -1,6 +1,7 @@
 """CheckUserExpiration."""
 # Standard Python Libraries
 from datetime import timedelta
+import logging
 import os
 
 # Third-Party Libraries
@@ -22,6 +23,9 @@ from xfd_mini_dl.models import User
 # AWS Configuration
 cognito_client = boto3.client("cognito-idp", region_name=os.getenv("AWS_REGION"))
 user_pool_id = os.getenv("VITE_USER_POOL_ID")
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 def check_user_expiration():
@@ -51,7 +55,7 @@ def check_user_expiration():
             firstName=user.firstName, lastName=user.lastName
         )
         send_email(user.email, subject, body)
-        print("30-day inactivity notice sent to {}.".format(user.email))
+        LOGGER.info("30-day inactivity notice sent to %s.", user.email)
 
     # Users to deactivate (45 days of inactivity)
     users_to_deactivate = User.objects.filter(
@@ -83,13 +87,11 @@ def check_user_expiration():
                 Password=os.getenv("VITE_RANDOM_PASSWORD"),
                 Permanent=False,
             )
-            print(
-                "Password reset for user {} due to 45 days of inactivity.".format(
-                    user.email
-                )
+            LOGGER.info(
+                "Password reset for user %s due to 45 days of inactivity.", user.email
             )
         except ClientError as e:
-            print("Error resetting password for {}: {}".format(user.email, e))
+            LOGGER.error("Error resetting password for %s: %s", user.email, e)
 
     # Users to remove (90 days of inactivity)
     users_to_remove = User.objects.filter(lastLoggedIn__lt=cutoff_90_days)
@@ -117,17 +119,16 @@ def check_user_expiration():
                 UserPoolId=user_pool_id,
                 Username=user.cognito_id,
             )
-            print("Removed user {} from Cognito.".format(user.email))
+            LOGGER.info("Removed user %s from Cognito.", user.email)
 
             # Remove from database
             user.delete()
-            print(
-                "Removed user {} from the database due to 90 days of inactivity.".format(
-                    user.email
-                )
+            LOGGER.info(
+                "Removed user %s from the database due to 90 days of inactivity.",
+                user.email,
             )
         except ClientError as e:
-            print("Error removing user {}: {}".format(user.email, e))
+            LOGGER.error("Error removing user %s: %s", user.email, e)
 
 
 def handler(event, context):
@@ -139,5 +140,5 @@ def handler(event, context):
             "body": "User expiration check completed successfully.",
         }
     except Exception as e:
-        print("Error during user expiration check: {}".format(e))
+        LOGGER.error("Error during user expiration check: %s", e)
         return {"status_code": 500, "body": str(e)}

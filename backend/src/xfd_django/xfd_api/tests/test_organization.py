@@ -1,6 +1,7 @@
 """Test organizations."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 from unittest.mock import patch
 import uuid
@@ -21,6 +22,8 @@ from xfd_mini_dl.models import (
 )
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 # Test: Creating an organization by global admin should succeed
@@ -117,7 +120,7 @@ def test_create_org_by_global_view_fails():
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    print(user)
+    LOGGER.info(user)
 
     name = "test-{}".format(secrets.token_hex(4))
     acronym = secrets.token_hex(2)
@@ -1909,14 +1912,15 @@ def test_list_organizations_v2_as_global_admin():
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-
-    response = client.get(
-        "/v2/organizations",
+    payload = {"page": 1, "pageSize": 15, "filters": {}}
+    response = client.post(
+        "/v2/organizations/search",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json=payload,
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["result"]
     assert len(data) == 2
     org_ids = [org["id"] for org in data]
     assert str(organization1.id) in org_ids
@@ -1960,13 +1964,15 @@ def test_list_organizations_v2_as_member():
     # Assign user to only one organization
     Role.objects.create(user=user, organization=organization1, role="member")
 
-    response = client.get(
-        "/v2/organizations",
+    payload = {"page": 1, "pageSize": 15, "filters": {}}
+    response = client.post(
+        "/v2/organizations/search",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+        json=payload,
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["result"]
     assert len(data) == 1
     assert data[0]["id"] == str(organization1.id)
 
@@ -1994,13 +2000,15 @@ def test_list_organizations_v2_as_user_without_membership():
         updated_at=datetime.now(),
     )
 
-    response = client.get(
-        "/v2/organizations",
+    payload = {"page": 1, "pageSize": 15, "filters": {}}
+    response = client.post(
+        "/v2/organizations/search",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+        json=payload,
     )
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["result"] == []
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2037,13 +2045,16 @@ def test_list_organizations_v2_filter_by_state():
         updated_at=datetime.now(),
     )
 
-    response = client.get(
-        "/v2/organizations?state=CA",
+    payload = {"page": 1, "pageSize": 15, "filters": {"state": "CA"}}
+
+    response = client.post(
+        "/v2/organizations/search",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json=payload,
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["result"]
     assert len(data) == 1
     assert data[0]["state"] == "CA"
     assert data[0]["id"] == str(organization1.id)
@@ -2067,7 +2078,7 @@ def test_list_organizations_v2_filter_by_region():
         ip_blocks=[],
         is_passive=False,
         state="CA",
-        region_id="region-1",
+        region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -2078,27 +2089,29 @@ def test_list_organizations_v2_filter_by_region():
         ip_blocks=[],
         is_passive=False,
         state="NY",
-        region_id="region-2",
+        region_id="2",
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
 
-    response = client.get(
-        "/v2/organizations?region_id=region-2",
+    payload = {"page": 1, "pageSize": 15, "filters": {"region_id": "2"}}
+    response = client.post(
+        "/v2/organizations/search",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json=payload,
     )
 
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["result"]
     assert len(data) == 1
-    assert data[0]["region_id"] == "region-2"
+    assert data[0]["region_id"] == "2"
     assert data[0]["id"] == str(organization2.id)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_list_organizations_v2_no_auth():
     """Test that an unauthenticated request returns 401."""
-    response = client.get("/v2/organizations")
+    response = client.post("/v2/organizations/search")
     assert response.status_code == 401
 
 
@@ -2125,13 +2138,15 @@ def test_list_organizations_v2_invalid_filter():
         updated_at=datetime.now(),
     )
 
-    response = client.get(
-        "/v2/organizations?state=ZZ",  # Non-existent state code
+    payload = {"page": 1, "pageSize": 15, "filters": {"state": "ZZ"}}
+    response = client.post(
+        "/v2/organizations/search",  # Non-existent state code
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json=payload,
     )
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["result"] == []
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2258,8 +2273,8 @@ def test_search_organizations_no_access():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
-    assert response.status_code == 200
-    assert response.json() == []
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Unauthorized."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

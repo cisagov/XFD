@@ -556,6 +556,13 @@ variable "create_db_accessor_instance" {
   default     = false
 }
 
+variable "create_pe_instance" {
+  description = "Whether to create a PE EC2 instance. This instance can be used to access RDS and is spun up in a private subnet. It can be accessed using AWS Systems Manager Session Manager."
+  type        = bool
+  default     = false
+}
+
+
 variable "create_email_sender_instance" {
   description = "Whether to create a email sending EC2 instance. This instance can be used to access AWS SES and is spun up in a private subnet. It can be accessed using AWS Systems Manager Session Manager."
   type        = bool
@@ -898,4 +905,10 @@ variable "playwright_worker_repository_name" {
   description = "playwright_worker_repository_name"
   type        = string
   default     = "crossfeed-playwright-staging-worker"
+}
+
+variable "zscaler_cert_bucket_name" {
+  description = "zscaler_cert_bucket_name"
+  type        = string
+  default     = "cisa-crossfeed-staging-zscaler"
 }

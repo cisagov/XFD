@@ -58,7 +58,14 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
 
   const advanceFiltersReq = filters.length > 1 || searchTerm !== ''; //Prevents a user from saving a search without advanced filters
 
-  const fetchDomainsExport = async (): Promise<string> => {
+  const allowExport =
+    filters?.find((filter) => filter.field === 'organization_id')?.values
+      ?.length == 1;
+
+  console.log(filters?.find((filter) => filter.field === 'organization_id'));
+  console.log('Allow Export', allowExport);
+
+  const fetchDomainsExport = async (): Promise<string | null> => {
     try {
       const body: any = {
         current,
@@ -79,7 +86,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       return url!;
     } catch (e) {
       console.error(e);
-      return '';
+      return null;
     }
   };
   const userLevel = useUserLevel().userLevel;
@@ -269,6 +276,8 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
               </FormControl>
             </Stack>
             <Button
+              hidden={!allowExport}
+              // disabled={!allowExport}
               variant="outlined"
               onClick={() =>
                 exportCSV(

@@ -1,22 +1,17 @@
 """Django ORM models."""
-# Standard Python Librar
 # Standard Python Libraries
 import logging
 import socket
 import uuid
 
 # Third-Party Libraries
-# from django.contrib.auth.models import User as AuthUser
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
 from netfields import InetAddressField
 
-# , NetManager
-
 manage_db = True
 app_label_name = "xfd_mini_dl"
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 
@@ -343,15 +338,82 @@ class Cve(AutoLengthCheckModel):
         blank=True,
         help_text="Many to many relationship to list of affected Products (CPE).",
     )
-    # tickets = models.ManyToManyField("Ticket", related_name='cves', blank=True)
-    # vuln_scans = models.ManyToManyField("VulnScan", related_name='cves', blank=True)
+    source_attribution = models.CharField(
+        blank=True,
+        null=True,
+        max_length=64,
+        help_text="Origin of this CVE record (e.g., 'AE/Redshift').",
+    )
+
+    assigner = models.CharField(
+        blank=True,
+        null=True,
+        max_length=255,
+        help_text="Short name of the CVE assigner (e.g., 'CISA-ADP', 'AMD').",
+    )
+
+    title = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Short title from CNA/ADP when available.",
+    )
+
+    cna_source_json = models.JSONField(
+        blank=True, null=True, help_text="Raw CNA 'source' object."
+    )
+    cna_affected_json = models.JSONField(
+        blank=True, null=True, help_text="Raw CNA 'affected' array/object."
+    )
+    cna_problem_types_json = models.JSONField(
+        blank=True, null=True, help_text="Raw CNA 'problemTypes' structure."
+    )
 
     class Meta:
         """The Meta class for Cve."""
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            models.Index(fields=["name"]),
+        ]
         db_table = "cve"
+
+
+class CveSsvc(models.Model):
+    """SSVC triplet + ADP provenance, flattened from AE/Redshift."""
+
+    cve = models.OneToOneField("Cve", on_delete=models.CASCADE, related_name="ssvc")
+
+    exploitation = models.CharField(max_length=32, blank=True, null=True, db_index=True)
+    automatable = models.CharField(max_length=32, blank=True, null=True, db_index=True)
+    technical_impact = models.CharField(
+        max_length=32, blank=True, null=True, db_index=True
+    )
+
+    adp_provider = models.CharField(
+        max_length=128, blank=True, null=True, db_index=True
+    )
+    adp_title = models.TextField(blank=True, null=True)
+    ssvc_version = models.CharField(max_length=16, blank=True, null=True)
+    ssvc_timestamp = models.DateTimeField(blank=True, null=True, db_index=True)
+    adp_date_updated = models.DateTimeField(blank=True, null=True, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True, db_index=True)
+
+    class Meta:
+        """Meta class for CveSsvc."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "adp_ssvc"
+        indexes = [
+            models.Index(fields=["exploitation"]),
+            models.Index(fields=["automatable"]),
+            models.Index(fields=["technical_impact"]),
+            models.Index(fields=["adp_provider"]),
+            models.Index(fields=["adp_date_updated"]),
+        ]
 
 
 class Notification(AutoLengthCheckModel):
@@ -673,11 +735,6 @@ class Organization(AutoLengthCheckModel):
         blank=True,
         help_text="Foreign Key linking to a related Location object.",
     )
-    # sectors = models.ManyToManyField("Sector", related_name='organizations', blank=True) covered in sectors table already
-    # cidrs = models.ManyToManyField("Cidr", related_name='organizations', blank=True) covered in the cidr table already
-    # vuln_scans = models.ManyToManyField("VulnScan", related_name='organizations', blank=True)
-    # hosts = models.ManyToManyField("Host", related_name='organizations', blank=True) covered in hosts table already
-    # port_scans = models.ManyToManyField("PortScan", related_name='organizations', blank=True)
     parent = models.ForeignKey(
         "self",
         models.DO_NOTHING,
@@ -689,7 +746,7 @@ class Organization(AutoLengthCheckModel):
     )
     created_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="created_by_id",
         blank=True,
         null=True,
@@ -748,28 +805,6 @@ class OrganizationTag(AutoLengthCheckModel):
         app_label = app_label_name
         managed = manage_db
         db_table = "organization_tag"
-
-
-# Probably can be removed and merged with a many to many relationship
-# class OrganizationTagOrganizationsOrganization(models.Model):
-#     """The OrganizationTagOrganizationsOrganization model."""
-
-#     organization_tag_id = models.OneToOneField(
-#         OrganizationTag,
-#         models.DO_NOTHING,
-#         db_column="organizationTagId",
-#         primary_key=True,
-#     )  # The composite primary key (organizationTagId, organizationId) found, that is not supported. The first column is selected.
-#     organization_id = models.ForeignKey(
-#         Organization, models.DO_NOTHING, db_column="organizationId"
-#     )
-
-#     class Meta:
-#         """The Meta class for OrganizationTagOrganizationsOrganization."""
-
-#         managed = False
-#         db_table = "organization_tag_organizations_organization"
-#         unique_together = (("organizationTagId", "organizationId"),)
 
 
 class QueryResultCache(AutoLengthCheckModel):
@@ -831,7 +866,7 @@ class Role(models.Model):
     )
     created_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="created_by_id",
         blank=True,
         null=True,
@@ -839,7 +874,7 @@ class Role(models.Model):
     )
     approved_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="approved_by_id",
         related_name="approved_roles",
         blank=True,
@@ -848,7 +883,7 @@ class Role(models.Model):
     )
     user = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.CASCADE,
         db_column="user_id",
         related_name="roles",
         blank=True,
@@ -857,7 +892,7 @@ class Role(models.Model):
     )
     organization = models.ForeignKey(
         Organization,
-        models.DO_NOTHING,
+        models.CASCADE,
         db_column="organization_id",
         related_name="user_roles",
         blank=True,
@@ -918,8 +953,6 @@ class SavedSearch(AutoLengthCheckModel):
         max_length=255,
         help_text="Search path used to call create the search against the ORM.",
     )
-    # create_vulnerabilities = models.BooleanField(db_column="create_vulnerabilities", help_text="") # No longer used
-    # vulnerability_template = models.JSONField(db_column="vulnerability_template", help_text="") # No longer used
     created_by = models.ForeignKey(
         "User",
         models.CASCADE,
@@ -992,9 +1025,14 @@ class Scan(models.Model):
         help_text="A boolean to flag if a manually called scan is still waiting to be run.",
     )
     concurrent_tasks = models.IntegerField(db_column="concurrent_tasks", default=1)
+    total_orgs = models.IntegerField(
+        db_column="total_orgs",
+        default=0,
+        help_text="Total number of organizations the scan is run on.",
+    )
     created_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="created_by",
         blank=True,
         null=True,
@@ -1020,6 +1058,56 @@ class Scan(models.Model):
         app_label = app_label_name
         managed = manage_db
         db_table = "scan"
+
+
+class ScanResult(models.Model):
+    """Timestamp of latest result for each scan/organization pair."""
+
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        help_text="Unique identifier for a scan result object.",
+    )
+    scanned_at = models.DateTimeField(
+        db_column="scanned_at",
+        help_text="Timestamp when scan result was observed",
+    )
+    http_status = models.IntegerField(
+        db_column="http_status",
+        help_text="HTTP status code of the scan result.",
+    )
+    message = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Error message and exception returned from the scan result.",
+    )
+    scan = models.ForeignKey(
+        Scan,
+        on_delete=models.CASCADE,
+        db_column="scan_id",
+        related_name="scan_results",
+        help_text="Foreign key to the scan that generated the scan result.",
+    )
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        db_column="organization_id",
+        related_name="scan_results",
+        help_text="Foreign key to the organization that the scan result is for.",
+    )
+
+    class Meta:
+        """The Meta class for ScanResult."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "scan_result"
+        indexes = [
+            models.Index(
+                fields=["scanned_at", "scan", "http_status", "organization"],
+                name="logtime_scan_status_org_idx",
+            ),
+        ]
 
 
 class ScanTask(models.Model):
@@ -1277,7 +1365,7 @@ class User(AutoLengthCheckModel):
     )
     first_login = models.BooleanField(
         db_column="first_login",
-        null=True,
+        default=True,
         help_text="A boolean field identifying a users first approved login for prompts.",
     )
     can_select_own_state = models.BooleanField(
@@ -1293,7 +1381,7 @@ class User(AutoLengthCheckModel):
     )
     approved_by = models.ForeignKey(
         "User",
-        models.DO_NOTHING,
+        models.SET_NULL,
         db_column="approved_by_id",
         blank=True,
         null=True,
@@ -1503,6 +1591,14 @@ class TicketEvent(models.Model):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            models.Index(fields=["ticket"]),
+            models.Index(fields=["port_scan"]),
+            models.Index(fields=["vuln_scan"]),
+            models.Index(fields=["ticket", "port_scan"]),
+            models.Index(fields=["ticket", "vuln_scan"]),
+            models.Index(fields=["ticket", "-event_timestamp", "id"]),
+        ]
         db_table = "ticket_event"
         unique_together = ("event_timestamp", "ticket", "action")
 
@@ -1790,8 +1886,6 @@ class VulnScan(AutoLengthCheckModel):
         null=True,
         help_text="Plugin-specific output from the vulnerability scanner",
     )
-    # snapshots = models.ManyToManyField(Snapshot, related_name='vuln_scans')
-    # ticket_events = models.ManyToManyField(TicketEvent, related_name='vuln_scans')
     other_findings = models.JSONField(
         default=dict,
         blank=True,
@@ -1825,15 +1919,25 @@ class VulnScanSummary(models.Model):
     )
     start_date = models.DateTimeField(
         help_text="Timestamp of the earliest last_change in the collection",
+        null=True,
+        blank=True,
     )
     end_date = models.DateTimeField(
         help_text="Timestamp of the latest last_change in the collection",
+        null=True,
+        blank=True,
     )
     organization = models.ForeignKey(
         Organization,
         related_name="vuln_scan_summaries",
         on_delete=models.CASCADE,
         help_text="Foreign key relationship to the organization the summary is built for.",
+    )
+    enrolled_in_vs_timestamp = models.DateTimeField(
+        db_column="enrolled_in_vs_timestamp",
+        null=True,
+        blank=True,
+        help_text="Date the stakeholder enrolled in VS.",
     )
     assets_owned_count = models.IntegerField(
         null=True,
@@ -1930,32 +2034,6 @@ class VulnScanSummary(models.Model):
         blank=True,
         help_text="Age of the longest open low ticket.",
     )
-    # median age of current vulns by severity (requires 'firstDiscovered') <- age=enddate() - firstDiscovered(); where ticket.open=true by severity; sum(age)/count(by severity)
-    # none_median_age = models.IntegerField(
-    #     null=True,
-    #     blank=True,
-    #     help_text="Median age of vulns with no severity.",
-    # )
-    # low_median_age = models.IntegerField(
-    #     null=True,
-    #     blank=True,
-    #     help_text="Median age of vulns with severity of low.",
-    # )
-    # medium_median_age = models.IntegerField(
-    #     null=True,
-    #     blank=True,
-    #     help_text="Median age of vulns with severity of medium.",
-    # )
-    # high_median_age = models.IntegerField(
-    #     null=True,
-    #     blank=True,
-    #     help_text="Median age of vulns with severity of high.",
-    # )
-    # critical_median_age = models.IntegerField(
-    #     null=True,
-    #     blank=True,
-    #     help_text="Median age of vulns with severity of critical.",
-    # )
     low_kev_count = models.IntegerField(
         null=True,
         blank=True,
@@ -2422,6 +2500,46 @@ class HostSummary(models.Model):
         blank=True,
         help_text="Count of Ip addresses that have been scanned",
     )
+    port_scan_min_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the oldest port_scan run on a host owned by the org.",
+    )
+    port_scan_max_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the most recent port_scan run on a host owned by the org.",
+    )
+    vuln_scan_min_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the oldest vuln_scan run on a host owned by the org.",
+    )
+    vuln_scan_max_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the most recent vuln_scan run on a host owned by the org.",
+    )
+    net_scan1_min_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the oldest net_scan1 run on a host owned by the org.",
+    )
+    net_scan1_max_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the most recent net_scan1 run on a host owned by the org.",
+    )
+    net_scan2_min_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the oldest net_scan2 run on a host owned by the org.",
+    )
+    net_scan2_max_timestamp = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp of the most recent net_scan2 run on a host owned by the org.",
+    )
 
     class Meta:
         """The Meta class for HostSummary."""
@@ -2536,16 +2654,10 @@ class Ip(models.Model):
                     socket.inet_pton(socket.AF_INET6, self.ip)
                     self.ip_version = "IPv6"
                 except OSError:
-                    raise ValueError(f"Invalid IP address: {self.ip}")
+                    LOGGER.exception("Invalid IP address: %s", self.ip)
+                    raise ValueError
 
         super().save(*args, **kwargs)
-
-    # domains = models.ManyToManyField("SubDomains", related_name='ips', blank=True)
-    # host_scans = models.ManyToManyField("HostScan", related_name='ips', blank=True)
-    # hosts = models.ManyToManyField(Host, related_name='ips', blank=True)
-    # tickets = models.ManyToManyField("Ticket", related_name='ips', blank=True)
-    # vuln_scans = models.ManyToManyField(VulnScan, related_name='ips', blank=True)
-    # port_scans = models.ManyToManyField("PortScan", related_name='ips', blank=True)
 
     class Meta:
         """The Meta class for Ip."""
@@ -2630,7 +2742,6 @@ class Ticket(models.Model):
         blank=True,
         help_text="CVSS version used for the CVSS base score",
     )
-    # kev = models.ForeignKey(Kev, related_name='tickets', null=True, blank=True, on_delete=models.CASCADE)
     vuln_name = models.CharField(
         max_length=255, null=True, blank=True, help_text="Vulnerability name"
     )
@@ -2787,6 +2898,14 @@ class Ticket(models.Model):
 
         app_label = app_label_name
         managed = manage_db
+        indexes = [
+            # 1. Ensure fast lookup by ticket id for upserts
+            models.Index(fields=["id"], name="tickets_id_idx"),
+            # 2. Optional: fast filtering on IP (if you query per IP)
+            models.Index(fields=["ip_string"], name="tickets_ip_idx"),
+            # 3. Optional: cover “open” tickets if you often filter by is_open
+            models.Index(fields=["is_open"], name="tickets_is_open_idx"),
+        ]
         db_table = "ticket"
         unique_together = ["id"]
 
@@ -2966,8 +3085,6 @@ class PortScan(AutoLengthCheckModel):
     time_scanned = models.DateTimeField(
         null=True, blank=True, help_text="Timestamp when the port was scanned"
     )
-    # ticket_events = models.ManyToManyField(TicketEvent, related_name='port_scans')
-    # snapshots = models.ManyToManyField(Snapshot, related_name='port_scans', blank=True)
     organization = models.ForeignKey(
         Organization,
         related_name="port_scans",
@@ -2999,6 +3116,15 @@ class PortScan(AutoLengthCheckModel):
             models.Index(
                 fields=["organization", "ip_string", "port", "-time_scanned"],
                 name="portscan_latest_lookup_idx",
+            ),
+            models.Index(
+                fields=["organization", "ip_string", "port", "latest"],
+                name="portscan_latest_idx",
+            ),
+            models.Index(
+                fields=["organization", "ip_string", "port", "time_scanned"],
+                name="portscan_latest_true_idx",
+                condition=models.Q(latest=True),
             ),
         ]
         db_table = "port_scan"
@@ -3172,33 +3298,6 @@ class WasTrackerCustomerdata(models.Model):
         db_table = "was_tracker_customer_data"
 
 
-# """
-# -- WARNING: It may differ from actual native database DDL
-# CREATE TABLE information_schema.was_findings (
-#     finding_uid uuid NOT NULL,
-#     finding_type varchar(10485760) NULL,
-#     webapp_id int4 NULL,
-#     was_org_id text NULL,
-#     owasp_category varchar(10485760) NULL,
-#     severity varchar(10485760) NULL,
-#     times_detected int4 NULL,
-#     base_score float8 NULL,
-#     temporal_score float8 NULL,
-#     fstatus varchar(10485760) NULL,
-#     last_detected date NULL,
-#     first_detected date NULL,
-#     is_remediated bool NULL,
-#     potential bool NULL,
-#     webapp_url text NULL,
-#     webapp_name text NULL,
-#     "name" text NULL,
-#     cvss_v3_attack_vector text NULL,
-#     cwe_list _int4 NULL,
-#     wasc_list jsonb NULL
-# );
-# """
-
-
 class WasFindings(models.Model):
     """Define WasFindings model."""
 
@@ -3311,14 +3410,14 @@ class WasFindings(models.Model):
         null=True,
         help_text="FK: Foreign Key to the linked subdomain",
     )
-    # service = models.ForeignKey(
-    #     "Service",
-    #     on_delete=models.CASCADE,
-    #     db_column="service_id",
-    #     blank=True,
-    #     null=True,
-    #     help_text="FK: Foreign Key to the linked service",
-    # )
+    cve = models.ForeignKey(
+        "Cve",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="was_findings",
+        help_text="FK: CVE linked to this finding.",
+    )
 
     class Meta:
         """Set WasFindings model metadata."""
@@ -4015,106 +4114,6 @@ class AssetHeaders(models.Model):
         unique_together = (("organization", "sub_url"),)
 
 
-# # ?????? no data currently
-# class AuthGroup(models.Model):
-#     """Define AuthGroup model."""
-
-#     name = models.CharField(unique=True, max_length=150)
-
-#     class Meta:
-#         """Set AuthGroup model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "auth_group"
-
-# # ?????? no data currently
-# class AuthGroupPermissions(models.Model):
-#     """Define AuthGroupPermissions model."""
-
-#     id = models.BigAutoField(primary_key=True)
-#     group = models.ForeignKey(AuthGroup, on_delete=models.CASCADE)
-#     permission = models.ForeignKey("AuthPermission", on_delete=models.CASCADE)
-
-#     class Meta:
-#         """Set AuthGroupPermissions model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "auth_group_permissions"
-#         unique_together = (("group", "permission"),)
-
-# # ??????
-# class AuthPermission(models.Model):
-#     """Define AuthPermission model."""
-#     id = models.BigAutoField(primary_key=True)
-#     name = models.CharField(max_length=255)
-#     content_type = models.ForeignKey("DjangoContentType", on_delete=models.CASCADE)
-#     codename = models.CharField(max_length=100)
-
-#     class Meta:
-#         """Set AuthPermission model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "auth_permission"
-#         unique_together = (("content_type", "codename"),)
-
-# # ??????
-# class AuthUser(models.Model):
-#     """Define AuthUser model."""
-#     id = models.BigAutoField(primary_key=True)
-#     password = models.CharField(max_length=128)
-#     last_login = models.DateTimeField(blank=True, null=True)
-#     is_superuser = models.BooleanField()
-#     username = models.CharField(unique=True, max_length=150)
-#     first_name = models.CharField(max_length=150)
-#     last_name = models.CharField(max_length=150)
-#     email = models.CharField(max_length=254)
-#     is_staff = models.BooleanField()
-#     is_active = models.BooleanField()
-#     date_joined = models.DateTimeField()
-
-#     class Meta:
-#         """Set AuthUser model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "auth_user"
-
-# # ?????? currently empty
-# class AuthUserGroups(models.Model):
-#     """Define AuthUserGroups model."""
-
-#     id = models.BigAutoField(primary_key=True)
-#     user = models.ForeignKey(AuthUser, on_delete=models.CASCADE)
-#     group = models.ForeignKey(AuthGroup, on_delete=models.CASCADE)
-
-#     class Meta:
-#         """Set AuthUserGroups model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "auth_user_groups"
-#         unique_together = (("user", "group"),)
-
-# # ?????? currently empty
-# class AuthUserUserPermissions(models.Model):
-#     """Define AuthUserUserPermissions model."""
-
-#     id = models.BigAutoField(primary_key=True)
-#     user = models.ForeignKey(AuthUser, on_delete=models.CASCADE)
-#     permission = models.ForeignKey(AuthPermission, on_delete=models.CASCADE)
-
-#     class Meta:
-#         """Set AuthUserUserPermissions model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "auth_user_user_permissions"
-#         unique_together = (("user", "permission"),)
-
-
 class CredentialBreaches(models.Model):
     """Define CredentialBreaches model."""
 
@@ -4381,25 +4380,8 @@ class CyhyDbAssets(models.Model):
 
 
 # TODO determine if we want user logic on both databases
-# class PEDataapiApiuser(models.Model):
-#     """Define DataapiApiuser model."""
-
-#     id = models.BigAutoField(primary_key=True)
-#     apikey = models.CharField(
-#         db_column="apiKey", max_length=200, blank=True, null=True
-#     )  # Field name made lowercase.
-#     user = models.OneToOneField(AuthUser, on_delete=models.CASCADE)
-#     refresh_token = models.CharField(max_length=200, blank=True, null=True)
-
-#     class Meta:
-#         """Set DataapiApiuser model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "pe_dataAPI_apiuser"
 
 
-# ??????
 class DataSource(models.Model):
     """Define DataSource model."""
 
@@ -4418,74 +4400,6 @@ class DataSource(models.Model):
         app_label = app_label_name
         managed = manage_db
         db_table = "data_source"
-
-
-# # ??????
-# class DjangoAdminLog(models.Model):
-#     """Define DjangoAdminLog model."""
-#     id = models.BigAutoField(primary_key=True)
-#     action_time = models.DateTimeField()
-#     object_id = models.TextField(blank=True, null=True)
-#     object_repr = models.CharField(max_length=200)
-#     action_flag = models.SmallIntegerField()
-#     change_message = models.TextField()
-#     content_type = models.ForeignKey(
-#         "DjangoContentType", on_delete=models.CASCADE, blank=True, null=True
-#     )
-#     user = models.ForeignKey(AuthUser, on_delete=models.CASCADE)
-
-#     class Meta:
-#         """Set DjangoAdminLog model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "django_admin_log"
-
-# # ??????
-# class DjangoContentType(models.Model):
-#     """Define DjangoContentType model."""
-#     id = models.BigAutoField(primary_key=True)
-#     app_label = models.CharField(max_length=100)
-#     model = models.CharField(max_length=100)
-
-#     class Meta:
-#         """Set DjangoContentType model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "django_content_type"
-#         unique_together = (("app_label", "model"),)
-
-# # ??????
-# class DjangoMigrations(models.Model):
-#     """Define DjangoMigrations model."""
-
-#     id = models.BigAutoField(primary_key=True)
-#     app = models.CharField(max_length=255)
-#     name = models.CharField(max_length=255)
-#     applied = models.DateTimeField()
-
-#     class Meta:
-#         """Set DjangoMigrations model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "django_migrations"
-
-# # ??????
-# class DjangoSession(models.Model):
-#     """Define DjangoSession model."""
-
-#     session_key = models.CharField(primary_key=True, max_length=40)
-#     session_data = models.TextField()
-#     expire_date = models.DateTimeField()
-
-#     class Meta:
-#         """Set DjangoSession model metadata."""
-
-#         app_label = 'dmz_mini_dl'
-#         managed = manage_db
-#         db_table = "django_session"
 
 
 class DnsRecords(models.Model):
@@ -4995,62 +4909,6 @@ class OrgType(models.Model):
         db_table = "org_type"
 
 
-# needs to be merged merged
-# class Organizations(models.Model):
-#     """Define Organizations model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     name = models.TextField()
-#     cyhy_db_name = models.TextField(unique=True, blank=True, null=True)
-#     org_type_uid = models.ForeignKey(
-#         OrgType,
-#         on_delete=models.CASCADE,
-#         db_column="org_type_uid",
-#         blank=True,
-#         null=True,
-#     )
-#     report_on = models.BooleanField(blank=True, null=True)
-#     password = models.TextField(blank=True, null=True)
-#     date_first_reported = models.DateTimeField(blank=True, null=True)
-#     parent_org_uid = models.ForeignKey(
-#         "self",
-#         on_delete=models.CASCADE,
-#         db_column="parent_org_uid",
-#         blank=True,
-#         null=True,
-#     )
-#     premium_report = models.BooleanField(blank=True, null=True)
-#     agency_type = models.TextField(blank=True, null=True)
-#     demo = models.BooleanField(blank=True, null=True)
-#     scorecard = models.BooleanField(blank=True, null=True)
-#     fceb = models.BooleanField(blank=True, null=True)
-#     receives_cyhy_report = models.BooleanField(blank=True, null=True)
-#     receives_bod_report = models.BooleanField(blank=True, null=True)
-#     receives_cybex_report = models.BooleanField(blank=True, null=True)
-#     run_scans = models.BooleanField(blank=True, null=True)
-#     is_parent = models.BooleanField(blank=True, null=True)
-#     ignore_roll_up = models.BooleanField(blank=True, null=True)
-#     retired = models.BooleanField(blank=True, null=True)
-#     cyhy_period_start = models.DateField(blank=True, null=True)
-#     fceb_child = models.BooleanField(blank=True, null=True)
-#     election = models.BooleanField(blank=True, null=True)
-#     scorecard_child = models.BooleanField(blank=True, null=True)
-#     location_name = models.TextField(blank=True, null=True)
-#     county = models.TextField(blank=True, null=True)
-#     county_fips = models.IntegerField(blank=True, null=True)
-#     state_abbreviation = models.TextField(blank=True, null=True)
-#     state_fips = models.IntegerField(blank=True, null=True)
-#     state_name = models.TextField(blank=True, null=True)
-#     country = models.TextField(blank=True, null=True)
-#     country_name = models.TextField(blank=True, null=True)
-
-#     class Meta:
-#         """Set Organizations model metadata."""
-
-#         managed = False
-#         db_table = "organizations"
-
-
 class PshttResults(models.Model):
     """Define PshttResults model."""
 
@@ -5217,45 +5075,6 @@ class PeReportSummaryStats(models.Model):
         unique_together = (("organization", "start_date"),)
 
 
-# class RootDomains(models.Model):
-#     """Define RootDomains model."""
-
-#     root_domain_uid = models.UUIDField(
-#         primary_key=True,
-#         default=uuid.uuid4,
-#         help_text="PK: Unique identifier for root domains",
-#     )
-#     organization = models.ForeignKey(
-#         Organization,
-#         on_delete=models.CASCADE,
-#         db_column="organization_uid",
-#         help_text="FK: Foreign Key to organization",
-#     )
-#     root_domain = models.TextField(help_text="Root domain")
-#     ip_address = models.TextField(
-#         blank=True, null=True, help_text="IP address of root domain"
-#     )
-#     data_source = models.ForeignKey(
-#         DataSource,
-#         on_delete=models.CASCADE,
-#         db_column="data_source_uid",
-#         help_text="FK: Foreign Key to data_source",
-#     )
-#     enumerate_subs = models.BooleanField(
-#         blank=True,
-#         null=True,
-#         help_text="T/F should we identify subdomains for this root domain? (We don't enumerate for Cloud provider roots)",
-#     )
-
-#     class Meta:
-#         """Set RootDomains model metadata."""
-
-#         app_label = app_label_name
-#         managed = manage_db
-#         db_table = "root_domains"
-#         unique_together = (("root_domain", "organization"),)
-
-
 class PeTeamMembers(models.Model):
     """Define TeamMembers model."""
 
@@ -5375,45 +5194,6 @@ class ShodanAssets(models.Model):
         managed = manage_db
         db_table = "shodan_assets"
         unique_together = (("organization", "ip", "port", "protocol"),)
-
-
-# class ShodanInsecureProtocolsUnverifiedVulns(models.Model):
-#     """Define ShodanInsecureProtocolsUnverifiedVulns model."""
-
-#     insecure_product_uid = models.UUIDField(primary_key=True, default=uuid.uuid4())
-#     organization_uid = models.ForeignKey(
-#         Organization, on_delete=models.CASCADE, db_column="organization_uid"
-#     )
-#     organization = models.TextField(blank=True, null=True)
-#     ip = models.TextField(blank=True, null=True)
-#     port = models.IntegerField(blank=True, null=True)
-#     protocol = models.TextField(blank=True, null=True)
-#     type = models.TextField(blank=True, null=True)
-#     name = models.TextField(blank=True, null=True)
-#     potential_vulns = models.TextField(
-#         blank=True, null=True
-#     )  # This field type is a guess.
-#     mitigation = models.TextField(blank=True, null=True)
-#     timestamp = models.DateTimeField(blank=True, null=True)
-#     product = models.TextField(blank=True, null=True)
-#     server = models.TextField(blank=True, null=True)
-#     tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     isn = models.TextField(blank=True, null=True)
-#     asn = models.IntegerField(blank=True, null=True)
-#     data_source_uid = models.ForeignKey(
-#         DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
-#     )
-
-#     class Meta:
-#         """Set ShodanInsecureProtocolsUnverifiedVulns model metadata."""
-
-#         managed = False
-#         db_table = "shodan_insecure_protocols_unverified_vulns"
-#         unique_together = (
-#             ("organization_uid", "ip", "port", "protocol", "timestamp"),
-#         )
 
 
 class ShodanVulns(models.Model):
@@ -5929,8 +5709,6 @@ class WeeklyStatusesMdl(models.Model):
     class Meta:
         """Set WeeklyStatusesMdl model metadata."""
 
-        # unique_together = (('week_ending', 'user_status'),)
-
         app_label = app_label_name
         managed = manage_db
         db_table = "weekly_statuses_mdl"
@@ -6352,13 +6130,6 @@ class XpanseAlerts(models.Model):
         null=True,
         help_text="Dictionary containing certificate data assocated with the alert.",
     )
-    # {
-    #            issuerName": "IOS-Self-Signed-Certificate-782645061",
-    #            subjectName": "IOS-Self-Signed-Certificate-782645061",
-    #            validNotBefore": 1398850008000,
-    #            validNotAfter": 1577836800000,
-    #            serialNumber": "1"
-    # },
     port_protocol = models.TextField(
         blank=True, null=True, help_text="Port protocol associated with the alert."
     )
@@ -6808,15 +6579,6 @@ class Vulnerability(models.Model):
         help_text="A boolean field to flag if a vulnerability is linked to a known ransomware exploit.",
     )
     service_string = models.CharField(blank=True, null=True, max_length=255)
-    # service = models.ForeignKey(
-    #     Service,
-    #     models.DO_NOTHING,
-    #     db_column="service_id",
-    #     blank=True,
-    #     null=True,
-    #     help_text="Foreign key relationship to the service the vulnerability was found on.",
-    #     related_name="vulnerabilities",
-    # )
     is_risky_service = models.BooleanField(
         blank=True,
         null=True,
@@ -6876,764 +6638,3 @@ class Vulnerability(models.Model):
         app_label = app_label_name
         managed = False
         db_table = "mat_vw_combined_vulns"
-
-
-# # This should be a view not a table
-# class VwPshttDomainsToRun(models.Model):
-#     """Define VwPshttDomainsToRun model."""
-
-#     sub_domain_uid = models.UUIDField(primary_key=True)
-#     sub_domain = models.TextField(blank=True, null=True)
-#     organization_uid = models.UUIDField()
-#     name = models.TextField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwPshttDomainsToRun model metadata."""
-
-#         managed = False
-#         db_table = "vw_pshtt_domains_to_run"
-
-
-# class VwBreachcompCredsbydate(models.Model):
-#     """Define VwBreachcompCredsbydate model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     mod_date = models.DateField(blank=True, null=True)
-#     no_password = models.BigIntegerField(blank=True, null=True)
-#     password_included = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwBreachcompCredsbydate model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_breachcomp_credsbydate"
-
-
-# class VwDarkwebMentionsbydate(models.Model):
-#     """Define VwDarkwebMentionsbydate model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     count = models.BigIntegerField(
-#         db_column="Count", blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebMentionsbydate model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_mentionsbydate"
-
-
-# class VwShodanvulnsSuspected(models.Model):
-#     """Define VwShodanvulnsSuspected model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     organization = models.TextField(blank=True, null=True)
-#     ip = models.TextField(blank=True, null=True)
-#     port = models.TextField(blank=True, null=True)
-#     protocol = models.TextField(blank=True, null=True)
-#     type = models.TextField(blank=True, null=True)
-#     name = models.TextField(blank=True, null=True)
-#     potential_vulns = models.TextField(
-#         blank=True, null=True
-#     )  # This field type is a guess.
-#     mitigation = models.TextField(blank=True, null=True)
-#     timestamp = models.DateTimeField(blank=True, null=True)
-#     product = models.TextField(blank=True, null=True)
-#     server = models.TextField(blank=True, null=True)
-#     tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     isn = models.TextField(blank=True, null=True)
-#     asn = models.IntegerField(blank=True, null=True)
-#     data_source = models.TextField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwShodanvulnsSuspected model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_shodanvulns_suspected"
-
-
-# class VwShodanvulnsVerified(models.Model):
-#     """Define VwShodanvulnsVerified model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     organization = models.TextField(blank=True, null=True)
-#     ip = models.TextField(blank=True, null=True)
-#     port = models.TextField(blank=True, null=True)
-#     protocol = models.TextField(blank=True, null=True)
-#     timestamp = models.DateTimeField(blank=True, null=True)
-#     cve = models.TextField(blank=True, null=True)
-#     severity = models.TextField(blank=True, null=True)
-#     cvss = models.DecimalField(
-#         max_digits=1000, decimal_places=1000, blank=True, null=True
-#     )
-#     summary = models.TextField(blank=True, null=True)
-#     product = models.TextField(blank=True, null=True)
-#     attack_vector = models.TextField(blank=True, null=True)
-#     av_description = models.TextField(blank=True, null=True)
-#     attack_complexity = models.TextField(blank=True, null=True)
-#     ac_description = models.TextField(blank=True, null=True)
-#     confidentiality_impact = models.TextField(blank=True, null=True)
-#     ci_description = models.TextField(blank=True, null=True)
-#     integrity_impact = models.TextField(blank=True, null=True)
-#     ii_description = models.TextField(blank=True, null=True)
-#     availability_impact = models.TextField(blank=True, null=True)
-#     ai_description = models.TextField(blank=True, null=True)
-#     tags = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     domains = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     hostnames = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     isn = models.TextField(blank=True, null=True)
-#     asn = models.IntegerField(blank=True, null=True)
-#     data_source = models.TextField(blank=True, null=True)
-#     banner = models.TextField(blank=True, null=True)
-#     version = models.TextField(blank=True, null=True)
-#     cpe = ArrayField(
-#         models.TextField(blank=True, null=True), blank=True, null=True
-#     )
-
-#     class Meta:
-#         """Set VwShodanvulnsVerified model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_shodanvulns_verified"
-
-
-# class VwBreachcompBreachdetails(models.Model):
-#     """Define VwBreachcompBreachdetails model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     breach_name = models.TextField(blank=True, null=True)
-#     mod_date = models.DateField(blank=True, null=True)
-#     description = models.TextField(blank=True, null=True)
-#     breach_date = models.DateField(blank=True, null=True)
-#     password_included = models.BooleanField(blank=True, null=True)
-#     number_of_creds = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwBreachcompBreachdetails model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_breachcomp_breachdetails"
-
-
-# class VwDarkwebSocmediaMostactposts(models.Model):
-#     """Define VwDarkwebSocmediaMostactposts model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     title = models.TextField(
-#         db_column="Title", blank=True, null=True
-#     )  # Field name made lowercase.
-#     comments_count = models.IntegerField(
-#         db_column="Comments Count", blank=True, null=True
-#     )  # Field name made lowercase. Field renamed to remove unsuitable characters.
-
-#     class Meta:
-#         """Set VwDarkwebSocmediaMostactposts model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_socmedia_mostactposts"
-
-
-# class VwDarkwebMostactposts(models.Model):
-#     """Define VwDarkwebMostactposts model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     title = models.TextField(
-#         db_column="Title", blank=True, null=True
-#     )  # Field name made lowercase.
-#     comments_count = models.IntegerField(
-#         db_column="Comments Count", blank=True, null=True
-#     )  # Field name made lowercase. Field renamed to remove unsuitable characters.
-
-#     class Meta:
-#         """Set VwDarkwebMostactposts model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_mostactposts"
-
-
-# class VwDarkwebAssetalerts(models.Model):
-#     """Define VwDarkwebAssetalerts model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     site = models.TextField(
-#         db_column="Site", blank=True, null=True
-#     )  # Field name made lowercase.
-#     title = models.TextField(
-#         db_column="Title", blank=True, null=True
-#     )  # Field name made lowercase.
-#     events = models.BigIntegerField(
-#         db_column="Events", blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebAssetalerts model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_assetalerts"
-
-
-# class VwDarkwebExecalerts(models.Model):
-#     """Define VwDarkwebExecalerts model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     site = models.TextField(
-#         db_column="Site", blank=True, null=True
-#     )  # Field name made lowercase.
-#     title = models.TextField(
-#         db_column="Title", blank=True, null=True
-#     )  # Field name made lowercase.
-#     events = models.BigIntegerField(
-#         db_column="Events", blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebExecalerts model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_execalerts"
-
-
-# class VwDarkwebThreatactors(models.Model):
-#     """Define VwDarkwebThreatactors model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     creator = models.TextField(
-#         db_column="Creator", blank=True, null=True
-#     )  # Field name made lowercase.
-#     grade = models.DecimalField(
-#         db_column="Grade", max_digits=1000, decimal_places=1000, blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebThreatactors model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_threatactors"
-
-
-# class VwDarkwebPotentialthreats(models.Model):
-#     """Define VwDarkwebPotentialthreats model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     site = models.TextField(
-#         db_column="Site", blank=True, null=True
-#     )  # Field name made lowercase.
-#     threats = models.TextField(
-#         db_column="Threats", blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebPotentialthreats model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_potentialthreats"
-
-
-# class VwDarkwebSites(models.Model):
-#     """Define VwDarkwebSites model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     site = models.TextField(
-#         db_column="Site", blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebSites model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_sites"
-
-
-# class VwDarkwebInviteonlymarkets(models.Model):
-#     """Define VwDarkwebInviteonlymarkets model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     date = models.DateField(blank=True, null=True)
-#     site = models.TextField(
-#         db_column="Site", blank=True, null=True
-#     )  # Field name made lowercase.
-
-#     class Meta:
-#         """Set VwDarkwebInviteonlymarkets model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_inviteonlymarkets"
-
-
-# class VwDarkwebTopcves(models.Model):
-#     """Define VwDarkwebTopcves model."""
-
-#     top_cves_uid = models.UUIDField(primary_key=True)
-#     cve_id = models.TextField(blank=True, null=True)
-#     dynamic_rating = models.TextField(blank=True, null=True)
-#     nvd_base_score = models.TextField(blank=True, null=True)
-#     date = models.DateField(blank=True, null=True)
-#     summary = models.TextField(blank=True, null=True)
-#     data_source_uid = models.UUIDField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwDarkwebTopcves model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_darkweb_topcves"
-
-
-# class VwCidrs(models.Model):
-#     """Define VwCidrs model."""
-
-#     cidr_uid = models.UUIDField(primary_key=True)
-#     network = models.TextField(blank=True, null=True)  # This field type is a guess.
-#     organization_uid = models.UUIDField(blank=True, null=True)
-#     data_source_uid = models.UUIDField(blank=True, null=True)
-#     insert_alert = models.TextField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwCidrs model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_cidrs"
-
-
-# class VwBreachcomp(models.Model):
-#     """Define VwBreachcomp model."""
-
-#     credential_exposures_uid = models.UUIDField(primary_key=True)
-#     email = models.TextField(blank=True, null=True)
-#     breach_name = models.TextField(blank=True, null=True)
-#     organization_uid = models.UUIDField(blank=True, null=True)
-#     root_domain = models.TextField(blank=True, null=True)
-#     sub_domain = models.TextField(blank=True, null=True)
-#     hash_type = models.TextField(blank=True, null=True)
-#     name = models.TextField(blank=True, null=True)
-#     login_id = models.TextField(blank=True, null=True)
-#     password = models.TextField(blank=True, null=True)
-#     phone = models.TextField(blank=True, null=True)
-#     data_source_uid = models.UUIDField(blank=True, null=True)
-#     description = models.TextField(blank=True, null=True)
-#     breach_date = models.DateField(blank=True, null=True)
-#     added_date = models.DateTimeField(blank=True, null=True)
-#     modified_date = models.DateTimeField(blank=True, null=True)
-#     data_classes = models.TextField(
-#         blank=True, null=True
-#     )  # This field type is a guess.
-#     password_included = models.BooleanField(blank=True, null=True)
-#     is_verified = models.BooleanField(blank=True, null=True)
-#     is_fabricated = models.BooleanField(blank=True, null=True)
-#     is_sensitive = models.BooleanField(blank=True, null=True)
-#     is_retired = models.BooleanField(blank=True, null=True)
-#     is_spam_list = models.BooleanField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwBreachcomp model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_breachcomp"
-
-
-# class VwOrgsTotalDomains(models.Model):
-#     """Define VwOrgsTotalDomains model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.TextField(blank=True, null=True)
-#     num_root_domain = models.BigIntegerField(blank=True, null=True)
-#     num_sub_domain = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwOrgsTotalDomains model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_orgs_total_domains"
-
-
-# class VwOrgsContactInfo(models.Model):
-#     """Define VwOrgsContactInfo model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.TextField(blank=True, null=True)
-#     agency_name = models.TextField(blank=True, null=True)
-#     contact_type = models.TextField(blank=True, null=True)
-#     contact_name = models.TextField(blank=True, null=True)
-#     email = models.TextField(blank=True, null=True)
-#     phone = models.TextField(blank=True, null=True)
-#     date_pulled = models.DateField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwOrgsContactInfo model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_orgs_contact_info"
-
-
-# class VwOrgsTotalIps(models.Model):
-#     """Define VwOrgsTotalIps model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.TextField(blank=True, null=True)
-#     num_ips = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwOrgsTotalIps model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_orgs_total_ips"
-
-
-# class MatVwOrgsAllIps(models.Model):
-#     """Define MatVwOrgsAllIps model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.TextField(blank=True, null=True)
-#     ip_addresses = ArrayField(
-#         models.GenericIPAddressField(blank=True, null=True), blank=True, null=True
-#     )
-
-#     class Meta:
-#         """Set MatVwOrgsAllIps model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "mat_vw_orgs_all_ips"
-
-
-# class VwOrgsAttacksurface(models.Model):
-#     """Define VwOrgsAttacksurface model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.TextField(blank=True, null=True)
-#     num_ports = models.BigIntegerField(blank=True, null=True)
-#     num_root_domain = models.BigIntegerField(blank=True, null=True)
-#     num_sub_domain = models.BigIntegerField(blank=True, null=True)
-#     num_ips = models.BigIntegerField(blank=True, null=True)
-#     num_cidrs = models.BigIntegerField(blank=True, null=True)
-#     num_ports_protocols = models.BigIntegerField(blank=True, null=True)
-#     num_software = models.BigIntegerField(blank=True, null=True)
-#     num_foreign_ips = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwOrgsAttacksurface model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_orgs_attacksurface"
-
-
-# class VwOrgsTotalPorts(models.Model):
-#     """Define VwOrgsTotalPorts model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.TextField(blank=True, null=True)
-#     num_ports = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwOrgsTotalPorts model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_orgs_total_ports"
-
-
-# class VwIpsSubRootOrgInfo(models.Model):
-#     """VwIpsSubRootOrgInfo model class."""
-
-#     ip_hash = models.CharField(blank=True, null=True, max_length=255)
-#     ip = models.CharField(blank=True, null=True, max_length=255)
-#     origin_cidr = models.UUIDField(blank=True, null=True)
-#     organization_uid = models.UUIDField(blank=True, null=True)
-#     i_current = models.BooleanField(blank=True, null=True)
-#     sd_current = models.BooleanField(blank=True, null=True)
-
-#     class Meta:
-#         """VwIpsSubRootOrgInfo model meta class."""
-
-#         managed = False
-#         db_table = "vw_ips_sub_root_org_info"
-
-
-# class VwIpsCidrOrgInfo(models.Model):
-#     """VwIpsCidrOrgInfo model class."""
-
-#     ip_hash = models.CharField(blank=True, null=True, max_length=255)
-#     ip = models.CharField(blank=True, null=True, max_length=255)
-#     origin_cidr = models.UUIDField(blank=True, null=True)
-#     network = models.CharField(blank=True, null=True, max_length=255)
-#     organization_uid = models.UUIDField(blank=True, null=True)
-
-#     class Meta:
-#         """VwIpsCidrOrgInfo model meta class."""
-
-#         managed = False
-#         db_table = "vw_ips_cidr_org_info"
-
-
-# class VwPEScoreCheckNewCVE(models.Model):
-#     """VwPEScoreCheckNewCVE model class."""
-
-#     cve_name = models.CharField(blank=True, null=True, max_length=255)
-
-#     class Meta:
-#         """VwPEScoreCheckNewCVE model meta class."""
-
-#         managed = False
-#         db_table = "vw_pescore_check_new_cve"
-
-
-# # ---------- D-Score View Models ----------
-# # D-Score VS Cert View
-# class VwDscoreVSCert(models.Model):
-#     """Define VwDscoreVSCert model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     num_ident_cert = models.BigIntegerField(blank=True, null=True)
-#     num_monitor_cert = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwDscoreVSCert model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_dscore_vs_cert"
-
-
-# # D-Score VS Mail View
-# class VwDscoreVSMail(models.Model):
-#     """Define VwDscoreVSMail model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     num_valid_dmarc = models.BigIntegerField(blank=True, null=True)
-#     num_valid_spf = models.BigIntegerField(blank=True, null=True)
-#     num_valid_dmarc_or_spf = models.BigIntegerField(blank=True, null=True)
-#     total_mail_domains = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwDscoreVSMail model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_dscore_vs_mail"
-
-
-# # D-Score PE IP View
-# class VwDscorePEIp(models.Model):
-#     """Define VwDscorePEIp model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     num_ident_ip = models.BigIntegerField(blank=True, null=True)
-#     num_monitor_ip = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwDscorePEIp model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_dscore_pe_ip"
-
-
-# # D-Score PE Domain View
-# class VwDscorePEDomain(models.Model):
-#     """Define VwDscorePEDomain model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     num_ident_domain = models.BigIntegerField(blank=True, null=True)
-#     num_monitor_domain = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwDscorePEDomain model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_dscore_pe_domain"
-
-
-# # D-Score WAS Webapp View
-# class VwDscoreWASWebapp(models.Model):
-#     """Define VwDscoreWASWebapp model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     num_ident_webapp = models.BigIntegerField(blank=True, null=True)
-#     num_monitor_webapp = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwDscoreWASWebapp model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_dscore_was_webapp"
-
-
-# # ---------- I-Score View Models ----------
-# # I-Score VS Vuln View
-# class VwIscoreVSVuln(models.Model):
-#     """Define VwIscoreVSVuln model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     cve_name = models.CharField(blank=True, null=True, max_length=255)
-#     cvss_score = models.FloatField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscoreVSVuln model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_vs_vuln"
-
-
-# # I-Score VS Vuln Previous View
-# class VwIscoreVSVulnPrev(models.Model):
-#     """Define VwIscoreVSVulnPrev model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     cve_name = models.CharField(blank=True, null=True, max_length=255)
-#     cvss_score = models.FloatField(blank=True, null=True)
-#     time_closed = models.DateField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscoreVSVulnPrev model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_vs_vuln_prev"
-
-
-# # I-Score PE Vuln View
-# class VwIscorePEVuln(models.Model):
-#     """Define VwIscorePEVuln model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     date = models.DateField(blank=True, null=True)
-#     cve_name = models.CharField(blank=True, null=True, max_length=255)
-#     cvss_score = models.FloatField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscorePEVuln model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_pe_vuln"
-
-
-# # I-Score PE Cred View
-# class VwIscorePECred(models.Model):
-#     """Define VwIscorePECred model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     date = models.DateField(blank=True, null=True)
-#     password_creds = models.BigIntegerField(blank=True, null=True)
-#     total_creds = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscorePECred model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_pe_cred"
-
-
-# # I-Score PE Breach View
-# class VwIscorePEBreach(models.Model):
-#     """Define VwIscorePEBreach model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     date = models.DateField(blank=True, null=True)
-#     breach_count = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscorePEBreach model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_pe_breach"
-
-
-# # I-Score PE Darkweb View
-# class VwIscorePEDarkweb(models.Model):
-#     """Define VwIscorePEDarkweb model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     alert_type = models.CharField(blank=True, null=True, max_length=255)
-#     date = models.DateField(blank=True, null=True)
-#     Count = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscorePEDarkweb model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_pe_darkweb"
-
-
-# # I-Score PE Protocol View
-# class VwIscorePEProtocol(models.Model):
-#     """Define VwIscorePEProtocol model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     port = models.CharField(blank=True, null=True, max_length=255)
-#     ip = models.CharField(blank=True, null=True, max_length=255)
-#     protocol = models.CharField(blank=True, null=True, max_length=255)
-#     protocol_type = models.CharField(blank=True, null=True, max_length=255)
-#     date = models.DateField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscorePEProtocol model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_pe_protocol"
-
-
-# # I-Score WAS Vuln View
-# class VwIscoreWASVuln(models.Model):
-#     """Define VwIscoreWASVuln model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     date = models.DateField(blank=True, null=True)
-#     cve_name = models.CharField(blank=True, null=True, max_length=255)
-#     cvss_score = models.FloatField(blank=True, null=True)
-#     owasp_category = models.CharField(blank=True, null=True, max_length=255)
-
-#     class Meta:
-#         """Set VwIscoreWASVuln model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_was_vuln"
-
-
-# # I-Score WAS Vuln Previous View
-# class VwIscoreWASVulnPrev(models.Model):
-#     """Define VwIscoreWASVulnPrev model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     parent_org_uid = models.UUIDField(blank=True, null=True)
-#     was_total_vulns_prev = models.BigIntegerField(blank=True, null=True)
-#     date = models.DateField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscoreWASVulnPrev model metadata."""
-
-#         managed = False  # Created from a view. Don't remove.
-#         db_table = "vw_iscore_was_vuln_prev"
-
-
-# # ---------- Misc. Score Related Models ----------
-# # vw_iscore_orgs_ip_counts view model (used for XS/S/M/L/XL orgs endpoints)
-# class VwIscoreOrgsIpCounts(models.Model):
-#     """Define VwIscoreOrgsIpCounts model."""
-
-#     organization_uid = models.UUIDField(primary_key=True)
-#     cyhy_db_name = models.CharField(blank=True, null=True, max_length=255)
-#     ip_count = models.BigIntegerField(blank=True, null=True)
-
-#     class Meta:
-#         """Set VwIscoreOrgsIpCounts model metadata."""
-
-
-#         managed = False
-#         db_table = "vw_iscore_orgs_ip_counts"""" Django ORM models """

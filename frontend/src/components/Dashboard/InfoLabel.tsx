@@ -3,6 +3,7 @@ import {
   Box,
   Typography,
   Link as MuiLink,
+  SxProps,
   TypographyProps
 } from '@mui/material';
 import InfoTooltipIcon from './InfoTooltipIcon';
@@ -16,6 +17,7 @@ type InfoLabelProps = {
   typographyVariant?: TypographyProps['variant'];
   headingLevel?: 'h2' | 'h3' | 'p';
   tooltipContentJson: { content: string; id: string }[];
+  labelStyle?: SxProps;
 };
 
 const InfoLabel: React.FC<InfoLabelProps> = ({
@@ -25,7 +27,8 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
   typographyVariant = 'h2',
   headingLevel = 'h2',
   tooltipContentJson,
-  stateVariables = {}
+  stateVariables = {},
+  labelStyle
 }) => {
   const history = useHistory();
 
@@ -53,6 +56,7 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
           variant={typographyVariant}
           component={headingLevel}
           color="primary.darker"
+          sx={labelStyle}
         >
           {label}
         </Typography>

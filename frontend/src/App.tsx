@@ -1,3 +1,4 @@
+// frontend/src/App.tsx
 import React, { useEffect } from 'react';
 import {
   BrowserRouter as Router,
@@ -35,19 +36,15 @@ import {
 import { LayoutWithSearch, RouteGuard } from 'components';
 import './styles.scss';
 import { Authenticator } from '@aws-amplify/ui-react';
-//import { RiskWithSearch } from 'pages/Risk/Risk';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
 import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
 import { VulnerabilityScanWithSearch } from 'pages/VulnerabilityScanDash/VulnerabilityScan';
+import { DevInspector } from './utils/devInspector';
+import { openInVSCode } from './utils/openInVSCode';
 
 API.configure({
-  endpoints: [
-    {
-      name: 'crossfeed',
-      endpoint: import.meta.env.VITE_API_URL
-    }
-  ]
+  endpoints: [{ name: 'crossfeed', endpoint: import.meta.env.VITE_API_URL }]
 });
 
 if (import.meta.env.VITE_USE_COGNITO) {
@@ -62,26 +59,14 @@ const instance = createInstance({
   urlBase: `${import.meta.env.VITE_API_URL}/matomo`,
   siteId: 1,
   disabled: false,
-  heartBeat: {
-    // optional, enabled by default
-    active: true, // optional, default value: true
-    seconds: 15 // optional, default value: `15
-  },
-  linkTracking: false // optional, default value: true
-  // configurations: { // optional, default value: {}
-  //   // any valid matomo configuration, all below are optional
-  //   disableCookies: true,
-  //   setSecureCookie: true,
-  //   setRequestMethod: 'POST'
-  // }
+  heartBeat: { active: true, seconds: 15 },
+  linkTracking: false
 });
 
 const LinkTracker = () => {
   const location = useLocation();
   const { trackPageView } = useMatomo();
-
   useEffect(() => trackPageView({}), [location, trackPageView]);
-
   return null;
 };
 
@@ -97,12 +82,14 @@ const App: React.FC = () => (
                   <FilterDrawerContextProvider>
                     <LayoutWithSearch>
                       <LinkTracker />
+                      <DevInspector
+                        onClickElement={openInVSCode}
+                      ></DevInspector>
                       <Switch>
                         <RouteGuard
                           exact
                           path="/"
                           unauth={AuthLogin}
-                          // component={VulnerabilityScan}
                           component={VulnerabilityScanWithSearch}
                         />
                         <Route
@@ -144,17 +131,13 @@ const App: React.FC = () => (
                           path="/inventory/domains"
                           component={Domains}
                         />
-                        {/* <RouteGuard
-                          path="/overview"
-                          component={RiskWithSearch}
-                        /> */}
                         <RouteGuard
                           path="/VSDashboard"
                           component={VulnerabilityScanWithSearch}
                         />
                         <RouteGuard
-                          path="/inventory/vulnerabilities"
                           exact
+                          path="/inventory/vulnerabilities"
                           component={Vulnerabilities}
                           permissions={[
                             'globalView',
