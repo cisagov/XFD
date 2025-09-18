@@ -116,7 +116,7 @@
     "serverless-plugin-ifelse": "^1.0.7",
     "serverless-prune-versions": "^1.0.4",
     "typescript": "^4.8.4",
-    "vite": "^7.0.4",
+    "vite": "^7.1.6",
     "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.4"
   },
