@@ -57,6 +57,12 @@ class DomainFilters(BaseModel):
         from_attributes = True
 
 
+class DomainNameSearch(BaseModel):
+    """DomainNameSearch Schema."""
+
+    search_term: str
+
+
 class DomainSearch(BaseModel):
     """DomainSearch schema."""
 
