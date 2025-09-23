@@ -77,11 +77,9 @@ export const NavMenuButton: React.FC<Props> = ({
 
   const id = `menu-${title.replace(/\s+/g, '-').toLowerCase()}`;
 
-  const isDropdown = !isLink && menuItems && menuItems.length > 0;
-
   const buttonProps: Partial<ButtonProps> & { to?: string } = {
     variant: 'globalNav',
-    sx: { display: { xs: 'none', xl: 'flex' }, px: 1 },
+    sx: { display: { xs: 'none', lg: 'flex' }, px: 1 },
     'aria-current': isActive ? 'page' : undefined
   };
 
@@ -104,30 +102,16 @@ export const NavMenuButton: React.FC<Props> = ({
   const borderBoxStyle = {
     display: 'flex',
     alignItems: 'center',
-    borderBottom: isDropdown
-      ? open
-        ? '3px solid'
-        : '3px solid transparent'
-      : isActive
-        ? '3px solid'
-        : '3px solid transparent',
-    borderColor: isDropdown
-      ? open
-        ? 'primary.dark'
-        : 'transparent'
-      : isActive
-        ? 'primary.dark'
-        : 'transparent',
+    borderBottom: open || isActive ? '3px solid' : '3px solid transparent',
+    borderColor: open || isActive ? 'primary.dark' : 'transparent',
     borderRadius: 0
   };
 
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', ml: 1 }}>
-      <Box sx={{ display: { xs: 'none', xl: 'flex' } }}>
-        <Button {...buttonProps}>
-          <Box sx={borderBoxStyle}>{title}</Box>
-        </Button>
-      </Box>
+      <Button {...buttonProps}>
+        <Box sx={borderBoxStyle}>{title}</Box>
+      </Button>
 
       {menuItems && menuItems.length > 0 && (
         <>
@@ -140,12 +124,12 @@ export const NavMenuButton: React.FC<Props> = ({
             disableScrollLock
           >
             {menuItems.map((item: MenuItemType, index: number) => {
-              const isExternal =
+              const externalLink =
                 item.path?.startsWith('http') ||
                 item.path?.startsWith('mailto');
-              const isInternal = !!item.path && !isExternal;
-              const isSubMenu = (item.subMenuItems?.length ?? 0) > 0;
-              if (isExternal) {
+              const internalLink = !!item.path && !externalLink;
+              const subMenuLink = (item.subMenuItems?.length ?? 0) > 0;
+              if (externalLink) {
                 return (
                   <MenuItem
                     key={index}
@@ -155,14 +139,13 @@ export const NavMenuButton: React.FC<Props> = ({
                     rel="noopener noreferrer"
                     onClick={handleClose}
                     role="menuitem"
-                    sx={{ minWidth: '150px' }}
                   >
                     {item.menuItemTitle}
                   </MenuItem>
                 );
               }
 
-              if (isInternal) {
+              if (internalLink) {
                 return (
                   <MenuItem
                     key={index}
@@ -170,13 +153,12 @@ export const NavMenuButton: React.FC<Props> = ({
                     to={item.path!}
                     onClick={handleClose}
                     role="menuitem"
-                    sx={{ minWidth: '150px' }}
                   >
                     {item.menuItemTitle}
                   </MenuItem>
                 );
               }
-              if (isSubMenu) {
+              if (subMenuLink) {
                 return (
                   <MenuItem
                     key={index}
@@ -185,12 +167,6 @@ export const NavMenuButton: React.FC<Props> = ({
                       setSubAnchorEl(e.currentTarget);
                     }}
                     role="menuitem"
-                    sx={{
-                      minWidth: '150px',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center'
-                    }}
                   >
                     {item.menuItemTitle}
                     <KeyboardArrowRightIcon fontSize="small" />
@@ -206,7 +182,6 @@ export const NavMenuButton: React.FC<Props> = ({
                     handleClose();
                   }}
                   role="menuitem"
-                  sx={{ minWidth: '150px' }}
                 >
                   {item.menuItemTitle}
                 </MenuItem>
@@ -239,7 +214,6 @@ export const NavMenuButton: React.FC<Props> = ({
                         handleClose();
                       }}
                       role="menuitem"
-                      sx={{ minWidth: '150px' }}
                     >
                       {subItem.menuItemTitle}
                     </MenuItem>

@@ -387,7 +387,7 @@ export const Header: React.FC = () => {
             })}
             <IconButton
               sx={{
-                display: { xs: 'flex', xl: 'none' },
+                display: { xs: 'flex', lg: 'none' },
                 color: 'primary.dark'
               }}
               aria-label="Open mobile menu"
