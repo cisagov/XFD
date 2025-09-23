@@ -84,3 +84,27 @@ jobs:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: pip-
+  playwright:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./playwright
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20.19.4'
+      - name: Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: ${{ runner.os }}-node-
+      - name: Install dependencies (no scripts)
+        run: npm ci --ignore-scripts
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
+      - name: Audit dev dependencies (block on high)
+        run: npm audit --omit=prod --audit-level=high
