@@ -302,7 +302,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         isOpen={infoDialogOpen}
         handleClick={() => {
           setInfoDialogOpen(false);
-          setIsSaveDisabled(true);
+          //setIsSaveDisabled(true);
         }}
         icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
         title={<Typography variant="h4">Success</Typography>}
@@ -405,9 +405,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
                     ...organization,
                     is_passive: event.target.checked
                   });
-                  if (!organization.is_passive) {
-                    setIsSaveDisabled(false);
-                  }
+                  setIsSaveDisabled(false);
                 }}
                 color="primary"
                 disabled={user?.user_type === 'globalView'}
