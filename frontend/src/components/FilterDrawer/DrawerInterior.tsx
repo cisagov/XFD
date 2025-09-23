@@ -13,10 +13,12 @@ import {
   FormGroup,
   Radio,
   useTheme,
-  Checkbox
+  Checkbox,
+  Divider
 } from '@mui/material';
 import {
   DeleteOutline,
+  Domain,
   ExpandMore,
   FiberManualRecordRounded
 } from '@mui/icons-material';
@@ -27,6 +29,7 @@ import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { Facet } from '@elastic/react-search-ui';
+import { DomainAndIPFilter } from './DomainAndIPFilter';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -291,6 +294,8 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             onAddTag={(value) => addFilter('name', value, 'any')}
             onRemoveTag={(value) => removeFilter('name', value, 'any')}
           />
+          <Divider sx={{ my: 1 }} />
+          <DomainAndIPFilter />
         </AccordionDetails>
       </Accordion>
       {fromDomainFacet.length > 0 && (
