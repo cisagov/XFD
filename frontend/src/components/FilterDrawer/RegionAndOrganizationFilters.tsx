@@ -563,10 +563,12 @@ export const RegionAndOrganizationFilters: React.FC<
                     : `${userOrg}`
                 }
                 onBlur={() => setIsOrgOpen(false)}
-                placeholder={
-                  regionFilterValues
-                    ? `Regions ${regionFilterValues.join(', ')}`
-                    : 'Search Regions'
+                helperText={
+                  userLevel === REGIONAL_ADMIN ||
+                  userLevel === GLOBAL_ADMIN ||
+                  userLevel === GLOBAL_VIEW
+                    ? 'This search shows up to 10 organizations to start. Begin typing to search across all organizations and select one.'
+                    : ''
                 }
               />
             )}

@@ -1,6 +1,7 @@
 import { Organization } from './organization';
 import { Scan } from './scan';
-
+import { Cpe } from './cpe';
+import { Cve } from './cve';
 export interface Product {
   // Common name
   name: string;
@@ -117,6 +118,8 @@ export interface Vulnerability {
     tags: string[];
   }[];
   service: Service;
+  cve_full: Cve | null;
+  cpes: Cpe[];
 }
 
 export interface Domain {

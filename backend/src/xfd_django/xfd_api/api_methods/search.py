@@ -2,10 +2,11 @@
 # Standard Python Libraries
 import csv
 import io
+import logging
 from typing import Any, Dict, List
 
 # Third-Party Libraries
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_api.auth import (
     get_organization_region,
     get_tag_organizations,
@@ -18,6 +19,9 @@ from xfd_api.tasks.es_client import ESClient
 from xfd_mini_dl.models import Role
 
 from ..schema_models.search import DomainSearchBody
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 async def get_options(search_body, user) -> Dict[str, Any]:
@@ -68,8 +72,11 @@ async def fetch_all_results(
         try:
             response = client.search_domains(request)
         except Exception as e:
-            print("Elasticsearch error: {}".format(e))
-            raise HTTPException(status_code=500, detail="Error querying Elasticsearch.")
+            LOGGER.exception("Elasticsearch error: %s", e)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error querying Elasticsearch.",
+            )
 
         hits = response.get("hits", {}).get("hits", [])
         if not hits:
@@ -77,6 +84,55 @@ async def fetch_all_results(
 
         results.extend(hit["_source"] for hit in hits)
         current += 1
+
+    return results
+
+
+async def fetch_all_results_scroll(
+    search_body: DomainSearchBody,
+    client: ESClient,
+    page_size: int = 1000,
+    scroll_keepalive: str = "2m",
+) -> list[dict]:
+    """Fetch all results from Elasticsearch using the scroll API."""
+    results: list[dict] = []
+    scroll_id = None
+
+    # Build base request using your existing function
+    body = build_request(search_body)
+
+    # Scroll-specific tweaks
+    body.pop("from", None)
+    body["size"] = page_size
+    body.pop("aggs", None)
+    body.pop("highlight", None)
+
+    try:
+        resp = client.search_domains(body=body, scroll=scroll_keepalive)
+        scroll_id = resp.get("_scroll_id")
+        hits = resp.get("hits", {}).get("hits", [])
+
+        while hits:
+            results.extend(h["_source"] for h in hits if "_source" in h)
+
+            resp = client.scroll_domains(
+                scroll_id=scroll_id, keepalive=scroll_keepalive
+            )
+            scroll_id = resp.get("_scroll_id", scroll_id)
+            hits = resp.get("hits", {}).get("hits", [])
+
+    except Exception as e:
+        LOGGER.exception("Elasticsearch scroll error: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error streaming results from Elasticsearch.",
+        )
+    finally:
+        if scroll_id:
+            try:
+                client.clear_scroll_domains(scroll_id=scroll_id)
+            except Exception:
+                LOGGER.warning("Failed to clear scroll_id %s", scroll_id)
 
     return results
 
@@ -340,7 +396,7 @@ async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str
 
     # Fetch results from Elasticsearch
     client = ESClient()
-    results = await fetch_all_results(search_body, client)
+    results = await fetch_all_results_scroll(search_body, client)
 
     # Process results for CSV
     processed_results = process_results(results)
@@ -384,7 +440,7 @@ async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str
     try:
         csv_url = s3_client.save_csv(csv_content, "domains")
     except Exception as e:
-        print("S3 upload error: {}".format(e))
-        raise HTTPException(status_code=500, detail="Error uploading CSV to S3.")
+        LOGGER.exception("S3 upload error: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return {"url": csv_url}

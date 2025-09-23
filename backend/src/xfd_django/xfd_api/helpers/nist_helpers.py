@@ -118,8 +118,7 @@ def api_cve_insert(cve_dict):
         # }
 
     except Exception as e:
-        print(e)
-        print("failed to insert or update")
+        LOGGER.error("Error occurred: %s", e)
         LOGGER.info("API key expired please try again")
 
 

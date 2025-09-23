@@ -1,3 +1,150 @@
+# P&E EC2
+
+
+resource "aws_iam_role" "pe" {
+  count              = var.create_pe_instance ? 1 : 0
+  name               = "crossfeed-pe-${var.stage}"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+#Instance Profile
+resource "aws_iam_instance_profile" "pe" {
+  count = var.create_pe_instance ? 1 : 0
+  name  = "crossfeed-pe-${var.stage}"
+  role  = aws_iam_role.pe[0].id
+}
+
+#Attach Policies to Instance Role
+resource "aws_iam_role_policy_attachment" "pe_ssm_core" {
+  count      = var.create_pe_instance ? 1 : 0
+  role       = aws_iam_role.pe[0].name
+  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "pe_ssm_service" {
+  count      = var.create_pe_instance ? 1 : 0
+  role       = aws_iam_role.pe[0].name
+  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AmazonEC2RoleforSSM"
+}
+
+resource "aws_iam_role_policy" "pe_s3_policy" {
+  count       = var.create_pe_instance ? 1 : 0
+  name_prefix = "crossfeed-pe-s3-${var.stage}"
+  role        = aws_iam_role.pe[0].id
+  policy      = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:*"
+      ],
+      "Resource": [
+        "${aws_s3_bucket.pe_db_backups_bucket.arn}",
+        "${aws_s3_bucket.pe_db_backups_bucket.arn}/*",
+        "${aws_s3_bucket.reports_bucket.arn}",
+        "${aws_s3_bucket.reports_bucket.arn}/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction"
+      ],
+      "Resource": [
+        "*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeClusters",
+        "ecs:DescribeTasks",
+        "ecs:ListClusters",
+        "ecs:ListTasks",
+        "sts:AssumeRole"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy" "pe_sqs_send_message_policy" {
+  count       = var.create_pe_instance ? 1 : 0
+  name_prefix = "pe-ec2-send-sqs-message-${var.stage}"
+  role        = aws_iam_role.pe[0].id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "sqs:SendMessage",
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ListQueues",
+          "sqs:GetQueueUrl"
+        ],
+        Effect   = "Allow",
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_instance" "pe" {
+  count                       = var.create_pe_instance ? 1 : 0
+  ami                         = var.is_dmz ? data.aws_ami.ubuntu[0].id : var.ami_id
+  instance_type               = var.db_accessor_instance_class
+  associate_public_ip_address = false
+
+  depends_on = [
+    aws_iam_instance_profile.pe,
+    aws_security_group.allow_internal,
+    aws_subnet.pe
+  ]
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Name    = "pe_ec2"
+  }
+  root_block_device {
+    volume_size = 1000
+  }
+
+  vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
+  subnet_id              = var.is_dmz ? aws_subnet.pe[0].id : data.aws_ssm_parameter.subnet_db_1_id[0].value
+
+  iam_instance_profile = aws_iam_instance_profile.pe[0].id
+  user_data            = file("./ssm-agent-install.sh")
+  lifecycle {
+    # prevent_destroy = true
+    ignore_changes = [ami]
+  }
+}
 
 
 # P&E ECR Repository

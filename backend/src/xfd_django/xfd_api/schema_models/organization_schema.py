@@ -2,7 +2,7 @@
 
 # Standard Python Libraries
 from datetime import datetime
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 from uuid import UUID
 
 # Third-Party Libraries
@@ -22,7 +22,7 @@ class Organization(BaseModel):
     root_domains: List[str]
     ip_blocks: List[str]
     is_passive: bool
-    pending_domains: Optional[List[dict]]
+    pending_domains: Optional[List[Union[Dict[str, Any], str]]]
     country: Optional[str]
     state: Optional[str]
     region_id: Optional[str]
@@ -88,7 +88,7 @@ class ScanTaskSchema(BaseModel):
 
     id: UUID
     created_at: datetime
-    scan: SimpleScanSchema
+    scan: Optional[SimpleScanSchema] = None
 
 
 class GetOrganizationSchema(BaseModel):

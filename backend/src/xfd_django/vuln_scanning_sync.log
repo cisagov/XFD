@@ -1,0 +1,6 @@
+INFO: Waiting for application startup.
+INFO: Docker events listener started in a separate thread.
+INFO: Starting local scheduler...
+INFO: Listening for Docker events...
+ERROR: Error running local scheduler: Could not connect to the endpoint URL: "http://elasticmq:9324/"
+INFO: Application startup complete.

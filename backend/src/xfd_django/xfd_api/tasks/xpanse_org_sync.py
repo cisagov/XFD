@@ -17,7 +17,6 @@ django.setup()
 # Third-Party Libraries
 # cisagov Libraries
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 
@@ -108,7 +107,7 @@ def handler(event):
             "body": "Xpanse Alerts sync completed successfully.",
         }
     except Exception as e:
-        print("Error in handler", e)
+        LOGGER.error("Error in handler: %s", e)
         return {"statusCode": 500, "body": str(e)}
 
 

@@ -1,6 +1,7 @@
 """Test Vulnerability API."""
 # Standard Python Libraries
 from datetime import datetime, timedelta, timezone
+import logging
 import secrets
 
 # Third-Party Libraries
@@ -33,6 +34,8 @@ from xfd_mini_dl.models import (
 )
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 created_at_date = datetime.now() - timedelta(days=10)
 updated_at_date = created_at_date + timedelta(days=2)
@@ -723,10 +726,9 @@ def test_search_vulnerabilities_by_organization_id(
                 vulnerability_data.get("id", "N/A")
             )
         else:
-            print(
-                "Warning: 'domain_id' key not found in vulnerability with ID {}".format(
-                    vulnerability_data.get("id", "N/A")
-                )
+            LOGGER.warning(
+                "Warning: 'domain_id' key not found in vulnerability with ID %s",
+                vulnerability_data.get("id", "N/A"),
             )
 
 

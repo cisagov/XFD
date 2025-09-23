@@ -1,15 +1,71 @@
 """Utility functions for handling CSV and JSON data.
 
 Provides functions to convert between JSON and CSV formats, create checksums,
-and write CSV data to files.
+write CSV data to files, and sanitize formulas in strings.
 """
 
 # Standard Python Libraries
 import csv
+from datetime import date, datetime
+from decimal import Decimal
 from hashlib import sha256
 from io import StringIO
 import json
-from typing import Any, Dict, List
+import logging
+from typing import Any, Dict, Iterable, List, Sequence
+
+LOGGER = logging.getLogger(__name__)
+_FORMULA_PREFIXES: tuple[str, ...] = ("=", "+", "-", "@")
+
+
+def sanitize_strings_for_excel(cell: Any) -> Any:
+    """
+    Neutralize potential formulas in string cells for Excel/Sheets.
+
+    - Only touches str; numbers/dates/None pass through.
+    - If the (trimmed) string starts with = + - @, prefix with ' to force text.
+    """
+    if cell is None or isinstance(cell, (int, float, Decimal, bool, date, datetime)):
+        return cell
+    s = str(cell)
+    return ("'" + s) if s.lstrip().startswith(_FORMULA_PREFIXES) else s
+
+
+def sanitize_row_for_excel(row: Iterable[Any]) -> list[Any]:
+    """Apply sanitize_strings_for_excel to a whole row."""
+    return [sanitize_strings_for_excel(v) for v in row]
+
+
+def write_rows_to_csv(
+    fieldnames: Sequence[str],
+    rows: Iterable[Iterable[Any]],
+    *,
+    sanitize: bool = True,
+    newline: str = "",
+) -> str:
+    """Write rows to a CSV string."""
+    buf = StringIO(newline=newline)
+    writer = csv.writer(buf)
+    writer.writerow(list(fieldnames))
+    if sanitize:
+        for r in rows:
+            writer.writerow(sanitize_row_for_excel(r))
+    else:
+        for r in rows:
+            writer.writerow(r)
+    return buf.getvalue()
+
+
+def queryset_to_csv(
+    qs: Any,
+    fieldnames: Sequence[str],
+    *,
+    sanitize: bool = True,
+    newline: str = "",
+) -> str:
+    """Export a Django QuerySet to a CSV string."""
+    rows = qs.values_list(*fieldnames)
+    return write_rows_to_csv(fieldnames, rows, sanitize=sanitize, newline=newline)
 
 
 def create_checksum(data: str) -> str:
@@ -47,7 +103,7 @@ def json_to_csv(json_array: List[Dict[str, Any]]) -> str:
         row = [
             ",".join(obj[header])
             if isinstance(obj[header], list)
-            else (f'"{obj[header]}"' if obj[header] is not None else '""')
+            else ('"{}"'.format(obj[header]) if obj[header] is not None else '""')
             for header in headers
         ]
         rows.append(",".join(row))
@@ -169,7 +225,8 @@ def convert_csv_to_json(csv_data: str) -> List[Dict[str, Any]]:
         return json_data
 
     except Exception as e:
-        raise ValueError(f"Error processing CSV to JSON: {e}")
+        LOGGER.exception("Error processing CSV to JSON: %s", e)
+        raise ValueError
 
 
 def write_csv_to_file(csv_data: str, file_path: str) -> None:
@@ -185,6 +242,6 @@ def write_csv_to_file(csv_data: str, file_path: str) -> None:
     try:
         with open(file_path, mode="w", encoding="utf-8") as file:
             file.write(csv_data)
-        print(f"CSV data successfully written to file: {file_path}")
+        LOGGER.info("CSV data successfully written to file: %s", file_path)
     except Exception as e:
-        print(f"An error occurred while writing to the file: {e}")
+        LOGGER.error("An error occurred while writing to the file: %s", e)

@@ -1,6 +1,7 @@
 """Test organizations."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 from unittest.mock import patch
 import uuid
@@ -21,6 +22,8 @@ from xfd_mini_dl.models import (
 )
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 # Test: Creating an organization by global admin should succeed
@@ -117,7 +120,7 @@ def test_create_org_by_global_view_fails():
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    print(user)
+    LOGGER.info(user)
 
     name = "test-{}".format(secrets.token_hex(4))
     acronym = secrets.token_hex(2)

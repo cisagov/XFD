@@ -26,6 +26,12 @@ checkUserExpiration:
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
 
+queryDailyCustomerMetrics:
+  timeout: 300
+  handler: src/xfd_django/xfd_api/tasks/metrics.collect_and_upsert_customer_metrics
+  events:
+    - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
+
 scanExecution:
   timeout: 900  # 15 minutes
   handler: src/xfd_django/xfd_api/tasks/scanExecution.handler
@@ -49,44 +55,50 @@ infraOps:
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
 
+pruneScanResults:
+  handler: src/xfd_django/xfd_api/tasks/prune_scan_results.handler
+  events:
+    - schedule:
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+
 serviceStatsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 portStatsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_ports_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 numVulnsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_num_vulns_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 latestVulnsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_latest_vulns_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 mostCommonVulnsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_most_common_vulns_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 severityCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_severity_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 byOrgCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_by_org_cache
   events:
     - schedule:
-        rate: cron(0 0 * * ? *)  # This triggers the function every day it midnight
+        rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight

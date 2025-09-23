@@ -1,16 +1,19 @@
 """API methods to support Queu Monitoring endpoints."""
 
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
 import boto3
 from botocore.session import Session as BotoCoreSession
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.queue_monitoring import QueueSearch
 
 from ..auth import is_global_view_admin
+
+LOGGER = logging.getLogger(__name__)
 
 is_local = os.getenv("IS_LOCAL")
 base_queue_url = os.getenv("QUEUE_URL")
@@ -77,10 +80,8 @@ def list_queues(search_data: QueueSearch, current_user):
                 }
                 queue_data.append(queue_info)
             except Exception as attr_err:
-                print(
-                    "Error fetching attributes for queue {}: {}".format(
-                        queue_name, attr_err
-                    )
+                LOGGER.error(
+                    "Error fetching attributes for queue %s: %s", queue_name, attr_err
                 )
 
         # Apply filters
@@ -102,7 +103,7 @@ def list_queues(search_data: QueueSearch, current_user):
         return {"result": paginated_data, "count": len(queue_data)}
 
     except Exception as e:
-        print("Error fetching queue metadata: {}".format(e))
+        LOGGER.exception("Error fetching queue metadata: %s", e)
         raise HTTPException(
-            status_code=500, detail="Failed to retrieve queue metadata."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

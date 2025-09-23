@@ -16,7 +16,6 @@ API_KEY = os.getenv("SHODAN_API_KEY")
 from xfd_api.helpers.asset_inserts import create_or_update_ip
 from xfd_mini_dl.models import Cidr, Ip, Organization
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 states = [
@@ -276,7 +275,7 @@ def search(api, query, ip_obj, cidr, org_type):
 
         for result in results["matches"]:
             # if ":" in result["ip_str"]:
-            #     print("ipv6 found ", result["ip_str"])
+            #     LOGGER.info("ipv6 found ", result["ip_str"])
             #     ip_type = "ipv6"
             # else:
             #     ip_type = "ipv4"
@@ -307,7 +306,7 @@ def search(api, query, ip_obj, cidr, org_type):
                 # Show the results
                 for result in results["matches"]:
                     # if ":" in result["ip_str"]:
-                    #     print("ipv6 found ", result["ip_str"])
+                    #     LOGGER.info("ipv6 found ", result["ip_str"])
                     #     ip_type = "ipv6"
                     # else:
                     #     ip_type = "ipv4"

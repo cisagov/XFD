@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { initializeUser, User, Organization as OrganizationType } from 'types';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { useAuthContext } from 'context';
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
@@ -54,15 +55,85 @@ export const RegionUsers: React.FC = () => {
   const getUsersURL = `/v2/users?invite_pending=`;
 
   const pendingCols: GridColDef[] = [
-    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'email', headerName: 'Email', minWidth: 100, flex: 2 },
-    { field: 'state', headerName: 'State', minWidth: 100, flex: 1 },
-    { field: 'created_at', headerName: 'Created At', minWidth: 100, flex: 1.5 },
+    {
+      field: 'full_name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
+          >
+            {cellValues.row.full_name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
+          >
+            {cellValues.row.email}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State for User ${cellValues.row.full_name}: ${cellValues.row.state}`}
+          >
+            {cellValues.row.state}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'created_at',
+      headerName: 'Created At',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Created At Date for User ${cellValues.row.full_name}: ${cellValues.row.created_at}`}
+          >
+            {cellValues.row.created_at}
+          </Box>
+        );
+      }
+    },
     {
       field: 'cognito_use_case_description',
       headerName: 'Use Case',
       minWidth: 255,
-      flex: 1.5
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Use Case for ${cellValues.row.full_name}: ${cellValues.row.cognito_use_case_description}`}
+          >
+            {cellValues.row.cognito_use_case_description}
+          </Box>
+        );
+      }
     },
     {
       field: 'status',
@@ -78,6 +149,7 @@ export const RegionUsers: React.FC = () => {
               color="success"
               onClick={() => handleApproveClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
+              aria-label={`Approve User: ${cellValues.row.full_name}`}
             >
               Approve
             </Button>
@@ -87,6 +159,7 @@ export const RegionUsers: React.FC = () => {
               color="error"
               onClick={() => handleDenyClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
+              aria-label={`Deny User: ${cellValues.row.full_name}`}
             >
               Deny
             </Button>
@@ -96,36 +169,156 @@ export const RegionUsers: React.FC = () => {
     }
   ];
   const memberCols: GridColDef[] = [
-    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'email', headerName: 'Email', minWidth: 100, flex: 2 },
-    { field: 'state', headerName: 'State', minWidth: 100, flex: 1 },
+    {
+      field: 'full_name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
+          >
+            {cellValues.row.full_name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
+          >
+            {cellValues.row.email}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State for User ${cellValues.row.full_name}: ${cellValues.row.state}`}
+          >
+            {cellValues.row.state}
+          </Box>
+        );
+      }
+    },
     {
       field: 'last_logged_in',
       headerName: 'Last Logged In',
       minWidth: 100,
-      flex: 1.5
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Last Logged In Date for User ${cellValues.row.full_name}: ${cellValues.row.last_logged_in}`}
+          >
+            {cellValues.row.last_logged_in}
+          </Box>
+        );
+      }
     },
     {
       field: 'organizations',
       headerName: 'Organizations',
       minWidth: 250,
-      flex: 2
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.organizations.join(', ')}`}
+          >
+            {cellValues.row.organizations.join(', ')}
+          </Box>
+        );
+      }
     }
   ];
   const regionIdColumn = {
     field: 'region_id',
     headerName: 'Region',
     minWidth: 100,
-    flex: 0.5
+    flex: 0.5,
+    renderCell: (cellValues: GridRenderCellParams) => {
+      return (
+        <Box
+          component="span"
+          aria-label={`Region ID for User ${cellValues.row.full_name}: ${cellValues.row.region_id}`}
+        >
+          {cellValues.row.region_id}
+        </Box>
+      );
+    }
   };
   if (user?.user_type !== 'regionalAdmin') {
     pendingCols.unshift(regionIdColumn);
     memberCols.unshift(regionIdColumn);
   }
   const orgCols: GridColDef[] = [
-    { field: 'name', headerName: 'Name', minWidth: 100, flex: 2 },
-    { field: 'updated_at', headerName: 'Updated At', minWidth: 100, flex: 1 },
-    { field: 'state_name', headerName: 'State', minWidth: 100, flex: 1 }
+    {
+      field: 'name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization Name: ${cellValues.row.name}`}
+          >
+            {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'updated_at',
+      headerName: 'Updated At',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Date Updated At for Organization ${cellValues.row.name}: ${cellValues.row.updated_at}`}
+          >
+            {cellValues.row.updated_at}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state_name',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State Name for Organization ${cellValues.row.name}: ${cellValues.row.state_name}`}
+          >
+            {cellValues.row.state_name}
+          </Box>
+        );
+      }
+    }
   ];
   const [dialogStates, setDialogStates] = useState<DialogStates>({
     isOrgDialogOpen: false,
@@ -159,8 +352,7 @@ export const RegionUsers: React.FC = () => {
       return;
     }
     try {
-      // const rows = await apiGet<OrganizationType[]>(getOrgsURL + row.region_id);
-      const rows = await apiGet<OrganizationType[]>(getOrgsURL + 3);
+      const rows = await apiGet<OrganizationType[]>(getOrgsURL + row.region_id);
       setOrganizations(rows);
       if (row.roles.length > 0) {
         setSelectedOrg({
@@ -446,6 +638,7 @@ export const RegionUsers: React.FC = () => {
           {`${formattedUserType} Dashboard`}
         </Typography>
         <br />
+        <ExportCustomerMetricsButton />
         <Typography variant="h2" style={{ fontSize: '1.25rem' }} pb={2} pt={2}>
           Pending Requests
         </Typography>

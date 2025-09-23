@@ -603,12 +603,6 @@ resource "aws_s3_bucket_policy" "zscaler_cert_bucket" {
   })
 }
 
-resource "aws_s3_bucket_acl" "zscaler_cert_bucket" {
-  count  = var.is_dmz ? 0 : 1
-  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
-  acl    = "private"
-}
-
 resource "aws_s3_bucket_ownership_controls" "zscaler_cert_bucket" {
   count  = var.is_dmz ? 0 : 1
   bucket = aws_s3_bucket.zscaler_cert_bucket[0].id

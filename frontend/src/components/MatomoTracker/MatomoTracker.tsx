@@ -4,7 +4,7 @@ export const MatomoTracker = () => {
   useEffect(() => {
     const apiUrl = import.meta.env.VITE_API_URL;
     const matomoPath = import.meta.env.VITE_MATOMO_URL;
-    const siteId = import.meta.env.VITE_MATOMO_SITE_ID;
+    const siteId = import.meta.env.VITE_MATOMO_SITEID;
 
     if (!apiUrl || !matomoPath) {
       console.error('Matomo configuration missing.');
@@ -17,7 +17,7 @@ export const MatomoTracker = () => {
     // Inject Matomo tracking logic
     const _paq = (window._paq = window._paq || []);
     _paq.push(['setTrackerUrl', matomoTrackingApiUrl]);
-    _paq.push(['setSiteId', 1]);
+    _paq.push(['setSiteId', siteId]);
     _paq.push(['trackPageView']);
     _paq.push(['enableLinkTracking']);
 

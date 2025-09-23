@@ -1,15 +1,19 @@
 """API methods to support Scan endpoints."""
 
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_mini_dl.models import Organization, OrganizationTag, Scan
 
 from ..auth import is_global_view_admin, is_global_write_admin
 from ..schema_models.scan import SCAN_SCHEMA, NewScan
 from ..tasks.lambda_client import LambdaClient
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 # GET: /scans
@@ -162,8 +166,8 @@ def create_scan(scan_data: NewScan, current_user):
     except OrganizationTag.DoesNotExist:
         raise HTTPException(status_code=404, detail="Tag not found")
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception(e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # GET: /scans/{scan_id}
@@ -344,7 +348,7 @@ async def invoke_scheduler(current_user):
 
         # Form the lambda function name using environment variable
         lambda_function_name = "{}-scheduler".format(os.getenv("SLS_LAMBDA_PREFIX"))
-        print(lambda_function_name)
+        LOGGER.info("Invoking Lambda function: %s", lambda_function_name)
 
         # Run the Lambda command
         response = lambda_client.run_command(name=lambda_function_name)
@@ -355,4 +359,5 @@ async def invoke_scheduler(current_user):
         raise http_exc
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception("Error invoking scheduler: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

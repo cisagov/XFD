@@ -1,11 +1,14 @@
 """Domain schema."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 from typing import Any, List, Optional
 from uuid import UUID
 
 # Third-Party Libraries
 from pydantic import BaseModel, field_validator, model_validator
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Domain(BaseModel):
@@ -158,9 +161,11 @@ class VulnerabilityResponse(BaseModel):
             try:
                 UUID(self.id)
             except ValueError:
-                raise ValueError(
-                    f"`id` must be a valid UUID when scan_source is 'vuln_scanning_tickets', got: {self.id}"
+                LOGGER.exception(
+                    "`id` must be a valid UUID when scan_source is 'vuln_scanning_tickets', got: %s",
+                    self.id,
                 )
+                raise ValueError
         return self
 
     class Config:

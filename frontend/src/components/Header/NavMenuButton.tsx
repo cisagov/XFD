@@ -137,6 +137,7 @@ export const NavMenuButton: React.FC<Props> = ({
             onClose={handleClose}
             id={id}
             slotProps={{ list: { 'aria-labelledby': id, ref: menuRef } }}
+            disableScrollLock
           >
             {menuItems.map((item: MenuItemType, index: number) => {
               const isExternal =

@@ -85,6 +85,7 @@ es_instance_type                   = "t3.medium.elasticsearch"
 es_instance_count                  = 3
 es_instance_volume_size            = 200
 create_db_accessor_instance        = false
+create_pe_instance                 = false
 db_accessor_instance_class         = "t3.2xlarge"
 create_elk_instance                = false
 elk_instance_class                 = "t3.2xlarge"

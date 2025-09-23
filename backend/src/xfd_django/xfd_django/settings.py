@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 # Standard Python Libraries
+import logging.config
 import mimetypes
 import os
 
@@ -20,8 +21,12 @@ from pathlib import Path
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.log_helpers import install_xfd_prefix
+
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
+
+install_xfd_prefix()  # Install custom logger prefix
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -131,6 +136,41 @@ ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
 LANGUAGE_CODE = "en-us"
+
+# Log Level defaults to INFO, can be changed to DEBUG in development
+LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
+ROOT_LEVEL = "INFO"
+# Logging configuration
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "standard": {
+            "format": "[%(asctime)s.%(msecs)03d] %(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": LOGGING_LEVEL,
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": ROOT_LEVEL,
+    },
+    "loggers": {
+        "xfd": {
+            "handlers": ["console"],
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+    },
+}
+# Apply the logging configuration
+logging.config.dictConfig(LOGGING)
 
 TIME_ZONE = "UTC"
 

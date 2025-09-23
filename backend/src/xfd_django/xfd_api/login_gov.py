@@ -1,11 +1,14 @@
 """Login gov methods."""
 # Standard Python Libraries
 import json
+import logging
 import os
 
 # Third-Party Libraries
 import jwt
 import requests
+
+LOGGER = logging.getLogger(__name__)
 
 discovery_url = (
     os.getenv("LOGIN_GOV_BASE_URL", "") + "/.well-known/openid-configuration"
@@ -15,7 +18,7 @@ discovery_url = (
 try:
     jwk_set = {"keys": [json.loads(os.getenv("LOGIN_GOV_JWT_KEY", ""))]}
 except Exception as error:
-    print("Error: {}".format(error))
+    LOGGER.error("Error: %s", error)
     jwk_set = {"keys": [{}]}
 
 # OpenID Connect Client Configuration
@@ -62,5 +65,5 @@ def callback(body):
     # Decode the ID token without verifying the signature
     # (optional depending on your security model)
     decoded_token = jwt.decode(id_token, options={"verify_signature": False})
-    print("Decoded Token from login_gov: {}".format(decoded_token))
+    LOGGER.info("Decoded Token from login_gov: %s", decoded_token)
     return decoded_token

@@ -27,26 +27,18 @@ export const useApi = (onError?: OnError) => {
     return {
       ...rest,
       headers: {
-        ...headers,
-        ...baseHeaders,
+        ...baseHeaders, // put base first
+        ...headers, // allow caller to override (e.g., Accept: text/csv)
         Authorization: getToken()
       }
     };
   }, []);
-
-  // const { trackEvent } = useMatomo();
 
   const apiMethod = useCallback(
     (method: ApiMethod, methodName: string) =>
       async <T extends object = any>(path: string, init: any = {}) => {
         const { showLoading = true, ...rest } = init;
         try {
-          // trackEvent({
-          //   category: 'apiMethod',
-          //   action: methodName,
-          //   name: path,
-          //   documentTitle: document.title
-          // });
           showLoading && setRequestCount((cnt) => cnt + 1);
           const options = await prepareInit(rest);
           const result = await method('crossfeed', path, options);
@@ -58,7 +50,6 @@ export const useApi = (onError?: OnError) => {
           throw e;
         }
       },
-    // Adding trackEvent to deps causes an infinite loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [prepareInit, onError]
   );

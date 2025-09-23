@@ -204,8 +204,8 @@ SCAN_SCHEMA = {
         type="fargate",
         is_passive=True,
         global_scan=True,
-        cpu="4096",
-        memory="16384",
+        cpu="16384",
+        memory="65536",
         description="Pull in vulnerability data from VSs Vulnerability database",
     ),
     "cveSync": ScanSchema(
@@ -306,6 +306,14 @@ SCAN_SCHEMA = {
         global_scan=False,
         description="Active port scan of common ports",
     ),
+    "redshift_cve_scan": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        description="Creates cve redshift scan.",
+        cpu="2048",
+        memory="16384",
+    ),
     "rootDomainSync": ScanSchema(
         type="fargate",
         is_passive=True,
@@ -322,8 +330,8 @@ SCAN_SCHEMA = {
         type="fargate",
         is_passive=True,
         global_scan=True,
-        cpu="4096",
-        memory="16384",
+        cpu="16384",
+        memory="65536",
         description="Syncs records with Elasticsearch so that they appear in search results.",
     ),
     "shodan": ScanSchema(
@@ -419,6 +427,14 @@ SCAN_SCHEMA = {
         cpu="1024",
         memory="8192",
         description="Pull in WAS finding data from commercial mdl",
+    ),
+    "was_lz_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="1024",
+        memory="8192",
+        description="Pull in WAS data from commercial mdl and sync to LZ MDL",
     ),
     "xpanse_sync": ScanSchema(
         type="fargate",

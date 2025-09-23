@@ -4,9 +4,13 @@ import InfoOutlineIcon from '@mui/icons-material/InfoOutline';
 
 interface NoDataMessageProps {
   userType: string;
+  headerMsg?: string;
+  customMessage?: React.ReactNode;
 }
 const NoDataMessage: React.FC<NoDataMessageProps> = ({
-  userType = 'standard'
+  userType = 'standard',
+  headerMsg = 'No matching data available.',
+  customMessage
 }) => {
   const userTypeMessage =
     userType === 'globalAdmin' ||
@@ -19,7 +23,7 @@ const NoDataMessage: React.FC<NoDataMessageProps> = ({
       sx={{
         mx: 'auto',
         mt: '206px',
-        p: 4,
+        p: 3,
         textAlign: 'center',
         maxWidth: '372px',
         minHeight: '186px'
@@ -33,10 +37,10 @@ const NoDataMessage: React.FC<NoDataMessageProps> = ({
         }}
       />
       <Typography variant="body2" fontSize="15px">
-        No matching data available.
+        {headerMsg}
       </Typography>
       <Typography variant="body2" fontSize="15px">
-        {userTypeMessage}
+        {customMessage ?? userTypeMessage}
       </Typography>
     </Paper>
   );

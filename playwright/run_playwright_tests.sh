@@ -80,12 +80,39 @@ if [[ -z "$TASK_ARN" || "$TASK_ARN" == "None" ]]; then
 fi
 
 echo "✅ ECS Task ARN: $TASK_ARN"
-echo "⏳ Waiting for ECS task to finish..."
 
-aws ecs wait tasks-stopped \
-  --cluster "$CLUSTER_NAME" \
-  --tasks "$TASK_ARN" \
-  --region "$AWS_REGION"
+echo "⏳ Waiting for ECS task to finish..."
+# ⏱️ Custom wait for ECS task to stop
+MAX_WAIT_MINUTES=30
+SLEEP_INTERVAL=10
+MAX_ATTEMPTS=$((MAX_WAIT_MINUTES * 60 / SLEEP_INTERVAL))
+ATTEMPT=0
+
+echo "⏳ Waiting up to $MAX_WAIT_MINUTES minutes for ECS task to stop..."
+
+while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
+  STATUS=$(aws ecs describe-tasks \
+    --cluster "$CLUSTER_NAME" \
+    --tasks "$TASK_ARN" \
+    --region "$AWS_REGION" \
+    --query 'tasks[0].lastStatus' \
+    --output text)
+
+  if [[ "$STATUS" == "STOPPED" ]]; then
+    echo "✅ ECS task has stopped."
+    break
+  fi
+
+  sleep "$SLEEP_INTERVAL"
+  ((ATTEMPT++))
+done
+
+if [[ "$STATUS" != "STOPPED" ]]; then
+  echo "❌ ECS task did not stop within $MAX_WAIT_MINUTES minutes." >&2
+  exit 1
+fi
+
+
 
 echo "✅ Task stopped. Checking exit code..."
 

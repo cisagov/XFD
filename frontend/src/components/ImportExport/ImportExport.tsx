@@ -21,7 +21,10 @@ interface ImportProps<T> {
 export interface ExportProps<T> {
   name: string;
   fieldsToExport?: string[];
-  getDataToExport: () => Partial<T>[] | Promise<Partial<T>[]> | Promise<string>;
+  getDataToExport: () =>
+    | Partial<T>[]
+    | Promise<Partial<T>[]>
+    | Promise<string | null>;
 }
 
 export const Import = <T extends object>(props: ImportProps<T>) => {
@@ -152,6 +155,7 @@ export const exportCSV = async <T extends object>(
   const filename = `${props.name}-${new Date().toISOString()}`;
   setLoading((l) => l + 1);
   const data = await props.getDataToExport();
+  if (data == null) return;
 
   if (typeof data === 'string') {
     const link = document.createElement('a');

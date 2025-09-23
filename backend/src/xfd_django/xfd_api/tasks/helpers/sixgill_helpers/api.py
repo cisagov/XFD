@@ -47,7 +47,12 @@ def alerts_list(auth, organization_id, fetch_size, offset):
             LOGGER.error(resp.content)
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}) for chunk at offset {offset} , attempt {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d) for chunk at offset %d, attempt %d of %d",
+            endpoint_name,
+            resp.status_code,
+            offset,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=payload, timeout=10)
@@ -74,7 +79,11 @@ def alerts_count(organization_id):
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            endpoint_name,
+            resp.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=payload, timeout=10)
@@ -118,7 +127,11 @@ def intel_post(auth, query, frm, scroll, result_size):
             auth = cybersix_token()
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            endpoint_name,
+            resp.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
@@ -152,7 +165,10 @@ def intel_post_next(auth, scroll_id):
             # Tokens expire after 30m, refresh
             auth = cybersix_token()
         LOGGER.warning(
-            f"Retrying Cybersixgill /intel_items/next endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            resp.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, json=payload, timeout=10)
@@ -184,7 +200,11 @@ def credential_auth(auth, params):
             auth = cybersix_token()
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            endpoint_name,
+            resp.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=params, timeout=10)
@@ -220,7 +240,11 @@ def dve_top_cves():
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attmept {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            endpoint_name,
+            resp.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.post(url, headers=headers, data=data, timeout=10)
@@ -270,7 +294,11 @@ def get_sixgill_organizations():
     while orgs.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {orgs.status_code}), attempt {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            endpoint_name,
+            orgs.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         orgs = requests.get(url, headers=headers, timeout=10)
@@ -300,7 +328,11 @@ def org_assets(org_id):
     while resp.status_code != 200 and retry_count < max_retries:
         endpoint_name = url.split("/")[-1]
         LOGGER.warning(
-            f"Retrying Cybersixgill /{endpoint_name} endpoint (code {resp.status_code}), attempt {retry_count + 1} of {max_retries}"
+            "Retrying Cybersixgill /%s endpoint (code %d), attempt %d of %d",
+            endpoint_name,
+            resp.status_code,
+            retry_count + 1,
+            max_retries,
         )
         time.sleep(time_delay)
         resp = requests.get(url, headers=headers, params=payload, timeout=10)

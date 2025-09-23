@@ -2,6 +2,7 @@
 # Standard Python Libraries
 from asyncio import Semaphore
 from datetime import date, datetime, timedelta
+import logging
 import secrets
 import uuid
 
@@ -39,6 +40,8 @@ from xfd_mini_dl.models import (
 )
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 search_fields = {
     "title": "DNS Twist Domains",
@@ -201,11 +204,11 @@ def redis_client():
 @pytest.fixture(scope="session", autouse=True)
 def ensure_fastapi_state(redis_client):
     """Ensure FastAPI's app.state.redis is set before running any tests."""
-    print("Setting up FastAPI Redis state...")
+    LOGGER.info("Setting up FastAPI Redis state...")
     app.state.redis = redis_client  # Inject into FastAPI state
     app.state.redis_semaphore = Semaphore(20)
     yield
-    print("Cleaning up FastAPI Redis state...")
+    LOGGER.info("Cleaning up FastAPI Redis state...")
     del app.state.redis  # Cleanup after tests
 
 
@@ -555,6 +558,7 @@ def test_vs_trends_success():
         start_date=now - timedelta(days=7),
         end_date=now,
         organization=org,
+        enrolled_in_vs_timestamp=now - timedelta(days=200),
         assets_owned_count=100,
         false_positive_count=5,
         vulnerable_host_count=50,
@@ -664,6 +668,7 @@ def test_vs_condensed_trends_success():
         start_date=now - timedelta(days=7),
         end_date=now,
         organization=org,
+        enrolled_in_vs_timestamp=now - timedelta(days=300),
         assets_owned_count=200,
         false_positive_count=0,
         vulnerable_host_count=100,
@@ -761,7 +766,7 @@ def test_vs_trends_invalid_org():
         headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
         json=payload,
     )
-    print(response)
+    LOGGER.info(response)
     assert response.status_code == 404
     assert response.json()["detail"] == "Invalid organization ID."
 
@@ -916,6 +921,7 @@ def test_v2_trends_condensed_segments_aggregation():
             start_date=summary_date - timedelta(days=i + 1),
             end_date=summary_date - timedelta(days=i),
             organization=org,
+            enrolled_in_vs_timestamp=summary_date.date() - timedelta(days=200),
             assets_owned_count=10 * (i + 1),
             vulnerable_host_count=5 * (i + 1),
         )
