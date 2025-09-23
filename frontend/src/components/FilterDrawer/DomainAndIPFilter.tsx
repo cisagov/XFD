@@ -1,9 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { TextField, useTheme } from '@mui/material';
 import { Autocomplete } from '@mui/material';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import { styled } from '@mui/material/styles';
 import { useAuthContext } from '@/context';
 import {
   REGIONAL_ADMIN,
@@ -12,80 +11,105 @@ import {
   useUserLevel
 } from 'hooks/useUserLevel';
 import { GLOBAL_VIEW } from '@/context/userStateUtils';
+import { useStaticsContext } from '@/context/StaticsContext';
 
-// interface Props {
-//   value: string;
-//   onChange(value: string): void;
-//   placeholder?: string;
-// }
+interface Props {
+  addFilter: (
+    name: string,
+    value: string,
+    filterType: 'all' | 'any' | 'none'
+  ) => void;
+  removeFilter: (
+    name: string,
+    value: string,
+    filterType: 'all' | 'any' | 'none'
+  ) => void;
+  filters: any[];
+}
 
-export const DomainAndIPFilter: React.FC<{}> = (
-  {
-    //   value,
-    //   onChange,
-    //   placeholder
-  }
-) => {
+export const DomainAndIPFilter: React.FC<Props> = ({
+  addFilter,
+  removeFilter,
+  filters
+}) => {
   const { user, apiPost } = useAuthContext();
-  const theme = useTheme();
+  const { regions } = useStaticsContext();
   const [search_term, setSearchTerm] = useState<string>('');
   const [domainResults, setDomainResults] = useState<
     { id: string; name: string }[]
   >([]);
-  const [selectedDomain, setSelectedDomain] = useState<
-    | {
-        id: string;
-        name: string;
-      }
-    | undefined
-  >(undefined);
+  const [selectedDomain, setSelectedDomain] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [isDomainOpen, setIsDomainOpen] = React.useState(false);
 
   const userLevel = useUserLevel().userLevel;
 
   const searchDomainsAndIPs = useCallback(
-    async (search_term: string) => {
+    async (search_term: string, regions: string[], org: string) => {
       try {
-        const response = await apiPost<{
-          body: { results: { id: string; name: string }[] };
+        const results = await apiPost<{
+          body: { hits: { hits: { _source: { id: string; name: string } }[] } };
         }>('/search/domains', {
-          body: { search_term }
+          body: { search_term, regions, org }
         });
-        console.log('Domain and IP search response:', response);
-        setDomainResults(response.body.results);
+        const body = results?.body?.hits?.hits;
+        setDomainResults(body.map((hit) => hit._source));
       } catch (error) {
         console.error('Error fetching domain and IP search results:', error);
+        setDomainResults([]);
         return [];
       }
     },
     [apiPost]
   );
 
-  const handleChangeDomain = (
-    newValue: { id: string; name: string } | null
-  ) => {
-    if (newValue) {
-      setSelectedDomain(newValue);
+  const regionFilterValues = useMemo(() => {
+    const regionFilter = filters.find(
+      (f) => f.field === 'organization.region_id'
+    );
+    return regionFilter ? (regionFilter.values as string[]) : [];
+  }, [filters]);
+
+  const orgFilterValues = useMemo(() => {
+    const orgFilters = filters.find((f) => f.field === 'organization_id');
+    return orgFilters;
+  }, [filters]);
+
+  console.log('regionFilterValues:', regionFilterValues);
+  console.log('orgFilterValues:', orgFilterValues);
+
+  const handleChangeDomain = (domain: { id: string; name: string } | null) => {
+    if (domain) {
+      const existingDomains = filters.find((filter) => filter.field === 'name');
+      if (existingDomains) {
+        existingDomains.values.forEach((value: string) => {
+          removeFilter('name', value, 'any');
+        });
+      }
+      setSelectedDomain(domain);
+      addFilter('name', domain.name, 'any');
     }
   };
+
+  console.log('domainResults:', domainResults);
+  console.log('selectedDomain:', selectedDomain);
+  console.log('filters in DomainAndIPFilter:', filters);
 
   const handleTextChange = (text: string) => {
     setSearchTerm(text);
   };
 
   useEffect(() => {
-    if (search_term && search_term.length >= 2) {
-      searchDomainsAndIPs(search_term);
-    } else {
-      setDomainResults([]);
-    }
-  }, [search_term, searchDomainsAndIPs]);
+    searchDomainsAndIPs(search_term, regionFilterValues, orgFilterValues);
+  }, [search_term, searchDomainsAndIPs, regionFilterValues, orgFilterValues]);
 
   return (
-    <Box padding={2}>
+    <Box>
       <Autocomplete
-        //   key={selectedDomain ? selectedDomain : 'no-domain'}
-        value={selectedDomain}
+        // key={selectedDomain ? selectedDomain : 'no-domain'}
+        value={selectedDomain ? selectedDomain : undefined}
         onChange={(e, v) => {
           setTimeout(() => {
             handleChangeDomain(v);
@@ -99,7 +123,6 @@ export const DomainAndIPFilter: React.FC<{}> = (
         }}
         // freeSolo
         disableClearable
-        //   disabled={userLevel === STANDARD_USER}
         open={isDomainOpen}
         onOpen={() => {
           setIsDomainOpen(true);
@@ -151,7 +174,7 @@ export const DomainAndIPFilter: React.FC<{}> = (
             </li>
           );
         }}
-        isOptionEqualToValue={(option, value) => option?.name === value?.name}
+        // isOptionEqualToValue={(option, value) => option?.name === value?.name}
         renderInput={(params) => (
           <TextField
             {...params}

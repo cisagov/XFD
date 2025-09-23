@@ -295,7 +295,11 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             onRemoveTag={(value) => removeFilter('name', value, 'any')}
           />
           <Divider sx={{ my: 1 }} />
-          <DomainAndIPFilter />
+          <DomainAndIPFilter
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            filters={filters}
+          />
         </AccordionDetails>
       </Accordion>
       {fromDomainFacet.length > 0 && (
