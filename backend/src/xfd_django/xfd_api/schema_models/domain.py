@@ -60,6 +60,8 @@ class DomainFilters(BaseModel):
 class DomainNameSearch(BaseModel):
     """DomainNameSearch Schema."""
 
+    regions: Optional[List[str]]
+    organizations: Optional[List[str]]
     search_term: str
 
 

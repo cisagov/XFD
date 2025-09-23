@@ -13,6 +13,7 @@ from fastapi import HTTPException, status
 from xfd_mini_dl.models import Domain, DomainSearchView, Organization, Service, UserType
 
 from ..api_methods.organization import escape_special_characters
+from ..api_methods.search import is_valid_org, is_valid_region
 from ..auth import get_org_memberships, is_global_view_admin
 from ..helpers.filter_helpers import apply_domain_filters, sort_direction
 from ..helpers.s3_client import S3Client
@@ -174,9 +175,22 @@ def search_domains(domain_search: DomainSearch, current_user):
 def search_domains_name(search_body: DomainNameSearch, current_user):
     """Handle the logic for searching organizations in Elasticsearch."""
     try:
-        if current_user.user_type == UserType.STANDARD:
-            raise HTTPException(status_code=403, detail="Unauthorized.")
-        # Check if user is GlobalViewAdmin or has memberships
+        if search_body.regions is not None and len(search_body.regions) > 0:
+            # Validate regions
+            for region in search_body.regions:
+                if not is_valid_region(region, current_user):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Unauthorized",
+                    )
+        if search_body.organizations is not None and len(search_body.organizations) > 0:
+            # Validate organizations
+            for org in search_body.organizations:
+                if not is_valid_org(org, current_user):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Unauthorized",
+                    )
         if not is_global_view_admin(current_user) and not get_org_memberships(
             current_user
         ):
@@ -188,7 +202,7 @@ def search_domains_name(search_body: DomainNameSearch, current_user):
         # Construct the Elasticsearch query
 
         query_body: Dict[str, Any] = {
-            "_source": ["id", "name"],
+            # "_source": ["id", "name"],
             "query": {"bool": {"must": [], "filter": []}},
         }
 
@@ -207,6 +221,31 @@ def search_domains_name(search_body: DomainNameSearch, current_user):
             )
         else:
             query_body["query"]["bool"]["must"].append({"match_all": {}})
+
+        # Apply region filters if provided
+        if search_body.regions:
+            query_body["query"]["bool"]["filter"].append(
+                {"terms": {"organization.region_id": search_body.regions}}
+            )
+        if search_body.organizations:
+            query_body["query"]["bool"]["filter"].append(
+                {"terms": {"organization.id.keyword": search_body.organizations}}
+            )
+
+        if current_user.user_type == UserType.STANDARD:
+            if search_body.regions == [] and search_body.organizations == []:
+                orgs = get_org_memberships(current_user)
+                if not orgs:
+                    return []
+                query_body["query"]["bool"]["filter"].append(
+                    {"terms": {"organization.id.keyword": orgs}}
+                )
+
+        if current_user.user_type == UserType.REGIONAL_ADMIN:
+            if search_body.regions == [] and search_body.organizations == []:
+                query_body["query"]["bool"]["filter"].append(
+                    {"terms": {"organization.region_id": [current_user.region_id]}}
+                )
 
         # Log the query for debugging
         LOGGER.debug("Query body: %s", query_body)
