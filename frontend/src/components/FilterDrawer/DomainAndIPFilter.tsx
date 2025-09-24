@@ -1,17 +1,36 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { TextField, useTheme } from '@mui/material';
-import { Autocomplete } from '@mui/material';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
+import {
+  Autocomplete,
+  Box,
+  Button,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  List,
+  ListItem,
+  TextField,
+  Typography,
+  useTheme
+} from '@mui/material';
 import { useAuthContext } from '@/context';
 import {
   REGIONAL_ADMIN,
   GLOBAL_ADMIN,
+  GLOBAL_VIEW,
   STANDARD_USER,
   useUserLevel
 } from 'hooks/useUserLevel';
-import { GLOBAL_VIEW } from '@/context/userStateUtils';
+// import { GLOBAL_VIEW } from '@/context/userStateUtils';
 import { useStaticsContext } from '@/context/StaticsContext';
+
+export const DOMAIN_FILTER_KEY = 'name';
+export const ORGANIZATION_FILTER_KEY = 'organization_id';
+export const REGION_FILTER_KEY = 'organization.region_id';
+
+export interface DomainShallow {
+  id: string;
+  name: string;
+}
 
 interface Props {
   addFilter: (
@@ -44,6 +63,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   } | null>(null);
   const [isDomainOpen, setIsDomainOpen] = React.useState(false);
 
+  const theme = useTheme();
   const userLevel = useUserLevel().userLevel;
 
   const searchDomainsAndIPs = useCallback(
@@ -66,14 +86,12 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   );
 
   const regionFilterValues = useMemo(() => {
-    const regionFilter = filters.find(
-      (f) => f.field === 'organization.region_id'
-    );
+    const regionFilter = filters.find((f) => f.field === REGION_FILTER_KEY);
     return regionFilter ? (regionFilter.values as string[]) : [];
   }, [filters]);
 
   const orgFilterValues = useMemo(() => {
-    const orgFilters = filters.find((f) => f.field === 'organization_id');
+    const orgFilters = filters.find((f) => f.field === ORGANIZATION_FILTER_KEY);
     if (!orgFilters) return [];
 
     const orgFiltersId = orgFilters.values?.map((val: any) => val.id);
@@ -82,17 +100,20 @@ export const DomainAndIPFilter: React.FC<Props> = ({
     return orgFilters ? (orgFiltersId as string[]) : [];
   }, [filters]);
 
+  const domainsInFilters = useMemo(() => {
+    const domainsFilters = filters.find(
+      (filter) => filter.field === DOMAIN_FILTER_KEY
+    );
+    return domainsFilters ? domainsFilters.values : [];
+    // return domainsFilters ? (domainsFilters.values as DomainShallow[]) : [];
+  }, [filters]);
+  console.log('domainsInFilters:', domainsInFilters);
+
   console.log('regionFilterValues:', regionFilterValues);
   console.log('orgFilterValues:', orgFilterValues);
 
   const handleChangeDomain = (domain: { id: string; name: string } | null) => {
     if (domain) {
-      const existingDomains = filters.find((filter) => filter.field === 'name');
-      if (existingDomains) {
-        existingDomains.values.forEach((value: string) => {
-          removeFilter('name', value, 'any');
-        });
-      }
       setSelectedDomain(domain);
       addFilter('name', domain.name, 'any');
     }
@@ -196,6 +217,59 @@ export const DomainAndIPFilter: React.FC<Props> = ({
           />
         )}
       />
+
+      <List sx={{ width: '100%', maxHeight: 5 * 42, overflowY: 'auto' }}>
+        {domainsInFilters?.map((domainName: string, id: string) => {
+          console.log('domain in domainsInFilters:', domainName);
+          return (
+            <ListItem key={id} sx={{ padding: '0px' }}>
+              <FormGroup>
+                <FormControlLabel
+                  sx={{ padding: '0px' }}
+                  label={
+                    <DomainCheckboxLabel
+                      domain={{ name: domainName, id: id }}
+                    />
+                  }
+                  control={
+                    <Checkbox
+                      sx={{
+                        '&.Mui-checked': {
+                          color: theme.palette.primary.dark
+                        }
+                      }}
+                    />
+                  }
+                  checked={true}
+                  onChange={() => {
+                    const exists = domainsInFilters.find(
+                      (domain: DomainShallow) => domain.id === domain.id
+                    );
+                    if (exists) {
+                      removeFilter(DOMAIN_FILTER_KEY, domainName, 'any');
+                    } else {
+                      addFilter(DOMAIN_FILTER_KEY, domainName, 'any');
+                    }
+                  }}
+                />
+              </FormGroup>
+            </ListItem>
+          );
+        })}
+      </List>
     </Box>
+  );
+};
+
+interface DomainCheckboxLabelProps {
+  domain: DomainShallow;
+}
+const DomainCheckboxLabel: React.FC<DomainCheckboxLabelProps> = ({
+  domain
+}) => {
+  return (
+    <>
+      <Typography variant="body1">{domain.name}</Typography>
+    </>
   );
 };
