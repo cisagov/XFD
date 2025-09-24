@@ -110,7 +110,7 @@
     "rollup-plugin-visualizer": "^6.0.3",
     "sass": "^1.55.0",
     "serverless": "^3.40.0",
-    "serverless-better-credentials": "^1.2.0",
+    "serverless-better-credentials": "^2.0.1",
     "serverless-domain-manager": "^7.0",
     "serverless-esbuild": "^1.55.1",
     "serverless-iam-roles-per-function": "^3.2.0",
