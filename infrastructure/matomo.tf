@@ -411,9 +411,35 @@ resource "aws_iam_policy" "efs_deploy_policy" {
           "elasticfilesystem:DescribeAccessPoints",
           "elasticfilesystem:TagResource",
           "elasticfilesystem:UntagResource",
-          "elasticfilesystem:ListTagsForResource"
+          "elasticfilesystem:ListTagsForResource",
+          "elasticfilesystem:CreateTags",
+          "elasticfilesystem:DeleteTags"
         ],
         Resource = "*"
+      },
+      {
+        Sid    = "AllowEfsClientViaAp"
+        Effect = "Allow"
+        Action = [
+          "elasticfilesystem:ClientMount",
+          "elasticfilesystem:ClientWrite"
+        ]
+        Resource = "arn:${var.aws_partition}:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/${aws_efs_access_point.matomo_html.id}"
+        Condition = {
+          StringEquals = {
+            "elasticfilesystem:AccessPointArn" = "arn:${var.aws_partition}:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/${aws_efs_access_point.matomo_html.id}"
+          }
+        }
+      },
+      {
+        "Sid" : "EfsExtraDescribes",
+        "Effect" : "Allow",
+        "Action" : [
+          "elasticfilesystem:DescribeLifecycleConfiguration",
+          "elasticfilesystem:DescribeBackupPolicy",
+          "elasticfilesystem:DescribeFileSystemPolicy"
+        ],
+        "Resource" : "*"
       },
       {
         Sid    = "Ec2DescribesForEfs",
