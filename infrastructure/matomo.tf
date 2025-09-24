@@ -387,7 +387,7 @@ resource "aws_ssm_parameter" "matomo_db_password" {
 
 # Elastic File System permissions
 resource "aws_iam_policy" "efs_deploy_policy" {
-  count       = var.is_dmz ? 1 : 0
+  # count       = var.is_dmz ? 1 : 0
   name        = "crossfeed-${var.stage}-efs-deploy-policy"
   description = "Allow creating/managing EFS (FS, AP, MT) for Matomo"
   policy = jsonencode({
@@ -455,7 +455,7 @@ resource "aws_iam_policy" "efs_deploy_policy" {
 }
 
 resource "aws_iam_user_policy_attachment" "efs_deploy_user_attach" {
-  count      = var.is_dmz ? 1 : 0
+  # count      = var.is_dmz ? 1 : 0
   user       = "crossfeed-deploy-staging"
-  policy_arn = aws_iam_policy.efs_deploy_policy[0].arn
+  policy_arn = aws_iam_policy.efs_deploy_policy.arn
 }
