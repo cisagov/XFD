@@ -431,6 +431,16 @@ resource "aws_iam_policy" "efs_deploy_policy" {
         }
       },
       {
+        "Sid" : "EfsExtraDescribes",
+        "Effect" : "Allow",
+        "Action" : [
+          "elasticfilesystem:DescribeLifecycleConfiguration",
+          "elasticfilesystem:DescribeBackupPolicy",
+          "elasticfilesystem:DescribeFileSystemPolicy"
+        ],
+        "Resource" : "*"
+      },
+      {
         Sid    = "Ec2DescribesForEfs",
         Effect = "Allow",
         Action = [
