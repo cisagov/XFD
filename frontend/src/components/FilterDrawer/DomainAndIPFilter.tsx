@@ -47,12 +47,12 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   const userLevel = useUserLevel().userLevel;
 
   const searchDomainsAndIPs = useCallback(
-    async (search_term: string, regions: string[], org: string) => {
+    async (search_term: string, regions: string[], organizations: string[]) => {
       try {
         const results = await apiPost<{
           body: { hits: { hits: { _source: { id: string; name: string } }[] } };
         }>('/search/domains', {
-          body: { search_term, regions, org }
+          body: { search_term, regions, organizations }
         });
         const body = results?.body?.hits?.hits;
         setDomainResults(body.map((hit) => hit._source));
@@ -74,7 +74,12 @@ export const DomainAndIPFilter: React.FC<Props> = ({
 
   const orgFilterValues = useMemo(() => {
     const orgFilters = filters.find((f) => f.field === 'organization_id');
-    return orgFilters;
+    if (!orgFilters) return [];
+
+    const orgFiltersId = orgFilters.values?.map((val: any) => val.id);
+    console.log('orgFiltersId:', orgFiltersId);
+    // return orgFilters ? (orgFilters.values.id as string[]) : [];
+    return orgFilters ? (orgFiltersId as string[]) : [];
   }, [filters]);
 
   console.log('regionFilterValues:', regionFilterValues);
