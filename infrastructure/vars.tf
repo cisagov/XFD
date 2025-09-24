@@ -190,6 +190,12 @@ variable "log_metric_db_deletion" {
   default     = "crossfeed-staging-DBDeletion"
 }
 
+variable "matomo_force_index_url" {
+  description = "Public URL for Matomo dashboard; should match {frontend_domain}/matomo"
+  type        = string
+  default     = "staging.crossfeed.cyber.dhs.gov/matomo"
+}
+
 variable "sns_topic_alarms" {
   description = "sns_alarm_topic_name"
   type        = string
