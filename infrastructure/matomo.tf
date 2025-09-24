@@ -92,7 +92,6 @@ resource "aws_security_group" "efs_matomo" {
 
 resource "aws_efs_file_system" "matomo" {
   encrypted = true
-  lifecycle_policy { transition_to_ia = "AFTER_30_DAYS" }
   tags = {
     Name    = "matomo-${var.stage}"
     Project = var.project
@@ -416,15 +415,6 @@ resource "aws_iam_policy" "efs_deploy_policy" {
           "elasticfilesystem:DeleteTags"
         ],
         Resource = "*"
-      },
-      {
-        "Sid" : "AllowEfsLifecycle",
-        "Effect" : "Allow",
-        "Action" : [
-          "elasticfilesystem:PutLifecycleConfiguration",
-          "elasticfilesystem:DescribeLifecycleConfiguration"
-        ],
-        "Resource" : "*"
       },
       {
         Sid    = "AllowEfsClientViaAp"
