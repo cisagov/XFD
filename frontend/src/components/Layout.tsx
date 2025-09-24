@@ -72,12 +72,17 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 
   useEffect(() => {
     if (!topRef.current) return;
-    const observer = new ResizeObserver(() => {
-      const height = topRef.current?.getBoundingClientRect().height ?? 0;
-      setTopOffset(height);
-    });
-    observer.observe(topRef.current);
-    return () => observer.disconnect();
+    let observer: ResizeObserver | null = null;
+    if (loggedIn === false) {
+      observer = new ResizeObserver(() => {
+        const height = topRef.current?.getBoundingClientRect().height ?? 0;
+        setTopOffset(height);
+      });
+      observer.observe(topRef.current);
+    }
+    return () => {
+      if (observer) observer.disconnect();
+    };
   }, []);
 
   const handleAlertClose = () => {
