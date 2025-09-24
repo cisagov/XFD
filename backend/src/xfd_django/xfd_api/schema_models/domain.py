@@ -2,7 +2,7 @@
 # Standard Python Libraries
 from datetime import datetime
 import logging
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 from uuid import UUID
 
 # Third-Party Libraries
@@ -63,6 +63,7 @@ class DomainNameSearch(BaseModel):
     regions: Optional[List[str]]
     organizations: Optional[List[str]]
     search_term: str
+    search_field: Literal["name", "ip"] = "name"
 
 
 class DomainSearch(BaseModel):

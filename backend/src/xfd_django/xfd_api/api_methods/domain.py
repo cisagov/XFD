@@ -206,6 +206,12 @@ def search_domains_name(search_body: DomainNameSearch, current_user):
             "query": {"bool": {"must": [], "filter": []}},
         }
 
+        validated_search_field = (
+            search_body.search_field
+            if search_body.search_field in ["name", "ip"]
+            else "name"
+        )
+
         # Use match_all if searchTerm is empty
         if search_body.search_term.strip():
             sanitized_search_term = escape_special_characters(search_body.search_term)
@@ -213,7 +219,7 @@ def search_domains_name(search_body: DomainNameSearch, current_user):
                 {
                     "query_string": {
                         "query": "*{}*".format(sanitized_search_term),
-                        "fields": ["name"],
+                        "fields": [validated_search_field],
                         "fuzziness": "AUTO",
                         "analyze_wildcard": True,
                     }
