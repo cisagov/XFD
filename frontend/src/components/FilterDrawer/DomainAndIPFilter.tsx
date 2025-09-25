@@ -20,14 +20,13 @@ import {
   STANDARD_USER,
   useUserLevel
 } from 'hooks/useUserLevel';
-// import { GLOBAL_VIEW } from '@/context/userStateUtils';
 import { useStaticsContext } from '@/context/StaticsContext';
 
 export const DOMAIN_FILTER_KEY = 'name';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
 export const REGION_FILTER_KEY = 'organization.region_id';
 
-export interface DomainShallow {
+export interface ResultShallow {
   id: string;
   name: string;
 }
@@ -44,20 +43,20 @@ interface Props {
     filterType: 'all' | 'any' | 'none'
   ) => void;
   filters: any[];
+  search_field: string;
 }
 
 export const DomainAndIPFilter: React.FC<Props> = ({
   addFilter,
   removeFilter,
-  filters
+  filters,
+  search_field
 }) => {
   const { user, apiPost } = useAuthContext();
   const { regions } = useStaticsContext();
   const [search_term, setSearchTerm] = useState<string>('');
-  const [domainResults, setDomainResults] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [selectedDomain, setSelectedDomain] = useState<{
+  const [results, setResults] = useState<{ id: string; name: string }[]>([]);
+  const [selectedResult, setSelectedResult] = useState<{
     id: string;
     name: string;
   } | null>(null);
@@ -67,18 +66,23 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   const userLevel = useUserLevel().userLevel;
 
   const searchDomainsAndIPs = useCallback(
-    async (search_term: string, regions: string[], organizations: string[]) => {
+    async (
+      search_term: string,
+      search_field: string,
+      regions: string[],
+      organizations: string[]
+    ) => {
       try {
         const results = await apiPost<{
           body: { hits: { hits: { _source: { id: string; name: string } }[] } };
         }>('/search/domains', {
-          body: { search_term, regions, organizations }
+          body: { search_term, search_field, regions, organizations }
         });
         const body = results?.body?.hits?.hits;
-        setDomainResults(body.map((hit) => hit._source));
+        setResults(body.map((hit) => hit._source));
       } catch (error) {
         console.error('Error fetching domain and IP search results:', error);
-        setDomainResults([]);
+        setResults([]);
         return [];
       }
     },
@@ -95,50 +99,59 @@ export const DomainAndIPFilter: React.FC<Props> = ({
     if (!orgFilters) return [];
 
     const orgFiltersId = orgFilters.values?.map((val: any) => val.id);
-    console.log('orgFiltersId:', orgFiltersId);
-    // return orgFilters ? (orgFilters.values.id as string[]) : [];
     return orgFilters ? (orgFiltersId as string[]) : [];
   }, [filters]);
 
   const domainsInFilters = useMemo(() => {
-    const domainsFilters = filters.find(
+    const domainFilters = filters.find(
       (filter) => filter.field === DOMAIN_FILTER_KEY
     );
-    return domainsFilters ? domainsFilters.values : [];
-    // return domainsFilters ? (domainsFilters.values as DomainShallow[]) : [];
+    return domainFilters ? domainFilters.values : [];
   }, [filters]);
-  console.log('domainsInFilters:', domainsInFilters);
 
-  console.log('regionFilterValues:', regionFilterValues);
-  console.log('orgFilterValues:', orgFilterValues);
+  const ipsInFilters = useMemo(() => {
+    const ipFilters = filters.find(
+      (filter) => filter.field === 'ip' && filter.values.length > 0
+    );
+    return ipFilters ? ipFilters.values : [];
+  }, [filters]);
 
-  const handleChangeDomain = (domain: { id: string; name: string } | null) => {
-    if (domain) {
-      setSelectedDomain(domain);
-      addFilter('name', domain.name, 'any');
+  const handleUseResult = (result: { id: string; name: string } | null) => {
+    if (result) {
+      setSelectedResult(result);
     }
+    if (result && search_field === 'name')
+      addFilter('name', result.name, 'any');
+    if (result && search_field === 'ip') addFilter('ip', result.name, 'any');
   };
-
-  console.log('domainResults:', domainResults);
-  console.log('selectedDomain:', selectedDomain);
-  console.log('filters in DomainAndIPFilter:', filters);
 
   const handleTextChange = (text: string) => {
     setSearchTerm(text);
   };
 
   useEffect(() => {
-    searchDomainsAndIPs(search_term, regionFilterValues, orgFilterValues);
-  }, [search_term, searchDomainsAndIPs, regionFilterValues, orgFilterValues]);
+    searchDomainsAndIPs(
+      search_term,
+      search_field,
+      regionFilterValues,
+      orgFilterValues
+    );
+  }, [
+    search_term,
+    search_field,
+    searchDomainsAndIPs,
+    regionFilterValues,
+    orgFilterValues
+  ]);
 
   return (
     <Box>
       <Autocomplete
-        // key={selectedDomain ? selectedDomain : 'no-domain'}
-        value={selectedDomain ? selectedDomain : undefined}
+        key={selectedResult ? selectedResult.id : 'none'}
+        value={selectedResult ? selectedResult : undefined}
         onChange={(e, v) => {
           setTimeout(() => {
-            handleChangeDomain(v);
+            handleUseResult(v);
           }, 250);
           return;
         }}
@@ -153,7 +166,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
         onOpen={() => {
           setIsDomainOpen(true);
         }}
-        options={domainResults}
+        options={results}
         getOptionLabel={(option) => option.name}
         slotProps={{
           listbox: {
@@ -191,7 +204,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
                 id="search-org-button"
                 onClick={() =>
                   setTimeout(() => {
-                    handleChangeDomain(option);
+                    handleUseResult(option);
                   }, 250)
                 }
               >
@@ -200,12 +213,14 @@ export const DomainAndIPFilter: React.FC<Props> = ({
             </li>
           );
         }}
-        // isOptionEqualToValue={(option, value) => option?.name === value?.name}
+        isOptionEqualToValue={(option, value) => option?.name === value?.name}
         renderInput={(params) => (
           <TextField
             {...params}
-            label="Domain"
-            placeholder="Search Domains"
+            label={
+              search_field === 'ip' ? 'Search IP Address' : 'Search Domains'
+            }
+            placeholder="Search"
             onBlur={() => setIsDomainOpen(false)}
             helperText={
               userLevel === REGIONAL_ADMIN ||
@@ -219,57 +234,93 @@ export const DomainAndIPFilter: React.FC<Props> = ({
       />
 
       <List sx={{ width: '100%', maxHeight: 5 * 42, overflowY: 'auto' }}>
-        {domainsInFilters?.map((domainName: string, id: string) => {
-          console.log('domain in domainsInFilters:', domainName);
-          return (
-            <ListItem key={id} sx={{ padding: '0px' }}>
-              <FormGroup>
-                <FormControlLabel
-                  sx={{ padding: '0px' }}
-                  label={
-                    <DomainCheckboxLabel
-                      domain={{ name: domainName, id: id }}
-                    />
-                  }
-                  control={
-                    <Checkbox
-                      sx={{
-                        '&.Mui-checked': {
-                          color: theme.palette.primary.dark
-                        }
-                      }}
-                    />
-                  }
-                  checked={true}
-                  onChange={() => {
-                    const exists = domainsInFilters.find(
-                      (domain: DomainShallow) => domain.id === domain.id
-                    );
-                    if (exists) {
-                      removeFilter(DOMAIN_FILTER_KEY, domainName, 'any');
-                    } else {
-                      addFilter(DOMAIN_FILTER_KEY, domainName, 'any');
+        {search_field === 'name' &&
+          domainsInFilters?.map((resultName: string, id: string) => {
+            console.log('domain in domainsInFilters:', resultName);
+            return (
+              <ListItem key={id} sx={{ padding: '0px' }}>
+                <FormGroup>
+                  <FormControlLabel
+                    sx={{ padding: '0px' }}
+                    label={
+                      <Typography variant="body1" key={id}>
+                        {resultName}
+                      </Typography>
                     }
-                  }}
-                />
-              </FormGroup>
-            </ListItem>
-          );
-        })}
+                    control={
+                      <Checkbox
+                        sx={{
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.dark
+                          }
+                        }}
+                      />
+                    }
+                    checked={true}
+                    onChange={() => {
+                      const exists = domainsInFilters.find(
+                        (result: ResultShallow) => result.id === id
+                      );
+                      if (exists) {
+                        removeFilter(DOMAIN_FILTER_KEY, resultName, 'any');
+                      } else {
+                        addFilter(DOMAIN_FILTER_KEY, resultName, 'any');
+                      }
+                    }}
+                  />
+                </FormGroup>
+              </ListItem>
+            );
+          })}
+        {search_field === 'ip' &&
+          ipsInFilters?.map((ip: string, index: number) => {
+            return (
+              <ListItem key={index} sx={{ padding: '0px' }}>
+                <FormGroup>
+                  <FormControlLabel
+                    sx={{ padding: '0px' }}
+                    label={
+                      <Typography variant="body1" key={index}>
+                        {ip}
+                      </Typography>
+                    }
+                    control={
+                      <Checkbox
+                        sx={{
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.dark
+                          }
+                        }}
+                      />
+                    }
+                    checked={true}
+                    onChange={() => {
+                      const exists = ipsInFilters.find((v: string) => v === ip);
+                      if (exists) {
+                        removeFilter('ip', ip, 'any');
+                      } else {
+                        addFilter('ip', ip, 'any');
+                      }
+                    }}
+                  />
+                </FormGroup>
+              </ListItem>
+            );
+          })}
       </List>
     </Box>
   );
 };
 
-interface DomainCheckboxLabelProps {
-  domain: DomainShallow;
-}
-const DomainCheckboxLabel: React.FC<DomainCheckboxLabelProps> = ({
-  domain
-}) => {
-  return (
-    <>
-      <Typography variant="body1">{domain.name}</Typography>
-    </>
-  );
-};
+// interface DomainCheckboxLabelProps {
+//   result: ResultShallow;
+// }
+// const DomainCheckboxLabel: React.FC<DomainCheckboxLabelProps> = ({
+//   result
+// }) => {
+//   return (
+//     <>
+//       <Typography variant="body1">{result.name}</Typography>
+//     </>
+//   );
+// };

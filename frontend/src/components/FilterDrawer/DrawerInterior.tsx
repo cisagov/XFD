@@ -272,6 +272,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             onAddTag={(value) => addFilter('ip', value, 'any')}
             onRemoveTag={(value) => removeFilter('ip', value, 'any')}
           />
+          <Divider sx={{ my: 1 }} />
+          <DomainAndIPFilter
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            filters={filters}
+            search_field="ip"
+          />
         </AccordionDetails>
       </Accordion>
       <Accordion
@@ -299,6 +306,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             addFilter={addFilter}
             removeFilter={removeFilter}
             filters={filters}
+            search_field="name"
           />
         </AccordionDetails>
       </Accordion>
