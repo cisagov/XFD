@@ -21,8 +21,9 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from faker import Faker
+from xfd_api.helpers.link_ips_from_subs import connect_ips_from_subs
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
-from xfd_api.models import Domain, Service, Vulnerability
+from xfd_api.models import Service, Vulnerability
 from xfd_api.schema_models.scan import SCAN_SCHEMA
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.tasks.refresh_vs_summaries import handler as refresh_vs_summaries
@@ -32,6 +33,7 @@ from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
     Cve,
+    DataSource,
     Host,
     Ip,
     Location,
@@ -39,6 +41,7 @@ from xfd_mini_dl.models import (
     PortScan,
     Scan,
     ScanResult,
+    SubDomains,
     Ticket,
     TicketEvent,
     User,
@@ -635,6 +638,17 @@ def populate_sample_data():
         cidrs = generate_cidr_blocks()
         create_cidrs_for_org(org, cidrs)
 
+        data_source, _ = DataSource.objects.using("mini_data_lake").get_or_create(
+            name="findomain",
+            description="findomain enumerates domains into subs.",
+            last_run=datetime.now(),
+        )
+        for _ in range(NUM_SAMPLE_DOMAINS):
+            create_sample_domain(org, data_source)
+
+    # COnnect created sub domains with ips
+    connect_ips_from_subs(orgs)
+
     LOGGER.info("Populating vuln_scans, port_scans, tickets, and ticket_events...")
     for idx, org in enumerate(orgs, start=1):
         try:
@@ -826,18 +840,20 @@ def generate_random_name():
     return "{} {} {}".format(adjective.capitalize(), entity, noun.capitalize())
 
 
-def create_sample_domain(organization):
+def create_sample_domain(organization, data_source):
     """Create a sample domain linked to an organization."""
     domain_name = "{}-{}.crossfeed.local".format(
         random.choice(adjectives), random.choice(nouns)
     ).lower()
     ip = ".".join(map(str, (random.randint(0, 255) for _ in range(4))))
-    return Domain.objects.create(
-        name=domain_name,
-        ip=ip,
-        fromRootDomain="crossfeed.local",
-        subdomainSource="findomain",
+    return SubDomains.objects.create(
+        sub_domain=domain_name,
+        ip_address=ip,
+        from_root_domain="crossfeed.local",
+        subdomain_source="findomain",
         organization=organization,
+        data_source=data_source,
+        current=True,
     )
 
 
