@@ -54,9 +54,20 @@ export const DomainAndIPFilter: React.FC<Props> = ({
 }) => {
   const { user, apiPost } = useAuthContext();
   const { regions } = useStaticsContext();
-  const [search_term, setSearchTerm] = useState<string>('');
-  const [results, setResults] = useState<{ id: string; name: string }[]>([]);
-  const [selectedResult, setSelectedResult] = useState<{
+  const [domainSearchTerm, setDomainSearchTerm] = useState<string>('');
+  const [ipSearchTerm, setIpSearchTerm] = useState<string>('');
+  const search_term = search_field === 'name' ? domainSearchTerm : ipSearchTerm;
+  const [domainResults, setDomainResults] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [ipResults, setIpResults] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [selectedDomain, setSelectedDomain] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [selectedIp, setSelectedIp] = useState<{
     id: string;
     name: string;
   } | null>(null);
@@ -79,10 +90,22 @@ export const DomainAndIPFilter: React.FC<Props> = ({
           body: { search_term, search_field, regions, organizations }
         });
         const body = results?.body?.hits?.hits;
-        setResults(body.map((hit) => hit._source));
+        // setResults(body.map((hit) => hit._source));
+        if (search_field === 'name') {
+          setDomainResults(body.map((hit) => hit._source));
+          return body.map((hit) => hit._source);
+        } else if (search_field === 'ip') {
+          setIpResults(body.map((hit) => hit._source));
+          return body.map((hit) => hit._source);
+        } else {
+          setDomainResults([]);
+          setIpResults([]);
+          return [];
+        }
       } catch (error) {
         console.error('Error fetching domain and IP search results:', error);
-        setResults([]);
+        setDomainResults([]);
+        setIpResults([]);
         return [];
       }
     },
@@ -117,16 +140,21 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   }, [filters]);
 
   const handleUseResult = (result: { id: string; name: string } | null) => {
-    if (result) {
-      setSelectedResult(result);
-    }
-    if (result && search_field === 'name')
+    if (result && search_field === 'name') {
       addFilter('name', result.name, 'any');
-    if (result && search_field === 'ip') addFilter('ip', result.name, 'any');
+      setDomainSearchTerm('');
+    } else if (result && search_field === 'ip') {
+      addFilter('ip', result.name, 'any');
+      setIpSearchTerm('');
+    }
   };
 
-  const handleTextChange = (text: string) => {
-    setSearchTerm(text);
+  const handleDomainTextChange = (text: string) => {
+    setDomainSearchTerm(text);
+  };
+
+  const handleIpTextChange = (text: string) => {
+    setIpSearchTerm(text);
   };
 
   useEffect(() => {
@@ -147,8 +175,21 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   return (
     <Box>
       <Autocomplete
-        key={selectedResult ? selectedResult.id : 'none'}
-        value={selectedResult ? selectedResult : undefined}
+        key={
+          search_field === 'name'
+            ? selectedDomain
+              ? selectedDomain.id
+              : 'none'
+            : selectedIp
+              ? selectedIp.id
+              : 'none'
+        }
+        value={
+          search_field === 'name'
+            ? (selectedDomain ?? undefined)
+            : (selectedIp ?? undefined)
+        }
+        inputValue={search_field === 'name' ? domainSearchTerm : ipSearchTerm}
         onChange={(e, v) => {
           setTimeout(() => {
             handleUseResult(v);
@@ -156,17 +197,15 @@ export const DomainAndIPFilter: React.FC<Props> = ({
           return;
         }}
         onInputChange={(e, v) => {
-          if (e && e.type === 'change') {
-            handleTextChange(v);
+          if (search_field === 'name') {
+            handleDomainTextChange(v);
+          } else {
+            handleIpTextChange(v);
           }
         }}
         // freeSolo
         disableClearable
-        open={isDomainOpen}
-        onOpen={() => {
-          setIsDomainOpen(true);
-        }}
-        options={results}
+        options={search_field === 'name' ? domainResults : ipResults}
         getOptionLabel={(option) => option.name}
         slotProps={{
           listbox: {
@@ -201,7 +240,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
                   color: 'black',
                   textTransform: 'none'
                 }}
-                id="search-org-button"
+                id="search-results-button"
                 onClick={() =>
                   setTimeout(() => {
                     handleUseResult(option);
@@ -221,7 +260,6 @@ export const DomainAndIPFilter: React.FC<Props> = ({
               search_field === 'ip' ? 'Search IP Address' : 'Search Domains'
             }
             placeholder="Search"
-            onBlur={() => setIsDomainOpen(false)}
             helperText={
               userLevel === REGIONAL_ADMIN ||
               userLevel === GLOBAL_ADMIN ||
@@ -259,7 +297,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
                     checked={true}
                     onChange={() => {
                       const exists = domainsInFilters.find(
-                        (result: ResultShallow) => result.id === id
+                        (v: string) => v === resultName
                       );
                       if (exists) {
                         removeFilter(DOMAIN_FILTER_KEY, resultName, 'any');
