@@ -174,6 +174,68 @@ export const VSDashRegionAndOrgFilters: React.FC<
     searchOrganizations(search_term, regionFilterValues ?? []);
   }, [searchOrganizations, search_term, regionFilterValues]);
 
+  // Sync local selectedRegion state with restored filters
+  useEffect(() => {
+    const regionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
+    if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
+      const regionValues = regionFilter.values as string[];
+      
+      // If user has a specific region and it's included in the filter, use user's region
+      // Otherwise, use the first region (which might be "all regions" case)
+      let targetRegion: string;
+      if (user?.region_id && regionValues.includes(user.region_id)) {
+        targetRegion = user.region_id;
+      } else {
+        targetRegion = regionValues[0];
+      }
+      
+      if (targetRegion !== selectedRegion) {
+        console.log('Syncing selectedRegion from filter. User region:', user?.region_id, 'Target region:', targetRegion, 'All regions in filter:', regionValues);
+        setSelectedRegion(targetRegion);
+      }
+    }
+  }, [filters, selectedRegion, user?.region_id]);
+
+  // Sync local selectedOrg state with restored filters
+  useEffect(() => {
+    const orgFilter = filters.find((filter) => filter.field === ORGANIZATION_FILTER_KEY);
+    console.log('Organization filter sync effect - orgFilter:', orgFilter, 'selectedOrg:', selectedOrg, 'currentOrganization:', currentOrganization);
+    
+    if (orgFilter && orgFilter.values && orgFilter.values.length > 0) {
+      const firstOrg = orgFilter.values[0];
+      // Check if it's an organization object or just an ID
+      if (typeof firstOrg === 'object' && firstOrg.id) {
+        // It's an organization object
+        if (!selectedOrg || selectedOrg.id !== firstOrg.id) {
+          console.log('Syncing selectedOrg from filter:', firstOrg);
+          setSelectedOrg(firstOrg as OrganizationShallow);
+        }
+      } else if (typeof firstOrg === 'string') {
+        // It's just an ID, try to find the full org data
+        // For now, create a minimal org object if we don't have the full data
+        if (!selectedOrg || selectedOrg.id !== firstOrg) {
+          console.log('Found org ID filter but no full org data:', firstOrg);
+          // We might need to fetch organization details here, 
+          // but for now just clear the selection since we don't have full data
+          // This could be improved by fetching org details by ID
+        }
+      }
+    } else {
+      // No org filter exists - fall back to user's current organization
+      const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
+      if (defaultOrg && (!selectedOrg || selectedOrg.id !== defaultOrg.id)) {
+        console.log('No org filter found, falling back to currentOrganization:', defaultOrg);
+        setSelectedOrg(defaultOrg);
+        
+        // Also add the default organization as a filter so the dashboard shows the right data
+        if (defaultOrg) {
+          console.log('Adding default organization to filters:', defaultOrg);
+          addFilter(ORGANIZATION_FILTER_KEY, defaultOrg, 'any');
+        }
+      }
+    }
+  }, [filters, selectedOrg, currentOrganization, addFilter]);
+
   const handleTextChange = (v: string) => {
     setSearchTerm(v);
   };

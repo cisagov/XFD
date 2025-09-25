@@ -15,6 +15,7 @@ import {
 import {
   DataGrid,
   GridColDef,
+  GridFilterItem,
   GridPaginationModel,
   GridRenderCellParams,
   GridSortModel
@@ -31,6 +32,7 @@ import { getSeverityColor } from 'pages/Risk/utils';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
 import { Vulnerability } from 'types/domain';
+import { UserOrganization } from 'types';
 import {
   ApiResponse,
   LocationState,
@@ -69,14 +71,73 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({});
+  const [filterDisplayInfo, setFilterDisplayInfo] = useState<{
+    orgName?: string;
+    title?: string;
+    domain?: string;
+    severity?: string;
+    kev?: boolean;
+    dateRange?: string;
+  }>({});
+  const [wasReset, setWasReset] = useState(false);
 
   useEffect(() => {
     if (state) {
       const extracted = extractInitialFilters(state);
       setFilters(extracted);
       setPreloadedFiltersActive(extracted.length > 0);
+      // Set display info from state
+      setFilterDisplayInfo({
+        orgName: state.orgName,
+        title: state.title,
+        domain: state.domain,
+        severity: state.severity,
+        kev: state.kev,
+        dateRange: state.dateRange
+      });
+      setWasReset(false); // Clear reset flag when we have navigation state
+    } else if (!wasReset) {
+      // Only restore from localStorage if it wasn't a reset action
+      // No drill-down state, try to restore filters from localStorage (global search filters)
+      try {
+        const storedFilters = localStorage.getItem('es-search-filters');
+        if (storedFilters) {
+          const parsedFilters = JSON.parse(storedFilters);
+          
+          // Convert global search filters to vulnerability table filters
+          const vulnerabilityFilters: GridFilterItem[] = [];
+          const displayInfo: any = {};
+          
+          parsedFilters.forEach((filter: any) => {
+            // Map organization filter
+            if (filter.field === 'organization_id' && filter.values && filter.values.length > 0) {
+              const orgValue = filter.values[0];
+              if (typeof orgValue === 'object' && orgValue.id) {
+                vulnerabilityFilters.push({
+                  field: 'organization',
+                  value: orgValue.id,
+                  operator: 'equals'
+                });
+                // Store org name for display
+                displayInfo.orgName = orgValue.name;
+              }
+            }
+            // Map other relevant filters as needed
+            // You can add more mappings here if there are other filters that should persist
+          });
+          
+          if (vulnerabilityFilters.length > 0 || Object.keys(displayInfo).length > 0) {
+            console.log('Restoring vulnerability filters from global search:', vulnerabilityFilters);
+            setFilters(vulnerabilityFilters);
+            setPreloadedFiltersActive(true);
+            setFilterDisplayInfo(displayInfo);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to restore vulnerability filters from localStorage:', error);
+      }
     }
-  }, [state]);
+  }, [state, wasReset]);
 
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
@@ -99,7 +160,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       try {
         const tableFilters = normalizeFilters(
           filters,
-          currentOrganization,
+          currentOrganization as UserOrganization,
           user?.user_type,
           state?.orgId
         );
@@ -179,6 +240,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     history.replace({ ...location, state: null });
     setPreloadedFiltersActive(false);
     setFilters([]);
+    setFilterDisplayInfo({}); // Clear filter display info
+    setWasReset(true); // Set flag to prevent localStorage restoration
+    
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
@@ -489,53 +553,53 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       margin="auto"
     >
       <FindingsHeader />
-      {!isLoading && !loadingError && state && hasPreloadedFilters && (
+      {!isLoading && !loadingError && (state || hasPreloadedFilters) && hasPreloadedFilters && (
         <Box sx={{ width: '100%', mb: 1 }}>
           <Stack direction="row" alignItems="center">
             <FiberManualRecordRounded sx={{ color: 'primary.main' }} />
             <Typography variant="body1" color="neutrals.main">
               &nbsp;Filters Applied:
             </Typography>
-            {state.orgName ? (
+            {(state?.orgName || filterDisplayInfo.orgName) ? (
               <Typography variant="body1" color="neutrals.main" ml={1}>
-                <b>Organization</b> - {state.orgName}
+                <b>Organization</b> - {state?.orgName || filterDisplayInfo.orgName}
               </Typography>
             ) : (
               ''
             )}
-            {state.title ? (
+            {(state?.title || filterDisplayInfo.title) ? (
               <Typography variant="body1" color="neutrals.main" ml={1}>
-                <b>Vulnerability</b> - {state.title}
+                <b>Vulnerability</b> - {state?.title || filterDisplayInfo.title}
               </Typography>
             ) : (
               ''
             )}
-            {state.domain ? (
+            {(state?.domain || filterDisplayInfo.domain) ? (
               <Typography variant="body1" color="neutrals.main" ml={1}>
-                <b>Domain</b> - {state.domain}
+                <b>Domain</b> - {state?.domain || filterDisplayInfo.domain}
               </Typography>
             ) : (
               ''
             )}
-            {state.kev ? (
+            {(state?.kev || filterDisplayInfo.kev) ? (
               <Typography variant="body1" color="neutrals.main" ml={1}>
                 <b>KEV</b> - Yes
               </Typography>
             ) : (
               ''
             )}
-            {state.severity ? (
+            {(state?.severity || filterDisplayInfo.severity) ? (
               <Typography variant="body1" color="neutrals.main" ml={1}>
                 <b>Severity</b> -{' '}
-                {state.severity.charAt(0).toUpperCase() +
-                  state.severity.slice(1)}
+                {((state?.severity || filterDisplayInfo.severity) as string).charAt(0).toUpperCase() +
+                  ((state?.severity || filterDisplayInfo.severity) as string).slice(1)}
               </Typography>
             ) : (
               ''
             )}
-            {state.dateRange ? (
+            {(state?.dateRange || filterDisplayInfo.dateRange) ? (
               <Typography variant="body1" color="neutrals.main" ml={1}>
-                <b>Scan Date</b> - {state.dateRange}
+                <b>Scan Date</b> - {state?.dateRange || filterDisplayInfo.dateRange}
               </Typography>
             ) : (
               ''
