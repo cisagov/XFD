@@ -1,0 +1,59 @@
+/*
+    Author: Jesse Salinas
+    Date: 2025-09-24
+    Description: Custom hook to restore filters from localStorage
+*/
+import { useEffect } from 'react';
+import { ContextType } from 'context';
+
+/**
+ * Custom hook to restore filters from localStorage
+ * This hook should be used in components that need to restore filter state
+ */
+export const useFilterRestore = (
+  filters: ContextType['filters'],
+  addFilter: ContextType['addFilter'],
+  pathname: string
+) => {
+  useEffect(() => {
+    // Only restore filters on specific paths where filter persistence is needed
+    const pathsForFilterRestore = ['/', '/VSDashboard', '/inventory'];
+    const shouldRestoreFilters = pathsForFilterRestore.some(path => 
+      pathname === path || pathname.startsWith(path)
+    );
+
+    if (!shouldRestoreFilters) {
+      return;
+    }
+
+    // If we already have filters in state, don't restore (avoid duplicate restoration)
+    if (filters && filters.length > 0) {
+      return;
+    }
+
+    try {
+      const storedFilters = localStorage.getItem('es-search-filters');
+      if (storedFilters) {
+        const parsedFilters = JSON.parse(storedFilters);
+        
+        console.log('Restoring filters from localStorage:', parsedFilters);
+        console.log('Current filters before restoration:', filters);
+        
+        // Use setTimeout to ensure components are mounted before restoring filters
+        setTimeout(() => {
+          // Restore each filter
+          parsedFilters.forEach((filter: any) => {
+            if (filter.field && filter.values && filter.type) {
+              filter.values.forEach((value: any) => {
+                console.log('Adding filter:', filter.field, value, filter.type);
+                addFilter(filter.field, value, filter.type);
+              });
+            }
+          });
+        }, 100); // Small delay to ensure components are ready
+      }
+    } catch (error) {
+      console.warn('Failed to restore filters from localStorage:', error);
+    }
+  }, [pathname, filters, addFilter]);
+};

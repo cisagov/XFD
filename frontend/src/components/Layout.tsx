@@ -22,6 +22,7 @@ import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
+import { useFilterRestore } from 'hooks/useFilterRestore';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -47,6 +48,9 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const { logout, user } = useAuthContext();
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
+
+  // Restore filters from localStorage when navigating to filter-enabled pages
+  useFilterRestore(filters, addFilter, pathname);
 
   const noAlertPaths = [
     '/login-gov-callback',
@@ -103,7 +107,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   );
 
   useEffect(() => {
-    const pathsAllowed = ['/', '/inventory'];
+    const pathsAllowed = ['/', '/inventory', '/VSDashboard'];
     if (!matchPath(pathsAllowed, pathname)) {
       setIsFilterDrawerOpen(false);
     }
