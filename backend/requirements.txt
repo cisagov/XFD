@@ -99,5 +99,6 @@ urllib3==2.5.0
 uvicorn==0.30.1
 uvloop==0.21.0
 watchfiles==1.0.0
+watchtower==3.4.0
 websockets==14.1
 yarl==1.18.3

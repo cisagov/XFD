@@ -382,50 +382,37 @@ export const UserForm: React.FC<UserFormProps> = ({
         </Grid>
         <Grid size={{ xs: 12 }}>
           <Typography mb={1}>State</Typography>
-          <Select
-            displayEmpty
-            size="small"
+          <Autocomplete
             id="state"
-            value={values.state || ''}
-            name="state"
-            error={formErrors.state}
-            onChange={handleStateChange}
-            fullWidth
-            MenuProps={{
-              anchorOrigin: {
-                vertical: 'bottom',
-                horizontal: 'left'
-              },
-              transformOrigin: {
-                vertical: 'top',
-                horizontal: 'left'
-              },
-              PaperProps: {
-                style: {
-                  marginTop: 5,
-                  maxHeight: 250,
-                  overflowY: 'auto'
-                }
-              }
+            size="small"
+            options={STATE_OPTIONS}
+            value={values.state || null}
+            onChange={(_, newValue) => {
+              setValues((prev: any) => ({
+                ...prev,
+                state: newValue || '',
+                region_id: newValue ? REGION_STATE_MAP[String(newValue)] : '',
+                org_id: '',
+                org_name: ''
+              }));
             }}
-            renderValue={
-              values.state !== ''
-                ? undefined
-                : () => <Typography color="#bdbdbd">Select a State</Typography>
-            }
-            disabled={user?.user_type !== 'globalAdmin'}
-          >
-            {STATE_OPTIONS.map((state: string, index: number) => (
-              <MenuItem key={index} value={state}>
-                {state}
-              </MenuItem>
-            ))}
-          </Select>
-          {formErrors.state && (
-            <Typography pl={2} variant="caption" color="error.main">
-              State is required
-            </Typography>
-          )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="State"
+                error={formErrors.state}
+                helperText={
+                  formErrors.state ? (
+                    <Typography variant="caption" color="error.main">
+                      State is required
+                    </Typography>
+                  ) : null
+                }
+                disabled={user?.user_type !== 'globalAdmin'}
+              />
+            )}
+            isOptionEqualToValue={(option, value) => option === value}
+          />
         </Grid>
         <Grid size={{ xs: 12 }}>
           <Typography mb={1}>Organization</Typography>

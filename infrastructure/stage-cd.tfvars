@@ -122,3 +122,5 @@ automated_test_reports_bucket_name           = "cisa-crossfeed-staging-cd-automa
 playwright_worker_ecs_task_definition_family = "crossfeed-staging-cd-playwright-worker"
 xpanse_org_sync_bucket_name                  = "crossfeed-xpanse-org-sync-staging-cd"
 playwright_worker_repository_name            = "crossfeed-playwright-staging-worker"
+backend_api_log_group_name                   = "cyhy-staging-cd-backend-api"
+backend_api_requests_log_group_name          = "cyhy-staging-cd-backend-api-requests"

@@ -19,7 +19,7 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
   const { currentOrganization, apiPost, apiGet, user } = useAuthContext();
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
-      const { page, filters, pageSize = PAGE_SIZE } = query;
+      const { page, filters, pageSize = PAGE_SIZE, order, sort } = query;
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
@@ -50,7 +50,9 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
           body: {
             pageSize,
             page,
-            filters: tableFilters
+            filters: tableFilters,
+            order,
+            sort
           }
         }
       );

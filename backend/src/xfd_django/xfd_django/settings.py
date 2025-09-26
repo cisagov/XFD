@@ -41,6 +41,8 @@ CROSSFEED_SUPPORT_EMAIL_REPLYTO = os.getenv("CROSSFEED_SUPPORT_EMAIL_REPLYTO")
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
 IS_LOCAL = os.getenv("IS_LOCAL")
 NIST_API_KEY = os.getenv("NIST_API_KEY")
+IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+IS_FARGATE = os.getenv("ECS_CONTAINER_METADATA_URI") is not None
 
 # JWT Secret Key
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -141,34 +143,75 @@ LANGUAGE_CODE = "en-us"
 LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
 ROOT_LEVEL = "INFO"
 # Logging configuration
+handlers = {
+    "console": {
+        "level": LOGGING_LEVEL,
+        "class": "logging.StreamHandler",
+        "formatter": "standard",
+    }
+}
+
+# Add CloudWatch handlers if in Lambda
+if IS_LAMBDA and not IS_LOCAL:
+    # Third-Party Libraries
+    import boto3
+
+    AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+    STAGE = os.getenv("STAGE", "dev")
+    logs_client = boto3.client("logs", region_name=AWS_REGION)
+
+    handlers.update(
+        {
+            "app_cloudwatch": {
+                "level": LOGGING_LEVEL,
+                "class": "watchtower.CloudWatchLogHandler",
+                "formatter": "standard",
+                "boto3_client": logs_client,
+                "log_group_name": "crossfeed-{}-backend-api".format(STAGE),
+            },
+            "requests_cloudwatch": {
+                "level": "INFO",
+                "class": "watchtower.CloudWatchLogHandler",
+                "formatter": "standard",
+                "boto3_client": logs_client,
+                "log_group_name": "crossfeed-{}-backend-api-requests".format(STAGE),
+            },
+        }
+    )
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
     "formatters": {
         "standard": {
-            "format": "[%(asctime)s.%(msecs)03d] %(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
+            "format": "%(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
             "datefmt": "%Y-%m-%d %H:%M:%S",
         },
     },
-    "handlers": {
-        "console": {
-            "level": LOGGING_LEVEL,
-            "class": "logging.StreamHandler",
-            "formatter": "standard",
-        },
-    },
+    "handlers": handlers,
     "root": {
+        # Root always logs to console so Fargate/ECS and Lambda prints still go somewhere
         "handlers": ["console"],
         "level": ROOT_LEVEL,
     },
     "loggers": {
         "xfd": {
-            "handlers": ["console"],
+            "handlers": (
+                ["app_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
+            ),
             "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        "fastapi.requests": {
+            "handlers": (
+                ["requests_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
+            ),
+            "level": "INFO",
             "propagate": False,
         },
     },
 }
+
 # Apply the logging configuration
 logging.config.dictConfig(LOGGING)
 

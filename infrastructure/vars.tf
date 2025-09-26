@@ -918,3 +918,15 @@ variable "zscaler_cert_bucket_name" {
   type        = string
   default     = "cisa-crossfeed-staging-zscaler"
 }
+
+variable "backend_api_log_group_name" {
+  description = "backend_api_log_group_name"
+  type        = string
+  default     = "cyhy-staging-backend-api"
+}
+
+variable "backend_api_requests_log_group_name" {
+  description = "backend_api_requests_log_group_name"
+  type        = string
+  default     = "cyhy-staging-backend-api-requests"
+}
