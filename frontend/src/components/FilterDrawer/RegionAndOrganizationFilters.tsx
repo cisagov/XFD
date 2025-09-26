@@ -29,6 +29,7 @@ import {
   STANDARD_USER
 } from 'hooks/useUserLevel';
 import { Stack } from '@mui/system';
+import { set } from 'date-fns';
 // import { GLOBAL_VIEW } from '@/context/userStateUtils';
 
 // const GLOBAL_ADMIN = 3;
@@ -96,7 +97,8 @@ export const RegionAndOrganizationFilters: React.FC<
   const { regions } = useStaticsContext();
   const [search_term, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
-  // const [isRegOpen, setIsRegOpen] = useState(false);
+  const [isOrgOpen, setIsOrgOpen] = useState(false);
+  const [isRegOpen, setIsRegOpen] = useState(false);
   const userLevel = useUserLevel().userLevel;
   const theme = useTheme();
 
@@ -245,6 +247,7 @@ export const RegionAndOrganizationFilters: React.FC<
         addFilter(ORGANIZATION_FILTER_KEY, org, 'any');
       }
       setSearchTerm('');
+      setIsOrgOpen(false);
 
       if (org.name === 'Election') {
         setShowMaps(true);
@@ -322,10 +325,10 @@ export const RegionAndOrganizationFilters: React.FC<
                 !userLevel ||
                 (userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW)
               }
-              // open={isRegOpen}
-              // onOpen={() => {
-              //   setIsRegOpen(true);
-              // }}
+              open={isRegOpen}
+              onOpen={() => {
+                setIsRegOpen(true);
+              }}
               options={regions}
               onChange={(e, v) => {
                 setTimeout(() => {
@@ -386,7 +389,7 @@ export const RegionAndOrganizationFilters: React.FC<
                       : `Region ${user?.region_id}`
                   }
                   value={search_term}
-                  // onBlur={() => setIsRegOpen(false)}
+                  onBlur={() => setIsRegOpen(false)}
                   placeholder={
                     organizationsInFilters
                       ? `Region${organizationsInFilters[0].region_id}`
@@ -496,6 +499,10 @@ export const RegionAndOrganizationFilters: React.FC<
             // freeSolo
             disableClearable
             disabled={userLevel === STANDARD_USER}
+            open={isOrgOpen}
+            onOpen={() => {
+              setIsOrgOpen(true);
+            }}
             options={orgResults}
             onChange={(e, v) => {
               setTimeout(() => {
@@ -557,6 +564,7 @@ export const RegionAndOrganizationFilters: React.FC<
                     ? 'Search Organizations'
                     : `${userOrg}`
                 }
+                onBlur={() => setIsOrgOpen(false)}
                 placeholder="Search"
                 helperText={
                   userLevel === REGIONAL_ADMIN ||

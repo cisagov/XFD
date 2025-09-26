@@ -90,7 +90,6 @@ export const DomainAndIPFilter: React.FC<Props> = ({
           body: { search_term, search_field, regions, organizations }
         });
         const body = results?.body?.hits?.hits;
-        // setResults(body.map((hit) => hit._source));
         if (search_field === 'name') {
           setDomainResults(body.map((hit) => hit._source));
           return body.map((hit) => hit._source);
