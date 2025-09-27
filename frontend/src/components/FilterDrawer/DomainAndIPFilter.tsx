@@ -13,14 +13,6 @@ import {
   useTheme
 } from '@mui/material';
 import { useAuthContext } from '@/context';
-import {
-  REGIONAL_ADMIN,
-  GLOBAL_ADMIN,
-  GLOBAL_VIEW,
-  STANDARD_USER,
-  useUserLevel
-} from 'hooks/useUserLevel';
-import { useStaticsContext } from '@/context/StaticsContext';
 
 export const DOMAIN_FILTER_KEY = 'name';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
@@ -28,7 +20,8 @@ export const REGION_FILTER_KEY = 'organization.region_id';
 
 export interface ResultShallow {
   id: string;
-  name: string;
+  name?: string;
+  ip?: string;
 }
 
 interface Props {
@@ -52,29 +45,33 @@ export const DomainAndIPFilter: React.FC<Props> = ({
   filters,
   search_field
 }) => {
-  const { user, apiPost } = useAuthContext();
-  const { regions } = useStaticsContext();
+  const { apiPost } = useAuthContext();
+  const [domainResults, setDomainResults] = useState<ResultShallow[]>([]);
   const [domainSearchTerm, setDomainSearchTerm] = useState<string>('');
+  const [ipResults, setIpResults] = useState<ResultShallow[]>([]);
   const [ipSearchTerm, setIpSearchTerm] = useState<string>('');
   const search_term = search_field === 'name' ? domainSearchTerm : ipSearchTerm;
-  const [domainResults, setDomainResults] = useState<
-    { id: string; name: string }[]
-  >([]);
-  const [ipResults, setIpResults] = useState<{ id: string; name: string }[]>(
-    []
+  const [selectedDomain, setSelectedDomain] = useState<ResultShallow | null>(
+    null
   );
-  const [selectedDomain, setSelectedDomain] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [selectedIp, setSelectedIp] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
-  const [isDomainOpen, setIsDomainOpen] = React.useState(false);
+  const [selectedIp, setSelectedIp] = useState<ResultShallow | null>(null);
 
   const theme = useTheme();
-  const userLevel = useUserLevel().userLevel;
+
+  const compareIp = (a: string, b: string) => {
+    const aParts = a.split('.').map(Number);
+    const bParts = b.split('.').map(Number);
+    for (let i = 0; i < 4; i++) {
+      if (aParts[i] !== bParts[i]) {
+        return aParts[i] - bParts[i];
+      }
+    }
+    return 0;
+  };
+
+  const isIp = (str: string) => {
+    return /^\d{1,3}(\.\d{1,3}){3}$/.test(str);
+  };
 
   const searchDomainsAndIPs = useCallback(
     async (
@@ -85,17 +82,57 @@ export const DomainAndIPFilter: React.FC<Props> = ({
     ) => {
       try {
         const results = await apiPost<{
-          body: { hits: { hits: { _source: { id: string; name: string } }[] } };
+          body: {
+            hits: {
+              hits: { _source: ResultShallow }[];
+            };
+          };
         }>('/search/domains', {
           body: { search_term, search_field, regions, organizations }
         });
         const body = results?.body?.hits?.hits;
         if (search_field === 'name') {
-          setDomainResults(body.map((hit) => hit._source));
-          return body.map((hit) => hit._source);
+          const domains = body.filter((hit) => !!hit._source.name);
+          const filteredDomains = domains.filter((hit) => {
+            const isFiltered = !!filters.find(
+              (filter) =>
+                filter.field === DOMAIN_FILTER_KEY &&
+                filter.values.includes(hit._source.name)
+            );
+            return !isFiltered;
+          });
+          const sortedDomains = filteredDomains.sort((a, b) => {
+            const aName = a._source.name ?? '';
+            const bName = b._source.name ?? '';
+            if (isIp(aName) && isIp(bName)) {
+              return compareIp(aName, bName);
+            }
+            return aName.localeCompare(bName);
+          });
+          setDomainResults(
+            sortedDomains.map((hit) => ({
+              id: hit._source.id,
+              name: hit._source.name
+            }))
+          );
         } else if (search_field === 'ip') {
-          setIpResults(body.map((hit) => hit._source));
-          return body.map((hit) => hit._source);
+          const ips = body.filter((hit) => !!hit._source.ip);
+          const filteredIps = ips.filter((hit) => {
+            const isFiltered = !!filters.find(
+              (filter) =>
+                filter.field === 'ip' && filter.values.includes(hit._source.ip)
+            );
+            return !isFiltered;
+          });
+          const sortedIps = filteredIps.sort((a, b) =>
+            compareIp(a._source.ip ?? '', b._source.ip ?? '')
+          );
+          setIpResults(
+            sortedIps.map((hit) => ({
+              id: hit._source.id,
+              ip: hit._source.ip
+            }))
+          );
         } else {
           setDomainResults([]);
           setIpResults([]);
@@ -105,10 +142,9 @@ export const DomainAndIPFilter: React.FC<Props> = ({
         console.error('Error fetching domain and IP search results:', error);
         setDomainResults([]);
         setIpResults([]);
-        return [];
       }
     },
-    [apiPost]
+    [apiPost, filters]
   );
 
   const regionFilterValues = useMemo(() => {
@@ -138,13 +174,19 @@ export const DomainAndIPFilter: React.FC<Props> = ({
     return ipFilters ? ipFilters.values : [];
   }, [filters]);
 
-  const handleUseResult = (result: { id: string; name: string } | null) => {
-    if (result && search_field === 'name') {
+  const handleUseDomainResult = (result: ResultShallow | null) => {
+    if (result && result.name) {
       addFilter('name', result.name, 'any');
       setDomainSearchTerm('');
-    } else if (result && search_field === 'ip') {
-      addFilter('ip', result.name, 'any');
+      setSelectedDomain(null);
+    }
+  };
+
+  const handleUseIpResult = (result: ResultShallow | null) => {
+    if (result && result.ip) {
+      addFilter('ip', result.ip, 'any');
       setIpSearchTerm('');
+      setSelectedIp(null);
     }
   };
 
@@ -191,9 +233,27 @@ export const DomainAndIPFilter: React.FC<Props> = ({
         inputValue={search_field === 'name' ? domainSearchTerm : ipSearchTerm}
         onChange={(e, v) => {
           setTimeout(() => {
-            handleUseResult(v);
+            if (search_field === 'name') {
+              setSelectedDomain(v as ResultShallow | null);
+              handleUseDomainResult(v as ResultShallow | null);
+            } else {
+              setSelectedIp(v as ResultShallow | null);
+              handleUseIpResult(v as ResultShallow | null);
+            }
           }, 250);
           return;
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (search_field === 'name') {
+              setSelectedDomain(selectedDomain);
+              handleUseDomainResult(selectedDomain);
+            } else {
+              setSelectedIp(selectedIp);
+              handleUseIpResult(selectedIp);
+            }
+          }
         }}
         onInputChange={(e, v) => {
           if (search_field === 'name') {
@@ -205,7 +265,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
         // freeSolo
         disableClearable
         options={search_field === 'name' ? domainResults : ipResults}
-        getOptionLabel={(option) => option.name}
+        getOptionLabel={(option) => option.name ?? option.ip ?? ''}
         slotProps={{
           listbox: {
             sx: {
@@ -242,16 +302,29 @@ export const DomainAndIPFilter: React.FC<Props> = ({
                 id="search-results-button"
                 onClick={() =>
                   setTimeout(() => {
-                    handleUseResult(option);
+                    if (search_field === 'name' && option.name) {
+                      setSelectedDomain(option);
+                      handleUseDomainResult(option);
+                    } else if (search_field === 'ip' && option.ip) {
+                      setSelectedIp(option);
+                      handleUseIpResult(option);
+                    }
                   }, 250)
                 }
               >
-                {option.name}
+                {'name' in option ? option.name : option.ip}
               </Button>
             </li>
           );
         }}
-        isOptionEqualToValue={(option, value) => option?.name === value?.name}
+        isOptionEqualToValue={(option, value) => {
+          if (option.id !== value.id) return false;
+          if (search_field === 'name') {
+            return option.name === value.name;
+          } else {
+            return option.ip === value.ip;
+          }
+        }}
         renderInput={(params) => (
           <TextField
             {...params}
@@ -260,11 +333,9 @@ export const DomainAndIPFilter: React.FC<Props> = ({
             }
             placeholder="Search"
             helperText={
-              userLevel === REGIONAL_ADMIN ||
-              userLevel === GLOBAL_ADMIN ||
-              userLevel === GLOBAL_VIEW
-                ? 'This search shows up to 10 domains to start. Begin typing to search across all domains and select one.'
-                : ''
+              search_field === 'name'
+                ? 'This search shows up to 10 domains to start. Begin typing to search across all of your available domains and select one.'
+                : 'This search shows up to 10 IP addresses to start. Begin typing to search across all of your available IPs and select one.'
             }
           />
         )}
@@ -273,7 +344,6 @@ export const DomainAndIPFilter: React.FC<Props> = ({
       <List sx={{ width: '100%', maxHeight: 5 * 42, overflowY: 'auto' }}>
         {search_field === 'name' &&
           domainsInFilters?.map((resultName: string, id: string) => {
-            console.log('domain in domainsInFilters:', resultName);
             return (
               <ListItem key={id} sx={{ padding: '0px' }}>
                 <FormGroup>
@@ -348,16 +418,3 @@ export const DomainAndIPFilter: React.FC<Props> = ({
     </Box>
   );
 };
-
-// interface DomainCheckboxLabelProps {
-//   result: ResultShallow;
-// }
-// const DomainCheckboxLabel: React.FC<DomainCheckboxLabelProps> = ({
-//   result
-// }) => {
-//   return (
-//     <>
-//       <Typography variant="body1">{result.name}</Typography>
-//     </>
-//   );
-// };

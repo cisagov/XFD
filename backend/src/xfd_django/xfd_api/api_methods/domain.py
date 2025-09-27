@@ -202,8 +202,9 @@ def search_domains_name(search_body: DomainNameSearch, current_user):
         # Construct the Elasticsearch query
 
         query_body: Dict[str, Any] = {
-            # "_source": ["id", "name"],
+            "_source": ["id", "name", "ip"],
             "query": {"bool": {"must": [], "filter": []}},
+            "size": 15,
         }
 
         validated_search_field = (
