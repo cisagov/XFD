@@ -33,7 +33,7 @@ export const UpdateStateForm: React.FC<{
   const [values, setValues] = useState<UpdateStateFormValues>(defaultValues);
   const [errorRequestMessage, setErrorRequestMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { apiPut, apiGet, logout, user } = useAuthContext();
+  const { apiPost, apiGet, logout, user } = useAuthContext();
 
   const handleChange = (event: SelectChangeEvent) => {
     setValues((values: any) => ({
@@ -49,7 +49,7 @@ export const UpdateStateForm: React.FC<{
     };
 
     try {
-      await apiPut(`/v2/users/${user_id}`, {
+      await apiPost(`/v2/update_user/${user_id}`, {
         body
       });
 

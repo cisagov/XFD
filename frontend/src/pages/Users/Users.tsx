@@ -19,7 +19,6 @@ import {
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
-import { ImportExport } from 'components';
 import {
   initialUserFormValues,
   initializeUser,
@@ -492,6 +491,7 @@ export const Users: React.FC = () => {
       maxWidth="1152px"
       width="100%"
       margin="auto"
+      pb={6}
     >
       <Typography
         fontSize={34}
@@ -553,50 +553,6 @@ export const Users: React.FC = () => {
       ) : null}
       {confirmDeleteUserDialog}
       {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
-      {user?.user_type === 'globalAdmin' && (
-        <>
-          <ImportExport<
-            | User
-            | {
-                roles: string;
-              }
-          >
-            name="users"
-            fieldsToImport={[
-              'first_name',
-              'last_name',
-              'email',
-              'roles',
-              'user_type',
-              'state'
-            ]}
-            onImport={async (results) => {
-              const createdUsers = [];
-              for (const result of results) {
-                const parsedRoles: {
-                  organization: string;
-                  role: string;
-                }[] = JSON.parse(result.roles as string);
-                const body: any = result;
-                if (parsedRoles.length > 0) {
-                  body.organization = parsedRoles[0].organization;
-                  body.organizationAdmin = parsedRoles[0].role === 'admin';
-                }
-                try {
-                  createdUsers.push(
-                    await apiPost('/users', {
-                      body
-                    })
-                  );
-                } catch (e) {
-                  console.error(e);
-                }
-              }
-              setUsers(users.concat(...createdUsers));
-            }}
-          />
-        </>
-      )}
       <InfoDialog
         isOpen={infoDialogOpen}
         handleClick={() => {

@@ -7,35 +7,136 @@ scheduler:
     - schedule: rate(5 minutes)
   reservedConcurrency: 1
   memorySize: 4096
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sqs:CreateQueue
+        - sqs:ListQueues
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:SendMessage
+        - sqs:GetQueueAttributes
+      Resource: 'arn:aws:sqs:${self:provider.region}:${aws:accountId}:*'
+    - Effect: Allow
+      Action:
+        - ses:SendEmail
+        - ses:SendRawEmail
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - ecs:RunTask
+        - ecs:ListTasks
+        - ecs:DescribeTasks
+        - ecs:DescribeServices
+        - ecs:UpdateService
+        - iam:PassRole
+        - logs:GetLogEvents
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - iam:PassRole
+      Resource: '*'
 
 syncdb:
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/run_syncdb.handler
+  iamRoleStatements: []
 
 syncmdl:
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/run_syncmdl.handler
+  iamRoleStatements: []
 
 bastion:
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/bastion.handler
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
 
 checkUserExpiration:
   timeout: 300
   handler: src/xfd_django/xfd_api/tasks/checkUserExpiration.handler
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - ses:SendRawEmail
+        - ses:SendEmail
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - cognito-idp:AdminDisableUser
+        - cognito-idp:ListUsers
+        - cognito-idp:AdminSetUserPassword
+      Resource: '*'
 
 queryDailyCustomerMetrics:
   timeout: 300
   handler: src/xfd_django/xfd_api/tasks/metrics.collect_and_upsert_customer_metrics
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
+  iamRoleStatements: []
 
 scanExecution:
   timeout: 900  # 15 minutes
   handler: src/xfd_django/xfd_api/tasks/scanExecution.handler
   memorySize: 4096
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sqs:CreateQueue
+        - sqs:ListQueues
+        - sqs:ReceiveMessage
+        - sqs:DeleteMessage
+        - sqs:SendMessage
+        - sqs:GetQueueAttributes
+      Resource: 'arn:aws:sqs:${self:provider.region}:${aws:accountId}:*'
+    - Effect: Allow
+      Action:
+        - ses:SendEmail
+        - ses:SendRawEmail
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - ecs:RunTask
+        - ecs:ListTasks
+        - ecs:DescribeTasks
+        - ecs:DescribeServices
+        - ecs:UpdateService
+        - iam:PassRole
+        - logs:GetLogEvents
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - iam:PassRole
+      Resource: '*'
 
 updateScanTaskStatus:
   handler: src/xfd_django/xfd_api/tasks/updateScanTaskStatus.handler
@@ -50,55 +151,65 @@ updateScanTaskStatus:
           detail:
             clusterArn:
               - ${file(env.yml):${self:provider.stage}-ecs-cluster, ''}
+  iamRoleStatements: []
 
 infraOps:
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
+  iamRoleStatements: []
 
 pruneScanResults:
   handler: src/xfd_django/xfd_api/tasks/prune_scan_results.handler
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 serviceStatsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 portStatsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_ports_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 numVulnsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_num_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 latestVulnsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_latest_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 mostCommonVulnsCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_most_common_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 severityCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_severity_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []
 
 byOrgCache:
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_by_org_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
+  iamRoleStatements: []

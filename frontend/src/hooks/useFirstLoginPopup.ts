@@ -3,7 +3,7 @@ import { User } from 'types/user';
 
 export default function useFirstLoginPopup(
   user: User | null,
-  apiPut: any,
+  apiPost: any,
   apiGet: any,
   setUser: any
 ) {
@@ -19,7 +19,9 @@ export default function useFirstLoginPopup(
     dismissedRef.current = true;
     setShow(false);
     try {
-      await apiPut(`/v2/users/${user?.id}`, { body: { first_login: false } });
+      await apiPost(`/v2/update_user/${user?.id}`, {
+        body: { first_login: false }
+      });
       const refreshed = await apiGet('/users/me');
       setUser?.(refreshed);
     } catch (err) {

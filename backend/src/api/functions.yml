@@ -39,3 +39,73 @@ api:
                       - Cache-Control
                       - Pragma
                   allowCredentials: true
+    iamRoleStatements:
+        # TODO: make the resources more specific. See Resource: '*' was
+        - Effect: Allow
+          Action:
+              - lambda:InvokeAsync
+              - lambda:InvokeFunction
+              - cognito-idp:AdminDisableUser
+              - cognito-idp:ListUsers
+              - cognito-idp:AdminSetUserPassword
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - ecs:RunTask
+              - ecs:ListTasks
+              - ecs:DescribeTasks
+              - ecs:DescribeServices
+              - ecs:UpdateService
+              - iam:PassRole
+              - logs:GetLogEvents
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - ses:SendRawEmail
+              - ses:SendEmail
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - s3:GetObject
+              - s3:GetObjectAcl
+              - s3:PutObject
+              - s3:PutObjectAcl
+              - s3:PutBucketAcl
+              - s3:GetBucketAcl
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - sts:AssumeRole
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - sqs:CreateQueue
+              - sqs:ListQueues
+              - sqs:ReceiveMessage
+              - sqs:DeleteMessage
+              - sqs:SendMessage
+              - sqs:GetQueueAttributes
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - logs:CreateExportTask
+              - logs:CreateLogStream
+              - logs:Describe*
+              - logs:Get*
+              - logs:List*
+              - logs:PutLogEvents
+              - logs:StartQuery
+              - logs:StopQuery
+              - logs:TestMetricFilter
+              - logs:FilterLogEvents
+              - logs:StartLiveTail
+              - logs:StopLiveTail
+          Resource: '*'
+        - Effect: Allow
+          Action:
+              - ssm:DescribeParameters
+              - ssm:GetParameter
+              - ssm:GetParameters
+              - ssm:GetParametersByPath
+              - ssm:PutParameter
+          Resource: '*'

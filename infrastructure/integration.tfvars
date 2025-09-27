@@ -121,3 +121,5 @@ ssm_whoisxml_api_key                 = "/crossfeed/integration/WHOIS_XML_API_KEY
 crossfeed_playwright                 = "crossfeed-playwright-integration"
 automated_test_reports_bucket_name   = "cisa-crossfeed-integration-automated-test-reports"
 playwright_worker_repository_name    = "crossfeed-playwright-integration-worker"
+backend_api_log_group_name           = "cyhy-integration-backend-api"
+backend_api_requests_log_group_name  = "cyhy-integration-backend-api-requests"

@@ -549,7 +549,7 @@ def test_register_approve_success(mock_email):
         updated_at=datetime.now(),
     )
     # Mock email sending
-    response = client.put(
+    response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
@@ -589,7 +589,7 @@ def test_register_approve_unauthorized_region():
         updated_at=datetime.now(),
     )
 
-    response = client.put(
+    response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
@@ -622,7 +622,7 @@ def test_register_deny_success(mock_denied_email):
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    response = client.put(
+    response = client.post(
         "/users/{}/register/deny".format(user_to_deny.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
@@ -661,7 +661,7 @@ def test_register_deny_unauthorized_region():
         updated_at=datetime.now(),
     )
 
-    response = client.put(
+    response = client.post(
         "/users/{}/register/deny".format(user_to_deny.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
@@ -1335,8 +1335,8 @@ def test_update_user_v2_as_global_admin():
 
     payload = {"first_name": "Updated", "last_name": "User"}
 
-    response = client.put(
-        "/v2/users/{}".format(user.id),
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
     )
@@ -1371,8 +1371,8 @@ def test_update_user_v2_as_standard_user_fails():
 
     payload = {"first_name": "Hacked", "last_name": "User"}
 
-    response = client.put(
-        "/v2/users/{}".format(target_user.id),
+    response = client.post(
+        "/v2/update_user/{}".format(target_user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(standard_user))},
     )
@@ -1395,7 +1395,7 @@ def test_update_user_v2_no_auth():
 
     payload = {"first_name": "Anonymous"}
 
-    response = client.put("/v2/users/{}".format(user.id), json=payload)
+    response = client.post("/v2/update_user/{}".format(user.id), json=payload)
 
     assert response.status_code == 401
 
@@ -1416,8 +1416,8 @@ def test_update_user_v2_non_existent_user():
 
     payload = {"first_name": "DoesNotExist"}
 
-    response = client.put(
-        "/v2/users/{}".format(fake_user_id),
+    response = client.post(
+        "/v2/update_user/{}".format(fake_user_id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
     )
@@ -1449,8 +1449,8 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
 
     payload = {"user_type": UserType.GLOBAL_ADMIN}
 
-    response = client.put(
-        "/v2/users/{}".format(user.id),
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
@@ -1471,10 +1471,10 @@ def test_update_user_v2_standard_user_cannot_update_own_email():
 
     payload = {"email": "hacked@example.com"}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 403
@@ -1496,10 +1496,10 @@ def test_update_user_v2_standard_user_cannot_approve_themselves():
         "approved_by": None,
     }
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 403
@@ -1526,10 +1526,10 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
 
     payload = {"user_type": UserType.GLOBAL_ADMIN}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(regional_admin)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
     assert response.status_code == 403
@@ -1556,10 +1556,10 @@ def test_update_user_v2_regional_admin_cannot_update_in_region_state():
 
     payload = {"state": "NY"}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(regional_admin)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
     assert response.status_code == 403
@@ -1577,10 +1577,10 @@ def test_update_user_v2_standard_user_cannot_update_name():
 
     payload = {"first_name": "New", "last_name": "Name"}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 403
@@ -1599,10 +1599,10 @@ def test_standard_user_cannot_clear_invite_pending():
 
     payload = {"invite_pending": False}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
     assert (
@@ -1625,10 +1625,10 @@ def test_standard_user_cannot_self_approve():
     # 'approved' isn't a direct field, but we simulate by trying to set date_approved
     payload = {"date_approved": datetime.now().isoformat()}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
     assert (
@@ -1756,8 +1756,8 @@ def test_standard_user_updates_self_user_type_unauthenticated():
     payload = {
         "user_type": UserType.STANDARD,
     }
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1785,8 +1785,8 @@ def test_standard_user_updates_self_unauthenticated():
         "region_id": "11",
         "state": "CA",
     }
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1815,8 +1815,8 @@ def test_standard_user_updates_other_unauthenticated():
         first_login=True,
     )
     payload = {}
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1847,8 +1847,8 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         "first_login": False,
     }
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1891,8 +1891,8 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
     }
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1935,8 +1935,8 @@ def test_global_user_updates_confirm_authorized_fields():
         "accepted_terms_version": "1.0",
         "login_blocked_by_maintenance": False,
     }
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1966,8 +1966,8 @@ def test_global_user_updates_confirm_unauthorized_fields():
         login_blocked_by_maintenance=True,
     )
     payload = {"email": "{}@example.com".format(secrets.token_hex(4))}
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )

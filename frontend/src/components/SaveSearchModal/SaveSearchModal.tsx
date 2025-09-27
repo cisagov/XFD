@@ -38,7 +38,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     name: false,
     duplicate: false
   });
-  const { apiGet, apiPost, apiPut } = useAuthContext();
+  const { apiGet, apiPost } = useAuthContext();
   const { savedSearches, setSavedSearches, setSavedSearchCount, activeSearch } =
     useSavedSearchContext();
   const [savedSearchValues, setSavedSearchValues] = useState<
@@ -60,7 +60,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     try {
       if (activeSearch) {
-        await apiPut('/saved-searches/' + activeSearch.id, body);
+        await apiPost('/update_saved-searches/' + activeSearch.id, body);
       } else {
         await apiPost('/saved-searches', body);
       }

@@ -568,7 +568,7 @@ def upsert_organization(organization_data, current_user):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# PUT: /organizations/{organization_id}
+# POST: /update_organization/{organization_id}
 def update_organization(organization_id: str, organization_data, current_user):
     """Update an organization by its ID."""
     try:
@@ -1028,7 +1028,7 @@ def search_organizations_v2(payload, current_user):
         sort_field = SORT_MAP.get(payload.sort or "", None)
         direction = "" if (payload.order or "asc") == "asc" else "-"
         if sort_field:
-            qs = qs.order_by(f"{direction}{sort_field}", "id")
+            qs = qs.order_by("{}{}".format(direction, sort_field), "id")
         else:
             qs = qs.order_by("created_at", "id")
 

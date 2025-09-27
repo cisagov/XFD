@@ -218,7 +218,7 @@ def get_scan(scan_id: str, current_user):
     }
 
 
-# PUT: /scans/{scan_id}
+# POST: /update_scan/{scan_id}
 def update_scan(scan_id: str, scan_data: NewScan, current_user):
     """Update a scan by its ID."""
     try:

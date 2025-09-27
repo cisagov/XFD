@@ -92,7 +92,7 @@ def get_by_id(notification_id, current_user):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-def put(notification_id, notification_data, current_user):
+def update(notification_id, notification_data, current_user):
     """UPDATE by id."""
     try:
         # Check if user is GlobalViewAdmin
