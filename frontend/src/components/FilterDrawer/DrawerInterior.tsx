@@ -13,22 +13,19 @@ import {
   FormGroup,
   Radio,
   useTheme,
-  Checkbox,
-  Divider
+  Checkbox
 } from '@mui/material';
 import {
   DeleteOutline,
-  Domain,
   ExpandMore,
   FiberManualRecordRounded
 } from '@mui/icons-material';
-import { FacetFilter, TaggedArrayInput } from 'components';
+import { FacetFilter } from 'components';
 import { ContextType } from 'context/SearchProvider';
 import { useAuthContext } from 'context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
-import { Facet } from '@elastic/react-search-ui';
 import { DomainAndIPFilter } from './DomainAndIPFilter';
 
 interface Props {
@@ -266,13 +263,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </Stack>
         </AccordionSummary>
         <AccordionDetails>
-          {/* <TaggedArrayInput
-            placeholder="IP address"
-            values={filtersByColumn.ip ?? []}
-            onAddTag={(value) => addFilter('ip', value, 'any')}
-            onRemoveTag={(value) => removeFilter('ip', value, 'any')}
-          />
-          <Divider sx={{ my: 1 }} /> */}
           <DomainAndIPFilter
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -295,13 +285,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </Stack>
         </AccordionSummary>
         <AccordionDetails>
-          {/* <TaggedArrayInput
-            placeholder="Domain Name"
-            values={filtersByColumn.name ?? []}
-            onAddTag={(value) => addFilter('name', value, 'any')}
-            onRemoveTag={(value) => removeFilter('name', value, 'any')}
-          />
-          <Divider sx={{ my: 1 }} /> */}
           <DomainAndIPFilter
             addFilter={addFilter}
             removeFilter={removeFilter}
