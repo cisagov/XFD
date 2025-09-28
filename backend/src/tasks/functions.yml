@@ -1,6 +1,20 @@
 ---
-
 scheduler:
+  # ADOT: define common layer+env once and anchor it for reuse, see all
+  # functions below for usage of the anchor.
+  <<: &adot
+    layers:
+      - ${self:custom.adotLayerArn.${self:provider.region}}
+    environment:
+      AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
+      OTEL_PROPAGATORS: xray,tracecontext,baggage
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_RESOURCE_ATTRIBUTES: >
+        service.name=crossfeed-tasks,
+        service.namespace=crossfeed,
+        deployment.environment=${self:provider.stage}
+
   handler: src/xfd_django/xfd_api/tasks/scheduler.handler
   timeout: 900
   events:
@@ -9,35 +23,42 @@ scheduler:
   memorySize: 4096
 
 syncdb:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/run_syncdb.handler
 
 syncmdl:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/run_syncmdl.handler
 
 bastion:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/bastion.handler
 
 checkUserExpiration:
+  <<: *adot
   timeout: 300
   handler: src/xfd_django/xfd_api/tasks/checkUserExpiration.handler
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
 
 queryDailyCustomerMetrics:
+  <<: *adot
   timeout: 300
   handler: src/xfd_django/xfd_api/tasks/metrics.collect_and_upsert_customer_metrics
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
 
 scanExecution:
+  <<: *adot
   timeout: 900  # 15 minutes
   handler: src/xfd_django/xfd_api/tasks/scanExecution.handler
   memorySize: 4096
 
 updateScanTaskStatus:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/updateScanTaskStatus.handler
   events:
     - eventBridge:
@@ -52,52 +73,61 @@ updateScanTaskStatus:
               - ${file(env.yml):${self:provider.stage}-ecs-cluster, ''}
 
 infraOps:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
 
 pruneScanResults:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/prune_scan_results.handler
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 serviceStatsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 portStatsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_ports_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 numVulnsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_num_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 latestVulnsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_latest_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 mostCommonVulnsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_most_common_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 severityCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_severity_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
 
 byOrgCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_by_org_cache
   events:
     - schedule:

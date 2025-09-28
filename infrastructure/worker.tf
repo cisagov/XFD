@@ -153,6 +153,27 @@ EOF
   }
 }
 
+# Allows the task (both app + sidecar) to send spans to X-Ray
+resource "aws_iam_role_policy_attachment" "worker_task_role_xray" {
+  role       = aws_iam_role.worker_task_role.name
+  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/AWSXRayDaemonWriteAccess"
+}
+# >>> END INSERT <<<
+
+resource "aws_iam_role_policy" "worker_task_role_policy" {
+  name_prefix = aws_iam_role.worker_task_role.name
+  role        = aws_iam_role.worker_task_role.id
+
+  policy = <<EOF
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      ...
+    ]
+  }
+  EOF
+}
+
 resource "aws_iam_role_policy" "worker_task_role_policy" {
   name_prefix = aws_iam_role.worker_task_role.name
   role        = aws_iam_role.worker_task_role.id

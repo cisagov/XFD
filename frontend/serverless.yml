@@ -6,6 +6,13 @@ useDotenv: true
 configValidationMode: error
 
 custom:
+  adotLayerArn:
+    us-east-1: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-east-2: arn:aws:lambda:us-east-2:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-west-1: arn:aws:lambda:us-west-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-west-2: arn:aws:lambda:us-west-2:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-gov-east-1: ${ssm:/crossfeed/${self:provider.stage}/adot_node_layer_arn_govcloud}
+    us-gov-west-1: ${ssm:/crossfeed/${self:provider.stage}/adot_node_layer_arn_govcloud}
   esbuild:
     bundle: true
     external: []  # Make sure serverless-http is NOT here
@@ -58,13 +65,6 @@ custom:
         provider.apiGateway.resourcePolicy: ${self:custom.regionalResourcePolicy}
       ElseExclude:
         - provider.vpcEndpointIds
-  adot:
-    nodeLayerArn:
-      prod: arn:aws-us-gov:lambda:us-gov-west-1:901920570463:layer:aws-otel-nodejs-amd64-ver-1-32-0:2
-      staging: arn:aws-us-gov:lambda:us-gov-west-1:901920570463:layer:aws-otel-nodejs-amd64-ver-1-32-0:2
-      integration: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-nodejs-amd64-ver-1-32-0:2
-      dev: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-nodejs-amd64-ver-1-32-0:2
-      staging-cd: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-nodejs-amd64-ver-1-32-0:2
 
 provider:
   name: aws
@@ -110,7 +110,7 @@ functions:
           path: /{any+}
           method: GET
     layers:
-      - ${self:custom.adot.nodeLayerArn.${self:provider.stage}}
+      - ${self:custom.adotLayerArn.${self:provider.region}}
     # provisionedConcurrency: 1
   # TODO: Reenable docs site CRASM-1070, CRASM-2124
   # docs:

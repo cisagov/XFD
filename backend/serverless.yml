@@ -6,11 +6,13 @@ useDotenv: true
 configValidationMode: error
 
 custom:
-  envCommon:
-    AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
-    OTEL_SERVICE_NAME: django-api
-    OTEL_PROPAGATORS: tracecontext,baggage,xray-lambda
-    OTEL_PYTHON_ID_GENERATOR: xray
+  adotLayerArn:
+    us-east-1: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-east-2: arn:aws:lambda:us-east-2:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-west-1: arn:aws:lambda:us-west-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-west-2: arn:aws:lambda:us-west-2:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
+    us-gov-east-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn}
+    us-gov-west-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -79,16 +81,6 @@ custom:
         provider.apiGateway.resourcePolicy: ${self:custom.regionalResourcePolicy}
       ElseExclude:
         - provider.vpcEndpointIds
-  adot:
-    version: ver-1-32-0
-    rev: 2
-    arch: amd64
-    pythonLayerArn:
-      prod: arn:aws-us-gov:lambda:us-gov-west-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
-      staging: arn:aws-us-gov:lambda:us-gov-west-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
-      integration: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
-      dev: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
-      staging-cd: arn:aws:lambda:us-east-1:901920570463:layer:aws-otel-python-amd64-ver-1-32-0:2
 
 provider:
   name: aws
@@ -112,6 +104,8 @@ provider:
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
+  tracing:
+    lambda: true
 
   iam:
     role:
@@ -189,6 +183,14 @@ provider:
             - ssm:GetParameters
             - ssm:GetParametersByPath
             - ssm:PutParameter
+          Resource: '*'
+        - Effect: Allow
+          Action:
+            - xray:PutTraceSegments
+            - xray:PutTelemetryRecords
+            - xray:GetSamplingRules
+            - xray:GetSamplingTargets
+            - xray:GetSamplingStatisticSummaries
           Resource: '*'
 
 resources:
