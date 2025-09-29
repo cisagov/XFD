@@ -107,7 +107,7 @@ def assert_auth_failure(resp, context=""):
         ("POST", "/organizations/{org_id}/roles/{bad_id}/remove"),
         ("POST", "/organizations/{org_id}/granularScans/{bad_id}/update"),
         ("DELETE", "/organizations/{bad_id}"),
-        ("PUT", "/organizations/{bad_id}"),
+        ("POST", "/update_organization/{bad_id}"),
     ],
 )
 def test_auth_failure_single_request(
@@ -594,13 +594,13 @@ def test_upsert_invalid_format_and_value(region_id, state):
 
 
 # ========================================
-#   PUT organizations/org_id
+#  POST organizations/org_id
 # ========================================
 
 
 @pytest.mark.integration
 def test_update_organization_success(region_id, state, org_to_cleanup):
-    """Create a new org, then update via PUT, teardown fixture will DELETE the org afterward."""
+    """Create a new org, then update via POST, teardown fixture will DELETE the org afterward."""
     # 1) Create
     acr = f"UPD{uuid.uuid4().hex[:6].upper()}"
     name0 = f"Before {uuid.uuid4().hex[:4]}"
@@ -642,8 +642,8 @@ def test_update_organization_success(region_id, state, org_to_cleanup):
     update_payload = create_payload.copy()
     update_payload["name"] = name1
 
-    r2 = requests.put(
-        f"{BASE_URL}/organizations/{org_id}",
+    r2 = requests.post(
+        f"{BASE_URL}/update_organization/{org_id}",
         json=update_payload,
         headers=HEADERS,
         timeout=TIMEOUT,
@@ -665,7 +665,7 @@ def test_update_organization_success(region_id, state, org_to_cleanup):
 
 @pytest.mark.integration
 def test_update_organization_not_found(region_id, state):
-    """PUT to a non-existent ID should return 404."""
+    """POST to a non-existent ID should return 404."""
     acr = f"UPD{uuid.uuid4().hex[:6].upper()}"
     name0 = f"Before {uuid.uuid4().hex[:4]}"
     payload = {
@@ -684,8 +684,8 @@ def test_update_organization_not_found(region_id, state):
         "county_fips": 12345,
         "type": "STATE",
     }
-    resp = requests.put(
-        f"{BASE_URL}/organizations/{BAD_ID}",
+    resp = requests.post(
+        f"{BASE_URL}/update_organization/{BAD_ID}",
         json=payload,
         headers=HEADERS,
         timeout=TIMEOUT,
@@ -697,7 +697,7 @@ def test_update_organization_not_found(region_id, state):
 
 @pytest.mark.integration
 def test_update_organization_invalid_format(region_id, state, org_to_cleanup):
-    """PUT with invalid field types or missing fields should return 422 Unprocessable Entity."""
+    """POST with invalid field types or missing fields should return 422 Unprocessable Entity."""
     valid_payload = {
         "acronym": f"INV{uuid.uuid4().hex[:6].upper()}",
         "name": "Valid Org",
@@ -735,8 +735,8 @@ def test_update_organization_invalid_format(region_id, state, org_to_cleanup):
         "state": None,  # should be a string
     }
 
-    update_resp = requests.put(
-        f"{BASE_URL}/organizations/{org_id}",
+    update_resp = requests.post(
+        f"{BASE_URL}/update_organization/{org_id}",
         json=invalid_payload,
         headers=HEADERS,
         timeout=TIMEOUT,

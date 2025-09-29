@@ -89,37 +89,66 @@ export interface Vulnerability {
   last_seen: string | null;
   title: string;
   cve: string | null;
-  is_kev?: string;
+  is_kev?: string | boolean | null;
   is_kev_ransomware?: string;
   cwe: string | null;
   cpe: string | null;
   description: string;
   cvss: number | null;
   severity: string | null;
+  updated_at?: string | null;
+  created_by?: string | null;
+  product?: string | null;
+  domain_string?: string | null;
+  ip_string?: string | null;
+  cvss_vector?: string | null;
+  severity_int?: number | null;
+  service_string?: string | null;
+  is_risky_service?: boolean | null;
+  plugin_id?: string | null;
+  solution?: string | null;
+  synopsis?: string | null;
+  results?: string | null;
+  ticket_history?: string | null;
+  kev_results?: {} | null;
+  protocol?: string | null;
+  port?: number | string | null;
+  domain_id?: string | null;
+  service_id?: number | null;
+  scan_id?: string | null;
+  scan?: Scan | null;
+  organization?: Organization | null;
+  needs_population?: boolean | null;
+  os?: string | null;
   state: string;
   source: string;
-  structured_data: { [x: string]: any };
+  scan_source?: string | null;
+  structured_data: { [x: string]: any } | null;
   substate: string;
-  notes: string;
-  actions: {
-    type: 'state-change' | 'comment';
-    state?: string;
-    substate?: string;
-    value?: string;
-    automatic: boolean;
-    user_id: string | null;
-    userName?: string | null;
-    date: string;
-  }[];
-  references: {
-    url: string;
-    name: string;
-    source: string;
-    tags: string[];
-  }[];
-  service: Service;
+  notes?: string | null;
+  actions:
+    | {
+        type: 'state-change' | 'comment';
+        state?: string;
+        substate?: string;
+        value?: string;
+        automatic: boolean;
+        user_id: string | null;
+        userName?: string | null;
+        date: string;
+      }[]
+    | null;
+  references:
+    | {
+        url: string;
+        name: string;
+        source: string;
+        tags: string[];
+      }[]
+    | null;
+  service?: Service | null;
   cve_full: Cve | null;
-  cpes: Cpe[];
+  cpes?: Cpe[] | null;
 }
 
 export interface Domain {
@@ -131,15 +160,19 @@ export interface Domain {
   screenshot: string | null;
   country: string | null;
   asn: string | null;
-  cloud_hosted: boolean;
-  services: Service[];
-  vulnerabilities: Vulnerability[];
-  webpages: Webpage[];
-  organization: Organization;
+  cloud_hosted: boolean | null;
+  services?: Service[] | null;
+  vulnerabilities?: Vulnerability[] | null;
+  webpages?: Webpage[] | null;
+  organization?: Organization | null;
   ssl?: SSLInfo | null;
   censys_certificates_results: any;
   from_root_domain: string | null;
   subdomain_source: string | null;
+  synced_at?: string | null;
+  ip_only?: boolean | null;
+  reverse_name?: string | null;
+  trustymail_results?: any | null;
 }
 
 export interface DomainSearchApiResponse {

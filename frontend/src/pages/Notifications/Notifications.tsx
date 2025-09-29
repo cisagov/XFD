@@ -292,9 +292,9 @@ export const Notifications: React.FC = () => {
   ) => {
     let notification;
     try {
-      if (apiType === 'put') {
+      if (apiType === 'update') {
         notification = await handleApiCall(
-          () => apiPut('/notifications/' + body.id, { body }),
+          () => apiPost('/update_notification/' + body.id, { body }),
           'The notification was successfully updated.',
           'The notification was not able to be updated.'
         );
@@ -361,7 +361,7 @@ export const Notifications: React.FC = () => {
     if (body.status !== 'active') {
       body.status = 'inactive';
     }
-    if (apiType === 'put') {
+    if (apiType === 'update') {
       try {
         const notification = await handleNotificationAction(body, apiType);
         // former active notification
@@ -382,7 +382,7 @@ export const Notifications: React.FC = () => {
             if (updatedActiveNotification.id !== '1') {
               const formerActiveNotification = await handleNotificationAction(
                 updatedActiveNotification,
-                'put'
+                'update'
               );
               setInactiveNotifications((prevNotifications) => {
                 const updatedNotifications = prevNotifications.filter(
@@ -409,7 +409,7 @@ export const Notifications: React.FC = () => {
           }
         }
       } catch (error) {
-        console.error('Error occurred during put request:', error);
+        console.error('Error occurred during update request:', error);
       }
     }
     if (apiType === 'post') {
@@ -421,7 +421,7 @@ export const Notifications: React.FC = () => {
               ...activeNotification,
               status: 'inactive'
             };
-            await handleNotificationAction(updatedActiveNotification, 'put');
+            await handleNotificationAction(updatedActiveNotification, 'update');
             setInactiveNotifications([
               ...inactiveNotifications,
               updatedActiveNotification
@@ -578,7 +578,7 @@ export const Notifications: React.FC = () => {
     <ConfirmDialog
       isOpen={formDialogToggle}
       onClose={() => setFormDialogToggle(false)}
-      onConfirm={() => submitForm('put')}
+      onConfirm={() => submitForm('update')}
       onCancel={handleResetForm}
       title={'Update Notification'}
       content={formContents}

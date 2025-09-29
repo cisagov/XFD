@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 60
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: false # TODO: Revert conditions with CRASM-3218
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -153,7 +153,7 @@ jobs:
      runs-on: ubuntu-latest
      environment: integration
      timeout-minutes: 60
-     if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
+     if: false # TODO: Revert conditions with CRASM-3218
      env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

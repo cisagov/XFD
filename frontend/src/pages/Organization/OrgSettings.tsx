@@ -50,7 +50,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
   setOrganization,
   tags
 }) => {
-  const { apiPut, apiPost, user, setFeedbackMessage } = useAuthContext();
+  const { apiPost, user, setFeedbackMessage } = useAuthContext();
   const [inputValue, setInputValue] = useState('');
   const [dialog, setDialog] = useState<{
     open: boolean;
@@ -68,7 +68,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
 
   const updateOrganization = async () => {
     try {
-      const org = await apiPut(`/organizations/${organization.id}`, {
+      const org = await apiPost(`/update_organization/${organization.id}`, {
         body: organization
       });
       setOrganization(org);
@@ -392,34 +392,13 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             />
           </Grid>
         )}
-        <Grid size={{ xs: 12 }}>
-          <Grid container spacing={1}>
-            <Grid size={{ xs: 12, sm: 3, lg: 2 }} my={1}>
-              <Typography variant="body2">Passive Mode</Typography>
-            </Grid>
-            <Grid ml={-1}>
-              <Switch
-                checked={organization.is_passive}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                  setOrganization({
-                    ...organization,
-                    is_passive: event.target.checked
-                  });
-                  if (!organization.is_passive) {
-                    setIsSaveDisabled(false);
-                  }
-                }}
-                color="primary"
-                disabled={user?.user_type === 'globalView'}
-                slotProps={{
-                  input: {
-                    'aria-label': 'Toggle passive mode',
-                    role: 'switch'
-                  }
-                }}
-              />
-            </Grid>
-          </Grid>
+        <Grid size={{ xs: 12 }} my={1}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="body2">Passive Mode:</Typography>
+            <Typography variant="body2">
+              {organization.is_passive ? 'True' : 'False'}
+            </Typography>
+          </Stack>
         </Grid>
         {organization.root_domains.length === 0 && (
           <Grid size={{ xs: 12 }}>
@@ -431,17 +410,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         <Grid size={{ xs: 12 }} mt={2}>
           <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
             Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={updateOrganization}
-            disabled={
-              organization.root_domains.length === 0 ||
-              isSaveDisabled ||
-              user?.user_type === 'globalView'
-            }
-          >
-            Save
           </Button>
         </Grid>
       </Grid>

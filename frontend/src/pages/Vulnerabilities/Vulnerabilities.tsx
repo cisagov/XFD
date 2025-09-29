@@ -68,6 +68,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   ]);
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({});
 
   useEffect(() => {
     if (state) {
@@ -602,6 +603,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               onSortModelChange={(model) => {
                 setSortModel(model);
               }}
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={setColumnVisibilityModel}
               slots={{
                 toolbar: CustomToolbar,
                 noRowsOverlay: CustomNoRowsOverlay

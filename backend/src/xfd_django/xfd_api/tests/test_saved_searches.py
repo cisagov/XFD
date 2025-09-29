@@ -135,8 +135,8 @@ def test_update_saved_search_by_global_admin_fails(
     body["search_term"] = "123"
     body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
 
-    response = client.put(
-        "/saved-searches/{}".format(search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(global_admin_user)},
     )
@@ -179,8 +179,8 @@ def test_update_saved_search_by_global_view_fails(
     body["name"] = "test-{}".format(secrets.token_hex(4))
     body["search_term"] = "123"
     body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
-    response = client.put(
-        "/saved-searches/{}".format(saved_search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(saved_search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(global_view_user)},
     )
@@ -218,8 +218,8 @@ def test_update_saved_search_by_standard_user_with_access(create_standard_user):
     body["search_term"] = "123"
     body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
 
-    response = client.put(
-        "/saved-searches/{}".format(search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
@@ -256,8 +256,8 @@ def test_update_saved_search_by_standard_user_without_access_fails(
         "updated_at": str(datetime.now()),  # Include updatedAt field
     }
     search = SavedSearch.objects.create(**body, created_by=user_with_access)
-    response = client.put(
-        "/saved-searches/{}".format(search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(user_without_access)},
     )

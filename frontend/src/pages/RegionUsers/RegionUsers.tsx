@@ -40,6 +40,9 @@ const transformData = (data: User[]): User[] => {
     ...user,
     roles,
     organizations: roles.map((role) => ' ' + role.organization.name),
+    organizations_display: roles
+      .map((role) => role.organization.name)
+      .join(', '),
     last_logged_in: user.last_logged_in
       ? formatDate(parseISO(user.last_logged_in), 'MM/dd/yyyy hh:mm a')
       : 'None'
@@ -234,20 +237,18 @@ export const RegionUsers: React.FC = () => {
       }
     },
     {
-      field: 'organizations',
+      field: 'organizations_display',
       headerName: 'Organizations',
       minWidth: 250,
       flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.organizations.join(', ')}`}
-          >
-            {cellValues.row.organizations.join(', ')}
-          </Box>
-        );
-      }
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component="span"
+          aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.organizations_display}`}
+        >
+          {cellValues.row.organizations_display}
+        </Box>
+      )
     }
   ];
   const regionIdColumn = {
@@ -441,7 +442,7 @@ export const RegionUsers: React.FC = () => {
 
   const updateUser = useCallback(
     (user_id: string, org_name: string): Promise<boolean> => {
-      return apiPut(`/v2/users/${user_id}`, {
+      return apiPost(`/v2/update_user/${user_id}`, {
         body: { invite_pending: false }
       }).then(
         (res) => {
@@ -467,7 +468,7 @@ export const RegionUsers: React.FC = () => {
 
   const sendApprovalEmail = useCallback(
     (user_id: string): Promise<boolean> => {
-      return apiPut(`/users/${user_id}/register/approve`).then(
+      return apiPost(`/users/${user_id}/register/approve`).then(
         (res) => {
           console.log(res);
           return true;
@@ -478,7 +479,7 @@ export const RegionUsers: React.FC = () => {
         }
       );
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apiPut]
+    [apiPost]
   );
 
   const handleCloseDialog = (value: CloseReason) => {

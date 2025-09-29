@@ -779,8 +779,8 @@ async def get_notification(
 
 
 # UPDATE BY ID
-@api_router.put(
-    "/notifications/{notification_id}",
+@api_router.post(
+    "/update_notification/{notification_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=NotificationSchema,
     tags=["Notifications"],
@@ -791,7 +791,7 @@ async def update_notification(
     current_user: User = Depends(get_current_active_user),
 ):
     """Update notification key by id."""
-    return notification_methods.put(notification_id, notification_data, current_user)
+    return notification_methods.update(notification_id, notification_data, current_user)
 
 
 # TODO: Adding placeholder until we determine if we still need this.
@@ -896,8 +896,8 @@ async def upsert_organization(
     return organization.upsert_organization(organization_data, current_user)
 
 
-@api_router.put(
-    "/organizations/{organization_id}",
+@api_router.post(
+    "/update_organization/{organization_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=OrganizationSchema.GetSingleOrganizationSchema,
     tags=["Organizations"],
@@ -1130,8 +1130,8 @@ async def call_get_saved_search(
 
 
 # Update saved search by ID
-@api_router.put(
-    "/saved-searches/{saved_search_id}",
+@api_router.post(
+    "/update_saved-searches/{saved_search_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=SavedSearchUpdate,
     tags=["Saved Searches"],
@@ -1220,8 +1220,8 @@ async def get_scan(scan_id: str, current_user: User = Depends(get_current_active
     return scan.get_scan(scan_id, current_user)
 
 
-@api_router.put(
-    "/scans/{scan_id}",
+@api_router.post(
+    "/update_scan/{scan_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=scanSchema.CreateScanResponseModel,
     tags=["Scans"],
@@ -1729,8 +1729,8 @@ async def call_get_users_v2(
     return get_users_v2(state, region_id, invite_pending, current_user)
 
 
-@api_router.put(
-    "/v2/users/{user_id}",
+@api_router.post(
+    "/v2/update_user/{user_id}",
     dependencies=[Depends(get_current_active_user_unsafe)],
     response_model=UserResponseV2,
     tags=["Users"],
@@ -1744,7 +1744,7 @@ async def update_user_v2_view(
     return update_user_v2(user_id, user_data, current_user)
 
 
-@api_router.put(
+@api_router.post(
     "/users/{user_id}/register/approve",
     dependencies=[Depends(get_current_active_user)],
     response_model=RegisterUserResponse,
@@ -1768,7 +1768,7 @@ async def register_approve(
     return user.approve_user_registration(user_id, current_user)
 
 
-@api_router.put(
+@api_router.post(
     "/users/{user_id}/register/deny",
     dependencies=[Depends(get_current_active_user)],
     response_model=RegisterUserResponse,
@@ -2255,7 +2255,7 @@ async def get_was_scan_summaries_endpoint(
     except Exception as error:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {error}",
+            detail="Unexpected error: {}".format(error),
         )
 
     # Serialize ORM objects to plain dicts

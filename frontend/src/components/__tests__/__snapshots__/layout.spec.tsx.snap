@@ -113,7 +113,7 @@ exports[`Layout component > matches snapshot 1`] = `
     class="css-170g0n7"
   >
     <div
-      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-aiqi88-MuiDrawer-docked"
+      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-zdu6sp-MuiDrawer-docked"
     >
       <div
         class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-1lwhjos-MuiPaper-root-MuiDrawer-paper"

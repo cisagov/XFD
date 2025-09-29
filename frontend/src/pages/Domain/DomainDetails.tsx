@@ -205,13 +205,6 @@ export const DomainDetails: React.FC<Props> = (props) => {
       });
     }
     ret.push({
-      label: 'First Seen',
-      value: `${differenceInCalendarDays(
-        Date.now(),
-        parseISO(domain.created_at)
-      )} days ago`
-    });
-    ret.push({
       label: 'Last Seen',
       value: `${differenceInCalendarDays(
         Date.now(),

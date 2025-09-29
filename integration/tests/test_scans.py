@@ -134,7 +134,7 @@ def assert_auth_failure(resp, context=""):
         ("POST", "/scans/{scan_id}/run"),
         ("POST", "/scheduler/invoke"),
         ("DELETE", "/scans/{scan_id}"),
-        ("PUT", "/scans/{scan_id}"),
+        ("POST", "/update_scan/{scan_id}"),
     ],
 )
 def test_auth_failure_single_request(headers, method, endpoint_template, test_scan):
@@ -371,13 +371,13 @@ def test_create_scan_invalid_field_types(org_id):
 
 
 # ========================================
-#   PUT Scans
+#   POST Scans
 # ========================================
 
 
 @pytest.mark.integration
 def test_update_success(test_scan):
-    """PUT a valid scan_id should update and return 200."""
+    """POST a valid scan_id should update and return 200."""
     payload = {
         "name": "updated scan name",
         "arguments": {},
@@ -389,8 +389,8 @@ def test_update_success(test_scan):
         "is_single_scan": False,
     }
 
-    resp = requests.put(
-        f"{BASE_URL}/scans/{test_scan['id']}",
+    resp = requests.post(
+        f"{BASE_URL}/update_scan/{test_scan['id']}",
         json=payload,
         headers=HEADERS,
         timeout=TIMEOUT,
@@ -418,7 +418,7 @@ def test_update_success(test_scan):
 # ─── Helpers ────────────────────────────────────────────────────────────────────
 def make_update_payload(scan_id, original_scan, new_name="patched scan"):
     """
-    Build a valid payload for PUT /scans/{scan_id}.
+    Build a valid payload for POST /update_scan/{scan_id}.
 
     re‑using required fields from the original scan (organizations & concurrent_tasks).
     """
@@ -439,7 +439,7 @@ def make_update_payload(scan_id, original_scan, new_name="patched scan"):
 
 @pytest.mark.integration
 def test_update_scan_not_found(org_id):
-    """PUT a non‑existent scan_id should return 404."""
+    """POST a non‑existent scan_id should return 404."""
     payload = {
         "name": "won't matter",
         "arguments": {},
@@ -453,8 +453,8 @@ def test_update_scan_not_found(org_id):
         "concurrent_tasks": 1,
     }
 
-    resp = requests.put(
-        f"{BASE_URL}/scans/{BAD_ID}",
+    resp = requests.post(
+        f"{BASE_URL}/update_scan/{BAD_ID}",
         json=payload,
         headers=HEADERS,
         timeout=TIMEOUT,
@@ -464,7 +464,7 @@ def test_update_scan_not_found(org_id):
 
 @pytest.mark.integration
 def test_update_scan_invalid(org_id):
-    """PUT a invalid value should return 500."""
+    """POST a invalid value should return 500."""
     payload = {
         "name": "won't matter",
         "arguments": {},
@@ -478,8 +478,8 @@ def test_update_scan_invalid(org_id):
         "concurrent_tasks": 1,
     }
 
-    resp = requests.put(
-        f"{BASE_URL}/scans/{INVALID}",
+    resp = requests.post(
+        f"{BASE_URL}/update_scan/{INVALID}",
         json=payload,
         headers=HEADERS,
         timeout=TIMEOUT,
@@ -489,7 +489,7 @@ def test_update_scan_invalid(org_id):
 
 @pytest.mark.integration
 def test_update_scan_missing_required_fields(test_scan):
-    """PUT with missing required fields should return 422 Unprocessable Entity."""
+    """POST with missing required fields should return 422 Unprocessable Entity."""
     scan_id = test_scan["id"]
     bad_payload = {
         "arguments": {},
@@ -502,8 +502,8 @@ def test_update_scan_missing_required_fields(test_scan):
         "concurrent_tasks": 1,
     }
 
-    resp = requests.put(
-        f"{BASE_URL}/scans/{scan_id}",
+    resp = requests.post(
+        f"{BASE_URL}/update_scan/{scan_id}",
         json=bad_payload,
         headers=HEADERS,
         timeout=TIMEOUT,
@@ -513,13 +513,13 @@ def test_update_scan_missing_required_fields(test_scan):
 
 @pytest.mark.integration
 def test_update_scan_invalid_field_types(test_scan):
-    """PUT with a wrong type (e.g. 'frequency' as string) should return 422."""
+    """POST with a wrong type (e.g. 'frequency' as string) should return 422."""
     scan_id = test_scan["id"]
     payload = make_update_payload(scan_id, test_scan)
     payload["frequency"] = "not-an-integer"
 
-    resp = requests.put(
-        f"{BASE_URL}/scans/{scan_id}",
+    resp = requests.post(
+        f"{BASE_URL}/update_scan/{scan_id}",
         json=payload,
         headers=HEADERS,
         timeout=TIMEOUT,

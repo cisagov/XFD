@@ -21,7 +21,7 @@ export const setFrequency = async (body: ScanFormValues) => {
 
 const ScanComponent: React.FC = () => {
   const { scanId } = useParams<any>();
-  const { apiGet, apiPut, setFeedbackMessage } = useAuthContext();
+  const { apiGet, apiPost, setFeedbackMessage } = useAuthContext();
   const [scan, setScan] = useState<Scan>();
   const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
@@ -64,7 +64,7 @@ const ScanComponent: React.FC = () => {
   const onSubmit = async (body: ScanFormValues) => {
     try {
       setFrequency(body);
-      await apiPut(`/scans/${scanId}`, {
+      await apiPost(`/update_scan/${scanId}`, {
         body: {
           ...body,
           organizations: body.organizations
