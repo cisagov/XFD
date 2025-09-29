@@ -19,11 +19,49 @@ resource "aws_ecs_cluster_capacity_providers" "matomo" {
   capacity_providers = ["FARGATE"]
 }
 
+# Task role (identity presented to EFS when iam = ENABLED)
+resource "aws_iam_role" "matomo_task_role" {
+  name = "${var.stage}-matomo-task-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Effect    = "Allow",
+      Principal = { Service = "ecs-tasks.amazonaws.com" },
+      Action    = "sts:AssumeRole"
+    }]
+  })
+  tags = { Project = var.project, Stage = var.stage }
+}
+
+# Allow the task to mount/write via the AP
+resource "aws_iam_role_policy" "matomo_task_role_efs" {
+  name = "${var.stage}-matomo-task-efs"
+  role = aws_iam_role.matomo_task_role.id
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Sid    = "AllowEfsClientViaAp",
+      Effect = "Allow",
+      Action = [
+        "elasticfilesystem:ClientMount",
+        "elasticfilesystem:ClientWrite",
+      ],
+      # Todo: Restrict resource to the specific file system and access point ARNs
+      Resource = "*",
+      Condition = {
+        StringEquals = {
+          "elasticfilesystem:AccessPointArn" = aws_efs_access_point.matomo_html.arn
+        }
+      }
+    }]
+  })
+}
+
 resource "aws_iam_role" "matomo_task_execution_role" {
   name               = var.matomo_ecs_role_name
   assume_role_policy = <<EOF
 {
-  "Version": "2008-10-17",
+  "Version": "2012-10-17",
   "Statement": [
     {
       "Sid": "",
@@ -57,6 +95,7 @@ resource "aws_iam_role_policy" "matomo_task_execution_role_policy" {
       "Action": [
         "logs:CreateLogStream",
         "logs:PutLogEvents",
+        "ssm:GetParameter",
         "ssm:GetParameters"
       ],
       "Resource": "*"
@@ -131,30 +170,6 @@ resource "aws_efs_access_point" "matomo_html" {
   }
 }
 
-resource "aws_iam_role_policy" "matomo_task_exec_efs" {
-  name = "${var.matomo_ecs_role_name}-efs"
-  role = aws_iam_role.matomo_task_execution_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17",
-    Statement = [
-      {
-        Effect = "Allow",
-        Action = [
-          "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite",
-          "elasticfilesystem:ClientRootAccess"
-        ],
-        Resource = [
-          aws_efs_file_system.matomo.arn,
-          aws_efs_access_point.matomo_html.arn
-        ]
-      }
-    ]
-  })
-}
-
-
 resource "aws_ecs_task_definition" "matomo" {
   family                   = var.matomo_ecs_task_definition_family
   requires_compatibilities = ["FARGATE"]
@@ -162,6 +177,7 @@ resource "aws_ecs_task_definition" "matomo" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.matomo_task_execution_role.arn
+  task_role_arn            = aws_iam_role.matomo_task_role.arn
 
   volume {
     name = "matomo_html"
@@ -303,7 +319,11 @@ resource "aws_service_discovery_service" "matomo" {
 }
 
 resource "aws_ecs_service" "matomo" {
-  count           = var.is_dmz ? 1 : 0
+  count = var.is_dmz ? 1 : 0
+  depends_on = [
+    aws_efs_mount_target.matomo,
+    aws_efs_access_point.matomo_html
+  ]
   name            = "matomo"
   launch_type     = "FARGATE"
   cluster         = aws_ecs_cluster.matomo.id
@@ -418,27 +438,13 @@ resource "aws_iam_policy" "efs_deploy_policy" {
         Resource = "*"
       },
       {
-        "Sid" : "AllowEfsLifecycle",
-        "Effect" : "Allow",
-        "Action" : [
+        "Sid"    = "AllowEfsLifecycle",
+        "Effect" = "Allow",
+        "Action" = [
           "elasticfilesystem:PutLifecycleConfiguration",
           "elasticfilesystem:DescribeLifecycleConfiguration"
         ],
-        "Resource" : "*"
-      },
-      {
-        Sid    = "AllowEfsClientViaAp"
-        Effect = "Allow"
-        Action = [
-          "elasticfilesystem:ClientMount",
-          "elasticfilesystem:ClientWrite"
-        ]
-        Resource = "arn:${var.aws_partition}:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/${aws_efs_access_point.matomo_html.id}"
-        Condition = {
-          StringEquals = {
-            "elasticfilesystem:AccessPointArn" = "arn:${var.aws_partition}:elasticfilesystem:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:access-point/${aws_efs_access_point.matomo_html.id}"
-          }
-        }
+        "Resource" = "*"
       },
       {
         Sid    = "Ec2DescribesForEfs",
