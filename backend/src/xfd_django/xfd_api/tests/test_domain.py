@@ -332,7 +332,7 @@ def test_search_domains_does_not_exist(user, domain, refresh_vuln_views):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_domains_search_autofill_endpoint(user):
+def test_domains_search_autofill_endpoint_auth_user_200(user):
     """Test domain search autocomplete endpoint."""
     response = client.post(
         "/search/domains",
@@ -340,6 +340,57 @@ def test_domains_search_autofill_endpoint(user):
             "search_term": "127",
             "search_field": "name",
             "regions": [],
+            "organizations": [],
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_domains_search_autofill_endpoint_regional_unauth():
+    """Test domain search autocomplete endpoint."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id="8",
+    )
+    response = client.post(
+        "/search/domains",
+        json={
+            "search_term": "127",
+            "search_field": "name",
+            "regions": ["3"],
+            "organizations": [],
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 403
+    assert response.json() == {"detail": "Unauthorized"}
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_domains_search_autofill_endpoint_global_auth():
+    """Test domain search autocomplete endpoint."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id="8",
+    )
+    response = client.post(
+        "/search/domains",
+        json={
+            "search_term": "127",
+            "search_field": "name",
+            "regions": ["3"],
             "organizations": [],
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
