@@ -3,6 +3,7 @@
 from datetime import datetime
 import logging
 import secrets
+from unittest.mock import patch
 
 # Third-Party Libraries
 from django.db import transaction
@@ -332,6 +333,7 @@ def test_search_domains_does_not_exist(user, domain, refresh_vuln_views):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_domains")
 def test_domains_search_autofill_endpoint_auth_user_200(user):
     """Test domain search autocomplete endpoint."""
     response = client.post(
@@ -348,6 +350,7 @@ def test_domains_search_autofill_endpoint_auth_user_200(user):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_domains")
 def test_domains_search_autofill_endpoint_regional_unauth():
     """Test domain search autocomplete endpoint."""
     user = User.objects.create(
@@ -374,6 +377,7 @@ def test_domains_search_autofill_endpoint_regional_unauth():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_domains")
 def test_domains_search_autofill_endpoint_global_auth():
     """Test domain search autocomplete endpoint."""
     user = User.objects.create(
