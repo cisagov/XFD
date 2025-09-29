@@ -5,11 +5,8 @@
 */
 import { useEffect } from 'react';
 import { ContextType } from 'context';
+import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
 
-/**
- * Custom hook to restore filters from localStorage
- * This hook should be used in components that need to restore filter state
- */
 export const useFilterRestore = (
   filters: ContextType['filters'],
   addFilter: ContextType['addFilter'],
@@ -17,8 +14,7 @@ export const useFilterRestore = (
 ) => {
   useEffect(() => {
     // Only restore filters on specific paths where filter persistence is needed
-    const pathsForFilterRestore = ['/', '/VSDashboard', '/inventory'];
-    const shouldRestoreFilters = pathsForFilterRestore.some(path => 
+    const shouldRestoreFilters = FILTER_ENABLED_PATHS.some(path => 
       pathname === path || pathname.startsWith(path)
     );
 

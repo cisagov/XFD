@@ -23,6 +23,7 @@ import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 import { useFilterRestore } from 'hooks/useFilterRestore';
+import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -107,8 +108,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   );
 
   useEffect(() => {
-    const pathsAllowed = ['/', '/inventory', '/VSDashboard'];
-    if (!matchPath(pathsAllowed, pathname)) {
+    if (!matchPath(FILTER_ENABLED_PATHS, pathname)) {
       setIsFilterDrawerOpen(false);
     }
   }, [pathname, setIsFilterDrawerOpen]);
@@ -187,13 +187,13 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         )}
         <Header />
         {userLevel > 0 &&
-          matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
+          matchPath(FILTER_ENABLED_PATHS, pathname) && (
             <FilterDrawerToggle />
           )}
       </Box>
       <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
         {userLevel > 0 &&
-          matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
+          matchPath(FILTER_ENABLED_PATHS, pathname) && (
             <FilterDrawerV2
               setIsFilterDrawerOpen={setIsFilterDrawerOpen}
               isFilterDrawerOpen={isFilterDrawerOpen}
