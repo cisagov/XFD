@@ -334,8 +334,16 @@ def test_search_domains_does_not_exist(user, domain, refresh_vuln_views):
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.tasks.es_client.ESClient.search_domains")
-def test_domains_search_autofill_endpoint_auth_user_200(user):
+def test_domains_search_autofill_endpoint_auth_user_200(mock_search):
     """Test domain search autocomplete endpoint."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
     response = client.post(
         "/search/domains",
         json={
@@ -351,7 +359,7 @@ def test_domains_search_autofill_endpoint_auth_user_200(user):
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.tasks.es_client.ESClient.search_domains")
-def test_domains_search_autofill_endpoint_regional_unauth():
+def test_domains_search_autofill_endpoint_regional_unauth(mock_search):
     """Test domain search autocomplete endpoint."""
     user = User.objects.create(
         first_name="",
@@ -378,7 +386,7 @@ def test_domains_search_autofill_endpoint_regional_unauth():
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.tasks.es_client.ESClient.search_domains")
-def test_domains_search_autofill_endpoint_global_auth():
+def test_domains_search_autofill_endpoint_global_auth(mock_search):
     """Test domain search autocomplete endpoint."""
     user = User.objects.create(
         first_name="",
