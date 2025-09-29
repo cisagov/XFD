@@ -329,3 +329,19 @@ def test_search_domains_does_not_exist(user, domain, refresh_vuln_views):
     assert response.status_code == 200
     data = response.json()
     assert len(data["result"]) == 0, "No result found for the given organization name"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_domains_search_autofill_endpoint(user):
+    """Test domain search autocomplete endpoint."""
+    response = client.post(
+        "/search/domains",
+        json={
+            "search_term": "127",
+            "search_field": "name",
+            "regions": [],
+            "organizations": [],
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 200
