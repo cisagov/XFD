@@ -32,16 +32,12 @@ export const useFilterRestore = (
       if (storedFilters) {
         const parsedFilters = JSON.parse(storedFilters);
         
-        console.log('Restoring filters from localStorage:', parsedFilters);
-        console.log('Current filters before restoration:', filters);
-        
         // Use setTimeout to ensure components are mounted before restoring filters
         setTimeout(() => {
           // Restore each filter
           parsedFilters.forEach((filter: any) => {
             if (filter.field && filter.values && filter.type) {
               filter.values.forEach((value: any) => {
-                console.log('Adding filter:', filter.field, value, filter.type);
                 addFilter(filter.field, value, filter.type);
               });
             }

@@ -129,7 +129,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           });
           
           if (vulnerabilityFilters.length > 0 || Object.keys(displayInfo).length > 0) {
-            console.log('Restoring vulnerability filters from global search:', vulnerabilityFilters);
             setFilters(vulnerabilityFilters);
             setPreloadedFiltersActive(true);
             setFilterDisplayInfo(displayInfo);
