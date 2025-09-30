@@ -11,9 +11,11 @@ import {
   getUserMustSign
 } from './userStateUtils';
 import Cookies from 'universal-cookie';
-import { Snackbar } from '@mui/material';
+import { Snackbar, Stack, Typography } from '@mui/material';
 import { Alert } from '@mui/material';
 import { AlertProps } from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
 export const currentTermsVersion = '1';
 
@@ -38,7 +40,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   } | null>(null);
   const cookies = useMemo(() => new Cookies(), []);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-
+  const [loadingText, setLoadingText] = useState<string>('');
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
     const shouldReload = !!token;
@@ -175,6 +177,8 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         login: setToken,
         logout,
         setLoading: () => {},
+        loadingText,
+        setLoadingText,
         maximumRole,
         touVersion,
         userMustSign,
@@ -185,10 +189,30 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       }}
     >
       {api.loading && (
-        <div className="cisa-crossfeed-loading">
-          <div></div>
-          <div></div>
-        </div>
+        // <div className="cisa-crossfeed-loading">
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'fixed',
+            // top: 50,
+            left: '50%',
+            top: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: '30%',
+            zIndex: 1000
+          }}
+        >
+          <Alert severity="info" icon={false}>
+            <Stack spacing={2} alignItems="center">
+              <CircularProgress />
+              <Typography variant="h6" component="span">
+                {loadingText}
+              </Typography>
+            </Stack>
+          </Alert>
+        </Box>
       )}
       {feedbackMessage && (
         <Snackbar

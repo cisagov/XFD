@@ -47,7 +47,7 @@ export const Domains: React.FC = () => {
   const state = location.state as
     | { orgName?: string; orgId?: string }
     | undefined;
-  const { showAllOrganizations } = useAuthContext();
+  const { showAllOrganizations, setLoadingText } = useAuthContext();
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
@@ -73,6 +73,7 @@ export const Domains: React.FC = () => {
 
   const fetchDomains = useCallback(
     async (q: Query<DomainSearchApiResponse>) => {
+      setLoadingText('Loading Domains...');
       try {
         const { domains, count } = await listDomains(q);
         if (domains.length === 0) {
@@ -101,7 +102,7 @@ export const Domains: React.FC = () => {
         console.error(e);
         setLoadingError(true);
       } finally {
-        setIsLoading(false);
+        setIsLoading(true);
       }
     },
     [listDomains]
@@ -403,10 +404,11 @@ export const Domains: React.FC = () => {
       )}
       <Box mb={3} display="flex" justifyContent="center">
         {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Domains..</Alert>
-          </Paper>
-        ) : isLoading === false && loadingError === true ? (
+          <Box></Box>
+        ) : // <Paper elevation={2}>
+        //   <Alert severity="info">Loading Domains..</Alert>
+        // </Paper>
+        isLoading === false && loadingError === true ? (
           <Stack direction="row" spacing={2}>
             <Paper elevation={2}>
               <Alert severity="warning">Error Loading Domains!</Alert>

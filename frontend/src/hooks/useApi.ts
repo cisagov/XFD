@@ -67,6 +67,6 @@ export const useApi = (onError?: OnError) => {
 
   return {
     ...api,
-    loading: requestCount > 0
+    loading: requestCount === 0
   };
 };
