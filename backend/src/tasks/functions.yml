@@ -16,7 +16,7 @@ scheduler:
         - sqs:DeleteMessage
         - sqs:SendMessage
         - sqs:GetQueueAttributes
-      Resource: 'arn:aws:sqs:${self:provider.region}:${aws:accountId}:*'
+      Resource: '*'
     - Effect: Allow
       Action:
         - ses:SendEmail
@@ -108,7 +108,7 @@ scanExecution:
         - sqs:DeleteMessage
         - sqs:SendMessage
         - sqs:GetQueueAttributes
-      Resource: 'arn:aws:sqs:${self:provider.region}:${aws:accountId}:*'
+      Resource: '*'
     - Effect: Allow
       Action:
         - ses:SendEmail
