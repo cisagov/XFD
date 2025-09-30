@@ -71,6 +71,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
   const [columnVisibilityModel, setColumnVisibilityModel] = useState({});
+  // Store filter display information from localStorage
   const [filterDisplayInfo, setFilterDisplayInfo] = useState<{
     orgName?: string;
     title?: string;
@@ -79,6 +80,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     kev?: boolean;
     dateRange?: string;
   }>({});
+  // Flag to track if filters were manually reset
   const [wasReset, setWasReset] = useState(false);
 
   useEffect(() => {
