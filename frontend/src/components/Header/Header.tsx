@@ -80,6 +80,11 @@ export const Header: React.FC = () => {
       menuItemTitle: 'User Registration',
       path: '/region-admin-dashboard',
       users: REGIONAL_ADMIN
+    },
+    {
+      menuItemTitle: 'Sector Reports',
+      path: '/sector-reports',
+      users: GLOBAL_ADMIN
     }
   ].filter(({ users }) => users <= userLevel);
 

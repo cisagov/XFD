@@ -31,7 +31,8 @@ import {
   TermsOfUse,
   Users,
   Vulnerabilities,
-  Vulnerability
+  Vulnerability,
+  SectorReports
 } from 'pages';
 import { LayoutWithSearch, RouteGuard, MatomoTracker } from 'components';
 import './styles.scss';
@@ -183,6 +184,11 @@ const App: React.FC = () => (
                         <RouteGuard
                           path="/admin-tools"
                           component={AdminTools}
+                          permissions={['globalAdmin']}
+                        />
+                        <RouteGuard
+                          path="/sector-reports"
+                          component={SectorReports}
                           permissions={['globalAdmin']}
                         />
                         <RouteGuard
