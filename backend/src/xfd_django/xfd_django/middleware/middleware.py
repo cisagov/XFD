@@ -15,18 +15,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         """Initialize logger."""
         super().__init__(app)
-        self.logger = self._configure_logger()
-
-    def _configure_logger(self):
-        """Configure logger."""
-        logger = logging.getLogger("fastapi")
-        logger.propagate = False  # Prevent duplicate logs
-        if not logger.handlers:
-            log_handler = logging.StreamHandler()
-            log_handler.setFormatter(logging.Formatter("%(message)s"))
-            logger.addHandler(log_handler)
-            logger.setLevel(logging.INFO)
-        return logger
+        # Always use the logger configured in settings.py
+        self.logger = logging.getLogger("fastapi.requests")
 
     async def dispatch(self, request: Request, call_next):
         """Dispatch logger."""
@@ -61,13 +51,9 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "status_code": None,  # Status is not known at this point
             "headers": headers,
             "userEmail": user_email,
+            "aws_request_id": request_id,
         }
-        self.logger.info(
-            "INFO RequestId: %s %sZ Request Info: %s",
-            request_id,
-            datetime.utcnow().isoformat(),
-            json.dumps(start_log),
-        )
+        self.logger.info(json.dumps(start_log))
         # Process the request and capture the response
         start_time = datetime.utcnow()
         response = await call_next(request)
@@ -92,12 +78,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             "durationMs": round(
                 (end_time - start_time).total_seconds() * 1000, 2
             ),  # Response time in ms
+            "aws_request_id": request_id,
         }
-        self.logger.info(
-            "INFO RequestId: %s %sZ Request Info: %s",
-            request_id,
-            end_time.isoformat(),
-            json.dumps(end_log),
-        )
+        self.logger.info(json.dumps(end_log))
 
         return response

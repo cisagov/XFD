@@ -171,8 +171,8 @@ def test_update_org_by_global_admin():
     is_passive = True
     tags = [{"name": "updated"}]
 
-    response = client.put(
-        "/organizations/{}".format(organization.id),
+    response = client.post(
+        "/update_organization/{}".format(organization.id),
         json={
             "name": new_name,
             "acronym": new_acronym,
@@ -223,8 +223,8 @@ def test_update_org_by_global_view_fails():
     is_passive = True
     tags = [{"name": "updated"}]
 
-    response = client.put(
-        "/organizations/{}".format(organization.id),
+    response = client.post(
+        "/update_organization/{}".format(organization.id),
         json={
             "name": new_name,
             "acronym": new_acronym,
