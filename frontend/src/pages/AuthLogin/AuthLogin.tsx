@@ -108,21 +108,17 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
   );
   return (
     <Box display="flex" flexDirection="column" height={'calc(100vh - 108px)'}>
-      <Box flex={0.5} display="flex" />
-      <Box
-        flex={0.5}
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-      >
+      <Box flex={1} />
+      <Box flex={1} display="flex" justifyContent="center" alignItems="center">
         <Typography variant="h1" textAlign="center">
           Welcome to CyHy Dashboard
         </Typography>
       </Box>
+      <Box flex={0.5} />
       <Box flex={1} display="flex" justifyContent="center" alignItems="center">
         <LoginButton />
       </Box>
-      <Box flex={1} display="flex" />
+      <Box flex={1.5} />
       <Box justifyContent="center" alignItems="center" pb={5}>
         <CrossfeedWarning />
       </Box>
