@@ -43,14 +43,8 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isRegOpen, setIsRegOpen] = useState(false);
   const [isOrgOpen, setIsOrgOpen] = useState(false);
-  // Initialize selectedRegion based on existing filters to prevent flickering
-  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(() => {
-    const regionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
-    if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
-      return regionFilter.values[0] as string;
-    }
-    return undefined;
-  });
+  // Initialize selectedRegion - let the effect handle setting the correct value
+  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
 
   const userLevel = useUserLevel().userLevel;
 
@@ -67,20 +61,10 @@ export const VSDashRegionAndOrgFilters: React.FC<
     };
   };
 
-  // Initialize selectedOrg based on existing filters to prevent flickering
+  // Initialize selectedOrg - let the effect handle setting the correct value
   const [selectedOrg, setSelectedOrg] = useState<
     OrganizationShallow | undefined
-  >(() => {
-    const orgFilter = filters.find((filter) => filter.field === ORGANIZATION_FILTER_KEY);
-    if (orgFilter && orgFilter.values && orgFilter.values.length > 0) {
-      const firstOrg = orgFilter.values[0];
-      if (typeof firstOrg === 'object' && firstOrg.id) {
-        return firstOrg as OrganizationShallow;
-      }
-    }
-    // Fall back to current organization if no filter exists
-    return shallowCurrentOrg(currentOrganization as Organization);
-  });
+  >(undefined);
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
@@ -190,22 +174,18 @@ export const VSDashRegionAndOrgFilters: React.FC<
     searchOrganizations(search_term, regionFilterValues ?? []);
   }, [searchOrganizations, search_term, regionFilterValues]);
 
-  // Sync local selectedRegion state with restored filters
+  // Simple sync: use filter values if they exist, otherwise use user's default
   useEffect(() => {
     const regionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
+    
     if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
-      const regionValues = regionFilter.values as string[];
-      
-      // Always use the actual filtered region, not the user's default  
-      // This ensures the UI shows what's actually being filtered
-      const targetRegion = regionValues[0];
-      
+      // Use the filtered region
+      const targetRegion = regionFilter.values[0] as string;
       if (targetRegion !== selectedRegion) {
         setSelectedRegion(targetRegion);
       }
     } else if (!selectedRegion && user?.region_id) {
-      // If no filter exists and no region is selected, use user's default
-      // This only happens on initial load when no filters are restored
+      // Only set user's default if no region is currently selected
       setSelectedRegion(user.region_id);
     }
   }, [filters, selectedRegion, user?.region_id]);
