@@ -1,5 +1,4 @@
 export * from './AuthLogin';
-export * from './AuthCreateAccount';
 export * from './Domains';
 export * from './Domain';
 export * from './LoginGovCallback';

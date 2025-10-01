@@ -57,18 +57,29 @@ This mode is intended for frontend developers to write their own feature test ca
 For local testing, the following variables need to be loaded into your environment.
 
 ```env
-PW_XFD_URL=http://localhost
-PW_XFD_USERNAME
-PW_XFD_PASSWORD
-PW_XFD_2FA_ISSUER
-PW_XFD_2FA_SECRET
-PW_XFD_USER_ROLE
-PW_XFD_LOGIN
-PW_HEADLESS=false
-PW_CI=false
+PW_GLOBAL_ADMIN_USERNAME=
+PW_GLOBAL_ADMIN_PASSWORD=
+PW_GLOBAL_ADMIN_2FA_SECRET=
+
+PW_REGIONAL_ADMIN_USERNAME=
+PW_REGIONAL_ADMIN_PASSWORD=
+PW_REGIONAL_ADMIN_2FA_SECRET=
+
+PW_GLOBAL_VIEW_USERNAME=
+PW_GLOBAL_VIEW_PASSWORD=
+PW_GLOBAL_VIEW_2FA_SECRET=
+
+PW_STANDARD_USER_USERNAME=
+PW_STANDARD_USER_PASSWORD=
+PW_STANDARD_USER_2FA_SECRET=
+
+PW_XFD_2FA_ISSUER=
+PW_XFD_URL=
+PW_HEADLESS=
+
 ```
 
-In local testing, `PW_HEADLESS` can optionally be set to true or false. `PW_CI` should be set to false, as this variable will adjust the behavior of how the global setup will load the other environment variables.
+In local testing, `PW_HEADLESS` can optionally be set to true or false.
 
 ### **Environment Variables for Local Testing in VS Code**
 
@@ -76,15 +87,21 @@ If you are using testing in VS Code using the Playwright extension, add the foll
 
 ```json
 "playwright.env": {
-        "PW_XFD_URL":"http://localhost",
-        "PW_XFD_USERNAME":"",
-        "PW_XFD_PASSWORD":"",
-        "PW_XFD_2FA_ISSUER":"",
-        "PW_XFD_2FA_SECRET":"",
-        "PW_XFD_USER_ROLE":"",
-        "PW_XFD_LOGIN" : "",
-        "PW_HEADLESS" : "false",
-        "PW_CI": "false"
+        "PW_GLOBAL_ADMIN_USERNAME": "",
+        "PW_GLOBAL_ADMIN_PASSWORD": "",
+        "PW_GLOBAL_ADMIN_2FA_SECRET": "",
+        "PW_REGIONAL_ADMIN_USERNAME": "",
+        "PW_REGIONAL_ADMIN_PASSWORD": "",
+        "PW_REGIONAL_ADMIN_2FA_SECRET": "",
+        "PW_GLOBAL_VIEW_USERNAME": "",
+        "PW_GLOBAL_VIEW_PASSWORD": "",
+        "PW_GLOBAL_VIEW_2FA_SECRET": "",
+        "PW_STANDARD_USER_USERNAME": "",
+        "PW_STANDARD_USER_PASSWORD": "",
+        "PW_STANDARD_USER_2FA_SECRET": "",
+        "PW_XFD_2FA_ISSUER": "",
+        "PW_XFD_URL": "",
+        "PW_HEADLESS": ""
 }
 ```
 
@@ -96,11 +113,9 @@ There is no need for any frontend developer to alter any configuration of Playwr
 
 ## **Logging into Crossfeed and Preserving Browser State**
 
-The global setup script located at `xfd/playwright/global-setup.ts` performs the task of logging into Crossfeed and storing the browsers state to `xfd/playwright/storageState.json`. This script works by manually performing the steps to login to Crossfeed through the browser.
+The global setup script located at `xfd/playwright/global-setup.ts` performs the task of logging into Crossfeed for each uer role and storing the browsers state to `xfd/playwright/${role}.json`, where `role` can be one of [`global-admin`, `regional-admin`, `global-view`, `standard-user`]. This script works by manually performing the steps to login to Crossfeed through the browser.
 
 This process does not use the PIV card certificate process, but a username/password process with 2FA tokens. The necessary environment variables are not stored in code, but populated by the build process (manually setting environment variables, set by docker-compose, or populated by GitHub Actions).
-
-The login process also uses `waitForFrontend()` to listen for a response code 200 from Crossfeed's frontend before performing the login procedure.
 
 The `OTPAuth` module is used to generate the 2FA token needed for login, using a 2FA secret string that is not released publically.
 
@@ -110,18 +125,19 @@ If the global setup script fails to login, manually check the login process by l
 
 Test cases are added by adding `*.spec.ts` files under the `xfd/playwright/e2e` folder.
 
-Tests are defined with a `.beforeEach()` and `.afterEach()` method which create a new browser instance for each individual test case. Each test case is its own discrete task, and the success or failure state of one case should not affect the status of other cases (unless otherwise intended).
+Tests are defined to receive an page argument with the login state for one of the four available user roles [`pageAsGlobalAdmin`, `pageAsRegionalAdmin`, `pageAsGlobalView`, `pageAsStandardUser`]. The test case will then run as the provided user.
 
 ```typescript
-test.describe('home', () => {
-  test.beforeEach(async ({ browser }) => {
-    const context = await browser.newContext();
-    page = await context.newPage();
-    await page.goto('/');
-  });
-
-  test.afterEach(async () => {
-    await page.close();
+test('Global Admin: homepage accessibility', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await runAccessibilityTest(
+      pageAsGlobalAdmin,
+      makeAxeBuilder,
+      testInfo,
+      'Global Admin'
+    );
   });
   ```
 

@@ -49,7 +49,7 @@ const transformData = (data: User[]): User[] => {
   }));
 };
 export const RegionUsers: React.FC = () => {
-  const { apiDelete, apiGet, apiPost, apiPut, user } = useAuthContext();
+  const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
   const regionalAdminId = user?.region_id;
@@ -463,7 +463,7 @@ export const RegionUsers: React.FC = () => {
         }
       );
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apiPut]
+    [apiPost]
   );
 
   const sendApprovalEmail = useCallback(
