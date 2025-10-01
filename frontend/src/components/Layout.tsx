@@ -61,8 +61,14 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   ];
 
   useEffect(() => {
-    localStorage.setItem('es-search-filters', JSON.stringify(filters));
-  }, [filters]);
+    // Filter out region filters for VS Dashboard to allow reset to user defaults on page reload
+    const isVSDashboard = pathname === '/VSDashboard' || pathname.startsWith('/VSDashboard');
+    const filtersToStore = isVSDashboard 
+      ? filters.filter(filter => filter.field !== 'organization.region_id')
+      : filters;
+    
+    localStorage.setItem('es-search-filters', JSON.stringify(filtersToStore));
+  }, [filters, pathname]);
 
   const { regions } = useStaticsContext();
 
@@ -122,6 +128,12 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
 
   useEffect(() => {
+    // Skip automatic user type filters on VS Dashboard - it has custom filter logic
+    const isVSDashboard = pathname === '/VSDashboard' || pathname.startsWith('/VSDashboard');
+    if (isVSDashboard) {
+      return;
+    }
+    
     initialFiltersForUser.forEach((filter) => {
       filter.values.forEach((val) => {
         addFilter(filter.field, val, filter.type);
@@ -129,7 +141,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
       setInitialFilters(initialFiltersForUser);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regions, user]);
+  }, [regions, user, pathname]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));

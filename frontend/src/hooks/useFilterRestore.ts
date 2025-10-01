@@ -18,7 +18,10 @@ export const useFilterRestore = (
       pathname === path || pathname.startsWith(path)
     );
 
-    if (!shouldRestoreFilters) {
+    // Skip filter restoration on VS Dashboard - it should always start fresh with user defaults
+    const isVSDashboard = pathname === '/VSDashboard' || pathname.startsWith('/VSDashboard');
+    
+    if (!shouldRestoreFilters || isVSDashboard) {
       return;
     }
 
