@@ -103,7 +103,13 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
       {notification && <MaintenanceAlert notification={notification} />}
       <Box flex={1} />
       <Box flex={1} display="flex" justifyContent="center" alignItems="center">
-        <Typography variant="h1" textAlign="center">
+        <Typography
+          sx={{
+            fontSize: 'clamp(1.5rem, 2vw + 1rem, 3rem)',
+            fontWeight: 'bold'
+          }}
+          textAlign="center"
+        >
           Welcome to CyHy Dashboard
         </Typography>
       </Box>
