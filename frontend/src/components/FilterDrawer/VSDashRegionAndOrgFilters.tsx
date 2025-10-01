@@ -85,6 +85,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
       if (userLevel !== STANDARD_USER) {
+        console.log('Searching organizations with regions:', regions, 'search_term:', search_term);
         try {
           const results = await apiPost<{
             body: { hits: { hits: { _source: OrganizationShallow }[] } };
@@ -101,6 +102,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
           }
 
           const orgs = results.body.hits.hits.map((hit) => hit._source);
+          console.log('Raw orgs from API:', orgs.map(o => o.name));
 
           // Filter out organizations that match the exclusions
           const refinedOrgs = orgs.filter((org) => {
@@ -112,17 +114,12 @@ export const VSDashRegionAndOrgFilters: React.FC<
             });
             return !exlude;
           });
-          // Filter out organizations that are already in the filters
-          const filteredOrgs = refinedOrgs.filter(
-            (org) =>
-              !filters.find(
-                (filter) =>
-                  filter.field === ORGANIZATION_FILTER_KEY &&
-                  filter.values.find(
-                    (value: { id: string }) => value.id === org.id
-                  )
-              )
-          );
+          console.log('After exclusions filter:', refinedOrgs.map(o => o.name));
+          
+          // Don't filter out organizations when changing regions - show all available orgs
+          // This allows users to see all organizations in the selected region
+          const filteredOrgs = refinedOrgs;
+          console.log('After already-filtered check:', filteredOrgs.map(o => o.name));
           // Sort filtered orgs by name
           const sortedOrgs = filteredOrgs.sort((a, b) =>
             a.name.localeCompare(b.name)
@@ -145,7 +142,8 @@ export const VSDashRegionAndOrgFilters: React.FC<
           sortedOrgs.forEach((org) => {
             org.name = decodeHtml(org.name);
           });
-
+          
+          console.log('Final org results being set:', sortedOrgs.map(o => o.name));
           setOrgResults(sortedOrgs);
         } catch (e) {
           console.log(e);
@@ -165,21 +163,25 @@ export const VSDashRegionAndOrgFilters: React.FC<
   }, [allRegionsOption, regions]);
 
   const regionFilterValues = useMemo(() => {
-    const regionFilter = filters.find(
-      (filter) => filter.field === REGION_FILTER_KEY
-    );
-
     if (selectedRegion === allRegionsOption) {
       // If "All Regions" is selected, include all regions
       return regions;
     }
     
-    // Use the actual filter values if they exist, otherwise fall back to user's region
+    // If a region is currently selected in the UI, use that
+    if (selectedRegion) {
+      return [selectedRegion];
+    }
+    
+    // Otherwise, check if there's a region filter
+    const regionFilter = filters.find(
+      (filter) => filter.field === REGION_FILTER_KEY
+    );
     if (regionFilter && Array.isArray(regionFilter.values) && regionFilter.values.length > 0) {
       return regionFilter.values as string[];
     }
     
-    // Only fall back to user's region if no filter exists
+    // Final fallback to user's region
     const userRegion = user?.region_id;
     return userRegion ? [userRegion] : [];
   }, [filters, user?.region_id, selectedRegion, regions]);
