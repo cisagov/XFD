@@ -1,6 +1,6 @@
 import React from 'react';
 import * as router from 'react-router-dom';
-import { RouteGuard } from '../RouteGuard';
+import { RouteGuard } from '../Routes/RouteGuard';
 import { render, testUser } from 'test-utils';
 import { afterAll, afterEach, beforeEach, expect, it, vi } from 'vitest';
 

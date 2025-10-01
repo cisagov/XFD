@@ -78,7 +78,7 @@ const initialInfoDialogValues = {
 };
 
 export const Notifications: React.FC = () => {
-  const { apiDelete, apiGet, apiPost, apiPut, user } = useAuthContext();
+  const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const [formValues, setFormValues] = React.useState<MaintenanceNotification>(
     initialNotificationValues
   );

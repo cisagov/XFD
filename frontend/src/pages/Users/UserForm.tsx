@@ -79,7 +79,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user, apiGet, apiPost, apiPut } = useAuthContext();
+  const { user, apiGet, apiPost } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
     first_name: false,
     last_name: false,

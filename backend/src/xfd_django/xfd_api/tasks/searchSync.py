@@ -91,7 +91,7 @@ def handler(command_options):
                             "name": domain.organization.name,
                             "acronym": domain.organization.acronym,
                             "root_domains": domain.organization.root_domains,
-                            "ip_blocks": domain.organization.ip_blocks,
+                            "ip_blocks": [],
                             "is_passive": domain.organization.is_passive,
                             "country": domain.organization.country,
                             "state": domain.organization.state,
