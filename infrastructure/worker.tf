@@ -202,7 +202,7 @@ resource "aws_ecs_cluster" "worker" {
 
   setting {
     name  = "containerInsights"
-    value = "enabled"
+    value = "enhanced"
   }
 
   tags = {

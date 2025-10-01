@@ -42,8 +42,8 @@ resource "aws_iam_role_policy" "playwright_ecs_task_policy" {
         Action = ["s3:ListBucket", "s3:GetObject", "s3:PutObject"]
         Effect = "Allow"
         Resource = [
-          "arn:aws:s3:::${var.automated_test_reports_bucket_name}",  # ListBucket on the bucket itself
-          "arn:aws:s3:::${var.automated_test_reports_bucket_name}/*" # GetObject and PutObject on all objects within the bucket
+          "arn:${var.aws_partition}:s3:::${var.automated_test_reports_bucket_name}",  # ListBucket on the bucket itself
+          "arn:${var.aws_partition}:s3:::${var.automated_test_reports_bucket_name}/*" # GetObject and PutObject on all objects within the bucket
         ]
       }
     ]
@@ -51,7 +51,7 @@ resource "aws_iam_role_policy" "playwright_ecs_task_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "playwright_ecs_execution_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
   role       = aws_iam_role.playwright_worker_task_execution_role.id
 }
 
