@@ -886,13 +886,13 @@ export const RegionUsers: React.FC = () => {
           }))
         }
         icon={<InfoOutline color="info" sx={{ fontSize: '80px' }} />}
-        title={<Typography variant="h4">User already approved.</Typography>}
+        title={<Typography variant="h4">User already approved</Typography>}
         content={
           <Typography variant="body1">
-            This user has already been approved by another administrator.
+            This user was previously approved by another administrator.
             <br />
-            Check the approval history in the user logs inside of Admin Tools
-            for more details.
+            Check the approval history in Admin Tools {'->'} User Logs for more
+            details.
           </Typography>
         }
       />
