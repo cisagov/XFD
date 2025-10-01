@@ -15,7 +15,10 @@ import {
   useGridApiRef
 } from '@mui/x-data-grid';
 import DoneIcon from '@mui/icons-material/Done';
-import { CheckCircleOutline as CheckIcon } from '@mui/icons-material';
+import {
+  CheckCircleOutline as CheckIcon,
+  InfoOutline
+} from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { formatDate, parseISO } from 'date-fns';
@@ -882,11 +885,14 @@ export const RegionUsers: React.FC = () => {
             isUserAlreadyApprovedDialogOpen: false
           }))
         }
-        icon={<CheckIcon color="info" sx={{ fontSize: '80px' }} />}
-        title={<Typography variant="h4">Info </Typography>}
+        icon={<InfoOutline color="info" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">User already approved.</Typography>}
         content={
           <Typography variant="body1">
-            This user has already been approved.
+            This user has already been approved by another administrator.
+            <br />
+            Check the approval history in the user logs inside of Admin Tools
+            for more details.
           </Typography>
         }
       />
