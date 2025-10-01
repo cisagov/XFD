@@ -43,9 +43,14 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isRegOpen, setIsRegOpen] = useState(false);
   const [isOrgOpen, setIsOrgOpen] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
-    undefined
-  );
+  // Initialize selectedRegion based on existing filters to prevent flickering
+  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(() => {
+    const regionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
+    if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
+      return regionFilter.values[0] as string;
+    }
+    return undefined;
+  });
 
   const userLevel = useUserLevel().userLevel;
 
@@ -62,9 +67,20 @@ export const VSDashRegionAndOrgFilters: React.FC<
     };
   };
 
+  // Initialize selectedOrg based on existing filters to prevent flickering
   const [selectedOrg, setSelectedOrg] = useState<
     OrganizationShallow | undefined
-  >(shallowCurrentOrg(currentOrganization as Organization));
+  >(() => {
+    const orgFilter = filters.find((filter) => filter.field === ORGANIZATION_FILTER_KEY);
+    if (orgFilter && orgFilter.values && orgFilter.values.length > 0) {
+      const firstOrg = orgFilter.values[0];
+      if (typeof firstOrg === 'object' && firstOrg.id) {
+        return firstOrg as OrganizationShallow;
+      }
+    }
+    // Fall back to current organization if no filter exists
+    return shallowCurrentOrg(currentOrganization as Organization);
+  });
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
@@ -152,22 +168,20 @@ export const VSDashRegionAndOrgFilters: React.FC<
     const regionFilter = filters.find(
       (filter) => filter.field === REGION_FILTER_KEY
     );
-    const userRegion = user?.region_id;
 
     if (selectedRegion === allRegionsOption) {
       // If "All Regions" is selected, include all regions
       return regions;
     }
-    // Applies user's region id on initial load
-    if (
-      !regionFilter ||
-      !Array.isArray(regionFilter.values) ||
-      (regionFilter.values.length === regions.length &&
-        regionFilter.values.includes(userRegion))
-    ) {
-      return userRegion ? [userRegion] : [];
+    
+    // Use the actual filter values if they exist, otherwise fall back to user's region
+    if (regionFilter && Array.isArray(regionFilter.values) && regionFilter.values.length > 0) {
+      return regionFilter.values as string[];
     }
-    return regionFilter.values as string[];
+    
+    // Only fall back to user's region if no filter exists
+    const userRegion = user?.region_id;
+    return userRegion ? [userRegion] : [];
   }, [filters, user?.region_id, selectedRegion, regions]);
 
   useEffect(() => {
@@ -180,18 +194,17 @@ export const VSDashRegionAndOrgFilters: React.FC<
     if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
       const regionValues = regionFilter.values as string[];
       
-      // If user has a specific region and it's included in the filter, use user's region
-      // Otherwise, use the first region (which might be "all regions" case)
-      let targetRegion: string;
-      if (user?.region_id && regionValues.includes(user.region_id)) {
-        targetRegion = user.region_id;
-      } else {
-        targetRegion = regionValues[0];
-      }
+      // Always use the actual filtered region, not the user's default  
+      // This ensures the UI shows what's actually being filtered
+      const targetRegion = regionValues[0];
       
       if (targetRegion !== selectedRegion) {
         setSelectedRegion(targetRegion);
       }
+    } else if (!selectedRegion && user?.region_id) {
+      // If no filter exists and no region is selected, use user's default
+      // This only happens on initial load when no filters are restored
+      setSelectedRegion(user.region_id);
     }
   }, [filters, selectedRegion, user?.region_id]);
 
@@ -282,7 +295,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
     <>
       <Box padding={2}>
         <Autocomplete
-          value={selectedRegion ?? user?.region_id ?? ''}
+          value={selectedRegion ?? ''}
           onChange={(e, v) => {
             setTimeout(() => {
               handleChangeRegion(v);
