@@ -36,7 +36,7 @@ resource "aws_db_instance" "db" {
   engine_version                      = "15.12"
   allow_major_version_upgrade         = true
   skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[0]
+  availability_zone                   = data.aws_availability_zones.available.names[1]
   multi_az                            = true
   backup_retention_period             = 35
   storage_encrypted                   = true
@@ -61,9 +61,9 @@ resource "aws_db_instance" "db" {
     ART            = "CISA-VM"
     POC            = "Lamar Steward   Craig Duhn"
     PocEmail       = "lamar.stewart@cisa.dhs.gov"
-    Name           = "crossfeed-stage-db"
+    Name           = "crossfeed-${var.stage}-db"
     BillingProject = "VM-Crossfeed"
-    workload-type  = "staging"
+    workload-type  = var.stage
   }
 }
 

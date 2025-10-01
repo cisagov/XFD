@@ -108,13 +108,13 @@ EOF
 resource "aws_security_group" "efs_matomo" {
   name        = "matomo-${var.stage}"
   description = "Allow NFS from ECS tasks"
-  vpc_id      = aws_vpc.crossfeed_vpc[0].id
+  vpc_id      = var.is_dmz ? aws_vpc.crossfeed_vpc[0].id : data.aws_ssm_parameter.vpc_id[0].value
 
   ingress {
     from_port       = 2049
     to_port         = 2049
     protocol        = "tcp"
-    security_groups = [aws_security_group.allow_internal[0].id]
+    security_groups = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
   }
   egress {
     from_port   = 0
@@ -142,7 +142,7 @@ resource "aws_efs_file_system" "matomo" {
 # Create mount target(s) in the subnet(s) where ECS tasks run
 resource "aws_efs_mount_target" "matomo" {
   file_system_id  = aws_efs_file_system.matomo.id
-  subnet_id       = aws_subnet.matomo_1[0].id
+  subnet_id       = var.is_dmz ? aws_subnet.matomo_1[0].id : data.aws_ssm_parameter.subnet_matomo_id[0].value
   security_groups = [aws_security_group.efs_matomo.id]
 }
 

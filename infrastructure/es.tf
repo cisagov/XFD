@@ -45,8 +45,7 @@ POLICY
 
   #   Only supported on certain instance types, so let's only enable this on prod: https://docs.aws.amazon.com/elasticsearch-service/latest/developerguide/aes-supported-instance-types.html
   encrypt_at_rest {
-    enabled    = true
-    kms_key_id = aws_kms_key.key.arn
+    enabled = true
   }
 
   node_to_node_encryption {

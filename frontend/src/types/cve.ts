@@ -48,7 +48,7 @@ export interface Cve {
 }
 
 export interface Ssvc {
-  automatable: boolean | string | null;
+  automatable: string | null;
   created_at: string | null;
   cve_id?: string | null;
   adp_date_updated: string | null;

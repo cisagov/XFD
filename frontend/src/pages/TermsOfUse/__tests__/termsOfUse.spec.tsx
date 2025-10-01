@@ -3,6 +3,10 @@ import { TermsOfUse } from '../TermsOfUse';
 import { render, fireEvent, waitFor } from 'test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 
+vi.mock('@mui/x-data-grid', () => ({
+  DataGrid: () => <div>DATA_GRID</div>
+}));
+
 // vi.mock('react-router-dom', () => ({
 //   ...vi.requireActual('react-router-dom'),
 //   useHistory: vi.fn()

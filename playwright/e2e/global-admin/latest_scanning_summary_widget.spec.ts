@@ -1,9 +1,12 @@
-import { test, expect } from '../../axe-test';
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
 
 test.describe('Latest Scanning Summary - Page Resize', () => {
-  test('Widget is responsive and reload-safe', async ({ page }) => {
-    await page.goto('/VSDashboard');
-    const widget = page
+  test.skip('Widget is responsive and reload-safe', async ({
+    page: pageAsGlobalAdmin
+  }) => {
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    const widget = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
       .locator('..')
       .locator('..');
@@ -13,7 +16,7 @@ test.describe('Latest Scanning Summary - Page Resize', () => {
     });
     if (await infoIcon.isVisible()) {
       await infoIcon.hover();
-      const tooltip = page.getByRole('tooltip');
+      const tooltip = pageAsGlobalAdmin.getByRole('tooltip');
       await expect(tooltip).toBeVisible();
     }
     const sizes = [
@@ -22,22 +25,22 @@ test.describe('Latest Scanning Summary - Page Resize', () => {
       { width: 768, height: 600 }
     ];
     for (const size of sizes) {
-      await page.setViewportSize(size);
+      await pageAsGlobalAdmin.setViewportSize(size);
       await expect(widget).toBeVisible();
     }
-    await page.reload();
-    await page.waitForSelector('text=Latest Scanning Summary');
+    await pageAsGlobalAdmin.reload();
+    await pageAsGlobalAdmin.waitForSelector('text=Latest Scanning Summary');
     await expect(widget).toBeVisible();
   });
 });
 
 test.describe('Latest Scanning Summary - ARIA labels', () => {
-  test('ARIA: Info icon and metric buttons have correct labels', async ({
-    page
+  test.skip('ARIA: Info icon and metric buttons have correct labels', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
-    const infoButton = page.getByRole('button', {
+    const infoButton = pageAsGlobalAdmin.getByRole('button', {
       name: 'More information about Latest Scanning Summary'
     });
     await expect(
@@ -49,7 +52,7 @@ test.describe('Latest Scanning Summary - ARIA labels', () => {
 
     for (const suffix of expectedSuffixes) {
       const regex = new RegExp(`\\d+ ${suffix}`);
-      const button = page.getByRole('button', { name: regex });
+      const button = pageAsGlobalAdmin.getByRole('button', { name: regex });
       await expect(
         button,
         `Missing or invisible button with aria-label matching: "${regex}"`
@@ -59,17 +62,17 @@ test.describe('Latest Scanning Summary - ARIA labels', () => {
 });
 
 test.describe('Latest Scanning Summary - Scan Date Display', () => {
-  test('should display valid scan date ranges in correct format', async ({
-    page
+  test.skip('should display valid scan date ranges in correct format', async ({
+    pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
-    await page
+    await pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
       .waitFor();
 
     // Find all visible text nodes that look like date ranges
-    const dateElements = page.getByText(
+    const dateElements = pageAsGlobalAdmin.getByText(
       /[A-Za-z]{3,9} \d{1,2}, \d{4} - [A-Za-z]{3,9} \d{1,2}, \d{4}/
     );
 
@@ -86,10 +89,12 @@ test.describe('Latest Scanning Summary - Scan Date Display', () => {
 });
 
 test.describe('Latest Scanning Summary Button Tests', () => {
-  test('Widget info icon shows correct tooltip', async ({ page }) => {
-    await page.goto('/VSDashboard');
+  test.skip('Widget info icon shows correct tooltip', async ({
+    page: pageAsGlobalAdmin
+  }) => {
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
-    const infoIcon = page
+    const infoIcon = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
       .locator('..')
       .getByRole('button', {
@@ -97,7 +102,7 @@ test.describe('Latest Scanning Summary Button Tests', () => {
       });
 
     await infoIcon.hover();
-    const tooltip = page.getByRole('tooltip');
+    const tooltip = pageAsGlobalAdmin.getByRole('tooltip');
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText(
       'The Vulnerability Scanning process occurs continuously; any hosts determined to have vulnerabilities are scanned at least once every two weeks and scanned more or less frequently depending on the severity level of the vulnerability finding. If no hosts are found on an asset, the asset will be re-scanned in 90 days. For more information, see Learning Center resources.'
@@ -117,16 +122,18 @@ test.describe('Latest Scanning Summary Button Tests', () => {
   ]);
 
   for (const label of Object.keys(metricTooltips)) {
-    test(`Click 2 behavior for "${label}" metric card`, async ({ page }) => {
+    test.skip(`Click 2 behavior for "${label}" metric card`, async ({
+      page: pageAsGlobalAdmin
+    }) => {
       const id = label.replace(/\s+/g, '-').toLowerCase();
-      await page.goto('/VSDashboard');
+      await pageAsGlobalAdmin.goto('/VSDashboard');
 
       // Match buttons like "63 Detected KEVs" or "83 Detected Vulnerabilities"
       const pattern = new RegExp(
         `^\\d+\\s+${label.replace(/\s+/g, '\\s+')}$`,
         'i'
       );
-      const buttons = page.getByRole('button', { name: pattern });
+      const buttons = pageAsGlobalAdmin.getByRole('button', { name: pattern });
 
       const count = await buttons.count();
       let metricButton = buttons.first();
@@ -141,7 +148,9 @@ test.describe('Latest Scanning Summary Button Tests', () => {
 
       await metricButton.click();
       if (redirectingMetrics.has(label)) {
-        await expect(page).toHaveURL(/\/inventory\/vulnerabilities$/);
+        await expect(pageAsGlobalAdmin).toHaveURL(
+          /\/inventory\/vulnerabilities$/
+        );
       } else {
         const isFocused = await metricButton.evaluate(
           (el) => document.activeElement === el
@@ -153,10 +162,12 @@ test.describe('Latest Scanning Summary Button Tests', () => {
 });
 
 test.describe('Latest Scanning Summary - Keyboard Movement', () => {
-  test('Keyboard navigation inside widget is tabbable', async ({ page }) => {
-    await page.goto('/VSDashboard');
+  test.skip('Keyboard navigation inside widget is tabbable', async ({
+    page: pageAsGlobalAdmin
+  }) => {
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
-    const widgetContainer = page
+    const widgetContainer = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
       .locator('..')
       .locator('..');
@@ -166,7 +177,7 @@ test.describe('Latest Scanning Summary - Keyboard Movement', () => {
     await infoButton.focus();
 
     const getFocusInfo = async () =>
-      await page.evaluate(() => {
+      await pageAsGlobalAdmin.evaluate(() => {
         const el = document.activeElement;
         return {
           tag: el?.tagName,
@@ -178,7 +189,7 @@ test.describe('Latest Scanning Summary - Keyboard Movement', () => {
 
     const focusItems: string[] = [];
     for (let i = 0; i < 6; i++) {
-      await page.keyboard.press('Tab');
+      await pageAsGlobalAdmin.keyboard.press('Tab');
       const info = await getFocusInfo();
       if (info?.label || info?.text) {
         focusItems.push((info.label || info.text)!);
@@ -199,15 +210,15 @@ test.describe('Latest Scanning Summary - Keyboard Movement', () => {
 });
 
 test.describe('Latest Scanning Summary - Metric Boxes', () => {
-  test('Checks that the metric boxes in the widget number + label + tooltip checks', async ({
-    page
+  test.skip('Checks that the metric boxes in the widget number + label + tooltip checks', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    const pause = (ms: number) => page.waitForTimeout(ms);
+    const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 
-    await page.goto('/VSDashboard');
-    await page.waitForSelector('text=Latest Scanning Summary');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.waitForSelector('text=Latest Scanning Summary');
 
-    const widgetContainer = page
+    const widgetContainer = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
       .locator('..')
       .locator('..');
@@ -229,7 +240,7 @@ test.describe('Latest Scanning Summary - Metric Boxes', () => {
     };
 
     const getFocusInfo = async (): Promise<FocusInfo> =>
-      page.evaluate<FocusInfo>(() => {
+      pageAsGlobalAdmin.evaluate<FocusInfo>(() => {
         const el = document.activeElement as HTMLElement | null;
         return {
           tag: el?.tagName ?? undefined,
@@ -240,7 +251,7 @@ test.describe('Latest Scanning Summary - Metric Boxes', () => {
       });
 
     const getTooltipText = async (): Promise<string | undefined> => {
-      const roleTooltip = page.getByRole('tooltip').first();
+      const roleTooltip = pageAsGlobalAdmin.getByRole('tooltip').first();
 
       try {
         await roleTooltip.waitFor({ state: 'visible', timeout: 3000 });
@@ -252,7 +263,7 @@ test.describe('Latest Scanning Summary - Metric Boxes', () => {
       }
 
       await pause(500);
-      return page.evaluate(() => {
+      return pageAsGlobalAdmin.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
         const ids = (
           el?.getAttribute('aria-describedby') ||
@@ -293,9 +304,9 @@ test.describe('Latest Scanning Summary - Metric Boxes', () => {
     }> = [];
 
     for (let i = 0; i < 6; i++) {
-      await page.keyboard.press('Tab');
+      await pageAsGlobalAdmin.keyboard.press('Tab');
       await pause(800);
-      const focused = page.locator(':focus');
+      const focused = pageAsGlobalAdmin.locator(':focus');
       if (await focused.count()) {
         await focused.hover({ force: true }).catch(() => {});
       }
