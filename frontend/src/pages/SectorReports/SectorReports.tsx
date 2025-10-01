@@ -2,26 +2,35 @@ import React, { useRef, useState, useEffect } from 'react';
 import {
   Box,
   Button,
-  Container,
-  Typography,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
+  Card,
+  CardActions,
   IconButton,
-  CircularProgress,
-  Alert,
   MenuItem,
+  Paper,
   Select,
-  FormControl,
-  InputLabel
+  TextField,
+  Typography,
+  Alert
 } from '@mui/material';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import DeleteIcon from '@mui/icons-material/Delete';
-import DownloadIcon from '@mui/icons-material/Download';
+import Grid from '@mui/material/Grid';
 import { SelectChangeEvent } from '@mui/material/Select';
+import {
+  CheckCircleOutline,
+  Delete,
+  Edit,
+  InfoOutlined,
+  UploadFile as UploadFileIcon,
+  Download as DownloadIcon
+} from '@mui/icons-material';
+import {
+  DataGrid,
+  gridClasses,
+  GridColDef,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
+import InfoDialog from 'components/Dialog/InfoDialog';
+import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 
-//Example Sectors, should be fetched from backend when page is implemented
 const SECTORS = [
   'Energy',
   'Finance',
@@ -32,89 +41,127 @@ const SECTORS = [
 ];
 
 interface SectorReportFile {
+  id?: string;
   filename: string;
   sector: string;
   uploaded_by: string;
   uploaded_at: string;
+  status: 'active' | 'archived';
+  file?: File;
 }
 
+const initialReportValues: SectorReportFile = {
+  filename: '',
+  sector: '',
+  uploaded_by: '',
+  uploaded_at: '',
+  status: 'active'
+};
+
 export const SectorReports: React.FC = () => {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedSector, setSelectedSector] = useState<string>('');
-  const [uploading, setUploading] = useState(false);
-  const [files, setFiles] = useState<SectorReportFile[]>([]);
-  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [activeReports, setActiveReports] = useState<SectorReportFile[]>([]);
+  const [archivedReports, setArchivedReports] = useState<SectorReportFile[]>(
+    []
+  );
+  const [formValues, setFormValues] =
+    useState<SectorReportFile>(initialReportValues);
+  const [addBtnToggle, setAddBtnToggle] = useState(false);
+  const [formDialogToggle, setFormDialogToggle] = useState(false);
+  const [infoDialogToggle, setInfoDialogToggle] = useState(false);
+  const [deleteDialogToggle, setDeleteDialogToggle] = useState(false);
+  const [rowToDelete, setRowToDelete] =
+    useState<SectorReportFile>(initialReportValues);
+  const [formDisabled, setFormDisabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userSectors, setUserSectors] = useState<string[]>([]);
+  const [infoDialogValues, setInfoDialogValues] = useState({
+    icon: <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />,
+    title: 'Success',
+    content: 'The report was updated successfully.'
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  //Fetch user sectors/files
-  useEffect(() => {
-    fetch('/api/user/sectors')
-      .then((res) => res.json())
-      .then((data) => setUserSectors(data.sectors || []))
-      .catch(() => setUserSectors([]));
+  const tableStyling = {
+    [`& .${gridClasses.cell}`]: { py: 1 },
+    minHeight: { xs: '250px', md: 'unset' }
+  };
 
-    fetchFiles();
-  }, []);
-
-  //Fetch list of files from backend
-  const fetchFiles = async () => {
-    setLoadingFiles(true);
-    setError(null);
+  // Fetch reports from backend
+  const fetchReports = async () => {
     try {
       const res = await fetch('/api/sector-reports');
-      if (!res.ok) throw new Error('Failed to fetch files');
+      if (!res.ok) throw new Error('Failed to fetch reports');
       const data = await res.json();
-      setFiles(data.files || []);
+      const active = data.files.filter(
+        (r: SectorReportFile) => r.status === 'active'
+      );
+      const archived = data.files.filter(
+        (r: SectorReportFile) => r.status === 'archived'
+      );
+      setActiveReports(active);
+      setArchivedReports(archived);
     } catch (e: any) {
-      setError(e.message || 'Error fetching files');
-    } finally {
-      setLoadingFiles(false);
+      setError(e.message || 'Error fetching reports');
     }
   };
 
-  //File selection handling
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setFormValues((prev) => ({
+        ...prev,
+        filename: files[0].name,
+        file: files[0]
+      }));
+      setFormDisabled(false);
     }
   };
 
-  //Handles changing sectors (not sure if this idea will work longterm if we're pulling sectors for users form the backend)
+  // Handle sector selection
   const handleSectorChange = (event: SelectChangeEvent<string>) => {
-    setSelectedSector(event.target.value as string);
+    setFormValues((prev) => ({
+      ...prev,
+      sector: event.target.value as string
+    }));
+    setFormDisabled(false);
   };
 
-  //File upload handling
+  // Handle upload
   const handleUpload = async () => {
-    if (!selectedFile || !selectedSector) {
+    if (!formValues.file || !formValues.sector) {
       setError('Please select a file and sector.');
       return;
     }
-    setUploading(true);
     setError(null);
     try {
       const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('sector', selectedSector);
+      formData.append('file', formValues.file);
+      formData.append('sector', formValues.sector);
       const res = await fetch('/api/sector-reports/upload', {
         method: 'POST',
         body: formData
       });
       if (!res.ok) throw new Error('Upload failed');
-      setSelectedFile(null);
-      setSelectedSector('');
+      setAddBtnToggle(false);
+      setFormValues(initialReportValues);
       if (fileInputRef.current) fileInputRef.current.value = '';
-      fetchFiles();
+      fetchReports();
+      setInfoDialogValues({
+        icon: <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />,
+        title: 'Success',
+        content: 'The report was uploaded successfully.'
+      });
+      setInfoDialogToggle(true);
     } catch (e: any) {
       setError(e.message || 'Error uploading file');
-    } finally {
-      setUploading(false);
     }
   };
 
-  // Handle file download
+  // Handle download
   const handleDownload = async (filename: string) => {
     try {
       const res = await fetch(
@@ -135,155 +182,249 @@ export const SectorReports: React.FC = () => {
     }
   };
 
-  // Handle file delete (admin only)
-  const handleDelete = async (filename: string) => {
-    setError(null);
+  // Handle delete
+  const handleDelete = async () => {
     try {
       const res = await fetch(
-        `/api/sector-reports/delete/${encodeURIComponent(filename)}`,
+        `/api/sector-reports/delete/${encodeURIComponent(rowToDelete.filename)}`,
         {
           method: 'DELETE'
         }
       );
       if (!res.ok) throw new Error('Delete failed');
-      fetchFiles();
+      fetchReports();
+      setDeleteDialogToggle(false);
+      setInfoDialogValues({
+        icon: <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />,
+        title: 'Success',
+        content: 'The report was deleted successfully.'
+      });
+      setInfoDialogToggle(true);
     } catch (e: any) {
       setError(e.message || 'Error deleting file');
     }
   };
 
-  // Filter files by user's sectors (access control)
-  const visibleFiles = files.filter((file) =>
-    userSectors.includes(file.sector)
+  // Table columns
+  const columns: GridColDef[] = [
+    { field: 'filename', headerName: 'File Name', flex: 2 },
+    { field: 'sector', headerName: 'Sector', flex: 1 },
+    { field: 'uploaded_by', headerName: 'Uploaded By', flex: 1 },
+    {
+      field: 'uploaded_at',
+      headerName: 'Uploaded At',
+      flex: 1,
+      renderCell: (params: GridRenderCellParams) =>
+        new Date(params.value as string).toLocaleString()
+    },
+    {
+      field: 'download',
+      headerName: 'Download',
+      flex: 0.5,
+      renderCell: (params: GridRenderCellParams) => (
+        <IconButton
+          color="primary"
+          aria-label="download"
+          onClick={() => handleDownload(params.row.filename)}
+        >
+          <DownloadIcon />
+        </IconButton>
+      )
+    },
+    {
+      field: 'delete',
+      headerName: 'Delete',
+      flex: 0.5,
+      renderCell: (params: GridRenderCellParams) => (
+        <IconButton
+          color="primary"
+          aria-label="delete"
+          onClick={() => {
+            setRowToDelete(params.row);
+            setDeleteDialogToggle(true);
+          }}
+        >
+          <Delete />
+        </IconButton>
+      )
+    }
+  ];
+
+  // Add report card
+  const createReportCard = (
+    <Grid container justifyContent="center">
+      <Grid size={{ xs: 12, sm: 8 }}>
+        <Card sx={{ p: 3 }}>
+          <Typography variant="h6" pb={2} fontWeight="500">
+            Upload Sector Report
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid size={{ xs: 12, sm: 8 }}>
+              <Button
+                variant="contained"
+                startIcon={<UploadFileIcon />}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose File
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                style={{ display: 'none' }}
+                onChange={handleFileChange}
+              />
+              <Typography variant="body2" mt={1}>
+                {formValues.filename ? formValues.filename : 'No file selected'}
+              </Typography>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 8 }}>
+              <Select
+                displayEmpty
+                size="small"
+                id="sector"
+                value={formValues.sector}
+                name="sector"
+                onChange={handleSectorChange}
+                fullWidth
+                renderValue={
+                  formValues.sector !== ''
+                    ? undefined
+                    : () => (
+                        <Typography color="#bdbdbd">Select a Sector</Typography>
+                      )
+                }
+                error={!formValues.sector}
+              >
+                {SECTORS.map((sector) => (
+                  <MenuItem key={sector} value={sector}>
+                    {sector}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Grid>
+          </Grid>
+          <CardActions>
+            <Button
+              variant="outlined"
+              sx={{ mt: 2 }}
+              onClick={() => setAddBtnToggle(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              sx={{ mt: 2 }}
+              onClick={handleUpload}
+              disabled={!formValues.filename || !formValues.sector}
+            >
+              Submit
+            </Button>
+          </CardActions>
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+        </Card>
+      </Grid>
+    </Grid>
   );
 
-  // Optional: sector filter for viewing
-  const [filterSector, setFilterSector] = useState<string>('All');
-  const filteredFiles =
-    filterSector === 'All'
-      ? visibleFiles
-      : visibleFiles.filter((file) => file.sector === filterSector);
+  const confirmDeleteDialog = (
+    <ConfirmDialog
+      isOpen={deleteDialogToggle}
+      onClose={() => setDeleteDialogToggle(false)}
+      onConfirm={handleDelete}
+      onCancel={() => setDeleteDialogToggle(false)}
+      title={'Delete Report'}
+      content={<>Are you sure you want to permanently remove this report?</>}
+    />
+  );
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" mb={3}>
-        Sector Reports Archive
-      </Typography>
-      <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" mb={2}>
-          Upload New Sector Report
-        </Typography>
-        <Box display="flex" alignItems="center" gap={2} flexWrap="wrap">
-          <input
-            ref={fileInputRef}
-            type="file"
-            style={{ display: 'none' }}
-            onChange={handleFileChange}
-          />
-          <Button
-            variant="contained"
-            startIcon={<UploadFileIcon />}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-          >
-            Choose File
-          </Button>
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel>Sector</InputLabel>
-            <Select
-              value={selectedSector}
-              label="Sector"
-              onChange={handleSectorChange}
-            >
-              {SECTORS.map((sector) => (
-                <MenuItem key={sector} value={sector}>
-                  {sector}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleUpload}
-            disabled={!selectedFile || !selectedSector || uploading}
-          >
-            {uploading ? <CircularProgress size={20} /> : 'Upload'}
-          </Button>
-          <Typography variant="body2">
-            {selectedFile ? selectedFile.name : 'No file selected'}
+    <Box sx={{ px: { xs: 2, md: 6 }, py: 4 }}>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, sm: 8 }}>
+          <Typography variant="h5" gutterBottom>
+            Sector Reports
           </Typography>
-        </Box>
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }}>
-            {error}
-          </Alert>
-        )}
-      </Paper>
-      <Paper sx={{ p: 3 }}>
-        <Box display="flex" alignItems="center" mb={2} gap={2}>
-          <Typography variant="h6">Archived Reports</Typography>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <InputLabel>Filter by Sector</InputLabel>
-            <Select
-              value={filterSector}
-              label="Filter by Sector"
-              onChange={(e) => setFilterSector(e.target.value)}
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <Box display="flex" justifyContent="flex-end">
+            <Button
+              variant="contained"
+              onClick={() => {
+                setAddBtnToggle(!addBtnToggle);
+                setFormValues(initialReportValues);
+              }}
+              disabled={addBtnToggle === true}
             >
-              <MenuItem value="All">All</MenuItem>
-              {SECTORS.map((sector) => (
-                <MenuItem key={sector} value={sector}>
-                  {sector}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-        {loadingFiles ? (
-          <CircularProgress />
-        ) : (
-          <List>
-            {filteredFiles.length === 0 && (
-              <Typography variant="body2" color="text.secondary">
-                No reports available for your sector(s).
-              </Typography>
-            )}
-            {filteredFiles.map((file) => (
-              <ListItem
-                key={file.filename}
-                secondaryAction={
-                  <>
-                    <IconButton
-                      edge="end"
-                      aria-label="download"
-                      onClick={() => handleDownload(file.filename)}
-                    >
-                      <DownloadIcon />
-                    </IconButton>
-                    {userSectors.includes('admin') && (
-                      <IconButton
-                        edge="end"
-                        aria-label="delete"
-                        onClick={() => handleDelete(file.filename)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    )}
-                  </>
-                }
+              Add +
+            </Button>
+          </Box>
+        </Grid>
+        {addBtnToggle && <Grid size={{ xs: 12 }}>{createReportCard}</Grid>}
+        <Grid size={{ xs: 12 }}>
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" pb={2} fontWeight="500">
+              Active Sector Reports
+            </Typography>
+            {activeReports.length === 0 ? (
+              <Alert
+                icon={<InfoOutlined fontSize="inherit" />}
+                severity="info"
+                role="alert"
               >
-                <ListItemText
-                  primary={file.filename}
-                  secondary={`Sector: ${file.sector} | Uploaded by: ${file.uploaded_by} | ${new Date(
-                    file.uploaded_at
-                  ).toLocaleString()}`}
-                />
-              </ListItem>
-            ))}
-          </List>
-        )}
-      </Paper>
-    </Container>
+                There are no active sector reports at this time.
+              </Alert>
+            ) : (
+              <DataGrid
+                rows={activeReports}
+                columns={columns}
+                getRowHeight={() => 'auto'}
+                sx={tableStyling}
+                hideFooterPagination={true}
+                disableRowSelectionOnClick
+              />
+            )}
+          </Paper>
+        </Grid>
+        <Grid size={{ xs: 12 }}>
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" pb={2} fontWeight="500">
+              Archived Sector Reports
+            </Typography>
+            {archivedReports.length === 0 ? (
+              <Alert
+                icon={<InfoOutlined fontSize="inherit" />}
+                severity="info"
+                role="alert"
+              >
+                There are no archived sector reports at this time.
+              </Alert>
+            ) : (
+              <DataGrid
+                rows={archivedReports}
+                columns={columns}
+                getRowHeight={() => 'auto'}
+                sx={tableStyling}
+                disableRowSelectionOnClick
+              />
+            )}
+          </Paper>
+        </Grid>
+        {confirmDeleteDialog}
+        <InfoDialog
+          isOpen={infoDialogToggle}
+          handleClick={() => setInfoDialogToggle(false)}
+          icon={infoDialogValues.icon}
+          title={<Typography variant="h4">{infoDialogValues.title}</Typography>}
+          content={
+            <Typography variant="body1">{infoDialogValues.content}</Typography>
+          }
+        />
+      </Grid>
+    </Box>
   );
 };
 
