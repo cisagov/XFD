@@ -119,7 +119,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
         <LoginButton />
       </Box>
       <Box flex={1.5} />
-      <Box justifyContent="center" alignItems="center" pb={5}>
+      <Box justifyContent="center" alignItems="center" pb={3}>
         <CrossfeedWarning />
       </Box>
     </Box>
