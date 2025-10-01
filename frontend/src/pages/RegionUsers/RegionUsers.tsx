@@ -456,34 +456,6 @@ export const RegionUsers: React.FC = () => {
     [apiPost]
   );
 
-  // Old version without async/await and a simple boolean return
-
-  // const updateUser = useCallback(
-  //   (user_id: string, org_name: string): Promise<boolean> => {
-  //     return apiPost(`/v2/update_user/${user_id}`, {
-  //       body: { invite_pending: false }
-  //     }).then(
-  //       (res) => {
-  //         apiRefPendingUsers.current?.updateRows([
-  //           { id: user_id, _action: 'delete' }
-  //         ]);
-  //         setPendingUsers((prevPendingUsers) =>
-  //           prevPendingUsers.filter((user) => user.id !== user_id)
-  //         );
-  //         res['organizations'] = org_name;
-  //         apiRefCurrentUsers.current?.updateRows([res]);
-  //         setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
-  //         return sendApprovalEmail(user_id);
-  //       },
-  //       (e) => {
-  //         setErrorStates({ ...errorStates, getUpdateError: e.message });
-  //         return false;
-  //       }
-  //     );
-  //   }, // eslint-disable-next-line react-hooks/exhaustive-deps
-  //   [apiPut]
-  // );
-
   const addOrgToUser = useCallback(
     async (
       user_id: string,
@@ -502,41 +474,10 @@ export const RegionUsers: React.FC = () => {
     [apiPost, updateUser, errorStates]
   );
 
-  // Old version without async/await and a simple boolean return
-
-  //  const addOrgToUser = useCallback(
-  //   (user_id: string, selectedOrgId: any): Promise<boolean> => {
-  //     return apiPost(`/v2/organizations/${selectedOrgId}/users`, {
-  //       body: { user_id, role: 'user' }
-  //     }).then(
-  //       (res) => {
-  //         return updateUser(user_id, res.organization.name);
-  //       },
-  //       (e) => {
-  //         setErrorStates({ ...errorStates, getUpdateError: e.message });
-  //         return false;
-  //       }
-  //     );
-  //   }, // eslint-disable-next-line react-hooks/exhaustive-deps
-  //   [apiPost]
-  // );
-
   const sendApprovalEmail = useCallback(
     async (user_id: string): Promise<{ status_code: number; body: string }> => {
       try {
         const res = await apiPost(`/users/${user_id}/register/approve`);
-        // console.log('body', res.body);
-        // if (
-        //   res.status_code === 200 &&
-        //   res.body === 'User registration approved'
-        // ) {
-        //   return { status_code: res.status_code, body: res.body };
-        // }
-        // if (
-        //   res.status_code === 200 &&
-        //   res.body === 'User registration already approved'
-        // ) {
-        // }
         return { status_code: res.status_code, body: res.body };
       } catch (e: any) {
         return {
@@ -547,23 +488,6 @@ export const RegionUsers: React.FC = () => {
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiPost]
   );
-  // Old version without async/await and a simple boolean return
-
-  // const sendApprovalEmail = useCallback(
-  //   (user_id: string): Promise<boolean> => {
-  //     return apiPost(`/users/${user_id}/register/approve`).then(
-  //       (res) => {
-  //         console.log(res);
-  //         return true;
-  //       },
-  //       (e) => {
-  //         console.log(e);
-  //         return false;
-  //       }
-  //     );
-  //   }, // eslint-disable-next-line react-hooks/exhaustive-deps
-  //   [apiPost]
-  // );
 
   const handleCloseDialog = (value: CloseReason) => {
     if (value === 'backdropClick' || value === 'escapeKeyDown') {
@@ -891,7 +815,7 @@ export const RegionUsers: React.FC = () => {
           <Typography variant="body1">
             This user was previously approved by another administrator.
             <br />
-            Check the approval history in Admin Tools {'->'} User Logs for more
+            Check the approval history in Admin Tools → User Logs for more
             details.
           </Typography>
         }
