@@ -3,6 +3,11 @@
     Author: Jesse Salinas
     Date: 2025-09-30
     Description: Test functions for VS Dashboard filter persistence during drill-down navigation (CRASM-3004)
+    
+    Updated scope per stakeholder feedback (Amelia & Mia):
+    - Filters should persist ONLY during drill-down navigation from VS Dashboard
+    - Filters should NOT persist during general navigation between tabs/pages
+    - This ensures filters only remain when user is performing drill-down actions
 */
 
 import { test } from '../../tests/fixtures';
@@ -256,8 +261,8 @@ async function setFilters(page: any, region: string | null, organization: string
   }
 }
 
-test.describe('VS Dashboard Filter Persistence', () => {
-  test('should preserve filters when drilling down to vulnerability details and returning', async ({
+test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
+  test('should preserve filters ONLY during drill-down navigation, not general navigation', async ({
     pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
@@ -654,6 +659,129 @@ test.describe('VS Dashboard Filter Persistence', () => {
     const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .analyze();
     await testInfo.attach('accessibility-scan-results-no-flicker', {
+      body: JSON.stringify(results, null, 2),
+      contentType: 'application/json'
+    });
+
+    expect(results.violations).toHaveLength(0);
+  });
+
+  test('should NOT persist filters during general navigation between tabs/pages', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    // Navigate to VS Dashboard and set specific filters
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+    await setFilters(pageAsGlobalAdmin, 'Region 3', null);
+    
+    const filtersOnVSDashboard = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('Filters set on VS Dashboard:', filtersOnVSDashboard);
+    expect(filtersOnVSDashboard.region).toContain('Region 3');
+
+    // Navigate to a different tab/page (NOT drill-down) - like Risk Dashboard
+    console.log('Navigating to Risk Dashboard (general navigation, not drill-down)');
+    await pageAsGlobalAdmin.goto('/risk');
+    await pageAsGlobalAdmin.waitForLoadState('networkidle');
+    
+    // Navigate back to VS Dashboard (general navigation)
+    console.log('Navigating back to VS Dashboard via general navigation');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+
+    // Get filter state after general navigation
+    const filtersAfterGeneralNav = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('Filters after general navigation:', filtersAfterGeneralNav);
+
+    // Verify filters are NOT preserved - should reset to user defaults
+    // The region should NOT be Region 3 anymore (should be user's default region)
+    expect(filtersAfterGeneralNav.region).not.toContain('Region 3');
+    expect(filtersAfterGeneralNav.region).toBeTruthy(); // Should have some default region
+
+    console.log('✅ Verified: Filters do NOT persist during general navigation (expected behavior)');
+
+    // Accessibility scan
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
+      .analyze();
+    await testInfo.attach('accessibility-scan-results-general-nav', {
+      body: JSON.stringify(results, null, 2),
+      contentType: 'application/json'
+    });
+
+    expect(results.violations).toHaveLength(0);
+  });
+
+  test('should persist filters during drill-down navigation but reset during general navigation', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    // Part 1: Test drill-down persistence
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+    await setFilters(pageAsGlobalAdmin, 'Region 4', null);
+    
+    const filtersBeforeDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('Filters before drill-down:', filtersBeforeDrillDown);
+
+    // Perform drill-down navigation (via dashboard widget click)
+    const drillDownSelectors = [
+      'a[href*="/vulnerabilities"]',
+      'a[href*="/domains"]',
+      'a:has-text("View Details")',
+      '[data-testid="vulnerability-link"]'
+    ];
+    
+    let drillDownPerformed = false;
+    for (const selector of drillDownSelectors) {
+      try {
+        const link = pageAsGlobalAdmin.locator(selector).first();
+        if (await link.isVisible({ timeout: 2000 })) {
+          console.log(`Performing drill-down using: ${selector}`);
+          await link.click();
+          await pageAsGlobalAdmin.waitForLoadState('networkidle', { timeout: 10000 });
+          
+          // Navigate back to VS Dashboard (drill-down return)
+          await pageAsGlobalAdmin.goBack();
+          await waitForVSDashboardLoad(pageAsGlobalAdmin);
+          
+          drillDownPerformed = true;
+          break;
+        }
+      } catch (e) {
+        console.log(`No drill-down link found for selector: ${selector}`);
+      }
+    }
+    
+    if (drillDownPerformed) {
+      // Verify filters persisted during drill-down
+      const filtersAfterDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
+      console.log('Filters after drill-down return:', filtersAfterDrillDown);
+      expect(filtersAfterDrillDown.region).toBe(filtersBeforeDrillDown.region);
+      console.log('✅ Verified: Filters persist during drill-down navigation');
+    } else {
+      console.log('⚠️  No drill-down links available, skipping drill-down test');
+    }
+
+    // Part 2: Test general navigation resets filters
+    console.log('Now testing general navigation to Risk Dashboard');
+    await pageAsGlobalAdmin.goto('/risk');
+    await pageAsGlobalAdmin.waitForLoadState('networkidle');
+    
+    // Return via general navigation
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+
+    const filtersAfterGeneralNav = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('Filters after general navigation:', filtersAfterGeneralNav);
+
+    // Should reset to defaults, not preserve Region 4
+    expect(filtersAfterGeneralNav.region).not.toContain('Region 4');
+    console.log('✅ Verified: Filters reset during general navigation');
+
+    // Accessibility scan
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
+      .analyze();
+    await testInfo.attach('accessibility-scan-results-combined-nav', {
       body: JSON.stringify(results, null, 2),
       contentType: 'application/json'
     });

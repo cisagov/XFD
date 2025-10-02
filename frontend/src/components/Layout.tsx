@@ -24,6 +24,7 @@ import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 import { useFilterRestore } from 'hooks/useFilterRestore';
 import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
+import { useNavigationContext, isVSDashboard } from 'context/NavigationContext';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -47,6 +48,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 }) => {
   const { pathname } = useLocation();
   const { logout, user } = useAuthContext();
+  const { isDrillDown } = useNavigationContext();
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
 
@@ -61,14 +63,28 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   ];
 
   useEffect(() => {
-    // Filter out region filters for VS Dashboard to allow reset to user defaults on page reload
-    const isVSDashboard = pathname === '/VSDashboard' || pathname.startsWith('/VSDashboard');
-    const filtersToStore = isVSDashboard 
+    // NEW LOGIC: Only store filters during drill-down scenarios or on non-VS Dashboard pages
+    // - If we're on VS Dashboard and NOT in drill-down context, don't store filters 
+    //   (this prevents persistence of user-default filters that should reset on reload)
+    // - If we're in drill-down context, always store filters for restoration
+    // - If we're on other pages, store filters as usual
+    
+    const isVSDashboardPath = isVSDashboard(pathname);
+    
+    if (isVSDashboardPath && !isDrillDown) {
+      console.log('[Layout] VS Dashboard without drill-down context, not storing filters');
+      return;
+    }
+    
+    console.log(`[Layout] Storing filters for ${pathname}, isDrillDown: ${isDrillDown}, filterCount: ${filters.length}`);
+    
+    // For VS Dashboard in drill-down context, filter out region filters to allow reset to user defaults on page reload
+    const filtersToStore = isVSDashboardPath 
       ? filters.filter(filter => filter.field !== 'organization.region_id')
       : filters;
     
     localStorage.setItem('es-search-filters', JSON.stringify(filtersToStore));
-  }, [filters, pathname]);
+  }, [filters, pathname, isDrillDown]);
 
   const { regions } = useStaticsContext();
 
@@ -129,8 +145,8 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 
   useEffect(() => {
     // Skip automatic user type filters on VS Dashboard - it has custom filter logic
-    const isVSDashboard = pathname === '/VSDashboard' || pathname.startsWith('/VSDashboard');
-    if (isVSDashboard) {
+    const isVSDashboardPath = isVSDashboard(pathname);
+    if (isVSDashboardPath) {
       return;
     }
     
