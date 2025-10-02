@@ -5,8 +5,9 @@
     Description: Test functions for VS Dashboard filter persistence during drill-down navigation (CRASM-3004)
 */
 
-import { test, expect } from '../../axe-test';
-import type { TestInfo } from '@playwright/test';
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
+import type { Page, TestInfo } from '@playwright/test';
 
 // Helper function to wait for VS Dashboard to load completely
 async function waitForVSDashboardLoad(page: any) {
@@ -257,23 +258,23 @@ async function setFilters(page: any, region: string | null, organization: string
 
 test.describe('VS Dashboard Filter Persistence', () => {
   test('should preserve filters when drilling down to vulnerability details and returning', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
-    await page.goto('/VSDashboard');
-    await waitForVSDashboardLoad(page);
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set specific region and organization filters
-    await setFilters(page, 'Region 2', null); // Set region first
+    await setFilters(pageAsGlobalAdmin, 'Region 2', null); // Set region first
     
     // Try to set an organization if any are available
     try {
-      await page.click('label:has-text("Organization") + div, label:has-text("Organization") ~ div');
-      await page.waitForTimeout(500);
+      await pageAsGlobalAdmin.click('label:has-text("Organization") + div, label:has-text("Organization") ~ div');
+      await pageAsGlobalAdmin.waitForTimeout(500);
       
       // Check if there are any organization options available
-      const orgOptions = page.locator('li[role="option"], .MuiAutocomplete-option');
+      const orgOptions = pageAsGlobalAdmin.locator('li[role="option"], .MuiAutocomplete-option');
       const optionCount = await orgOptions.count();
       
       if (optionCount > 0) {
@@ -281,19 +282,19 @@ test.describe('VS Dashboard Filter Persistence', () => {
         const firstOrg = orgOptions.first();
         const orgText = await firstOrg.textContent();
         await firstOrg.click();
-        await page.waitForLoadState('networkidle');
+        await pageAsGlobalAdmin.waitForLoadState('networkidle');
         console.log(`Selected organization: ${orgText}`);
       } else {
         console.log('No organization options available');
         // Click elsewhere to close the dropdown
-        await page.click('body');
+        await pageAsGlobalAdmin.click('body');
       }
     } catch (e) {
       console.log('Could not interact with organization filter:', e.message);
     }
     
     // Get the current filter state before drill-down
-    const filtersBeforeDrillDown = await getCurrentFilters(page);
+    const filtersBeforeDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters before drill-down:', filtersBeforeDrillDown);
 
     // Try to find and click on a vulnerability to drill down
@@ -310,17 +311,17 @@ test.describe('VS Dashboard Filter Persistence', () => {
     let drillDownPerformed = false;
     for (const selector of vulnerabilitySelectors) {
       try {
-        const link = page.locator(selector).first();
+        const link = pageAsGlobalAdmin.locator(selector).first();
         if (await link.isVisible({ timeout: 2000 })) {
           console.log(`Found drill-down link: ${selector}`);
           await link.click();
           
           // Wait for navigation to details page
-          await page.waitForLoadState('networkidle', { timeout: 10000 });
+          await pageAsGlobalAdmin.waitForLoadState('networkidle', { timeout: 10000 });
           
           // Navigate back to VS Dashboard
-          await page.goBack();
-          await waitForVSDashboardLoad(page);
+          await pageAsGlobalAdmin.goBack();
+          await waitForVSDashboardLoad(pageAsGlobalAdmin);
           
           drillDownPerformed = true;
           break;
@@ -332,14 +333,14 @@ test.describe('VS Dashboard Filter Persistence', () => {
     
     if (!drillDownPerformed) {
       console.log('No drill-down links available - simulating navigation by going to vulnerabilities page directly');
-      await page.goto('/vulnerabilities');
-      await page.waitForLoadState('networkidle');
-      await page.goto('/VSDashboard');
-      await waitForVSDashboardLoad(page);
+      await pageAsGlobalAdmin.goto('/vulnerabilities');
+      await pageAsGlobalAdmin.waitForLoadState('networkidle');
+      await pageAsGlobalAdmin.goto('/VSDashboard');
+      await waitForVSDashboardLoad(pageAsGlobalAdmin);
     }
 
     // Get filter state after returning
-    const filtersAfterReturn = await getCurrentFilters(page);
+    const filtersAfterReturn = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters after return:', filtersAfterReturn);
 
     // Verify filters are preserved
@@ -364,7 +365,7 @@ test.describe('VS Dashboard Filter Persistence', () => {
     
     let contentFound = false;
     for (const selector of dashboardContentSelectors) {
-      if (await page.locator(selector).isVisible({ timeout: 1000 }).catch(() => false)) {
+      if (await pageAsGlobalAdmin.locator(selector).isVisible({ timeout: 1000 }).catch(() => false)) {
         console.log(`Dashboard showing: ${selector}`);
         contentFound = true;
         break;
@@ -374,7 +375,7 @@ test.describe('VS Dashboard Filter Persistence', () => {
     expect(contentFound).toBeTruthy(); // Dashboard should show some content
 
     // Accessibility scan
-    const results = await makeAxeBuilder()
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .analyze(); // Scan the entire page since we don't have a specific container
     await testInfo.attach('accessibility-scan-results-filter-persistence', {
       body: JSON.stringify(results, null, 2),
@@ -385,26 +386,26 @@ test.describe('VS Dashboard Filter Persistence', () => {
   });
 
   test('should reset to user default region on page reload', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
-    await page.goto('/VSDashboard');
-    await waitForVSDashboardLoad(page);
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set filters to non-default values
-    await setFilters(page, 'Region 9', null);
+    await setFilters(pageAsGlobalAdmin, 'Region 9', null);
     
     // Get current filters
-    const filtersBeforeReload = await getCurrentFilters(page);
+    const filtersBeforeReload = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters before reload:', filtersBeforeReload);
 
     // Reload the page
-    await page.reload();
-    await waitForVSDashboardLoad(page);
+    await pageAsGlobalAdmin.reload();
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Get filters after reload
-    const filtersAfterReload = await getCurrentFilters(page);
+    const filtersAfterReload = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters after reload:', filtersAfterReload);
 
     // Verify region resets to user's default
@@ -418,7 +419,7 @@ test.describe('VS Dashboard Filter Persistence', () => {
     // Don't assert on organization value since it might be null in test environment
 
     // Accessibility scan
-    const results = await makeAxeBuilder()
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .analyze();
     await testInfo.attach('accessibility-scan-results-page-reload', {
       body: JSON.stringify(results, null, 2),
@@ -429,37 +430,37 @@ test.describe('VS Dashboard Filter Persistence', () => {
   });
 
   test('should preserve "All Regions" filter during drill-down', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
-    await page.goto('/VSDashboard');
-    await waitForVSDashboardLoad(page);
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set "All Regions" filter
-    await setFilters(page, 'All Regions', null);
+    await setFilters(pageAsGlobalAdmin, 'All Regions', null);
     
     // Try to set an organization if any are available with All Regions
     try {
-      await page.click('label:has-text("Organization") + div, label:has-text("Organization") ~ div');
-      await page.waitForTimeout(500);
+      await pageAsGlobalAdmin.click('label:has-text("Organization") + div, label:has-text("Organization") ~ div');
+      await pageAsGlobalAdmin.waitForTimeout(500);
       
-      const orgOptions = page.locator('li[role="option"], .MuiAutocomplete-option');
+      const orgOptions = pageAsGlobalAdmin.locator('li[role="option"], .MuiAutocomplete-option');
       const optionCount = await orgOptions.count();
       
       if (optionCount > 0) {
         console.log(`Found ${optionCount} organization options with All Regions`);
         const firstOrg = orgOptions.first();
         await firstOrg.click();
-        await page.waitForLoadState('networkidle');
+        await pageAsGlobalAdmin.waitForLoadState('networkidle');
       } else {
-        await page.click('body'); // Close dropdown
+        await pageAsGlobalAdmin.click('body'); // Close dropdown
       }
     } catch (e) {
       console.log('Could not set organization with All Regions');
     }
     
-    const filtersBeforeDrillDown = await getCurrentFilters(page);
+    const filtersBeforeDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('All Regions filter before drill-down:', filtersBeforeDrillDown);
 
     // Try to drill down to vulnerability details
@@ -473,13 +474,13 @@ test.describe('VS Dashboard Filter Persistence', () => {
     let navigationPerformed = false;
     for (const selector of drillDownSelectors) {
       try {
-        const link = page.locator(selector).first();
+        const link = pageAsGlobalAdmin.locator(selector).first();
         if (await link.isVisible({ timeout: 2000 })) {
           console.log(`Using drill-down link: ${selector}`);
           await link.click();
-          await page.waitForLoadState('networkidle', { timeout: 10000 });
-          await page.goBack();
-          await waitForVSDashboardLoad(page);
+          await pageAsGlobalAdmin.waitForLoadState('networkidle', { timeout: 10000 });
+          await pageAsGlobalAdmin.goBack();
+          await waitForVSDashboardLoad(pageAsGlobalAdmin);
           navigationPerformed = true;
           break;
         }
@@ -490,20 +491,20 @@ test.describe('VS Dashboard Filter Persistence', () => {
     
     if (!navigationPerformed) {
       console.log('No drill-down links found - simulating navigation');
-      await page.goto('/vulnerabilities');
-      await page.waitForLoadState('networkidle');
-      await page.goto('/VSDashboard');
-      await waitForVSDashboardLoad(page);
+      await pageAsGlobalAdmin.goto('/vulnerabilities');
+      await pageAsGlobalAdmin.waitForLoadState('networkidle');
+      await pageAsGlobalAdmin.goto('/VSDashboard');
+      await waitForVSDashboardLoad(pageAsGlobalAdmin);
     }
 
     // Verify "All Regions" is still selected
-    const filtersAfterReturn = await getCurrentFilters(page);
+    const filtersAfterReturn = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('All Regions filter after return:', filtersAfterReturn);
     
     expect(filtersAfterReturn.region).toContain('All Regions');
 
     // Accessibility scan
-    const results = await makeAxeBuilder()
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .analyze();
     await testInfo.attach('accessibility-scan-results-all-regions', {
       body: JSON.stringify(results, null, 2),
@@ -514,42 +515,42 @@ test.describe('VS Dashboard Filter Persistence', () => {
   });
 
   test('should clear organization filter when region changes', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
-    await page.goto('/VSDashboard');
-    await waitForVSDashboardLoad(page);
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set region first
-    await setFilters(page, 'Region 2', null);
+    await setFilters(pageAsGlobalAdmin, 'Region 2', null);
     
     // Wait for organization options to populate based on region
-    await page.waitForTimeout(1000);
+    await pageAsGlobalAdmin.waitForTimeout(1000);
     
     // Try to select an organization if available
     try {
-      await page.click('label:has-text("Organization") + div, label:has-text("Organization") ~ div');
+      await pageAsGlobalAdmin.click('label:has-text("Organization") + div, label:has-text("Organization") ~ div');
       
       // Wait for org options and select the first available one if any exist
-      const orgOptions = page.locator('li[role="option"], .MuiAutocomplete-option');
+      const orgOptions = pageAsGlobalAdmin.locator('li[role="option"], .MuiAutocomplete-option');
       const optionCount = await orgOptions.count();
       
       if (optionCount > 0) {
         console.log(`Found ${optionCount} organization options`);
         const firstOrgOption = orgOptions.first();
         await firstOrgOption.click();
-        await page.waitForLoadState('networkidle');
+        await pageAsGlobalAdmin.waitForLoadState('networkidle');
         
         // Get filters with both region and org set
-        const filtersWithBoth = await getCurrentFilters(page);
+        const filtersWithBoth = await getCurrentFilters(pageAsGlobalAdmin);
         console.log('Filters with both region and org:', filtersWithBoth);
 
         // Change region - this should clear the organization
-        await setFilters(page, 'Region 3', null);
+        await setFilters(pageAsGlobalAdmin, 'Region 3', null);
 
         // Verify organization is cleared after region change
-        const filtersAfterRegionChange = await getCurrentFilters(page);
+        const filtersAfterRegionChange = await getCurrentFilters(pageAsGlobalAdmin);
         console.log('Filters after region change:', filtersAfterRegionChange);
         
         expect(filtersAfterRegionChange.region).toContain('Region 3');
@@ -558,8 +559,8 @@ test.describe('VS Dashboard Filter Persistence', () => {
         console.log('No organization options available, testing just region change');
         
         // Just test that region changes work even without org options
-        await setFilters(page, 'Region 3', null);
-        const filtersAfterChange = await getCurrentFilters(page);
+        await setFilters(pageAsGlobalAdmin, 'Region 3', null);
+        const filtersAfterChange = await getCurrentFilters(pageAsGlobalAdmin);
         
         expect(filtersAfterChange.region).toContain('Region 3');
         // Organization should remain empty since none were available
@@ -569,13 +570,13 @@ test.describe('VS Dashboard Filter Persistence', () => {
       console.log('Could not interact with organization filter, skipping org part of test');
       
       // Just verify region change works
-      await setFilters(page, 'Region 3', null);
-      const filtersAfterChange = await getCurrentFilters(page);
+      await setFilters(pageAsGlobalAdmin, 'Region 3', null);
+      const filtersAfterChange = await getCurrentFilters(pageAsGlobalAdmin);
       expect(filtersAfterChange.region).toContain('Region 3');
     }
 
     // Accessibility scan - exclude autocomplete dropdown from scan as it has known Material-UI nested interactive issues
-    const results = await makeAxeBuilder()
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .exclude('.MuiAutocomplete-popper')
       .analyze();
     await testInfo.attach('accessibility-scan-results-cascade-clear', {
@@ -587,33 +588,33 @@ test.describe('VS Dashboard Filter Persistence', () => {
   });
 
   test('should maintain filter state when navigating between filter-enabled pages', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard and set filters
-    await page.goto('/VSDashboard');
-    await waitForVSDashboardLoad(page);
-    await setFilters(page, 'Region 2', null);
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+    await setFilters(pageAsGlobalAdmin, 'Region 2', null);
     
-    const filtersOnVSDashboard = await getCurrentFilters(page);
+    const filtersOnVSDashboard = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters on VS Dashboard:', filtersOnVSDashboard);
 
     // Navigate to inventory page (another filter-enabled page)
-    await page.goto('/inventory');
-    await page.waitForLoadState('networkidle');
+    await pageAsGlobalAdmin.goto('/inventory');
+    await pageAsGlobalAdmin.waitForLoadState('networkidle');
 
     // Navigate back to VS Dashboard
-    await page.goto('/VSDashboard');
-    await waitForVSDashboardLoad(page);
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Verify filters are restored
-    const filtersAfterNavigation = await getCurrentFilters(page);
+    const filtersAfterNavigation = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters after navigation:', filtersAfterNavigation);
     
     expect(filtersAfterNavigation.region).toBe(filtersOnVSDashboard.region);
 
     // Accessibility scan
-    const results = await makeAxeBuilder()
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .analyze();
     await testInfo.attach('accessibility-scan-results-cross-page', {
       body: JSON.stringify(results, null, 2),
@@ -624,24 +625,24 @@ test.describe('VS Dashboard Filter Persistence', () => {
   });
 
   test('should not show region flickering on page load', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
-    await page.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
     // Wait a short moment for initial load
-    await page.waitForTimeout(100);
+    await pageAsGlobalAdmin.waitForTimeout(100);
 
     // Get the initial region value quickly after load
-    const initialRegion = await getCurrentFilters(page);
+    const initialRegion = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Initial region value:', initialRegion.region);
 
     // Wait for full dashboard load
-    await waitForVSDashboardLoad(page);
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Get the final region value after full load
-    const finalRegion = await getCurrentFilters(page);
+    const finalRegion = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Final region value:', finalRegion.region);
 
     // Verify the region value didn't change during load (no flickering)
@@ -650,7 +651,7 @@ test.describe('VS Dashboard Filter Persistence', () => {
     expect(finalRegion.region).toBe(initialRegion.region); // Should be the same value
 
     // Accessibility scan
-    const results = await makeAxeBuilder()
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .analyze();
     await testInfo.attach('accessibility-scan-results-no-flicker', {
       body: JSON.stringify(results, null, 2),
