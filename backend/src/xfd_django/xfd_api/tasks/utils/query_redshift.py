@@ -106,7 +106,12 @@ def fetch_from_redshift_with_params(query: str, params: Tuple[Any, ...]):
 
 
 def fetch_in_chunks_keyset_frozen(
-    table: str, time_col: str, start_dt, end_dt, chunk_size: int = 500_000
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    org_acronym: str,
+    chunk_size: int = 500_000,
 ):
     """
     Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
@@ -123,7 +128,7 @@ def fetch_in_chunks_keyset_frozen(
     q_id = '"_id"'
 
     while True:
-        where = f"WHERE {q_time} >= %s AND {q_time} < %s"
+        where = f"WHERE {q_time} >= %s AND {q_time} < %s AND owner = {org_acronym}"
         params = [start_param, end_param]
 
         if last_time is not None and last_id is not None:

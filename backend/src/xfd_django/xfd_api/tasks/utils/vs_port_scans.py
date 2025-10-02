@@ -36,7 +36,12 @@ CHUNK_SIZE = 500_000
 
 
 def fetch_port_scans_from_redshift(
-    org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
+    organization_id,
+    organization_acronym,
+    risky_service_groups,
+    nmi_service_groups,
+    ps_start_dt,
+    ps_end_dt,
 ):
     """Fetch port_scans from redshift."""
     LOGGER.info("Started processing port scans...")
@@ -48,13 +53,14 @@ def fetch_port_scans_from_redshift(
         time_col="time",
         start_dt=ps_start_dt,
         end_dt=ps_end_dt,
+        org_acronym=organization_acronym,
         chunk_size=CHUNK_SIZE,
     ):
         LOGGER.info(
             "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
         )
         bulk_insert_ips_and_link_to_port_scans(
-            chunk, org_id_dict, risky_service_groups, nmi_service_groups
+            chunk, organization_id, risky_service_groups, nmi_service_groups
         )
         total_processed += len(chunk)
         chunk_number += 1
@@ -72,7 +78,7 @@ def fetch_port_scans_from_redshift(
 
 
 def bulk_insert_ips_and_link_to_port_scans(
-    port_scans, org_id_dict, risky_service_groups, nmi_service_groups
+    port_scans, org_id, risky_service_groups, nmi_service_groups
 ):
     """Bulk insert IPs and link them to port scans, then update 'latest' flags efficiently."""
     ip_key_to_obj = {}
@@ -82,7 +88,7 @@ def bulk_insert_ips_and_link_to_port_scans(
     # Step 1: Prepare IP insertions and staged port scan records
     for port_scan in port_scans:
         try:
-            owner_id = org_id_dict.get(port_scan.get("owner"))
+            owner_id = org_id
             if not owner_id:
                 LOGGER.warning(
                     "%s is not a recognized organization, skipping host",

@@ -11,23 +11,18 @@ import os
 
 # Third-Party Libraries
 from xfd_api.tasks.asm_sync import flag_cidr_changes
+from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.tasks.syncdb_task import synchronize
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.link_ips_to_cidrs import bulk_assign_ips_to_cidrs
 from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
 from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
-from xfd_api.tasks.utils.vs_port_scans import (
-    create_port_scan_summary,
-    fetch_port_scans_from_redshift,
-)
+from xfd_api.tasks.utils.vs_port_scans import create_port_scan_summary
 from xfd_api.tasks.utils.vs_requests import fetch_orgs_from_redshift
 from xfd_api.tasks.utils.vs_send_orgs_to_dmz import send_organizations_to_dmz
 from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
-from xfd_api.tasks.utils.vs_vuln_scans import (
-    create_vuln_scan_summary,
-    fetch_vuln_scans_from_redshift,
-)
+from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
 
@@ -127,13 +122,39 @@ def main():  # pylint: disable=R0915
     # Flag ips related to closed cidrs:
     bulk_assign_ips_to_cidrs()
 
-    # Process Vulnerability Scans
-    fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict)
+    # Process Vulnerability and Port Scans in a separate workers
+    # (vs_vuln_scan_worker.py) and (vs_port_scan_worker.py)
+    task_arns = []
+    ecs = ECSClient()
+    vuln_scan_command_options = {
+        "scanName": "vs_vuln_scan_worker",
+        "vuln_start_date": ps_start_dt,
+        "vuln_end_date": ps_end_dt,
+        # TODO: Add organization id and acronym
+    }
+    port_scan_command_options = {
+        "scanName": "vs_vuln_scan_worker",
+        "port_start_date": ps_start_dt,
+        "port_end_date": ps_end_dt,
+        # TODO: Add organization id and acronym
+    }
+    vuln_response = ecs.run_command(vuln_scan_command_options)
+    port_response = ecs.run_command(port_scan_command_options)
+    tasks = vuln_response.get("tasks", []) + port_response.get("tasks", [])
+    for task in tasks:
+        task_arns.append(task.get("taskArn"))
 
-    # # Process Host Scans
+    if task_arns:
+        ecs.wait_for_tasks_completion(task_arns)
+    LOGGER.info(
+        "Vuln and port scan syncs have completed for %s.", "TODO: Add organization name"
+    )
+
+    # Process Host Scans
     create_daily_host_summary(org_id_dict)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
+
     # Prefetch risky service groups
     risky_service_groups = {
         rsg.service_name: rsg.group for rsg in RiskyServiceGroup.objects.all()
@@ -144,15 +165,10 @@ def main():  # pylint: disable=R0915
         nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
     }
 
-    # Port Scans (Chunked)
-    fetch_port_scans_from_redshift(
-        org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
-    )
-
-    # # Fill CIDR live IPs
+    # Fill CIDR live IPs
     fill_cidr_live_ips_bulk_update()
 
-    # # Send organizations to the DMZ MDL
+    # Send organizations to the DMZ MDL
     send_organizations_to_dmz()
 
     # Process Tickets (Chunked)

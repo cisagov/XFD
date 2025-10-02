@@ -39,7 +39,7 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict):
+def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_acronym, org_id):
     """Fetch vuln_scans from redshift."""
     LOGGER.info("Started processing vulnerability scans...")
     # Query with frozen window
@@ -49,19 +49,20 @@ def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict):
         FROM vmtableau.vuln_scans
         WHERE time >= '{ps_start_dt.strftime('%Y-%m-%d %H:%M:%S')}'
         AND time < '{ps_end_dt.strftime('%Y-%m-%d %H:%M:%S')}'
+        and owner = '{org_acronym}'
         """  # nosec B608
     )
     LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
     if vuln_scans:
-        process_vulnerability_scans(vuln_scans, org_id_dict)
+        process_vulnerability_scans(vuln_scans, org_id)
         LOGGER.info("Finished processing vulnerability scans")
 
 
-def process_vulnerability_scans(vuln_scans, org_id_dict):
+def process_vulnerability_scans(vuln_scans, org_id):
     """Process and save vulnerability scans."""
     for vuln in vuln_scans:
         try:
-            owner_id = org_id_dict.get(vuln.get("owner"))
+            owner_id = org_id
             ip_id = (
                 save_ip_to_datalake(
                     {
