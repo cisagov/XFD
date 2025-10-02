@@ -31,13 +31,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setIsDrillDown(true);
     setSourceRoute(source);
     setTargetRoute(target);
-    
-    // Store in sessionStorage for persistence across page navigation
-    sessionStorage.setItem('drillDownState', JSON.stringify({
-      isDrillDown: true,
-      sourceRoute: source,
-      targetRoute: target
-    }));
   };
 
   const clearDrillDown = () => {
@@ -45,7 +38,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     setIsDrillDown(false);
     setSourceRoute(null);
     setTargetRoute(null);
-    sessionStorage.removeItem('drillDownState');
   };
 
   const isReturningFromDrillDown = (currentRoute: string) => {
@@ -53,24 +45,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     return isDrillDown && sourceRoute === currentRoute;
   };
 
-  // Initialize state from sessionStorage on mount
-  React.useEffect(() => {
-    const savedState = sessionStorage.getItem('drillDownState');
-    if (savedState) {
-      try {
-        const { isDrillDown: saved, sourceRoute: savedSource, targetRoute: savedTarget } = JSON.parse(savedState);
-        if (saved) {
-          setIsDrillDown(true);
-          setSourceRoute(savedSource);
-          setTargetRoute(savedTarget);
-          console.log(`[NavigationContext] Restored drill-down state: ${savedSource} → ${savedTarget}`);
-        }
-      } catch (e) {
-        console.warn('[NavigationContext] Failed to restore drill-down state:', e);
-        sessionStorage.removeItem('drillDownState');
-      }
-    }
-  }, []);
+  // No need for sessionStorage - drill-down state should be ephemeral
+  // React state naturally persists during navigation and resets on page reload
 
   const value: NavigationContextType = {
     isDrillDown,
