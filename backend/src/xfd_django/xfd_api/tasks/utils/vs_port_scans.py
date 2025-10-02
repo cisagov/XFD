@@ -36,7 +36,12 @@ CHUNK_SIZE = 500_000
 
 
 def fetch_port_scans_from_redshift(
-    org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
+    org_id_dict,
+    risky_service_groups,
+    nmi_service_groups,
+    ps_start_dt,
+    ps_end_dt,
+    org_list: list[str] | None = None,
 ):
     """Fetch port_scans from redshift."""
     LOGGER.info("Started processing port scans...")
@@ -49,6 +54,7 @@ def fetch_port_scans_from_redshift(
         start_dt=ps_start_dt,
         end_dt=ps_end_dt,
         chunk_size=CHUNK_SIZE,
+        owners=org_list if org_list else None,   # ✅ filter only if org_list provided
     ):
         LOGGER.info(
             "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
@@ -239,13 +245,19 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
         LOGGER.error(f"Failed to update latest flags: {e}", exc_info=True)
 
 
-def create_port_scan_summary(summary_date=None):
+def create_port_scan_summary(summary_date=None, org_list: list[str] | None = None):
     """Create port summary record for each organization."""
     try:
         if summary_date is None:
             summary_date = timezone.now().date()
 
-        for org in Organization.objects.all():
+        # Filter organizations based on org_list if provided
+        if org_list:
+            orgs = Organization.objects.filter(acronym__in=org_list)
+        else:
+            orgs = Organization.objects.all()
+
+        for org in orgs:
             scans = PortScan.objects.filter(
                 organization=org,
                 latest=True,  # only latest scans

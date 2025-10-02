@@ -39,19 +39,28 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict):
-    """Fetch vuln_scans from redshift."""
+def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict, org_list=None):
+    """Fetch vuln_scans from Redshift."""
     LOGGER.info("Started processing vulnerability scans...")
+
+    # Only apply owner filter if a specific org_list is provided
+    owner_filter = ""
+    if org_list:  # org_list contains acronyms to filter
+        placeholders = ", ".join([f"'{owner}'" for owner in org_list])
+        owner_filter = f"AND owner IN ({placeholders})"
+
     # Query with frozen window
-    vuln_scans = fetch_from_redshift(
-        f"""
+    query = f"""
         SELECT *
         FROM vmtableau.vuln_scans
         WHERE time >= '{ps_start_dt.strftime('%Y-%m-%d %H:%M:%S')}'
-        AND time < '{ps_end_dt.strftime('%Y-%m-%d %H:%M:%S')}'
-        """  # nosec B608
-    )
+          AND time < '{ps_end_dt.strftime('%Y-%m-%d %H:%M:%S')}'
+          {owner_filter}
+    """  # nosec B608
+
+    vuln_scans = fetch_from_redshift(query)
     LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
+
     if vuln_scans:
         process_vulnerability_scans(vuln_scans, org_id_dict)
         LOGGER.info("Finished processing vulnerability scans")
@@ -203,12 +212,18 @@ def save_vuln_scan(vuln_scan: Dict) -> str:
     return str(vuln_scan_obj.id)
 
 
-def create_vuln_scan_summary(summary_date=None):
-    """Fill vuln_scan_summary table for todays date."""
+def create_vuln_scan_summary(summary_date=None, org_list: list[str] | None = None):
+    """Fill vuln_scan_summary table for todays date, optionally filtered by org_list."""
     if summary_date is None:
         summary_date = timezone.now().date()
 
-    for org in Organization.objects.all():
+    # Filter organizations by org_list if provided
+    if org_list:
+        orgs = Organization.objects.filter(acronym__in=org_list)
+    else:
+        orgs = Organization.objects.all()
+
+    for org in orgs:
         # Base queryset for this org
         all_org_tickets = Ticket.objects.filter(organization=org)
         open_tickets = all_org_tickets.filter(is_open=True)

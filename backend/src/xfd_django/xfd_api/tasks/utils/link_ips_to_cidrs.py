@@ -4,13 +4,12 @@ from django.db import connections
 from xfd_mini_dl.models import CidrOrgs  # replace 'your_app' with your app name
 
 
-def bulk_assign_ips_to_cidrs(batch_size: int = 1000):
+def bulk_assign_ips_to_cidrs(batch_size: int = 1000, org_id_dict=None):
     """
     Assign IPs to their smallest current CIDR per organization in batches.
 
-    - First unlinks IPs from non-current CIDRs
-    - Then processes IPs without from_cidr in batches
-    - Updates origin_cidr_id, from_cidr, and retired flags
+    If org_id_dict is provided (acronym -> organization_id), only process those orgs.
+    Otherwise process all current orgs.
     """
     # Step 1: Unlink IPs from non-current CIDRs
     with connections["mini_data_lake"].cursor() as cursor:
@@ -26,13 +25,15 @@ def bulk_assign_ips_to_cidrs(batch_size: int = 1000):
         """  # nosec B608
         cursor.execute(unlink_query)
 
-    # Step 2: Process IPs org by org
-    org_ids = (
-        CidrOrgs.objects.filter(current=True)
-        .values_list("organization_id", flat=True)
-        .distinct()
-    )
+    # Step 2: Determine orgs to process
+    org_qs = CidrOrgs.objects.filter(current=True)
+    if org_id_dict:
+        org_ids = list(org_id_dict.values())
+        org_qs = org_qs.filter(organization_id__in=org_ids)
 
+    org_ids = org_qs.values_list("organization_id", flat=True).distinct()
+
+    # Step 3: Process IPs per org in batches
     for org_id in org_ids:
         last_ip_id = None
 
@@ -83,6 +84,4 @@ def bulk_assign_ips_to_cidrs(batch_size: int = 1000):
                 if not updated_rows:
                     break  # No more IPs to process in this org
 
-                last_ip_id = updated_rows[-1][
-                    0
-                ]  # last processed IP ID for keyset pagination
+                last_ip_id = updated_rows[-1][0]  # last processed IP ID

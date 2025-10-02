@@ -1,5 +1,5 @@
 """Vs Requests Helpers."""
-
+#VALIDATE ??????
 # Standard Python Libraries
 import datetime
 from ipaddress import IPv4Network, IPv6Network
@@ -26,13 +26,27 @@ LOGGER = logging.getLogger(__name__)
 SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
+#?????? Validate this function should be filtered down like the others
+def fetch_orgs_from_redshift(org_list=None):
+    """
+    Fetch orgs from Redshift.
+    If org_list is provided, only fetch requests where owner is in org_list.
+    Otherwise fetch all requests.
+    """
+    query = "SELECT * FROM vmtableau.requests"
+    params = []
 
-def fetch_orgs_from_redshift():
-    """Fetch orgs from redshift."""
-    request_list = fetch_from_redshift("SELECT * FROM vmtableau.requests;")
+    if org_list:  # only apply filter if non-empty
+        placeholders = ", ".join(["%s"] * len(org_list))
+        query += f" WHERE owner IN ({placeholders})"
+        params = org_list
+
+    request_list = fetch_from_redshift(query, params=params)
     LOGGER.info("Fetched %d requests from Redshift", len(request_list))
+
     org_id_dict = process_orgs(request_list)
     LOGGER.info("Completed saving organizations to the LZ MDL.")
+
     return org_id_dict
 
 

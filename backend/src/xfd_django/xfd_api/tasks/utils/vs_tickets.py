@@ -39,15 +39,25 @@ DB_ALIAS = "mini_data_lake"
 
 
 def fetch_tickets_from_redshift(
-    org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
+    org_id_dict,
+    risky_service_groups,
+    nmi_service_groups,
+    ps_start_dt,
+    ps_end_dt,
+    org_list: list[str] | None = None
 ):
-    """Fetch tickets from redshift."""
+    """Fetch tickets from Redshift."""
     LOGGER.info("Starting ticket processing...")
 
     total_processed = 0
     chunk_number = 1
 
-    for chunk in fetch_ticket_chunks_frozen(ps_start_dt, ps_end_dt):
+    # Prepare owner filter list if org_list is provided
+    owners = [org for org in org_list if org in org_id_dict] if org_list else None
+
+    for chunk in fetch_ticket_chunks_frozen(
+        ps_start_dt, ps_end_dt, owners=owners
+    ):
         LOGGER.info(
             "Processing ticket chunk #%d with %d rows",
             chunk_number,
@@ -71,15 +81,21 @@ def fetch_tickets_from_redshift(
     LOGGER.info("Finished ticket processing.")
 
 
-def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=5000):
+def fetch_ticket_chunks_frozen(
+    start_dt,
+    end_dt,
+    chunk_size: int = 5000,
+    owners: list[str] | None = None,
+):
     """
     Fetch tickets in frozen keyset chunks ordered by (last_change, _id).
 
     Only retrieves tickets where last_change is between start_dt and end_dt.
 
+    Optionally filters tickets by owner acronyms if `owners` is provided.
+
     Yields lists of ticket rows (each up to chunk_size).
     """
-    # Freeze the window
     start_param = to_utc_naive(start_dt)
     end_param = to_utc_naive(end_dt)
 
@@ -96,6 +112,11 @@ def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=5000):
                 "(last_change > %s OR (last_change = %s AND _id > %s))"
             )
             params.extend([last_updated, last_updated, last_id])
+
+        # Owner filter
+        if owners:
+            where_clauses.append("owner = ANY(%s)")
+            params.append(owners)
 
         query = f"""
             SELECT *

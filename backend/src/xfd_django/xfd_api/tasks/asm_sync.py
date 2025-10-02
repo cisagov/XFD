@@ -131,37 +131,52 @@ def flag_asset_changes():
     # Ip.objects.filter(last_seen_timestamp__lt=cutoff_date).update(current=False)
 
 
-def flag_cidr_changes():
-    """Mark Cidrs that were not seen in the last scan as not current.
+def flag_cidr_changes(org_id_dict=None):
+    """Mark CIDRs that were not seen in the last scan as not current,
+    limited to the given orgs if provided.
 
-    return (organization_id, cidr_id) for cidrorgs that were closed.
+    org_id_dict should map acronym -> organization_id
+    Returns (organization_id, cidr_id) for cidrorgs that were closed.
     """
     cutoff_date = timezone.now().date() - datetime.timedelta(days=3)
 
-    # Find CidrOrgs that will be closed
-    cidrorgs_to_close = CidrOrgs.objects.filter(last_seen__lt=cutoff_date)
+    # Extract org IDs from the dict
+    org_ids = list(org_id_dict.values()) if org_id_dict else None
 
-    # Capture their (org_id, cidr_id) before updating
+    # Base queryset
+    cidrorgs_qs = CidrOrgs.objects.all()
+    if org_ids:
+        cidrorgs_qs = cidrorgs_qs.filter(organization_id__in=org_ids)
+
+    # Find CidrOrgs that will be closed
+    cidrorgs_to_close = cidrorgs_qs.filter(last_seen__lt=cutoff_date)
+
     closed_pairs = cidrorgs_to_close.values_list(
         "organization_id", "cidr_id"
     ).distinct()
 
-    # Mark them as not current
     cidrorgs_to_close.update(current=False)
 
     # Keep others marked current
-    CidrOrgs.objects.filter(last_seen__gte=cutoff_date).update(current=True)
+    cidrorgs_qs.filter(last_seen__gte=cutoff_date).update(current=True)
 
-    # Retire cidrs that no longer have current orgs
+    # Retire CIDRs that no longer have current orgs
     cidrs_to_retire = Cidr.objects.filter(
         Q(cidrorgs__isnull=True)
         | Q(cidrorgs__current=False)
         | Q(cidrorgs__current__isnull=True)
-    ).distinct()
-    cidrs_to_retire.update(retired=True)
+    )
+    if org_ids:
+        cidrs_to_retire = cidrs_to_retire.filter(cidrorgs__organization_id__in=org_ids)
 
-    # Unretire cidrs that still have current orgs
-    Cidr.objects.filter(cidrorgs__current=True).distinct().update(retired=False)
+    cidrs_to_retire.distinct().update(retired=True)
+
+    # Unretire CIDRs that still have current orgs
+    cidrs_with_current = Cidr.objects.filter(cidrorgs__current=True)
+    if org_ids:
+        cidrs_with_current = cidrs_with_current.filter(cidrorgs__organization_id__in=org_ids)
+
+    cidrs_with_current.distinct().update(retired=False)
 
     return list(closed_pairs)
 

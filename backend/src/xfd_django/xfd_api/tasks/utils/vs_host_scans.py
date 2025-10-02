@@ -20,18 +20,26 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-def create_daily_host_summary(org_id_dict, summary_date=None):
+
+def create_daily_host_summary(org_id_dict, org_list=None, summary_date=None):
     """Create host summary records directly from Redshift data."""
     LOGGER.info("Started processing host scans...")
+
     if summary_date is None:
         summary_date = timezone.now().date()
 
     LOGGER.info("Starting host summary creation directly from Redshift...")
 
-    redshift_query = """
+    # Only apply owner filter if a specific org_list is provided
+    owner_filter = ""
+    if org_list:  # org_list contains acronyms to filter
+        placeholders = ", ".join([f"'{owner}'" for owner in org_list])
+        owner_filter = f"AND owner IN ({placeholders})"
+
+    # Full Redshift query
+    redshift_query = f"""
     SELECT
         owner,
-        -- existing metrics
         MIN(last_change) AS start_date,
         MAX(last_change) AS end_date,
         SUM(CASE WHEN status = 'DONE' THEN 1 ELSE 0 END)    AS host_done_count,
@@ -104,6 +112,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             json_serialize(latest_scan) AS ls
         FROM vmtableau.hosts
         WHERE last_change >= GETDATE() - INTERVAL '100 days'
+        {owner_filter}
     ) t
     GROUP BY owner;
     """

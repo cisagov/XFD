@@ -106,11 +106,17 @@ def fetch_from_redshift_with_params(query: str, params: Tuple[Any, ...]):
 
 
 def fetch_in_chunks_keyset_frozen(
-    table: str, time_col: str, start_dt, end_dt, chunk_size: int = 500_000
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    chunk_size: int = 500_000,
+    owners: list[str] | None = None,
 ):
     """
     Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
 
+    Uses = ANY(array) for owner filtering if owners are provided.
     Quotes identifiers so Redshift doesn't parse `time` as a type.
     """
     last_time = None
@@ -126,9 +132,15 @@ def fetch_in_chunks_keyset_frozen(
         where = f"WHERE {q_time} >= %s AND {q_time} < %s"
         params = [start_param, end_param]
 
+        # Add keyset pagination if needed
         if last_time is not None and last_id is not None:
             where += f" AND ({q_time} > %s OR ({q_time} = %s AND {q_id} > %s))"
             params.extend([last_time, last_time, last_id])
+
+        # Add org filtering if owners provided
+        if owners:
+            where += " AND owner = ANY(%s)"
+            params.append(owners)  # pass list directly, psycopg2/Redshift turns into array
 
         query = f"""
             SELECT *
@@ -143,7 +155,7 @@ def fetch_in_chunks_keyset_frozen(
             break
 
         last_row = chunk[-1]
-        last_time = last_row[time_col]  # keep dict access unquoted
+        last_time = last_row[time_col]  # dict access, not quoted
         last_id = str(last_row["_id"])
 
         yield chunk
