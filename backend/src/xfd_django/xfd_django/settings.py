@@ -17,6 +17,7 @@ import os
 
 # Python built-in
 from pathlib import Path
+from typing import Any, Dict
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
@@ -143,7 +144,7 @@ LANGUAGE_CODE = "en-us"
 LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
 ROOT_LEVEL = "INFO"
 # Logging configuration
-handlers = {
+handlers: Dict[str, Any] = {
     "console": {
         "level": LOGGING_LEVEL,
         "class": "logging.StreamHandler",
@@ -169,7 +170,7 @@ if IS_LAMBDA and not IS_LOCAL:
                 "boto3_client": logs_client,
                 "log_group_name": "cyhy-{}-backend-api".format(STAGE),
                 "stream_name": "{machine_name}/{logger_name}/{process_id}",
-                "use_queues": "False",
+                "use_queues": False,
             },
             "requests_cloudwatch": {
                 "level": "INFO",
@@ -178,7 +179,7 @@ if IS_LAMBDA and not IS_LOCAL:
                 "boto3_client": logs_client,
                 "log_group_name": "cyhy-{}-backend-api-requests".format(STAGE),
                 "stream_name": "{machine_name}/{logger_name}/{process_id}",
-                "use_queues": "False",
+                "use_queues": False,
             },
         }
     )
