@@ -180,6 +180,11 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
   // Initialize UI state with user defaults - only run once on mount
   useEffect(() => {
+    // Don't run initialization during drill-down scenarios
+    if (isDrillDown) {
+      return;
+    }
+
     // Set user's default region if not already set
     if (!selectedRegion && user?.region_id) {
       console.log('Initializing with user default region:', user.region_id);
@@ -217,8 +222,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
       }
     }
     // Only run on mount and when user/currentOrganization become available
+    // Don't run during drill-down scenarios to avoid interfering with restoration
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.region_id, currentOrganization?.id]);
+  }, [user?.region_id, currentOrganization?.id, isDrillDown]);
 
   // Handle drill-down filter restoration - only during drill-down scenarios
   useEffect(() => {
@@ -254,8 +260,18 @@ export const VSDashRegionAndOrgFilters: React.FC<
           setSelectedOrg(firstOrg as OrganizationShallow);
         }
       }
+    } else {
+      // If no explicit org filter exists, restore the default organization
+      // This handles the case where user was using default org before drill-down
+      if (!selectedOrg && currentOrganization) {
+        const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
+        if (defaultOrg) {
+          console.log('Restoring default org after drill-down:', defaultOrg.name);
+          setSelectedOrg(defaultOrg);
+        }
+      }
     }
-  }, [isDrillDown, filters, selectedRegion, selectedOrg]);
+  }, [isDrillDown, filters, selectedRegion, selectedOrg, currentOrganization]);
 
   const handleTextChange = (v: string) => {
     setSearchTerm(v);
