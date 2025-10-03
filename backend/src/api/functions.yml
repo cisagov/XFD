@@ -1,6 +1,19 @@
 ---
 api:
     handler: src.xfd_django.xfd_django.asgi.handler
+    layers:
+        - ${self:custom.adotLayerArn.${self:provider.region}}
+
+    # NEW: ADOT auto-instrumentation + trace stitching to X-Ray
+    environment:
+        AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
+        OTEL_PROPAGATORS: xray,tracecontext,baggage
+        OTEL_TRACES_SAMPLER: parentbased_traceidratio
+        OTEL_TRACES_SAMPLER_ARG: "0.1"   # tune as needed
+        OTEL_RESOURCE_ATTRIBUTES: >
+          service.name=crossfeed-api,
+          service.namespace=crossfeed,
+          deployment.environment=${self:provider.stage}
     events:
         - http:
               path: /  # this matches the base path
