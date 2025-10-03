@@ -35,9 +35,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     return isDrillDown && sourceRoute === currentRoute;
   };
 
-  // No need for sessionStorage - drill-down state should be ephemeral
-  // React state naturally persists during navigation and resets on page reload
-
   const value: NavigationContextType = {
     isDrillDown,
     sourceRoute,

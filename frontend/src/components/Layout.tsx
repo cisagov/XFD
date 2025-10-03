@@ -22,7 +22,6 @@ import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
-import { useFilterRestore } from 'hooks/useFilterRestore';
 import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
 import { useNavigationContext, isVSDashboard } from 'context/NavigationContext';
 
@@ -52,9 +51,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
 
-  // Restore filters from localStorage when navigating to filter-enabled pages
-  useFilterRestore(filters, addFilter, pathname);
-
   const noAlertPaths = [
     '/login-gov-callback',
     '/okta-callback',
@@ -63,28 +59,8 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   ];
 
   useEffect(() => {
-    // NEW LOGIC: Only store filters during drill-down scenarios or on non-VS Dashboard pages
-    // - If we're on VS Dashboard and NOT in drill-down context, don't store filters 
-    //   (this prevents persistence of user-default filters that should reset on reload)
-    // - If we're in drill-down context, always store filters for restoration
-    // - If we're on other pages, store filters as usual
-    
-    const isVSDashboardPath = isVSDashboard(pathname);
-    
-    if (isVSDashboardPath && !isDrillDown) {
-      console.log('[Layout] VS Dashboard without drill-down context, not storing filters');
-      return;
-    }
-    
-    console.log(`[Layout] Storing filters for ${pathname}, isDrillDown: ${isDrillDown}, filterCount: ${filters.length}`);
-    
-    // For VS Dashboard in drill-down context, filter out region filters to allow reset to user defaults on page reload
-    const filtersToStore = isVSDashboardPath 
-      ? filters.filter(filter => filter.field !== 'organization.region_id')
-      : filters;
-    
-    localStorage.setItem('es-search-filters', JSON.stringify(filtersToStore));
-  }, [filters, pathname, isDrillDown]);
+    localStorage.setItem('es-search-filters', JSON.stringify(filters));
+  }, [filters]);
 
   const { regions } = useStaticsContext();
 
@@ -157,7 +133,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
       setInitialFilters(initialFiltersForUser);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regions, user, pathname]);
+  }, [regions, user]);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));

@@ -6,6 +6,7 @@ export function useClearFiltersOnMount(filters: any[], removeFilter: Function) {
   const { isDrillDown, clearDrillDown } = useNavigationContext();
   
   useEffect(() => {
+    console.log('CLEAR FILTERS ON MOUNT TRIGGERED');
     // NEW LOGIC: Only clear filters if we're NOT in a drill-down scenario
     // - If user is returning from drill-down, preserve filters
     // - If user is doing general navigation, clear non-essential filters
