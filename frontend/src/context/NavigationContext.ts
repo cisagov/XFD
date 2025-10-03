@@ -39,6 +39,7 @@ export const isDrillDownDestination = (route: string) => {
   return (
     route.startsWith('/inventory/vulnerability/') ||
     route.startsWith('/inventory/domain/') ||
-    route === '/inventory/vulnerabilities'
+    route === '/inventory/vulnerabilities' ||
+    route === '/inventory/domains'
   );
 };
