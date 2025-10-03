@@ -96,10 +96,17 @@ export const VSDashRegionAndOrgFilters: React.FC<
             });
             return !exlude;
           });
-          
-          // Don't filter out organizations when changing regions - show all available orgs
-          // This allows users to see all organizations in the selected region
-          const filteredOrgs = refinedOrgs;
+          // Filter out organizations that are already in the filters
+          const filteredOrgs = refinedOrgs.filter(
+            (org) =>
+              !filters.find(
+                (filter) =>
+                  filter.field === ORGANIZATION_FILTER_KEY &&
+                  filter.values.find(
+                    (value: { id: string }) => value.id === org.id
+                  )
+              )
+          );
           // Sort filtered orgs by name
           const sortedOrgs = filteredOrgs.sort((a, b) =>
             a.name.localeCompare(b.name)
@@ -125,7 +132,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
           
           setOrgResults(sortedOrgs);
         } catch (e) {
-          console.error('Error searching organizations:', e);
+          console.log(e);
         }
       }
     },
@@ -169,56 +176,40 @@ export const VSDashRegionAndOrgFilters: React.FC<
     searchOrganizations(search_term, regionFilterValues ?? []);
   }, [searchOrganizations, search_term, regionFilterValues]);
 
-  // Simple sync: use filter values if they exist, otherwise use user's default
+  // Simplified sync: only update UI state based on existing filters, don't auto-add filters
   useEffect(() => {
     const regionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
+    const orgFilter = filters.find((filter) => filter.field === ORGANIZATION_FILTER_KEY);
     
+    // Update region selection based on filter state
     if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
-      // Use the filtered region
       const targetRegion = regionFilter.values[0] as string;
       if (targetRegion !== selectedRegion) {
         setSelectedRegion(targetRegion);
       }
-    } else if (!selectedRegion && user?.region_id) {
-      // Only set user's default if no region is currently selected
-      setSelectedRegion(user.region_id);
+    } else {
+      // No region filter - show user's default region in UI but don't add filter
+      if (user?.region_id && user.region_id !== selectedRegion) {
+        setSelectedRegion(user.region_id);
+      }
     }
-  }, [filters, selectedRegion, user?.region_id]);
-
-  // Sync local selectedOrg state with restored filters
-  useEffect(() => {
-    const orgFilter = filters.find((filter) => filter.field === ORGANIZATION_FILTER_KEY);
     
+    // Update organization selection based on filter state
     if (orgFilter && orgFilter.values && orgFilter.values.length > 0) {
       const firstOrg = orgFilter.values[0];
-      // Check if it's an organization object or just an ID
       if (typeof firstOrg === 'object' && firstOrg.id) {
-        // It's an organization object
         if (!selectedOrg || selectedOrg.id !== firstOrg.id) {
           setSelectedOrg(firstOrg as OrganizationShallow);
         }
-      } else if (typeof firstOrg === 'string') {
-        // It's just an ID, try to find the full org data
-        // For now, create a minimal org object if we don't have the full data
-        if (!selectedOrg || selectedOrg.id !== firstOrg) {
-          // We might need to fetch organization details here, 
-          // but for now just clear the selection since we don't have full data
-          // This could be improved by fetching org details by ID
-        }
       }
     } else {
-      // No org filter exists - fall back to user's current organization
+      // No org filter - show user's current org in UI but don't add filter
       const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
       if (defaultOrg && (!selectedOrg || selectedOrg.id !== defaultOrg.id)) {
         setSelectedOrg(defaultOrg);
-        
-        // Also add the default organization as a filter so the dashboard shows the right data
-        if (defaultOrg) {
-          addFilter(ORGANIZATION_FILTER_KEY, defaultOrg, 'any');
-        }
       }
     }
-  }, [filters, selectedOrg, currentOrganization, addFilter]);
+  }, [filters, selectedRegion, selectedOrg, user?.region_id, currentOrganization]);
 
   const handleTextChange = (v: string) => {
     setSearchTerm(v);
