@@ -1,21 +1,11 @@
 /*
     Author: Jesse Salinas
     Date: 2025-10-02
-    Description: Navigation context to track drill-down vs general navigation for filter persistence
+    Description: Navigation context provider implementation for drill-down state management
 */
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-
-interface NavigationContextType {
-  isDrillDown: boolean;
-  sourceRoute: string | null;
-  targetRoute: string | null;
-  markDrillDown: (sourceRoute: string, targetRoute: string) => void;
-  clearDrillDown: () => void;
-  isReturningFromDrillDown: (currentRoute: string) => boolean;
-}
-
-const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
+import React, { useState, ReactNode } from 'react';
+import { NavigationContext, NavigationContextType } from './NavigationContext';
 
 interface NavigationProviderProps {
   children: ReactNode;
@@ -61,27 +51,5 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     <NavigationContext.Provider value={value}>
       {children}
     </NavigationContext.Provider>
-  );
-};
-
-export const useNavigationContext = () => {
-  const context = useContext(NavigationContext);
-  if (context === undefined) {
-    throw new Error('useNavigationContext must be used within a NavigationProvider');
-  }
-  return context;
-};
-
-// Helper function to determine if a route is VS Dashboard
-export const isVSDashboard = (route: string) => {
-  return route === '/VSDashboard' || route.startsWith('/VSDashboard');
-};
-
-// Helper function to determine if a route is a drill-down destination
-export const isDrillDownDestination = (route: string) => {
-  return (
-    route.startsWith('/inventory/vulnerability/') ||
-    route.startsWith('/inventory/domain/') ||
-    route === '/inventory/vulnerabilities'
   );
 };
