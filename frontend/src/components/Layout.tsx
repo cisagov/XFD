@@ -182,22 +182,20 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
           </Box>
         )}
         <Header />
-        {userLevel > 0 &&
-          matchPath(FILTER_ENABLED_PATHS, pathname) && (
-            <FilterDrawerToggle />
-          )}
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerToggle />
+        )}
       </Box>
       <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
-        {userLevel > 0 &&
-          matchPath(FILTER_ENABLED_PATHS, pathname) && (
-            <FilterDrawerV2
-              setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-              isFilterDrawerOpen={isFilterDrawerOpen}
-              isMobile={isMobile}
-              initialFilters={initialFilters}
-              topOffset={topOffset}
-            />
-          )}
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerV2
+            setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+            isFilterDrawerOpen={isFilterDrawerOpen}
+            isMobile={isMobile}
+            initialFilters={initialFilters}
+            topOffset={topOffset}
+          />
+        )}
         {children}
       </Main>
     </>

@@ -46,7 +46,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const [isRegOpen, setIsRegOpen] = useState(false);
   const [isOrgOpen, setIsOrgOpen] = useState(false);
   // Initialize selectedRegion - let the effect handle setting the correct value
-  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
+  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
+    undefined
+  );
 
   const userLevel = useUserLevel().userLevel;
 
@@ -182,12 +184,20 @@ export const VSDashRegionAndOrgFilters: React.FC<
     if (!selectedRegion && user?.region_id) {
       console.log('Initializing with user default region:', user.region_id);
       setSelectedRegion(user.region_id);
-      
+
       // Also add the user's default region as a filter to ensure correct drill-down behavior
       // This prevents other region filters from being stored during drill-down
-      const existingRegionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
-      if (!existingRegionFilter || existingRegionFilter.values[0] !== user.region_id) {
-        console.log('Adding user default region filter to ensure correct drill-down:', user.region_id);
+      const existingRegionFilter = filters.find(
+        (filter) => filter.field === REGION_FILTER_KEY
+      );
+      if (
+        !existingRegionFilter ||
+        existingRegionFilter.values[0] !== user.region_id
+      ) {
+        console.log(
+          'Adding user default region filter to ensure correct drill-down:',
+          user.region_id
+        );
         // Remove any existing region filters first
         if (existingRegionFilter && existingRegionFilter.values) {
           existingRegionFilter.values.forEach((value: string) => {
@@ -197,7 +207,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
         addFilter(REGION_FILTER_KEY, user.region_id, 'any');
       }
     }
-    
+
     // Set user's default organization if not already set
     if (!selectedOrg && currentOrganization) {
       const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
@@ -217,11 +227,15 @@ export const VSDashRegionAndOrgFilters: React.FC<
       return;
     }
 
-    const regionFilter = filters.find((filter) => filter.field === REGION_FILTER_KEY);
-    const orgFilter = filters.find((filter) => filter.field === ORGANIZATION_FILTER_KEY);
-    
+    const regionFilter = filters.find(
+      (filter) => filter.field === REGION_FILTER_KEY
+    );
+    const orgFilter = filters.find(
+      (filter) => filter.field === ORGANIZATION_FILTER_KEY
+    );
+
     console.log('Drill-down detected, checking for filter restoration');
-    
+
     // Restore region filter if it exists and differs from current selection
     if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
       const targetRegion = regionFilter.values[0] as string;
@@ -230,7 +244,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
         setSelectedRegion(targetRegion);
       }
     }
-    
+
     // Restore organization filter if it exists and differs from current selection
     if (orgFilter && orgFilter.values && orgFilter.values.length > 0) {
       const firstOrg = orgFilter.values[0];

@@ -8,7 +8,11 @@ import {
 } from '@mui/material';
 import InfoTooltipIcon from './InfoTooltipIcon';
 import { useHistory, useLocation } from 'react-router-dom';
-import { useNavigationContext, isVSDashboard, isDrillDownDestination } from 'context/NavigationContext';
+import {
+  useNavigationContext,
+  isVSDashboard,
+  isDrillDownDestination
+} from 'context/NavigationContext';
 
 type InfoLabelProps = {
   label: string;
@@ -44,17 +48,19 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    
+
     // Only mark as drill-down if coming from VS Dashboard to a drill-down destination
     const isFromVSDashboard = isVSDashboard(location.pathname);
     const targetUrl = link || '/inventory';
     const isDrillDownTarget = isDrillDownDestination(targetUrl);
-    
+
     if (isFromVSDashboard && isDrillDownTarget) {
-      console.log(`[InfoLabel] Marking drill-down: ${location.pathname} → ${targetUrl}`);
+      console.log(
+        `[InfoLabel] Marking drill-down: ${location.pathname} → ${targetUrl}`
+      );
       markDrillDown(location.pathname, targetUrl);
     }
-    
+
     history.push(targetUrl, stateVariables);
   };
 

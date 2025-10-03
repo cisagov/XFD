@@ -7,7 +7,7 @@
 import React, { useContext } from 'react';
 
 export interface NavigationContextType {
-	isDrillDown: boolean;
+  isDrillDown: boolean;
   sourceRoute: string | null;
   targetRoute: string | null;
   markDrillDown: (sourceRoute: string, targetRoute: string) => void;
@@ -15,12 +15,16 @@ export interface NavigationContextType {
   isReturningFromDrillDown: (currentRoute: string) => boolean;
 }
 
-export const NavigationContext = React.createContext<NavigationContextType>(undefined!);
+export const NavigationContext = React.createContext<NavigationContextType>(
+  undefined!
+);
 
 export const useNavigationContext = (): NavigationContextType => {
   const context = useContext(NavigationContext);
   if (context === undefined) {
-    throw new Error('useNavigationContext must be used within a NavigationProvider');
+    throw new Error(
+      'useNavigationContext must be used within a NavigationProvider'
+    );
   }
   return context;
 };
