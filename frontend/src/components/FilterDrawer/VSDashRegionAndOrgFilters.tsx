@@ -129,7 +129,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
           sortedOrgs.forEach((org) => {
             org.name = decodeHtml(org.name);
           });
-          
+
           setOrgResults(sortedOrgs);
         } catch (e) {
           console.log(e);
@@ -149,27 +149,25 @@ export const VSDashRegionAndOrgFilters: React.FC<
   }, [allRegionsOption, regions]);
 
   const regionFilterValues = useMemo(() => {
+    const regionFilter = filters.find(
+      (filter) => filter.field === REGION_FILTER_KEY
+    );
+    const userRegion = user?.region_id;
+
     if (selectedRegion === allRegionsOption) {
       // If "All Regions" is selected, include all regions
       return regions;
     }
-    
-    // If a region is currently selected in the UI, use that
-    if (selectedRegion) {
-      return [selectedRegion];
+    // Applies user's region id on initial load
+    if (
+      !regionFilter ||
+      !Array.isArray(regionFilter.values) ||
+      (regionFilter.values.length === regions.length &&
+        regionFilter.values.includes(userRegion))
+    ) {
+      return userRegion ? [userRegion] : [];
     }
-    
-    // Otherwise, check if there's a region filter
-    const regionFilter = filters.find(
-      (filter) => filter.field === REGION_FILTER_KEY
-    );
-    if (regionFilter && Array.isArray(regionFilter.values) && regionFilter.values.length > 0) {
-      return regionFilter.values as string[];
-    }
-    
-    // Final fallback to user's region
-    const userRegion = user?.region_id;
-    return userRegion ? [userRegion] : [];
+    return regionFilter.values as string[];
   }, [filters, user?.region_id, selectedRegion, regions]);
 
   useEffect(() => {
