@@ -1,13 +1,13 @@
 /*
-    Author: Jesse Salinas
-    Date: 2025-10-02
-    Description: Navigation context to track drill-down vs general navigation for filter persistence
+  Author: Jesse Salinas
+  Date: 2025-10-02
+	Description: Navigation context to track drill-down vs general navigation for filter persistence
 */
 
 import React, { useContext } from 'react';
 
 export interface NavigationContextType {
-  isDrillDown: boolean;
+	isDrillDown: boolean;
   sourceRoute: string | null;
   targetRoute: string | null;
   markDrillDown: (sourceRoute: string, targetRoute: string) => void;
