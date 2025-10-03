@@ -23,7 +23,6 @@ import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
 import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
-import { useNavigationContext, isVSDashboard } from 'context/NavigationContext';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -47,7 +46,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 }) => {
   const { pathname } = useLocation();
   const { logout, user } = useAuthContext();
-  const { isDrillDown } = useNavigationContext();
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
 
@@ -120,12 +118,6 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
 
   useEffect(() => {
-    // Skip automatic user type filters on VS Dashboard - it has custom filter logic
-    const isVSDashboardPath = isVSDashboard(pathname);
-    if (isVSDashboardPath) {
-      return;
-    }
-    
     initialFiltersForUser.forEach((filter) => {
       filter.values.forEach((val) => {
         addFilter(filter.field, val, filter.type);
