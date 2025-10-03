@@ -1,7 +1,23 @@
 ---
-
 scheduler:
+  # ADOT: define common layer+env once and anchor it for reuse, see all
+  # functions below for usage of the anchor.
+  <<: &adot
+    layers:
+      - ${self:custom.adotLayerArn.${self:provider.region}}
+    environment:
+      AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
+      OTEL_PROPAGATORS: xray,tracecontext,baggage
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"
+      OTEL_RESOURCE_ATTRIBUTES: >
+        service.name=crossfeed-tasks,
+        service.namespace=crossfeed,
+        deployment.environment=${self:provider.stage}
+
   handler: src/xfd_django/xfd_api/tasks/scheduler.handler
+  # TODO: Parameterize the timeout value,
+  # at a future date see CRASM-3270. See all timeouts below.
   timeout: 900
   events:
     - schedule: rate(5 minutes)
@@ -47,16 +63,19 @@ scheduler:
       Resource: '*'
 
 syncdb:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/run_syncdb.handler
   iamRoleStatements: []
 
 syncmdl:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/run_syncmdl.handler
   iamRoleStatements: []
 
 bastion:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/bastion.handler
   iamRoleStatements:
@@ -71,6 +90,7 @@ bastion:
       Resource: '*'
 
 checkUserExpiration:
+  <<: *adot
   timeout: 300
   handler: src/xfd_django/xfd_api/tasks/checkUserExpiration.handler
   events:
@@ -89,6 +109,7 @@ checkUserExpiration:
       Resource: '*'
 
 queryDailyCustomerMetrics:
+  <<: *adot
   timeout: 300
   handler: src/xfd_django/xfd_api/tasks/metrics.collect_and_upsert_customer_metrics
   events:
@@ -96,6 +117,7 @@ queryDailyCustomerMetrics:
   iamRoleStatements: []
 
 scanExecution:
+  <<: *adot
   timeout: 900  # 15 minutes
   handler: src/xfd_django/xfd_api/tasks/scanExecution.handler
   memorySize: 4096
@@ -139,6 +161,7 @@ scanExecution:
       Resource: '*'
 
 updateScanTaskStatus:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/updateScanTaskStatus.handler
   events:
     - eventBridge:
@@ -154,11 +177,13 @@ updateScanTaskStatus:
   iamRoleStatements: []
 
 infraOps:
+  <<: *adot
   timeout: 900
   handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
   iamRoleStatements: []
 
 pruneScanResults:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/prune_scan_results.handler
   events:
     - schedule:
@@ -166,6 +191,7 @@ pruneScanResults:
   iamRoleStatements: []
 
 serviceStatsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
   events:
     - schedule:
@@ -173,6 +199,7 @@ serviceStatsCache:
   iamRoleStatements: []
 
 portStatsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_ports_cache
   events:
     - schedule:
@@ -180,6 +207,7 @@ portStatsCache:
   iamRoleStatements: []
 
 numVulnsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_num_vulns_cache
   events:
     - schedule:
@@ -187,6 +215,7 @@ numVulnsCache:
   iamRoleStatements: []
 
 latestVulnsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_latest_vulns_cache
   events:
     - schedule:
@@ -194,6 +223,7 @@ latestVulnsCache:
   iamRoleStatements: []
 
 mostCommonVulnsCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_most_common_vulns_cache
   events:
     - schedule:
@@ -201,6 +231,7 @@ mostCommonVulnsCache:
   iamRoleStatements: []
 
 severityCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_severity_cache
   events:
     - schedule:
@@ -208,6 +239,7 @@ severityCache:
   iamRoleStatements: []
 
 byOrgCache:
+  <<: *adot
   handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_by_org_cache
   events:
     - schedule:
