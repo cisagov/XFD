@@ -65,10 +65,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
     };
   };
 
-  // Initialize selectedOrg - let the effect handle setting the correct value
   const [selectedOrg, setSelectedOrg] = useState<
     OrganizationShallow | undefined
-  >(undefined);
+  >(shallowCurrentOrg(currentOrganization as Organization));
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
