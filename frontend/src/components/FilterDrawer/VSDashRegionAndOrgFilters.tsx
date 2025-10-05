@@ -187,7 +187,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
     // Set user's default region if not already set
     if (!selectedRegion && user?.region_id) {
-      console.log('Initializing with user default region:', user.region_id);
       setSelectedRegion(user.region_id);
 
       // Also add the user's default region as a filter to ensure correct drill-down behavior
@@ -199,10 +198,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
         !existingRegionFilter ||
         existingRegionFilter.values[0] !== user.region_id
       ) {
-        console.log(
-          'Adding user default region filter to ensure correct drill-down:',
-          user.region_id
-        );
         // Remove any existing region filters first
         if (existingRegionFilter && existingRegionFilter.values) {
           existingRegionFilter.values.forEach((value: string) => {
@@ -217,7 +212,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
     if (!selectedOrg && currentOrganization) {
       const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
       if (defaultOrg) {
-        console.log('Initializing with user default org:', defaultOrg.name);
         setSelectedOrg(defaultOrg);
       }
     }
@@ -240,13 +234,10 @@ export const VSDashRegionAndOrgFilters: React.FC<
       (filter) => filter.field === ORGANIZATION_FILTER_KEY
     );
 
-    console.log('Drill-down detected, checking for filter restoration');
-
     // Restore region filter if it exists and differs from current selection
     if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
       const targetRegion = regionFilter.values[0] as string;
       if (targetRegion !== selectedRegion) {
-        console.log('Restoring region filter from drill-down:', targetRegion);
         setSelectedRegion(targetRegion);
       }
     }
@@ -256,7 +247,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
       const firstOrg = orgFilter.values[0];
       if (typeof firstOrg === 'object' && firstOrg.id) {
         if (!selectedOrg || selectedOrg.id !== firstOrg.id) {
-          console.log('Restoring org filter from drill-down:', firstOrg.name);
           setSelectedOrg(firstOrg as OrganizationShallow);
         }
       }
@@ -266,7 +256,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
       if (!selectedOrg && currentOrganization) {
         const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
         if (defaultOrg) {
-          console.log('Restoring default org after drill-down:', defaultOrg.name);
           setSelectedOrg(defaultOrg);
         }
       }

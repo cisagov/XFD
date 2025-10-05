@@ -19,16 +19,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   const [targetRoute, setTargetRoute] = useState<string | null>(null);
 
   const markDrillDown = (source: string, target: string) => {
-    console.log(
-      `[NavigationContext] Marking drill-down: ${source} → ${target}`
-    );
     setIsDrillDown(true);
     setSourceRoute(source);
     setTargetRoute(target);
   };
 
   const clearDrillDown = () => {
-    console.log('[NavigationContext] Clearing drill-down state');
     setIsDrillDown(false);
     setSourceRoute(null);
     setTargetRoute(null);

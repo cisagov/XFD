@@ -55,9 +55,6 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
     const isDrillDownTarget = isDrillDownDestination(targetUrl);
 
     if (isFromVSDashboard && isDrillDownTarget) {
-      console.log(
-        `[InfoLabel] Marking drill-down: ${location.pathname} → ${targetUrl}`
-      );
       markDrillDown(location.pathname, targetUrl);
     }
 

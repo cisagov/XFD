@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tabs, Tab } from '@mui/material';
 import { useLocation, useHistory } from 'react-router-dom';
+import { useNavigationContext } from 'context/NavigationContext';
 
 type NavTabItem = {
   title: string;
@@ -15,6 +16,7 @@ type NavTabsProps = {
 export const Subnav = ({ items }: NavTabsProps) => {
   const location = useLocation();
   const history = useHistory();
+  const { clearDrillDown } = useNavigationContext();
 
   const getPathString = (path: string | { pathname: string }) =>
     typeof path === 'string' ? path : path.pathname;
@@ -28,6 +30,13 @@ export const Subnav = ({ items }: NavTabsProps) => {
 
   const handleChange = (_event: React.SyntheticEvent, newValue: string) => {
     const pathString = getPathString(newValue);
+    
+    // Clear drill-down state when navigating to Search Results (/inventory)
+    // because it has its own independent filter system that conflicts with VS Dashboard filters
+    if (pathString === '/inventory') {
+      clearDrillDown();
+    }
+    
     history.push(pathString);
   };
 
