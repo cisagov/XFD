@@ -4,7 +4,7 @@ scheduler:
   # functions below for usage of the anchor.
   <<: &adot
     layers:
-      - ${self:custom.adotLayerArnSelected}
+      - ${self:custom.adotLayers}
     environment:
       AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
       OTEL_PROPAGATORS: xray,tracecontext,baggage
