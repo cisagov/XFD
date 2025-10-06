@@ -3,7 +3,7 @@ scheduler:
   # ADOT: define common layer+env once and anchor it for reuse, see all
   # functions below for usage of the anchor.
   <<: &adot
-    layers: ${self:custom.adotLayers, []}
+    layers: ${self:custom.adotLayers}
     environment:
       AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
       OTEL_PROPAGATORS: xray,tracecontext,baggage
