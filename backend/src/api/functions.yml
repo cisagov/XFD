@@ -1,125 +1,122 @@
 ---
 api:
-    handler: src.xfd_django.xfd_django.asgi.handler
-    layers:
-        - ${self:custom.adotLayerArnSelected}
-
-    # NEW: ADOT auto-instrumentation + trace stitching to X-Ray
-    environment:
-        AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
-        OTEL_PROPAGATORS: xray,tracecontext,baggage
-        OTEL_TRACES_SAMPLER: parentbased_traceidratio
-        OTEL_TRACES_SAMPLER_ARG: "0.1"   # tune as needed
-        OTEL_RESOURCE_ATTRIBUTES: >
-          service.name=crossfeed-api,
-          service.namespace=crossfeed,
-          deployment.environment=${self:provider.stage}
+  handler: src.xfd_django.xfd_django.asgi.handler
+  layers: ${self:custom.adotLayers, []}
+  environment:
+    AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
+    OTEL_PROPAGATORS: xray,tracecontext,baggage
+    OTEL_TRACES_SAMPLER: parentbased_traceidratio
+    OTEL_TRACES_SAMPLER_ARG: "0.1"
+    OTEL_RESOURCE_ATTRIBUTES: >
+      service.name=crossfeed-api,
+      service.namespace=crossfeed,
+      deployment.environment=${self:provider.stage}
     events:
-        - http:
-              path: /  # this matches the base path
-              method: ANY
-              cors:
-                  origins:
-                      - ${file(env.yml):${self:provider.stage}.FRONTEND_DOMAIN}
-                  headers:
-                      - Content-Type
-                      - Authorization
-                      - X-API-KEY
-                      - X-Amz-Security-Token
-                      - X-Amz-Date
-                      - X-Amzn-Trace-Id
-                      - Accept
-                      - Origin
-                      - Cache-Control
-                      - Pragma
-                  allowCredentials: true
-        - http:
-              # this matches any path, the token 'any' doesn't mean anything special
-              path: /{any+}
-              method: ANY
-              cors:
-                  origins:
-                      - ${file(env.yml):${self:provider.stage}.FRONTEND_DOMAIN}
-                  headers:
-                      - Content-Type
-                      - Authorization
-                      - X-API-KEY
-                      - X-Amz-Security-Token
-                      - X-Amz-Date
-                      - X-Amzn-Trace-Id
-                      - Accept
-                      - Origin
-                      - Cache-Control
-                      - Pragma
-                  allowCredentials: true
+      - http:
+          path: /  # this matches the base path
+          method: ANY
+          cors:
+            origins:
+              - ${file(env.yml):${self:provider.stage}.FRONTEND_DOMAIN}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-API-KEY
+              - X-Amz-Security-Token
+              - X-Amz-Date
+              - X-Amzn-Trace-Id
+              - Accept
+              - Origin
+              - Cache-Control
+              - Pragma
+            allowCredentials: true
+      - http:
+            # this matches any path, the token 'any' doesn't mean anything special
+          path: /{any+}
+          method: ANY
+          cors:
+            origins:
+              - ${file(env.yml):${self:provider.stage}.FRONTEND_DOMAIN}
+            headers:
+              - Content-Type
+              - Authorization
+              - X-API-KEY
+              - X-Amz-Security-Token
+              - X-Amz-Date
+              - X-Amzn-Trace-Id
+              - Accept
+              - Origin
+              - Cache-Control
+              - Pragma
+            allowCredentials: true
     iamRoleStatementsInherit: true
     iamRoleStatements:
-        # TODO: make the resources more specific. See Resource: '*' was
-        - Effect: Allow
-          Action:
-              - lambda:InvokeAsync
-              - lambda:InvokeFunction
-              - cognito-idp:AdminDisableUser
-              - cognito-idp:ListUsers
-              - cognito-idp:AdminSetUserPassword
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - ecs:RunTask
-              - ecs:ListTasks
-              - ecs:DescribeTasks
-              - ecs:DescribeServices
-              - ecs:UpdateService
-              - iam:PassRole
-              - logs:GetLogEvents
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - ses:SendRawEmail
-              - ses:SendEmail
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - s3:GetObject
-              - s3:GetObjectAcl
-              - s3:PutObject
-              - s3:PutObjectAcl
-              - s3:PutBucketAcl
-              - s3:GetBucketAcl
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - sts:AssumeRole
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - sqs:CreateQueue
-              - sqs:ListQueues
-              - sqs:ReceiveMessage
-              - sqs:DeleteMessage
-              - sqs:SendMessage
-              - sqs:GetQueueAttributes
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - logs:CreateExportTask
-              - logs:CreateLogStream
-              - logs:Describe*
-              - logs:Get*
-              - logs:List*
-              - logs:PutLogEvents
-              - logs:StartQuery
-              - logs:StopQuery
-              - logs:TestMetricFilter
-              - logs:FilterLogEvents
-              - logs:StartLiveTail
-              - logs:StopLiveTail
-          Resource: '*'
-        - Effect: Allow
-          Action:
-              - ssm:DescribeParameters
-              - ssm:GetParameter
-              - ssm:GetParameters
-              - ssm:GetParametersByPath
-              - ssm:PutParameter
-          Resource: '*'
+      # TODO: make the resources more specific. See Resource: '*' was
+      - Effect: Allow
+        Action:
+          - lambda:InvokeAsync
+          - lambda:InvokeFunction
+          - cognito-idp:AdminDisableUser
+          - cognito-idp:ListUsers
+          - cognito-idp:AdminSetUserPassword
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - ecs:RunTask
+          - ecs:ListTasks
+          - ecs:DescribeTasks
+          - ecs:DescribeServices
+          - ecs:UpdateService
+          - iam:PassRole
+          - logs:GetLogEvents
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - ses:SendRawEmail
+          - ses:SendEmail
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - s3:GetObject
+          - s3:GetObjectAcl
+          - s3:PutObject
+          - s3:PutObjectAcl
+          - s3:PutBucketAcl
+          - s3:GetBucketAcl
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - sts:AssumeRole
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - sqs:CreateQueue
+          - sqs:ListQueues
+          - sqs:ReceiveMessage
+          - sqs:DeleteMessage
+          - sqs:SendMessage
+          - sqs:GetQueueAttributes
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - logs:CreateExportTask
+          - logs:CreateLogStream
+          - logs:Describe*
+          - logs:Get*
+          - logs:List*
+          - logs:PutLogEvents
+          - logs:StartQuery
+          - logs:StopQuery
+          - logs:TestMetricFilter
+          - logs:FilterLogEvents
+          - logs:StartLiveTail
+          - logs:StopLiveTail
+        Resource: '*'
+      - Effect: Allow
+        Action:
+          - ssm:DescribeParameters
+          - ssm:GetParameter
+          - ssm:GetParameters
+          - ssm:GetParametersByPath
+          - ssm:PutParameter
+        Resource: '*'
