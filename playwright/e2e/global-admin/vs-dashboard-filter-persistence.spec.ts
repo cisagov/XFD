@@ -3,11 +3,6 @@
     Author: Jesse Salinas
     Date: 2025-09-30
     Description: Test functions for VS Dashboard filter persistence during drill-down navigation (CRASM-3004)
-    
-    Updated scope per stakeholder feedback (Amelia & Mia):
-    - Filters should persist ONLY during drill-down navigation from VS Dashboard
-    - Filters should NOT persist during general navigation between tabs/pages
-    - This ensures filters only remain when user is performing drill-down actions
 */
 
 import { test } from '../../tests/fixtures';
@@ -757,9 +752,9 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
       const filtersAfterDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
       console.log('Filters after drill-down return:', filtersAfterDrillDown);
       expect(filtersAfterDrillDown.region).toBe(filtersBeforeDrillDown.region);
-      console.log('✅ Verified: Filters persist during drill-down navigation');
+      console.log('Verified: Filters persist during drill-down navigation');
     } else {
-      console.log('⚠️  No drill-down links available, skipping drill-down test');
+      console.log('No drill-down links available, skipping drill-down test');
     }
 
     // Part 2: Test general navigation resets filters
@@ -776,7 +771,7 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
 
     // Should reset to defaults, not preserve Region 4
     expect(filtersAfterGeneralNav.region).not.toContain('Region 4');
-    console.log('✅ Verified: Filters reset during general navigation');
+    console.log('Verified: Filters reset during general navigation');
 
     // Accessibility scan
     const results = await makeAxeBuilder(pageAsGlobalAdmin)
