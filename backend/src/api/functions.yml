@@ -31,7 +31,7 @@ api:
             - Pragma
           allowCredentials: true
     - http:
-          # this matches any path, the token 'any' doesn't mean anything special
+        # this matches any path, the token 'any' doesn't mean anything special
         path: /{any+}
         method: ANY
         cors:
