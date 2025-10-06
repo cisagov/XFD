@@ -251,7 +251,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
       // If no explicit org filter exists, restore the default organization
       // This handles the case where user was using default org before drill-down
       if (!selectedOrg && currentOrganization) {
-        const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
+        const defaultOrg = shallowCurrentOrg(
+          currentOrganization as Organization
+        );
         if (defaultOrg) {
           setSelectedOrg(defaultOrg);
         }

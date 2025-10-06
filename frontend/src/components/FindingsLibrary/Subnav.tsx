@@ -30,13 +30,13 @@ export const Subnav = ({ items }: NavTabsProps) => {
 
   const handleChange = (_event: React.SyntheticEvent, newValue: string) => {
     const pathString = getPathString(newValue);
-    
+
     // Clear drill-down state when navigating to Search Results (/inventory)
     // because it has its own independent filter system that conflicts with VS Dashboard filters
     if (pathString === '/inventory') {
       clearDrillDown();
     }
-    
+
     history.push(pathString);
   };
 
