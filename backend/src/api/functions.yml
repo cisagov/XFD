@@ -120,3 +120,8 @@ api:
         - ssm:GetParametersByPath
         - ssm:PutParameter
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - xray:PutTraceSegments
+        - xray:PutTelemetryRecords
+      Resource: "*"
