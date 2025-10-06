@@ -45,7 +45,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isRegOpen, setIsRegOpen] = useState(false);
   const [isOrgOpen, setIsOrgOpen] = useState(false);
-  // Initialize selectedRegion - let the effect handle setting the correct value
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
     undefined
   );
@@ -216,7 +215,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
     }
     // Only run on mount and when user/currentOrganization become available
     // Don't run during drill-down scenarios to avoid interfering with restoration
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.region_id, currentOrganization?.id, isDrillDown]);
 
   // Handle drill-down filter restoration - only during drill-down scenarios

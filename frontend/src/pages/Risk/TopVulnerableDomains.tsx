@@ -12,11 +12,9 @@ import {
   getAllVulnColor
 } from './utils';
 import * as RiskStyles from './style';
-import { useNavigationContext } from 'context/NavigationContext';
 
 const TopVulnerableDomains = (props: { data: Point[] }) => {
   const history = useHistory();
-  const { markDrillDown } = useNavigationContext();
   const { data } = props;
   const {
     header,
@@ -76,11 +74,7 @@ const TopVulnerableDomains = (props: { data: Point[] }) => {
     const filteredVulnTableLinkHandler = (
       filteredVulnTableLink: string,
       domain: string
-    ) => {
-      // Mark this as a drill-down navigation from Risk Dashboard to Vulnerabilities
-      markDrillDown('/risk', '/inventory/vulnerabilities');
-      history.push(filteredVulnTableLink, { domain: domain });
-    };
+    ) => history.push(filteredVulnTableLink, { domain: domain });
     return reversedBars.map((bar) => (
       <Tooltip
         arrow
