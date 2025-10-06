@@ -52,6 +52,7 @@ api:
                       - Cache-Control
                       - Pragma
                   allowCredentials: true
+    iamRoleStatementsInherit: true
     iamRoleStatements:
         # TODO: make the resources more specific. See Resource: '*' was
         - Effect: Allow

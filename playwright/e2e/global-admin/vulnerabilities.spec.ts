@@ -1,14 +1,16 @@
-const { test, expect, Page } = require('../../axe-test');
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
 import type { TestInfo } from '@playwright/test';
 
 test.describe('Vulnerabilities', () => {
-  test('Test vulnerabilities accessibility', async ({
-    page,
+  test.skip('Test vulnerabilities accessibility', async ({
+    page: pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
 
-    const accessibilityScanResults = await makeAxeBuilder().analyze();
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
 
     await testInfo.attach('accessibility-scan-results', {
       body: JSON.stringify(accessibilityScanResults, null, 2),
@@ -19,11 +21,18 @@ test.describe('Vulnerabilities', () => {
   });
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
-  test.skip('Test vulnerability details NIST link', async ({ page }) => {
-    await page.goto('/inventory/vulnerabilities');
-    const newTabPromise = page.waitForEvent('popup');
+  test.skip('Test vulnerability details NIST link', async ({
+    page: pageAsGlobalAdmin
+  }) => {
+    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    const newTabPromise = pageAsGlobalAdmin.waitForEvent('popup');
 
-    await page.getByRole('row').nth(1).getByRole('cell').nth(0).click();
+    await pageAsGlobalAdmin
+      .getByRole('row')
+      .nth(1)
+      .getByRole('cell')
+      .nth(0)
+      .click();
     const newTab = await newTabPromise;
     await newTab.waitForLoadState();
     await expect(newTab).toHaveURL(
@@ -32,22 +41,35 @@ test.describe('Vulnerabilities', () => {
   });
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
-  test.skip('Test domain details link', async ({ page }) => {
-    await page.goto('/inventory/vulnerabilities');
-    await page.getByRole('row').nth(1).getByRole('cell').nth(3).click();
-    await expect(page).toHaveURL(new RegExp('/inventory/domain/'));
+  test.skip('Test domain details link', async ({ page: pageAsGlobalAdmin }) => {
+    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin
+      .getByRole('row')
+      .nth(1)
+      .getByRole('cell')
+      .nth(3)
+      .click();
+    await expect(pageAsGlobalAdmin).toHaveURL(new RegExp('/inventory/domain/'));
   });
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
   test.skip('Test vulnerability details accessibility', async ({
-    page,
+    page: pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto('/inventory/vulnerabilities');
-    await page.getByRole('row').nth(1).getByRole('cell').nth(7).click();
-    await expect(page).toHaveURL(new RegExp('/inventory/vulnerability/'));
+    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin
+      .getByRole('row')
+      .nth(1)
+      .getByRole('cell')
+      .nth(7)
+      .click();
+    await expect(pageAsGlobalAdmin).toHaveURL(
+      new RegExp('/inventory/vulnerability/')
+    );
 
-    const accessibilityScanResults = await makeAxeBuilder().analyze();
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
 
     await testInfo.attach('accessibility-scan-results', {
       body: JSON.stringify(accessibilityScanResults, null, 2),

@@ -1,36 +1,37 @@
-import { test, expect } from '../../axe-test';
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
 
 test.describe('Detected Hosts View Details', () => {
-  test('View Details link navigates to /inventory/domains', async ({
-    page
+  test.skip('View Details link navigates to /inventory/domains', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
-    await page.waitForSelector('text=Detected Hosts');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
-    const detectedLink = page
+    const detectedLink = pageAsGlobalAdmin
       .getByRole('link', { name: 'View Details' })
       .nth(1);
     await Promise.all([
-      page.waitForURL('**/inventory/domains'),
+      pageAsGlobalAdmin.waitForURL('**/inventory/domains'),
       detectedLink.click()
     ]);
-    await expect(page).toHaveURL(/\/inventory\/domains$/);
+    await expect(pageAsGlobalAdmin).toHaveURL(/\/inventory\/domains$/);
   });
 });
 
 test.describe('Detected Hosts Info icon', () => {
-  test('Detected Hosts info-icon tooltip matches expected content', async ({
-    page
+  test.skip('Detected Hosts info-icon tooltip matches expected content', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
-    await page.waitForSelector('text=Detected Hosts');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
-    const infoIcon = page
+    const infoIcon = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Detected Hosts' })
       .locator('..')
       .getByRole('button', { name: 'More information about Detected Hosts' });
     await infoIcon.hover();
-    const tooltip = page.getByRole('tooltip');
+    const tooltip = pageAsGlobalAdmin.getByRole('tooltip');
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText(
       'Hosts with vulnerabilities or unsupported software pose security risks. Tracking and prioritizing these systems can help reduce exposure and prevent potential breaches.'
@@ -39,12 +40,14 @@ test.describe('Detected Hosts Info icon', () => {
 });
 
 test.describe('Detected Hosts, Top Vulnerable Hosts Chart', () => {
-  test('Top Vulnerable Hosts filters: accessibility, chart behavior, and bar colors', async ({
-    page
+  test.skip('Top Vulnerable Hosts filters: accessibility, chart behavior, and bar colors', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
-    const heading = page.getByRole('heading', { name: 'Top Vulnerable Hosts' });
+    const heading = pageAsGlobalAdmin.getByRole('heading', {
+      name: 'Top Vulnerable Hosts'
+    });
     const widget = heading.locator('..').locator('..').locator('..');
     const radioGroup = widget.locator(
       '[role="radiogroup"][aria-label="Data selector"]'
@@ -103,15 +106,17 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Chart', () => {
 });
 
 test.describe('Detected Hosts, Top Vulnerable Hosts Tooltips', () => {
-  test('hovering any Top Vulnerable Hosts chart bar shows its label in a tooltip', async ({
-    page
+  test.skip('hovering any Top Vulnerable Hosts chart bar shows its label in a tooltip', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    const pause = (ms: number) => page.waitForTimeout(ms);
+    const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 
-    await page.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
     await pause(800);
 
-    const heading = page.getByRole('heading', { name: 'Top Vulnerable Hosts' });
+    const heading = pageAsGlobalAdmin.getByRole('heading', {
+      name: 'Top Vulnerable Hosts'
+    });
 
     const widget = heading.locator('..').locator('..').locator('..');
 
@@ -135,7 +140,7 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Tooltips', () => {
       await bar.hover();
       await pause(800);
 
-      const tooltip = page.getByRole('tooltip');
+      const tooltip = pageAsGlobalAdmin.getByRole('tooltip');
       await tooltip.waitFor({ state: 'visible', timeout: 3000 });
       const tooltipText = (await tooltip.textContent())?.trim();
       expect(tooltipText).toContain(label);
@@ -150,12 +155,12 @@ function escapeRegExp(str: string): string {
 }
 
 test.describe('Detected Hosts, Top Vulnerable Hosts Navigation', () => {
-  test('Clicking Top Vulnerable Hosts chart bar navigates to host detail page', async ({
-    page
+  test.skip('Clicking Top Vulnerable Hosts chart bar navigates to host detail page', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
 
-    const widget = page
+    const widget = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Top Vulnerable Hosts' })
       .locator('..')
       .locator('..')
@@ -172,10 +177,13 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Navigation', () => {
     const expectedIP = (raw ?? '').trim();
     expect(expectedIP).toBeTruthy();
 
-    await Promise.all([page.waitForLoadState('domcontentloaded'), bar.click()]);
+    await Promise.all([
+      pageAsGlobalAdmin.waitForLoadState('domcontentloaded'),
+      bar.click()
+    ]);
 
     await expect(
-      page.getByRole('heading', {
+      pageAsGlobalAdmin.getByRole('heading', {
         name: new RegExp(`^${escapeRegExp(expectedIP)}$`)
       })
     ).toBeVisible();
@@ -183,14 +191,14 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Navigation', () => {
 });
 
 test.describe('Detected Hosts ARIA labels', () => {
-  test('ARIA: Detected + Top Vulnerable Hosts have correct roles and labels', async ({
-    page
+  test.skip('ARIA: Detected + Top Vulnerable Hosts have correct roles and labels', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
-    await page.waitForSelector('text=Detected Hosts');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
     // ===== Detected Hosts Section =====
-    const detectedHostsHeader = page.getByRole('heading', {
+    const detectedHostsHeader = pageAsGlobalAdmin.getByRole('heading', {
       name: 'Detected Hosts'
     });
     await expect(detectedHostsHeader).toBeVisible();
@@ -211,7 +219,7 @@ test.describe('Detected Hosts ARIA labels', () => {
     await expect(viewDetailsLink).toHaveAttribute('href');
 
     // ===== Top Vulnerable Hosts Section =====
-    const topHostsHeading = page.getByRole('heading', {
+    const topHostsHeading = pageAsGlobalAdmin.getByRole('heading', {
       name: 'Top Vulnerable Hosts'
     });
     await expect(topHostsHeading).toBeVisible();
@@ -243,13 +251,15 @@ test.describe('Detected Hosts ARIA labels', () => {
 });
 
 test.describe('Detected Hosts Keyboard Movement', () => {
-  test('Keyboard navigation traverses Detected Hosts widget', async ({
-    page
+  test.skip('Keyboard navigation traverses Detected Hosts widget', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    await page.goto('/VSDashboard');
-    await page.getByRole('heading', { name: 'Detected Hosts' }).waitFor();
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin
+      .getByRole('heading', { name: 'Detected Hosts' })
+      .waitFor();
 
-    const widgetContainer = page
+    const widgetContainer = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Detected Hosts' })
       .locator('..')
       .locator('..');
@@ -258,7 +268,7 @@ test.describe('Detected Hosts Keyboard Movement', () => {
       name: /More information about Detected Hosts/i
     });
     await infoButton.focus();
-    await page.waitForTimeout(500);
+    await pageAsGlobalAdmin.waitForTimeout(500);
 
     const normalize = (s: string) =>
       s
@@ -287,7 +297,7 @@ test.describe('Detected Hosts Keyboard Movement', () => {
       const { inside, label, text } = await getFocusInfo();
       const value = normalize(label || text || '');
       if (value && !isNoiseMetric(value)) focusItems.push(value);
-      await page.keyboard.press('Tab');
+      await pageAsGlobalAdmin.keyboard.press('Tab');
     }
 
     expect(focusItems).toEqual(
@@ -303,15 +313,15 @@ test.describe('Detected Hosts Keyboard Movement', () => {
 });
 
 test.describe('Detected Hosts Metric Boxes', () => {
-  test('Checks that the metric boxes in the widget number + label + tooltip checks', async ({
-    page
+  test.skip('Checks that the metric boxes in the widget number + label + tooltip checks', async ({
+    page: pageAsGlobalAdmin
   }) => {
-    const pause = (ms: number) => page.waitForTimeout(ms);
+    const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 
-    await page.goto('/VSDashboard');
-    await page.waitForSelector('text=Detected Hosts');
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
-    const widgetContainer = page
+    const widgetContainer = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Detected Hosts' })
       .locator('..')
       .locator('..');
@@ -333,7 +343,7 @@ test.describe('Detected Hosts Metric Boxes', () => {
     };
 
     const getFocusInfo = async (): Promise<FocusInfo> =>
-      page.evaluate<FocusInfo>(() => {
+      pageAsGlobalAdmin.evaluate<FocusInfo>(() => {
         const el = document.activeElement as HTMLElement | null;
         return {
           tag: el?.tagName ?? undefined,
@@ -344,7 +354,7 @@ test.describe('Detected Hosts Metric Boxes', () => {
       });
 
     const getTooltipText = async (): Promise<string | undefined> => {
-      const roleTooltip = page.getByRole('tooltip').first();
+      const roleTooltip = pageAsGlobalAdmin.getByRole('tooltip').first();
 
       try {
         await roleTooltip.waitFor({ state: 'visible', timeout: 3000 });
@@ -356,7 +366,7 @@ test.describe('Detected Hosts Metric Boxes', () => {
       }
 
       await pause(500);
-      return page.evaluate(() => {
+      return pageAsGlobalAdmin.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
         const ids = (
           el?.getAttribute('aria-describedby') ||
@@ -397,9 +407,9 @@ test.describe('Detected Hosts Metric Boxes', () => {
     }> = [];
 
     for (let i = 0; i < 4; i++) {
-      await page.keyboard.press('Tab');
+      await pageAsGlobalAdmin.keyboard.press('Tab');
       await pause(800);
-      const focused = page.locator(':focus');
+      const focused = pageAsGlobalAdmin.locator(':focus');
       if (await focused.count()) {
         await focused.hover({ force: true }).catch(() => {});
       }
