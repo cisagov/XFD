@@ -20,7 +20,7 @@
     "jsonc-eslint-parser": "^2.4.0",
     "prettier": "^3.4.2",
     "ts-prune": "^0.10.3",
-    "typescript": "^4.0.0",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.21.0"
   },
   "homepage": "https://github.com/cisagov/crossfeed#readme",
