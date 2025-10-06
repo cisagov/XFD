@@ -2,7 +2,7 @@
 api:
     handler: src.xfd_django.xfd_django.asgi.handler
     layers:
-        - ${self:custom.adotLayerArn.${self:provider.region}}
+        - ${self:custom.adotLayerArnSelected}
 
     # NEW: ADOT auto-instrumentation + trace stitching to X-Ray
     environment:

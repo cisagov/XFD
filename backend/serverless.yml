@@ -13,6 +13,7 @@ custom:
     us-west-2: arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroPython:20
     us-gov-east-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn, ''}
     us-gov-west-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn, ''}
+  adotLayerArnSelected: ${self:custom.adotLayerArn[${self:provider.region}]}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
