@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import logging
 import os
+import json
 
 # Third-Party Libraries
 from fastapi import HTTPException, status
@@ -127,6 +128,46 @@ def create_scan(scan_data: NewScan, current_user):
                 detail="Number of concurrent tasks exceeds the max for this scan.",
             )
 
+        # --- Handle date range logic ---
+        args = scan_data.arguments or {}
+        start_dt = args.get("start_datetime")
+        end_dt = args.get("end_datetime")
+
+        has_start = bool(start_dt)
+        has_end = bool(end_dt)
+
+        if has_start or has_end:
+            # Both required
+            if not (has_start and has_end):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Both start_datetime and end_datetime must be provided."
+                )
+
+            # Must be single scan
+            if not scan_data.is_single_scan:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Scans with a date range must be single scans."
+                )
+
+            # Validate ordering
+            try:
+                from dateutil import parser
+                parsed_start = parser.isoparse(start_dt)
+                parsed_end = parser.isoparse(end_dt)
+                if parsed_start >= parsed_end:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="start_datetime must be before end_datetime."
+                    )
+            except Exception:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid datetime format. Must be ISO 8601."
+                )
+        if scan_data.arguments:
+            scan_data.arguments = json.dumps(scan_data.arguments)
         # Create the scan instance
         scan_data_dict = scan_data.dict(
             exclude_unset=True, exclude={"organizations", "tags"}
@@ -168,6 +209,7 @@ def create_scan(scan_data: NewScan, current_user):
     except Exception as e:
         LOGGER.exception(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 # GET: /scans/{scan_id}

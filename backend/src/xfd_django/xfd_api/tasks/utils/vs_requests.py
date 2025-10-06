@@ -13,7 +13,7 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift
+from xfd_api.tasks.utils.query_redshift import fetch_from_redshift, fetch_from_redshift_with_params
 from xfd_api.utils.scan_utils.alerting import IngestionError
 from xfd_mini_dl.models import Cidr, CidrOrgs, Location, Organization, Sector
 
@@ -41,7 +41,7 @@ def fetch_orgs_from_redshift(org_list=None):
         query += f" WHERE owner IN ({placeholders})"
         params = org_list
 
-    request_list = fetch_from_redshift(query, params=params)
+    request_list = fetch_from_redshift_with_params(query, params=params)
     LOGGER.info("Fetched %d requests from Redshift", len(request_list))
 
     org_id_dict = process_orgs(request_list)

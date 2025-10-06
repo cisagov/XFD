@@ -114,6 +114,8 @@ def main(event):  # pylint: disable=R0915
     LOGGER.info("Running syncdb")
     synchronize(target_app_label="xfd_mini_dl")
 
+    LOGGER.info("Passed params")
+    LOGGER.info(event)
     # Use fixed window + deterministic keyset on (time, _id)
     ps_start_dt = event.get('start_datetime')
     ps_end_dt = event.get('end_timestamp')
