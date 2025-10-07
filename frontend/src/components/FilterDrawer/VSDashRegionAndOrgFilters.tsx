@@ -40,7 +40,8 @@ export const VSDashRegionAndOrgFilters: React.FC<
 > = ({ addFilter, removeFilter, filters }) => {
   const { user, apiPost, currentOrganization } = useAuthContext();
   const { regions } = useStaticsContext();
-  const { isDrillDown, wasAllRegionsSelected, setAllRegionsSelected } = useNavigationContext();
+  const { isDrillDown, wasAllRegionsSelected, setAllRegionsSelected } =
+    useNavigationContext();
   const [search_term, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const [isRegOpen, setIsRegOpen] = useState(false);
@@ -235,16 +236,16 @@ export const VSDashRegionAndOrgFilters: React.FC<
     // Restore region filter if it exists and differs from current selection
     if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
       const userRegion = user?.region_id;
-      
+
       // Determine what the UI state should be based on the stored filter
       let targetRegionSelection: string | undefined;
-      
+
       if (regionFilter.values.length === 1) {
         // Single region selection - restore that specific region
         targetRegionSelection = regionFilter.values[0] as string;
       } else if (
         regionFilter.values.length === regions.length &&
-        regions.every(regionId => regionFilter.values.includes(regionId))
+        regions.every((regionId) => regionFilter.values.includes(regionId))
       ) {
         // All regions are present, use context to determine if this was explicit "All Regions" selection
         if (wasAllRegionsSelected) {
