@@ -24,13 +24,13 @@ from xfd_api.tasks.utils.vs_port_scans import (
 )
 from xfd_api.tasks.utils.vs_requests import fetch_orgs_from_redshift
 from xfd_api.tasks.utils.vs_send_orgs_to_dmz import send_organizations_to_dmz
-from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
+from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
 from xfd_api.tasks.utils.vs_vuln_scans import (
     create_vuln_scan_summary,
     fetch_vuln_scans_from_redshift,
 )
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
-from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
+from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup, Organization
 
 LOGGER = logging.getLogger(__name__)
 
@@ -111,14 +111,20 @@ def main(event):  # pylint: disable=R0915
     setup_vuln_sync_logging()
     LOGGER.info("Started VulnScanningSync scan...")
 
-    LOGGER.info("Running syncdb")
-    synchronize(target_app_label="xfd_mini_dl")
+    # LOGGER.info("Running syncdb")
+    # synchronize(target_app_label="xfd_mini_dl")
 
-    LOGGER.info("Passed params")
-    LOGGER.info(event)
     # Use fixed window + deterministic keyset on (time, _id)
     ps_start_dt = event.get('start_datetime')
-    ps_end_dt = event.get('end_timestamp')
+    ps_end_dt = event.get('end_datetime')
+    org_id = event.get('organizationId')
+    org_name = event.get('organizationName')
+
+    try:
+        org = Organization.objects.get(id=org_id)
+        acronym = org.acronym
+    except Organization.DoesNotExist:
+        LOGGER.warning('No acronym found for the org with the following id: %s', org_id)
     org_list = event.get('org_list')
 
     # Normalize start_datetime
@@ -132,31 +138,31 @@ def main(event):  # pylint: disable=R0915
         ps_end_dt = datetime.fromtimestamp(ps_end_dt, tz=timezone.utc)
     elif isinstance(ps_end_dt, str):  # ISO string
         ps_end_dt = datetime.fromisoformat(ps_end_dt).astimezone(timezone.utc)
-
+    
     # If either is missing, fallback to freeze_window
     if not (ps_start_dt and ps_end_dt):
         ps_start_dt, ps_end_dt = freeze_window(int(VS_PULL_DATE_RANGE))
 
-    LOGGER.info("Frozen port-scan window: [%s .. %s)", ps_start_dt, ps_end_dt)
-    if org_list:
-        LOGGER.info("Pulling VS data for %d organizations: %s", len(org_list), org_list)
-    else:
-        LOGGER.info("Pulling VS data for all organizations")
+    LOGGER.info("Frozen port-scan window: [%s .. %s]", ps_start_dt, ps_end_dt)
+    
+    LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
+
     # Load request data
-    org_id_dict = fetch_orgs_from_redshift(org_list)
+    org_id_dict = fetch_orgs_from_redshift()
     # org_id_dict = fetch_org_id_dict_fast()
 
     # Close unseen cidrs
-    flag_cidr_changes(org_id_dict)
+    flag_cidr_changes()
 
     # Flag ips related to closed cidrs:
-    bulk_assign_ips_to_cidrs(org_id_dict = org_id_dict)
+    bulk_assign_ips_to_cidrs()
 
     # Process Vulnerability Scans
-    fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict, org_list=org_list)
+    fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, acronym)
 
     # # Process Host Scans
-    create_daily_host_summary(org_id_dict, org_list=org_list)
+    #TODO This should be moved into the requests pull, since it makes more sense to do all together
+    create_daily_host_summary(org_id_dict)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
     # Prefetch risky service groups
@@ -175,14 +181,15 @@ def main(event):  # pylint: disable=R0915
     )
 
     # # Fill CIDR live IPs
-    fill_cidr_live_ips_bulk_update(org_id_dict, org_list = org_list)
+    #TODO This can also be moved to the requests worker 
+    fill_cidr_live_ips_bulk_update()
 
     # # Send organizations to the DMZ MDL
     send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
-    fetch_tickets_from_redshift(
-        org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt, org_list = org_list
+    fetch_tickets_from_redshift_single_org(
+        org_id, acronym, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
     )
 
     # REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES

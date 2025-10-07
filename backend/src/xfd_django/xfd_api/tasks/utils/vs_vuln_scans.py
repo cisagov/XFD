@@ -17,7 +17,7 @@ from xfd_api.tasks.utils.mdl_insert_utils import (
     save_cve_to_datalake,
     save_ip_to_datalake,
 )
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift
+from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
 from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import IngestionError
 from xfd_mini_dl.models import (
@@ -39,63 +39,81 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict, org_list=None):
-    """Fetch vuln_scans from Redshift."""
-    LOGGER.info("Started processing vulnerability scans...")
+def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, org_acronym):
+    """
+    Fetch vulnerability scans from Redshift for a specific organization.
+    Uses parameterized queries for safety and cleaner syntax.
+    """
+    LOGGER.info(
+        "Started processing vulnerability scans for org %s (%s)...",
+        org_acronym, org_id
+    )
 
-    # Only apply owner filter if a specific org_list is provided
-    owner_filter = ""
-    if org_list:  # org_list contains acronyms to filter
-        placeholders = ", ".join([f"'{owner}'" for owner in org_list])
-        owner_filter = f"AND owner IN ({placeholders})"
-
-    # Query with frozen window
-    query = f"""
+    query = """
         SELECT *
         FROM vmtableau.vuln_scans
-        WHERE time >= '{ps_start_dt.strftime('%Y-%m-%d %H:%M:%S')}'
-          AND time < '{ps_end_dt.strftime('%Y-%m-%d %H:%M:%S')}'
-          {owner_filter}
-    """  # nosec B608
+        WHERE time >= %s
+          AND time < %s
+          AND owner = %s
+    """
 
-    vuln_scans = fetch_from_redshift(query)
-    LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
+    params = [ps_start_dt, ps_end_dt, org_acronym]
+
+    vuln_scans = fetch_from_redshift_with_params(query, params)
+    LOGGER.info(
+        "Fetched %d vulnerability scans from Redshift for %s (%s)",
+        len(vuln_scans), org_acronym, org_id
+    )
 
     if vuln_scans:
-        process_vulnerability_scans(vuln_scans, org_id_dict)
-        LOGGER.info("Finished processing vulnerability scans")
+        process_vulnerability_scans(vuln_scans, org_id, org_acronym)
+        LOGGER.info("Finished processing vulnerability scans for %s", org_acronym)
+    else:
+        LOGGER.warning("No vulnerability scans found for %s (%s)", org_acronym, org_id)
 
 
-def process_vulnerability_scans(vuln_scans, org_id_dict):
-    """Process and save vulnerability scans."""
+def process_vulnerability_scans(vuln_scans, org_id, org_acronym):
+    """Process and save vulnerability scans for a single org."""
+    LOGGER.info("Processing %d vulnerability scans for org %s", len(vuln_scans), org_acronym)
+    
     for vuln in vuln_scans:
         try:
-            owner_id = org_id_dict.get(vuln.get("owner"))
+            # Validate ownership
+            if vuln.get("owner") != org_acronym:
+                LOGGER.warning(
+                    "Skipping scan for unexpected owner '%s' (expected '%s')",
+                    vuln.get("owner"), org_acronym
+                )
+                continue
+
             ip_id = (
                 save_ip_to_datalake(
                     {
                         "ip": vuln["ip"],
                         "ip_hash": hash_ip(vuln["ip"]),
-                        "organization": owner_id,
+                        "organization": org_id,
                     }
                 )
                 if vuln.get("ip")
                 else None
             )
+
             cve = (
                 save_cve_to_datalake({"name": vuln["cve"]}) if vuln.get("cve") else None
             )
-            vuln_scan_dict = build_vuln_scan_dict(vuln, owner_id, ip_id, cve)
+
+            vuln_scan_dict = build_vuln_scan_dict(vuln, org_id, ip_id, cve)
+
             try:
                 save_vuln_scan(vuln_scan_dict)
             except Exception as e:
                 LOGGER.exception("Error saving vulnerability scan: %s", e)
-                # Raise to catch in the outer block
                 raise e
+
         except Exception as e:
             LOGGER.exception("Error processing Vulnerability Scan: %s", e)
             raise IngestionError(
-                SCAN_NAME, str(e), "Failed processing vulnerability scans"
+                SCAN_NAME, str(e), f"Failed processing vulnerability scans for {org_acronym}"
             ) from e
 
 

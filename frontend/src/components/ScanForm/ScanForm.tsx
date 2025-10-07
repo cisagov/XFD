@@ -159,7 +159,7 @@ export const ScanForm: React.FC<{
         
         await onSubmit({
           name: values.name,
-          arguments: {
+          arguments: JSON.stringify({
             ...values.arguments,
             ...(values.useDateRange && {
               start_datetime: values.startDate
@@ -169,7 +169,7 @@ export const ScanForm: React.FC<{
                 ? new Date(values.endDate).toISOString()
                 : null,
             }),
-          },
+          }),
           organizations: values.organizations,
           tags: values.tags,
           frequency: values.frequency,

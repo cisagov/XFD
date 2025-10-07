@@ -160,6 +160,59 @@ def fetch_in_chunks_keyset_frozen(
 
         yield chunk
 
+def fetch_in_chunks_keyset_frozen_single_org(
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    chunk_size: int = 500_000,
+    org_acronym: str | None = None,
+):
+    """
+    Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
+    Filters by a single org acronym.
+    """
+    last_time = None
+    last_id = None
+    start_param = to_utc_naive(start_dt)
+    end_param = to_utc_naive(end_dt)
+
+    while True:
+        where_clauses = [f'"{time_col}" >= %s', f'"{time_col}" < %s']
+        params = [start_param, end_param]
+
+        # Add keyset pagination if needed
+        if last_time is not None and last_id is not None:
+            where_clauses.append(
+                f'("{time_col}" > %s OR ("{time_col}" = %s AND "_id" > %s))'
+            )
+            params.extend([last_time, last_time, last_id])
+
+        # Add org filter
+        if org_acronym:
+            where_clauses.append("owner = %s")
+            params.append(org_acronym)
+
+        where_clause = " AND ".join(where_clauses)
+
+        query = (
+            f"SELECT * FROM {table} "
+            f"WHERE {where_clause} "
+            f'ORDER BY "{time_col}", "_id" '
+            f"LIMIT %s"
+        )
+        params.append(chunk_size)
+
+        chunk = query_redshift(query, params=params)
+        if not chunk:
+            break
+
+        last_row = chunk[-1]
+        last_time = last_row[time_col]
+        last_id = str(last_row["_id"])
+
+        yield chunk
+
 
 # Used for loading test data from file for vuln_scans, port_scans, hosts, tickets
 def load_test_data(data_set: str) -> list:

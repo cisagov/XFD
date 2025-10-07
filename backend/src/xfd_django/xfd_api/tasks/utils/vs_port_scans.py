@@ -11,7 +11,7 @@ from django.db import connections, transaction
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
-from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen
+from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen_single_org
 from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import IngestionError, QueryError
 from xfd_mini_dl.models import (
@@ -36,46 +36,54 @@ CHUNK_SIZE = 500_000
 
 
 def fetch_port_scans_from_redshift(
-    org_id_dict,
+    org_id,
+    org_acronym,
     risky_service_groups,
     nmi_service_groups,
     ps_start_dt,
     ps_end_dt,
-    org_list: list[str] | None = None,
 ):
-    """Fetch port_scans from redshift."""
-    LOGGER.info("Started processing port scans...")
+    """Fetch and process port_scans for a single org."""
+    LOGGER.info("Started processing port scans for org: %s", org_acronym)
 
     total_processed = 0
     chunk_number = 1
-    for chunk in fetch_in_chunks_keyset_frozen(
+
+    for chunk in fetch_in_chunks_keyset_frozen_single_org(
         table="vmtableau.port_scans",
         time_col="time",
         start_dt=ps_start_dt,
         end_dt=ps_end_dt,
         chunk_size=CHUNK_SIZE,
-        owners=org_list if org_list else None,   # ✅ filter only if org_list provided
+        org_acronym=org_acronym,
     ):
         LOGGER.info(
-            "Processing port scan chunk #%d with %d rows", chunk_number, len(chunk)
+            "Processing port scan chunk #%d with %d rows for org %s",
+            chunk_number,
+            len(chunk),
+            org_acronym,
         )
-        bulk_insert_ips_and_link_to_port_scans(
-            chunk, org_id_dict, risky_service_groups, nmi_service_groups
+
+        bulk_insert_ips_and_link_to_port_scans_single_org(
+            chunk, org_id, org_acronym, risky_service_groups, nmi_service_groups
         )
+
         total_processed += len(chunk)
         chunk_number += 1
 
     if total_processed == 0:
         LOGGER.warning(
-            f"No port scans found in Redshift for the last {VS_PULL_DATE_RANGE} days."
+            "No port scans found in Redshift for org %s in the last %d days.",
+            org_acronym,
+            VS_PULL_DATE_RANGE,
         )
     else:
         LOGGER.info(
-            "Processed %d total port scans across %d chunks",
+            "Processed %d total port scans across %d chunks for org %s",
             total_processed,
             chunk_number - 1,
+            org_acronym,
         )
-
 
 def bulk_insert_ips_and_link_to_port_scans(
     port_scans, org_id_dict, risky_service_groups, nmi_service_groups
@@ -185,6 +193,118 @@ def bulk_insert_ips_and_link_to_port_scans(
         )
 
     # Step 5: Update 'latest' flag only for affected keys
+    if affected_keys:
+        update_latest_flag_for_keys_batched(affected_keys, 5000)
+
+
+def bulk_insert_ips_and_link_to_port_scans_single_org(
+    port_scans, org_id, org_acronym, risky_service_groups, nmi_service_groups
+):
+    """Bulk insert IPs and link them to port scans for a single org."""
+    ip_key_to_obj = {}
+    port_scan_batch = []
+    affected_keys = set()
+
+    for port_scan in port_scans:
+        try:
+            # Verify owner matches the expected acronym
+            if port_scan.get("owner") != org_acronym:
+                LOGGER.warning(
+                    "Skipping port scan for unexpected owner '%s' (expected '%s')",
+                    port_scan.get("owner"),
+                    org_acronym,
+                )
+                continue
+
+            ip_str = port_scan.get("ip")
+            port_num = port_scan.get("port")
+
+            if ip_str:
+                key = (ip_str, org_id)
+                if key not in ip_key_to_obj:
+                    ip_key_to_obj[key] = Ip(
+                        ip=ip_str,
+                        organization_id=org_id,
+                        ip_hash=hash_ip(ip_str),
+                    )
+
+            if ip_str and port_num is not None:
+                affected_keys.add((org_id, ip_str, port_num))
+
+            service_obj = json.loads(port_scan.get("service", "{}"))
+            port_scan_batch.append(
+                {
+                    "raw": port_scan,
+                    "service_obj": service_obj,
+                }
+            )
+
+        except Exception as e:
+            LOGGER.exception("Error staging port scan: %s", e)
+            raise IngestionError(SCAN_NAME, str(e), "Failed staging port scans") from e
+
+    # Step 2: Bulk insert IPs
+    ip_objs = list(ip_key_to_obj.values())
+    if ip_objs:
+        Ip.objects.bulk_create(ip_objs, ignore_conflicts=True, batch_size=1000)
+
+    # Step 3: Link to IP records
+    ip_records = Ip.objects.filter(
+        ip__in=[ip.ip for ip in ip_objs],
+        organization_id=org_id,
+    )
+    ip_map = {(ip.ip, org_id): ip for ip in ip_records}
+
+    # Step 4: Build and insert PortScan records
+    port_scan_objs = []
+    for item in port_scan_batch:
+        port_scan = item["raw"]
+        service_obj = item["service_obj"]
+
+        ip_str = port_scan.get("ip")
+        ip_obj = ip_map.get((ip_str, org_id)) if ip_str else None
+
+        try:
+            port_scan_objs.append(
+                PortScan(
+                    id=port_scan["_id"].replace("ObjectId('", "").replace("')", ""),
+                    ip_string=ip_str,
+                    ip=ip_obj,
+                    latest=False,
+                    port=port_scan.get("port"),
+                    protocol=port_scan.get("protocol"),
+                    reason=port_scan.get("reason"),
+                    service=port_scan.get("service"),
+                    service_name=service_obj.get("name"),
+                    service_confidence=service_obj.get("conf"),
+                    service_method=service_obj.get("method"),
+                    service_cpe=service_obj.get("cpe", [None])[0],
+                    service_hostname=service_obj.get("hostname"),
+                    service_extra_info=service_obj.get("extrainfo"),
+                    service_os_type=service_obj.get("ostype"),
+                    service_product=service_obj.get("product"),
+                    service_version=service_obj.get("version"),
+                    service_tunnel=service_obj.get("tunnel"),
+                    service_device_type=service_obj.get("devicetype"),
+                    source=port_scan.get("source"),
+                    state=port_scan.get("state"),
+                    time_scanned=safe_fromisoformat(port_scan.get("time")),
+                    organization_id=org_id,
+                    risky_service_group=risky_service_groups.get(service_obj.get("name")),
+                    nmi_service_group=nmi_service_groups.get(service_obj.get("name")),
+                )
+            )
+        except Exception as e:
+            LOGGER.exception("Error building PortScan object: %s", e)
+            raise IngestionError(SCAN_NAME, str(e), "Failed building port scans") from e
+
+    if port_scan_objs:
+        LOGGER.info("Bulk creating %d port scans for org %s", len(port_scan_objs), org_acronym)
+        PortScan.objects.bulk_create(
+            port_scan_objs, batch_size=5000, ignore_conflicts=True
+        )
+
+    # Step 5: Update latest flag
     if affected_keys:
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 

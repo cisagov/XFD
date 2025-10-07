@@ -107,32 +107,14 @@ def save_cve_to_datalake(cve_obj):
         return None
 
 
-def fill_cidr_live_ips_bulk_update(
-    org_id_dict: dict[str, int],
-    org_list: list[str] | None = None
-):
-    """
-    Fill live_ips field in the cidr table based on recent port scans.
-
-    - org_id_dict is required (acronym → organization_id mapping)
-    - org_list is optional; if provided, only updates CIDRs and considers port scans for those orgs
-    """
+def fill_cidr_live_ips_bulk_update():
+    """Fill live_ips field in the cidr table based on recent port scans."""
     start_time = time.time()
-
-    # Prepare optional org filter if org_list is provided
-    org_filter = ""
-    if org_list:
-        # Only include IDs for requested orgs
-        org_ids = [org_id_dict[org] for org in org_list if org in org_id_dict]
-        if org_ids:  # only add filter if list not empty
-            placeholders = ", ".join([str(org_id) for org_id in org_ids])
-            org_filter = f"AND cidr_orgs.organization_id = ANY(ARRAY[{placeholders}]) " \
-                         f"AND port_scan.organization_id = ANY(ARRAY[{placeholders}])"
 
     with transaction.atomic(using="mini_data_lake"):
         with connections["mini_data_lake"].cursor() as cursor:
             cursor.execute(
-                f"""
+                """
                 WITH new_ips AS (
                     SELECT
                         cidr.id AS cidr_id,
@@ -145,7 +127,6 @@ def fill_cidr_live_ips_bulk_update(
                     WHERE cidr_orgs.current = TRUE
                       AND cidr.network IS NOT NULL
                       AND ip.ip << cidr.network
-                      {org_filter}
                     GROUP BY cidr.id
                 ),
                 merged_ips AS (
@@ -168,6 +149,4 @@ def fill_cidr_live_ips_bulk_update(
             )
 
     duration = time.time() - start_time
-    LOGGER.info(
-        "fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration
-    )
+    LOGGER.info("fill_cidr_live_ips_bulk_update completed in %.2f seconds", duration)
