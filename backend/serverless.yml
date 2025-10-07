@@ -74,7 +74,6 @@ custom:
   # Conditional logic for GovCloud vs
   # non-GovCloud (Private endpoints require a VPC Endpoint)
   serverlessIfElse:
-
     - If: '"${self:custom.adotLayerArnSelected}" != ""'
       Set:
         custom.adotLayers:
@@ -93,7 +92,8 @@ custom:
 
 provider:
   name: aws
-  region: ${file(env.yml):${self:provider.stage}.REGION, ''}
+  region: ${opt:region, env:AWS_REGION, env:AWS_DEFAULT_REGION,
+    file(env.yml):${self:provider.stage}.REGION, 'us-east-1'}
   endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
   runtime: python3.11
   timeout: 30
