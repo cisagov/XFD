@@ -18,7 +18,8 @@ import {
   TermsOfUse,
   Users,
   Vulnerabilities,
-  Vulnerability
+  Vulnerability,
+  SectorReports
 } from 'pages';
 import { VulnerabilityScanWithSearch } from '../Gates/VSDashboardGate';
 
@@ -102,6 +103,11 @@ export const Routes: React.FC = () => {
         path="/region-admin-dashboard"
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
+      />
+      <RouteGuard
+        path="/sector-reports"
+        component={SectorReports}
+        permissions={['globalView', 'regionalAdmin', 'standard']}
       />
     </Switch>
   );

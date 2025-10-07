@@ -80,11 +80,6 @@ export const Header: React.FC = () => {
       menuItemTitle: 'User Registration',
       path: '/region-admin-dashboard',
       users: REGIONAL_ADMIN
-    },
-    {
-      menuItemTitle: 'Sector Reports',
-      path: '/sector-reports',
-      users: GLOBAL_ADMIN
     }
   ].filter(({ users }) => users <= userLevel);
 
@@ -209,6 +204,11 @@ export const Header: React.FC = () => {
       users: STANDARD_USER,
       // Nest sectorVulnSnapshotsMenuItems here
       subMenuItems: sectorVulnSnapshotsMenuItems
+    },
+    {
+      menuItemTitle: 'Sector Reports',
+      path: '/sector-reports',
+      users: STANDARD_USER
     },
     {
       menuItemTitle: 'User Guide',

@@ -40,6 +40,25 @@ const SECTORS = [
   'Government'
 ];
 
+const ACTIVE_REPORTS_KEY = 'activeReports';
+const ARCHIVED_REPORTS_KEY = 'archivedReports';
+
+function saveReportsToStorage(
+  active: SectorReportFile[],
+  archived: SectorReportFile[]
+) {
+  localStorage.setItem(ACTIVE_REPORTS_KEY, JSON.stringify(active));
+  localStorage.setItem(ARCHIVED_REPORTS_KEY, JSON.stringify(archived));
+}
+
+function loadReportsFromStorage() {
+  const active = JSON.parse(localStorage.getItem(ACTIVE_REPORTS_KEY) || '[]');
+  const archived = JSON.parse(
+    localStorage.getItem(ARCHIVED_REPORTS_KEY) || '[]'
+  );
+  return { active, archived };
+}
+
 interface SectorReportFile {
   id?: string;
   filename: string;
@@ -48,6 +67,7 @@ interface SectorReportFile {
   uploaded_at: string;
   status: 'active' | 'archived';
   file?: File;
+  fileUrl?: string;
 }
 
 const initialReportValues: SectorReportFile = {
@@ -59,9 +79,11 @@ const initialReportValues: SectorReportFile = {
 };
 
 export const SectorReports: React.FC = () => {
-  const [activeReports, setActiveReports] = useState<SectorReportFile[]>([]);
+  const [activeReports, setActiveReports] = useState<SectorReportFile[]>(
+    () => loadReportsFromStorage().active
+  );
   const [archivedReports, setArchivedReports] = useState<SectorReportFile[]>(
-    []
+    () => loadReportsFromStorage().archived
   );
   const [formValues, setFormValues] =
     useState<SectorReportFile>(initialReportValues);
@@ -105,6 +127,10 @@ export const SectorReports: React.FC = () => {
   };
 
   useEffect(() => {
+    saveReportsToStorage(activeReports, archivedReports);
+  }, [activeReports, archivedReports]);
+
+  useEffect(() => {
     fetchReports();
   }, []);
 
@@ -131,34 +157,31 @@ export const SectorReports: React.FC = () => {
   };
 
   // Handle upload
-  const handleUpload = async () => {
+  const handleUpload = () => {
     if (!formValues.file || !formValues.sector) {
       setError('Please select a file and sector.');
       return;
     }
     setError(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', formValues.file);
-      formData.append('sector', formValues.sector);
-      const res = await fetch('/api/sector-reports/upload', {
-        method: 'POST',
-        body: formData
-      });
-      if (!res.ok) throw new Error('Upload failed');
-      setAddBtnToggle(false);
-      setFormValues(initialReportValues);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      fetchReports();
-      setInfoDialogValues({
-        icon: <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />,
-        title: 'Success',
-        content: 'The report was uploaded successfully.'
-      });
-      setInfoDialogToggle(true);
-    } catch (e: any) {
-      setError(e.message || 'Error uploading file');
-    }
+
+    // Create a URL for the PDF file
+    const fileUrl = URL.createObjectURL(formValues.file);
+
+    const newReport: SectorReportFile = {
+      ...formValues,
+      id: Math.random().toString(36).substr(2, 9),
+      uploaded_by: 'Mock User',
+      uploaded_at: new Date().toISOString(),
+      status: 'active',
+      filename: formValues.file.name,
+      file: formValues.file,
+      fileUrl // Add this property for download/view
+    };
+
+    setActiveReports((prev) => [...prev, newReport]);
+    setAddBtnToggle(false);
+    setFormValues(initialReportValues);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Handle download
@@ -205,15 +228,28 @@ export const SectorReports: React.FC = () => {
     }
   };
 
-  // Table columns
-  const columns: GridColDef[] = [
-    { field: 'filename', headerName: 'File Name', flex: 2 },
-    { field: 'sector', headerName: 'Sector', flex: 1 },
-    { field: 'uploaded_by', headerName: 'Uploaded By', flex: 1 },
+  const isGlobalAdmin = true;
+
+  const handleArchive = (report: SectorReportFile) => {
+    setActiveReports((prev) => prev.filter((r) => r.id !== report.id));
+    setArchivedReports((prev) => [...prev, { ...report, status: 'archived' }]);
+  };
+
+  // Update columns for activeReports to include Archive button
+  const activeColumns: GridColDef[] = [
+    { field: 'filename', headerName: 'File Name', flex: 2, sortable: true },
+    { field: 'sector', headerName: 'Sector', flex: 1, sortable: true },
+    {
+      field: 'uploaded_by',
+      headerName: 'Uploaded By',
+      flex: 1,
+      sortable: true
+    },
     {
       field: 'uploaded_at',
       headerName: 'Uploaded At',
       flex: 1,
+      sortable: true,
       renderCell: (params: GridRenderCellParams) =>
         new Date(params.value as string).toLocaleString()
     },
@@ -221,33 +257,57 @@ export const SectorReports: React.FC = () => {
       field: 'download',
       headerName: 'Download',
       flex: 0.5,
-      renderCell: (params: GridRenderCellParams) => (
-        <IconButton
-          color="primary"
-          aria-label="download"
-          onClick={() => handleDownload(params.row.filename)}
-        >
-          <DownloadIcon />
-        </IconButton>
-      )
+      sortable: false,
+      renderCell: (params: GridRenderCellParams) =>
+        params.row.fileUrl ? (
+          <IconButton
+            color="primary"
+            aria-label="download"
+            href={params.row.fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <DownloadIcon />
+          </IconButton>
+        ) : null
     },
-    {
-      field: 'delete',
-      headerName: 'Delete',
-      flex: 0.5,
-      renderCell: (params: GridRenderCellParams) => (
-        <IconButton
-          color="primary"
-          aria-label="delete"
-          onClick={() => {
-            setRowToDelete(params.row);
-            setDeleteDialogToggle(true);
-          }}
-        >
-          <Delete />
-        </IconButton>
-      )
-    }
+    ...(isGlobalAdmin
+      ? [
+          {
+            field: 'archive',
+            headerName: 'Archive',
+            flex: 0.5,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => (
+              <IconButton
+                color="secondary"
+                aria-label="archive"
+                onClick={() => handleArchive(params.row)}
+              >
+                <Edit />
+              </IconButton>
+            )
+          },
+          {
+            field: 'delete',
+            headerName: 'Delete',
+            flex: 0.5,
+            sortable: false,
+            renderCell: (params: GridRenderCellParams) => (
+              <IconButton
+                color="primary"
+                aria-label="delete"
+                onClick={() => {
+                  setRowToDelete(params.row);
+                  setDeleteDialogToggle(true);
+                }}
+              >
+                <Delete />
+              </IconButton>
+            )
+          }
+        ]
+      : [])
   ];
 
   // Add report card
@@ -380,7 +440,7 @@ export const SectorReports: React.FC = () => {
             ) : (
               <DataGrid
                 rows={activeReports}
-                columns={columns}
+                columns={activeColumns}
                 getRowHeight={() => 'auto'}
                 sx={tableStyling}
                 hideFooterPagination={true}
@@ -405,7 +465,7 @@ export const SectorReports: React.FC = () => {
             ) : (
               <DataGrid
                 rows={archivedReports}
-                columns={columns}
+                columns={activeColumns}
                 getRowHeight={() => 'auto'}
                 sx={tableStyling}
                 disableRowSelectionOnClick
