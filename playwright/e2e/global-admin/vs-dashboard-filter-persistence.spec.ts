@@ -86,64 +86,99 @@ async function waitForVSDashboardLoad(page: any) {
 
   // Try to open the filter panel if it's closed
   try {
-    // Look for common filter panel toggle buttons
-    const filterToggleSelectors = [
-      'button:has-text("Filters")',
-      'button:has-text("Filter")',
-      '[aria-label="Open filters"]',
-      '[aria-label="Toggle filters"]',
-      'button[data-testid="filter-toggle"]',
-      '.filter-toggle',
-      'button:has([data-testid="FilterListIcon"])',
-      'button:has(.MuiSvgIcon-root)' // Material-UI filter icon
-    ];
-
-    let filterPanelOpen = false;
-
     // First check if filters are already visible
     const regionFilterVisible = await page
       .locator('label:has-text("Region")')
-      .isVisible({ timeout: 1000 })
+      .isVisible({ timeout: 2000 })
       .catch(() => false);
 
     if (!regionFilterVisible) {
-      console.log(
-        'Region filter not visible, attempting to open filter panel...'
-      );
+      console.log('Region filter not visible, attempting to open filter panel...');
 
+      // Take a screenshot to see current state
+      await page.screenshot({ path: 'debug-before-filter-open.png', fullPage: true });
+
+      // Look for filter toggle buttons with more specific approach
+      const filterToggleSelectors = [
+        'button:has-text("Filter")',
+        'button:has-text("Filters")', 
+        '[aria-label*="filter" i]',
+        'button[data-testid*="filter"]',
+        '.filter-toggle',
+        // Look for buttons with filter icons
+        'button:has(svg[data-testid="FilterListIcon"])',
+        'button:has(.MuiSvgIcon-root)',
+        // Generic button selectors that might be filter toggles
+        'header button',
+        '.toolbar button',
+        '.dashboard-header button'
+      ];
+
+      let filterPanelOpen = false;
+      
       for (const selector of filterToggleSelectors) {
         try {
           const toggleButton = page.locator(selector);
-          if (await toggleButton.isVisible({ timeout: 1000 })) {
-            console.log(`Found filter toggle button: ${selector}`);
-            await toggleButton.click();
-            await page.waitForTimeout(1000); // Wait for panel to open
+          const buttonCount = await toggleButton.count();
+          
+          if (buttonCount > 0) {
+            console.log(`Found ${buttonCount} buttons with selector: ${selector}`);
+            
+            // Try each button if there are multiple
+            for (let i = 0; i < buttonCount; i++) {
+              try {
+                const button = toggleButton.nth(i);
+                if (await button.isVisible({ timeout: 1000 })) {
+                  const buttonText = await button.textContent().catch(() => 'N/A');
+                  console.log(`Trying button ${i}: "${buttonText}" with selector: ${selector}`);
+                  
+                  await button.click();
+                  await page.waitForTimeout(2000); // Give more time for panel to open
 
-            // Check if region filter is now visible
-            if (
-              await page
-                .locator('label:has-text("Region")')
-                .isVisible({ timeout: 3000 })
-                .catch(() => false)
-            ) {
-              console.log('Filter panel opened successfully');
-              filterPanelOpen = true;
-              break;
+                  // Check if region filter is now visible
+                  const regionNowVisible = await page
+                    .locator('label:has-text("Region")')
+                    .isVisible({ timeout: 3000 })
+                    .catch(() => false);
+
+                  if (regionNowVisible) {
+                    console.log(`Filter panel opened successfully using button ${i} with selector: ${selector}`);
+                    filterPanelOpen = true;
+                    break;
+                  } else {
+                    console.log(`Button ${i} clicked but region filter still not visible`);
+                  }
+                }
+              } catch (e) {
+                console.log(`Error with button ${i}:`, e.message);
+              }
             }
+            
+            if (filterPanelOpen) break;
           }
         } catch (e) {
-          // Continue to next selector
+          console.log(`Error with selector ${selector}:`, e.message);
+        }
+      }
+
+      if (!filterPanelOpen) {
+        console.log('Could not open filter panel with any button selector');
+        // Take a screenshot after attempting to open
+        await page.screenshot({ path: 'debug-filter-open-failed.png', fullPage: true });
+        
+        // Try to find any buttons on the page for debugging
+        const allButtons = await page.locator('button').all();
+        console.log(`Found ${allButtons.length} total buttons on page`);
+        
+        for (let i = 0; i < Math.min(5, allButtons.length); i++) {
+          const button = allButtons[i];
+          const text = await button.textContent().catch(() => 'N/A');
+          const ariaLabel = await button.getAttribute('aria-label').catch(() => 'N/A');
+          console.log(`Button ${i}: text="${text}", aria-label="${ariaLabel}"`);
         }
       }
     } else {
       console.log('Region filter already visible');
-      filterPanelOpen = true;
-    }
-
-    if (!filterPanelOpen) {
-      console.log(
-        'Could not open filter panel - filters may not be available on this page'
-      );
     }
   } catch (e) {
     console.log('Error handling filter panel:', e.message);
@@ -303,6 +338,68 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
     await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle "Update State Information" modal FIRST before loading dashboard
+    try {
+      const updateStateModal = pageAsGlobalAdmin.locator('text=Update State Information');
+      if (await updateStateModal.isVisible({ timeout: 3000 })) {
+        console.log('State modal detected during test - selecting state to avoid logout...');
+        
+        // Must select a state since canceling causes logout
+        // Handle MUI Select dropdown for state
+        const stateSelect = pageAsGlobalAdmin.locator('.MuiSelect-select');
+        if (await stateSelect.isVisible({ timeout: 2000 })) {
+          console.log('Found MUI Select for state');
+          await stateSelect.click(); // Open the dropdown
+          await pageAsGlobalAdmin.waitForTimeout(500);
+          
+          // Look for Virginia option in the dropdown
+          const virginiaOption = pageAsGlobalAdmin.locator('li:has-text("Virginia"), [data-value="VA"], [data-value="Virginia"]');
+          if (await virginiaOption.first().isVisible({ timeout: 2000 })) {
+            await virginiaOption.first().click();
+            console.log('Selected Virginia from dropdown');
+          } else {
+            console.log('Virginia option not found, trying first available option');
+            // Try to select any available option
+            const firstOption = pageAsGlobalAdmin.locator('li[role="option"]').first();
+            if (await firstOption.isVisible({ timeout: 1000 })) {
+              const optionText = await firstOption.textContent().catch(() => 'Unknown');
+              await firstOption.click();
+              console.log(`Selected first available state: ${optionText}`);
+            }
+          }
+        }
+        
+        // Click Save button
+        const saveButton = pageAsGlobalAdmin.locator('button:has-text("Save")');
+        if (await saveButton.isVisible({ timeout: 2000 })) {
+          await saveButton.click();
+          console.log('Clicked Save button');
+          
+          // Wait for modal to disappear or for any error messages
+          try {
+            await updateStateModal.waitFor({ state: 'hidden', timeout: 8000 });
+            console.log('State modal closed successfully');
+          } catch (e) {
+            console.log('Modal did not close within timeout, checking for errors...');
+            
+            // Check for error messages but continue regardless
+            const errorMessage = pageAsGlobalAdmin.locator('text=Something went wrong updating the state. Please try again.');
+            if (await errorMessage.isVisible({ timeout: 1000 })) {
+              console.log('Server error detected when updating state - continuing anyway');
+            }
+          }
+        }
+        
+        // Give extra time for page to stabilize
+        await pageAsGlobalAdmin.waitForTimeout(2000);
+      } else {
+        console.log('No state modal found during test execution');
+      }
+    } catch (e) {
+      console.log('Error handling state modal:', e.message);
+    }
+
     await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set specific region and organization filters
