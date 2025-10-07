@@ -10,8 +10,10 @@ export interface NavigationContextType {
   isDrillDown: boolean;
   sourceRoute: string | null;
   targetRoute: string | null;
+  wasAllRegionsSelected: boolean;
   markDrillDown: (sourceRoute: string, targetRoute: string) => void;
   clearDrillDown: () => void;
+  setAllRegionsSelected: (selected: boolean) => void;
   isReturningFromDrillDown: (currentRoute: string) => boolean;
 }
 

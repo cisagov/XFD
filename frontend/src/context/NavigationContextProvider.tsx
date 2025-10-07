@@ -17,6 +17,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
   const [isDrillDown, setIsDrillDown] = useState(false);
   const [sourceRoute, setSourceRoute] = useState<string | null>(null);
   const [targetRoute, setTargetRoute] = useState<string | null>(null);
+  const [wasAllRegionsSelected, setWasAllRegionsSelected] = useState(false);
 
   const markDrillDown = (source: string, target: string) => {
     setIsDrillDown(true);
@@ -28,6 +29,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     setIsDrillDown(false);
     setSourceRoute(null);
     setTargetRoute(null);
+    // Don't reset wasAllRegionsSelected here - let it persist for subsequent drill-downs
+  };
+
+  const setAllRegionsSelected = (selected: boolean) => {
+    setWasAllRegionsSelected(selected);
   };
 
   const isReturningFromDrillDown = (currentRoute: string) => {
@@ -39,8 +45,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({
     isDrillDown,
     sourceRoute,
     targetRoute,
+    wasAllRegionsSelected,
     markDrillDown,
     clearDrillDown,
+    setAllRegionsSelected,
     isReturningFromDrillDown
   };
 
