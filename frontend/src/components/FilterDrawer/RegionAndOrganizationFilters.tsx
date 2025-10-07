@@ -29,10 +29,6 @@ import {
   STANDARD_USER
 } from 'hooks/useUserLevel';
 import { Stack } from '@mui/system';
-// import { GLOBAL_VIEW } from '@/context/userStateUtils';
-
-// const GLOBAL_ADMIN = 3;
-// const STANDARD_USER = 1;
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = true;
@@ -96,8 +92,6 @@ export const RegionAndOrganizationFilters: React.FC<
   const { regions } = useStaticsContext();
   const [search_term, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
-  const [isOrgOpen, setIsOrgOpen] = useState(false);
-  const [isRegOpen, setIsRegOpen] = useState(false);
   const userLevel = useUserLevel().userLevel;
   const theme = useTheme();
 
@@ -246,7 +240,6 @@ export const RegionAndOrganizationFilters: React.FC<
         addFilter(ORGANIZATION_FILTER_KEY, org, 'any');
       }
       setSearchTerm('');
-      setIsOrgOpen(false);
       if (org.name === 'Election') {
         setShowMaps(true);
       } else {
@@ -313,27 +306,13 @@ export const RegionAndOrganizationFilters: React.FC<
         <AccordionDetails>
           {userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW && (
             <Autocomplete
-              onInputChange={(e, v) => {
-                if (e && e.type === 'change') {
-                  handleTextChange(v);
-                }
-              }}
-              disableClearable
+              // onClick and onInputChange removed as this autocomplete is read-only for non-global users.
+              // And those users use a checkbox controlled list to change region filters.
               disabled={
                 !userLevel ||
                 (userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW)
               }
-              open={isRegOpen}
-              onOpen={() => {
-                setIsRegOpen(true);
-              }}
               options={regions}
-              onChange={(e, v) => {
-                setTimeout(() => {
-                  handleCheckboxChange(v);
-                }, 250);
-                return;
-              }}
               getOptionLabel={(option) => `Region ${option}`}
               slotProps={{
                 listbox: {
@@ -366,11 +345,8 @@ export const RegionAndOrganizationFilters: React.FC<
                         textTransform: 'none'
                       }}
                       id="search-region-button"
-                      onClick={() =>
-                        setTimeout(() => {
-                          handleCheckboxChange(option);
-                        }, 250)
-                      }
+                      // onClick removed as this autocomplete is read-only for non-global users.
+                      // And those users use a checkbox controlled list to change region filters.
                     >
                       {`Region ${option}`}
                     </Button>
@@ -385,13 +361,6 @@ export const RegionAndOrganizationFilters: React.FC<
                     userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
                       ? 'All Regions'
                       : `Region ${user?.region_id}`
-                  }
-                  value={search_term}
-                  onBlur={() => setIsRegOpen(false)}
-                  placeholder={
-                    organizationsInFilters
-                      ? `Region${organizationsInFilters[0].region_id}`
-                      : 'All Regions'
                   }
                 />
               )}
@@ -497,10 +466,6 @@ export const RegionAndOrganizationFilters: React.FC<
             // freeSolo
             disableClearable
             disabled={userLevel === STANDARD_USER}
-            open={isOrgOpen}
-            onOpen={() => {
-              setIsOrgOpen(true);
-            }}
             options={orgResults}
             onChange={(e, v) => {
               setTimeout(() => {
@@ -562,7 +527,7 @@ export const RegionAndOrganizationFilters: React.FC<
                     ? 'Search Organizations'
                     : `${userOrg}`
                 }
-                onBlur={() => setIsOrgOpen(false)}
+                placeholder="Search"
                 helperText={
                   userLevel === REGIONAL_ADMIN ||
                   userLevel === GLOBAL_ADMIN ||
