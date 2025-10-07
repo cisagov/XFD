@@ -59,7 +59,13 @@ def create_scan_task(
 
 
 def start_desired_tasks(
-    scan_type, desired_count, scan_id, organizations, is_pe=False, shodan_api_keys=[], arguments=None, 
+    scan_type,
+    desired_count,
+    scan_id,
+    organizations,
+    is_pe=False,
+    shodan_api_keys=[],
+    arguments=None,
 ):
     """Start the desired number of tasks on AWS ECS or local Docker based on configuration."""
     # Step 1: Get the scan instance
@@ -269,7 +275,7 @@ def handler(event, context):
         scan_id = event.get("scanId", "")
         organizations = event.get("organizations", [])
         arguments = event.get("arguments", {})
-        
+
         if not scan_type:
             LOGGER.error("Failed: no scanType provided.")
             return {"status_code": 400, "body": "Failed: no scanType provided."}
@@ -297,12 +303,17 @@ def handler(event, context):
                 organizations,
                 is_pe=is_pe,
                 shodan_api_keys=shodan_api_keys,
-                arguments = arguments
+                arguments=arguments,
             )
 
         else:
             start_desired_tasks(
-                scan_type, desired_count, scan_id, organizations, is_pe=is_pe, arguments = arguments
+                scan_type,
+                desired_count,
+                scan_id,
+                organizations,
+                is_pe=is_pe,
+                arguments=arguments,
             )
 
         return {"status_code": 200, "body": "Tasks started successfully."}

@@ -1,11 +1,12 @@
 """API methods to support Scan endpoints."""
 
 # Standard Python Libraries
+import json
 import logging
 import os
-import json
 
 # Third-Party Libraries
+from dateutil import parser
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import Organization, OrganizationTag, Scan
 
@@ -141,33 +142,32 @@ def create_scan(scan_data: NewScan, current_user):
             if not (has_start and has_end):
                 raise HTTPException(
                     status_code=400,
-                    detail="Both start_datetime and end_datetime must be provided."
+                    detail="Both start_datetime and end_datetime must be provided.",
                 )
 
             # Must be single scan
             if not scan_data.is_single_scan:
                 raise HTTPException(
                     status_code=400,
-                    detail="Scans with a date range must be single scans."
+                    detail="Scans with a date range must be single scans.",
                 )
 
             # Validate ordering
             try:
-                from dateutil import parser
                 parsed_start = parser.isoparse(start_dt)
                 parsed_end = parser.isoparse(end_dt)
                 if parsed_start >= parsed_end:
                     raise HTTPException(
                         status_code=400,
-                        detail="start_datetime must be before end_datetime."
+                        detail="start_datetime must be before end_datetime.",
                     )
             except Exception:
                 raise HTTPException(
-                    status_code=400,
-                    detail="Invalid datetime format. Must be ISO 8601."
+                    status_code=400, detail="Invalid datetime format. Must be ISO 8601."
                 )
         if scan_data.arguments:
             scan_data.arguments = json.dumps(scan_data.arguments)
+
         # Create the scan instance
         scan_data_dict = scan_data.dict(
             exclude_unset=True, exclude={"organizations", "tags"}
@@ -209,7 +209,6 @@ def create_scan(scan_data: NewScan, current_user):
     except Exception as e:
         LOGGER.exception(e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 
 # GET: /scans/{scan_id}

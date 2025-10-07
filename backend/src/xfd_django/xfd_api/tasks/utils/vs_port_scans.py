@@ -73,9 +73,8 @@ def fetch_port_scans_from_redshift(
 
     if total_processed == 0:
         LOGGER.warning(
-            "No port scans found in Redshift for org %s in the last %d days.",
+            "No port scans found in Redshift for the requested org (%s) within the specified date range.",
             org_acronym,
-            VS_PULL_DATE_RANGE,
         )
     else:
         LOGGER.info(
@@ -84,6 +83,7 @@ def fetch_port_scans_from_redshift(
             chunk_number - 1,
             org_acronym,
         )
+
 
 def bulk_insert_ips_and_link_to_port_scans(
     port_scans, org_id_dict, risky_service_groups, nmi_service_groups
@@ -290,7 +290,9 @@ def bulk_insert_ips_and_link_to_port_scans_single_org(
                     state=port_scan.get("state"),
                     time_scanned=safe_fromisoformat(port_scan.get("time")),
                     organization_id=org_id,
-                    risky_service_group=risky_service_groups.get(service_obj.get("name")),
+                    risky_service_group=risky_service_groups.get(
+                        service_obj.get("name")
+                    ),
                     nmi_service_group=nmi_service_groups.get(service_obj.get("name")),
                 )
             )
@@ -299,7 +301,9 @@ def bulk_insert_ips_and_link_to_port_scans_single_org(
             raise IngestionError(SCAN_NAME, str(e), "Failed building port scans") from e
 
     if port_scan_objs:
-        LOGGER.info("Bulk creating %d port scans for org %s", len(port_scan_objs), org_acronym)
+        LOGGER.info(
+            "Bulk creating %d port scans for org %s", len(port_scan_objs), org_acronym
+        )
         PortScan.objects.bulk_create(
             port_scan_objs, batch_size=5000, ignore_conflicts=True
         )
@@ -365,71 +369,76 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
         LOGGER.error(f"Failed to update latest flags: {e}", exc_info=True)
 
 
-def create_port_scan_summary(summary_date=None, org_list: list[str] | None = None):
-    """Create port summary record for each organization."""
+def create_port_scan_summary(summary_date=None, org_id=None):
+    """Create port summary record for a single organization."""
     try:
         if summary_date is None:
             summary_date = timezone.now().date()
 
-        # Filter organizations based on org_list if provided
-        if org_list:
-            orgs = Organization.objects.filter(acronym__in=org_list)
-        else:
-            orgs = Organization.objects.all()
+        if not org_id:
+            LOGGER.error("Organization ID is required to create a port scan summary.")
+            return
 
-        for org in orgs:
-            scans = PortScan.objects.filter(
-                organization=org,
-                latest=True,  # only latest scans
-                time_scanned__isnull=False,
-                state="open",
-            )
+        org = Organization.objects.filter(id=org_id).first()
+        if not org:
+            LOGGER.error("Organization with ID %s not found.", org_id)
+            return
 
-            if not scans.exists():
-                continue
+        scans = PortScan.objects.filter(
+            organization=org,
+            latest=True,  # only latest scans
+            time_scanned__isnull=False,
+            state="open",
+        )
 
-            aggregated = scans.aggregate(
-                start_date=Min("time_scanned"),
-                end_date=Max("time_scanned"),
-                open_port_count=Count("id"),
-                risky_port_count=Count(
-                    "id", filter=Q(risky_service_group__isnull=False)
-                ),
-                nmi_service_count=Count(
-                    "id", filter=Q(nmi_service_group__isnull=False)
-                ),
-                unique_ip_count=Count("ip_string", distinct=True),
-                unique_service_count=Count("service_name", distinct=True),
-            )
+        if not scans.exists():
+            LOGGER.info("No open port scans found for organization %s.", org.acronym)
+            return
 
-            risky_group_data = (
-                scans.filter(risky_service_group__isnull=False)
-                .values("risky_service_group")
-                .annotate(count=Count("id"))
-            )
+        aggregated = scans.aggregate(
+            start_date=Min("time_scanned"),
+            end_date=Max("time_scanned"),
+            open_port_count=Count("id"),
+            risky_port_count=Count("id", filter=Q(risky_service_group__isnull=False)),
+            nmi_service_count=Count("id", filter=Q(nmi_service_group__isnull=False)),
+            unique_ip_count=Count("ip_string", distinct=True),
+            unique_service_count=Count("service_name", distinct=True),
+        )
 
-            # Convert to dict: {group: count}
-            risky_service_group_counts = {
-                item["risky_service_group"]: item["count"] for item in risky_group_data
-            }
+        risky_group_data = (
+            scans.filter(risky_service_group__isnull=False)
+            .values("risky_service_group")
+            .annotate(count=Count("id"))
+        )
 
-            PortScanSummary.objects.update_or_create(
-                organization=org,
-                summary_date=summary_date,
-                defaults={
-                    "start_date": aggregated["start_date"],
-                    "end_date": aggregated["end_date"],
-                    "open_port_count": aggregated["open_port_count"],
-                    "risky_port_count": aggregated["risky_port_count"],
-                    "nmi_service_count": aggregated["nmi_service_count"],
-                    "unique_ip_count": aggregated["unique_ip_count"],
-                    "unique_service_count": aggregated["unique_service_count"],
-                    "risky_service_group_counts": risky_service_group_counts,
-                },
-            )
+        # Convert to dict: {group: count}
+        risky_service_group_counts = {
+            item["risky_service_group"]: item["count"] for item in risky_group_data
+        }
+
+        PortScanSummary.objects.update_or_create(
+            organization=org,
+            summary_date=summary_date,
+            defaults={
+                "start_date": aggregated["start_date"],
+                "end_date": aggregated["end_date"],
+                "open_port_count": aggregated["open_port_count"],
+                "risky_port_count": aggregated["risky_port_count"],
+                "nmi_service_count": aggregated["nmi_service_count"],
+                "unique_ip_count": aggregated["unique_ip_count"],
+                "unique_service_count": aggregated["unique_service_count"],
+                "risky_service_group_counts": risky_service_group_counts,
+            },
+        )
+
+        LOGGER.info(
+            "Created/updated port scan summary for organization %s (%s)",
+            org.acronym,
+            org.id,
+        )
 
     except Exception as e:
-        LOGGER.exception("Error creating port scan summary: %s", e)
+        LOGGER.exception("Error creating port scan summary for org %s: %s", org_id, e)
         raise QueryError(SCAN_NAME, str(e), "Error creating port scan summary") from e
 
 

@@ -20,7 +20,6 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-
 def create_daily_host_summary(org_id_dict, summary_date=None):
     """Create host summary records directly from Redshift data."""
     LOGGER.info("Started processing host scans...")

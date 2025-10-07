@@ -156,7 +156,7 @@ export const ScanForm: React.FC<{
         } else {
           setDateRangeError('');
         }
-        
+
         await onSubmit({
           name: values.name,
           arguments: JSON.stringify({
@@ -167,8 +167,8 @@ export const ScanForm: React.FC<{
                 : null,
               end_datetime: values.endDate
                 ? new Date(values.endDate).toISOString()
-                : null,
-            }),
+                : null
+            })
           }),
           organizations: values.organizations,
           tags: values.tags,
@@ -254,9 +254,7 @@ export const ScanForm: React.FC<{
             label="Allow any organization's admins to toggle this scan on/off"
             name="is_user_modifiable"
             checked={values.is_user_modifiable}
-            onChange={(e) =>
-              onChange('is_user_modifiable', e.target.checked)
-            }
+            onChange={(e) => onChange('is_user_modifiable', e.target.checked)}
           />
           <br />
         </>

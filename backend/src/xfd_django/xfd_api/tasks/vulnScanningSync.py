@@ -5,15 +5,14 @@ port scans, hosts, and tickets from Redshift into the Django models.
 """
 
 # Standard Python Libraries
+from datetime import datetime, timezone
 import logging
 from logging import FileHandler
 import os
-from datetime import datetime, timezone
 
 # Third-Party Libraries
 from xfd_api.tasks.asm_sync import flag_cidr_changes
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
-from xfd_api.tasks.syncdb_task import synchronize
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.link_ips_to_cidrs import bulk_assign_ips_to_cidrs
 from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
@@ -30,7 +29,7 @@ from xfd_api.tasks.utils.vs_vuln_scans import (
     fetch_vuln_scans_from_redshift,
 )
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
-from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup, Organization
+from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -115,17 +114,16 @@ def main(event):  # pylint: disable=R0915
     # synchronize(target_app_label="xfd_mini_dl")
 
     # Use fixed window + deterministic keyset on (time, _id)
-    ps_start_dt = event.get('start_datetime')
-    ps_end_dt = event.get('end_datetime')
-    org_id = event.get('organizationId')
-    org_name = event.get('organizationName')
+    ps_start_dt = event.get("start_datetime")
+    ps_end_dt = event.get("end_datetime")
+    org_id = event.get("organizationId")
+    org_name = event.get("organizationName")
 
     try:
         org = Organization.objects.get(id=org_id)
         acronym = org.acronym
     except Organization.DoesNotExist:
-        LOGGER.warning('No acronym found for the org with the following id: %s', org_id)
-    org_list = event.get('org_list')
+        LOGGER.warning("No acronym found for the org with the following id: %s", org_id)
 
     # Normalize start_datetime
     if isinstance(ps_start_dt, (int, float)):  # timestamp
@@ -138,13 +136,13 @@ def main(event):  # pylint: disable=R0915
         ps_end_dt = datetime.fromtimestamp(ps_end_dt, tz=timezone.utc)
     elif isinstance(ps_end_dt, str):  # ISO string
         ps_end_dt = datetime.fromisoformat(ps_end_dt).astimezone(timezone.utc)
-    
+
     # If either is missing, fallback to freeze_window
     if not (ps_start_dt and ps_end_dt):
         ps_start_dt, ps_end_dt = freeze_window(int(VS_PULL_DATE_RANGE))
 
     LOGGER.info("Frozen port-scan window: [%s .. %s]", ps_start_dt, ps_end_dt)
-    
+
     LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
 
     # Load request data
@@ -161,7 +159,7 @@ def main(event):  # pylint: disable=R0915
     fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, acronym)
 
     # # Process Host Scans
-    #TODO This should be moved into the requests pull, since it makes more sense to do all together
+    # TODO This should be moved into the requests pull, since it makes more sense to do all together
     create_daily_host_summary(org_id_dict)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
@@ -177,11 +175,16 @@ def main(event):  # pylint: disable=R0915
 
     # Port Scans (Chunked)
     fetch_port_scans_from_redshift(
-        org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt, org_list = org_list
+        org_id,
+        acronym,
+        risky_service_groups,
+        nmi_service_groups,
+        ps_start_dt,
+        ps_end_dt,
     )
 
     # # Fill CIDR live IPs
-    #TODO This can also be moved to the requests worker 
+    # TODO This can also be moved to the requests worker
     fill_cidr_live_ips_bulk_update()
 
     # # Send organizations to the DMZ MDL
@@ -189,7 +192,12 @@ def main(event):  # pylint: disable=R0915
 
     # Process Tickets (Chunked)
     fetch_tickets_from_redshift_single_org(
-        org_id, acronym, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
+        org_id,
+        acronym,
+        risky_service_groups,
+        nmi_service_groups,
+        ps_start_dt,
+        ps_end_dt,
     )
 
     # REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES
@@ -202,7 +210,7 @@ def main(event):  # pylint: disable=R0915
     # Create summaries with individual error handling
     LOGGER.info("Creating port scan summary...")
     try:
-        create_port_scan_summary(org_list = org_list)
+        create_port_scan_summary(org_id=org_id)
         LOGGER.info("Finished port scan summary")
     except Exception as e:
         LOGGER.error("Failed to create port scan summary: %s", e, exc_info=True)
@@ -219,7 +227,7 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Creating vulnerability scan summary...")
     try:
-        create_vuln_scan_summary(org_list = org_list)
+        create_vuln_scan_summary(org_id=org_id)
         LOGGER.info("Finished vulnerability scan summary")
     except Exception as e:
         LOGGER.error(

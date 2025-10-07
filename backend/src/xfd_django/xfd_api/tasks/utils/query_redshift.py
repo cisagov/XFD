@@ -9,6 +9,7 @@ from typing import Any, Tuple
 
 # Third-Party Libraries
 import psycopg2
+from psycopg2 import sql
 from xfd_api.tasks.utils.datetime_utils import to_utc_naive
 from xfd_api.utils.scan_utils.alerting import QueryError
 
@@ -140,7 +141,9 @@ def fetch_in_chunks_keyset_frozen(
         # Add org filtering if owners provided
         if owners:
             where += " AND owner = ANY(%s)"
-            params.append(owners)  # pass list directly, psycopg2/Redshift turns into array
+            params.append(
+                owners
+            )  # pass list directly, psycopg2/Redshift turns into array
 
         query = f"""
             SELECT *
@@ -160,6 +163,7 @@ def fetch_in_chunks_keyset_frozen(
 
         yield chunk
 
+
 def fetch_in_chunks_keyset_frozen_single_org(
     table: str,
     time_col: str,
@@ -169,8 +173,10 @@ def fetch_in_chunks_keyset_frozen_single_org(
     org_acronym: str | None = None,
 ):
     """
-    Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
+    Keyset pagination over a fixed window with ORDER BY (time_col, _id).
+
     Filters by a single org acronym.
+    Uses psycopg2.sql for safe identifier handling and parameterized values.
     """
     last_time = None
     last_id = None
@@ -178,32 +184,47 @@ def fetch_in_chunks_keyset_frozen_single_org(
     end_param = to_utc_naive(end_dt)
 
     while True:
-        where_clauses = [f'"{time_col}" >= %s', f'"{time_col}" < %s']
+        # Build WHERE clause dynamically but safely
+        where_clauses = []
         params = [start_param, end_param]
 
-        # Add keyset pagination if needed
+        # Base window
+        where_clauses.append(sql.SQL("{} >= %s").format(sql.Identifier(time_col)))
+        where_clauses.append(sql.SQL("{} < %s").format(sql.Identifier(time_col)))
+
+        # Keyset pagination
         if last_time is not None and last_id is not None:
             where_clauses.append(
-                f'("{time_col}" > %s OR ("{time_col}" = %s AND "_id" > %s))'
+                sql.SQL("({} > %s OR ({} = %s AND {} > %s))").format(
+                    sql.Identifier(time_col),
+                    sql.Identifier(time_col),
+                    sql.Identifier("_id"),
+                )
             )
             params.extend([last_time, last_time, last_id])
 
-        # Add org filter
+        # Org filter
         if org_acronym:
-            where_clauses.append("owner = %s")
+            where_clauses.append(sql.SQL("owner = %s"))
             params.append(org_acronym)
 
-        where_clause = " AND ".join(where_clauses)
+        # Combine WHERE clauses
+        where_sql = sql.SQL(" AND ").join(where_clauses)
 
-        query = (
-            f"SELECT * FROM {table} "
-            f"WHERE {where_clause} "
-            f'ORDER BY "{time_col}", "_id" '
-            f"LIMIT %s"
+        # Build full query
+        query_sql = sql.SQL(
+            "SELECT * FROM {table} WHERE {where} ORDER BY {time_col}, {id_col} LIMIT %s"
+        ).format(
+            table=sql.Identifier(table),
+            where=where_sql,
+            time_col=sql.Identifier(time_col),
+            id_col=sql.Identifier("_id"),
         )
         params.append(chunk_size)
 
-        chunk = query_redshift(query, params=params)
+        # `query_redshift` can accept the psycopg2.sql.SQL object directly
+        chunk = query_redshift(query_sql, params=params)
+
         if not chunk:
             break
 

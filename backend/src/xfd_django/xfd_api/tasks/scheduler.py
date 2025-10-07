@@ -9,10 +9,6 @@ import os
 import boto3
 from botocore.session import Session as BotoCoreSession
 import django
-
-
-
-# Third-Party Libraries
 from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")

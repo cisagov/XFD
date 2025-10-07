@@ -9,8 +9,8 @@ import os
 # Third-Party Libraries
 from django.db import connections, transaction
 from django.utils import timezone
-from psycopg2.extras import execute_values
 from psycopg2 import sql
+from psycopg2.extras import execute_values
 from xfd_api.tasks.utils.datetime_utils import (
     safe_fromisoformat,
     safe_parse_date,
@@ -68,6 +68,7 @@ def fetch_tickets_from_redshift_single_org(
         process_tickets_single_org(
             chunk,
             org_id,
+            org_acronym,
             risky_service_groups,
             nmi_service_groups,
         )
@@ -92,11 +93,10 @@ def fetch_tickets_from_redshift_single_org(
     LOGGER.info("Finished ticket processing for org %s.", org_acronym)
 
 
-
 def fetch_ticket_chunks_frozen_single_org(
     ps_start_dt,
     ps_end_dt,
-    chunk_size: int = 500_000,
+    chunk_size: int = 5000,
     org_acronym: str | None = None,
 ):
     """Fetch ticket data in chunks for a single org, safely parameterized."""
@@ -113,9 +113,7 @@ def fetch_ticket_chunks_frozen_single_org(
         params = [start_param, end_param]
 
         if last_time is not None and last_id is not None:
-            where_parts.append(
-                sql.SQL('("time" > %s OR ("time" = %s AND "_id" > %s))')
-            )
+            where_parts.append(sql.SQL('("time" > %s OR ("time" = %s AND "_id" > %s))'))
             params.extend([last_time, last_time, last_id])
 
         if org_acronym:
@@ -124,13 +122,15 @@ def fetch_ticket_chunks_frozen_single_org(
 
         where_clause = sql.SQL(" AND ").join(where_parts)
 
-        query = sql.SQL("""
+        query = sql.SQL(
+            """
             SELECT *
             FROM vmtableau.tickets
             WHERE {where_clause}
             ORDER BY "time", "_id"
             LIMIT %s
-        """).format(where_clause=where_clause)
+        """
+        ).format(where_clause=where_clause)
 
         params.append(chunk_size)
 
@@ -155,9 +155,11 @@ def preload_os_type_map(ip_keys) -> dict:
     return {scan.ip_string: scan.service_os_type for scan in scans}
 
 
-def process_tickets_single_org(tickets, org_id, org_acronym, risky_service_groups, nmi_service_groups):
+def process_tickets_single_org(
+    tickets, org_id, org_acronym, risky_service_groups, nmi_service_groups
+):
     """
-    Process tickets for a single org with:
+    Process tickets for a single org with.
 
       - early dedup by most recent 'last_change'
       - bulk insert IPs & CVEs (ignore conflicts)
@@ -265,8 +267,16 @@ def process_tickets_single_org(tickets, org_id, org_acronym, risky_service_group
             lon, lat = (None, None)
 
         updated_ts = safe_fromisoformat(raw.get("last_change"))
-        closed_ts = safe_fromisoformat(raw.get("time_closed")) if raw.get("time_closed") else None
-        opened_ts = safe_fromisoformat(raw.get("time_opened")) if raw.get("time_opened") else None
+        closed_ts = (
+            safe_fromisoformat(raw.get("time_closed"))
+            if raw.get("time_closed")
+            else None
+        )
+        opened_ts = (
+            safe_fromisoformat(raw.get("time_opened"))
+            if raw.get("time_opened")
+            else None
+        )
         is_risky = "Potentially Risky Service Detected:" in (details.get("name") or "")
 
         row = {
@@ -366,7 +376,6 @@ def process_tickets_single_org(tickets, org_id, org_acronym, risky_service_group
         len(deduped),
         org_acronym,
     )
-
 
 
 def bulk_create_ticket_events(

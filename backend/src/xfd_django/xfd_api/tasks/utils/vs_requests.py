@@ -1,5 +1,5 @@
 """Vs Requests Helpers."""
-#VALIDATE ??????
+# VALIDATE ??????
 # Standard Python Libraries
 import datetime
 from ipaddress import IPv4Network, IPv6Network
@@ -13,7 +13,7 @@ from django.db import transaction
 from django.db.utils import IntegrityError
 from django.utils import timezone
 from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift, fetch_from_redshift_with_params
+from xfd_api.tasks.utils.query_redshift import fetch_from_redshift
 from xfd_api.utils.scan_utils.alerting import IngestionError
 from xfd_mini_dl.models import Cidr, CidrOrgs, Location, Organization, Sector
 
@@ -25,6 +25,7 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
+
 
 def fetch_orgs_from_redshift():
     """Fetch orgs from redshift."""
