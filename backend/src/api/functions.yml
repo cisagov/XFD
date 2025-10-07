@@ -4,7 +4,6 @@ api:
   layers: ${self:custom.adotLayers}
   environment:
     AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
-    ADOT_IFELSE_CANARY: ${self:custom.adot_ifelse_canary}
     OTEL_PROPAGATORS: xray,tracecontext,baggage
     OTEL_TRACES_SAMPLER: parentbased_traceidratio
     OTEL_TRACES_SAMPLER_ARG: "0.1"
