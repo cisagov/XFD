@@ -73,14 +73,19 @@ custom:
 
   # Conditional logic for GovCloud vs
   # non-GovCloud (Private endpoints require a VPC Endpoint)
+  adotLayerArnMissing: arn:aws:lambda:us-east-1:000000000000:layer:MISSING_ADOT_LAYER_ARN:1
+  adot_ifelse_canary: ""
   serverlessIfElse:
 
     - If: '"${self:custom.adotLayerArnSelected}" != ""'
       Set:
         custom.adotLayers:
           - ${self:custom.adotLayerArnSelected}
+        custom.adot_ifelse_canary: "ifelse:ran"
       ElseSet:
-        custom.adotLayers: []
+        custom.adotLayers:
+          - ${self:custom.adotLayerArnMissing}
+        custom.adot_ifelse_canary: "ifelse:missing-adot-arn"
     - If: '"${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE}" == "PRIVATE"'
       Set:
         provider.vpcEndpointIds:
