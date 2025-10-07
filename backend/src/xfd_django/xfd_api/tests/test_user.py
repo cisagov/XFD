@@ -1940,7 +1940,7 @@ def test_global_user_updates_confirm_authorized_fields():
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
-    assert response.status_code == 200
+    assert response.status_code == 403
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
