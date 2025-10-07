@@ -152,6 +152,20 @@ handlers: Dict[str, Any] = {
     }
 }
 
+
+def _env_handlers(requests: bool = False) -> list[str]:
+    """
+    Return appropriate logging handlers based on environment.
+
+    - Uses CloudWatch if running in Lambda and not local.
+    - Otherwise falls back to console logging.
+    - `requests=True` will select the requests-specific CloudWatch handler.
+    """
+    if IS_LAMBDA and not IS_LOCAL:
+        return ["requests_cloudwatch"] if requests else ["app_cloudwatch"]
+    return ["console"]
+
+
 # Add CloudWatch handlers if in Lambda
 if IS_LAMBDA and not IS_LOCAL:
     # Third-Party Libraries
@@ -201,32 +215,24 @@ LOGGING = {
     "loggers": {
         # Catch-all for your project namespace
         "xfd": {
-            "handlers": (
-                ["app_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
-            ),
+            "handlers": _env_handlers(),
             "level": LOGGING_LEVEL,
             "propagate": False,
         },
         # Explicitly route sibling loggers (your modules) into CloudWatch
         "xfd_api": {
-            "handlers": (
-                ["app_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
-            ),
+            "handlers": _env_handlers(),
             "level": LOGGING_LEVEL,
             "propagate": False,
         },
         "xfd_mini_dl": {
-            "handlers": (
-                ["app_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
-            ),
+            "handlers": _env_handlers(),
             "level": LOGGING_LEVEL,
             "propagate": False,
         },
         # Request logs stay separate
         "fastapi.requests": {
-            "handlers": (
-                ["requests_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
-            ),
+            "handlers": _env_handlers(),
             "level": "INFO",
             "propagate": False,
         },
