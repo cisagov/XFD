@@ -25,6 +25,7 @@ from xfd_api.tasks.scanExecution import handler as scan_execution_handler
 from xfd_mini_dl.models import Organization, Scan, ScanTask
 
 IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
+LOGGER = logging.getLogger(__name__)
 
 
 class Scheduler:

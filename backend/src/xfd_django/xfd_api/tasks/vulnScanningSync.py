@@ -11,18 +11,12 @@ from logging import FileHandler
 import os
 
 # Third-Party Libraries
-from xfd_api.tasks.asm_sync import flag_cidr_changes
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
 from xfd_api.tasks.utils.datetime_utils import freeze_window
-from xfd_api.tasks.utils.link_ips_to_cidrs import bulk_assign_ips_to_cidrs
-from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
-from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
 from xfd_api.tasks.utils.vs_port_scans import (
     create_port_scan_summary,
     fetch_port_scans_from_redshift,
 )
-from xfd_api.tasks.utils.vs_requests import fetch_orgs_from_redshift
-from xfd_api.tasks.utils.vs_send_orgs_to_dmz import send_organizations_to_dmz
 from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
 from xfd_api.tasks.utils.vs_vuln_scans import (
     create_vuln_scan_summary,
@@ -110,9 +104,6 @@ def main(event):  # pylint: disable=R0915
     setup_vuln_sync_logging()
     LOGGER.info("Started VulnScanningSync scan...")
 
-    # LOGGER.info("Running syncdb")
-    # synchronize(target_app_label="xfd_mini_dl")
-
     # Use fixed window + deterministic keyset on (time, _id)
     ps_start_dt = event.get("start_datetime")
     ps_end_dt = event.get("end_datetime")
@@ -145,22 +136,8 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
 
-    # Load request data
-    org_id_dict = fetch_orgs_from_redshift()
-    # org_id_dict = fetch_org_id_dict_fast()
-
-    # Close unseen cidrs
-    flag_cidr_changes()
-
-    # Flag ips related to closed cidrs:
-    bulk_assign_ips_to_cidrs()
-
     # Process Vulnerability Scans
     fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, acronym)
-
-    # # Process Host Scans
-    # TODO This should be moved into the requests pull, since it makes more sense to do all together
-    create_daily_host_summary(org_id_dict)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
     # Prefetch risky service groups
@@ -182,13 +159,6 @@ def main(event):  # pylint: disable=R0915
         ps_start_dt,
         ps_end_dt,
     )
-
-    # # Fill CIDR live IPs
-    # TODO This can also be moved to the requests worker
-    fill_cidr_live_ips_bulk_update()
-
-    # # Send organizations to the DMZ MDL
-    send_organizations_to_dmz()
 
     # Process Tickets (Chunked)
     fetch_tickets_from_redshift_single_org(
