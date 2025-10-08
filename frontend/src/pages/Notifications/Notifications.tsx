@@ -35,8 +35,10 @@ import InfoDialog from 'components/Dialog/InfoDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import NotificationForm from 'components/Notifications/NotificationForm';
 import NotificationTable from 'components/Notifications/NotificationTable';
-import { useSubmitForm } from 'hooks/useNotificationSubmit';
-import { useNotificationApiCall } from 'hooks/useNotificationApiCall';
+import { useSubmitForm } from '@/hooks/Notifications/useNotificationSubmit';
+import { useNotificationApiCall } from '@/hooks/Notifications/useNotificationApiCall';
+import { useNotificationAction } from '@/hooks/Notifications/useNotificationAction';
+import { useDeleteNotification } from '@/hooks/Notifications/useDeleteNotification';
 
 const dateValidator = (
   startDateStr: string,
@@ -250,52 +252,20 @@ export const Notifications: React.FC = () => {
     setInfoDialogToggle
   );
 
-  const handleNotificationAction = async (
-    body: MaintenanceNotification,
-    apiType: string
-  ) => {
-    let notification;
-    try {
-      if (apiType === 'update') {
-        notification = await handleApiCall(
-          () => apiPost('/update_notification/' + body.id, { body }),
-          'The notification was successfully updated.',
-          'The notification was not able to be updated.'
-        );
-      } else if (apiType === 'post') {
-        notification = await handleApiCall(
-          () => apiPost('/notifications', { body }),
-          'The creation of the new notification was successful.',
-          'The creation of the new notification was unsuccessful.'
-        );
-      } else {
-        notification = await handleApiCall(
-          () => apiDelete('/notifications/' + body.id),
-          'The deletion of the notification was successful.',
-          'The deletion of the notification was unsuccessful.'
-        );
-      }
-    } catch (error) {
-      console.error('Error occurred during handleNotificationAction:', error);
-      throw error;
-    }
-    return notification;
-  };
+  const handleNotificationAction = useNotificationAction({
+    apiPost,
+    apiDelete,
+    handleApiCall
+  });
 
-  const deleteNotification = async () => {
-    try {
-      await handleNotificationAction(rowToDelete, 'delete');
-      if (rowToDelete.status === 'active') {
-        setActiveNotification(initialNotificationValues);
-      } else {
-        setInactiveNotifications(
-          inactiveNotifications.filter((item) => item.id !== rowToDelete.id)
-        );
-      }
-    } catch (error) {
-      console.log('Error occurred during delete request:', error);
-    }
-  };
+  const deleteNotification = useDeleteNotification({
+    rowToDelete,
+    setActiveNotification,
+    setInactiveNotifications,
+    initialNotificationValues,
+    inactiveNotifications,
+    handleNotificationAction
+  });
 
   const submitForm = useSubmitForm({
     formValues,
