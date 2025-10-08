@@ -1,12 +1,12 @@
 """API methods to support Scan endpoints."""
 
 # Standard Python Libraries
+from datetime import datetime
 import json
 import logging
 import os
 
 # Third-Party Libraries
-from dateutil import parser
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import Organization, OrganizationTag, Scan
 
@@ -100,6 +100,13 @@ def list_granular_scans(current_user):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def parse_frontend_datetime(dt_str: str) -> datetime:
+    """Parse ISO8601 datetime strings from frontend (handles trailing 'Z')."""
+    if dt_str.endswith("Z"):
+        dt_str = dt_str.replace("Z", "+00:00")
+    return datetime.fromisoformat(dt_str)
+
+
 # POST: /scans
 def create_scan(scan_data: NewScan, current_user):
     """Create a new scan."""
@@ -154,8 +161,8 @@ def create_scan(scan_data: NewScan, current_user):
 
             # Validate ordering
             try:
-                parsed_start = parser.isoparse(start_dt)
-                parsed_end = parser.isoparse(end_dt)
+                parsed_start = parse_frontend_datetime(str(start_dt))
+                parsed_end = parse_frontend_datetime(str(end_dt))
                 if parsed_start >= parsed_end:
                     raise HTTPException(
                         status_code=400,
