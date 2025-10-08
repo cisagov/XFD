@@ -9,12 +9,10 @@ import {
   Paper,
   Typography
 } from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
 import {
   CheckCircleOutline,
   Delete,
   Edit,
-  ErrorOutline,
   InfoOutlined
 } from '@mui/icons-material';
 import {
@@ -39,6 +37,7 @@ import { useSubmitForm } from '@/hooks/Notifications/useNotificationSubmit';
 import { useNotificationApiCall } from '@/hooks/Notifications/useNotificationApiCall';
 import { useNotificationAction } from '@/hooks/Notifications/useNotificationAction';
 import { useDeleteNotification } from '@/hooks/Notifications/useDeleteNotification';
+import { useFetchNotification } from '@/hooks/Notifications/useFetchNotification';
 
 const dateValidator = (
   startDateStr: string,
@@ -105,31 +104,12 @@ export const Notifications: React.FC = () => {
     minHeight: { xs: '250px', md: 'unset' }
   };
 
-  const fetchNotifications = React.useCallback(async () => {
-    try {
-      const rows = await apiGet('/notifications');
-      let activeRow;
-      const inactiveRows: MaintenanceNotification[] = [];
-      for (const row of rows) {
-        if (row.status === 'active') {
-          activeRow = { ...row };
-        } else {
-          inactiveRows.push({ ...row });
-        }
-      }
-      if (activeRow) {
-        setActiveNotification(activeRow);
-      } else {
-        setActiveNotification(initialNotificationValues);
-      }
-      if (inactiveRows.length > 0) {
-        setInactiveNotifications(inactiveRows);
-      }
-    } catch (e: any) {
-      console.log(e);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiGet]);
+  const fetchNotifications = useFetchNotification(
+    apiGet,
+    setActiveNotification,
+    setInactiveNotifications,
+    initialNotificationValues
+  );
 
   React.useEffect(() => {
     fetchNotifications();
