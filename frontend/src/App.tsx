@@ -14,6 +14,7 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
 import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
+import { NavigationProvider } from 'context/NavigationContextProvider';
 import { DevInspector } from './utils/devInspector';
 import { openInVSCode } from './utils/openInVSCode';
 import AppGate from './components/Gates/AppGate';
@@ -56,15 +57,17 @@ const App: React.FC = () => (
               <SavedSearchContextProvider>
                 <SearchProvider>
                   <FilterDrawerContextProvider>
-                    <LayoutWithSearch>
-                      <AppGate>
-                        <LinkTracker />
-                        <DevInspector
-                          onClickElement={openInVSCode}
-                        ></DevInspector>
-                        <Routes />
-                      </AppGate>
-                    </LayoutWithSearch>
+                    <NavigationProvider>
+                      <LayoutWithSearch>
+                        <AppGate>
+                          <LinkTracker />
+                          <DevInspector
+                            onClickElement={openInVSCode}
+                          ></DevInspector>
+                          <Routes />
+                        </AppGate>
+                      </LayoutWithSearch>
+                    </NavigationProvider>
                   </FilterDrawerContextProvider>
                 </SearchProvider>
               </SavedSearchContextProvider>
