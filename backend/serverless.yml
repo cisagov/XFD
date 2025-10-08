@@ -7,14 +7,15 @@ configValidationMode: error
 
 custom:
   adotLayerArn:
-    us-east-1: arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroPython:16
+    us-east-1: arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroPython:18
     us-east-2: arn:aws:lambda:us-east-2:615299751070:layer:AWSOpenTelemetryDistroPython:13
     us-west-1: arn:aws:lambda:us-west-1:615299751070:layer:AWSOpenTelemetryDistroPython:20
     us-west-2: arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroPython:20
     us-gov-east-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn, ''}
     us-gov-west-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn, ''}
   adotLayerArnSelected: ${self:custom.adotLayerArn[${self:provider.region}], ''}
-  adotLayers: []
+  adotLayers:
+    - ${self:custom.adotLayerArnSelected}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -74,12 +75,6 @@ custom:
   # Conditional logic for GovCloud vs
   # non-GovCloud (Private endpoints require a VPC Endpoint)
   serverlessIfElse:
-    - If: '"${self:custom.adotLayerArnSelected}" != ""'
-      Set:
-        custom.adotLayers:
-          - ${self:custom.adotLayerArnSelected}
-      ElseSet:
-        custom.adotLayers: []
     - If: '"${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE}" == "PRIVATE"'
       Set:
         provider.vpcEndpointIds:
