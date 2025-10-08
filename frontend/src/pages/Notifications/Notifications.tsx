@@ -36,6 +36,7 @@ import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import NotificationForm from 'components/Notifications/NotificationForm';
 import NotificationTable from 'components/Notifications/NotificationTable';
 import { useSubmitForm } from 'hooks/useNotificationSubmit';
+import { useNotificationApiCall } from 'hooks/useNotificationApiCall';
 
 const dateValidator = (
   startDateStr: string,
@@ -228,14 +229,6 @@ export const Notifications: React.FC = () => {
     }, 500); // 0.5 second delay
   };
 
-  const handleChange = (event: SelectChangeEvent | any) => {
-    setFormValues((values) => ({
-      ...values,
-      [event.target.name]: event.target.value
-    }));
-    setFormDisabled(false);
-  };
-
   const onSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setChecked(event.target.checked);
     if (event.target.checked) {
@@ -252,36 +245,10 @@ export const Notifications: React.FC = () => {
     setFormDisabled(false);
   };
 
-  const handleApiCall = async (
-    apiCall: () => Promise<MaintenanceNotification>,
-    successMessage: string,
-    errorMessage: string
-  ) => {
-    try {
-      const notification = await apiCall();
-      setInfoDialogValues((prevState) => ({
-        ...prevState,
-        content: successMessage
-      }));
-      setInfoDialogToggle(true);
-      return notification;
-    } catch (e: any) {
-      console.error(e);
-      setInfoDialogValues({
-        icon: (
-          <ErrorOutline
-            color="error"
-            aria-label="an error icon that displays an outlined circle with a x in the center"
-            sx={{ fontSize: '80px' }}
-          />
-        ),
-        title: 'Error',
-        content: `${errorMessage} ${e.message}. Check the console log for more details.`
-      });
-      setInfoDialogToggle(true);
-      throw e;
-    }
-  };
+  const handleApiCall = useNotificationApiCall(
+    setInfoDialogValues,
+    setInfoDialogToggle
+  );
 
   const handleNotificationAction = async (
     body: MaintenanceNotification,
