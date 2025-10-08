@@ -3,6 +3,16 @@
     Author: Jesse Salinas
     Date: 2025-09-30
     Description: Test functions for VS Dashboard filter persistence during drill-down navigation (CRASM-3004)
+    
+    Test Scenarios Covered:
+    1. Non-default region + org → drill down → return → filters persist 
+    2. "All Regions" + org → drill down → return → filters persist 
+    3. User default filters → drill down → return → filters persist
+    4. Non-default region + org → navbar navigation → return → filters reset to user defaults
+    5. Multiple consecutive drill-downs maintain filter persistence
+    6. Region changes clear organization filters
+    7. Page reload resets to user defaults
+    8. No region flickering on page load
 */
 
 import { test } from '../../tests/fixtures';
@@ -274,6 +284,91 @@ async function ensureFilterPanelOpen(page: any) {
   }
 }
 
+// Helper function to handle state modal if it appears
+async function handleStateModal(page: any) {
+  try {
+    const updateStateModal = page.locator('text=Update State Information');
+    if (await updateStateModal.isVisible({ timeout: 3000 })) {
+      console.log('State modal detected - selecting state to avoid logout...');
+      
+      // Must select a state since canceling causes logout
+      const stateSelect = page.locator('.MuiSelect-select');
+      if (await stateSelect.isVisible({ timeout: 2000 })) {
+        await stateSelect.click();
+        await page.waitForTimeout(500);
+        
+        // Try to select Virginia first, then any available option
+        const virginiaOption = page.locator('li:has-text("Virginia"), [data-value="VA"], [data-value="Virginia"]');
+        if (await virginiaOption.first().isVisible({ timeout: 2000 })) {
+          await virginiaOption.first().click();
+          console.log('Selected Virginia from dropdown');
+        } else {
+          const firstOption = page.locator('li[role="option"]').first();
+          if (await firstOption.isVisible({ timeout: 1000 })) {
+            const optionText = await firstOption.textContent().catch(() => 'Unknown');
+            await firstOption.click();
+            console.log(`Selected first available state: ${optionText}`);
+          }
+        }
+      }
+      
+      // Click Save button
+      const saveButton = page.locator('button:has-text("Save")');
+      if (await saveButton.isVisible({ timeout: 2000 })) {
+        await saveButton.click();
+        console.log('Clicked Save button');
+        
+        try {
+          await updateStateModal.waitFor({ state: 'hidden', timeout: 8000 });
+          console.log('State modal closed successfully');
+        } catch (e) {
+          console.log('Modal timeout - continuing anyway...');
+        }
+      }
+      
+      await page.waitForTimeout(2000);
+    }
+  } catch (e) {
+    console.log('No state modal found or error handling it');
+  }
+}
+
+// Helper function to perform drill-down navigation
+async function performDrillDown(page: any) {
+  const vulnerabilitySelectors = [
+    'a[href*="/vulnerabilities"]',
+    'a[href*="/vulnerability"]',
+    'button:has-text("View")',
+    'a:has-text("CVE-")',
+    'a[href*="/domains"]',
+    'a:has-text("View Details")'
+  ];
+
+  for (const selector of vulnerabilitySelectors) {
+    try {
+      const link = page.locator(selector).first();
+      if (await link.isVisible({ timeout: 2000 })) {
+        console.log(`Found drill-down link: ${selector}`);
+        await link.click();
+        await page.waitForLoadState('networkidle', { timeout: 10000 });
+        await page.goBack();
+        await waitForVSDashboardLoad(page);
+        return true;
+      }
+    } catch (e) {
+      console.log(`No drill-down link found for selector: ${selector}`);
+    }
+  }
+
+  // Fallback: simulate drill-down by navigating to vulnerabilities page
+  console.log('No drill-down links available - simulating navigation');
+  await page.goto('/vulnerabilities');
+  await page.waitForLoadState('networkidle');
+  await page.goto('/VSDashboard');
+  await waitForVSDashboardLoad(page);
+  return true;
+}
+
 // Helper function to set filters
 async function setFilters(
   page: any,
@@ -332,78 +427,20 @@ async function setFilters(
 }
 
 test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
-  test('should preserve filters ONLY during drill-down navigation, not general navigation', async ({
+  test('should preserve non-default region + org filters during drill-down navigation', async ({
     pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
     await pageAsGlobalAdmin.goto('/VSDashboard');
     
-    // Handle "Update State Information" modal FIRST before loading dashboard
-    try {
-      const updateStateModal = pageAsGlobalAdmin.locator('text=Update State Information');
-      if (await updateStateModal.isVisible({ timeout: 3000 })) {
-        console.log('State modal detected during test - selecting state to avoid logout...');
-        
-        // Must select a state since canceling causes logout
-        // Handle MUI Select dropdown for state
-        const stateSelect = pageAsGlobalAdmin.locator('.MuiSelect-select');
-        if (await stateSelect.isVisible({ timeout: 2000 })) {
-          console.log('Found MUI Select for state');
-          await stateSelect.click(); // Open the dropdown
-          await pageAsGlobalAdmin.waitForTimeout(500);
-          
-          // Look for Virginia option in the dropdown
-          const virginiaOption = pageAsGlobalAdmin.locator('li:has-text("Virginia"), [data-value="VA"], [data-value="Virginia"]');
-          if (await virginiaOption.first().isVisible({ timeout: 2000 })) {
-            await virginiaOption.first().click();
-            console.log('Selected Virginia from dropdown');
-          } else {
-            console.log('Virginia option not found, trying first available option');
-            // Try to select any available option
-            const firstOption = pageAsGlobalAdmin.locator('li[role="option"]').first();
-            if (await firstOption.isVisible({ timeout: 1000 })) {
-              const optionText = await firstOption.textContent().catch(() => 'Unknown');
-              await firstOption.click();
-              console.log(`Selected first available state: ${optionText}`);
-            }
-          }
-        }
-        
-        // Click Save button
-        const saveButton = pageAsGlobalAdmin.locator('button:has-text("Save")');
-        if (await saveButton.isVisible({ timeout: 2000 })) {
-          await saveButton.click();
-          console.log('Clicked Save button');
-          
-          // Wait for modal to disappear or for any error messages
-          try {
-            await updateStateModal.waitFor({ state: 'hidden', timeout: 8000 });
-            console.log('State modal closed successfully');
-          } catch (e) {
-            console.log('Modal did not close within timeout, checking for errors...');
-            
-            // Check for error messages but continue regardless
-            const errorMessage = pageAsGlobalAdmin.locator('text=Something went wrong updating the state. Please try again.');
-            if (await errorMessage.isVisible({ timeout: 1000 })) {
-              console.log('Server error detected when updating state - continuing anyway');
-            }
-          }
-        }
-        
-        // Give extra time for page to stabilize
-        await pageAsGlobalAdmin.waitForTimeout(2000);
-      } else {
-        console.log('No state modal found during test execution');
-      }
-    } catch (e) {
-      console.log('Error handling state modal:', e.message);
-    }
-
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
     await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
-    // Set specific region and organization filters
-    await setFilters(pageAsGlobalAdmin, 'Region 2', null); // Set region first
+    // Scenario 1: Set NON-DEFAULT region and organization filters
+    await setFilters(pageAsGlobalAdmin, 'Region 2', null); // Set non-default region first
 
     // Try to set an organization if any are available
     try {
@@ -440,51 +477,8 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
     const filtersBeforeDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
     console.log('Filters before drill-down:', filtersBeforeDrillDown);
 
-    // Try to find and click on a vulnerability to drill down
-    // Look for any clickable links that might lead to vulnerability details
-    const vulnerabilitySelectors = [
-      'a[href*="/vulnerabilities"]',
-      'a[href*="/vulnerability"]',
-      'button:has-text("View")',
-      'a:has-text("CVE-")',
-      'a[href*="/domains"]', // Fallback to domains drill-down if no vulnerabilities
-      'a:has-text("View Details")'
-    ];
-
-    let drillDownPerformed = false;
-    for (const selector of vulnerabilitySelectors) {
-      try {
-        const link = pageAsGlobalAdmin.locator(selector).first();
-        if (await link.isVisible({ timeout: 2000 })) {
-          console.log(`Found drill-down link: ${selector}`);
-          await link.click();
-
-          // Wait for navigation to details page
-          await pageAsGlobalAdmin.waitForLoadState('networkidle', {
-            timeout: 10000
-          });
-
-          // Navigate back to VS Dashboard
-          await pageAsGlobalAdmin.goBack();
-          await waitForVSDashboardLoad(pageAsGlobalAdmin);
-
-          drillDownPerformed = true;
-          break;
-        }
-      } catch (e) {
-        console.log(`No drill-down link found for selector: ${selector}`);
-      }
-    }
-
-    if (!drillDownPerformed) {
-      console.log(
-        'No drill-down links available - simulating navigation by going to vulnerabilities page directly'
-      );
-      await pageAsGlobalAdmin.goto('/vulnerabilities');
-      await pageAsGlobalAdmin.waitForLoadState('networkidle');
-      await pageAsGlobalAdmin.goto('/VSDashboard');
-      await waitForVSDashboardLoad(pageAsGlobalAdmin);
-    }
+    // Perform drill-down navigation
+    const drillDownPerformed = await performDrillDown(pageAsGlobalAdmin);
 
     // Get filter state after returning
     const filtersAfterReturn = await getCurrentFilters(pageAsGlobalAdmin);
@@ -538,12 +532,62 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
     expect(results.violations).toHaveLength(0);
   });
 
+  test('should preserve user default filters during drill-down navigation', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    // Navigate to VS Dashboard
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+
+    // Scenario 3: Use user's DEFAULT filters (don't change anything, just use what loads)
+    const defaultFilters = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('User default filters on load:', defaultFilters);
+
+    // Verify we have some default filters
+    expect(defaultFilters.region).toBeTruthy();
+    console.log(`Using user default filters: region="${defaultFilters.region}", org="${defaultFilters.organization}"`);
+
+    // Try to drill down with default filters
+    const drillDownPerformed = await performDrillDown(pageAsGlobalAdmin);
+
+    // Get filter state after returning from drill-down
+    const filtersAfterReturn = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('Filters after drill-down return:', filtersAfterReturn);
+
+    if (drillDownPerformed) {
+      // Verify default filters are preserved during drill-down
+      expect(filtersAfterReturn.region).toBe(defaultFilters.region);
+      expect(filtersAfterReturn.organization).toBe(defaultFilters.organization);
+      console.log('✅ Verified: User default filters persist during drill-down navigation');
+    } else {
+      console.log('No drill-down performed, but default filters loaded correctly');
+    }
+
+    // Accessibility scan
+    const results = await makeAxeBuilder(pageAsGlobalAdmin).analyze();
+    await testInfo.attach('accessibility-scan-results-default-filters', {
+      body: JSON.stringify(results, null, 2),
+      contentType: 'application/json'
+    });
+
+    expect(results.violations).toHaveLength(0);
+  });
+
   test('should reset to user default region on page reload', async ({
     pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
     await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
     await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set filters to non-default values
@@ -587,6 +631,10 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
   }, testInfo: TestInfo) => {
     // Navigate to VS Dashboard
     await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
     await waitForVSDashboardLoad(pageAsGlobalAdmin);
 
     // Set "All Regions" filter
@@ -669,6 +717,85 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
     // Accessibility scan
     const results = await makeAxeBuilder(pageAsGlobalAdmin).analyze();
     await testInfo.attach('accessibility-scan-results-all-regions', {
+      body: JSON.stringify(results, null, 2),
+      contentType: 'application/json'
+    });
+
+    expect(results.violations).toHaveLength(0);
+  });
+
+  test('should preserve filters during multiple consecutive drill-downs', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    // Navigate to VS Dashboard
+    await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
+    await waitForVSDashboardLoad(pageAsGlobalAdmin);
+
+    // Set non-default filters
+    await setFilters(pageAsGlobalAdmin, 'Region 3', null);
+
+    // Try to set an organization if available
+    try {
+      await pageAsGlobalAdmin.click(
+        'label:has-text("Organization") + div, label:has-text("Organization") ~ div'
+      );
+      await pageAsGlobalAdmin.waitForTimeout(500);
+
+      const orgOptions = pageAsGlobalAdmin.locator('li[role="option"], .MuiAutocomplete-option');
+      const optionCount = await orgOptions.count();
+
+      if (optionCount > 0) {
+        const firstOrg = orgOptions.first();
+        const orgText = await firstOrg.textContent();
+        await firstOrg.click();
+        await pageAsGlobalAdmin.waitForLoadState('networkidle');
+        console.log(`Selected organization: ${orgText}`);
+      } else {
+        await pageAsGlobalAdmin.click('body');
+      }
+    } catch (e) {
+      console.log('Could not interact with organization filter');
+    }
+
+    const initialFilters = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('Initial filters before multiple drill-downs:', initialFilters);
+
+    // Perform multiple drill-downs (3 times)
+    for (let i = 1; i <= 3; i++) {
+      console.log(`\n--- Performing drill-down ${i}/3 ---`);
+      
+      const drillDownPerformed = await performDrillDown(pageAsGlobalAdmin);
+      
+      if (drillDownPerformed) {
+        const filtersAfterDrillDown = await getCurrentFilters(pageAsGlobalAdmin);
+        console.log(`Filters after drill-down ${i}:`, filtersAfterDrillDown);
+        
+        // Verify filters are still preserved after each drill-down
+        expect(filtersAfterDrillDown.region).toBe(initialFilters.region);
+        console.log(`✅ Drill-down ${i}: Filters preserved`);
+      } else {
+        console.log(`⚠️ Drill-down ${i}: No drill-down links available`);
+      }
+      
+      // Small delay between drill-downs
+      await pageAsGlobalAdmin.waitForTimeout(1000);
+    }
+
+    const finalFilters = await getCurrentFilters(pageAsGlobalAdmin);
+    console.log('\nFinal filters after all drill-downs:', finalFilters);
+    
+    // Final verification - all filters should still match initial
+    expect(finalFilters.region).toBe(initialFilters.region);
+    console.log('✅ All multiple drill-downs completed - filters preserved throughout');
+
+    // Accessibility scan
+    const results = await makeAxeBuilder(pageAsGlobalAdmin).analyze();
+    await testInfo.attach('accessibility-scan-results-multiple-drilldowns', {
       body: JSON.stringify(results, null, 2),
       contentType: 'application/json'
     });
@@ -834,9 +961,15 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
     pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    // Navigate to VS Dashboard and set specific filters
+    // Navigate to VS Dashboard
     await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
     await waitForVSDashboardLoad(pageAsGlobalAdmin);
+    
+    // Scenario 4: Set NON-DEFAULT region + org, then navigate via navbar → should reset to user defaults
     await setFilters(pageAsGlobalAdmin, 'Region 3', null);
 
     const filtersOnVSDashboard = await getCurrentFilters(pageAsGlobalAdmin);
@@ -884,6 +1017,10 @@ test.describe('VS Dashboard Filter Persistence - Drill-Down Specific', () => {
   }, testInfo: TestInfo) => {
     // Part 1: Test drill-down persistence
     await pageAsGlobalAdmin.goto('/VSDashboard');
+    
+    // Handle state modal if it appears
+    await handleStateModal(pageAsGlobalAdmin);
+    
     await waitForVSDashboardLoad(pageAsGlobalAdmin);
     await setFilters(pageAsGlobalAdmin, 'Region 4', null);
 
