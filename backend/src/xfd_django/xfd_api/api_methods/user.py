@@ -590,6 +590,12 @@ def approve_user_registration(user_id, current_user):
     if not matches_user_region(current_user, user.region_id):
         raise HTTPException(status_code=403, detail="Unauthorized region access.")
 
+    # Check for race condition
+    if user.date_approved is not None and user.approved_by is not None:
+        return {
+            "status_code": 200,
+            "body": "User registration already approved.",
+        }
     # Approve user
     user.date_approved = datetime.now()
     user.approved_by = current_user
