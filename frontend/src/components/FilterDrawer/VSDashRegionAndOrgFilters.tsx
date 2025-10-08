@@ -41,8 +41,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const { regions } = useStaticsContext();
   const [search_term, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
-  const [isRegOpen, setIsRegOpen] = useState(false);
-  const [isOrgOpen, setIsOrgOpen] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
     undefined
   );
@@ -203,7 +201,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
       setSelectedRegion(region_id);
       setSelectedOrg(undefined);
       setSearchTerm('');
-      setIsRegOpen(false);
     }
   };
 
@@ -219,7 +216,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
     addFilter(ORGANIZATION_FILTER_KEY, org, 'any');
     setSelectedOrg(org);
     setSearchTerm('');
-    setIsOrgOpen(false);
   };
 
   return (
@@ -244,10 +240,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
             userLevel === REGIONAL_ADMIN ||
             userLevel === STANDARD_USER
           }
-          open={isRegOpen}
-          onOpen={() => {
-            setIsRegOpen(true);
-          }}
           options={allRegions}
           getOptionLabel={(option) =>
             allRegionsOption === option ? allRegionsOption : `Region ${option}`
@@ -305,7 +297,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
                   ? 'Select Region'
                   : ''
               }
-              onBlur={() => setIsRegOpen(false)}
             />
           )}
         />
@@ -329,10 +320,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
           // freeSolo
           disableClearable
           disabled={userLevel === STANDARD_USER}
-          open={isOrgOpen}
-          onOpen={() => {
-            setIsOrgOpen(true);
-          }}
           options={orgResults}
           getOptionLabel={(option) => option.name}
           slotProps={{
@@ -386,7 +373,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
               {...params}
               label="Organization"
               placeholder="Search Organizations"
-              onBlur={() => setIsOrgOpen(false)}
               helperText={
                 userLevel === REGIONAL_ADMIN ||
                 userLevel === GLOBAL_ADMIN ||
