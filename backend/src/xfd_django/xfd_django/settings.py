@@ -198,6 +198,8 @@ if IS_LAMBDA and not IS_LOCAL:
         }
     )
 
+# TODO: CRASM-3282
+# Consider using JSON formatter instead
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
