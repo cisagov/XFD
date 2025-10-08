@@ -203,7 +203,7 @@ SCAN_SCHEMA = {
     "vulnScanningSync": ScanSchema(
         type="fargate",
         is_passive=True,
-        global_scan=True,
+        global_scan=False,
         cpu="16384",
         memory="65536",
         description="Pull in vulnerability data from VSs Vulnerability database",

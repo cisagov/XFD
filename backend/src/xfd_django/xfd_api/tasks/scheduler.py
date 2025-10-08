@@ -9,16 +9,12 @@ import os
 import boto3
 from botocore.session import Session as BotoCoreSession
 import django
-
-LOGGER = logging.getLogger(__name__)
-
-# Third-Party Libraries
 from django.utils import timezone
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
-
+LOGGER = logging.getLogger(__name__)
 # Third-Party Libraries
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.helpers.getScanOrganizations import get_scan_organizations
@@ -145,6 +141,16 @@ class Scheduler:
             except Exception as e:
                 LOGGER.error("Error sending message batch: %s", e)
 
+        # Parse arguments from JSON string to dict
+        args = {}
+        if scan.arguments:
+            try:
+                args = json.loads(str(scan.arguments))  # convert JSON string -> dict
+            except Exception as e:
+                LOGGER.error("Failed to parse scan arguments: %s", e)
+                args = {}
+
+        LOGGER.info("Scheduler parsed arguments for scan %s: %s", scan.name, args)
         # Now pass organizations to scanExecution
         event_payload = {
             "scanId": str(scan.id),
@@ -152,6 +158,7 @@ class Scheduler:
             "desiredCount": scan.concurrent_tasks,
             "organizations": list(filtered_orgs),
             "isPe": False,
+            "arguments": args,
         }
         try:
             response = scan_execution_handler(event_payload, None)
