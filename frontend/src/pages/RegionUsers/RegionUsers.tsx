@@ -3,6 +3,7 @@ import { initializeUser, User, Organization as OrganizationType } from 'types';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
 import { useAuthContext } from 'context';
 import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
 import {
@@ -14,7 +15,10 @@ import {
   useGridApiRef
 } from '@mui/x-data-grid';
 import DoneIcon from '@mui/icons-material/Done';
-import { CheckCircleOutline as CheckIcon } from '@mui/icons-material';
+import {
+  CheckCircleOutline as CheckIcon,
+  InfoOutline
+} from '@mui/icons-material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { formatDate, parseISO } from 'date-fns';
@@ -24,6 +28,7 @@ type DialogStates = {
   isDenyDialogOpen: boolean;
   isApproveDialogOpen: boolean;
   isInfoDialogOpen: boolean;
+  isUserAlreadyApprovedDialogOpen: boolean;
 };
 
 type ErrorStates = {
@@ -325,7 +330,8 @@ export const RegionUsers: React.FC = () => {
     isOrgDialogOpen: false,
     isDenyDialogOpen: false,
     isApproveDialogOpen: false,
-    isInfoDialogOpen: false
+    isInfoDialogOpen: false,
+    isUserAlreadyApprovedDialogOpen: false
   });
   const [errorStates, setErrorStates] = useState<ErrorStates>({
     getOrgsError: '',
@@ -423,61 +429,62 @@ export const RegionUsers: React.FC = () => {
     [apiDelete]
   );
 
-  const addOrgToUser = useCallback(
-    (user_id: string, selectedOrgId: any): Promise<boolean> => {
-      return apiPost(`/v2/organizations/${selectedOrgId}/users`, {
-        body: { user_id, role: 'user' }
-      }).then(
-        (res) => {
-          return updateUser(user_id, res.organization.name);
-        },
-        (e) => {
-          setErrorStates({ ...errorStates, getUpdateError: e.message });
-          return false;
-        }
-      );
-    }, // eslint-disable-next-line react-hooks/exhaustive-deps
+  const updateUser = useCallback(
+    async (
+      user_id: string,
+      org_name: string
+    ): Promise<{ success: boolean; body: string }> => {
+      try {
+        const res = await apiPost(`/v2/update_user/${user_id}`, {
+          body: { invite_pending: false }
+        });
+        apiRefPendingUsers.current?.updateRows([
+          { id: user_id, _action: 'delete' }
+        ]);
+        setPendingUsers((prevPendingUsers) =>
+          prevPendingUsers.filter((user) => user.id !== user_id)
+        );
+        res['organizations'] = org_name;
+        apiRefCurrentUsers.current?.updateRows([res]);
+        setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
+        return { success: true, body: 'User registration approved' };
+      } catch (e: any) {
+        setErrorStates({ ...errorStates, getUpdateError: e.message });
+        return { success: false, body: e.message };
+      }
+    },
     [apiPost]
   );
 
-  const updateUser = useCallback(
-    (user_id: string, org_name: string): Promise<boolean> => {
-      return apiPost(`/v2/update_user/${user_id}`, {
-        body: { invite_pending: false }
-      }).then(
-        (res) => {
-          apiRefPendingUsers.current?.updateRows([
-            { id: user_id, _action: 'delete' }
-          ]);
-          setPendingUsers((prevPendingUsers) =>
-            prevPendingUsers.filter((user) => user.id !== user_id)
-          );
-          res['organizations'] = org_name;
-          apiRefCurrentUsers.current?.updateRows([res]);
-          setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
-          return sendApprovalEmail(user_id);
-        },
-        (e) => {
-          setErrorStates({ ...errorStates, getUpdateError: e.message });
-          return false;
-        }
-      );
-    }, // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apiPost]
+  const addOrgToUser = useCallback(
+    async (
+      user_id: string,
+      selectedOrgId: any
+    ): Promise<{ success: boolean; body: string }> => {
+      try {
+        const res = await apiPost(`/v2/organizations/${selectedOrgId}/users`, {
+          body: { user_id, role: 'user' }
+        });
+        return updateUser(user_id, res.organization.name);
+      } catch (e: any) {
+        setErrorStates({ ...errorStates, getUpdateError: e.message });
+        return { success: false, body: e.message };
+      }
+    },
+    [apiPost, updateUser, errorStates]
   );
 
   const sendApprovalEmail = useCallback(
-    (user_id: string): Promise<boolean> => {
-      return apiPost(`/users/${user_id}/register/approve`).then(
-        (res) => {
-          console.log(res);
-          return true;
-        },
-        (e) => {
-          console.log(e);
-          return false;
-        }
-      );
+    async (user_id: string): Promise<{ status_code: number; body: string }> => {
+      try {
+        const res = await apiPost(`/users/${user_id}/register/approve`);
+        return { status_code: res.status_code, body: res.body };
+      } catch (e: any) {
+        return {
+          status_code: e.status_code || 500,
+          body: e.message || 'Unknown error'
+        };
+      }
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiPost]
   );
@@ -558,6 +565,8 @@ export const RegionUsers: React.FC = () => {
 
   const handleApproveConfirmClick = async () => {
     try {
+      const emailResult = await sendApprovalEmail(selectedUser.id);
+      const user_id = selectedUser.id;
       const userHadOrg = selectedUser.roles.length > 0;
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
@@ -567,21 +576,47 @@ export const RegionUsers: React.FC = () => {
           ? Array.from(selectedOrg.ids)[0].toString()
           : null;
       let success = false;
+
+      // This call is to determine if the user was already approved by another admin since opening the dialog.
+      // If so, show the already approved dialog and remove the user from the pending list.
+      if (
+        emailResult.status_code === 200 &&
+        emailResult.body === 'User registration already approved.'
+      ) {
+        setDialogStates((prevState) => ({
+          ...prevState,
+          isOrgDialogOpen: false,
+          isUserAlreadyApprovedDialogOpen: true
+        }));
+        apiRefPendingUsers.current?.updateRows([
+          { id: user_id, _action: 'delete' }
+        ]);
+        setPendingUsers((prevPendingUsers) =>
+          prevPendingUsers.filter((user) => user.id !== user_id)
+        );
+        return;
+      }
+
       // If the user's org was already added and not modified, only update the user.
       if (userHadOrg && originalOrgId === selectedOrgId) {
-        success = await updateUser(
+        const updateUserResult = await updateUser(
           selectedUser.id,
           selectedUser.roles[0].organization.name
         );
+        success = updateUserResult.success;
         // If the user now has a different org than before, remove the previous org.
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
         // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
         removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
-        success = await addOrgToUser(selectedUser.id, selectedOrgId);
+        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        success = addOrgResult.success;
+        // If the user had no previous org, add the user to the selected org which then also updates the user.
+
         // If the previous operation was successful or if the user had no previous org,
         // add the user to the selected org which then also updates the user.
       } else {
-        success = await addOrgToUser(selectedUser.id, selectedOrgId);
+        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        success = addOrgResult.success;
       }
       if (success) {
         handleCloseDialog('closeButtonClick');
@@ -765,6 +800,25 @@ export const RegionUsers: React.FC = () => {
         icon={<CheckIcon color="success" sx={{ fontSize: '80px' }} />}
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
+      />
+      <AlreadyApprovedDialog
+        isOpen={dialogStates.isUserAlreadyApprovedDialogOpen}
+        handleClick={() =>
+          setDialogStates((prevState) => ({
+            ...prevState,
+            isUserAlreadyApprovedDialogOpen: false
+          }))
+        }
+        icon={<InfoOutline color="info" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">User already approved</Typography>}
+        content={
+          <Typography variant="body1">
+            This user was previously approved by another administrator.
+            <br />
+            Check the approval history in Admin Tools → User Logs for more
+            details.
+          </Typography>
+        }
       />
     </Box>
   );

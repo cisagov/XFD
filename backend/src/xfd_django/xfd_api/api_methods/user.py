@@ -6,6 +6,7 @@ import logging
 import os
 
 # Third-Party Libraries
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Prefetch
 from django.forms import model_to_dict
@@ -477,7 +478,8 @@ def update_user_v2(user_id, user_data, current_user):
         allowed_fields = get_allowed_user_update_fields(current_user, user)
 
         # Check for disallowed fields before applying updates
-        disallowed_fields = set(updates.keys()) - allowed_fields
+        requested_fields = set(updates.keys())
+        disallowed_fields = requested_fields - allowed_fields
         if disallowed_fields:
             raise HTTPException(
                 status_code=403,
@@ -486,6 +488,19 @@ def update_user_v2(user_id, user_data, current_user):
                 ),
             )
 
+        if "user_type" in requested_fields:
+            if updates["user_type"] in settings.ALLOWED_ADMIN_ROLES:
+                email_value = (user.email or "").strip().lower()
+                email_parts = email_value.split("@")
+                email_domain = email_parts[-1] if len(email_parts) == 2 else ""
+                allowed_admin_domains = (
+                    settings.ALLOWED_ADMIN_DOMAINS
+                )  # list[str], e.g., ["cisa.dhs.gov"]
+                if email_domain not in allowed_admin_domains:
+                    raise HTTPException(
+                        status_code=403,
+                        detail="User not authorized for requested user type.",
+                    )
         # Apply only the allowed updates
         for field, value in updates.items():
             if field == "state":
@@ -575,6 +590,12 @@ def approve_user_registration(user_id, current_user):
     if not matches_user_region(current_user, user.region_id):
         raise HTTPException(status_code=403, detail="Unauthorized region access.")
 
+    # Check for race condition
+    if user.date_approved is not None and user.approved_by is not None:
+        return {
+            "status_code": 200,
+            "body": "User registration already approved.",
+        }
     # Approve user
     user.date_approved = datetime.now()
     user.approved_by = current_user

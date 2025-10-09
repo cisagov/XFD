@@ -61,7 +61,7 @@ services:
 
   minio:
     container_name: minio
-    image: bitnami/minio:2020.9.26
+    image: bitnamilegacy/minio:2020.9.26
     user: root
     command: 'minio server /data'
     networks:

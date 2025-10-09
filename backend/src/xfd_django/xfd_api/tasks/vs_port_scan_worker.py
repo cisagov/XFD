@@ -9,7 +9,10 @@ one organization at a time.
 import logging
 
 # Third-Party Libraries
-from xfd_api.tasks.utils.vs_port_scans import fetch_port_scans_from_redshift
+from xfd_api.tasks.utils.vs_port_scans import (
+    create_port_scan_summary,
+    fetch_port_scans_from_redshift,
+)
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
 
@@ -54,7 +57,24 @@ def handler(event):
             start_dt,
             end_dt,
         )
-        return {"status_code": 200, "body": "Vuln Scan Sync completed successfully"}
+        # Create summaries with individual error handling
+        LOGGER.info("Creating port scan summary...")
+        try:
+            create_port_scan_summary(org_id=organization_id)
+            LOGGER.info("Finished port scan summary")
+        except Exception as e:
+            LOGGER.error("Failed to create port scan summary: %s", e, exc_info=True)
+
+        # TODO: Not used yet but needs to be optimized (takes 12+ hours to complete)
+        # LOGGER.info("Creating port scan service summaries...")
+        # try:
+        #     create_port_scan_service_summaries()
+        #     LOGGER.info("Finished port scan service summaries")
+        # except Exception as e:
+        #     LOGGER.error(
+        #         "Failed to create port scan service summaries: %s", e, exc_info=True
+        #     )
+        return {"status_code": 200, "body": "Port Scan Sync completed successfully"}
     except Exception as e:
         LOGGER.exception("Error occurred: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e

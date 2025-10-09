@@ -9,7 +9,10 @@ one organization at a time.
 import logging
 
 # Third-Party Libraries
-from xfd_api.tasks.utils.vs_vuln_scans import fetch_vuln_scans_from_redshift
+from xfd_api.tasks.utils.vs_vuln_scans import (
+    create_vuln_scan_summary,
+    fetch_vuln_scans_from_redshift,
+)
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 
 LOGGER = logging.getLogger(__name__)
@@ -34,6 +37,14 @@ def handler(event):
         fetch_vuln_scans_from_redshift(
             start_dt, end_dt, organization_acronym, organization_id
         )
+        LOGGER.info("Creating vulnerability scan summary...")
+        try:
+            create_vuln_scan_summary(org_id=organization_id)
+            LOGGER.info("Finished vulnerability scan summary")
+        except Exception as e:
+            LOGGER.error(
+                "Failed to create vulnerability scan summary: %s", e, exc_info=True
+            )
         return {"status_code": 200, "body": "Vuln Scan Sync completed successfully"}
     except Exception as e:
         LOGGER.exception("Error occurred: %s", e)

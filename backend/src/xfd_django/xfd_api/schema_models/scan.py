@@ -203,10 +203,18 @@ SCAN_SCHEMA = {
     "vulnScanningSync": ScanSchema(
         type="fargate",
         is_passive=True,
-        global_scan=True,
+        global_scan=False,
         cpu="16384",
         memory="65536",
         description="Pull in vulnerability data from VSs Vulnerability database",
+    ),
+    "vs_org_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="2048",
+        memory="16384",
+        description="Pull in organization and asset data from VSs Vulnerability database",
     ),
     "vs_port_scan_worker": ScanSchema(
         type="fargate",
@@ -214,7 +222,7 @@ SCAN_SCHEMA = {
         global_scan=True,
         cpu="2048",
         memory="16384",
-        description="Pull in vulnerability data from VSs Vulnerability database",
+        description="Pull in port scan data from VSs Vulnerability database",
     ),
     "vs_vuln_scan_worker": ScanSchema(
         type="fargate",

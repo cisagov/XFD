@@ -1,7 +1,15 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import {
   Alert,
   Autocomplete,
+  Box,
+  Button,
   DialogContent,
   FormControlLabel,
   Grid,
@@ -13,7 +21,10 @@ import {
   Typography
 } from '@mui/material';
 import { SelectChangeEvent } from '@mui/material/Select';
+import { Check, WarningAmber as WarningIcon } from '@mui/icons-material';
+import InfoDialog from 'components/Dialog/InfoDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
 import {
   initialUserFormValues,
   Organization,
@@ -64,6 +75,119 @@ type UserFormProps = {
   setInfoDialogContent: Function;
 };
 
+const USER_TYPE_MAP = {
+  standard: 0,
+  globalView: 1,
+  regionalAdmin: 2,
+  globalAdmin: 3
+};
+
+type ElevationControlProps = {
+  confirmGlobalAdminChange: string;
+  setConfirmGlobalAdminChange: React.Dispatch<React.SetStateAction<string>>;
+  userRoleChanged: boolean;
+  values: UserFormValues;
+  isRoleElevationConfirmed: boolean;
+  setIsRoleElevationConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
+  userOrg?: string | null;
+};
+
+const allowedDomains = ['cisa.dhs.gov'];
+const allowSubdomains = true;
+
+const isPermittedEmail = (email: string): boolean => {
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex === -1) return false;
+
+  const domain = email.slice(atIndex + 1).toLowerCase();
+
+  return allowedDomains.some((d) => {
+    const candidate = d.toLowerCase();
+    return allowSubdomains
+      ? domain === candidate || domain.endsWith(`.${candidate}`)
+      : domain === candidate;
+  });
+};
+
+const ElevationControl: React.FC<ElevationControlProps> = ({
+  confirmGlobalAdminChange,
+  setConfirmGlobalAdminChange,
+  userRoleChanged,
+  values,
+  isRoleElevationConfirmed,
+  setIsRoleElevationConfirmed,
+  userOrg
+}) => {
+  const textFieldStyling = {
+    '& .MuiOutlinedInput-root': {
+      '&.Mui-focused fieldset': {
+        borderRadius: '0px'
+      }
+    }
+  };
+  if (!userRoleChanged || values.user_type === 'standard') return <></>;
+  if (values.user_type === 'globalAdmin') {
+    return (
+      <>
+        <Alert severity="warning">
+          You are attempting to change user{' '}
+          <strong>
+            {userOrg ? `${values.email} - ${userOrg}` : values.email}
+          </strong>{' '}
+          to a Global Administrator. This will give them access to all
+          organizations and data in the system. Please type{' '}
+          <strong>Global Administrator</strong> in the field below to confirm
+          this change.
+        </Alert>
+        <TextField
+          sx={textFieldStyling}
+          placeholder="Enter Global Administrator to confirm"
+          size="small"
+          margin="dense"
+          id="first_name"
+          slotProps={{
+            htmlInput: { maxLength: 250 }
+          }}
+          name="first_name"
+          type="text"
+          fullWidth
+          value={confirmGlobalAdminChange}
+          onChange={(e) => setConfirmGlobalAdminChange(e.target.value)}
+        />
+      </>
+    );
+  }
+  if (values.user_type === 'regionalAdmin' || values.user_type === 'globalView')
+    return (
+      <>
+        <Alert severity={isRoleElevationConfirmed ? 'success' : 'warning'}>
+          You are attempting to change this user to{' '}
+          <strong>
+            {values.user_type === 'regionalAdmin'
+              ? 'Regional Administrator'
+              : 'Global View'}
+          </strong>
+          . This will give them access to more organizations and data in the
+          system.
+          <br />
+          <Button
+            sx={{ mt: 1 }}
+            size="small"
+            variant="contained"
+            onClick={() => setIsRoleElevationConfirmed(true)}
+            disabled={isRoleElevationConfirmed}
+          >
+            {isRoleElevationConfirmed
+              ? 'Confirmed Privilege Elevation'
+              : 'Confirm Privilege Elevation'}
+          </Button>
+        </Alert>
+      </>
+    );
+
+  return <></>;
+};
+
 export const UserForm: React.FC<UserFormProps> = ({
   users,
   setUsers,
@@ -92,6 +216,9 @@ export const UserForm: React.FC<UserFormProps> = ({
   >([]);
   const [isLoading, setIsLoading] = useState(false);
   const [initialOrgIdChange, setInitialOrgIdChange] = useState(false);
+  const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
+  const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
+    useState(false);
   const fetchOrganizations = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -207,6 +334,12 @@ export const UserForm: React.FC<UserFormProps> = ({
     if (!validateForm(values) || values.org_id === '') {
       return;
     }
+    const oldRoleLevel = USER_TYPE_MAP[user?.user_type || 'standard'] || 0;
+    const newRoleLevel = USER_TYPE_MAP[values?.user_type] || 0;
+    if (newRoleLevel > oldRoleLevel) {
+      console.log('User role elevation detected, confirming with user');
+    }
+
     const body = {
       first_name: values.first_name,
       last_name: values.last_name,
@@ -304,6 +437,11 @@ export const UserForm: React.FC<UserFormProps> = ({
   const sortedOrgs = organizationsInRegion
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  const editedUser = users.find((u) => u.id === values.id);
+  const editedUserOrganization =
+    editedUser?.roles[0]?.organization?.name || null;
+  const userRoleChanged = editedUser?.user_type !== values.user_type;
 
   const formContents = (
     <DialogContent>
@@ -479,7 +617,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             aria-label="User Type"
             name="user_type"
             value={values.user_type}
-            onChange={onTextChange}
+            onChange={(e) => {
+              setIsRoleElevationConfirmed(false);
+              onTextChange(e);
+            }}
           >
             <FormControlLabel
               value="standard"
@@ -493,18 +634,22 @@ export const UserForm: React.FC<UserFormProps> = ({
               label="Global View"
               disabled={user?.user_type !== 'globalAdmin'}
             />
-            <FormControlLabel
-              value="regionalAdmin"
-              control={<Radio color="primary" />}
-              label="Regional Administrator"
-              disabled={user?.user_type !== 'globalAdmin'}
-            />
-            <FormControlLabel
-              value="globalAdmin"
-              control={<Radio color="primary" />}
-              label="Global Administrator"
-              disabled={user?.user_type !== 'globalAdmin'}
-            />
+            {isPermittedEmail(values.email) && (
+              <>
+                <FormControlLabel
+                  value="regionalAdmin"
+                  control={<Radio color="primary" />}
+                  label="Regional Administrator"
+                  disabled={user?.user_type !== 'globalAdmin'}
+                />
+                <FormControlLabel
+                  value="globalAdmin"
+                  control={<Radio color="primary" />}
+                  label="Global Administrator"
+                  disabled={user?.user_type !== 'globalAdmin'}
+                />
+              </>
+            )}
           </RadioGroup>
           {formErrors.user_type && (
             <Typography pl={2} variant="caption" color="error.main">
@@ -529,19 +674,40 @@ export const UserForm: React.FC<UserFormProps> = ({
           )}
         </Grid>
       </Grid>
+      <ElevationControl
+        confirmGlobalAdminChange={confirmGlobalAdminChange}
+        setConfirmGlobalAdminChange={setConfirmGlobalAdminChange}
+        userRoleChanged={userRoleChanged}
+        values={values}
+        isRoleElevationConfirmed={isRoleElevationConfirmed}
+        setIsRoleElevationConfirmed={setIsRoleElevationConfirmed}
+        userOrg={editedUserOrganization}
+      />
     </DialogContent>
   );
 
+  const isNewGlobalAdmin =
+    users?.find((u) => u.id === values.id)?.user_type !== values.user_type &&
+    values.user_type === 'globalAdmin';
+
+  const isNewRegionalOrGlobalView =
+    users?.find((u) => u.id === values.id)?.user_type !== values.user_type &&
+    (values.user_type === 'regionalAdmin' || values.user_type === 'globalView');
+
   const editUserFormDialog = (
-    <ConfirmDialog
+    <AnimatedConfirmDialog
       isOpen={editUserDialogOpen}
       onConfirm={handleEditUserSubmit}
       onCancel={onResetForm}
       title={'View/Edit User'}
+      animateSize={true}
       content={formContents}
       disabled={
         (isEqual(initialValuesRef.current, values) && !initialOrgIdChange) ||
-        values.org_id === ''
+        values.org_id === '' ||
+        (isNewGlobalAdmin &&
+          confirmGlobalAdminChange !== 'Global Administrator') ||
+        (isNewRegionalOrGlobalView && !isRoleElevationConfirmed)
       }
     />
   );

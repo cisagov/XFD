@@ -6,6 +6,16 @@ useDotenv: true
 configValidationMode: error
 
 custom:
+  adotLayerArn:
+    us-east-1: arn:aws:lambda:us-east-1:615299751070:layer:AWSOpenTelemetryDistroPython:18
+    us-east-2: arn:aws:lambda:us-east-2:615299751070:layer:AWSOpenTelemetryDistroPython:13
+    us-west-1: arn:aws:lambda:us-west-1:615299751070:layer:AWSOpenTelemetryDistroPython:20
+    us-west-2: arn:aws:lambda:us-west-2:615299751070:layer:AWSOpenTelemetryDistroPython:20
+    us-gov-east-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn, ''}
+    us-gov-west-1: ${ssm:/crossfeed/${self:provider.stage}/adot_python_layer_arn, ''}
+  adotLayerArnSelected: ${self:custom.adotLayerArn[${self:provider.region}], ''}
+  adotLayers:
+    - ${self:custom.adotLayerArnSelected}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -77,7 +87,8 @@ custom:
 
 provider:
   name: aws
-  region: ${file(env.yml):${self:provider.stage}.REGION, ''}
+  region: ${opt:region, env:AWS_REGION, env:AWS_DEFAULT_REGION,
+    file(env.yml):${self:provider.stage}.REGION, 'us-east-1'}
   endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
   runtime: python3.11
   timeout: 30
@@ -97,6 +108,9 @@ provider:
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
+  tracing:
+    lambda: true
+
 
 resources:
   Conditions:
