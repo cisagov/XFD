@@ -108,7 +108,7 @@ def parse_frontend_datetime(dt_str: str) -> datetime:
 
 
 # POST: /scans
-def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0915
+def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R0915
     """Create a new scan."""
     try:
         # Check if the user is a GlobalWriteAdmin
