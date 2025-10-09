@@ -9,9 +9,9 @@ import infoIconContent from 'pages/VulnerabilityScanDash/infoIconContent.json';
 const tooltipContentJson = infoIconContent.infoIconContent;
 
 const PageSection = ({ children }: { children: React.ReactNode }) => {
-  const { user, apiPost, apiGet, setUser } = useAuthContext();
+  const { user } = useAuthContext();
   const { show: showFirstLoginPopup, close: handleCloseFirstLoginPopup } =
-    useFirstLoginPopup(user ?? null, apiPost, apiGet, setUser);
+    useFirstLoginPopup(user ?? null);
   return (
     <Box
       sx={{
