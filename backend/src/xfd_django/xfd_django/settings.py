@@ -86,9 +86,6 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
 ]
 
-ALLOWED_ADMIN_ROLES = ["globalView", "globalAdmin", "regionalAdmin"]
-ALLOWED_ADMIN_DOMAINS = ["cisa.dhs.gov"]
-
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
