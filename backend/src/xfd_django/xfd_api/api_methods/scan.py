@@ -146,6 +146,9 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                 raise HTTPException(
                     status_code=400, detail="Invalid JSON format in arguments field."
                 )
+        else:
+            args = scan_data.arguments
+
         # --- Handle date range logic ---
         start_dt = args.get("start_datetime")
         end_dt = args.get("end_datetime")
@@ -181,8 +184,6 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                 raise HTTPException(
                     status_code=400, detail="Invalid datetime format. Must be ISO 8601."
                 )
-        if scan_data.arguments:
-            scan_data.arguments = json.dumps(scan_data.arguments)
 
         # Create the scan instance
         scan_data_dict = scan_data.dict(
