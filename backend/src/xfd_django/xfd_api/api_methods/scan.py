@@ -136,8 +136,17 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0915
                 detail="Number of concurrent tasks exceeds the max for this scan.",
             )
 
+        if isinstance(scan_data.arguments, str):
+            try:
+                if scan_data.arguments:
+                    args = json.loads(scan_data.arguments)
+                else:
+                    args = {}
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=400, detail="Invalid JSON format in arguments field."
+                )
         # --- Handle date range logic ---
-        args = scan_data.arguments or {}
         start_dt = args.get("start_datetime")
         end_dt = args.get("end_datetime")
 
