@@ -66,7 +66,7 @@ def start_desired_tasks(
     is_pe=False,
     shodan_api_keys=[],
     arguments=None,
-):
+): # pylint: disable=R0913, R0915
     """Start the desired number of tasks on AWS ECS or local Docker based on configuration."""
     # Step 1: Get the scan instance
     scans_with_name = Scan.objects.filter(name=scan_type)
