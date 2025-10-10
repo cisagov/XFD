@@ -100,7 +100,7 @@ export const Routes: React.FC = () => {
       />
       {/* Multiple paths for user registration dashboard - Dynamic routes will not work without forcing re-renders */}
       <RouteGuard
-        path="/dashboard"
+        path="/region-admin-dashboard"
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
       />
