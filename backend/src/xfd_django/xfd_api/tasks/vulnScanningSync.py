@@ -92,6 +92,7 @@ def handler(event):
 
 def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
+    setup_vuln_sync_logging()
     LOGGER.info("Started VulnScanningSync scan...")
 
     # Use fixed window + deterministic keyset on (time, _id)

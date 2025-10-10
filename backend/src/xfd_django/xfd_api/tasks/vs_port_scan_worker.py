@@ -36,10 +36,6 @@ def handler(event):
         organization_id = event.get("organizationId")
         organization_acronym = event.get("organizationAcronym")
 
-        # TODO: CAN THESE PREFETCHES BE DONE MORE EFFICIENTLY
-        # It is also called and passed into tickets,
-        # therefore, this fetch will occur twice per organization
-
         # Prefetch risky service groups
         risky_service_groups = {
             rsg.service_name: rsg.group for rsg in RiskyServiceGroup.objects.all()

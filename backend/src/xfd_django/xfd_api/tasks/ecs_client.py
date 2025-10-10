@@ -226,7 +226,7 @@ class ECSClient:
         return len(tasks.get("taskArns", []))
 
     def wait_for_tasks_completion(
-        self, task_arns, poll_interval=30, timeout=60 * 60 * 24
+        self, task_arns, poll_interval=30, timeout=60 * 60 * 24  # 1 day
     ):
         """Poll ECS tasks until all are stopped or timeout reached."""
         start_time = time.time()
