@@ -11,7 +11,7 @@ REQUIRED_VARS=(
   PW_REGIONAL_ADMIN_USERNAME PW_REGIONAL_ADMIN_PASSWORD PW_REGIONAL_ADMIN_2FA_SECRET
   PW_GLOBAL_VIEW_USERNAME PW_GLOBAL_VIEW_PASSWORD PW_GLOBAL_VIEW_2FA_SECRET
   PW_STANDARD_USER_USERNAME PW_STANDARD_USER_PASSWORD PW_STANDARD_USER_2FA_SECRET
-  GIT_BRANCH ENVIRONMENT PW_HEADLESS CI
+  GIT_BRANCH ENVIRONMENT PW_HEADLESS CI TASK_DEFINITION CLUSTER_NAME
 )
 
 for VAR in "${REQUIRED_VARS[@]}"; do
@@ -56,6 +56,7 @@ OVERRIDES=$(jq -n \
   --arg ci "$CI" \
   --arg s3HtmlPath "$S3_HTML_PATH" \
   --arg s3JsonPath "$S3_JSON_PATH" \
+  --arg clusterName "$CLUSTER_NAME" \
   '{
     containerOverrides: [
       {
@@ -82,7 +83,8 @@ OVERRIDES=$(jq -n \
           { "name": "PW_HEADLESS", "value": $headless },
           { "name": "CI", "value": $ci },
           { "name": "S3_HTML_PATH", "value": $s3HtmlPath },
-          { "name": "S3_JSON_PATH", "value": $s3JsonPath }
+          { "name": "S3_JSON_PATH", "value": $s3JsonPath },
+          { "name": "CLUSTER_NAME", "value": $clusterName}
         ]
       }
     ]
