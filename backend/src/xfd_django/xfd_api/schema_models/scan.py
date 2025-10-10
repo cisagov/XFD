@@ -208,6 +208,14 @@ SCAN_SCHEMA = {
         memory="65536",
         description="Pull in vulnerability data from VSs Vulnerability database",
     ),
+    "vs_org_sync": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="2048",
+        memory="16384",
+        description="Pull in organization and asset data from VSs Vulnerability database",
+    ),
     "cveSync": ScanSchema(
         type="fargate",
         is_passive=True,
