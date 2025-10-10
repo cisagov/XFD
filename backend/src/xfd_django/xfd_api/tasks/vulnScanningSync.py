@@ -34,7 +34,7 @@ VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 
 
 def setup_vuln_sync_logging(
-    filename: str = "vuln_scanning_sync.log",
+    filename: str = "/tmp/vuln_scanning_sync.log",  # nosec B108
     logger_name: str = "xfd",  # Use the main logger
 ) -> None:
     """Attach a file handler that reuses the unified formatter & filters. Runs once."""
