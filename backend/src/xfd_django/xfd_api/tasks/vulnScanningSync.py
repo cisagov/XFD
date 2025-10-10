@@ -14,6 +14,7 @@ import os
 from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
+from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
 
@@ -178,3 +179,13 @@ def main(event):  # pylint: disable=R0915
     )
 
     LOGGER.info("Ticket sync has completed for %s.", acronym)
+
+    LOGGER.info("Creating vulnerability scan summary...")
+    try:
+        create_vuln_scan_summary(org_id=org_id)
+        LOGGER.info("Finished vulnerability scan summary")
+    except Exception as e:
+        LOGGER.error(
+            "Failed to create vulnerability scan summary: %s", e, exc_info=True
+        )
+    return {"status_code": 200, "body": "Vuln Scan Sync completed successfully"}
