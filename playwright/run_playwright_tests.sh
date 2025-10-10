@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 📅 Timestamp for report
+DATETIME=$(date +%Y-%m-%dT%H:%M
+
 echo "🔍 Dumping required env vars..."
 REQUIRED_VARS=(
   DATETIME AUTOMATED_TEST_REPORTS_BUCKET_NAME AWS_REGION
@@ -19,8 +22,7 @@ for VAR in "${REQUIRED_VARS[@]}"; do
   fi
 done
 
-# 📅 Timestamp for report
-DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
+:%S)
 
 # 🧾 Define S3 report paths
 S3_HTML_PATH="s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/$ENVIRONMENT/playwright-reports/$DATETIME/html/"
