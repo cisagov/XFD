@@ -11,17 +11,10 @@ from logging import FileHandler
 import os
 
 # Third-Party Libraries
-from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
+from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.utils.datetime_utils import freeze_window
-from xfd_api.tasks.utils.vs_port_scans import (
-    create_port_scan_summary,
-    fetch_port_scans_from_redshift,
-)
 from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
-from xfd_api.tasks.utils.vs_vuln_scans import (
-    create_vuln_scan_summary,
-    fetch_vuln_scans_from_redshift,
-)
+from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
 
@@ -29,7 +22,6 @@ LOGGER = logging.getLogger(__name__)
 
 IS_LOCAL = os.getenv("IS_LOCAL")
 SCAN_NAME = "VulnScanningSync"
-
 VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 
 
@@ -136,10 +128,36 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
 
-    # Process Vulnerability Scans
-    fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, acronym)
+    # Process Vulnerability and Port Scans in a separate workers
+    # (vs_vuln_scan_worker.py) and (vs_port_scan_worker.py)
+    task_arns = []
+    ecs = ECSClient()
+    vuln_scan_command_options = {
+        "scanName": "vs_vuln_scan_worker",
+        "organizationId": org_id,
+        "organizationAcronym": acronym,
+        "vuln_start_date": ps_start_dt,
+        "vuln_end_date": ps_end_dt,
+    }
+    port_scan_command_options = {
+        "scanName": "vs_vuln_scan_worker",
+        "organizationId": org_id,
+        "organizationAcronym": acronym,
+        "port_start_date": ps_start_dt,
+        "port_end_date": ps_end_dt,
+    }
+    vuln_response = ecs.run_command(vuln_scan_command_options)
+    port_response = ecs.run_command(port_scan_command_options)
+    tasks = vuln_response.get("tasks", []) + port_response.get("tasks", [])
+    for task in tasks:
+        task_arns.append(task.get("taskArn"))
+
+    if task_arns:
+        ecs.wait_for_tasks_completion(task_arns)
+    LOGGER.info("Vuln and port scan syncs have completed for %s.", acronym)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
+
     # Prefetch risky service groups
     risky_service_groups = {
         rsg.service_name: rsg.group for rsg in RiskyServiceGroup.objects.all()
@@ -149,16 +167,6 @@ def main(event):  # pylint: disable=R0915
     nmi_service_groups = {
         nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
     }
-
-    # Port Scans (Chunked)
-    fetch_port_scans_from_redshift(
-        org_id,
-        acronym,
-        risky_service_groups,
-        nmi_service_groups,
-        ps_start_dt,
-        ps_end_dt,
-    )
 
     # Process Tickets (Chunked)
     fetch_tickets_from_redshift_single_org(
@@ -170,30 +178,7 @@ def main(event):  # pylint: disable=R0915
         ps_end_dt,
     )
 
-    # REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES
-    LOGGER.info("Refreshing materialized views before creating summaries...")
-    # Create or refresh materialized views
-    result = refresh_materialized_views({})
-    LOGGER.info(result)
-    LOGGER.info("Finished refreshing materialized views")
-
-    # Create summaries with individual error handling
-    LOGGER.info("Creating port scan summary...")
-    try:
-        create_port_scan_summary(org_id=org_id)
-        LOGGER.info("Finished port scan summary")
-    except Exception as e:
-        LOGGER.error("Failed to create port scan summary: %s", e, exc_info=True)
-
-    # TODO: Not used yet but needs to be optimized (takes 12+ hours to complete)
-    # LOGGER.info("Creating port scan service summaries...")
-    # try:
-    #     create_port_scan_service_summaries()
-    #     LOGGER.info("Finished port scan service summaries")
-    # except Exception as e:
-    #     LOGGER.error(
-    #         "Failed to create port scan service summaries: %s", e, exc_info=True
-    #     )
+    LOGGER.info("Ticket sync has completed for %s.", acronym)
 
     LOGGER.info("Creating vulnerability scan summary...")
     try:
@@ -203,3 +188,4 @@ def main(event):  # pylint: disable=R0915
         LOGGER.error(
             "Failed to create vulnerability scan summary: %s", e, exc_info=True
         )
+    return {"status_code": 200, "body": "Vuln Scan Sync completed successfully"}

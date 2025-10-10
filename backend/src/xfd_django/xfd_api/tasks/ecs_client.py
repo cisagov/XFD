@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import time
 
 # Third-Party Libraries
 import boto3
@@ -223,3 +224,26 @@ class ECSClient:
             cluster=os.getenv("FARGATE_CLUSTER_NAME"), launchType="FARGATE"
         )
         return len(tasks.get("taskArns", []))
+
+    def wait_for_tasks_completion(
+        self, task_arns, poll_interval=30, timeout=60 * 60 * 24  # 1 day
+    ):
+        """Poll ECS tasks until all are stopped or timeout reached."""
+        start_time = time.time()
+        remaining_tasks = set(task_arns)
+
+        while remaining_tasks:
+            if time.time() - start_time > timeout:
+                LOGGER.error("Timeout waiting for ECS tasks to complete.")
+                break
+
+            response = self.client.describe_tasks(
+                cluster=os.getenv("FARGATE_CLUSTER_NAME"),
+                tasks=list(remaining_tasks),
+            )
+            for task in response.get("tasks", []):
+                if task["lastStatus"] == "STOPPED":
+                    remaining_tasks.discard(task["taskArn"])
+
+            LOGGER.info("Waiting for %d tasks to finish...", len(remaining_tasks))
+            time.sleep(poll_interval)
