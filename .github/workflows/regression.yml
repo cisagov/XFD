@@ -26,12 +26,14 @@ on:
       - .github/workflows/regression.yml
 
 defaults:
-  run:
+ run:
     working-directory: ./playwright
 
 jobs:
   test_staging_frontend:
     runs-on: ubuntu-latest
+    container:
+      image: amazonlinux:2
     environment: staging
     timeout-minutes: 60
     if: (github.event_name == 'push' && github.ref == 'refs/heads/develop') || (github.event_name == 'pull_request' && github.base_ref == 'develop')
@@ -61,7 +63,15 @@ jobs:
       ENVIRONMENT: staging
       GIT_BRANCH: develop
     steps:
-      - uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+          yum update -y
+          yum install -y jq unzip curl python3
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+      - name: Checkout repo
+        uses: actions/checkout@v3
 
       - name: Set environment variables for staging
         run: echo "ENVIRONMENT=staging" >> $GITHUB_ENV
