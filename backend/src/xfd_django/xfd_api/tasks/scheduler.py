@@ -41,7 +41,7 @@ class Scheduler:
         self.scans = scans
         self.organizations = organizations
 
-    def launch_scan_execution(self, scan):
+    def launch_scan_execution(self, scan):  # pylint: disable=R0915
         """Prepare and send scan execution request."""
         # If global scan, ignore queue and start 1 concurrent task
         scan_schema = SCAN_SCHEMA.get(scan.name, {})

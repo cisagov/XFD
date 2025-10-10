@@ -55,11 +55,27 @@ const LEARNING_CENTER_DOC_KEYS = {
 export const Header: React.FC = () => {
   const history = useHistory();
   const { apiPost, logout } = useAuthContext();
-  const { userLevel } = useUserLevel();
+  const { userLevel, user_type } = useUserLevel();
   const [openDrawer, setOpenDrawer] = React.useState(false);
   const toggleDrawer = (newOpen: boolean) => () => {
     setOpenDrawer(newOpen);
   };
+
+  const roleBasedPath = () => {
+    switch (user_type) {
+      case 'globalAdmin':
+        return '/global-admin-dashboard';
+      case 'globalView':
+        return '/global-view-dashboard';
+      case 'regionalAdmin':
+        return '/region-admin-dashboard';
+      case 'standard':
+        return '/VSDashboard';
+      default:
+        return '/login';
+    }
+  };
+
   const adminHubMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Admin Tools',
@@ -78,7 +94,7 @@ export const Header: React.FC = () => {
     },
     {
       menuItemTitle: 'User Registration',
-      path: '/region-admin-dashboard',
+      path: roleBasedPath(),
       users: REGIONAL_ADMIN
     }
   ].filter(({ users }) => users <= userLevel);

@@ -8,6 +8,7 @@ import {
   FilterDrawerContextProvider,
   SearchProvider
 } from 'context';
+import { NavigationProvider } from 'context/NavigationContextProvider';
 
 const testContext: ContextType = {
   addFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
@@ -68,7 +69,9 @@ describe('Layout component', () => {
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <Layout {...testContext} />
+            <NavigationProvider>
+              <Layout {...testContext} />
+            </NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>
@@ -81,7 +84,9 @@ describe('Layout component', () => {
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <Layout {...testContext}>some children</Layout>
+            <NavigationProvider>
+              <Layout {...testContext}>some children</Layout>
+            </NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>

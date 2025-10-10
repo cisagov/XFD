@@ -66,7 +66,7 @@ def start_desired_tasks(
     is_pe=False,
     shodan_api_keys=[],
     arguments=None,
-):
+):  # pylint: disable=R0913, R0915
     """Start the desired number of tasks on AWS ECS or local Docker based on configuration."""
     # Step 1: Get the scan instance
     scans_with_name = Scan.objects.filter(name=scan_type)
@@ -243,7 +243,7 @@ def start_local_containers(count, scan_type, queue_url, shodan_api_key=""):
                 mem_limit="4g",
                 detach=True,
                 environment=[
-                    "DB_DIALECT={}".format(os.getenv("DB_DIALECT")),
+                    "DB_DIALECT={}".format("postgres"),
                     "DB_HOST={}".format(os.getenv("DB_HOST")),
                     "IS_LOCAL=true",
                     "DB_PORT={}".format(os.getenv("DB_PORT")),

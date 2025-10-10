@@ -17,7 +17,7 @@ from xfd_mini_dl.models import CidrOrgs, Organization
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")

@@ -5,16 +5,12 @@ scheduler:
   <<: &adot
     layers: ${self:custom.adotLayers}
     environment:
-      AWS_LAMBDA_EXEC_WRAPPER: /opt/otel-instrument
-      OTEL_PROPAGATORS: xray,tracecontext,baggage
-      OTEL_TRACES_SAMPLER: parentbased_traceidratio
-      OTEL_TRACES_SAMPLER_ARG: "0.1"
       OTEL_RESOURCE_ATTRIBUTES: >
         service.name=crossfeed-tasks,
         service.namespace=crossfeed,
         deployment.environment=${self:provider.stage}
 
-  handler: src/xfd_django/xfd_api/tasks/scheduler.handler
+  handler: src.xfd_django.xfd_api.tasks.scheduler.handler
   # TODO: Parameterize the timeout value,
   # at a future date see CRASM-3270. See all timeouts below.
   timeout: 900
@@ -64,19 +60,19 @@ scheduler:
 syncdb:
   <<: *adot
   timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/run_syncdb.handler
+  handler: src.xfd_django.xfd_api.tasks.run_syncdb.handler
   iamRoleStatements: []
 
 syncmdl:
   <<: *adot
   timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/run_syncmdl.handler
+  handler: src.xfd_django.xfd_api.tasks.run_syncmdl.handler
   iamRoleStatements: []
 
 bastion:
   <<: *adot
   timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/bastion.handler
+  handler: src.xfd_django.xfd_api.tasks.bastion.handler
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -91,7 +87,7 @@ bastion:
 checkUserExpiration:
   <<: *adot
   timeout: 300
-  handler: src/xfd_django/xfd_api/tasks/checkUserExpiration.handler
+  handler: src.xfd_django.xfd_api.tasks.checkUserExpiration.handler
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
   iamRoleStatements:
@@ -110,7 +106,7 @@ checkUserExpiration:
 queryDailyCustomerMetrics:
   <<: *adot
   timeout: 300
-  handler: src/xfd_django/xfd_api/tasks/metrics.collect_and_upsert_customer_metrics
+  handler: src.xfd_django.xfd_api.tasks.metrics.collect_and_upsert_customer_metrics
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
   iamRoleStatements: []
@@ -118,7 +114,7 @@ queryDailyCustomerMetrics:
 scanExecution:
   <<: *adot
   timeout: 900  # 15 minutes
-  handler: src/xfd_django/xfd_api/tasks/scanExecution.handler
+  handler: src.xfd_django.xfd_api.tasks.scanExecution.handler
   memorySize: 4096
   iamRoleStatements:
     - Effect: Allow
@@ -161,7 +157,7 @@ scanExecution:
 
 updateScanTaskStatus:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/updateScanTaskStatus.handler
+  handler: src.xfd_django.xfd_api.tasks.updateScanTaskStatus.handler
   events:
     - eventBridge:
         name: ${self:provider.stage}-updateScanTaskStatus
@@ -178,12 +174,12 @@ updateScanTaskStatus:
 infraOps:
   <<: *adot
   timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
+  handler: src.xfd_django.xfd_api.tasks.infra_ops.handler
   iamRoleStatements: []
 
 pruneScanResults:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/prune_scan_results.handler
+  handler: src.xfd_django.xfd_api.tasks.prune_scan_results.handler
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -191,7 +187,7 @@ pruneScanResults:
 
 serviceStatsCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_services_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -199,7 +195,7 @@ serviceStatsCache:
 
 portStatsCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_ports_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_ports_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -207,7 +203,7 @@ portStatsCache:
 
 numVulnsCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_num_vulns_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_num_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -215,7 +211,7 @@ numVulnsCache:
 
 latestVulnsCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_latest_vulns_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_latest_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -223,7 +219,7 @@ latestVulnsCache:
 
 mostCommonVulnsCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_most_common_vulns_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_most_common_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -231,7 +227,7 @@ mostCommonVulnsCache:
 
 severityCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_severity_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_severity_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
@@ -239,7 +235,7 @@ severityCache:
 
 byOrgCache:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_by_org_cache
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_by_org_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight

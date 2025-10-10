@@ -108,7 +108,7 @@ def parse_frontend_datetime(dt_str: str) -> datetime:
 
 
 # POST: /scans
-def create_scan(scan_data: NewScan, current_user):
+def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R0915
     """Create a new scan."""
     try:
         # Check if the user is a GlobalWriteAdmin
@@ -136,8 +136,20 @@ def create_scan(scan_data: NewScan, current_user):
                 detail="Number of concurrent tasks exceeds the max for this scan.",
             )
 
+        if isinstance(scan_data.arguments, str):
+            try:
+                if scan_data.arguments:
+                    args = json.loads(scan_data.arguments)
+                else:
+                    args = {}
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=400, detail="Invalid JSON format in arguments field."
+                )
+        else:
+            args = scan_data.arguments
+
         # --- Handle date range logic ---
-        args = scan_data.arguments or {}
         start_dt = args.get("start_datetime")
         end_dt = args.get("end_datetime")
 
@@ -172,8 +184,6 @@ def create_scan(scan_data: NewScan, current_user):
                 raise HTTPException(
                     status_code=400, detail="Invalid datetime format. Must be ISO 8601."
                 )
-        if scan_data.arguments:
-            scan_data.arguments = json.dumps(scan_data.arguments)
 
         # Create the scan instance
         scan_data_dict = scan_data.dict(
