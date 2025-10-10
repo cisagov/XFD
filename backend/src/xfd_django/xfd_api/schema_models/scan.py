@@ -207,6 +207,7 @@ SCAN_SCHEMA = {
         cpu="16384",
         memory="65536",
         description="Pull in vulnerability data from VSs Vulnerability database",
+        max_concurrent_tasks=500,
     ),
     "vs_org_sync": ScanSchema(
         type="fargate",
