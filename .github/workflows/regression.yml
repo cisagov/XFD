@@ -61,7 +61,7 @@ jobs:
       PW_HEADLESS: true
       CI: true
       ENVIRONMENT: staging
-      GIT_BRANCH: develop
+      GIT_BRANCH: JD_CRASM-3218_Debug_Regression_Testing_Pipeline
     steps:
       - name: Install dependencies
         run: |
