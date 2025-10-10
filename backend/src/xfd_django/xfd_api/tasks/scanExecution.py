@@ -59,8 +59,14 @@ def create_scan_task(
 
 
 def start_desired_tasks(
-    scan_type, desired_count, scan_id, organizations, is_pe=False, shodan_api_keys=[]
-):
+    scan_type,
+    desired_count,
+    scan_id,
+    organizations,
+    is_pe=False,
+    shodan_api_keys=[],
+    arguments=None,
+):  # pylint: disable=R0913, R0915
     """Start the desired number of tasks on AWS ECS or local Docker based on configuration."""
     # Step 1: Get the scan instance
     scans_with_name = Scan.objects.filter(name=scan_type)
@@ -119,6 +125,8 @@ def start_desired_tasks(
     queue_url = "{}{}-queue".format(QUEUE_URL, scan_type)
     batch_size = 1 if scan_type == "shodan" else 10
     shodan_api_keys = shodan_api_keys or []
+    if arguments is None:
+        arguments = {}
 
     while remaining_count > 0:
         current_batch_count = min(remaining_count, batch_size)
@@ -183,6 +191,7 @@ def start_desired_tasks(
                 "SERVICE_QUEUE_URL": queue_url,
                 "SERVICE_TYPE": scan_type,
                 "count": current_batch_count,
+                **arguments,
             }
             if scan_type == "shodan":
                 command_options["SHODAN_API_KEY"] = shodan_api_key
@@ -265,6 +274,7 @@ def handler(event, context):
         is_pe = event.get("isPe", True)
         scan_id = event.get("scanId", "")
         organizations = event.get("organizations", [])
+        arguments = event.get("arguments", {})
 
         if not scan_type:
             LOGGER.error("Failed: no scanType provided.")
@@ -293,11 +303,17 @@ def handler(event, context):
                 organizations,
                 is_pe=is_pe,
                 shodan_api_keys=shodan_api_keys,
+                arguments=arguments,
             )
 
         else:
             start_desired_tasks(
-                scan_type, desired_count, scan_id, organizations, is_pe=is_pe
+                scan_type,
+                desired_count,
+                scan_id,
+                organizations,
+                is_pe=is_pe,
+                arguments=arguments,
             )
 
         return {"status_code": 200, "body": "Tasks started successfully."}
