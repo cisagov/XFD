@@ -26,7 +26,7 @@ on:
       - .github/workflows/regression.yml
 
 defaults:
- run:
+  run:
     working-directory: ./playwright
 
 jobs:

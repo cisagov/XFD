@@ -4,25 +4,6 @@ set -euo pipefail
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
 
-echo "🔍 Dumping required env vars..."
-REQUIRED_VARS=(
-  DATETIME AUTOMATED_TEST_REPORTS_BUCKET_NAME AWS_REGION
-  PW_XFD_URL PW_GLOBAL_ADMIN_USERNAME PW_GLOBAL_ADMIN_PASSWORD PW_GLOBAL_ADMIN_2FA_SECRET
-  PW_REGIONAL_ADMIN_USERNAME PW_REGIONAL_ADMIN_PASSWORD PW_REGIONAL_ADMIN_2FA_SECRET
-  PW_GLOBAL_VIEW_USERNAME PW_GLOBAL_VIEW_PASSWORD PW_GLOBAL_VIEW_2FA_SECRET
-  PW_STANDARD_USER_USERNAME PW_STANDARD_USER_PASSWORD PW_STANDARD_USER_2FA_SECRET
-  GIT_BRANCH ENVIRONMENT PW_HEADLESS CI TASK_DEFINITION CLUSTER_NAME
-)
-
-for VAR in "${REQUIRED_VARS[@]}"; do
-  if [[ -z "${!VAR:-}" ]]; then
-    echo "❌ ERROR: Required env var '$VAR' is unset or empty"
-  else
-    echo "✅ $VAR = ${!VAR}"
-  fi
-done
-
-
 # 🧾 Define S3 report paths
 S3_HTML_PATH="s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/$ENVIRONMENT/playwright-reports/$DATETIME/html/"
 S3_JSON_PATH="s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/$ENVIRONMENT/playwright-reports/$DATETIME/results.json"
@@ -106,7 +87,7 @@ TASK_ARN=$(aws ecs run-task \
   --region "$AWS_REGION" \
   --overrides "$OVERRIDES" \
   --query 'tasks[0].taskArn' \
-  --output text 2> /dev/null) || {
+  --output text) || {
   echo "❌ Failed to run ECS task." >&2
   exit 1
 }
