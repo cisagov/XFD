@@ -114,13 +114,18 @@ while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
     --tasks "$TASK_ARN" \
     --region "$AWS_REGION" \
     --query 'tasks[0].lastStatus' \
-    --output text)
+    --output text 2>&1) || {
+      echo "❌ Failed to describe ECS task (attempt $ATTEMPT)." >&2
+      echo "$STATUS" >&2
+      STATUS=""
+  }
 
   if [[ "$STATUS" == "STOPPED" ]]; then
     echo "✅ ECS task has stopped."
     break
   fi
 
+  echo "🔁 Task status: $STATUS (attempt $ATTEMPT)"
   sleep "$SLEEP_INTERVAL"
   ((ATTEMPT++))
 done
