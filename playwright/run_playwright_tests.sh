@@ -100,7 +100,7 @@ fi
 echo "✅ ECS Task ARN: $TASK_ARN"
 
 echo "⏳ Waiting for ECS task to finish..."
-# ⏱️ Custom wait for ECS task to stop
+# Wait for ECS task to stop
 MAX_WAIT_MINUTES=30
 SLEEP_INTERVAL=10
 MAX_ATTEMPTS=$((MAX_WAIT_MINUTES * 60 / SLEEP_INTERVAL))
@@ -108,24 +108,30 @@ ATTEMPT=0
 
 echo "⏳ Waiting up to $MAX_WAIT_MINUTES minutes for ECS task to stop..."
 
+STATUS=""
+
 while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
-  STATUS=$(aws ecs describe-tasks \
+  DESCRIBE_OUTPUT=$(aws ecs describe-tasks \
     --cluster "$CLUSTER_NAME" \
     --tasks "$TASK_ARN" \
     --region "$AWS_REGION" \
     --query 'tasks[0].lastStatus' \
-    --output text 2>&1) || {
-      echo "❌ Failed to describe ECS task (attempt $ATTEMPT)." >&2
-      echo "$STATUS" >&2
-      STATUS=""
-  }
+    --output text 2>&1) || true
+
+  # Only set STATUS if the call didn't fail badly
+  if [[ "$DESCRIBE_OUTPUT" == *"error"* || "$DESCRIBE_OUTPUT" == *"Unable to"* || -z "$DESCRIBE_OUTPUT" ]]; then
+    echo "⚠️  Could not fetch ECS task status (attempt $ATTEMPT): $DESCRIBE_OUTPUT"
+    STATUS=""
+  else
+    STATUS="$DESCRIBE_OUTPUT"
+    echo "🔁 Task status: $STATUS (attempt $ATTEMPT)"
+  fi
 
   if [[ "$STATUS" == "STOPPED" ]]; then
     echo "✅ ECS task has stopped."
     break
   fi
 
-  echo "🔁 Task status: $STATUS (attempt $ATTEMPT)"
   sleep "$SLEEP_INTERVAL"
   ((ATTEMPT++))
 done
