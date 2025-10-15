@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+set -u
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
 
@@ -112,7 +112,6 @@ ATTEMPT=0
 
 while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
   # Temporarily allow command failures
-  set +e
   STATUS=$(aws ecs describe-tasks \
     --cluster "$CLUSTER_NAME" \
     --tasks "$TASK_ARN" \
@@ -120,7 +119,7 @@ while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
     --query 'tasks[0].lastStatus' \
     --output text 2>&1)
   STATUS_EXIT_CODE=$?
-  set -e
+
 
   if [[ $STATUS_EXIT_CODE -ne 0 || "$STATUS" == *"error"* || "$STATUS" == *"Unable to"* || -z "$STATUS" ]]; then
     echo "⚠️  Could not fetch ECS task status (attempt $ATTEMPT): $STATUS"
