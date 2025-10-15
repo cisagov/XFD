@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -u
+set -eu
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
 
