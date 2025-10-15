@@ -111,12 +111,14 @@ echo "⏳ Waiting up to $MAX_WAIT_MINUTES minutes for ECS task to stop..."
 STATUS=""
 
 while [[ $ATTEMPT -lt $MAX_ATTEMPTS ]]; do
+  set +e
   DESCRIBE_OUTPUT=$(aws ecs describe-tasks \
     --cluster "$CLUSTER_NAME" \
     --tasks "$TASK_ARN" \
     --region "$AWS_REGION" \
     --query 'tasks[0].lastStatus' \
     --output text 2>&1) || true
+  set -e
 
   # Only set STATUS if the call didn't fail badly
   if [[ "$DESCRIBE_OUTPUT" == *"error"* || "$DESCRIBE_OUTPUT" == *"Unable to"* || -z "$DESCRIBE_OUTPUT" ]]; then
