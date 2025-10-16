@@ -5,6 +5,7 @@ import {
   NO_DATA_FALLBACK_LABEL
 } from 'utils/transformVulnScanData';
 import { useAuthContext } from 'context';
+import { ENDPOINTS } from 'constants/endpoints';
 
 const InitialVSData: VulnScanDataTransformed = {
   vulnScanSummary: [],
@@ -36,7 +37,7 @@ export function useVulnScanData(orgId: string) {
       setLoading(true);
       setError(null);
       try {
-        const response = await apiPost('/stats/trends', {
+        const response = await apiPost(ENDPOINTS.STATS_TRENDS, {
           body: {
             filters: {
               organization_id: orgId,

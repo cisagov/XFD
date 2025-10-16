@@ -24,7 +24,7 @@ export default function useFirstLoginPopup(
       throw new Error('User ID is required to update first_login');
     }
     try {
-      await apiPost(ENDPOINTS.UPDATE_USER.replace('{user_id}', userId), {
+      await apiPost(ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', userId), {
         body: { first_login: false }
       });
       const refreshed = await apiGet(ENDPOINTS.USERS_ME);

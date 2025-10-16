@@ -62,7 +62,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     try {
       if (activeSearch) {
         await apiPost(
-          ENDPOINTS.UPDATE_SAVED_SEARCHES.replace(
+          ENDPOINTS.SAVED_SEARCH_UPDATE.replace(
             '{saved_search_id}',
             activeSearch.id
           ),

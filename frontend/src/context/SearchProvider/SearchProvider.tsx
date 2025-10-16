@@ -60,7 +60,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     },
     onAutocomplete: async ({ search_term }: { search_term: string }) => {
       // const requestBody = buildAutocompleteRequest({ search_term });
-      // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH, {
+      // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
       //   body: {
       //     ...requestBody
       //   },
@@ -96,7 +96,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         sortField
       };
 
-      const responseJson = await apiPost<ApiResponse>(ENDPOINTS.SEARCH, {
+      const responseJson = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
         body
       });
       const responseJsonWithDisjunctiveFacetCounts =

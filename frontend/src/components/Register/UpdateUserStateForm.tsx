@@ -50,7 +50,7 @@ export const UpdateStateForm: React.FC<{
     };
 
     try {
-      await apiPost(ENDPOINTS.UPDATE_USER, {
+      await apiPost(ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', user_id), {
         body
       });
 
