@@ -87,7 +87,6 @@ MIDDLEWARE = [
 ]
 
 ALLOWED_ADMIN_ROLES = ["globalView", "globalAdmin", "regionalAdmin"]
-ALLOWED_ADMIN_DOMAINS = ["cisa.dhs.gov"]
 
 
 # Database

@@ -92,20 +92,48 @@ type ElevationControlProps = {
   userOrg?: string | null;
 };
 
-const allowedDomains = ['cisa.dhs.gov'];
-const allowSubdomains = true;
+const getAllowedDomains = (): string[] => {
+  const raw = import.meta.env.VITE_ALLOWED_ADMIN_EMAIL_DOMAINS;
+
+  if (!raw) return [];
+
+  if (raw.trim() === '*') return ['*'];
+
+  if (raw.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((d) => d.trim()).filter(Boolean);
+      }
+      return [];
+    } catch (err) {
+      console.warn('Invalid JSON for VITE_ALLOWED_ADMIN_EMAIL_DOMAINS:', err);
+    }
+  }
+
+  return raw
+    .split(',')
+    .map((d: string) => d.trim())
+    .filter(Boolean);
+};
+
+const allowedDomains = getAllowedDomains();
+
+const allowingAllDomains =
+  Array.isArray(allowedDomains) &&
+  allowedDomains.length === 1 &&
+  allowedDomains[0] === '*';
 
 const isPermittedEmail = (email: string): boolean => {
+  if (allowingAllDomains) return true;
   const atIndex = email.lastIndexOf('@');
   if (atIndex === -1) return false;
 
   const domain = email.slice(atIndex + 1).toLowerCase();
 
-  return allowedDomains.some((d) => {
+  return allowedDomains.some((d: any) => {
     const candidate = d.toLowerCase();
-    return allowSubdomains
-      ? domain === candidate || domain.endsWith(`.${candidate}`)
-      : domain === candidate;
+    return domain === candidate;
   });
 };
 
