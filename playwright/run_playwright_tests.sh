@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u
 
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
