@@ -2,6 +2,7 @@ import { Query, Domain, DomainSearchApiResponse } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
 import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
+import { ENDPOINTS } from 'constants/endpoints';
 
 export interface DomainQuery extends Query<DomainSearchApiResponse> {
   showAll?: boolean;
@@ -45,7 +46,7 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
       }
 
       const { result, count, url } = await apiPost<ApiResponse>(
-        doExport ? '/domain/export' : '/domain/search',
+        doExport ? ENDPOINTS.DOMAIN_EXPORT : ENDPOINTS.DOMAIN_SEARCH,
         {
           body: {
             pageSize,
@@ -69,7 +70,9 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
 
   const getDomain = useCallback(
     async (domainId: string) => {
-      return await apiGet<Domain>(`/domain/${domainId}`);
+      return await apiGet<Domain>(
+        ENDPOINTS.DOMAIN.replace('{domain_id}', domainId)
+      );
     },
     [apiGet]
   );

@@ -19,8 +19,8 @@ import { useAuthContext } from 'context';
 import { format, parseISO } from 'date-fns';
 import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
-
 import { toZonedTime } from 'date-fns-tz';
+import { ENDPOINTS } from 'constants/endpoints';
 
 interface LogsProps {}
 
@@ -82,12 +82,12 @@ export const Logs: FC<LogsProps> = () => {
 
     const endpoint =
       Object.keys(tableFilters).length > 0
-        ? '/logs/filtered-search'
-        : '/logs/search';
+        ? ENDPOINTS.LOGS_FILTERED_SEARCH
+        : ENDPOINTS.LOGS_SEARCH;
 
     try {
       const body =
-        endpoint === '/logs/filtered-search'
+        endpoint === ENDPOINTS.LOGS_FILTERED_SEARCH
           ? { page: 1, page_size: PAGE_SIZE, filters: tableFilters }
           : {};
       const results = await apiPost(endpoint, { body });
