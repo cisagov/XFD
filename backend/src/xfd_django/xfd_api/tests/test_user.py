@@ -1930,7 +1930,6 @@ def test_global_user_updates_confirm_authorized_fields():
         "state": "NY",
         "first_name": "Updated",
         "last_name": "New",
-        "user_type": UserType.REGIONAL_ADMIN,
         "date_approved": datetime.now().isoformat(),
         "accepted_terms_version": "1.0",
         "login_blocked_by_maintenance": False,
