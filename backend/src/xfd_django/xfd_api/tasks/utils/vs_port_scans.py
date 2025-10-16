@@ -236,7 +236,7 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
                         JOIN (
                             VALUES {values_sql}
                         ) AS keys(org_id, ip_string, port)
-                        ON ps.organization_id = keys.org_id
+                        ON ps.organization_id = keys.org_id::uuid
                         AND ps.ip_string = keys.ip_string
                         AND ps.port = keys.port
                     )

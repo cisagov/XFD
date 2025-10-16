@@ -211,11 +211,20 @@ def fetch_in_chunks_keyset_frozen_single_org(
         # Combine WHERE clauses
         where_sql = sql.SQL(" AND ").join(where_clauses)
 
+        # Handle schema-qualified table names
+        if "." in table:
+            schema, table_name = table.split(".", 1)
+            table_ident = sql.SQL(".").join(
+                [sql.Identifier(schema), sql.Identifier(table_name)]
+            )
+        else:
+            table_ident = sql.Identifier(table)
+
         # Build full query
         query_sql = sql.SQL(
             "SELECT * FROM {table} WHERE {where} ORDER BY {time_col}, {id_col} LIMIT %s"
         ).format(
-            table=sql.Identifier(table),
+            table=table_ident,
             where=where_sql,
             time_col=sql.Identifier(time_col),
             id_col=sql.Identifier("_id"),

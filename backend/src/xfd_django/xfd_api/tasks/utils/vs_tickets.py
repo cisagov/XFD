@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 import json
 import logging
 import os
@@ -71,16 +72,18 @@ def fetch_tickets_from_redshift_single_org(
             org_acronym,
             risky_service_groups,
             nmi_service_groups,
+            ps_start_dt,
+            ps_end_dt,
         )
 
         total_processed += len(chunk)
         chunk_number += 1
 
     if total_processed == 0:
-        LOGGER.warning(
+        LOGGER.info(
             "No tickets found in Redshift for org %s in the last %d days.",
             org_acronym,
-            VS_PULL_DATE_RANGE,
+            int(VS_PULL_DATE_RANGE),
         )
     else:
         LOGGER.info(
@@ -107,13 +110,15 @@ def fetch_ticket_chunks_frozen_single_org(
 
     while True:
         where_parts = [
-            sql.SQL('"time" >= %s'),
-            sql.SQL('"time" < %s'),
+            sql.SQL('"last_change" >= %s'),
+            sql.SQL('"last_change" < %s'),
         ]
         params = [start_param, end_param]
 
         if last_time is not None and last_id is not None:
-            where_parts.append(sql.SQL('("time" > %s OR ("time" = %s AND "_id" > %s))'))
+            where_parts.append(
+                sql.SQL('("last_change" > %s OR ("last_change" = %s AND "_id" > %s))')
+            )
             params.extend([last_time, last_time, last_id])
 
         if org_acronym:
@@ -127,19 +132,19 @@ def fetch_ticket_chunks_frozen_single_org(
             SELECT *
             FROM vmtableau.tickets
             WHERE {where_clause}
-            ORDER BY "time", "_id"
+            ORDER BY "last_change", "_id"
             LIMIT %s
         """
         ).format(where_clause=where_clause)
 
         params.append(chunk_size)
 
-        chunk = query_redshift(query.as_string(conn=None), params=params)
+        chunk = query_redshift(query, params=params)
         if not chunk:
             break
 
         last_row = chunk[-1]
-        last_time = last_row["time"]
+        last_time = last_row["last_change"]
         last_id = str(last_row["_id"])
 
         yield chunk
@@ -156,7 +161,13 @@ def preload_os_type_map(ip_keys) -> dict:
 
 
 def process_tickets_single_org(
-    tickets, org_id, org_acronym, risky_service_groups, nmi_service_groups
+    tickets,
+    org_id,
+    org_acronym,
+    risky_service_groups,
+    nmi_service_groups,
+    ps_start_dt,
+    ps_end_dt,
 ):
     """
     Process tickets for a single org with.
@@ -168,7 +179,19 @@ def process_tickets_single_org(
       - stage TicketEvents for last 7 days and flush in large batches
       - always flush tickets before events
     """
-    seven_days_ago = timezone.now() - timedelta(days=7)
+    if timezone.is_naive(ps_start_dt):
+        ps_start_dt = timezone.make_aware(ps_start_dt)
+    if timezone.is_naive(ps_end_dt):
+        ps_end_dt = timezone.make_aware(ps_end_dt)
+
+    # Extend window backward only if range is exactly 2 days
+    window_days = (ps_end_dt - ps_start_dt).days
+    if window_days == 2:
+        ps_start_dt = ps_start_dt - timedelta(days=3)
+
+    # Normalize both boundaries to UTC-aware datetimes
+    ps_start_dt = ps_start_dt.astimezone(dt_timezone.utc)
+    ps_end_dt = ps_end_dt.astimezone(dt_timezone.utc)
 
     # ---- Step 0: Early de-dup by id, keep most-recent last_change
     deduped = {}
@@ -314,15 +337,20 @@ def process_tickets_single_org(
         }
         ticket_rows_batch.append(row)
 
-        # Stage last-7-days TicketEvents
+        # Stage TicketEvents (dates are same as tickets requested)
         for ev in reversed(events):  # newest first
             ev_time = safe_parse_date(ev.get("time"))
             if not ev_time:
                 continue
-            if ev_time and timezone.is_naive(ev_time):
-                ev_time = timezone.make_aware(ev_time)
-            if ev_time < seven_days_ago:
-                break
+
+            # Normalize event time to UTC-aware for comparison
+            if timezone.is_naive(ev_time):
+                ev_time = timezone.make_aware(ev_time, dt_timezone.utc)
+            else:
+                ev_time = ev_time.astimezone(dt_timezone.utc)
+
+            if ev_time < ps_start_dt or ev_time >= ps_end_dt:
+                continue
 
             ref_id = ev.get("reference")
             if isinstance(ref_id, str):

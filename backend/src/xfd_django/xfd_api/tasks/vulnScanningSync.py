@@ -14,7 +14,10 @@ import os
 from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
-from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
+from xfd_api.tasks.utils.vs_vuln_scans import (
+    create_vuln_scan_summary,
+    fetch_vuln_scans_from_redshift,
+)
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
 
@@ -128,36 +131,41 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
 
-    # Process Vulnerability and Port Scans in a separate workers
+    # Process Port Scan in a separate workers
     # (vs_vuln_scan_worker.py) and (vs_port_scan_worker.py)
     task_arns = []
     ecs = ECSClient()
-    vuln_scan_command_options = {
-        "scanName": "vs_vuln_scan_worker",
-        "organizationId": org_id,
-        "organizationAcronym": acronym,
-        "vuln_start_date": ps_start_dt,
-        "vuln_end_date": ps_end_dt,
-    }
     port_scan_command_options = {
-        "scanName": "vs_vuln_scan_worker",
+        "scanName": "vs_port_scan_worker",
         "organizationId": org_id,
         "organizationAcronym": acronym,
         "port_start_date": ps_start_dt,
         "port_end_date": ps_end_dt,
+        "SERVICE_QUEUE_URL": os.getenv("SERVICE_QUEUE_URL"),
     }
-    vuln_response = ecs.run_command(vuln_scan_command_options)
     port_response = ecs.run_command(port_scan_command_options)
-    tasks = vuln_response.get("tasks", []) + port_response.get("tasks", [])
+    tasks = port_response.get("tasks", [])
     for task in tasks:
         task_arns.append(task.get("taskArn"))
 
+    # Start Vuln Scan in parallel
+    try:
+        fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, acronym, org_id)
+    except Exception as e:
+        LOGGER.exception("Vuln Scan error occurred: %s", e)
+        raise ScanExecutionError(SCAN_NAME, str(e), event) from e
+
     if task_arns:
-        ecs.wait_for_tasks_completion(task_arns)
+        ecs.wait_for_tasks_completion(
+            task_arns,
+            startup_delay=0,
+            poll_interval=5,
+            timeout=60 * 60 * 24,
+        )
+
     LOGGER.info("Vuln and port scan syncs have completed for %s.", acronym)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
-
     # Prefetch risky service groups
     risky_service_groups = {
         rsg.service_name: rsg.group for rsg in RiskyServiceGroup.objects.all()

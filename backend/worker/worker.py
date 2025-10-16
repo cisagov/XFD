@@ -78,13 +78,13 @@ def main():
     is_dmz = os.getenv("IS_DMZ")
     if str(is_dmz).lower() not in {"true", "1"}:
         zscaler_cert = ensure_zscaler_cert_downloaded()
-        os.environ["AWS_CA_BUNDLE"] = zscaler_cert
+        os.environ["AWS_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
         os.environ["REQUESTS_CA_BUNDLE"] = zscaler_cert
         os.environ["SSL_CERT_FILE"] = zscaler_cert
         LOGGER.info("Set Zscaler cert environment variables for outbound TLS.")
     else:
         # If not set, ensure these are not set so traffic is direct
-        os.environ.pop("AWS_CA_BUNDLE", None)
+        os.environ["AWS_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
         os.environ.pop("REQUESTS_CA_BUNDLE", None)
         os.environ.pop("SSL_CERT_FILE", None)
         LOGGER.info("DMZ mode enabled. Skipping Zscaler cert injection.")

@@ -234,7 +234,9 @@ LOGGING = {
         },
         # Request logs stay separate
         "fastapi.requests": {
-            "handlers": _env_handlers(),
+            "handlers": (
+                ["requests_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
+            ),
             "level": "INFO",
             "propagate": False,
         },
