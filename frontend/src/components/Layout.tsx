@@ -22,6 +22,7 @@ import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
+import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -103,8 +104,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   );
 
   useEffect(() => {
-    const pathsAllowed = ['/', '/inventory'];
-    if (!matchPath(pathsAllowed, pathname)) {
+    if (!matchPath(FILTER_ENABLED_PATHS, pathname)) {
       setIsFilterDrawerOpen(false);
     }
   }, [pathname, setIsFilterDrawerOpen]);
@@ -182,22 +182,20 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
           </Box>
         )}
         <Header />
-        {userLevel > 0 &&
-          matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
-            <FilterDrawerToggle />
-          )}
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerToggle />
+        )}
       </Box>
       <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
-        {userLevel > 0 &&
-          matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
-            <FilterDrawerV2
-              setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-              isFilterDrawerOpen={isFilterDrawerOpen}
-              isMobile={isMobile}
-              initialFilters={initialFilters}
-              topOffset={topOffset}
-            />
-          )}
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerV2
+            setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+            isFilterDrawerOpen={isFilterDrawerOpen}
+            isMobile={isMobile}
+            initialFilters={initialFilters}
+            topOffset={topOffset}
+          />
+        )}
         {children}
       </Main>
     </>

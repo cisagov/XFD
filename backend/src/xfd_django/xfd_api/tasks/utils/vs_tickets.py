@@ -9,6 +9,7 @@ import os
 # Third-Party Libraries
 from django.db import connections, transaction
 from django.utils import timezone
+from psycopg2 import sql
 from psycopg2.extras import execute_values
 from xfd_api.tasks.utils.datetime_utils import (
     safe_fromisoformat,
@@ -22,7 +23,7 @@ from xfd_mini_dl.models import Cve, Ip, PortScan, Ticket, TicketEvent, VulnScan
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 SCAN_NAME = "VulnScanningSync"
@@ -38,81 +39,110 @@ EVENTS_CREATE_BATCH = 10_000  # TicketEvent bulk_create batch
 DB_ALIAS = "mini_data_lake"
 
 
-def fetch_tickets_from_redshift(
-    org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
+def fetch_tickets_from_redshift_single_org(
+    org_id: str,
+    org_acronym: str,
+    risky_service_groups: dict,
+    nmi_service_groups: dict,
+    ps_start_dt,
+    ps_end_dt,
 ):
-    """Fetch tickets from redshift."""
-    LOGGER.info("Starting ticket processing...")
+    """Fetch and process tickets from Redshift for a single org."""
+    LOGGER.info("Starting ticket processing for org: %s", org_acronym)
 
     total_processed = 0
     chunk_number = 1
 
-    for chunk in fetch_ticket_chunks_frozen(ps_start_dt, ps_end_dt):
+    for chunk in fetch_ticket_chunks_frozen_single_org(
+        ps_start_dt,
+        ps_end_dt,
+        org_acronym=org_acronym,
+    ):
         LOGGER.info(
-            "Processing ticket chunk #%d with %d rows",
+            "Processing ticket chunk #%d with %d rows for org %s",
             chunk_number,
             len(chunk),
+            org_acronym,
         )
-        process_tickets(chunk, org_id_dict, risky_service_groups, nmi_service_groups)
+
+        process_tickets_single_org(
+            chunk,
+            org_id,
+            org_acronym,
+            risky_service_groups,
+            nmi_service_groups,
+        )
+
         total_processed += len(chunk)
         chunk_number += 1
 
     if total_processed == 0:
         LOGGER.warning(
-            "No tickets found in Redshift for the last %d days.",
+            "No tickets found in Redshift for org %s in the last %d days.",
+            org_acronym,
             VS_PULL_DATE_RANGE,
         )
     else:
         LOGGER.info(
-            "Processed %d total tickets across %d chunks",
+            "Processed %d total tickets across %d chunks for org %s",
             total_processed,
             chunk_number - 1,
+            org_acronym,
         )
-    LOGGER.info("Finished ticket processing.")
+
+    LOGGER.info("Finished ticket processing for org %s.", org_acronym)
 
 
-def fetch_ticket_chunks_frozen(start_dt, end_dt, chunk_size=5000):
-    """
-    Fetch tickets in frozen keyset chunks ordered by (last_change, _id).
-
-    Only retrieves tickets where last_change is between start_dt and end_dt.
-
-    Yields lists of ticket rows (each up to chunk_size).
-    """
-    # Freeze the window
-    start_param = to_utc_naive(start_dt)
-    end_param = to_utc_naive(end_dt)
-
-    last_updated = None
+def fetch_ticket_chunks_frozen_single_org(
+    ps_start_dt,
+    ps_end_dt,
+    chunk_size: int = 5000,
+    org_acronym: str | None = None,
+):
+    """Fetch ticket data in chunks for a single org, safely parameterized."""
+    last_time = None
     last_id = None
+    start_param = to_utc_naive(ps_start_dt)
+    end_param = to_utc_naive(ps_end_dt)
 
     while True:
-        where_clauses = ["last_change >= %s", "last_change < %s"]
+        where_parts = [
+            sql.SQL('"time" >= %s'),
+            sql.SQL('"time" < %s'),
+        ]
         params = [start_param, end_param]
 
-        # Keyset pagination
-        if last_updated is not None and last_id is not None:
-            where_clauses.append(
-                "(last_change > %s OR (last_change = %s AND _id > %s))"
-            )
-            params.extend([last_updated, last_updated, last_id])
+        if last_time is not None and last_id is not None:
+            where_parts.append(sql.SQL('("time" > %s OR ("time" = %s AND "_id" > %s))'))
+            params.extend([last_time, last_time, last_id])
 
-        query = f"""
+        if org_acronym:
+            where_parts.append(sql.SQL("owner = %s"))
+            params.append(org_acronym)
+
+        where_clause = sql.SQL(" AND ").join(where_parts)
+
+        query = sql.SQL(
+            """
             SELECT *
             FROM vmtableau.tickets
-            WHERE {" AND ".join(where_clauses)}
-            ORDER BY last_change, _id
-            LIMIT {chunk_size}
-        """  # nosec B608
+            WHERE {where_clause}
+            ORDER BY "time", "_id"
+            LIMIT %s
+        """
+        ).format(where_clause=where_clause)
 
-        rows = query_redshift(query, params=params)
-        if not rows:
+        params.append(chunk_size)
+
+        chunk = query_redshift(query.as_string(conn=None), params=params)
+        if not chunk:
             break
 
-        yield rows
+        last_row = chunk[-1]
+        last_time = last_row["time"]
+        last_id = str(last_row["_id"])
 
-        last_updated = rows[-1]["last_change"]
-        last_id = rows[-1]["_id"]
+        yield chunk
 
 
 def preload_os_type_map(ip_keys) -> dict:
@@ -125,9 +155,11 @@ def preload_os_type_map(ip_keys) -> dict:
     return {scan.ip_string: scan.service_os_type for scan in scans}
 
 
-def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_groups):
+def process_tickets_single_org(
+    tickets, org_id, org_acronym, risky_service_groups, nmi_service_groups
+):
     """
-    Process tickets with.
+    Process tickets for a single org with.
 
       - early dedup by most recent 'last_change'
       - bulk insert IPs & CVEs (ignore conflicts)
@@ -164,17 +196,17 @@ def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_grou
         events = json.loads(t.get("events", "[]"))
         ticket_data_map[tid] = {"raw": t, "details": details, "events": events}
 
-        owner_id = org_id_dict.get(t.get("owner"))
-        if not owner_id:
-            continue
+        owner = t.get("owner")
+        if owner != org_acronym:
+            continue  # skip if ticket not owned by this org
 
         ip_str = t.get("ip")
         if ip_str:
-            key = (ip_str, owner_id)
+            key = (ip_str, org_id)
             if key not in ip_key_to_obj:
                 ip_key_to_obj[key] = Ip(
                     ip=ip_str,
-                    organization_id=owner_id,
+                    organization_id=org_id,
                     ip_hash=hash_ip(ip_str),
                 )
 
@@ -201,7 +233,7 @@ def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_grou
         (ip.ip, ip.organization_id): ip
         for ip in Ip.objects.using(DB_ALIAS).filter(
             ip__in=[i.ip for i in ip_key_to_obj.values()],
-            organization_id__in=[i.organization_id for i in ip_key_to_obj.values()],
+            organization_id=org_id,
         )
     }
     cve_map = {
@@ -212,19 +244,21 @@ def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_grou
     }
 
     # ---- Step 3: Build ticket rows for SQL upsert & stage events (7-day cutoff)
-    ticket_rows_batch = []  # rows for bulk_upsert_tickets_sql
-    staged_events = []  # list of dicts with raw event data
+    ticket_rows_batch = []
+    staged_events = []
 
     for tid, tdata in ticket_data_map.items():
         raw = tdata["raw"]
         details = tdata["details"]
         events = tdata["events"]
 
-        owner_id = org_id_dict.get(raw.get("owner"))
+        if raw.get("owner") != org_acronym:
+            continue  # Skip tickets belonging to another org
+
         ip_str = raw.get("ip")
         cve_name = details.get("cve")
 
-        ip_fk = ip_map.get((ip_str, owner_id))
+        ip_fk = ip_map.get((ip_str, org_id))
         cve_fk = cve_map.get(cve_name)
 
         try:
@@ -261,7 +295,7 @@ def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_grou
             "updated_timestamp": updated_ts,
             "location_longitude": lon,
             "location_latitude": lat,
-            "organization_id": owner_id,
+            "organization_id": org_id,
             "vuln_port": raw.get("port"),
             "port_protocol": raw.get("protocol"),
             "snapshots_bool": bool(raw.get("snapshots", None)),
@@ -296,7 +330,7 @@ def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_grou
 
             staged_events.append(
                 {
-                    "ticket_id": tid,  # NOTE: use ticket_id, not Ticket()
+                    "ticket_id": tid,
                     "vuln_source": raw.get("source"),
                     "ref_id": ref_id,
                     "action": ev.get("action"),
@@ -332,12 +366,16 @@ def process_tickets(tickets, org_id_dict, risky_service_groups, nmi_service_grou
         bulk_upsert_tickets_sql(
             ticket_rows_batch, using=DB_ALIAS, page_size=BULK_CREATE_BATCH
         )
-        ticket_rows_batch.clear()
     if staged_events:
         bulk_create_ticket_events(
             staged_events, using=DB_ALIAS, batch_size=EVENTS_CREATE_BATCH
         )
-        staged_events.clear()
+
+    LOGGER.info(
+        "Finished processing %d deduped tickets for org %s",
+        len(deduped),
+        org_acronym,
+    )
 
 
 def bulk_create_ticket_events(

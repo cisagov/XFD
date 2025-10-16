@@ -9,6 +9,7 @@ from typing import Any, Tuple
 
 # Third-Party Libraries
 import psycopg2
+from psycopg2 import sql
 from xfd_api.tasks.utils.datetime_utils import to_utc_naive
 from xfd_api.utils.scan_utils.alerting import QueryError
 
@@ -17,7 +18,7 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 
@@ -106,11 +107,17 @@ def fetch_from_redshift_with_params(query: str, params: Tuple[Any, ...]):
 
 
 def fetch_in_chunks_keyset_frozen(
-    table: str, time_col: str, start_dt, end_dt, chunk_size: int = 500_000
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    chunk_size: int = 500_000,
+    owners: list[str] | None = None,
 ):
     """
     Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
 
+    Uses = ANY(array) for owner filtering if owners are provided.
     Quotes identifiers so Redshift doesn't parse `time` as a type.
     """
     last_time = None
@@ -126,9 +133,17 @@ def fetch_in_chunks_keyset_frozen(
         where = f"WHERE {q_time} >= %s AND {q_time} < %s"
         params = [start_param, end_param]
 
+        # Add keyset pagination if needed
         if last_time is not None and last_id is not None:
             where += f" AND ({q_time} > %s OR ({q_time} = %s AND {q_id} > %s))"
             params.extend([last_time, last_time, last_id])
+
+        # Add org filtering if owners provided
+        if owners:
+            where += " AND owner = ANY(%s)"
+            params.append(
+                owners
+            )  # pass list directly, psycopg2/Redshift turns into array
 
         query = f"""
             SELECT *
@@ -143,7 +158,78 @@ def fetch_in_chunks_keyset_frozen(
             break
 
         last_row = chunk[-1]
-        last_time = last_row[time_col]  # keep dict access unquoted
+        last_time = last_row[time_col]  # dict access, not quoted
+        last_id = str(last_row["_id"])
+
+        yield chunk
+
+
+def fetch_in_chunks_keyset_frozen_single_org(
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    chunk_size: int = 500_000,
+    org_acronym: str | None = None,
+):
+    """
+    Keyset pagination over a fixed window with ORDER BY (time_col, _id).
+
+    Filters by a single org acronym.
+    Uses psycopg2.sql for safe identifier handling and parameterized values.
+    """
+    last_time = None
+    last_id = None
+    start_param = to_utc_naive(start_dt)
+    end_param = to_utc_naive(end_dt)
+
+    while True:
+        # Build WHERE clause dynamically but safely
+        where_clauses = []
+        params = [start_param, end_param]
+
+        # Base window
+        where_clauses.append(sql.SQL("{} >= %s").format(sql.Identifier(time_col)))
+        where_clauses.append(sql.SQL("{} < %s").format(sql.Identifier(time_col)))
+
+        # Keyset pagination
+        if last_time is not None and last_id is not None:
+            where_clauses.append(
+                sql.SQL("({} > %s OR ({} = %s AND {} > %s))").format(
+                    sql.Identifier(time_col),
+                    sql.Identifier(time_col),
+                    sql.Identifier("_id"),
+                )
+            )
+            params.extend([last_time, last_time, last_id])
+
+        # Org filter
+        if org_acronym:
+            where_clauses.append(sql.SQL("owner = %s"))
+            params.append(org_acronym)
+
+        # Combine WHERE clauses
+        where_sql = sql.SQL(" AND ").join(where_clauses)
+
+        # Build full query
+        query_sql = sql.SQL(
+            "SELECT * FROM {table} WHERE {where} ORDER BY {time_col}, {id_col} LIMIT %s"
+        ).format(
+            table=sql.Identifier(table),
+            where=where_sql,
+            time_col=sql.Identifier(time_col),
+            id_col=sql.Identifier("_id"),
+        )
+        params.append(chunk_size)
+
+        # `query_redshift` can accept the psycopg2.sql.SQL object directly
+        chunk = query_redshift(query_sql, params=params)
+
+        if not chunk:
+            break
+
+        last_row = chunk[-1]
+        last_time = last_row[time_col]
         last_id = str(last_row["_id"])
 
         yield chunk

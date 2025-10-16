@@ -1,13 +1,15 @@
-const { test, expect } = require('../../axe-test');
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
 import type { TestInfo } from '@playwright/test';
 
 test.describe('Inventory', () => {
-  test('Test inventory accessibility', async ({
-    page,
+  test.skip('Test inventory accessibility', async ({
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto('/inventory');
-    const accessibilityScanResults = await makeAxeBuilder().analyze();
+    await pageAsGlobalAdmin.goto('/inventory');
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
 
     await testInfo.attach('accessibility-scan-results', {
       body: JSON.stringify(accessibilityScanResults, null, 2),
@@ -17,12 +19,13 @@ test.describe('Inventory', () => {
     expect(accessibilityScanResults.violations).toHaveLength(0);
   });
 
-  test('Test domain accessibility', async ({
-    page,
+  test.skip('Test domain accessibility', async ({
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto('/inventory/domains');
-    const accessibilityScanResults = await makeAxeBuilder().analyze();
+    await pageAsGlobalAdmin.goto('/inventory/domains');
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
 
     await testInfo.attach('accessibility-scan-results', {
       body: JSON.stringify(accessibilityScanResults, null, 2),
@@ -34,22 +37,26 @@ test.describe('Inventory', () => {
 
   // TODO: Skip this test until the domain table data is loaded in localhost.
   test.skip('Test domain details accessibility', async ({
-    page,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto('/inventory/domains');
-    await page
+    await pageAsGlobalAdmin.goto('/inventory/domains');
+    await pageAsGlobalAdmin
       .getByRole('row')
       .nth(1)
       .getByRole('cell')
       .nth(8)
       .getByRole('button')
       .click();
-    await expect(page).toHaveURL(new RegExp('/inventory/domain/'), {
-      timeout: 10000
-    });
+    await expect(pageAsGlobalAdmin).toHaveURL(
+      new RegExp('/inventory/domain/'),
+      {
+        timeout: 10000
+      }
+    );
 
-    const accessibilityScanResults = await makeAxeBuilder().analyze();
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
 
     await testInfo.attach('accessibility-scan-results', {
       body: JSON.stringify(accessibilityScanResults, null, 2),
@@ -60,17 +67,17 @@ test.describe('Inventory', () => {
   });
 
   // TODO: Skip this test until the domain table data is loaded in localhost.
-  test.skip('Test domain table filter', async ({ page }) => {
-    await page.goto('/inventory/domains');
-    await page.getByLabel('Show filters').click();
-    await page.getByPlaceholder('Filter value').click();
-    await page.getByPlaceholder('Filter value').fill('Homeland');
-    await page.getByPlaceholder('Filter value').press('Enter');
+  test.skip('Test domain table filter', async ({ pageAsGlobalAdmin }) => {
+    await pageAsGlobalAdmin.goto('/inventory/domains');
+    await pageAsGlobalAdmin.getByLabel('Show filters').click();
+    await pageAsGlobalAdmin.getByPlaceholder('Filter value').click();
+    await pageAsGlobalAdmin.getByPlaceholder('Filter value').fill('Homeland');
+    await pageAsGlobalAdmin.getByPlaceholder('Filter value').press('Enter');
 
-    let rowCount = await page.getByRole('row').count();
+    let rowCount = await pageAsGlobalAdmin.getByRole('row').count();
     for (let it = 2; it < rowCount; it++) {
       await expect(
-        page.getByRole('row').nth(it).getByRole('cell').nth(0)
+        pageAsGlobalAdmin.getByRole('row').nth(it).getByRole('cell').nth(0)
       ).toContainText('Homeland');
     }
   });

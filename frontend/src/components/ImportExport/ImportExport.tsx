@@ -56,7 +56,6 @@ export const Import = <T extends object>(props: ImportProps<T>) => {
           })
         );
         setResults(parsedResults);
-        console.log('Parsed Results:', parsedResults);
       } catch (err) {
         console.error('Parse error:', err);
       } finally {

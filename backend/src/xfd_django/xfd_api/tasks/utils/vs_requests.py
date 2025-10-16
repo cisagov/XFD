@@ -1,5 +1,5 @@
 """Vs Requests Helpers."""
-
+# VALIDATE ??????
 # Standard Python Libraries
 import datetime
 from ipaddress import IPv4Network, IPv6Network
@@ -20,7 +20,7 @@ from xfd_mini_dl.models import Cidr, CidrOrgs, Location, Organization, Sector
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 SCAN_NAME = "VulnScanningSync"

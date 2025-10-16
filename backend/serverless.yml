@@ -6,6 +6,11 @@ useDotenv: true
 configValidationMode: error
 
 custom:
+  # Single source of truth from env.yml (or SSM in GovCloud)
+  adotLayerArnSelected: ${file(env.yml):${self:provider.stage}.ADOT_ARN}
+  # Functions expect an array of ARNs
+  adotLayers:
+    - ${self:custom.adotLayerArnSelected}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -77,7 +82,8 @@ custom:
 
 provider:
   name: aws
-  region: ${file(env.yml):${self:provider.stage}.REGION, ''}
+  region: ${opt:region, env:AWS_REGION, env:AWS_DEFAULT_REGION,
+    file(env.yml):${self:provider.stage}.REGION, 'us-east-1'}
   endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
   runtime: python3.11
   timeout: 30
@@ -97,6 +103,9 @@ provider:
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
+  tracing:
+    lambda: true
+
 
 resources:
   Conditions:

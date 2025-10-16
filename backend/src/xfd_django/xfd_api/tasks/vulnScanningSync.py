@@ -5,42 +5,28 @@ port scans, hosts, and tickets from Redshift into the Django models.
 """
 
 # Standard Python Libraries
+from datetime import datetime, timezone
 import logging
 from logging import FileHandler
 import os
 
 # Third-Party Libraries
-from xfd_api.tasks.asm_sync import flag_cidr_changes
-from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
-from xfd_api.tasks.syncdb_task import synchronize
+from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.utils.datetime_utils import freeze_window
-from xfd_api.tasks.utils.link_ips_to_cidrs import bulk_assign_ips_to_cidrs
-from xfd_api.tasks.utils.mdl_insert_utils import fill_cidr_live_ips_bulk_update
-from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
-from xfd_api.tasks.utils.vs_port_scans import (
-    create_port_scan_summary,
-    fetch_port_scans_from_redshift,
-)
-from xfd_api.tasks.utils.vs_requests import fetch_orgs_from_redshift
-from xfd_api.tasks.utils.vs_send_orgs_to_dmz import send_organizations_to_dmz
-from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
-from xfd_api.tasks.utils.vs_vuln_scans import (
-    create_vuln_scan_summary,
-    fetch_vuln_scans_from_redshift,
-)
+from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
+from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
-from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
+from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
 
 LOGGER = logging.getLogger(__name__)
 
 IS_LOCAL = os.getenv("IS_LOCAL")
 SCAN_NAME = "VulnScanningSync"
-
 VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 
 
 def setup_vuln_sync_logging(
-    filename: str = "vuln_scanning_sync.log",
+    filename: str = "/tmp/vuln_scanning_sync.log",  # nosec B108
     logger_name: str = "xfd",  # Use the main logger
 ) -> None:
     """Attach a file handler that reuses the unified formatter & filters. Runs once."""
@@ -98,42 +84,80 @@ def handler(event):
     """
     LOGGER.info("VS_PULL_DATE_RANGE: %s", VS_PULL_DATE_RANGE)
     try:
-        main()
+        main(event)
         return {"status_code": 200, "body": "VS Sync completed successfully"}
     except Exception as e:
         LOGGER.exception("Error occurred: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
 
 
-def main():  # pylint: disable=R0915
+def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     setup_vuln_sync_logging()
     LOGGER.info("Started VulnScanningSync scan...")
 
-    LOGGER.info("Running syncdb")
-    synchronize(target_app_label="xfd_mini_dl")
-
     # Use fixed window + deterministic keyset on (time, _id)
-    ps_start_dt, ps_end_dt = freeze_window(int(VS_PULL_DATE_RANGE))
-    LOGGER.info("Frozen port-scan window: [%s .. %s)", ps_start_dt, ps_end_dt)
+    ps_start_dt = event.get("start_datetime")
+    ps_end_dt = event.get("end_datetime")
+    org_id = event.get("organizationId")
+    org_name = event.get("organizationName")
 
-    # Load request data
-    org_id_dict = fetch_orgs_from_redshift()
-    # org_id_dict = fetch_org_id_dict_fast()
+    try:
+        org = Organization.objects.get(id=org_id)
+        acronym = org.acronym
+    except Organization.DoesNotExist:
+        LOGGER.warning("No acronym found for the org with the following id: %s", org_id)
 
-    # Close unseen cidrs
-    flag_cidr_changes()
+    # Normalize start_datetime
+    if isinstance(ps_start_dt, (int, float)):  # timestamp
+        ps_start_dt = datetime.fromtimestamp(ps_start_dt, tz=timezone.utc)
+    elif isinstance(ps_start_dt, str):  # ISO string
+        ps_start_dt = datetime.fromisoformat(ps_start_dt).astimezone(timezone.utc)
 
-    # Flag ips related to closed cidrs:
-    bulk_assign_ips_to_cidrs()
+    # Normalize end_timestamp
+    if isinstance(ps_end_dt, (int, float)):  # timestamp
+        ps_end_dt = datetime.fromtimestamp(ps_end_dt, tz=timezone.utc)
+    elif isinstance(ps_end_dt, str):  # ISO string
+        ps_end_dt = datetime.fromisoformat(ps_end_dt).astimezone(timezone.utc)
 
-    # Process Vulnerability Scans
-    fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict)
+    # If either is missing, fallback to freeze_window
+    if not (ps_start_dt and ps_end_dt):
+        ps_start_dt, ps_end_dt = freeze_window(int(VS_PULL_DATE_RANGE))
 
-    # # Process Host Scans
-    create_daily_host_summary(org_id_dict)
+    LOGGER.info("Frozen port-scan window: [%s .. %s]", ps_start_dt, ps_end_dt)
+
+    LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
+
+    # Process Vulnerability and Port Scans in a separate workers
+    # (vs_vuln_scan_worker.py) and (vs_port_scan_worker.py)
+    task_arns = []
+    ecs = ECSClient()
+    vuln_scan_command_options = {
+        "scanName": "vs_vuln_scan_worker",
+        "organizationId": org_id,
+        "organizationAcronym": acronym,
+        "vuln_start_date": ps_start_dt,
+        "vuln_end_date": ps_end_dt,
+    }
+    port_scan_command_options = {
+        "scanName": "vs_vuln_scan_worker",
+        "organizationId": org_id,
+        "organizationAcronym": acronym,
+        "port_start_date": ps_start_dt,
+        "port_end_date": ps_end_dt,
+    }
+    vuln_response = ecs.run_command(vuln_scan_command_options)
+    port_response = ecs.run_command(port_scan_command_options)
+    tasks = vuln_response.get("tasks", []) + port_response.get("tasks", [])
+    for task in tasks:
+        task_arns.append(task.get("taskArn"))
+
+    if task_arns:
+        ecs.wait_for_tasks_completion(task_arns)
+    LOGGER.info("Vuln and port scan syncs have completed for %s.", acronym)
 
     LOGGER.info("Prefetching risky and NMI service groups...")
+
     # Prefetch risky service groups
     risky_service_groups = {
         rsg.service_name: rsg.group for rsg in RiskyServiceGroup.objects.all()
@@ -144,52 +168,24 @@ def main():  # pylint: disable=R0915
         nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
     }
 
-    # Port Scans (Chunked)
-    fetch_port_scans_from_redshift(
-        org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
-    )
-
-    # # Fill CIDR live IPs
-    fill_cidr_live_ips_bulk_update()
-
-    # # Send organizations to the DMZ MDL
-    send_organizations_to_dmz()
-
     # Process Tickets (Chunked)
-    fetch_tickets_from_redshift(
-        org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
+    fetch_tickets_from_redshift_single_org(
+        org_id,
+        acronym,
+        risky_service_groups,
+        nmi_service_groups,
+        ps_start_dt,
+        ps_end_dt,
     )
 
-    # REFRESH MATERIALIZED VIEWS BEFORE CREATING SUMMARIES
-    LOGGER.info("Refreshing materialized views before creating summaries...")
-    # Create or refresh materialized views
-    result = refresh_materialized_views({})
-    LOGGER.info(result)
-    LOGGER.info("Finished refreshing materialized views")
-
-    # Create summaries with individual error handling
-    LOGGER.info("Creating port scan summary...")
-    try:
-        create_port_scan_summary()
-        LOGGER.info("Finished port scan summary")
-    except Exception as e:
-        LOGGER.error("Failed to create port scan summary: %s", e, exc_info=True)
-
-    # TODO: Not used yet but needs to be optimized (takes 12+ hours to complete)
-    # LOGGER.info("Creating port scan service summaries...")
-    # try:
-    #     create_port_scan_service_summaries()
-    #     LOGGER.info("Finished port scan service summaries")
-    # except Exception as e:
-    #     LOGGER.error(
-    #         "Failed to create port scan service summaries: %s", e, exc_info=True
-    #     )
+    LOGGER.info("Ticket sync has completed for %s.", acronym)
 
     LOGGER.info("Creating vulnerability scan summary...")
     try:
-        create_vuln_scan_summary()
+        create_vuln_scan_summary(org_id=org_id)
         LOGGER.info("Finished vulnerability scan summary")
     except Exception as e:
         LOGGER.error(
             "Failed to create vulnerability scan summary: %s", e, exc_info=True
         )
+    return {"status_code": 200, "body": "Vuln Scan Sync completed successfully"}
