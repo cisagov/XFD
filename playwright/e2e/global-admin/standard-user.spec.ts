@@ -560,3 +560,112 @@ test.describe('VSDashboard — Standard User', () => {
     ).toBeVisible();
   });
 });
+
+test.describe('A11y — Standard User (axe)', () => {
+  // Home
+  test('Home: no serious/critical violations', async ({
+    pageAsStandardUser,
+    makeAxeBuilder
+  }, ti) => {
+    await pageAsStandardUser.goto('/');
+    await runAxeAndFailOnSerious(
+      pageAsStandardUser,
+      makeAxeBuilder,
+      ti,
+      'Home'
+    );
+  });
+
+  // VSDashboard
+  test('VSDashboard: no serious/critical violations', async ({
+    pageAsStandardUser,
+    makeAxeBuilder
+  }, ti) => {
+    await pageAsStandardUser.goto('/VSDashboard');
+    await runAxeAndFailOnSerious(
+      pageAsStandardUser,
+      makeAxeBuilder,
+      ti,
+      'VSDashboard'
+    );
+  });
+
+  // Findings Library (/inventory)
+  test('Inventory: no serious/critical violations', async ({
+    pageAsStandardUser,
+    makeAxeBuilder
+  }, ti) => {
+    await pageAsStandardUser.goto('/inventory');
+    await runAxeAndFailOnSerious(
+      pageAsStandardUser,
+      makeAxeBuilder,
+      ti,
+      'Inventory'
+    );
+  });
+
+  // Domain details
+  test('Domain details: no serious/critical violations', async ({
+    pageAsStandardUser,
+    makeAxeBuilder
+  }, ti) => {
+    const page = pageAsStandardUser;
+    await page.goto('/inventory');
+
+    const details = page
+      .getByRole('button', { name: /view domain details for/i })
+      .or(page.getByRole('link', { name: /view domain details for/i }));
+
+    const count = await details.count();
+    test.skip(count === 0, 'No domain details available to open');
+
+    await Promise.all([
+      page.waitForURL(/\/inventory\/domain\/[0-9a-f-]{36}\/?$/i, {
+        timeout: 10_000
+      }),
+      details.first().click()
+    ]);
+
+    await runAxeAndFailOnSerious(page, makeAxeBuilder, ti, 'Domain Details');
+  });
+
+  // Settings (/settings → "My Account")
+  test('Settings (My Account): no serious/critical violations', async ({
+    pageAsStandardUser,
+    makeAxeBuilder
+  }, ti) => {
+    await pageAsStandardUser.goto('/settings');
+    await runAxeAndFailOnSerious(
+      pageAsStandardUser,
+      makeAxeBuilder,
+      ti,
+      'Settings / My Account'
+    );
+  });
+});
+
+/* ---------------- helper ---------------- */
+async function runAxeAndFailOnSerious(
+  page: Page,
+  makeAxeBuilder: (page: Page) => any,
+  testInfo: TestInfo,
+  label: string
+) {
+  const axe = makeAxeBuilder(page);
+  const results = await axe.analyze();
+
+  await testInfo.attach(`${label} — axe-results`, {
+    body: JSON.stringify(results, null, 2),
+    contentType: 'application/json'
+  });
+
+  const bad = results.violations.filter((v: any) =>
+    ['serious', 'critical'].includes(v.impact)
+  );
+
+  expect(
+    bad,
+    `${label} a11y violations (serious/critical):\n` +
+      JSON.stringify(bad, null, 2)
+  ).toHaveLength(0);
+}
