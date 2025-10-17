@@ -44,15 +44,15 @@ LOGGER = logging.getLogger(__name__)
 def list_organizations(current_user):
     """List organizations that the user is a member of or has access to."""
     try:
-        # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
-            current_user
-        ):
+        # Check if user is GlobalViewAdmin or Regional Admin or has memberships
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
             return []
 
         # Define filter for organizations based on admin status
         org_filter = {}
-        if not is_global_view_admin(current_user):
+        if not (is_global_view_admin(current_user) or is_regional_admin(current_user)):
             org_filter["id__in"] = get_org_memberships(current_user)
         org_filter["parent"] = None
 
@@ -112,7 +112,9 @@ def get_tags(current_user):
     """Fetch all possible organization tags."""
     try:
         # Check if user is a global admin
-        if not is_global_view_admin(current_user):
+        if not is_global_view_admin(current_user) or not is_regional_admin(
+            current_user
+        ):
             return []
 
         # Fetch organization tags
@@ -133,7 +135,7 @@ def get_organization(organization_id, current_user):
         if not (
             is_org_admin(current_user, organization_id)
             or is_global_view_admin(current_user)
-            or is_regional_admin_for_organization(current_user, organization_id)
+            or is_regional_admin(current_user)
         ):
             raise HTTPException(status_code=403, detail="Unauthorized")
 
@@ -181,14 +183,16 @@ def get_organization(organization_id, current_user):
             "county": organization.county,
             "county_fips": organization.county_fips,
             "type": organization.type,
-            "created_by": {
-                "id": str(organization.created_by.id),
-                "first_name": organization.created_by.first_name,
-                "last_name": organization.created_by.last_name,
-                "email": organization.created_by.email,
-            }
-            if organization.created_by
-            else None,
+            "created_by": (
+                {
+                    "id": str(organization.created_by.id),
+                    "first_name": organization.created_by.first_name,
+                    "last_name": organization.created_by.last_name,
+                    "email": organization.created_by.email,
+                }
+                if organization.created_by
+                else None
+            ),
             "user_roles": [
                 {
                     "id": str(role.id),
@@ -229,12 +233,14 @@ def get_organization(organization_id, current_user):
                 }
                 for tag in organization.tags.all()
             ],
-            "parent": {
-                "id": str(organization.parent.id),
-                "name": organization.parent.name,
-            }
-            if organization.parent
-            else None,
+            "parent": (
+                {
+                    "id": str(organization.parent.id),
+                    "name": organization.parent.name,
+                }
+                if organization.parent
+                else None
+            ),
             "children": [
                 {"id": str(child.id), "name": child.name}
                 for child in organization.children.all()
@@ -243,9 +249,11 @@ def get_organization(organization_id, current_user):
                 {
                     "id": str(task.id),
                     "created_at": task.created_at.isoformat(),
-                    "scan": {"id": str(task.scan.id), "name": task.scan.name}
-                    if task.scan
-                    else None,
+                    "scan": (
+                        {"id": str(task.scan.id), "name": task.scan.name}
+                        if task.scan
+                        else None
+                    ),
                 }
                 for task in scan_tasks
             ],
@@ -341,10 +349,10 @@ def get_by_region(region_id, current_user):
 def get_all_regions(current_user):
     """Get all regions."""
     try:
-        # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
-            current_user
-        ):
+        # Check if user is GlobalViewAdmin or RegionalAdmin or has memberships
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
             raise HTTPException(status_code=403, detail="Unauthorized")
 
         # Fetch distinct region_id values
@@ -454,12 +462,14 @@ def create_organization(organization_data, current_user):
                 }
                 for tag in organization.tags.all()
             ],
-            "parent": {
-                "id": str(organization.parent.id),
-                "name": organization.parent.name,
-            }
-            if organization.parent
-            else {},
+            "parent": (
+                {
+                    "id": str(organization.parent.id),
+                    "name": organization.parent.name,
+                }
+                if organization.parent
+                else {}
+            ),
         }
 
     except HTTPException as http_exc:
@@ -476,7 +486,7 @@ def upsert_organization(organization_data, current_user):
     """Create a new organization or update it if it already exists."""
     try:
         # Check if the user is a GlobalWriteAdmin
-        if not is_global_write_admin(current_user):
+        if not (is_global_write_admin(current_user) or is_regional_admin(current_user)):
             raise HTTPException(
                 status_code=403, detail="Unauthorized access. View logs for details."
             )
@@ -534,14 +544,16 @@ def upsert_organization(organization_data, current_user):
             "county": organization.county,
             "county_fips": organization.county_fips,
             "type": organization.type,
-            "created_by": {
-                "id": str(organization.created_by.id),
-                "first_name": organization.created_by.first_name,
-                "last_name": organization.created_by.last_name,
-                "email": organization.created_by.email,
-            }
-            if organization.created_by
-            else None,
+            "created_by": (
+                {
+                    "id": str(organization.created_by.id),
+                    "first_name": organization.created_by.first_name,
+                    "last_name": organization.created_by.last_name,
+                    "email": organization.created_by.email,
+                }
+                if organization.created_by
+                else None
+            ),
             "tags": [
                 {
                     "id": str(tag.id),
@@ -551,12 +563,14 @@ def upsert_organization(organization_data, current_user):
                 }
                 for tag in organization.tags.all()
             ],
-            "parent": {
-                "id": str(organization.parent.id),
-                "name": organization.parent.name,
-            }
-            if organization.parent
-            else {},
+            "parent": (
+                {
+                    "id": str(organization.parent.id),
+                    "name": organization.parent.name,
+                }
+                if organization.parent
+                else {}
+            ),
         }
 
     except HTTPException as http_exc:
@@ -577,7 +591,9 @@ def update_organization(organization_id: str, organization_data, current_user):
             raise HTTPException(status_code=404, detail="Not a valid organization id.")
 
         # Ensure the current user has permission to update the organization
-        if not is_org_admin(current_user, organization_id):
+        if not is_org_admin(current_user, organization_id) or not is_regional_admin(
+            current_user
+        ):
             raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Fetch the existing organization with userRoles and granularScans relations
@@ -641,14 +657,16 @@ def update_organization(organization_id: str, organization_data, current_user):
             "county": organization.county,
             "county_fips": organization.county_fips,
             "type": organization.type,
-            "created_by": {
-                "id": str(organization.created_by.id),
-                "first_name": organization.created_by.first_name,
-                "last_name": organization.created_by.last_name,
-                "email": organization.created_by.email,
-            }
-            if organization.created_by
-            else None,
+            "created_by": (
+                {
+                    "id": str(organization.created_by.id),
+                    "first_name": organization.created_by.first_name,
+                    "last_name": organization.created_by.last_name,
+                    "email": organization.created_by.email,
+                }
+                if organization.created_by
+                else None
+            ),
             "tags": [
                 {
                     "id": str(tag.id),
@@ -765,12 +783,6 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
         except User.DoesNotExist:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        # Check if the current user's region matches the user's region
-        if not matches_user_region(current_user, user.region_id):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access due to region mismatch."
-            )
-
         # Prepare the new role data
         new_role_data = {
             "user": user,
@@ -821,7 +833,9 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
 def approve_role(organization_id: str, role_id, current_user):
     """Approve a role within an organization."""
     # Check if the current user is an org admin for the organization
-    if not is_org_admin(current_user, organization_id):
+    if not is_org_admin(current_user, organization_id) or not is_regional_admin(
+        current_user
+    ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     # Validate that the role_id is a valid UUID
@@ -856,7 +870,9 @@ def approve_role(organization_id: str, role_id, current_user):
 def remove_role(organization_id: str, role_id, current_user):
     """Remove a role within an organization."""
     # Check if the current user is an org admin for the organization
-    if not is_org_admin(current_user, organization_id):
+    if not (
+        is_org_admin(current_user, organization_id) or is_regional_admin(current_user)
+    ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     # Validate that the role_id is a valid UUID
@@ -897,10 +913,11 @@ def update_org_scan(organization_id: str, scan_id, scan_data, current_user):
     if not is_valid_uuid(organization_id):
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    # Check if the current user is either an org admin or a global write admin
+    # Check if the current user is either an org admin or a global write admin or a regional admin
     if not (
         is_org_admin(current_user, organization_id)
         or is_global_write_admin(current_user)
+        or is_regional_admin(current_user)
     ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
@@ -1078,19 +1095,11 @@ def search_organizations_task(search_body, current_user: User):
     try:
         if current_user.user_type == UserType.STANDARD:
             raise HTTPException(status_code=403, detail="Unauthorized.")
-        if current_user.user_type == UserType.REGIONAL_ADMIN:
-            filtered_region_ids = set(search_body.regions or [])
-            unauthorized_regions = {
-                region_id
-                for region_id in filtered_region_ids
-                if not is_valid_region(region_id, current_user)
-            }
-            if unauthorized_regions:
-                raise HTTPException(status_code=403, detail="Unauthorized.")
+
         # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
-            current_user
-        ):
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
             return []
 
         # Initialize Elasticsearch client

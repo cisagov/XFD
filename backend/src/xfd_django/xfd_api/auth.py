@@ -558,13 +558,12 @@ def get_allowed_user_update_fields(current_user, target_user):
             "first_login",
         }
 
-    if (
-        is_regional_admin(current_user)
-        and current_user.region_id == target_user.region_id
-    ):
+    if is_regional_admin(current_user):
         return {
             "first_name",
             "last_name",
+            "state",
+            "region_id",
             "invite_pending",
             "first_login",
             "date_approved",
