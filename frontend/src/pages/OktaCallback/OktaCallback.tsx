@@ -3,6 +3,7 @@ import { parse } from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type OktaCallbackResponse = {
   token: string;
@@ -32,7 +33,7 @@ export const OktaCallback: React.FC = () => {
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/okta-callback`,
+        `${import.meta.env.VITE_API_URL}${ENDPOINTS.OKTA_CALLBACK}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

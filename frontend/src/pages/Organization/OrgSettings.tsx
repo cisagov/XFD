@@ -25,6 +25,7 @@ import {
 import { CheckCircleOutline, Place, Public } from '@mui/icons-material';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ListInput from './ListInput';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -68,9 +69,16 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
 
   const updateOrganization = async () => {
     try {
-      const org = await apiPost(`/update_organization/${organization.id}`, {
-        body: organization
-      });
+      // const org = await apiPost(`/update_organization/${organization.id}`, {
+      //   body: organization
+      // });
+      const org = await apiPost(
+        ENDPOINTS.ORGANIZATION_UPDATE.replace(
+          '{organization_id}',
+          organization.id
+        ),
+        { body: organization }
+      );
       setOrganization(org);
       setFeedbackMessage({
         message: 'Organization successfully updated',

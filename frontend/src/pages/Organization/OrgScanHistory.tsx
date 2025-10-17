@@ -65,7 +65,10 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
     try {
       if (!organization) return;
       await apiPost(
-        `/organizations/${organization?.id}/granularScans/${scan.id}/update`,
+        ENDPOINTS.ORGANIZATION_GRANULAR_SCAN_UPDATE.replace(
+          '{organization_id}',
+          organization.id
+        ).replace('{scan_id}', scan.id),
         {
           body: {
             enabled
