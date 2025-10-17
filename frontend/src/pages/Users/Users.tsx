@@ -105,9 +105,6 @@ export const Users: React.FC = () => {
       });
 
       let filteredRows = rows;
-      if (user?.user_type === 'regionalAdmin' && user.region_id) {
-        filteredRows = rows.filter((row) => row.region_id === user.region_id);
-      }
 
       setUsers(filteredRows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
