@@ -10,7 +10,7 @@
   },
   "description": "",
   "devDependencies": {
-    "@playwright/test": "^1.41.2",
+    "@playwright/test": "^1.56.1",
     "@types/node": "^20.11.20"
   },
   "keywords": [],
