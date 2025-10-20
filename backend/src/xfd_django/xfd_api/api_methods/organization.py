@@ -1024,7 +1024,10 @@ def search_organizations_v2(payload, current_user):
     """List organizations that the user is a member of or has access to."""
     try:
         memberships = get_org_memberships(current_user)
-        if not is_global_view_admin(current_user) and not memberships:
+        if (
+            not (is_global_view_admin(current_user) or is_regional_admin(current_user))
+            and not memberships
+        ):
             return {"result": [], "count": 0}
 
         f = Q()
