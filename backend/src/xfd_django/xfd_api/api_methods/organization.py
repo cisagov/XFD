@@ -20,15 +20,12 @@ from xfd_mini_dl.models import (
     UserType,
 )
 
-from ..api_methods.search import is_valid_region
 from ..auth import (
     get_org_memberships,
     is_global_view_admin,
     is_global_write_admin,
     is_org_admin,
     is_regional_admin,
-    is_regional_admin_for_organization,
-    matches_user_region,
 )
 from ..helpers.filter_helpers import apply_organization_filters
 from ..helpers.regionStateMap import REGION_STATE_MAP
