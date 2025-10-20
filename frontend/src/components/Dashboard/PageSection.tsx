@@ -17,7 +17,6 @@ const PageSection = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const history = useHistory();
 
-  // Local state for popup
   const [showPopup, setShowPopup] = useState<boolean>(
     Boolean(showFirstLoginPopup) ||
       Boolean(
@@ -29,12 +28,10 @@ const PageSection = ({ children }: { children: React.ReactNode }) => {
   const clearedFlag = useRef(false);
 
   useEffect(() => {
-    // Sync with hook value
     if (showFirstLoginPopup) setShowPopup(true);
   }, [showFirstLoginPopup]);
 
   useEffect(() => {
-    // Clear the flag from location.state after showing the popup once
     if (
       (location.state as { showFirstLoginPopup?: boolean })
         ?.showFirstLoginPopup &&
