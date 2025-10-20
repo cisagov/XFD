@@ -464,9 +464,7 @@ def update_user_v2(user_id, user_data, current_user):
             raise HTTPException(status_code=404, detail="User not found")
 
         # Global admins only can update the userType
-        if (
-            not is_global_write_admin(current_user)
-        ) and user_data.user_type:
+        if (not is_global_write_admin(current_user)) and user_data.user_type:
             raise HTTPException(
                 status_code=403, detail="Only global admins can update userType."
             )
