@@ -276,6 +276,7 @@ exports[`matches admin snapshot 1`] = `
             class="MuiButtonBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium PrivateSwitchBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium css-ggk6y2-MuiButtonBase-root-MuiSwitchBase-root-MuiCheckbox-root"
           >
             <input
+              aria-label="I accept the above Terms and Conditions."
               class="PrivateSwitchBase-input css-12xagqm-MuiSwitchBase-root"
               data-indeterminate="false"
               name="accept"
@@ -513,6 +514,7 @@ exports[`matches user snapshot 1`] = `
             class="MuiButtonBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium PrivateSwitchBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium css-ggk6y2-MuiButtonBase-root-MuiSwitchBase-root-MuiCheckbox-root"
           >
             <input
+              aria-label="I accept the above Terms and Conditions."
               class="PrivateSwitchBase-input css-12xagqm-MuiSwitchBase-root"
               data-indeterminate="false"
               name="accept"

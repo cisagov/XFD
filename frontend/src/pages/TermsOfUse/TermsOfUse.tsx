@@ -33,7 +33,6 @@ export const TermsOfUse: React.FC = () => {
     }
   };
 
-  // List content as arrays for mapping
   const adminItems = [
     'You have authority to authorize scanning/evaluation of the public-facing networks and systems you submit within CyHy Dashboard and you authorize CISA to conduct any such scans/evaluation through CyHy Dashboard;',
     'You agree to promptly update or change the information used to identify the public-facing networks and systems to be scanned/evaluated pursuant to this authorization;',
@@ -49,7 +48,6 @@ export const TermsOfUse: React.FC = () => {
     'Introduce malware to the CyHy Dashboard platform or otherwise impair, harm, or disrupt the functioning or integrity of the platform in any way;'
   ];
 
-  // Helper for bullet points
   const Bullet = () => (
     <Box
       component="span"
@@ -193,6 +191,9 @@ export const TermsOfUse: React.FC = () => {
                 onChange={(e) => setAccepted(e.target.checked)}
                 name="accept"
                 color="primary"
+                inputProps={{
+                  'aria-label': 'I accept the above Terms and Conditions.'
+                }}
               />
             }
             label="I accept the above Terms and Conditions."
@@ -212,4 +213,3 @@ export const TermsOfUse: React.FC = () => {
     </div>
   );
 };
-//Test again
