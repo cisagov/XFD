@@ -104,7 +104,7 @@ export const Users: React.FC = () => {
         row.full_name = `${row.first_name} ${row.last_name}`;
       });
 
-      let filteredRows = rows;
+      const filteredRows = rows;
 
       setUsers(filteredRows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
