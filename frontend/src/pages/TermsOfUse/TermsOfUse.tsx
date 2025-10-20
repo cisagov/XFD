@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-// removed deprecated AuthForm import
-import classes from 'components/AuthForm/styles.module.scss';
 import {
   Button,
   Checkbox,
@@ -63,8 +61,8 @@ export const TermsOfUse: React.FC = () => {
   );
 
   return (
-    <div className={classes.root}>
-      <form className={classes.form} onSubmit={onSubmit} noValidate>
+    <div>
+      <form onSubmit={onSubmit} noValidate>
         <Box
           display="flex"
           flexDirection="column"
