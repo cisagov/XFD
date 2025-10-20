@@ -109,9 +109,7 @@ def get_tags(current_user):
     """Fetch all possible organization tags."""
     try:
         # Check if user is a global admin
-        if not is_global_view_admin(current_user) or not is_regional_admin(
-            current_user
-        ):
+        if not (is_global_view_admin(current_user) or is_regional_admin(current_user)):
             return []
 
         # Fetch organization tags
@@ -588,8 +586,9 @@ def update_organization(organization_id: str, organization_data, current_user):
             raise HTTPException(status_code=404, detail="Not a valid organization id.")
 
         # Ensure the current user has permission to update the organization
-        if not is_org_admin(current_user, organization_id) or not is_regional_admin(
-            current_user
+        if not (
+            is_org_admin(current_user, organization_id)
+            or is_regional_admin(current_user)
         ):
             raise HTTPException(status_code=403, detail="Unauthorized access.")
 
@@ -830,8 +829,10 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
 def approve_role(organization_id: str, role_id, current_user):
     """Approve a role within an organization."""
     # Check if the current user is an org admin for the organization
-    if not is_org_admin(current_user, organization_id) or not is_regional_admin(
-        current_user
+    if not (
+        is_org_admin(current_user, organization_id)
+        or is_regional_admin(current_user)
+        or current_user.user_type == UserType.GLOBAL_ADMIN
     ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
