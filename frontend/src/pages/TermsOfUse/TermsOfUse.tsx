@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
+import classes from 'components/AuthForm/styles.module.scss';
 import {
   Button,
   Checkbox,
@@ -59,8 +60,23 @@ export const TermsOfUse: React.FC = () => {
   );
 
   return (
-    <div>
-      <form onSubmit={onSubmit} noValidate>
+    <Box
+      sx={{ width: '100%', display: 'flex', justifyContent: 'center', py: 4 }}
+    >
+      <Box
+        component="form"
+        onSubmit={onSubmit}
+        noValidate
+        sx={{
+          width: '100%',
+          maxWidth: 600,
+          bgcolor: 'background.paper',
+          boxShadow: (theme) => theme.shadows[1],
+          borderRadius: 1,
+          p: { xs: 2, sm: 3 },
+          boxSizing: 'border-box'
+        }}
+      >
         <Box
           display="flex"
           flexDirection="column"
@@ -191,9 +207,6 @@ export const TermsOfUse: React.FC = () => {
                 onChange={(e) => setAccepted(e.target.checked)}
                 name="accept"
                 color="primary"
-                inputProps={{
-                  'aria-label': 'I accept the above Terms and Conditions.'
-                }}
               />
             }
             label="I accept the above Terms and Conditions."
@@ -209,7 +222,7 @@ export const TermsOfUse: React.FC = () => {
             Submit
           </Button>
         </Box>
-      </form>
-    </div>
+      </Box>
+    </Box>
   );
 };
