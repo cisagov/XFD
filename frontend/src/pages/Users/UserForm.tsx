@@ -371,7 +371,6 @@ export const UserForm: React.FC<UserFormProps> = ({
     const body: ApiBody = {
       first_name: values.first_name,
       last_name: values.last_name,
-      user_type: values.user_type,
       state: values.state,
       region_id: values.region_id
     };
