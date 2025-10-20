@@ -164,18 +164,18 @@ def fetch_in_chunks_keyset_frozen(
         yield chunk
 
 
-def fetch_in_chunks_keyset_frozen_single_org(
+def fetch_in_chunks_keyset_frozen_bulk(
     table: str,
     time_col: str,
     start_dt,
     end_dt,
     chunk_size: int = 500_000,
-    org_acronym: str | None = None,
+    org_acronyms: list[str] | None = None,
 ):
     """
     Keyset pagination over a fixed window with ORDER BY (time_col, _id).
 
-    Filters by a single org acronym.
+    Filters by multiple org acronyms using an IN clause.
     Uses psycopg2.sql for safe identifier handling and parameterized values.
     """
     last_time = None
@@ -204,9 +204,11 @@ def fetch_in_chunks_keyset_frozen_single_org(
             params.extend([last_time, last_time, last_id])
 
         # Org filter
-        if org_acronym:
-            where_clauses.append(sql.SQL("owner = %s"))
-            params.append(org_acronym)
+        if org_acronyms:
+            # Generate placeholders for each org acronym
+            placeholders = sql.SQL(", ").join(sql.Placeholder() * len(org_acronyms))
+            where_clauses.append(sql.SQL("owner IN ({})").format(placeholders))
+            params.extend(org_acronyms)
 
         # Combine WHERE clauses
         where_sql = sql.SQL(" AND ").join(where_clauses)
@@ -231,7 +233,7 @@ def fetch_in_chunks_keyset_frozen_single_org(
         )
         params.append(chunk_size)
 
-        # `query_redshift` can accept the psycopg2.sql.SQL object directly
+        # Execute query
         chunk = query_redshift(query_sql, params=params)
 
         if not chunk:

@@ -12,6 +12,7 @@ from django.db import models
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
 from django.db.models.functions import Power
 from django.utils import timezone
+from psycopg2 import sql
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.mdl_insert_utils import (
     save_cve_to_datalake,
@@ -39,63 +40,86 @@ SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
-def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, org_acronym):
+def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict):
     """
-    Fetch vulnerability scans from Redshift for a specific organization.
+    Fetch and process vulnerability scans from Redshift for all orgs in org_id_dict together.
 
-    Uses parameterized queries for safety and cleaner syntax.
+    org_id_dict: {acronym: id}
+    The data for all orgs is pulled in a single query and processed as a unified batch.
     """
+    if not org_id_dict:
+        LOGGER.warning("No organizations provided for vulnerability scan fetch.")
+        return
+
+    acronyms = list(org_id_dict.keys())
     LOGGER.info(
-        "Started processing vulnerability scans for org %s (%s)...", org_acronym, org_id
+        "Started bulk vulnerability scan fetch for %d orgs: %s",
+        len(acronyms),
+        acronyms,
     )
 
-    query = """
+    query = sql.SQL(
+        """
         SELECT *
         FROM vmtableau.vuln_scans
         WHERE time >= %s
-          AND time < %s
-          AND owner = %s
+        AND time < %s
+        AND owner IN ({acronyms})
     """
+    ).format(acronyms=sql.SQL(", ").join([sql.Placeholder()] * len(acronyms)))
 
-    params = [ps_start_dt, ps_end_dt, org_acronym]
-
+    params = [ps_start_dt, ps_end_dt] + acronyms
     vuln_scans = fetch_from_redshift_with_params(query, params)
+
+    if not vuln_scans:
+        LOGGER.warning("No vulnerability scans found for the provided organizations.")
+        return
+
     LOGGER.info(
-        "Fetched %d vulnerability scans from Redshift for %s (%s)",
+        "Fetched %d vulnerability scans from Redshift across %d orgs.",
         len(vuln_scans),
-        org_acronym,
-        org_id,
+        len(acronyms),
     )
 
-    if vuln_scans:
-        process_vulnerability_scans(vuln_scans, org_id, org_acronym)
-        LOGGER.info("Finished processing vulnerability scans for %s", org_acronym)
-    else:
-        LOGGER.warning("No vulnerability scans found for %s (%s)", org_acronym, org_id)
+    # Process all data together; org_id_dict can be used inside the process function
+    LOGGER.info("Processing all vulnerability scans together...")
+    process_vulnerability_scans(vuln_scans, org_id_dict)
+    LOGGER.info("Finished bulk vulnerability scan processing.")
 
 
-def process_vulnerability_scans(vuln_scans, org_id, org_acronym):
-    """Process and save vulnerability scans for a single org."""
+def process_vulnerability_scans(vuln_scans, org_id_dict):
+    """
+    Process and save vulnerability scans for multiple organizations at once.
+
+    org_id_dict: {acronym: org_id}
+    vuln_scans: list of vulnerability scan dictionaries fetched from Redshift
+    """
+    if not vuln_scans:
+        LOGGER.warning("No vulnerability scans to process.")
+        return
+
     LOGGER.info(
-        "Processing %d vulnerability scans for org %s", len(vuln_scans), org_acronym
+        "Processing %d vulnerability scans across %d organizations",
+        len(vuln_scans),
+        len(org_id_dict),
     )
 
     for vuln in vuln_scans:
         try:
-            # Validate ownership
-            if vuln.get("owner") != org_acronym:
+            owner_acronym = vuln.get("owner")
+            org_id = org_id_dict.get(owner_acronym)
+
+            if not org_id:
                 LOGGER.warning(
-                    "Skipping scan for unexpected owner '%s' (expected '%s')",
-                    vuln.get("owner"),
-                    org_acronym,
+                    "Skipping scan for unknown organization owner '%s'", owner_acronym
                 )
                 continue
 
             ip_id = (
                 save_ip_to_datalake(
                     {
-                        "ip": vuln["ip"],
-                        "ip_hash": hash_ip(vuln["ip"]),
+                        "ip": vuln.get("ip"),
+                        "ip_hash": hash_ip(vuln.get("ip")),
                         "organization": org_id,
                     }
                 )
@@ -104,7 +128,9 @@ def process_vulnerability_scans(vuln_scans, org_id, org_acronym):
             )
 
             cve = (
-                save_cve_to_datalake({"name": vuln["cve"]}) if vuln.get("cve") else None
+                save_cve_to_datalake({"name": vuln.get("cve")})
+                if vuln.get("cve")
+                else None
             )
 
             vuln_scan_dict = build_vuln_scan_dict(vuln, org_id, ip_id, cve)
@@ -120,7 +146,7 @@ def process_vulnerability_scans(vuln_scans, org_id, org_acronym):
             raise IngestionError(
                 SCAN_NAME,
                 str(e),
-                f"Failed processing vulnerability scans for {org_acronym}",
+                f"Failed processing vulnerability scans for owner '{owner_acronym}'",
             ) from e
 
 

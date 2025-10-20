@@ -22,10 +22,15 @@ SCAN_NAME = "vs_port_scan_worker"
 
 
 def handler(event):
-    """Handle execution of the port scanning sync task.
+    """
+    Handle execution of the port scanning sync task for multiple organizations.
 
     Args:
         event (dict): The event data that triggers the function.
+            Expected keys:
+                - port_start_date
+                - port_end_date
+                - organizationMap: dict {acronym: org_id}
 
     Returns:
         dict: Response containing the status code and message.
@@ -33,8 +38,11 @@ def handler(event):
     try:
         start_dt = event.get("port_start_date")
         end_dt = event.get("port_end_date")
-        organization_id = event.get("organizationId")
-        organization_acronym = event.get("organizationAcronym")
+        org_id_dict = event.get("organizationMap", {})
+
+        if not org_id_dict:
+            LOGGER.warning("No organizations provided for port scan.")
+            return {"status_code": 400, "body": "No organizations provided."}
 
         # Prefetch risky service groups
         risky_service_groups = {
@@ -45,32 +53,27 @@ def handler(event):
         nmi_service_groups = {
             nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
         }
+
+        # Fetch and process port scans for all orgs in one go
         fetch_port_scans_from_redshift(
-            organization_id,
-            organization_acronym,
+            org_id_dict,
             risky_service_groups,
             nmi_service_groups,
             start_dt,
             end_dt,
         )
-        # Create summaries with individual error handling
-        LOGGER.info("Creating port scan summary...")
-        try:
-            create_port_scan_summary(org_id=organization_id)
-            LOGGER.info("Finished port scan summary")
-        except Exception as e:
-            LOGGER.error("Failed to create port scan summary: %s", e, exc_info=True)
 
-        # TODO: Not used yet but needs to be optimized (takes 12+ hours to complete)
-        # LOGGER.info("Creating port scan service summaries...")
-        # try:
-        #     create_port_scan_service_summaries()
-        #     LOGGER.info("Finished port scan service summaries")
-        # except Exception as e:
-        #     LOGGER.error(
-        #         "Failed to create port scan service summaries: %s", e, exc_info=True
-        #     )
+        # Create summaries with individual error handling
+        LOGGER.info("Creating port scan summaries for all organizations...")
+        try:
+            for org_id in org_id_dict.values():
+                create_port_scan_summary(org_id=org_id)
+            LOGGER.info("Finished port scan summaries")
+        except Exception as e:
+            LOGGER.error("Failed to create port scan summaries: %s", e, exc_info=True)
+
         return {"status_code": 200, "body": "Port Scan Sync completed successfully"}
+
     except Exception as e:
-        LOGGER.exception("Error occurred: %s", e)
+        LOGGER.exception("Error occurred during port scan sync: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e

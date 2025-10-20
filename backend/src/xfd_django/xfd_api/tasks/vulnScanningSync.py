@@ -13,13 +13,14 @@ import os
 # Third-Party Libraries
 from xfd_api.tasks.ecs_client import ECSClient
 from xfd_api.tasks.utils.datetime_utils import freeze_window
-from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
+from xfd_api.tasks.utils.vs_requests import fetch_org_id_dict_fast
+from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
 from xfd_api.tasks.utils.vs_vuln_scans import (
     create_vuln_scan_summary,
     fetch_vuln_scans_from_redshift,
 )
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
-from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
+from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -102,14 +103,9 @@ def main(event):  # pylint: disable=R0915
     # Use fixed window + deterministic keyset on (time, _id)
     ps_start_dt = event.get("start_datetime")
     ps_end_dt = event.get("end_datetime")
-    org_id = event.get("organizationId")
-    org_name = event.get("organizationName")
+    org_list = event.get("org_list")
 
-    try:
-        org = Organization.objects.get(id=org_id)
-        acronym = org.acronym
-    except Organization.DoesNotExist:
-        LOGGER.warning("No acronym found for the org with the following id: %s", org_id)
+    org_id_dict = fetch_org_id_dict_fast(org_ids=org_list)
 
     # Normalize start_datetime
     if isinstance(ps_start_dt, (int, float)):  # timestamp
@@ -129,7 +125,7 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Frozen port-scan window: [%s .. %s]", ps_start_dt, ps_end_dt)
 
-    LOGGER.info("Pulling VS data for %s: %s", org_name, acronym)
+    LOGGER.info("Processing %d organizations: %s", len(org_id_dict), org_id_dict)
 
     # Process Port Scan in a separate workers
     # (vs_vuln_scan_worker.py) and (vs_port_scan_worker.py)
@@ -137,8 +133,7 @@ def main(event):  # pylint: disable=R0915
     ecs = ECSClient()
     port_scan_command_options = {
         "scanName": "vs_port_scan_worker",
-        "organizationId": org_id,
-        "organizationAcronym": acronym,
+        "organizationMap": org_id_dict,
         "port_start_date": ps_start_dt,
         "port_end_date": ps_end_dt,
         "SERVICE_QUEUE_URL": os.getenv("SERVICE_QUEUE_URL"),
@@ -150,7 +145,7 @@ def main(event):  # pylint: disable=R0915
 
     # Start Vuln Scan in parallel
     try:
-        fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, acronym, org_id)
+        fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict)
     except Exception as e:
         LOGGER.exception("Vuln Scan error occurred: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
@@ -163,7 +158,7 @@ def main(event):  # pylint: disable=R0915
             timeout=60 * 60 * 24,
         )
 
-    LOGGER.info("Vuln and port scan syncs have completed for %s.", acronym)
+    LOGGER.info("Vuln and port scan syncs have completed for requested orgs.")
 
     LOGGER.info("Prefetching risky and NMI service groups...")
     # Prefetch risky service groups
@@ -177,23 +172,29 @@ def main(event):  # pylint: disable=R0915
     }
 
     # Process Tickets (Chunked)
-    fetch_tickets_from_redshift_single_org(
-        org_id,
-        acronym,
+    fetch_tickets_from_redshift(
+        org_id_dict,
         risky_service_groups,
         nmi_service_groups,
         ps_start_dt,
         ps_end_dt,
     )
 
-    LOGGER.info("Ticket sync has completed for %s.", acronym)
+    LOGGER.info("Ticket sync has completed for requested orgs")
 
     LOGGER.info("Creating vulnerability scan summary...")
-    try:
-        create_vuln_scan_summary(org_id=org_id)
-        LOGGER.info("Finished vulnerability scan summary")
-    except Exception as e:
-        LOGGER.error(
-            "Failed to create vulnerability scan summary: %s", e, exc_info=True
-        )
+
+    for org_id in org_id_dict.values():
+        try:
+            create_vuln_scan_summary(org_id=org_id)
+        except Exception as e:
+            LOGGER.error(
+                "Failed to create vuln scan summary for org %s: %s",
+                org_id,
+                e,
+                exc_info=True,
+            )
+
+    LOGGER.info("Finished vulnerability scan summary")
+
     return {"status_code": 200, "body": "Vuln Scan Sync completed successfully"}
