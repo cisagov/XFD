@@ -6,6 +6,7 @@ import { Result } from 'context/SearchProvider';
 // @ts-ignore:next-line
 import { parseISO, formatDistanceToNow } from 'date-fns';
 import DOMPurify from 'dompurify';
+import { ROUTES } from '@/constants/routes';
 
 // Sync this with the backend client in es-client.ts.
 export interface WebpageRecord {
@@ -109,7 +110,7 @@ export const ResultCard: React.FC<Props> = (props) => {
 
   const onClick = () => {
     onDomainSelected(id.raw);
-    history.push(`/inventory/domain/${id.raw}`);
+    history.push(ROUTES.DOMAIN.replace('{domain_id}', id.raw));
   };
 
   const ports = services.raw.reduce(
