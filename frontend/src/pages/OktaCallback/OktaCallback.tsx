@@ -4,6 +4,7 @@ import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 type OktaCallbackResponse = {
   token: string;
@@ -19,7 +20,7 @@ export const OktaCallback: React.FC = () => {
 
     if (!code || !state) {
       console.error('Missing OAuth parameters');
-      history.replace('/');
+      history.replace(ROUTES.HOME);
       return;
     }
 
@@ -27,7 +28,7 @@ export const OktaCallback: React.FC = () => {
 
     if (!signedToken) {
       console.error('Missing signed OAuth metadata');
-      history.replace('/');
+      history.replace(ROUTES.HOME);
       return;
     }
 
@@ -53,10 +54,10 @@ export const OktaCallback: React.FC = () => {
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
 
-      history.replace('/');
+      history.replace(ROUTES.HOME);
     } catch (e) {
       console.error(e);
-      history.replace('/');
+      history.replace(ROUTES.HOME);
     }
   }, [history, login]);
 
