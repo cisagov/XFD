@@ -387,7 +387,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         if (values.originalOrgId) {
           await apiPost(
             ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
-              '{org_id}',
+              '{organization_id}',
               String(values.originalOrgId)
             ).replace('{role_id}', String(values.originalRoleId)),
             { body: {} }
@@ -395,7 +395,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         }
         await apiPost(
           ENDPOINTS.ORGANIZATION_ADD_USER.replace(
-            '{org_id}',
+            '{organization_id}',
             String(values.org_id)
           ),
           {
