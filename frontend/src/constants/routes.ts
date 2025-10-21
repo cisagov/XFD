@@ -16,6 +16,8 @@ export const ROUTES = {
   PROFILE: '/profile',
   REGION_ADMIN_DASHBOARD: '/region-admin-dashboard',
   REPORTS: '/reports',
+  SCANS: '/scans',
+  SCANS_HISTORY: '/scans/history',
   SETTINGS: '/settings',
   TERMS: '/terms',
   USERS: '/users',
