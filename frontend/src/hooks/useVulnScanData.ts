@@ -46,7 +46,7 @@ export function useVulnScanData(orgId: string) {
           }
         });
 
-        // Check if we have vulnerability scan data specifically
+        // Vuln scan data check
         const hasVulnScanData = response?.vuln_scan_summaries?.length > 0;
         const hasAnyData =
           response?.host_summaries?.length > 0 ||
