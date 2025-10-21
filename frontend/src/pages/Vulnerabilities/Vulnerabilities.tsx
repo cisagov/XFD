@@ -42,6 +42,7 @@ import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const PAGE_SIZE = 15;
 
@@ -105,7 +106,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           state?.orgId
         );
         return await apiPost<ApiResponse>(
-          doExport ? '/vulnerabilities/export' : '/vulnerabilities/search',
+          doExport
+            ? ENDPOINTS.VULNERABILITIES_EXPORT
+            : ENDPOINTS.VULNERABILITIES_SEARCH,
           {
             body: {
               page,
