@@ -30,6 +30,7 @@ import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -101,9 +102,12 @@ export const Organizations: React.FC = () => {
     setIsLoading(true);
     setLoadingError(false);
     try {
-      const data = await apiPost<OrgsApiResponse>('/v2/organizations/search', {
-        body: requestBody
-      });
+      const data = await apiPost<OrgsApiResponse>(
+        ENDPOINTS.ORGANIZATIONS_SEARCH,
+        {
+          body: requestBody
+        }
+      );
       if (myId !== reqIdRef.current) return; // ignore stale responses
       setOrganizations(data.result);
       setRowCount(data.count);
@@ -210,7 +214,9 @@ export const Organizations: React.FC = () => {
 
   const onSubmit = async (body: Object) => {
     try {
-      const org = await apiPost('/organizations', { body });
+      const org = await apiPost<Organization>(ENDPOINTS.ORGANIZATIONS, {
+        body
+      });
       setOrganizations((prev) => [...prev, org]);
       setInfoDialogOpen(true);
     } catch (e: any) {
