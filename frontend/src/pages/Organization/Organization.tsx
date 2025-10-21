@@ -23,6 +23,7 @@ import OrgMembers from './OrgMembers';
 import OrgScanHistory from './OrgScanHistory';
 import OrgSettings from './OrgSettings';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -98,7 +99,12 @@ export const Organization: React.FC = () => {
             Organizations
           </MuiLink>
           {organization.parent && (
-            <MuiLink href={'/organizations/' + organization.parent.id}>
+            <MuiLink
+              href={ROUTES.ORGANIZATION.replace(
+                ':organizationId',
+                organization.parent.id
+              )}
+            >
               {organization.parent.name}
             </MuiLink>
           )}

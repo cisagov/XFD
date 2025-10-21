@@ -29,6 +29,7 @@ import { CheckCircleOutline } from '@mui/icons-material';
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { ROUTES } from '@/constants/routes';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -191,7 +192,12 @@ export const Organizations: React.FC = () => {
               aria-label={ariaLabel}
               aria-describedby={descriptionId}
               onClick={() =>
-                history.push('/organizations/' + cellValues.row.id)
+                history.push(
+                  ROUTES.ORGANIZATION.replace(
+                    ':organizationId',
+                    cellValues.row.id
+                  )
+                )
               }
             >
               <EditNoteOutlinedIcon />
