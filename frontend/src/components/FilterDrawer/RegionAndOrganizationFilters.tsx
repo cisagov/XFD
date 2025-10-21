@@ -29,6 +29,7 @@ import {
   STANDARD_USER
 } from 'hooks/useUserLevel';
 import { Stack } from '@mui/system';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = true;
@@ -100,7 +101,7 @@ export const RegionAndOrganizationFilters: React.FC<
       try {
         const results = await apiPost<{
           body: { hits: { hits: { _source: OrganizationShallow }[] } };
-        }>('/search/organizations', {
+        }>(ENDPOINTS.ORGANIZATIONS_SEARCH_ES, {
           body: {
             search_term,
             regions
