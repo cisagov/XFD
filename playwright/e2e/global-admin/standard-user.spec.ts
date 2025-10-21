@@ -669,3 +669,19 @@ async function runAxeAndFailOnSerious(
       JSON.stringify(bad, null, 2)
   ).toHaveLength(0);
 }
+
+test.describe('Admin API Test — Standard User', () => {
+  test('GET /metrics/customers is blocked (403)', async ({
+    pageAsStandardUser
+  }) => {
+    await pageAsStandardUser.goto('/');
+
+    const res = await pageAsStandardUser
+      .context()
+      .request.get('http://localhost:3000/metrics/customers', {
+        headers: { Accept: 'text/csv' }
+      });
+
+    expect([401, 403]).toContain(res.status());
+  });
+});
