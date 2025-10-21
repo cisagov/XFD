@@ -46,13 +46,15 @@ export function useVulnScanData(orgId: string) {
           }
         });
 
-        const isEmpty =
-          !response?.host_summaries?.length &&
-          !response?.port_scan_summaries?.length &&
-          !response?.port_scan_service_summaries?.length &&
-          !response?.vuln_scan_summaries?.length;
+        // Check if we have vulnerability scan data specifically
+        const hasVulnScanData = response?.vuln_scan_summaries?.length > 0;
+        const hasAnyData =
+          response?.host_summaries?.length > 0 ||
+          response?.port_scan_summaries?.length > 0 ||
+          response?.port_scan_service_summaries?.length > 0 ||
+          hasVulnScanData;
 
-        if (!response || isEmpty) {
+        if (!response || !hasAnyData) {
           setData(InitialVSData);
           setError(
             'No recent scan data was found for the selected organization.'
@@ -61,6 +63,14 @@ export function useVulnScanData(orgId: string) {
         }
 
         const transformed = transformVulnScanData(response);
+
+        // Debug logging for severityByProminence data
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Vuln Scan API Response:', {
+            vuln_scan_summaries: response.vuln_scan_summaries,
+            severityByProminence: transformed.severityByProminence
+          });
+        }
 
         // If transform hit the 4th fallback, show the big NoDataMessage panel
         const vsLabel = transformed.vulnScanSummary[0]?.vulnerabilityScan;
