@@ -11,13 +11,17 @@ from logging import FileHandler
 import os
 
 # Third-Party Libraries
-from xfd_api.tasks.ecs_client import ECSClient
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import freeze_window
+from xfd_api.tasks.utils.vs_port_scans import (
+    create_port_scan_summary,
+    fetch_port_scans_from_redshift,
+)
 from xfd_api.tasks.utils.vs_requests import fetch_org_id_dict_fast
 from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
 from xfd_api.tasks.utils.vs_vuln_scans import (
     create_vuln_scan_summary,
-    fetch_vuln_scans_from_redshift,
+    fetch_vuln_scan_chunks_frozen,
 )
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
 from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
@@ -95,6 +99,7 @@ def handler(event):
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
 
 
+@cloudwatch_metric()
 def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     setup_vuln_sync_logging()
@@ -105,7 +110,9 @@ def main(event):  # pylint: disable=R0915
     ps_end_dt = event.get("end_datetime")
     org_list = event.get("org_list")
 
-    org_id_dict = fetch_org_id_dict_fast(org_ids=org_list)
+    org_ids = [org.get("id") for org in org_list if org.get("id")]
+
+    org_id_dict = fetch_org_id_dict_fast(org_ids=org_ids)
 
     # Normalize start_datetime
     if isinstance(ps_start_dt, (int, float)):  # timestamp
@@ -125,40 +132,14 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Frozen port-scan window: [%s .. %s]", ps_start_dt, ps_end_dt)
 
-    LOGGER.info("Processing %d organizations: %s", len(org_id_dict), org_id_dict)
+    LOGGER.info("Processing %d organizations", len(org_id_dict))
 
-    # Process Port Scan in a separate workers
-    # (vs_vuln_scan_worker.py) and (vs_port_scan_worker.py)
-    task_arns = []
-    ecs = ECSClient()
-    port_scan_command_options = {
-        "scanName": "vs_port_scan_worker",
-        "organizationMap": org_id_dict,
-        "port_start_date": ps_start_dt,
-        "port_end_date": ps_end_dt,
-        "SERVICE_QUEUE_URL": os.getenv("SERVICE_QUEUE_URL"),
-    }
-    port_response = ecs.run_command(port_scan_command_options)
-    tasks = port_response.get("tasks", [])
-    for task in tasks:
-        task_arns.append(task.get("taskArn"))
-
-    # Start Vuln Scan in parallel
+    # Start Vuln Scan
     try:
-        fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict)
+        fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict)
     except Exception as e:
         LOGGER.exception("Vuln Scan error occurred: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
-
-    if task_arns:
-        ecs.wait_for_tasks_completion(
-            task_arns,
-            startup_delay=0,
-            poll_interval=5,
-            timeout=60 * 60 * 24,
-        )
-
-    LOGGER.info("Vuln and port scan syncs have completed for requested orgs.")
 
     LOGGER.info("Prefetching risky and NMI service groups...")
     # Prefetch risky service groups
@@ -170,6 +151,25 @@ def main(event):  # pylint: disable=R0915
     nmi_service_groups = {
         nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
     }
+
+    fetch_port_scans_from_redshift(
+        org_id_dict,
+        risky_service_groups,
+        nmi_service_groups,
+        ps_start_dt,
+        ps_end_dt,
+    )
+
+    # Create summaries with individual error handling
+    LOGGER.info("Creating port scan summaries for all organizations...")
+    try:
+        for org_id in org_id_dict.values():
+            create_port_scan_summary(org_id=org_id)
+        LOGGER.info("Finished port scan summaries")
+    except Exception as e:
+        LOGGER.error("Failed to create port scan summaries: %s", e, exc_info=True)
+
+    LOGGER.info("Vuln and port scan syncs have completed")
 
     # Process Tickets (Chunked)
     fetch_tickets_from_redshift(

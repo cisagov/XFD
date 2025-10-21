@@ -252,7 +252,6 @@ class Scheduler:
             return False
 
         if scan.is_single_scan:
-            LOGGER.info("Single scan")
             return False
 
         return True

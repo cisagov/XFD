@@ -10,6 +10,7 @@ import time
 from django.db import connections, transaction
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen_bulk
 from xfd_api.utils.hash import hash_ip
@@ -35,6 +36,7 @@ VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 CHUNK_SIZE = 500_000
 
 
+@cloudwatch_metric()
 def fetch_port_scans_from_redshift(
     org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
 ):
@@ -86,6 +88,7 @@ def fetch_port_scans_from_redshift(
         )
 
 
+@cloudwatch_metric()
 def bulk_insert_ips_and_link_to_port_scans(
     port_scans, org_id_dict, risky_service_groups, nmi_service_groups
 ):
@@ -203,6 +206,7 @@ def bulk_insert_ips_and_link_to_port_scans(
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 
 
+@cloudwatch_metric()
 def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
     """Update the latest flag for a large set of affected keys in manageable batches."""
     db = "mini_data_lake"
@@ -259,6 +263,7 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
         LOGGER.error(f"Failed to update latest flags: {e}", exc_info=True)
 
 
+@cloudwatch_metric()
 def create_port_scan_summary(summary_date=None, org_id=None):
     """Create port summary record for a single organization."""
     try:
@@ -332,6 +337,7 @@ def create_port_scan_summary(summary_date=None, org_id=None):
         raise QueryError(SCAN_NAME, str(e), "Error creating port scan summary") from e
 
 
+@cloudwatch_metric()
 def create_port_scan_service_summaries(summary_date=None):
     """Fill the port scan service summary table."""
     try:
@@ -387,6 +393,7 @@ def create_port_scan_service_summaries(summary_date=None):
         ) from e
 
 
+@cloudwatch_metric()
 def enforce_latest_flag_port_scan():
     """
     Enforce the `latest` boolean flag on the PortScan table for all orgs/IPs/ports.

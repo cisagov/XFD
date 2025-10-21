@@ -13,6 +13,7 @@ from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, 
 from django.db.models.functions import Power
 from django.utils import timezone
 from psycopg2 import sql
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
 from xfd_api.utils.hash import hash_ip
@@ -39,6 +40,7 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 CHUNK_SIZE = 10000  # tune as needed
 
 
+@cloudwatch_metric()
 def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     """
     Optimized and chunked vulnerability scan fetch from Redshift.
@@ -59,7 +61,7 @@ def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     base_query = sql.SQL(
         """
         SELECT *
-        FROM vmtableau.vuln_scans_frozen
+        FROM vmtableau.vuln_scans
         WHERE time >= %s
           AND time < %s
           AND owner IN ({acronyms})
@@ -126,7 +128,7 @@ def process_vulnerability_scans_bulk(vuln_scans_chunk, org_id_dict):
             ip_records[(org_id, ip_str)] = {
                 "ip": ip_str,
                 "ip_hash": hash_ip(ip_str),
-                "organization": org_id,
+                "organization_id": org_id,
             }
 
         cve_str = vuln.get("cve")
@@ -166,14 +168,14 @@ def process_vulnerability_scans_bulk(vuln_scans_chunk, org_id_dict):
         bulk_save_vuln_scans(vuln_scan_dicts)
 
 
-def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
+def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
     """Construct a vulnerability scan dictionary."""
     return {
         "id": vuln.get("_id"),
         "cert_id": vuln.get("cert", None),
         "cpe": vuln.get("cpe", None),
         "cve_string": vuln.get("cve", None),
-        "cve": cve,
+        "cve_id": cve_id,
         "cvss_base_score": vuln.get("cvss_base_score", None),
         "cvss_temporal_score": vuln.get("cvss_temporal_score", None),
         "cvss_temporal_vector": vuln.get("cvss_temporal_vector", None),
@@ -182,7 +184,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
         "exploit_available": vuln.get("exploit_available", None),
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
-        "ip": ip_id if ip_id else None,
+        "ip_id": ip_id if ip_id else None,
         "latest": vuln.get("latest", None),
         "owner": vuln.get("owner", None),
         "osvdb_id": vuln.get("osvdb", None),
@@ -280,6 +282,7 @@ def truncate_charfields(model_cls, data_dict):
             data_dict[field.name] = val
 
 
+@cloudwatch_metric()
 def save_vuln_scan(vuln_scan: Dict) -> str:
     """Save a Vulnerability Scan record to the data lake.
 
@@ -302,6 +305,7 @@ def save_vuln_scan(vuln_scan: Dict) -> str:
     return str(vuln_scan_obj.id)
 
 
+@cloudwatch_metric()
 def create_vuln_scan_summary(summary_date=None, org_id=None):
     """Fill vuln_scan_summary table for today's date for a single organization."""
     try:
@@ -607,6 +611,7 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
         raise QueryError(SCAN_NAME, str(e), "Error creating vuln scan summary") from e
 
 
+@cloudwatch_metric()
 def get_asset_owned_count(org):
     """Return count of IPs in the reported CIDRs for passed org."""
     # Get only CIDRs currently associated with the org via CidrOrgs.current=True
@@ -641,6 +646,7 @@ def get_asset_owned_count(org):
     return total_ips
 
 
+@cloudwatch_metric()
 def get_risky_services_count(org):
     """Return count of risky services for passed org."""
     return (

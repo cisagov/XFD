@@ -5,11 +5,13 @@ import datetime
 import json
 import logging
 import os
+import time
 from typing import Any, Tuple
 
 # Third-Party Libraries
 import psycopg2
 from psycopg2 import sql
+from xfd_api.tasks.utils.cloudwatch_metrics import emit_redshift_metric
 from xfd_api.tasks.utils.datetime_utils import to_utc_naive
 from xfd_api.utils.scan_utils.alerting import QueryError
 
@@ -32,18 +34,31 @@ def query_redshift(query, params=None):
         host=os.environ.get("REDSHIFT_HOST"),
         port=5439,
     )
+    query_name = str(query)[:120].replace("\n", " ")  # short label
+    start = time.perf_counter()
+    rows_returned = 0
+    success = True
 
     try:
         cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        if params:
-            cursor.execute(query, params)
-        else:
-            cursor.execute(query)
+        cursor.execute(query, params or ())
         results = cursor.fetchall()
+        rows_returned = len(results)
         return [dict(row) for row in results]
     except Exception as e:
+        success = False
         raise QueryError(SCAN_NAME, str(e)) from e
     finally:
+        duration = time.perf_counter() - start
+        emit_redshift_metric(query_name, duration, rows_returned, success)
+        LOGGER.info(
+            "[Redshift] [%0.3fs] [%d rows] success=%s :: %s",
+            duration,
+            rows_returned,
+            success,
+            query_name,
+        )
+
         cursor.close()
         conn.close()
 
