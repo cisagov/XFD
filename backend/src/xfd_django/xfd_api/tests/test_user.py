@@ -1607,10 +1607,7 @@ def test_standard_user_cannot_clear_invite_pending():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "Unauthorized to update the following fields: invite_pending"
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1633,10 +1630,7 @@ def test_standard_user_cannot_self_approve():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "Unauthorized access."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1794,6 +1788,7 @@ def test_standard_user_updates_self_unauthenticated():
     )
     assert response.status_code == 403
     assert response.json()["detail"] == "Unauthorized access."
+
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_standard_user_updates_other_unauthenticated():
