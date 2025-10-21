@@ -4,6 +4,7 @@
 	Description: Navigation context to track drill-down vs general navigation for filter persistence
 */
 
+import { ROUTES } from '@/constants/routes';
 import React, { useContext } from 'react';
 
 export interface NavigationContextType {
@@ -33,15 +34,15 @@ export const useNavigationContext = (): NavigationContextType => {
 
 // Helper function to determine if a route is VS Dashboard
 export const isVSDashboard = (route: string) => {
-  return route === '/VSDashboard' || route.startsWith('/VSDashboard');
+  return route === ROUTES.VSDASHBOARD || route.startsWith(ROUTES.VSDASHBOARD);
 };
 
 // Helper function to determine if a route is a drill-down destination
 export const isDrillDownDestination = (route: string) => {
   return (
-    route.startsWith('/inventory/vulnerability/') ||
-    route.startsWith('/inventory/domain/') ||
-    route === '/inventory/vulnerabilities' ||
-    route === '/inventory/domains'
+    route.startsWith(ROUTES.VULNERABILITY) ||
+    route.startsWith(ROUTES.DOMAIN) ||
+    route === ROUTES.VULNERABILITIES ||
+    route === ROUTES.DOMAINS
   );
 };

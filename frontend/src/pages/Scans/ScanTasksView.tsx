@@ -141,7 +141,6 @@ export const ScanTasksView: React.FC = () => {
           else tableFilters['tag'] = currentOrganization.id;
         }
         const { result, count } = await apiPost<ApiResponse>(
-          // '/scan-tasks/search',
           ENDPOINTS.SCANS_TASK_SEARCH,
           {
             body: {

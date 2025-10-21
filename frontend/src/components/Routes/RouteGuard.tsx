@@ -21,7 +21,7 @@ possible states:
 */
 
 export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
-  unauth = '/',
+  unauth = ROUTES.HOME,
   permissions = [],
   component,
   ...rest
