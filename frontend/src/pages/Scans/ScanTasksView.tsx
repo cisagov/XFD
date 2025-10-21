@@ -25,6 +25,7 @@ import { Box, Stack } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { KeyboardArrowDown } from '@mui/icons-material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -95,7 +96,9 @@ export const ScanTasksView: React.FC = () => {
 
   const killScanTask2 = async (id: string) => {
     try {
-      await apiPost(`/scan-tasks/${id}/kill`, { body: {} });
+      await apiPost(ENDPOINTS.SCAN_TASKS_KILL.replace('{scan_task_id}', id), {
+        body: {}
+      });
       const index = scanTasks.findIndex((task) => task.id === id);
       setScanTasks(
         Object.assign([], scanTasks, {
@@ -138,7 +141,8 @@ export const ScanTasksView: React.FC = () => {
           else tableFilters['tag'] = currentOrganization.id;
         }
         const { result, count } = await apiPost<ApiResponse>(
-          '/scan-tasks/search',
+          // '/scan-tasks/search',
+          ENDPOINTS.SCANS_TASK_SEARCH,
           {
             body: {
               page,
