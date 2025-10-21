@@ -92,10 +92,10 @@ export const TermsOfUse: React.FC = () => {
           >
             Terms of Use
           </Typography>
-          <Typography align="left" sx={{ lineHeight: 1.8, width: '100%' }}>
+          <Typography sx={{ lineHeight: 4, width: '100%', pl: 3 }}>
             You must read and sign the Terms of Use before using CyHy Dashboard.
           </Typography>
-          <Typography sx={{ lineHeight: 1.8 }}>
+          <Typography sx={{ lineHeight: 2, pl: 2 }}>
             CyHy Dashboard is a free, self-service tool offered by the
             Department of Homeland Security’s Cybersecurity and Infrastructure
             Security Agency (CISA). Using both passive and active processes,
@@ -103,11 +103,14 @@ export const TermsOfUse: React.FC = () => {
             of your public-facing, internet-accessible network assets for
             vulnerabilities or configuration issues.
           </Typography>
-          <Typography sx={{ lineHeight: 1.8, width: '100%' }}>
+          <Typography sx={{ lineHeight: 4, width: '100%', pl: 3 }}>
             Users can only view data provided to or collected by CyHy Dashboard.
           </Typography>
           {maximumRole === 'admin' && (
-            <Typography align="left" sx={{ lineHeight: 1.8, width: '100%' }}>
+            <Typography
+              align="left"
+              sx={{ lineHeight: 2, width: '100%', pl: 2 }}
+            >
               Once you create a CyHy Dashboard administrator account, input the
               Internet Protocol (IP) addresses or domains to be continuously
               evaluated, and select the scanning/evaluation protocols to be
@@ -121,17 +124,14 @@ export const TermsOfUse: React.FC = () => {
               related sites for your awareness.
             </Typography>
           )}
-          <Typography align="left" sx={{ lineHeight: 1.8, width: '100%' }}>
+          <Typography align="left" sx={{ lineHeight: 2, width: '100%', pl: 2 }}>
             By creating a CyHy Dashboard{' '}
             {maximumRole === 'admin' ? 'administrator' : 'view only'} account
             and using this service, you request CISA’s technical assistance to
             detect vulnerabilities and configuration issues through CyHy
             Dashboard and agree to the following:
           </Typography>
-          <Stack
-            spacing={2}
-            sx={{ width: '100%', maxWidth: 700, mt: 2, mb: 2, pl: 4 }}
-          >
+          <Stack sx={{ width: '100%', maxWidth: 700, pl: 4 }}>
             {maximumRole === 'admin' &&
               adminItems.map((item, idx) => (
                 <Box
