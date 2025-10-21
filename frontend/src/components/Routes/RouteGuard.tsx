@@ -1,6 +1,7 @@
 import React from 'react';
 import { RouteProps, Route, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
+import { ROUTES } from '@/constants/routes';
 
 interface AuthRedirectRouteProps extends RouteProps {
   unauth?: string | React.ComponentType;
@@ -41,7 +42,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
 
   // User must accept terms
   if (user && userMustSign) {
-    history.push('/terms');
+    history.push(ROUTES.TERMS);
     return null;
   }
 
@@ -49,12 +50,12 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   if (
     user &&
     user.invite_pending &&
-    window.location.pathname !== '/' &&
-    window.location.pathname !== '/terms' &&
+    window.location.pathname !== ROUTES.HOME &&
+    window.location.pathname !== ROUTES.TERMS &&
     window.location.pathname !== '/logout'
   ) {
     console.log('User is not approved.');
-    history.push('/');
+    history.push(ROUTES.HOME);
     return null;
   }
 
@@ -77,7 +78,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     ) {
       console.log('User access denied. Logging out!');
       logout();
-      history.push('/');
+      history.push(ROUTES.HOME);
       return null;
     }
   }
