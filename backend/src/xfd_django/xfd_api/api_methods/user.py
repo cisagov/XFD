@@ -454,11 +454,7 @@ def update_user_v2(user_id, user_data, current_user):
             raise HTTPException(status_code=404, detail="User not found")
 
         # Check if the current user has permission to access/update this user
-        if not (
-            is_global_view_admin(current_user)
-            or is_regional_admin(current_user)
-            or current_user.id == user_id
-        ):
+        if not can_access_user(current_user, user_id):
             raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Fetch the user to be updated
