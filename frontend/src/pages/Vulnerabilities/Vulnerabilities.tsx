@@ -41,6 +41,7 @@ import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
 import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { ROUTES } from '@/constants/routes';
 
 const PAGE_SIZE = 15;
 
@@ -467,7 +468,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               tabIndex={cellValues.tabIndex}
               color="primary"
               onClick={() =>
-                history.push(`/inventory/vulnerability/${cellValues.row.id}`)
+                history.push(
+                  ROUTES.VULNERABILITY.replace(
+                    ':vulnerabilityId',
+                    String(cellValues.row.id)
+                  )
+                )
               }
             >
               <OpenInNew />
