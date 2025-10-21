@@ -84,6 +84,7 @@ export const Users: React.FC = () => {
     initialUserFormValues
   );
 
+  // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
