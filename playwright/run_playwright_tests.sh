@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u
 
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
@@ -37,6 +37,7 @@ OVERRIDES=$(jq -n \
   --arg ci "$CI" \
   --arg s3HtmlPath "$S3_HTML_PATH" \
   --arg s3JsonPath "$S3_JSON_PATH" \
+  --arg clusterName "$CLUSTER_NAME" \
   '{
     containerOverrides: [
       {
@@ -63,7 +64,8 @@ OVERRIDES=$(jq -n \
           { "name": "PW_HEADLESS", "value": $headless },
           { "name": "CI", "value": $ci },
           { "name": "S3_HTML_PATH", "value": $s3HtmlPath },
-          { "name": "S3_JSON_PATH", "value": $s3JsonPath }
+          { "name": "S3_JSON_PATH", "value": $s3JsonPath },
+          { "name": "CLUSTER_NAME", "value": $clusterName }
         ]
       }
     ]
