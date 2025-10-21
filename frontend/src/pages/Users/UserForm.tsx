@@ -34,6 +34,7 @@ import {
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from 'constants/constants';
 import { isEqual } from 'lodash';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -231,7 +232,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user, apiGet, apiPost, apiPut } = useAuthContext();
+  const { user, apiGet, apiPost } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
     first_name: false,
     last_name: false,
@@ -376,17 +377,31 @@ export const UserForm: React.FC<UserFormProps> = ({
       region_id: values.region_id
     };
     try {
-      await apiPost(`/v2/update_user/${values.id}`, { body });
+      await apiPost(
+        ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', String(values.id)),
+        {
+          body
+        }
+      );
       if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId) {
           await apiPost(
-            `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
+            ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+              '{org_id}',
+              String(values.originalOrgId)
+            ).replace('{role_id}', String(values.originalRoleId)),
             { body: {} }
           );
         }
-        await apiPost(`/v2/organizations/${values.org_id}/users`, {
-          body: { user_id: values.id, role: 'user' }
-        });
+        await apiPost(
+          ENDPOINTS.ORGANIZATION_ADD_USER.replace(
+            '{org_id}',
+            String(values.org_id)
+          ),
+          {
+            body: { user_id: values.id, role: 'user' }
+          }
+        );
       }
       const updatedUsers = users.map((user) =>
         user.id === values.id
