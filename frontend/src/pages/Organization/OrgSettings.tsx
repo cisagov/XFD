@@ -69,9 +69,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
 
   const updateOrganization = async () => {
     try {
-      // const org = await apiPost(`/update_organization/${organization.id}`, {
-      //   body: organization
-      // });
       const org = await apiPost(
         ENDPOINTS.ORGANIZATION_UPDATE.replace(
           '{organization_id}',
