@@ -5,7 +5,7 @@ import { useAuthContext } from 'context';
 import { useCheckUserState } from 'hooks/useCheckUserState';
 import { useMaintenanceNotifications } from '@/hooks/useMaintenanceNotifications';
 import { useLocation } from 'react-router-dom';
-import { TermsOfUse } from 'pages/TermsOfUse/TermsOfUse';
+import { TermsOfUse } from '@/components/Dialog/TermsOfUse/TermsOfUse';
 
 // Shared components
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
