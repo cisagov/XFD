@@ -254,7 +254,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       let rows: Organization[] = [];
       if (values.region_id) {
         rows = await apiGet<Organization[]>(
-          '/organizations/region_id/' + values.region_id
+          ENDPOINTS.ORGANIZATIONS_REGION.replace(
+            '{region_id}',
+            values.region_id
+          )
         );
       }
       setOrganizationsInRegion(rows);
@@ -340,7 +343,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       region_id: values.region_id
     };
     try {
-      const user = await apiPost('/users', {
+      const user = await apiPost(ENDPOINTS.USERS, {
         body
       });
       user.full_name = `${user.first_name} ${user.last_name}`;
