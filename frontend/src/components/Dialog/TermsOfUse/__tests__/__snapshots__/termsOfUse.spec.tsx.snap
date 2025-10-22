@@ -19,35 +19,34 @@ exports[`matches admin snapshot 1`] = `
           Terms of Use
         </h4>
         <p
-          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-vmab8w-MuiTypography-root"
-          style="--Typography-textAlign: left;"
+          class="MuiTypography-root MuiTypography-body1 css-1wo07fj-MuiTypography-root"
         >
           You must read and sign the Terms of Use before using CyHy Dashboard.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 css-1jyhk16-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 css-47jnt8-MuiTypography-root"
         >
           CyHy Dashboard is a free, self-service tool offered by the Department of Homeland Security’s Cybersecurity and Infrastructure Security Agency (CISA). Using both passive and active processes, CyHy Dashboard can continuously evaluate the cybersecurity posture of your public-facing, internet-accessible network assets for vulnerabilities or configuration issues.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 css-11utvz8-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 css-1wo07fj-MuiTypography-root"
         >
           Users can only view data provided to or collected by CyHy Dashboard.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-vmab8w-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-1ys2atn-MuiTypography-root"
           style="--Typography-textAlign: left;"
         >
           Once you create a CyHy Dashboard administrator account, input the Internet Protocol (IP) addresses or domains to be continuously evaluated, and select the scanning/evaluation protocols to be used, CyHy Dashboard will collect data about the sites you specified from multiple publicly-available resources, including through active interactions with your sites, if that option is selected by you. CyHy Dashboard will also examine any publicly-available, internet-accessible resources that appear to be related or otherwise associated with IPs or domains you have provided us to evaluate, presenting you with a list of those related sites for your awareness.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-vmab8w-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-1ys2atn-MuiTypography-root"
           style="--Typography-textAlign: left;"
         >
           By creating a CyHy Dashboard administrator account and using this service, you request CISA’s technical assistance to detect vulnerabilities and configuration issues through CyHy Dashboard and agree to the following:
         </p>
         <div
-          class="MuiStack-root css-15r0t9i-MuiStack-root"
+          class="MuiStack-root css-cjh51y-MuiStack-root"
         >
           <div
             class="MuiBox-root css-1yp4ln"
@@ -361,29 +360,28 @@ exports[`matches user snapshot 1`] = `
           Terms of Use
         </h4>
         <p
-          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-vmab8w-MuiTypography-root"
-          style="--Typography-textAlign: left;"
+          class="MuiTypography-root MuiTypography-body1 css-1wo07fj-MuiTypography-root"
         >
           You must read and sign the Terms of Use before using CyHy Dashboard.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 css-1jyhk16-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 css-47jnt8-MuiTypography-root"
         >
           CyHy Dashboard is a free, self-service tool offered by the Department of Homeland Security’s Cybersecurity and Infrastructure Security Agency (CISA). Using both passive and active processes, CyHy Dashboard can continuously evaluate the cybersecurity posture of your public-facing, internet-accessible network assets for vulnerabilities or configuration issues.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 css-11utvz8-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 css-1wo07fj-MuiTypography-root"
         >
           Users can only view data provided to or collected by CyHy Dashboard.
         </p>
         <p
-          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-vmab8w-MuiTypography-root"
+          class="MuiTypography-root MuiTypography-body1 MuiTypography-alignLeft css-1ys2atn-MuiTypography-root"
           style="--Typography-textAlign: left;"
         >
           By creating a CyHy Dashboard view only account and using this service, you request CISA’s technical assistance to detect vulnerabilities and configuration issues through CyHy Dashboard and agree to the following:
         </p>
         <div
-          class="MuiStack-root css-15r0t9i-MuiStack-root"
+          class="MuiStack-root css-cjh51y-MuiStack-root"
         >
           <div
             class="MuiBox-root css-1yp4ln"
