@@ -275,6 +275,8 @@ exports[`matches admin snapshot 1`] = `
           class="MuiFormControlLabel-root MuiFormControlLabel-labelPlacementEnd Mui-required css-1kgd8l-MuiFormControlLabel-root"
         >
           <span
+            aria-invalid="false"
+            aria-required="true"
             class="MuiButtonBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium PrivateSwitchBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium css-ggk6y2-MuiButtonBase-root-MuiSwitchBase-root-MuiCheckbox-root"
           >
             <input
@@ -514,6 +516,8 @@ exports[`matches user snapshot 1`] = `
           class="MuiFormControlLabel-root MuiFormControlLabel-labelPlacementEnd Mui-required css-1kgd8l-MuiFormControlLabel-root"
         >
           <span
+            aria-invalid="false"
+            aria-required="true"
             class="MuiButtonBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium PrivateSwitchBase-root MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium MuiCheckbox-root MuiCheckbox-colorPrimary MuiCheckbox-sizeMedium css-ggk6y2-MuiButtonBase-root-MuiSwitchBase-root-MuiCheckbox-root"
           >
             <input
