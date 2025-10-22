@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import classes from 'components/AuthForm/styles.module.scss';
 import {
   Button,
   Checkbox,
