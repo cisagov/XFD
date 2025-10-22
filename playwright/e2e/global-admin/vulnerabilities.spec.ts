@@ -1,13 +1,14 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
 import type { TestInfo } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Vulnerabilities', () => {
   test.skip('Test vulnerabilities accessibility', async ({
     page: pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
 
     const accessibilityScanResults =
       await makeAxeBuilder(pageAsGlobalAdmin).analyze();
@@ -24,7 +25,7 @@ test.describe('Vulnerabilities', () => {
   test.skip('Test vulnerability details NIST link', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
     const newTabPromise = pageAsGlobalAdmin.waitForEvent('popup');
 
     await pageAsGlobalAdmin
@@ -42,14 +43,16 @@ test.describe('Vulnerabilities', () => {
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
   test.skip('Test domain details link', async ({ page: pageAsGlobalAdmin }) => {
-    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
     await pageAsGlobalAdmin
       .getByRole('row')
       .nth(1)
       .getByRole('cell')
       .nth(3)
       .click();
-    await expect(pageAsGlobalAdmin).toHaveURL(new RegExp('/inventory/domain/'));
+    await expect(pageAsGlobalAdmin).toHaveURL(
+      new RegExp(ROUTES.DOMAIN.replace(':domainId', ''))
+    );
   });
 
   //TODO: Skip this test until the vulnerability table data is loaded in localhost.
@@ -57,7 +60,7 @@ test.describe('Vulnerabilities', () => {
     page: pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await pageAsGlobalAdmin.goto('/inventory/vulnerabilities');
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
     await pageAsGlobalAdmin
       .getByRole('row')
       .nth(1)
@@ -65,7 +68,7 @@ test.describe('Vulnerabilities', () => {
       .nth(7)
       .click();
     await expect(pageAsGlobalAdmin).toHaveURL(
-      new RegExp('/inventory/vulnerability/')
+      new RegExp(ROUTES.VULNERABILITY.replace(':vulnerabilityId', ''))
     );
 
     const accessibilityScanResults =
