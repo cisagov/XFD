@@ -222,6 +222,9 @@ export const TermsOfUse: React.FC = () => {
                 }}
                 name="accept"
                 color="primary"
+                aria-describedby={showWarning ? 'terms-error' : undefined}
+                aria-invalid={showWarning}
+                aria-required="true"
               />
             }
             label="I accept the above Terms and Conditions."
