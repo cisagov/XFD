@@ -263,9 +263,12 @@ def create_port_scan_summary(summary_date=None, org_id=None):
         if summary_date is None:
             summary_date = timezone.now().date()
 
-        if not org_id:
+        if not org_id and not IS_LOCAL:
             LOGGER.error("Organization ID is required to create a port scan summary.")
             return
+
+        if IS_LOCAL:
+            org_id = Organization.objects.first().id
 
         org = Organization.objects.filter(id=org_id).first()
         if not org:
