@@ -304,7 +304,7 @@ def get_by_state(state, current_user):
 def get_by_region(region_id, current_user):
     """List organizations with specific region_id."""
     # Check if the current user is a regional admin
-    if not is_regional_admin(current_user):
+    if not is_regional_admin(current_user) and not is_global_view_admin(current_user):
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch organizations based on the provided state

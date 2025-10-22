@@ -552,6 +552,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             id="state"
             size="small"
             options={STATE_OPTIONS}
+            disabled={!['globalAdmin'].includes(user?.user_type || '')}
             value={values.state || null}
             onChange={(_, newValue) => {
               setValues((prev: any) => ({
@@ -574,7 +575,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                     </Typography>
                   ) : null
                 }
-                disabled={user?.user_type !== 'globalAdmin'}
+                disabled={!['globalAdmin'].includes(user?.user_type || '')}
               />
             )}
             isOptionEqualToValue={(option, value) => option === value}
