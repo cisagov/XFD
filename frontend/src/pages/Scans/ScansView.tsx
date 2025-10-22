@@ -127,7 +127,7 @@ const ScansView: React.FC = () => {
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      const scan = await apiPost('/scans', {
+      const scan = await apiPost(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
