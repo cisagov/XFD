@@ -110,7 +110,7 @@ export const ResultCard: React.FC<Props> = (props) => {
 
   const onClick = () => {
     onDomainSelected(id.raw);
-    history.push(ROUTES.DOMAIN.replace('{domain_id}', id.raw));
+    history.push(ROUTES.DOMAIN.replace(':domainId', id.raw));
   };
 
   const ports = services.raw.reduce(
