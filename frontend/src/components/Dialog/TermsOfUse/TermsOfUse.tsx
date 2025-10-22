@@ -6,7 +6,8 @@ import {
   FormControlLabel,
   Typography,
   Box,
-  Stack
+  Stack,
+  Alert
 } from '@mui/material';
 import { useAuthContext } from 'context';
 import { User } from 'types';
@@ -14,11 +15,16 @@ import { User } from 'types';
 export const TermsOfUse: React.FC = () => {
   const history = useHistory();
   const [accepted, setAccepted] = useState<boolean>(false);
+  const [showWarning, setShowWarning] = useState<boolean>(false);
   const { user, setUser, apiPost, maximumRole, touVersion } = useAuthContext();
 
   const onSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
-    if (!accepted) return;
+    if (!accepted) {
+      setShowWarning(true);
+      return;
+    }
+    setShowWarning(false);
     try {
       const updated: User = await apiPost(`/users/me/acceptTerms`, {
         body: { version: touVersion }
@@ -198,12 +204,22 @@ export const TermsOfUse: React.FC = () => {
           <Typography align="center" sx={{ mt: 1 }}>
             ToU version {touVersion}
           </Typography>
+          {showWarning && (
+            <Typography color="error" sx={{ mb: 1 }}>
+              You must accept the Terms and Conditions to continue.
+            </Typography>
+          )}
           <FormControlLabel
             control={
               <Checkbox
                 required
                 checked={accepted}
-                onChange={(e) => setAccepted(e.target.checked)}
+                onChange={(e) => {
+                  setAccepted(e.target.checked);
+                  if (e.target.checked) {
+                    setShowWarning(false);
+                  }
+                }}
                 name="accept"
                 color="primary"
               />
