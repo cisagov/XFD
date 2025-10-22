@@ -16,6 +16,7 @@ from ..tasks.lambda_client import LambdaClient
 
 # Configure logging
 LOGGER = logging.getLogger(__name__)
+MAX_SCAN_DAYS = int(os.getenv("MAX_SCAN_DAYS", 365))
 
 
 # GET: /scans
@@ -171,15 +172,29 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                     detail="Scans with a date range must be single scans.",
                 )
 
-            # Validate ordering
+            # Validate ordering and format
             try:
                 parsed_start = parse_frontend_datetime(str(start_dt))
                 parsed_end = parse_frontend_datetime(str(end_dt))
+
                 if parsed_start >= parsed_end:
                     raise HTTPException(
                         status_code=400,
                         detail="start_datetime must be before end_datetime.",
                     )
+
+                # NEW: MAX_SCAN_DAYS-day validation
+                date_diff = parsed_end - parsed_start
+                if date_diff.days > MAX_SCAN_DAYS:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Date range cannot exceed {} days.".format(
+                            MAX_SCAN_DAYS
+                        ),
+                    )
+
+            except HTTPException:
+                raise
             except Exception:
                 raise HTTPException(
                     status_code=400, detail="Invalid datetime format. Must be ISO 8601."
