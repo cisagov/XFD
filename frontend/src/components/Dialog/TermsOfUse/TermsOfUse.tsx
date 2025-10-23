@@ -6,8 +6,7 @@ import {
   FormControlLabel,
   Typography,
   Box,
-  Stack,
-  Alert
+  Stack
 } from '@mui/material';
 import { useAuthContext } from 'context';
 import { User } from 'types';
