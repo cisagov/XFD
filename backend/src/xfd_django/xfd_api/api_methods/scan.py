@@ -16,7 +16,7 @@ from ..tasks.lambda_client import LambdaClient
 
 # Configure logging
 LOGGER = logging.getLogger(__name__)
-MAX_SCAN_DAYS = int(os.getenv("MAX_SCAN_DAYS", 365))
+MAX_SCAN_DAYS = int(os.getenv("MAX_SCAN_DAYS", "365"))
 
 
 # GET: /scans
