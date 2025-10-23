@@ -13,8 +13,8 @@ resource "aws_db_subnet_group" "default" {
 }
 
 resource "aws_db_parameter_group" "default" {
-  name   = "crossfeed-${var.stage}-postgres15"
-  family = "postgres15"
+  name   = "crossfeed-${var.stage}-postgres17"
+  family = "postgres17"
 
   parameter {
     name  = "rds.force_ssl"
