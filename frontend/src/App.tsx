@@ -18,6 +18,7 @@ import { NavigationProvider } from 'context/NavigationContextProvider';
 import { DevInspector } from './utils/devInspector';
 import { openInVSCode } from './utils/openInVSCode';
 import AppGate from './components/Gates/AppGate';
+import { ROUTES } from './constants/routes';
 
 API.configure({
   endpoints: [{ name: 'crossfeed', endpoint: import.meta.env.VITE_API_URL }]
@@ -32,7 +33,7 @@ if (import.meta.env.VITE_USE_COGNITO) {
 }
 
 const instance = createInstance({
-  urlBase: `${import.meta.env.VITE_API_URL}/matomo`,
+  urlBase: `${import.meta.env.VITE_API_URL}${ROUTES.MATOMO}`,
   siteId: 1,
   disabled: false,
   heartBeat: { active: true, seconds: 15 },

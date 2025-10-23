@@ -10,6 +10,7 @@ export const ROUTES = {
   INVENTORY: '/inventory',
   LOGIN: '/login-gov-callback',
   LOGOUT: '/logout',
+  MATOMO: '/matomo',
   OKTA_CALLBACK: '/okta-callback',
   ORGANIZATION: '/organizations/:organizationId',
   ORGANIZATIONS: '/organizations',
