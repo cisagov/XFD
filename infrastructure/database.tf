@@ -31,7 +31,8 @@ resource "aws_db_instance" "db" {
   instance_class                      = var.db_instance_class
   allocated_storage                   = 1000
   max_allocated_storage               = 10000
-  storage_type                        = "gp2"
+  storage_type                        = "gp3"
+  iops                                = 16000
   engine                              = "postgres"
   engine_version                      = "15.12"
   allow_major_version_upgrade         = true
