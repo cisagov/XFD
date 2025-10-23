@@ -27,16 +27,20 @@ resource "aws_db_parameter_group" "default" {
 }
 
 resource "aws_db_instance" "db" {
-  identifier                          = var.db_name
-  instance_class                      = var.db_instance_class
-  allocated_storage                   = 1000
-  max_allocated_storage               = 10000
-  storage_type                        = "gp2"
-  engine                              = "postgres"
-  engine_version                      = "17.6"
-  allow_major_version_upgrade         = true
-  skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[1]
+  identifier                  = var.db_name
+  instance_class              = var.db_instance_class
+  allocated_storage           = 1000
+  max_allocated_storage       = 10000
+  storage_type                = "gp2"
+  engine                      = "postgres"
+  engine_version              = "17.6"
+  allow_major_version_upgrade = true
+  skip_final_snapshot         = true
+  availability_zone = (
+    var.stage == "staging"
+    ? data.aws_availability_zones.available.names[1]
+    : data.aws_availability_zones.available.names[0]
+  )
   multi_az                            = true
   backup_retention_period             = 35
   storage_encrypted                   = true
