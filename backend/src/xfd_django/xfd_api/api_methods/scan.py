@@ -160,6 +160,15 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
         if has_start or has_end:
             # Both required
             if not (has_start and has_end):
+                _log_data = {
+                    "event": "scan_date_validation_rejected",
+                    "reason": "missing_start_or_end",
+                    "user_id": getattr(current_user, "id", None),
+                    "scan_name": scan_data.name,
+                    "arguments": args,
+                    "status": "failure",
+                }
+                LOGGER.warning(json.dumps(_log_data))
                 raise HTTPException(
                     status_code=400,
                     detail="Both start_datetime and end_datetime must be provided.",
@@ -167,6 +176,14 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
 
             # Must be single scan
             if not scan_data.is_single_scan:
+                _log_data = {
+                    "event": "scan_date_validation_rejected",
+                    "reason": "multi_scan_with_date_range",
+                    "user_id": getattr(current_user, "id", None),
+                    "scan_name": scan_data.name,
+                    "status": "failure",
+                }
+                LOGGER.warning(json.dumps(_log_data))
                 raise HTTPException(
                     status_code=400,
                     detail="Scans with a date range must be single scans.",
@@ -178,6 +195,19 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                 parsed_end = parse_frontend_datetime(str(end_dt))
 
                 if parsed_start >= parsed_end:
+                    LOGGER.warning(
+                        json.dumps(
+                            {
+                                "event": "scan_date_validation_rejected",
+                                "reason": "start_after_end",
+                                "user_id": getattr(current_user, "id", None),
+                                "scan_name": scan_data.name,
+                                "start_datetime": str(parsed_start),
+                                "end_datetime": str(parsed_end),
+                                "status": "failure",
+                            }
+                        )
+                    )
                     raise HTTPException(
                         status_code=400,
                         detail="start_datetime must be before end_datetime.",
@@ -186,16 +216,56 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                 # NEW: MAX_SCAN_DAYS-day validation
                 date_diff = parsed_end - parsed_start
                 if date_diff.days > MAX_SCAN_DAYS:
+                    LOGGER.warning(
+                        json.dumps(
+                            {
+                                "event": "scan_date_validation_rejected",
+                                "reason": "date_range_too_large",
+                                "user_id": getattr(current_user, "id", None),
+                                "scan_name": scan_data.name,
+                                "start_datetime": str(parsed_start),
+                                "end_datetime": str(parsed_end),
+                                "date_diff_days": date_diff.days,
+                                "max_days_allowed": MAX_SCAN_DAYS,
+                                "status": "failure",
+                            }
+                        )
+                    )
                     raise HTTPException(
                         status_code=400,
                         detail="Date range cannot exceed {} days.".format(
                             MAX_SCAN_DAYS
                         ),
                     )
+                LOGGER.info(
+                    json.dumps(
+                        {
+                            "event": "scan_date_validation_success",
+                            "user_id": getattr(current_user, "id", None),
+                            "scan_name": scan_data.name,
+                            "start_datetime": str(parsed_start),
+                            "end_datetime": str(parsed_end),
+                            "date_diff_days": date_diff.days,
+                            "status": "success",
+                        }
+                    )
+                )
 
             except HTTPException:
                 raise
             except Exception:
+                LOGGER.exception(
+                    json.dumps(
+                        {
+                            "event": "scan_date_validation_error",
+                            "user_id": getattr(current_user, "id", None),
+                            "scan_name": scan_data.name,
+                            "provided_start": start_dt,
+                            "provided_end": end_dt,
+                            "status": "failure",
+                        }
+                    )
+                )
                 raise HTTPException(
                     status_code=400, detail="Invalid datetime format. Must be ISO 8601."
                 )
