@@ -20,7 +20,6 @@ import {
 import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { ChevronRight } from '@mui/icons-material';
 import OrgMembers from './OrgMembers';
-import OrgScanHistory from './OrgScanHistory';
 import OrgSettings from './OrgSettings';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
@@ -78,13 +77,7 @@ export const Organization: React.FC = () => {
         setUserRoles={setUserRoles}
       />
     </React.Fragment>,
-    <React.Fragment key={2}>
-      <OrgScanHistory
-        organization={organization}
-        setOrganization={setOrganization}
-        scanTasks={scanTasks}
-      />
-    </React.Fragment>
+    <React.Fragment key={2}></React.Fragment>
   ];
 
   return (
