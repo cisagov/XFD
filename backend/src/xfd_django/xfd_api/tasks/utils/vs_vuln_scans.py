@@ -243,12 +243,9 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
         if summary_date is None:
             summary_date = timezone.now().date()
 
-        if not org_id and os.getenv("IS_LOCAL") == "1":
+        if not org_id:
             LOGGER.error("Organization ID is required to create a vuln scan summary.")
             return
-
-        if os.getenv("IS_LOCAL"):
-            org_id = Organization.objects.first().id
 
         org = Organization.objects.filter(id=org_id).first()
         if not org:
