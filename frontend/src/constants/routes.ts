@@ -20,7 +20,6 @@ export const ROUTES = {
   SCANS: '/scans',
   SCANS_HISTORY: '/scans/history',
   SETTINGS: '/settings',
-  TERMS: '/terms',
   USERS: '/users',
   VSDASHBOARD: '/VSDashboard',
   VULNERABILITIES: '/inventory/vulnerabilities',
