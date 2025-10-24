@@ -5,6 +5,8 @@ import {
   VulnScanDataTransformed
 } from 'types/vuln-scan-stats';
 
+type AnyObject = Record<string, any>;
+
 export const NO_DATA_FALLBACK_LABEL =
   'No results found. if unexpected, please submit an entry using the Support menu.';
 
@@ -432,4 +434,23 @@ export default function isDataEmpty(data: VulnScanDataTransformed) {
     !data.riskyServices.length &&
     !data.severityByProminence.length
   );
+}
+
+export function isEmptyAfterScans(obj: AnyObject): boolean {
+  const vulnSummary = obj.vulnScanSummary?.[0];
+  const metrics = obj.vulnScanKeyMetrics || [];
+
+  if (!vulnSummary) return false;
+
+  const assetsOwned = vulnSummary.assetsOwned;
+  const hostsScanned = vulnSummary.hostsScanned;
+
+  const assetsOwnedPopulated = assetsOwned != null && assetsOwned !== 0;
+  const hostsScannedPopulated = hostsScanned != null && hostsScanned !== 0;
+
+  const allMetricsEmpty = metrics.every(
+    (m: AnyObject) => m.value == null || m.value === 0
+  );
+
+  return assetsOwnedPopulated && hostsScannedPopulated && allMetricsEmpty;
 }
