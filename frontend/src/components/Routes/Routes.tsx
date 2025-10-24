@@ -33,7 +33,6 @@ export const Routes: React.FC = () => {
       />
       <Route exact path="/login-gov-callback" component={LoginGovCallback} />
       <Route exact path="/okta-callback" component={OktaCallback} />
-      <Route exact path="/terms" component={TermsOfUse} />
       <RouteGuard
         exact
         path="/inventory"
