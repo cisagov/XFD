@@ -6,11 +6,9 @@ import {
   AuthLogin,
   Domain,
   Domains,
-  // Feeds,
   LoginGovCallback,
   OktaCallback,
   RegionUsers,
-  Reports,
   Organization,
   Organizations,
   SearchPage,
@@ -61,11 +59,6 @@ export const Routes: React.FC = () => {
       <RouteGuard
         path="/inventory/vulnerability/:vulnerabilityId"
         component={Vulnerability}
-        permissions={['globalView', 'regionalAdmin', 'standard']}
-      />
-      <RouteGuard
-        path="/reports"
-        component={Reports}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       <RouteGuard
