@@ -1,6 +1,7 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
 import type { Page, TestInfo, Locator } from '@playwright/test';
+import { openMenuIfCollapsed, navScope } from '../../utils/menu_collapse';
 
 test.describe('Home Page — Standard User Permissions', () => {
   test('should not display "Admin Hub" button, link, or text', async ({
@@ -8,6 +9,9 @@ test.describe('Home Page — Standard User Permissions', () => {
   }) => {
     const page = pageAsStandardUser;
     await page.goto('/');
+
+    await openMenuIfCollapsed(page);
+    const nav = await navScope(page);
 
     const adminHubText = page.getByText(/admin hub/i);
     await expect(
@@ -130,26 +134,6 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
 });
 
 test.describe('Home — Standard User: Learning Center nav', () => {
-  async function openMenuIfCollapsed(page: Page) {
-    const trigger = page
-      .getByRole('button', { name: /menu|open.*menu|navigation/i })
-      .first();
-    if (await trigger.isVisible()) {
-      await trigger.click();
-      await expect(
-        page.getByRole('dialog', { name: /navigation menu/i })
-      ).toBeVisible();
-    }
-  }
-
-  async function navScope(page: Page): Promise<Locator> {
-    const dialogNav = page.getByRole('dialog', { name: /navigation menu/i });
-    if (await dialogNav.isVisible()) {
-      return dialogNav.getByRole('navigation', { name: /main navigation/i });
-    }
-    return page.getByRole('navigation', { name: /main navigation/i });
-  }
-
   test('Learning Center expands and shows expected items', async ({
     pageAsStandardUser
   }) => {
@@ -239,26 +223,6 @@ test.describe('Home — Standard User: Learning Center nav', () => {
 });
 
 test.describe('Home — Standard User: Support nav', () => {
-  async function openMenuIfCollapsed(page: Page) {
-    const trigger = page
-      .getByRole('button', { name: /menu|open.*menu|navigation/i })
-      .first();
-    if (await trigger.isVisible()) {
-      await trigger.click();
-      await expect(
-        page.getByRole('dialog', { name: /navigation menu/i })
-      ).toBeVisible();
-    }
-  }
-
-  async function navScope(page: Page): Promise<Locator> {
-    const dialogNav = page.getByRole('dialog', { name: /navigation menu/i });
-    if (await dialogNav.isVisible()) {
-      return dialogNav.getByRole('navigation', { name: /main navigation/i });
-    }
-    return page.getByRole('navigation', { name: /main navigation/i });
-  }
-
   test('Support expands and shows expected items', async ({
     pageAsStandardUser
   }) => {
@@ -328,26 +292,6 @@ test.describe('Home — Standard User: Support nav', () => {
 });
 
 test.describe('Home — Standard User: Account Settings nav', () => {
-  async function openMenuIfCollapsed(page: Page) {
-    const trigger = page
-      .getByRole('button', { name: /menu|open.*menu|navigation/i })
-      .first();
-    if (await trigger.isVisible()) {
-      await trigger.click();
-      await expect(
-        page.getByRole('dialog', { name: /navigation menu/i })
-      ).toBeVisible();
-    }
-  }
-
-  async function navScope(page: Page): Promise<Locator> {
-    const dialog = page.getByRole('dialog', { name: /navigation menu/i });
-    if (await dialog.isVisible()) {
-      return dialog.getByRole('navigation', { name: /main navigation/i });
-    }
-    return page.getByRole('navigation', { name: /main navigation/i });
-  }
-
   test('Account Settings navigates to /settings', async ({
     pageAsStandardUser
   }) => {
@@ -676,11 +620,12 @@ test.describe('Admin API Test — Standard User', () => {
   }) => {
     await pageAsStandardUser.goto('/');
 
-    const res = await pageAsStandardUser
-      .context()
-      .request.get('http://localhost:3000/metrics/customers', {
-        headers: { Accept: 'text/csv' }
-      });
+    const backend = process.env.BACKEND_DOMAIN;
+    const url = `${backend}/metrics/customers`;
+
+    const res = await pageAsStandardUser.context().request.get(url, {
+      headers: { Accept: 'text/csv' }
+    });
 
     expect([401, 403]).toContain(res.status());
   });
