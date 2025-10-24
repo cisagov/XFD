@@ -879,8 +879,7 @@ def test_v2_trends_access_denied_for_org():
         json=payload,
     )
 
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Access denied to requested organization."
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

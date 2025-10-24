@@ -76,9 +76,6 @@ export const Organizations: React.FC = () => {
         if (i.field === 'state') filters.state = String(i.value).trim();
         if (i.field === 'region_id') filters.region_id = String(i.value).trim();
       });
-      if (user?.user_type === 'regionalAdmin' && region_id) {
-        filters.region_id = region_id;
-      }
       return filters;
     },
     [user?.user_type, region_id]
