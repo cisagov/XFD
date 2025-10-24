@@ -119,7 +119,6 @@ resource "aws_ecs_task_definition" "playwright_worker" {
         { name = "AUTOMATED_TEST_REPORTS_BUCKET_NAME", value = "" },
         { name = "S3_HTML_PATH", value = "" },
         { name = "S3_JSON_PATH", value = "" },
-        { name = "PW_HEADLESS", value = "" },
         { name = "CI", value = "" },
       ],
 
