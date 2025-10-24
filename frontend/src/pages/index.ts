@@ -8,7 +8,6 @@ export * from './Search';
 export * from './TermsOfUse';
 export * from './Vulnerability';
 export { default as AdminTools } from './AdminTools';
-export { default as Feeds } from './Feeds';
 export { default as Notifications } from './Notifications';
 export { default as Organization } from './Organization';
 export { default as Organizations } from './Organizations';
