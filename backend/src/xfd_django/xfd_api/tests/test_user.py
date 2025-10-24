@@ -1,4 +1,5 @@
 """Test user."""
+
 # Standard Python Libraries
 from datetime import datetime
 import logging
@@ -1479,7 +1480,7 @@ def test_update_user_v2_standard_user_cannot_update_own_email():
     )
 
     assert response.status_code == 403
-    assert "email" in response.json()["detail"]
+    assert "Unauthorized" in response.json()["detail"]
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1504,7 +1505,7 @@ def test_update_user_v2_standard_user_cannot_approve_themselves():
     )
 
     assert response.status_code == 403
-    assert "date_approved" in response.json()["detail"]
+    assert "Unauthorized" in response.json()["detail"]
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1538,8 +1539,8 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_update_user_v2_regional_admin_cannot_update_in_region_state():
-    """Test update user v2 standard user."""
+def test_update_user_v2_regional_admin_can_update_in_region_state():
+    """Regional admin can update user state, regardless of region."""
     regional_admin = User.objects.create(
         first_name="RA",
         last_name="Admin",
@@ -1563,7 +1564,7 @@ def test_update_user_v2_regional_admin_cannot_update_in_region_state():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

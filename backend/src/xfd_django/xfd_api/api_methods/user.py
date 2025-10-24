@@ -199,12 +199,8 @@ def delete_user(target_user_id, current_user):
 def get_users(current_user):
     """Retrieve a list of users, restricted by admin type."""
     try:
-        if is_global_view_admin(current_user):
+        if is_global_view_admin(current_user) or is_regional_admin(current_user):
             users = User.objects.all().prefetch_related("roles__organization")
-        elif is_regional_admin(current_user):
-            users = User.objects.filter(
-                region_id=current_user.region_id
-            ).prefetch_related("roles__organization")
         else:
             raise HTTPException(status_code=401, detail="Unauthorized")
         return [
@@ -468,7 +464,7 @@ def update_user_v2(user_id, user_data, current_user):
             raise HTTPException(status_code=404, detail="User not found")
 
         # Global admins only can update the userType
-        if not is_global_write_admin(current_user) and user_data.user_type:
+        if (not is_global_write_admin(current_user)) and user_data.user_type:
             raise HTTPException(
                 status_code=403, detail="Only global admins can update userType."
             )

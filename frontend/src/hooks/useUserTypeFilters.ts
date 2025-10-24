@@ -8,7 +8,7 @@ import {
 // import { GLOBAL_VIEW } from 'context/userStateUtils';
 import { OrganizationShallow } from 'components/FilterDrawer/RegionAndOrganizationFilters';
 
-export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = false;
+export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = true;
 
 export const ORGANIZATION_EXCLUSIONS = ['dhs region'];
 

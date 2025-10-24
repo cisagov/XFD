@@ -95,7 +95,7 @@ it('handles valid terms submission correctly', async () => {
       touVersion: 'v5-user'
     }
   });
-  const checkbox = getByLabelText('I accept the above Terms and Conditions.');
+  const checkbox = getByLabelText(/I accept the above Terms and Conditions/);
   expect(checkbox).not.toBeChecked();
   fireEvent.click(checkbox);
   await waitFor(() => {
