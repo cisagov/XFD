@@ -34,7 +34,6 @@ export const Routes: React.FC = () => {
       />
       <Route exact path={ROUTES.LOGIN} component={LoginGovCallback} />
       <Route exact path={ROUTES.OKTA_CALLBACK} component={OktaCallback} />
-      <Route exact path={ROUTES.TERMS} component={TermsOfUse} />
       <RouteGuard
         exact
         path={ROUTES.INVENTORY}

@@ -32,7 +32,7 @@ import { Stack } from '@mui/system';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
-export const toggleRegionalUserType = true;
+export const toggleRegionalUserType = false;
 
 export const REGION_FILTER_KEY = 'organization.region_id';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
@@ -221,7 +221,9 @@ export const RegionAndOrganizationFilters: React.FC<
   const allRegionsSelected = useMemo(() => {
     return (
       regionFilterValues?.length === regions.length ||
-      ((userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) &&
+      ((userLevel === GLOBAL_ADMIN ||
+        userLevel === GLOBAL_VIEW ||
+        userLevel === REGIONAL_ADMIN) &&
         regionFilterValues?.length === 0)
     );
   }, [regionFilterValues, regions.length, userLevel]);
@@ -305,69 +307,77 @@ export const RegionAndOrganizationFilters: React.FC<
           </Stack>
         </AccordionSummary>
         <AccordionDetails>
-          {userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW && (
-            <Autocomplete
-              // onClick and onInputChange removed as this autocomplete is read-only for non-global users.
-              // And those users use a checkbox controlled list to change region filters.
-              disabled={
-                !userLevel ||
-                (userLevel !== GLOBAL_ADMIN && userLevel !== GLOBAL_VIEW)
-              }
-              options={regions}
-              getOptionLabel={(option) => `Region ${option}`}
-              slotProps={{
-                listbox: {
-                  sx: {
-                    ':active': {
-                      bgcolor: 'transparent'
-                    },
-                    overflow: 'auto',
-                    overscrollBehavior: 'contain'
-                  }
+          {userLevel !== GLOBAL_ADMIN &&
+            userLevel !== GLOBAL_VIEW &&
+            userLevel !== REGIONAL_ADMIN && (
+              <Autocomplete
+                // onClick and onInputChange removed as this autocomplete is read-only for non-global users.
+                // And those users use a checkbox controlled list to change region filters.
+                disabled={
+                  !userLevel ||
+                  (userLevel !== GLOBAL_ADMIN &&
+                    userLevel !== GLOBAL_VIEW &&
+                    userLevel !== REGIONAL_ADMIN)
                 }
-              }}
-              renderOption={(params, option) => {
-                return (
-                  <li
-                    {...params}
-                    style={{ pointerEvents: 'none', padding: 0 }}
-                    key={`region-filter-item-${option}`}
-                  >
-                    <Button
-                      sx={{
-                        pointerEvents: 'auto',
-                        height: '100%',
-                        width: '100%',
-                        display: 'flex',
-                        textAlign: 'left',
-                        justifyContent: 'start',
-                        fontWeight: 400,
-                        color: 'black',
-                        textTransform: 'none'
-                      }}
-                      id="search-region-button"
-                      // onClick removed as this autocomplete is read-only for non-global users.
-                      // And those users use a checkbox controlled list to change region filters.
-                    >
-                      {`Region ${option}`}
-                    </Button>
-                  </li>
-                );
-              }}
-              isOptionEqualToValue={(option, value) => option === value}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label={
-                    userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
-                      ? 'All Regions'
-                      : `Region ${user?.region_id}`
+                options={regions}
+                getOptionLabel={(option) => `Region ${option}`}
+                slotProps={{
+                  listbox: {
+                    sx: {
+                      ':active': {
+                        bgcolor: 'transparent'
+                      },
+                      overflow: 'auto',
+                      overscrollBehavior: 'contain'
+                    }
                   }
-                />
-              )}
-            />
-          )}
-          {(userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) && (
+                }}
+                renderOption={(params, option) => {
+                  return (
+                    <li
+                      {...params}
+                      style={{ pointerEvents: 'none', padding: 0 }}
+                      key={`region-filter-item-${option}`}
+                    >
+                      <Button
+                        sx={{
+                          pointerEvents: 'auto',
+                          height: '100%',
+                          width: '100%',
+                          display: 'flex',
+                          textAlign: 'left',
+                          justifyContent: 'start',
+                          fontWeight: 400,
+                          color: 'black',
+                          textTransform: 'none'
+                        }}
+                        id="search-region-button"
+                        // onClick removed as this autocomplete is read-only for non-global users.
+                        // And those users use a checkbox controlled list to change region filters.
+                      >
+                        {`Region ${option}`}
+                      </Button>
+                    </li>
+                  );
+                }}
+                isOptionEqualToValue={(option, value) => option === value}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label={
+                      userLevel === GLOBAL_ADMIN ||
+                      userLevel === GLOBAL_VIEW ||
+                      userLevel === REGIONAL_ADMIN
+                        ? 'All Regions'
+                        : `Region ${user?.region_id}`
+                    }
+                  />
+                )}
+              />
+            )}
+          {(userLevel === GLOBAL_ADMIN ||
+            userLevel === GLOBAL_VIEW ||
+            userLevel === REGIONAL_ADMIN) && (
             <List sx={{ maxHeight: 5 * 42, overflowY: 'auto' }}>
               <ListItem
                 sx={{ padding: '0px' }}
@@ -399,7 +409,9 @@ export const RegionAndOrganizationFilters: React.FC<
                   />
                 </FormGroup>
               </ListItem>
-              {(userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) &&
+              {(userLevel === GLOBAL_ADMIN ||
+                userLevel === GLOBAL_VIEW ||
+                userLevel === REGIONAL_ADMIN) &&
                 regions.map((region) => {
                   return (
                     <RegionItem
@@ -416,7 +428,9 @@ export const RegionAndOrganizationFilters: React.FC<
                 })}
             </List>
           )}
-          {(userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) && (
+          {(userLevel === GLOBAL_ADMIN ||
+            userLevel === GLOBAL_VIEW ||
+            userLevel === REGIONAL_ADMIN) && (
             <div
               style={{
                 position: 'relative',

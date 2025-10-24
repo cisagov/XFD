@@ -17,7 +17,7 @@ import { Organization } from 'types';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
-export const toggleRegionalUserType = true;
+export const toggleRegionalUserType = false;
 
 export const REGION_FILTER_KEY = 'organization.region_id';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
@@ -144,7 +144,11 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const allRegionsOption = 'All Regions';
 
   const allRegions = useMemo(() => {
-    if (userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) {
+    if (
+      userLevel === GLOBAL_ADMIN ||
+      userLevel === GLOBAL_VIEW ||
+      userLevel === REGIONAL_ADMIN
+    ) {
       return [allRegionsOption, ...regions];
     }
     return regions;
@@ -350,11 +354,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
             }
           }}
           disableClearable
-          disabled={
-            !userLevel ||
-            userLevel === REGIONAL_ADMIN ||
-            userLevel === STANDARD_USER
-          }
+          disabled={!userLevel || userLevel === STANDARD_USER}
           options={allRegions}
           getOptionLabel={(option) =>
             allRegionsOption === option ? allRegionsOption : `Region ${option}`
@@ -408,7 +408,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
               {...params}
               label="Region"
               placeholder={
-                userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
+                userLevel === GLOBAL_ADMIN ||
+                userLevel === GLOBAL_VIEW ||
+                userLevel === REGIONAL_ADMIN
                   ? 'Select Region'
                   : ''
               }

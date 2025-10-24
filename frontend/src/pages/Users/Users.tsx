@@ -85,6 +85,7 @@ export const Users: React.FC = () => {
     initialUserFormValues
   );
 
+  // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -105,10 +106,7 @@ export const Users: React.FC = () => {
         row.full_name = `${row.first_name} ${row.last_name}`;
       });
 
-      let filteredRows = rows;
-      if (user?.user_type === 'regionalAdmin' && user.region_id) {
-        filteredRows = rows.filter((row) => row.region_id === user.region_id);
-      }
+      const filteredRows = rows;
 
       setUsers(filteredRows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));

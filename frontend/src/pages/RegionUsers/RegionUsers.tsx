@@ -376,11 +376,7 @@ export const RegionUsers: React.FC = () => {
   };
   const fetchPendingUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(
-        user?.user_type === 'regionalAdmin'
-          ? `${getUsersURL}true&region_id=${regionalAdminId}`
-          : `${getUsersURL}true`
-      );
+      const rows = await apiGet<User[]>(`${getUsersURL}true`);
       setPendingUsers(rows);
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -390,11 +386,7 @@ export const RegionUsers: React.FC = () => {
   }, [apiGet]);
   const fetchCurrentUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(
-        user?.user_type === 'regionalAdmin'
-          ? `${getUsersURL}false&region_id=${regionalAdminId}`
-          : `${getUsersURL}false`
-      );
+      const rows = await apiGet<User[]>(`${getUsersURL}false`);
       setCurrentUsers(transformData(rows));
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -714,10 +706,7 @@ export const RegionUsers: React.FC = () => {
           </Alert>
         )}
         <Typography variant="h2" style={{ fontSize: '1.25rem' }} pb={2} pt={5}>
-          Members of
-          {user?.user_type === 'regionalAdmin'
-            ? ` Region ${regionalAdminId}`
-            : ' all regions'}
+          Members of all regions
         </Typography>
         <Paper sx={{ height: '667px' }}>
           <DataGrid
