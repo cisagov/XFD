@@ -11,17 +11,6 @@ const TermsGate: React.FC<TermsGateProps> = ({ children }) => {
   const { user, userMustSign } = useAuthContext();
   const location = useLocation();
 
-  console.log('TermsGate Debug:', {
-    user: user
-      ? {
-          isRegistered: user.isRegistered,
-          invite_pending: user.invite_pending
-        }
-      : null,
-    userMustSign,
-    pathname: location.pathname
-  });
-
   if (user?.isRegistered && !user?.invite_pending && userMustSign) {
     return <TermsOfUse />;
   }
