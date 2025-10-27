@@ -39,9 +39,15 @@ export const isVSDashboard = (route: string) => {
 
 // Helper function to determine if a route is a drill-down destination
 export const isDrillDownDestination = (route: string) => {
+  const stripParams = (r: string) =>
+    r
+      .replace(/\/:[^/]+/g, '')
+      .replace(/\/+/g, '/')
+      .replace(/\/$/, '') || '/';
+  const cleanedRoute = stripParams(route);
   return (
-    route.startsWith(ROUTES.VULNERABILITY) ||
-    route.startsWith(ROUTES.DOMAIN) ||
+    cleanedRoute.startsWith(ROUTES.VULNERABILITY) ||
+    cleanedRoute.startsWith(ROUTES.DOMAIN) ||
     route === ROUTES.VULNERABILITIES ||
     route === ROUTES.DOMAINS
   );
