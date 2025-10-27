@@ -14,7 +14,7 @@ import Cookies from 'universal-cookie';
 import { Snackbar } from '@mui/material';
 import { Alert } from '@mui/material';
 import { AlertProps } from '@mui/material/Alert';
-import { ENDPOINTS } from 'constants/endpoints';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const currentTermsVersion = '1';
 

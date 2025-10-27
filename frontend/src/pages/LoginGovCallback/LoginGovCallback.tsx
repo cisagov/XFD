@@ -3,7 +3,7 @@ import { parse } from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
-import { ENDPOINTS } from 'constants/endpoints';
+import { ENDPOINTS } from '@/constants/endpoints';
 import { ROUTES } from '@/constants/routes';
 
 type cbResponse = {

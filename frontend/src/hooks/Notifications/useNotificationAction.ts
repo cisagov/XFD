@@ -45,7 +45,7 @@ export function useNotificationAction({
         notification = await handleApiCall(
           () =>
             apiDelete(
-              ENDPOINTS.NOTIFICATIONS.replace('{notification_id}', body.id)
+              ENDPOINTS.NOTIFICATION.replace('{notification_id}', body.id)
             ),
           'The deletion of the notification was successful.',
           'The deletion of the notification was unsuccessful.'

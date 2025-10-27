@@ -22,7 +22,7 @@ import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
-import { FILTER_ENABLED_PATHS } from 'constants/filterPaths';
+import { FILTER_ENABLED_PATHS } from '@/constants/filterPaths';
 import { ROUTES } from '@/constants/routes';
 
 const Main = styled('main', {

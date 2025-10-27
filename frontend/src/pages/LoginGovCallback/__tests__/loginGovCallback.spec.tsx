@@ -2,7 +2,7 @@ import React from 'react';
 import { render, waitFor } from 'test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { LoginGovCallback } from '../LoginGovCallback';
-import { ENDPOINTS } from 'constants/endpoints';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 vi.spyOn(Storage.prototype, 'getItem');
 const mockGetItem = vi.mocked(localStorage.getItem);

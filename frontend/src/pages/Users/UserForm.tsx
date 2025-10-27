@@ -20,7 +20,7 @@ import {
   UserFormValues
 } from 'types';
 import { useAuthContext } from 'context';
-import { REGION_STATE_MAP, STATE_OPTIONS } from 'constants/constants';
+import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { isEqual } from 'lodash';
 import { ENDPOINTS } from '@/constants/endpoints';
 

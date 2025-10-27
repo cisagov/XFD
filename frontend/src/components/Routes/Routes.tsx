@@ -21,7 +21,7 @@ import {
   Vulnerability
 } from 'pages';
 import { VulnerabilityScanWithSearch } from '../Gates/VSDashboardGate';
-import { ROUTES } from 'constants/routes';
+import { ROUTES } from '@/constants/routes';
 
 export const Routes: React.FC = () => {
   return (

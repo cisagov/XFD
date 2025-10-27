@@ -5,7 +5,7 @@ import {
   NO_DATA_FALLBACK_LABEL
 } from 'utils/transformVulnScanData';
 import { useAuthContext } from 'context';
-import { ENDPOINTS } from 'constants/endpoints';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const InitialVSData: VulnScanDataTransformed = {
   vulnScanSummary: [],

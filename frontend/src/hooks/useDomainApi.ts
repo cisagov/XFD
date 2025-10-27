@@ -2,7 +2,7 @@ import { Query, Domain, DomainSearchApiResponse } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
 import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
-import { ENDPOINTS } from 'constants/endpoints';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export interface DomainQuery extends Query<DomainSearchApiResponse> {
   showAll?: boolean;

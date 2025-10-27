@@ -13,7 +13,7 @@ import {
 import { SavedSearch } from 'types/saved-search';
 import { useAuthContext } from 'context';
 import { Add } from '@mui/icons-material';
-import { ENDPOINTS } from 'constants/endpoints';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface SaveSearchModalProps {
   searchTerm: string;

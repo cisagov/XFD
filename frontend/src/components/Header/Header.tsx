@@ -19,8 +19,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import cisaLogo from 'assets/cisaSeal.svg';
 import { NavMenuButton } from './NavMenuButton';
 import { NavMenuDrawer } from './NavMenuDrawer';
-import { ENDPOINTS } from 'constants/endpoints';
-import { ROUTES } from 'constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 export interface MenuItemType {
   menuItemTitle: string;
