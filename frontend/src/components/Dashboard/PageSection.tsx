@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Box, Grid } from '@mui/material';
 import { useAuthContext } from 'context';
 import useFirstLoginPopup from 'hooks/useFirstLoginPopup';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 import FirstLoginPopup from 'components/Dialog/FirstLoginPopup';
 import infoIconContent from 'pages/VulnerabilityScanDash/infoIconContent.json';
+import { useLocation, useHistory } from 'react-router-dom';
 
 const tooltipContentJson = infoIconContent.infoIconContent;
 
@@ -12,6 +13,43 @@ const PageSection = ({ children }: { children: React.ReactNode }) => {
   const { user, apiPost, apiGet, setUser } = useAuthContext();
   const { show: showFirstLoginPopup, close: handleCloseFirstLoginPopup } =
     useFirstLoginPopup(user ?? null, apiPost, apiGet, setUser);
+
+  const location = useLocation();
+  const history = useHistory();
+
+  const [showPopup, setShowPopup] = useState<boolean>(
+    Boolean(showFirstLoginPopup) ||
+      Boolean(
+        location.state &&
+          (location.state as { showFirstLoginPopup?: boolean })
+            .showFirstLoginPopup === true
+      )
+  );
+  const clearedFlag = useRef(false);
+
+  useEffect(() => {
+    if (showFirstLoginPopup) setShowPopup(true);
+  }, [showFirstLoginPopup]);
+
+  useEffect(() => {
+    if (
+      (location.state as { showFirstLoginPopup?: boolean })
+        ?.showFirstLoginPopup &&
+      !clearedFlag.current
+    ) {
+      history.replace({
+        ...location,
+        state: { ...(location.state || {}), showFirstLoginPopup: false }
+      });
+      clearedFlag.current = true;
+    }
+  }, [location, history]);
+
+  const handleClose = () => {
+    setShowPopup(false);
+    handleCloseFirstLoginPopup();
+  };
+
   return (
     <Box
       sx={{
@@ -33,8 +71,8 @@ const PageSection = ({ children }: { children: React.ReactNode }) => {
         </Grid>
       </Grid>
       <FirstLoginPopup
-        showFirstLoginPopup={showFirstLoginPopup}
-        handleCloseFirstLoginPopup={handleCloseFirstLoginPopup}
+        showFirstLoginPopup={showPopup}
+        handleCloseFirstLoginPopup={handleClose}
       />
       {children}
     </Box>
