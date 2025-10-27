@@ -78,6 +78,7 @@ class ECSClient:
                             "DB_NAME": os.getenv("DB_NAME"),
                             "DB_USERNAME": os.getenv("DB_USERNAME"),
                             "DB_PASSWORD": os.getenv("DB_PASSWORD"),
+                            "MAX_SCAN_DAYS": os.getenv("MAX_SCAN_DAYS"),
                             "MDL_NAME": os.getenv("MDL_NAME"),
                             "MDL_SECONDARY_NAME": os.getenv("MDL_SECONDARY_NAME"),
                             "MDL_USERNAME": os.getenv("MDL_USERNAME"),
