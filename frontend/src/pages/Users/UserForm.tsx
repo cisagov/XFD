@@ -1,28 +1,16 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
-  Box,
   Button,
   DialogContent,
   FormControlLabel,
   Grid,
-  MenuItem,
   Radio,
   RadioGroup,
-  Select,
   TextField,
   Typography
 } from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
-import { Check, WarningAmber as WarningIcon } from '@mui/icons-material';
-import InfoDialog from 'components/Dialog/InfoDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
 import {
@@ -57,6 +45,15 @@ interface UserType extends User {
   date_approved?: string | null | undefined;
   approved_by_id?: string | null | undefined;
 }
+
+type ApiBody = {
+  first_name?: string;
+  last_name?: string;
+  user_type?: string;
+  email?: string;
+  state: string;
+  region_id: string;
+};
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
@@ -231,7 +228,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user, apiGet, apiPost, apiPut } = useAuthContext();
+  const { user, apiGet, apiPost } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
     first_name: false,
     last_name: false,
@@ -259,7 +256,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       setOrganizationsInRegion(rows);
       setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: '' }));
     } catch (e: any) {
-      setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: e.message }));
+      setApiErrorStates((prev: any) => ({
+        ...prev,
+        getOrgsError: e.message + ('. ' + e.response?.data?.detail || '')
+      }));
       console.log(e);
     } finally {
       setIsLoading(false);
@@ -330,7 +330,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     if (!validateForm(values)) {
       return;
     }
-    const body = {
+    const body: ApiBody = {
       first_name: values.first_name,
       last_name: values.last_name,
       email: values.email,
@@ -368,13 +368,17 @@ export const UserForm: React.FC<UserFormProps> = ({
       console.log('User role elevation detected, confirming with user');
     }
 
-    const body = {
+    const body: ApiBody = {
       first_name: values.first_name,
       last_name: values.last_name,
-      user_type: values.user_type,
       state: values.state,
       region_id: values.region_id
     };
+    if (user?.user_type === 'globalAdmin') {
+      body.first_name = values.first_name;
+      body.last_name = values.last_name;
+      body.user_type = values.user_type;
+    }
     try {
       await apiPost(`/v2/update_user/${values.id}`, { body });
       if (values.originalOrgId !== values.org_id) {
@@ -403,7 +407,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogContent('This user has been successfully updated.');
       setInfoDialogOpen(true);
     } catch (e: any) {
-      setApiErrorStates({ ...apiErrorStates, getUpdateUserError: e.message });
+      setApiErrorStates({
+        ...apiErrorStates,
+        getUpdateUserError: e.message + ('. ' + e.response?.data?.detail || '')
+      });
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
@@ -427,16 +434,6 @@ export const UserForm: React.FC<UserFormProps> = ({
     setValues((values: any) => ({
       ...values,
       [name]: value
-    }));
-  };
-
-  const handleStateChange = (event: SelectChangeEvent) => {
-    setValues((values: any) => ({
-      ...values,
-      [event.target.name]: event.target.value,
-      region_id: REGION_STATE_MAP[String(event.target.value)],
-      org_id: '',
-      org_name: ''
     }));
   };
 
@@ -574,7 +571,6 @@ export const UserForm: React.FC<UserFormProps> = ({
                     </Typography>
                   ) : null
                 }
-                disabled={user?.user_type !== 'globalAdmin'}
               />
             )}
             isOptionEqualToValue={(option, value) => option === value}
@@ -591,8 +587,8 @@ export const UserForm: React.FC<UserFormProps> = ({
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
-              {apiErrorStates.getOrgsError}. An error occurred retrieving
-              organizations for this state.
+              {apiErrorStates.getOrgsError}. See the network tab for more
+              details.
             </Alert>
           ) : values.state === '' ? (
             <Alert severity="info">Select a state to make a selection.</Alert>
@@ -606,10 +602,6 @@ export const UserForm: React.FC<UserFormProps> = ({
               size="small"
               id="org_id"
               fullWidth
-              disabled={
-                organizationsInRegion.length === 0 ||
-                user?.user_type !== 'globalAdmin'
-              }
               options={sortedOrgs}
               getOptionLabel={(option) => option.name}
               value={sortedOrgs.find((org) => org.id === values.org_id) || null}
