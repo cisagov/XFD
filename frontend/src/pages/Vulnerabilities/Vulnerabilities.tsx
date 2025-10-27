@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import { getSeverityColor } from 'pages/Risk/utils';
+import { getSeverityColor } from 'utils/getSeverityColor';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
 import { Vulnerability } from 'types/domain';
