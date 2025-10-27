@@ -1831,8 +1831,8 @@ def test_add_user_to_org_v2_organization_not_found():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_add_user_to_org_v2_region_mismatch():
-    """Test adding a user to an organization where the region does not match."""
+def test_add_user_to_org_v2_region_allowed():
+    """Test adding a user to an organization where a different region is accepted by a regional admin."""
     admin = User.objects.create(
         first_name="Admin",
         last_name="User",
@@ -1875,8 +1875,8 @@ def test_add_user_to_org_v2_region_mismatch():
         json=payload,
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access due to region mismatch."
+    # Expect success because regional admins may now add users across regions
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
