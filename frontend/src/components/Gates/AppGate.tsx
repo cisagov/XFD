@@ -4,8 +4,6 @@ import { BoxProps } from '@mui/material';
 import { useAuthContext } from 'context';
 import { useCheckUserState } from 'hooks/useCheckUserState';
 import { useMaintenanceNotifications } from '@/hooks/useMaintenanceNotifications';
-import { useLocation } from 'react-router-dom';
-import { TermsOfUse } from '@/components/Dialog/TermsOfUse/TermsOfUse';
 
 // Shared components
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
@@ -26,11 +24,6 @@ export interface WidgetProps extends BoxProps {
 
 const AppGate: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, apiGet, userMustSign, logout, isLoggingOut } = useAuthContext();
-  const location = useLocation();
-
-  if (location.pathname === '/terms') {
-    return <TermsOfUse />;
-  }
 
   const { isUpdateStateFormOpen, setIsUpdateStateFormOpen } = useCheckUserState(
     user,

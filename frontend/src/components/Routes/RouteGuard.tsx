@@ -40,18 +40,11 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
-  // User must accept terms
-  if (user && userMustSign) {
-    history.push(ROUTES.TERMS);
-    return null;
-  }
-
   // Redirect to landing with request sent message for unapproved users
   if (
     user &&
     user.invite_pending &&
     window.location.pathname !== ROUTES.HOME &&
-    window.location.pathname !== ROUTES.TERMS &&
     window.location.pathname !== '/logout'
   ) {
     console.log('User is not approved.');

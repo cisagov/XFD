@@ -65,18 +65,6 @@ it('redirects to /create-account if user is not fully registered', () => {
   expect(mockPush.mock.calls[0][0]).toEqual('/create-account');
 });
 
-it('redirects to /terms if user must sign terms', () => {
-  render(<RouteGuard component={Protected} />, {
-    authContext: {
-      user: testUser,
-      token: 'some-token',
-      userMustSign: true
-    }
-  });
-  expect(mockPush).toHaveBeenCalledTimes(1);
-  expect(mockPush.mock.calls[0][0]).toEqual('/terms');
-});
-
 it('redirects to unauth if user is not authenticated and unauth is string', () => {
   render(<RouteGuard component={Protected} unauth="/not-auth" />, {
     authContext: {

@@ -50,12 +50,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
 
-  const noAlertPaths = [
-    '/create-account',
-    ROUTES.LOGIN,
-    ROUTES.OKTA_CALLBACK,
-    ROUTES.TERMS
-  ];
+  const noAlertPaths = ['/create-account', ROUTES.LOGIN, ROUTES.OKTA_CALLBACK];
 
   useEffect(() => {
     localStorage.setItem('es-search-filters', JSON.stringify(filters));
