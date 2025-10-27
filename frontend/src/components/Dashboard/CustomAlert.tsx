@@ -4,13 +4,13 @@ import { Alert, AlertTitle, Typography, Link } from '@mui/material';
 interface CustomAlertProps {
   headerMsg?: string;
   bodyMsg?: React.ReactNode;
-  isActive?: boolean;
+  isAlertActive?: boolean;
 }
 
 const CustomAlert: React.FC<CustomAlertProps> = ({
   headerMsg = 'No Data Found',
   bodyMsg = null,
-  isActive = 'false'
+  isAlertActive = 'false'
 }) => {
   const defaultMsg = (
     <>
@@ -18,7 +18,7 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
       Support menu.
     </>
   );
-  if (isActive) {
+  if (isAlertActive) {
     return (
       <Alert severity="info" sx={{ width: '100%' }}>
         <AlertTitle

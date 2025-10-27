@@ -62,7 +62,6 @@ export function useVulnScanData(orgId: string) {
 
         const transformed = transformVulnScanData(response);
 
-        // If transform hit the 4th fallback, show the big NoDataMessage panel
         const vsLabel = transformed.vulnScanSummary[0]?.vulnerabilityScan;
         if (vsLabel === NO_DATA_FALLBACK_LABEL) {
           setData(InitialVSData);
