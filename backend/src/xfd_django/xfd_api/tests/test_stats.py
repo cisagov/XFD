@@ -539,6 +539,7 @@ def test_vs_trends_success():
         up_host_count=8,
         down_host_count=3,
         scanned_asset_count=11,
+        recent_up_hosts_count=8,
     )
 
     PortScanSummary.objects.create(
@@ -649,6 +650,7 @@ def test_vs_condensed_trends_success():
         up_host_count=10,
         down_host_count=2,
         scanned_asset_count=12,
+        recent_up_hosts_count=9,
     )
 
     PortScanSummary.objects.create(
@@ -1040,6 +1042,7 @@ def test_stats_compare_success():
         up_host_count=8,
         down_host_count=3,
         scanned_asset_count=11,
+        recent_up_hosts_count=7,
     )
 
     HostSummary.objects.create(
@@ -1054,6 +1057,7 @@ def test_stats_compare_success():
         up_host_count=9,
         down_host_count=2,
         scanned_asset_count=13,
+        recent_up_hosts_count=7,
     )
 
     payload = {

@@ -92,8 +92,24 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
         MIN(CASE WHEN POSITION('\"NETSCAN2\":\"' IN ls) > 0
                 THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan2_min_timestamp,
         MAX(CASE WHEN POSITION('\"NETSCAN2\":\"' IN ls) > 0
-                THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan2_max_timestamp
+                THEN CAST(SPLIT_PART(SPLIT_PART(ls, '\"NETSCAN2\":\"', 2), '\"', 1) AS TIMESTAMPTZ) END) AS net_scan2_max_timestamp,
 
+        SUM(
+            CASE
+                WHEN POSITION('\"up\":true' IN json_serialize(state)) > 0
+                    AND POSITION('\"VULNSCAN\":\"' IN ls) > 0
+                    AND TRY_CAST(
+                            TRIM(
+                                SPLIT_PART(
+                                    SPLIT_PART(ls, '\"VULNSCAN\":\"', 2),
+                                    '\"',
+                                    1
+                                )
+                            ) AS TIMESTAMPTZ
+                        ) >= GETDATE() - INTERVAL '11 days'
+                THEN 1 ELSE 0
+            END
+        ) AS recent_up_hosts_count,
     FROM (
         SELECT
             owner,
@@ -150,6 +166,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                     "net_scan1_max_timestamp": row["net_scan1_max_timestamp"],
                     "net_scan2_min_timestamp": row["net_scan2_min_timestamp"],
                     "net_scan2_max_timestamp": row["net_scan2_max_timestamp"],
+                    "recent_up_hosts_count": row["recent_up_hosts_count"],
                 },
             )
         except Organization.DoesNotExist:

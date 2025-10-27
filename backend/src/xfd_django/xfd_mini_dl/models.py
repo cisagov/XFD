@@ -2673,6 +2673,11 @@ class HostSummary(models.Model):
         blank=True,
         help_text="Timestamp of the most recent net_scan2 run on a host owned by the org.",
     )
+    recent_up_hosts_count = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Count of Ip addresses that are up and have been scanned in the last 11 days.",
+    )
 
     class Meta:
         """The Meta class for HostSummary."""
