@@ -2,7 +2,6 @@ export * from './Layout';
 export * from './GovBanner';
 export * from './Header/Header';
 export * from './AuthRoute';
-export * from './Paginator';
 export * from './SelectFilter';
 export * from './FileInput';
 export * from './ImportExport';
