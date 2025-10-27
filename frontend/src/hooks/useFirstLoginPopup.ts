@@ -20,9 +20,7 @@ export default function useFirstLoginPopup(
     dismissedRef.current = true;
     setShow(false);
     const userId = user?.id;
-    if (!userId) {
-      throw new Error('User ID is required to update first_login');
-    }
+    if (!userId) return;
     try {
       await apiPost(ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', userId), {
         body: { first_login: false }
