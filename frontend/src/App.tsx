@@ -18,6 +18,7 @@ import { NavigationProvider } from 'context/NavigationContextProvider';
 import { DevInspector } from './utils/devInspector';
 import { openInVSCode } from './utils/openInVSCode';
 import AppGate from './components/Gates/AppGate';
+import TermsGate from './components/Gates/TermsGate';
 
 API.configure({
   endpoints: [{ name: 'crossfeed', endpoint: import.meta.env.VITE_API_URL }]
@@ -52,27 +53,29 @@ const App: React.FC = () => (
     <Router>
       <CFThemeProvider>
         <AuthContextProvider>
-          <Authenticator.Provider>
-            <StaticsContextProvider>
-              <SavedSearchContextProvider>
-                <SearchProvider>
-                  <FilterDrawerContextProvider>
-                    <NavigationProvider>
-                      <LayoutWithSearch>
-                        <AppGate>
-                          <LinkTracker />
-                          <DevInspector
-                            onClickElement={openInVSCode}
-                          ></DevInspector>
-                          <Routes />
-                        </AppGate>
-                      </LayoutWithSearch>
-                    </NavigationProvider>
-                  </FilterDrawerContextProvider>
-                </SearchProvider>
-              </SavedSearchContextProvider>
-            </StaticsContextProvider>
-          </Authenticator.Provider>
+          <TermsGate>
+            <Authenticator.Provider>
+              <StaticsContextProvider>
+                <SavedSearchContextProvider>
+                  <SearchProvider>
+                    <FilterDrawerContextProvider>
+                      <NavigationProvider>
+                        <LayoutWithSearch>
+                          <AppGate>
+                            <LinkTracker />
+                            <DevInspector
+                              onClickElement={openInVSCode}
+                            ></DevInspector>
+                            <Routes />
+                          </AppGate>
+                        </LayoutWithSearch>
+                      </NavigationProvider>
+                    </FilterDrawerContextProvider>
+                  </SearchProvider>
+                </SavedSearchContextProvider>
+              </StaticsContextProvider>
+            </Authenticator.Provider>
+          </TermsGate>
         </AuthContextProvider>
       </CFThemeProvider>
     </Router>

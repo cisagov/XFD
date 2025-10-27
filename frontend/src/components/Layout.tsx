@@ -52,8 +52,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const noAlertPaths = [
     '/login-gov-callback',
     '/okta-callback',
-    '/create-account',
-    '/terms'
+    '/create-account'
   ];
 
   useEffect(() => {
