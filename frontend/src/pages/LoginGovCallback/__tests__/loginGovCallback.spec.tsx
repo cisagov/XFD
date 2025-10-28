@@ -1,7 +1,8 @@
 import React from 'react';
 import { render, waitFor } from 'test-utils';
-import { vi } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { LoginGovCallback } from '../LoginGovCallback';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 vi.spyOn(Storage.prototype, 'getItem');
 const mockGetItem = vi.mocked(localStorage.getItem);
@@ -59,7 +60,7 @@ it('can handle successful OAuth callback', async () => {
 
   await waitFor(() => {
     expect(mockPost).toHaveBeenCalledTimes(1);
-    expect(mockPost.mock.calls[0][0]).toEqual('/auth/callback');
+    expect(mockPost.mock.calls[0][0]).toEqual(ENDPOINTS.V1_CALLBACK);
     expect(mockPost.mock.calls[0][1]).toMatchObject({
       body: {
         state: 'fake_oauth_state',

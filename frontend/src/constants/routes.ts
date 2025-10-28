@@ -1,0 +1,28 @@
+// Define application routes as constants
+export const ROUTES = {
+  ADMIN_TOOLS: '/admin-tools',
+  DOMAIN: '/inventory/domain/:domainId',
+  DOMAINS: '/inventory/domains',
+  FEEDS: '/feeds',
+  GLOBAL_ADMIN_DASHBOARD: '/global-admin-dashboard',
+  GLOBAL_VIEW_DASHBOARD: '/global-view-dashboard',
+  HOME: '/',
+  INVENTORY: '/inventory',
+  LOGIN: '/login-gov-callback',
+  LOGOUT: '/logout',
+  MATOMO: '/matomo',
+  OKTA_CALLBACK: '/okta-callback',
+  ORGANIZATION: '/organizations/:organizationId',
+  ORGANIZATIONS: '/organizations',
+  PROFILE: '/profile',
+  REGION_ADMIN_DASHBOARD: '/region-admin-dashboard',
+  REPORTS: '/reports',
+  SCANS: '/scans',
+  SCANS_HISTORY: '/scans/history',
+  SETTINGS: '/settings',
+  USERS: '/users',
+  VSDASHBOARD: '/VSDashboard',
+  VULNERABILITIES: '/inventory/vulnerabilities',
+  VULNERABILITIES_GROUPED: '/inventory/vulnerabilities/grouped',
+  VULNERABILITY: '/inventory/vulnerability/:vulnerabilityId'
+};

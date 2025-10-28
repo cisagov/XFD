@@ -22,6 +22,8 @@ import { ChevronRight } from '@mui/icons-material';
 import OrgMembers from './OrgMembers';
 import OrgScanHistory from './OrgScanHistory';
 import OrgSettings from './OrgSettings';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -41,7 +43,7 @@ export const Organization: React.FC = () => {
   const fetchOrganization = useCallback(async () => {
     try {
       const organization = await apiGet<OrganizationType>(
-        `/organizations/${organizationId}`
+        ENDPOINTS.ORGANIZATION.replace('{organization_id}', organizationId)
       );
       organization.scan_tasks.sort(
         (a, b) =>
@@ -50,7 +52,9 @@ export const Organization: React.FC = () => {
       setOrganization(organization);
       setUserRoles(organization.user_roles);
       setScanTasks(organization.scan_tasks);
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setTags(tags);
     } catch (e) {
       console.error(e);
@@ -95,7 +99,12 @@ export const Organization: React.FC = () => {
             Organizations
           </MuiLink>
           {organization.parent && (
-            <MuiLink href={'/organizations/' + organization.parent.id}>
+            <MuiLink
+              href={ROUTES.ORGANIZATION.replace(
+                ':organizationId',
+                organization.parent.id
+              )}
+            >
               {organization.parent.name}
             </MuiLink>
           )}

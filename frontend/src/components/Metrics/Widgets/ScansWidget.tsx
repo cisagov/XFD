@@ -24,6 +24,7 @@ import {
   OrgCountByStatus,
   ScanSummary
 } from '../../../types/metrics';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const scanMetricsTooltip = [
   {
@@ -71,13 +72,15 @@ const ScansWidget: React.FC = () => {
   const detailsRegionRef = useRef<HTMLDivElement | null>(null);
 
   const fetchScanSummaries = useCallback(async () => {
-    const result = await apiGet('/metrics/scans');
+    const result = await apiGet(ENDPOINTS.METRICS_SCANS);
     setScanSummaries(result || null);
   }, [apiGet]);
 
   const fetchScanDetails = useCallback(
     async (scanId: string) => {
-      const result = await apiGet('/metrics/scans/' + scanId);
+      const result = await apiGet(
+        ENDPOINTS.METRICS_SCAN.replace('{scan_id}', scanId)
+      );
       setScanDetails(result || null);
     },
     [apiGet]

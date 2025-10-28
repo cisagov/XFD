@@ -11,6 +11,7 @@ import { Column } from 'react-table';
 import { Table } from 'components';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface OrganizationScan extends Partial<OrganizationType> {
   id: any;
@@ -43,7 +44,7 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
       const response = await apiGet<{
         scans: Scan[];
         schema: ScanSchema;
-      }>('/granularScans/');
+      }>(ENDPOINTS.SCANS_GRANULAR);
       let { scans } = response;
       const { schema } = response;
 
@@ -64,7 +65,10 @@ export const OrgScanHistory: React.FC<OrgScanHistoryProps> = ({
     try {
       if (!organization) return;
       await apiPost(
-        `/organizations/${organization?.id}/granularScans/${scan.id}/update`,
+        ENDPOINTS.ORGANIZATION_GRANULAR_SCAN_UPDATE.replace(
+          '{organization_id}',
+          organization.id
+        ).replace('{scan_id}', scan.id),
         {
           body: {
             enabled
