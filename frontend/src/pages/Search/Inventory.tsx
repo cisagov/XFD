@@ -23,6 +23,7 @@ import { useUserLevel } from 'hooks/useUserLevel';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { FiberManualRecordRounded } from '@mui/icons-material';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -77,7 +78,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
           body.organization_id = [currentOrganization.id];
         else body.tagId = [currentOrganization.id];
       }
-      const { url } = await apiPost('/search/export', {
+      const { url } = await apiPost(ENDPOINTS.SEARCH_ES_EXPORT, {
         body
       });
       return url!;

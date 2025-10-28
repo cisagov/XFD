@@ -19,85 +19,89 @@ import {
   Vulnerability
 } from 'pages';
 import { VulnerabilityScanWithSearch } from '../Gates/VSDashboardGate';
+import { ROUTES } from '@/constants/routes';
 
 export const Routes: React.FC = () => {
   return (
     <Switch>
       <RouteGuard
         exact
-        path="/"
+        path={ROUTES.HOME}
         unauth={AuthLogin}
         component={VulnerabilityScanWithSearch}
       />
-      <Route exact path="/login-gov-callback" component={LoginGovCallback} />
-      <Route exact path="/okta-callback" component={OktaCallback} />
+      <Route exact path={ROUTES.LOGIN} component={LoginGovCallback} />
+      <Route exact path={ROUTES.OKTA_CALLBACK} component={OktaCallback} />
       <RouteGuard
         exact
-        path="/inventory"
+        path={ROUTES.INVENTORY}
         component={SearchPage}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       <RouteGuard
-        path="/inventory/domain/:domainId"
+        path={ROUTES.DOMAIN}
         component={Domain}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
-      <RouteGuard path="/inventory/domains" component={Domains} />
-      <RouteGuard path="/VSDashboard" component={VulnerabilityScanWithSearch} />
+      <RouteGuard path={ROUTES.DOMAINS} component={Domains} />
+      <RouteGuard
+        path={ROUTES.VSDASHBOARD}
+        component={VulnerabilityScanWithSearch}
+      />
       <RouteGuard
         exact
-        path="/inventory/vulnerabilities"
+        path={ROUTES.VULNERABILITIES}
         component={Vulnerabilities}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       <RouteGuard
-        path="/inventory/vulnerabilities/grouped"
+        path={ROUTES.VULNERABILITIES_GROUPED}
         component={(props) => <Vulnerabilities {...props} group_by="title" />}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       <RouteGuard
-        path="/inventory/vulnerability/:vulnerabilityId"
+        path={ROUTES.VULNERABILITY}
         component={Vulnerability}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       <RouteGuard
-        path="/admin-tools"
+        path={ROUTES.ADMIN_TOOLS}
         component={AdminTools}
         permissions={['globalAdmin']}
       />
       <RouteGuard
-        path="/organizations/:organizationId"
+        path={ROUTES.ORGANIZATION}
         component={Organization}
         permissions={['globalView', 'regionalAdmin']}
       />
       <RouteGuard
-        path="/organizations"
+        path={ROUTES.ORGANIZATIONS}
         component={Organizations}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       <RouteGuard
-        path="/users"
+        path={ROUTES.USERS}
         component={Users}
         permissions={['globalView', 'regionalAdmin']}
       />
       <RouteGuard
-        path="/settings"
+        path={ROUTES.SETTINGS}
         component={Settings}
         permissions={['globalView', 'regionalAdmin', 'standard']}
       />
       {/* Multiple paths for user registration dashboard - Dynamic routes will not work without forcing re-renders */}
       <RouteGuard
-        path="/region-admin-dashboard"
+        path={ROUTES.REGION_ADMIN_DASHBOARD}
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
       />
       <RouteGuard
-        path="/global-admin-dashboard"
+        path={ROUTES.GLOBAL_ADMIN_DASHBOARD}
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
       />
       <RouteGuard
-        path="/global-view-dashboard"
+        path={ROUTES.GLOBAL_VIEW_DASHBOARD}
         component={RegionUsers}
         permissions={['regionalAdmin', 'globalView']}
       />

@@ -14,6 +14,7 @@ import Cookies from 'universal-cookie';
 import { Snackbar } from '@mui/material';
 import { Alert } from '@mui/material';
 import { AlertProps } from '@mui/material/Alert';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const currentTermsVersion = '1';
 
@@ -78,7 +79,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const { apiGet, apiPost } = api;
 
   const getProfile = useCallback(async () => {
-    const user: User = await apiGet<User>('/users/me');
+    const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
 
     // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
     // Currently commented to meet "waiting room" needs and allow login for state selection
@@ -116,7 +117,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       if (!token && import.meta.env.VITE_USE_COGNITO) {
         const session = await Auth.currentSession();
         const { token } = await apiPost<{ token: string; user: User }>(
-          '/auth/callback',
+          ENDPOINTS.V1_CALLBACK,
           {
             body: {
               token: session.getIdToken().getJwtToken()

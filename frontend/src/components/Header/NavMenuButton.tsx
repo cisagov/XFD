@@ -4,6 +4,7 @@ import { Box, Button, ButtonProps, Menu, MenuItem } from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { ROUTES } from '@/constants/routes';
 
 interface MenuItemType {
   menuItemTitle: string;
@@ -37,9 +38,9 @@ export const NavMenuButton: React.FC<Props> = ({
     null
   );
   const findingsLibraryPaths = [
-    '/inventory',
-    '/inventory/domains',
-    '/inventory/vulnerabilities'
+    ROUTES.INVENTORY,
+    ROUTES.DOMAINS,
+    ROUTES.VULNERABILITIES
   ];
 
   const isActive = isLink

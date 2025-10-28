@@ -12,6 +12,7 @@ import {
 import MultiSelect from 'pages/Scans/MultiSelect';
 import { OrganizationOption } from 'pages/Scans/ScansView';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/constants/routes';
 
 export interface ScanFormValues {
   name: string;
@@ -445,7 +446,7 @@ export const ScanForm: React.FC<{
       <br />
 
       {type === 'edit' && (
-        <Link to={`/admin-tools`}>
+        <Link to={ROUTES.ADMIN_TOOLS}>
           <Button type="button" outline>
             Return to Scans
           </Button>

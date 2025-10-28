@@ -2,6 +2,7 @@ import React from 'react';
 import { TermsOfUse } from '../TermsOfUse';
 import { render, fireEvent, waitFor } from 'test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 vi.mock('@mui/x-data-grid', () => ({
   DataGrid: () => <div>DATA_GRID</div>
@@ -104,7 +105,7 @@ it('handles valid terms submission correctly', async () => {
   fireEvent.click(getByText('Submit'));
   await waitFor(() => {
     expect(mockPost).toHaveBeenCalledTimes(1);
-    expect(mockPost.mock.calls[0][0]).toEqual('/users/me/acceptTerms');
+    expect(mockPost.mock.calls[0][0]).toEqual(ENDPOINTS.USER_ACCEPT_TERMS);
     expect(mockPost.mock.calls[0][1]).toMatchObject({
       body: { version: 'v5-user' }
     });

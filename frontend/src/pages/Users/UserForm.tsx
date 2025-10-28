@@ -20,8 +20,9 @@ import {
   UserFormValues
 } from 'types';
 import { useAuthContext } from 'context';
-import { REGION_STATE_MAP, STATE_OPTIONS } from 'constants/constants';
+import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { isEqual } from 'lodash';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -250,7 +251,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       let rows: Organization[] = [];
       if (values.region_id) {
         rows = await apiGet<Organization[]>(
-          '/organizations/region_id/' + values.region_id
+          ENDPOINTS.ORGANIZATIONS_REGION.replace(
+            '{region_id}',
+            values.region_id
+          )
         );
       }
       setOrganizationsInRegion(rows);
@@ -339,7 +343,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       region_id: values.region_id
     };
     try {
-      const user = await apiPost('/users', {
+      const user = await apiPost(ENDPOINTS.USERS, {
         body
       });
       user.full_name = `${user.first_name} ${user.last_name}`;
@@ -380,17 +384,31 @@ export const UserForm: React.FC<UserFormProps> = ({
       body.user_type = values.user_type;
     }
     try {
-      await apiPost(`/v2/update_user/${values.id}`, { body });
+      await apiPost(
+        ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', String(values.id)),
+        {
+          body
+        }
+      );
       if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId) {
           await apiPost(
-            `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
+            ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+              '{organization_id}',
+              String(values.originalOrgId)
+            ).replace('{role_id}', String(values.originalRoleId)),
             { body: {} }
           );
         }
-        await apiPost(`/v2/organizations/${values.org_id}/users`, {
-          body: { user_id: values.id, role: 'user' }
-        });
+        await apiPost(
+          ENDPOINTS.ORGANIZATION_ADD_USER.replace(
+            '{organization_id}',
+            String(values.org_id)
+          ),
+          {
+            body: { user_id: values.id, role: 'user' }
+          }
+        );
       }
       const updatedUsers = users.map((user) =>
         user.id === values.id

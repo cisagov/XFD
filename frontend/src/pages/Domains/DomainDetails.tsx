@@ -23,6 +23,7 @@ import { Webpage } from 'types';
 import { useAuthContext } from 'context';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { Box } from '@mui/system';
+import { ROUTES } from '@/constants/routes';
 
 const PREFIX = 'DomainDetails';
 
@@ -404,7 +405,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                   onClick={(event) => {
                     event.stopPropagation();
                     if (vuln.state !== 'closed') {
-                      history.push('/inventory/vulnerability/' + vuln.id);
+                      history.push(
+                        ROUTES.VULNERABILITY.replace(
+                          ':vulnerabilityId',
+                          vuln.id
+                        )
+                      );
                     }
                   }}
                 >

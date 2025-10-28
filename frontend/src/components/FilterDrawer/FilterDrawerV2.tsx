@@ -12,6 +12,7 @@ import { Stack } from '@mui/system';
 import { Button, IconButton, Toolbar, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
+import { ROUTES } from '@/constants/routes';
 
 export const drawerWidth = 278;
 
@@ -43,7 +44,7 @@ export const FilterDrawer: FC<
   const { pathname } = useLocation();
 
   const restoreInitialFilters = () => {
-    if (matchPath(['/inventory'], pathname)) {
+    if (matchPath([ROUTES.INVENTORY], pathname)) {
       initialFilters.forEach((filter) => {
         filter.values.forEach((value: string) => {
           addFilter(filter.field, value, 'any');
@@ -96,7 +97,7 @@ export const FilterDrawer: FC<
           </IconButton>
         </Stack>
 
-        {matchPath(['/overview', '/inventory'], pathname) && (
+        {matchPath([ROUTES.INVENTORY], pathname) && (
           <RegionAndOrganizationFilters
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -111,7 +112,7 @@ export const FilterDrawer: FC<
             handleExpanded={handleExpanded}
           />
         )}
-        {matchPath(['/', '/VSDashboard'], pathname) && (
+        {matchPath([ROUTES.HOME, ROUTES.VSDASHBOARD], pathname) && (
           <VSDashRegionAndOrgFilters
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -119,7 +120,7 @@ export const FilterDrawer: FC<
           />
         )}
         {matchPath(
-          ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
+          [ROUTES.INVENTORY, ROUTES.DOMAINS, ROUTES.VULNERABILITIES],
           pathname
         ) && (
           <DrawerInterior
@@ -135,7 +136,7 @@ export const FilterDrawer: FC<
           />
         )}
       </Box>
-      {matchPath(['/inventory'], pathname) && (
+      {matchPath([ROUTES.INVENTORY], pathname) && (
         <Box>
           {filters.length > 0 && (
             <Box
