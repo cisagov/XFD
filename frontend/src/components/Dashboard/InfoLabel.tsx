@@ -13,6 +13,7 @@ import {
   isVSDashboard,
   isDrillDownDestination
 } from 'context/NavigationContext';
+import { ROUTES } from '@/constants/routes';
 
 type InfoLabelProps = {
   label: string;
@@ -51,7 +52,7 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
 
     // Only mark as drill-down if coming from VS Dashboard to a drill-down destination
     const isFromVSDashboard = isVSDashboard(location.pathname);
-    const targetUrl = link || '/inventory';
+    const targetUrl = link || ROUTES.INVENTORY;
     const isDrillDownTarget = isDrillDownDestination(targetUrl);
 
     if (isFromVSDashboard && isDrillDownTarget) {

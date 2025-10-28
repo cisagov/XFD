@@ -28,6 +28,7 @@ import {
 import { useAuthContext } from 'context';
 import { format } from 'date-fns';
 import UserForm from './UserForm';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -84,10 +85,11 @@ export const Users: React.FC = () => {
     initialUserFormValues
   );
 
+  // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const rows = await apiGet<UserType[]>(`/users`);
+      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
       rows.forEach((row) => {
         row.lastLoggedInString = row.last_logged_in
           ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
@@ -104,10 +106,7 @@ export const Users: React.FC = () => {
         row.full_name = `${row.first_name} ${row.last_name}`;
       });
 
-      let filteredRows = rows;
-      if (user?.user_type === 'regionalAdmin' && user.region_id) {
-        filteredRows = rows.filter((row) => row.region_id === user.region_id);
-      }
+      const filteredRows = rows;
 
       setUsers(filteredRows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
@@ -416,7 +415,9 @@ export const Users: React.FC = () => {
 
   const deleteRow = async (row: UserType) => {
     try {
-      await apiDelete(`/users/${row.id}`, { body: {} });
+      await apiDelete(ENDPOINTS.USER.replace('{user_id}', String(row.id)), {
+        body: {}
+      });
       setUsers(users.filter((user) => user.id !== row.id));
       setApiErrorStates({ ...apiErrorStates, getDeleteError: '' });
       setInfoDialogContent('This user has been successfully removed.');

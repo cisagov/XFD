@@ -12,6 +12,7 @@ import {
 import MultiSelect from 'pages/Scans/MultiSelect';
 import { OrganizationOption } from 'pages/Scans/ScansView';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/constants/routes';
 
 export interface ScanFormValues {
   name: string;
@@ -29,10 +30,28 @@ export interface ScanFormValues {
   endDate?: string;
 }
 
+const MAX_SCAN_DAYS = Number(import.meta.env.VITE_MAX_SCAN_DAYS || 365);
+
 export interface ScanArguments {
   start_datetime?: string;
   end_datetime?: string;
   [key: string]: any; // fallback for other dynamic args
+}
+
+// Helper: get UTC midnight string for X days ago
+function getUTCDateMidnight(daysAgo: number): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() - daysAgo);
+  return date.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+}
+
+// Helper: get current UTC datetime trimmed to minutes for datetime-local max attribute
+function getUTCNowString(): string {
+  const now = new Date();
+  // zero-out seconds & ms so it matches datetime-local precision
+  now.setUTCSeconds(0, 0);
+  return now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
 }
 
 export const ScanForm: React.FC<{
@@ -138,6 +157,13 @@ export const ScanForm: React.FC<{
     setDefaultValues();
   }, [setDefaultValues]);
 
+  // Clear date error when user adjusts start or end date
+  useEffect(() => {
+    if (values.useDateRange && dateRangeError) {
+      setDateRangeError('');
+    }
+  }, [values.startDate, values.endDate]);
+
   return (
     <Form
       onSubmit={async (e) => {
@@ -149,8 +175,39 @@ export const ScanForm: React.FC<{
             setDateRangeError('Please select both start and end date.');
             return;
           }
-          if (new Date(values.startDate) >= new Date(values.endDate)) {
+
+          const start = new Date(values.startDate);
+          const end = new Date(values.endDate);
+          const now = new Date();
+
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            setDateRangeError('Invalid date format.');
+            return;
+          }
+
+          if (start >= end) {
             setDateRangeError('Start date must be before end date.');
+            return;
+          }
+
+          // Prevent future dates (end and start must be <= now)
+          // Compare as UTC-aware dates: inputs are in local time but ISO strings created earlier are UTC
+          // Here, we compare timestamps directly.
+          if (
+            start.getTime() > now.getTime() ||
+            end.getTime() > now.getTime()
+          ) {
+            setDateRangeError('Dates cannot be in the future.');
+            return;
+          }
+
+          // Ensure that (end - start) <= 365 days (align with backend)
+          const diffDays =
+            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+          if (diffDays > MAX_SCAN_DAYS) {
+            setDateRangeError(
+              `Date range cannot exceed ${MAX_SCAN_DAYS} days.`
+            );
             return;
           }
         } else {
@@ -269,8 +326,20 @@ export const ScanForm: React.FC<{
             checked={values.useDateRange}
             onChange={(e) => {
               onChange('useDateRange', e.target.checked);
+
               if (e.target.checked) {
                 onChange('is_single_scan', true);
+
+                // Default to 2 days ago → today (UTC midnight)
+                const defaultStart = getUTCDateMidnight(2);
+                const defaultEnd = getUTCDateMidnight(0);
+                onChange('startDate', defaultStart);
+                onChange('endDate', defaultEnd);
+              } else {
+                // Clear values when unchecked so they are not accidentally kept in state
+                onChange('startDate', '');
+                onChange('endDate', '');
+                setDateRangeError('');
               }
             }}
           />
@@ -283,6 +352,7 @@ export const ScanForm: React.FC<{
                 type="datetime-local"
                 value={values.startDate}
                 onChange={(e) => onChange('startDate', e.target.value)}
+                max={getUTCNowString()} // Prevent selecting future datetimes
               />
               <Label htmlFor="endDate">End Date (UTC)</Label>
               <TextInput
@@ -291,6 +361,7 @@ export const ScanForm: React.FC<{
                 type="datetime-local"
                 value={values.endDate}
                 onChange={(e) => onChange('endDate', e.target.value)}
+                max={getUTCNowString()} // Prevent selecting future datetimes
               />
               {dateRangeError && (
                 <p style={{ color: 'red' }}>{dateRangeError}</p>
@@ -375,7 +446,7 @@ export const ScanForm: React.FC<{
       <br />
 
       {type === 'edit' && (
-        <Link to={`/admin-tools`}>
+        <Link to={ROUTES.ADMIN_TOOLS}>
           <Button type="button" outline>
             Return to Scans
           </Button>

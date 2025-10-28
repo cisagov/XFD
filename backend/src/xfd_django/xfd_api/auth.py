@@ -528,15 +528,12 @@ def can_access_user(current_user, target_user_id) -> bool:
         return False
 
     # Check if the current user is the target user or a global write admin
-    if str(current_user.id) == str(target_user_id) or is_global_write_admin(
-        current_user
+    if (
+        str(current_user.id) == str(target_user_id)
+        or is_global_write_admin(current_user)
+        or is_regional_admin(current_user)
     ):
         return True
-
-    # Check if the user is a regional admin and the target user is in the same region
-    if is_regional_admin(current_user):
-        target_user = User.objects.get(id=target_user_id)
-        return current_user.region_id == target_user.region_id
 
     return False
 
@@ -558,13 +555,12 @@ def get_allowed_user_update_fields(current_user, target_user):
             "first_login",
         }
 
-    if (
-        is_regional_admin(current_user)
-        and current_user.region_id == target_user.region_id
-    ):
+    if is_regional_admin(current_user):
         return {
             "first_name",
             "last_name",
+            "state",
+            "region_id",
             "invite_pending",
             "first_login",
             "date_approved",
@@ -578,7 +574,7 @@ def get_allowed_user_update_fields(current_user, target_user):
             current_user.can_select_own_state is True
             and current_user.invite_pending is True
         ):
-            allowed |= {"can_select_own_state", "state", "region_id"}
+            allowed |= {"can_select_own_state", "state", "region_id", "invite_pending"}
         return allowed
 
     return set()

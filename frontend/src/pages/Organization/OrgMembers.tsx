@@ -7,6 +7,7 @@ import { CheckCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type OrgMemberProps = {
   organization: OrganizationType;
@@ -93,7 +94,10 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   const removeUser = async () => {
     try {
       await apiPost(
-        `/organizations/${organization?.id}/roles/${selectedRow?.id}/remove`,
+        ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+          '{organization_id}',
+          organization?.id
+        ).replace('{role_id}', selectedRow?.id || ''),
         { body: {} }
       );
       setRemoveUserDialogOpen(false);

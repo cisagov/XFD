@@ -26,6 +26,7 @@ import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { ROUTES } from '@/constants/routes';
 
 const PAGE_SIZE = 15;
 
@@ -331,7 +332,9 @@ export const Domains: React.FC = () => {
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() =>
-              history.push('/inventory/domain/' + cellValues.row.id)
+              history.push(
+                ROUTES.DOMAIN.replace(':domainId', cellValues.row.id)
+              )
             }
           >
             <OpenInNewIcon />
