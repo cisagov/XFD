@@ -193,21 +193,14 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
   useEffect(() => {
     fetchVulnerabilities({
-      page: paginationModel.page + 1,
-      pageSize: paginationModel.pageSize,
+      page: 1,
+      pageSize: PAGE_SIZE,
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
     });
-  }, [
-    fetchVulnerabilities,
-    paginationModel.page,
-    paginationModel.pageSize,
-    sortModel,
-    filters,
-    onlyOpenVulns
-  ]);
+  }, [fetchVulnerabilities, sortModel, filters, onlyOpenVulns]);
 
   const handlePaginationModelChange = useCallback(
     (model: GridPaginationModel) => {
@@ -216,8 +209,33 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         page: model.page,
         pageSize: model.pageSize
       }));
+
+      if (model.page === 0 && paginationModel.page !== 0) {
+        return;
+      }
+
+      if (
+        model.page !== paginationModel.page ||
+        model.pageSize !== paginationModel.pageSize
+      ) {
+        fetchVulnerabilities({
+          page: model.page + 1,
+          pageSize: model.pageSize,
+          order: sortModel[0]?.field,
+          sort: sortModel[0]?.sort ?? 'desc',
+          filters: filters || [],
+          showAll: !onlyOpenVulns
+        });
+      }
     },
-    []
+    [
+      fetchVulnerabilities,
+      sortModel,
+      filters,
+      onlyOpenVulns,
+      paginationModel.page,
+      paginationModel.pageSize
+    ]
   );
   const showAllVulnsButton = (
     <Button
