@@ -45,10 +45,14 @@ export const isDrillDownDestination = (route: string) => {
       .replace(/\/+/g, '/')
       .replace(/\/$/, '') || '/';
   const cleanedRoute = stripParams(route);
+  const vulnRoute = stripParams(ROUTES.VULNERABILITY);
+  const domainRoute = stripParams(ROUTES.DOMAIN);
+  const inventoryVulnRoute = stripParams(ROUTES.VULNERABILITIES);
+  const inventoryDomainsRoute = stripParams(ROUTES.DOMAINS);
   return (
-    cleanedRoute.startsWith(ROUTES.VULNERABILITY) ||
-    cleanedRoute.startsWith(ROUTES.DOMAIN) ||
-    route === ROUTES.VULNERABILITIES ||
-    route === ROUTES.DOMAINS
+    cleanedRoute === inventoryVulnRoute ||
+    cleanedRoute === inventoryDomainsRoute ||
+    cleanedRoute.startsWith(vulnRoute) ||
+    cleanedRoute.startsWith(domainRoute)
   );
 };

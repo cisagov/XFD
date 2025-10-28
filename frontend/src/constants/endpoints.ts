@@ -45,7 +45,6 @@ export const ENDPOINTS = {
   SCANS_TASK_SEARCH: '/scan-tasks/search',
   SEARCH_ES: '/search',
   SEARCH_ES_EXPORT: '/search/export',
-  SEARCH_ORGANIZATIONS: '/search/organizations',
   STATS: '/stats',
   STATS_COMPARE: '/stats/compare',
   STATS_TRENDS: '/stats/trends',

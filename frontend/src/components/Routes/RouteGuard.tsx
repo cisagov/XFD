@@ -45,7 +45,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     user &&
     user.invite_pending &&
     window.location.pathname !== ROUTES.HOME &&
-    window.location.pathname !== '/logout'
+    window.location.pathname !== ROUTES.LOGOUT
   ) {
     console.log('User is not approved.');
     history.push(ROUTES.HOME);
