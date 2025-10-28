@@ -27,6 +27,7 @@ import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { Facet } from '@elastic/react-search-ui';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -92,8 +93,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
 
   const deleteSearch = async (id: string) => {
     try {
-      await apiDelete(`/saved-searches/${id}`, { body: {} });
-      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      await apiDelete(ENDPOINTS.SAVED_SEARCH.replace('{saved_search_id}', id), {
+        body: {}
+      });
+      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
       localStorage.removeItem('savedSearch');

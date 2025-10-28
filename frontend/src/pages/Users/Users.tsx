@@ -28,6 +28,7 @@ import {
 import { useAuthContext } from 'context';
 import { format } from 'date-fns';
 import UserForm from './UserForm';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -88,7 +89,7 @@ export const Users: React.FC = () => {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const rows = await apiGet<UserType[]>(`/users`);
+      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
       rows.forEach((row) => {
         row.lastLoggedInString = row.last_logged_in
           ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
@@ -414,7 +415,9 @@ export const Users: React.FC = () => {
 
   const deleteRow = async (row: UserType) => {
     try {
-      await apiDelete(`/users/${row.id}`, { body: {} });
+      await apiDelete(ENDPOINTS.USER.replace('{user_id}', String(row.id)), {
+        body: {}
+      });
       setUsers(users.filter((user) => user.id !== row.id));
       setApiErrorStates({ ...apiErrorStates, getDeleteError: '' });
       setInfoDialogContent('This user has been successfully removed.');

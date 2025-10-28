@@ -1,11 +1,12 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Latest Scanning Summary - Page Resize', () => {
   test.skip('Widget is responsive and reload-safe', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     const widget = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
       .locator('..')
@@ -38,7 +39,7 @@ test.describe('Latest Scanning Summary - ARIA labels', () => {
   test.skip('ARIA: Info icon and metric buttons have correct labels', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
     const infoButton = pageAsGlobalAdmin.getByRole('button', {
       name: 'More information about Latest Scanning Summary'
@@ -65,7 +66,7 @@ test.describe('Latest Scanning Summary - Scan Date Display', () => {
   test.skip('should display valid scan date ranges in correct format', async ({
     pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
     await pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
@@ -92,7 +93,7 @@ test.describe('Latest Scanning Summary Button Tests', () => {
   test.skip('Widget info icon shows correct tooltip', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
     const infoIcon = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
@@ -126,7 +127,7 @@ test.describe('Latest Scanning Summary Button Tests', () => {
       page: pageAsGlobalAdmin
     }) => {
       const id = label.replace(/\s+/g, '-').toLowerCase();
-      await pageAsGlobalAdmin.goto('/VSDashboard');
+      await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
       // Match buttons like "63 Detected KEVs" or "83 Detected Vulnerabilities"
       const pattern = new RegExp(
@@ -165,7 +166,7 @@ test.describe('Latest Scanning Summary - Keyboard Movement', () => {
   test.skip('Keyboard navigation inside widget is tabbable', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
     const widgetContainer = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Latest Scanning Summary' })
@@ -215,7 +216,7 @@ test.describe('Latest Scanning Summary - Metric Boxes', () => {
   }) => {
     const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pageAsGlobalAdmin.waitForSelector('text=Latest Scanning Summary');
 
     const widgetContainer = pageAsGlobalAdmin
