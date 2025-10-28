@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs, Tab } from '@mui/material';
 import { useLocation, useHistory } from 'react-router-dom';
 import { useNavigationContext } from 'context/NavigationContext';
+import { ROUTES } from '@/constants/routes';
 
 type NavTabItem = {
   title: string;
@@ -33,7 +34,7 @@ export const Subnav = ({ items }: NavTabsProps) => {
 
     // Clear drill-down state when navigating to Search Results (/inventory)
     // because it has its own independent filter system that conflicts with VS Dashboard filters
-    if (pathString === '/inventory') {
+    if (pathString === ROUTES.INVENTORY) {
       clearDrillDown();
     }
 

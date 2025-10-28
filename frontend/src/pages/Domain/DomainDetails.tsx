@@ -23,6 +23,7 @@ import { Webpage } from 'types';
 import { useAuthContext } from 'context';
 import { getSeverityColor } from 'pages/Risk/utils';
 import { Box } from '@mui/system';
+import { ROUTES } from '@/constants/routes';
 
 const PREFIX = 'DomainDetails';
 
@@ -400,7 +401,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                     <AccordionSummary
                       onClick={() => {
                         if (!isDisabled) {
-                          history.push('/inventory/vulnerability/' + vuln.id);
+                          history.push(
+                            ROUTES.VULNERABILITY.replace(
+                              ':vulnerabilityId',
+                              vuln.id
+                            )
+                          );
                         }
                       }}
                       onKeyDown={(event) => {
@@ -409,7 +415,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                           (event.key === 'Enter' || event.key === ' ')
                         ) {
                           event.preventDefault();
-                          history.push('/inventory/vulnerability/' + vuln.id);
+                          history.push(
+                            ROUTES.VULNERABILITY.replace(
+                              ':vulnerabilityId',
+                              vuln.id
+                            )
+                          );
                         }
                       }}
                       aria-label={`Vulnerability: ${vuln.title} - ${formatSeverity(vuln.severity)}`}

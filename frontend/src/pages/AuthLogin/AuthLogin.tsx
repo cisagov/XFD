@@ -6,6 +6,7 @@ import { CrossfeedWarning } from 'components/WarningBanner';
 import { MaintenanceNotification } from 'types';
 import { v4 as uuidv4 } from 'uuid';
 import pkceChallenge from 'pkce-challenge';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const MaintenanceAlert: React.FC<any> = ({ notification }) => {
   if (!notification) return null;
@@ -38,7 +39,7 @@ const LoginButton = () => {
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/get-oauth-meta`,
+        `${import.meta.env.VITE_API_URL}${ENDPOINTS.GET_OAUTH_METADATA}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -79,7 +80,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
     React.useState<MaintenanceNotification | null>(null);
   const fetchNotifications = React.useCallback(async () => {
     try {
-      const rows = await apiGet('/notifications');
+      const rows = await apiGet(ENDPOINTS.NOTIFICATIONS);
       // Updated maintenance window banner check
       const now = new Date();
       const activeRow = rows.find((row: MaintenanceNotification) => {
