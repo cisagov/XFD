@@ -9,7 +9,7 @@ import { TermsOfUse } from '@/components/Dialog/TermsOfUse/TermsOfUse';
 
 // Shared components
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
-import { UpdateStateForm } from 'components/Register';
+import { UpdateStateForm } from '@/components/UpdateUserStateForm';
 import InvitePendingCard from 'components/Dialog/InvitePendingCard';
 
 export interface VulnSeverities {
