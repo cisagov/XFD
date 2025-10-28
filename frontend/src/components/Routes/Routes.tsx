@@ -13,7 +13,6 @@ import {
   Organizations,
   SearchPage,
   Settings,
-  TermsOfUse,
   Users,
   Vulnerabilities,
   Vulnerability
