@@ -2,13 +2,18 @@ import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
 import type { Page, TestInfo, Locator } from '@playwright/test';
 import { openMenuIfCollapsed, navScope } from '../../utils/menu_collapse';
+import { ROUTES } from '../../../frontend/src/constants/routes';
+import { ENDPOINTS } from '../../../frontend/src/constants/endpoints';
+
+// Inline pattern for UUID
+const UUID_RX = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
 test.describe('Home Page — Standard User Permissions', () => {
   test('should not display "Admin Hub" button, link, or text', async ({
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
@@ -37,14 +42,13 @@ test.describe('Home Page — Standard User Permissions', () => {
   }) => {
     const page = pageAsStandardUser;
 
-    await page.goto('/admin-tools', { waitUntil: 'networkidle' });
+    await page.goto(ROUTES.ADMIN_TOOLS, { waitUntil: 'networkidle' });
 
-    const currentUrl = page.url();
-
+    const pathname = new URL(page.url()).pathname;
     expect(
-      currentUrl.endsWith('/admin-tools'),
+      pathname !== ROUTES.ADMIN_TOOLS,
       'Standard User should not remain on /admin-tools'
-    ).toBeFalsy();
+    ).toBeTruthy();
 
     const forbiddenText = page.getByText(
       /(not authorized|forbidden|access denied|permission denied)/i
@@ -54,9 +58,7 @@ test.describe('Home Page — Standard User Permissions', () => {
     const hasForbidden = await forbiddenText.count();
     const hasNotFound = await notFoundText.count();
     expect(
-      hasForbidden > 0 ||
-        hasNotFound > 0 ||
-        !currentUrl.endsWith('/admin-tools'),
+      hasForbidden > 0 || hasNotFound > 0 || pathname !== ROUTES.ADMIN_TOOLS,
       'Standard User should see a redirect or forbidden message when visiting /admin-tools'
     ).toBeTruthy();
   });
@@ -94,7 +96,7 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMobileMenuIfPresent(page);
     const item = await getNavItem(page, /vulnerability scanning/i);
@@ -103,9 +105,13 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
       'Nav item "Vulnerability Scanning" should be visible'
     ).toBeVisible();
 
-    await Promise.all([page.waitForURL(/\/VSDashboard$/i), item.click()]);
+    // Inline regex that tolerates optional trailing slash, case-insensitive
+    await Promise.all([
+      page.waitForURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i')),
+      item.click()
+    ]);
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i'));
 
-    await expect(page).toHaveURL(/\/VSDashboard$/i);
     await expect(
       page.getByRole('heading', { name: /vulnerability scanning/i })
     ).toBeVisible();
@@ -115,7 +121,7 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMobileMenuIfPresent(page);
     const item = await getNavItem(page, /findings library/i);
@@ -124,9 +130,12 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
       'Nav item "Findings Library" should be visible'
     ).toBeVisible();
 
-    await Promise.all([page.waitForURL(/\/inventory$/i), item.click()]);
+    await Promise.all([
+      page.waitForURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i')),
+      item.click()
+    ]);
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i'));
 
-    await expect(page).toHaveURL(/\/inventory$/i);
     await expect(
       page.getByRole('heading', { name: /findings library|inventory/i })
     ).toBeVisible();
@@ -138,7 +147,7 @@ test.describe('Home — Standard User: Learning Center nav', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
@@ -175,7 +184,7 @@ test.describe('Home — Standard User: Learning Center nav', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
@@ -227,7 +236,7 @@ test.describe('Home — Standard User: Support nav', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
@@ -261,7 +270,7 @@ test.describe('Home — Standard User: Support nav', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
@@ -296,7 +305,7 @@ test.describe('Home — Standard User: Account Settings nav', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/');
+    await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
@@ -313,11 +322,13 @@ test.describe('Home — Standard User: Account Settings nav', () => {
     ).toBeVisible();
 
     await Promise.all([
-      page.waitForURL(/\/settings\/?$/i, { timeout: 10_000 }),
+      page.waitForURL(new RegExp(`${ROUTES.SETTINGS}/?$`, 'i'), {
+        timeout: 10_000
+      }),
       accountSettings.click()
     ]);
 
-    await expect(page).toHaveURL(/\/settings\/?$/i);
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.SETTINGS}/?$`, 'i'));
     await expect(
       page.getByRole('heading', { name: /my account/i })
     ).toBeVisible();
@@ -329,7 +340,7 @@ test.describe('VSDashboard — Standard User: Filter permissions', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/VSDashboard');
+    await page.goto(ROUTES.VSDASHBOARD);
 
     const filterBtn = page.getByRole('button', { name: /^filter$/i });
     await expect(filterBtn).toBeVisible();
@@ -340,7 +351,6 @@ test.describe('VSDashboard — Standard User: Filter permissions', () => {
     await expect(drawerHeading).toBeVisible();
 
     await expectComboboxDisabledAndClosed(page, /^region$/i);
-
     await expectComboboxDisabledAndClosed(page, /^organization$/i);
   });
 });
@@ -376,7 +386,7 @@ test.describe('Findings Library — Standard User interactions', () => {
   }) => {
     const page = pageAsStandardUser;
 
-    await page.goto('/inventory');
+    await page.goto(ROUTES.INVENTORY);
     await expect(
       page.getByRole('heading', { name: /findings library/i })
     ).toBeVisible();
@@ -396,21 +406,24 @@ test.describe('Findings Library — Standard User interactions', () => {
       (await firstBtn.textContent()) ??
       '';
     const match = a11yName.match(/view domain details for\s+(.+)$/i);
-    const identifier = (match?.[1] ?? '').trim(); // optional content assertion below
+    const identifier = (match?.[1] ?? '').trim();
 
-    const uuidRoute =
-      /\/inventory\/domain\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/?$/i;
+    // Build a URL regex directly from the route constant by replacing :domainId with a UUID pattern
+    const domainUuidRx = new RegExp(
+      `${ROUTES.DOMAIN.replace(':domainId', UUID_RX)}/?$`,
+      'i'
+    );
 
     await Promise.all([
-      page.waitForURL(uuidRoute, { timeout: 10_000 }),
+      page.waitForURL(domainUuidRx, { timeout: 10_000 }),
       firstBtn.click()
     ]);
 
-    await expect(page).toHaveURL(uuidRoute);
+    await expect(page).toHaveURL(domainUuidRx);
 
     if (identifier) {
       const idRx = new RegExp(
-        `\\b${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
+        `\\b${identifier.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`,
         'i'
       );
       const headingWithId = page.getByRole('heading', { name: idRx });
@@ -426,7 +439,7 @@ test.describe('Findings Library — Standard User interactions', () => {
 test.describe('Findings Library — Standard User tables', () => {
   test('Domains tab shows "Domains Table"', async ({ pageAsStandardUser }) => {
     const page = pageAsStandardUser;
-    await page.goto('/inventory');
+    await page.goto(ROUTES.INVENTORY);
 
     await expect(
       page.getByRole('heading', { name: /findings library/i })
@@ -451,7 +464,7 @@ test.describe('Findings Library — Standard User tables', () => {
     pageAsStandardUser
   }) => {
     const page = pageAsStandardUser;
-    await page.goto('/inventory');
+    await page.goto(ROUTES.INVENTORY);
 
     await expect(
       page.getByRole('heading', { name: /findings library/i })
@@ -492,7 +505,7 @@ async function getNamedTable(page: Page, nameRx: RegExp): Promise<Locator> {
 test.describe('VSDashboard — Standard User', () => {
   test('shows "Latest Scanning Summary"', async ({ pageAsStandardUser }) => {
     const page = pageAsStandardUser;
-    await page.goto('/VSDashboard');
+    await page.goto(ROUTES.VSDASHBOARD);
 
     const summary = page
       .getByRole('heading', { name: /latest scanning summary/i })
@@ -511,7 +524,7 @@ test.describe('A11y — Standard User (axe)', () => {
     pageAsStandardUser,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto('/');
+    await pageAsStandardUser.goto(ROUTES.HOME);
     await runAxeAndFailOnSerious(
       pageAsStandardUser,
       makeAxeBuilder,
@@ -525,7 +538,7 @@ test.describe('A11y — Standard User (axe)', () => {
     pageAsStandardUser,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto('/VSDashboard');
+    await pageAsStandardUser.goto(ROUTES.VSDASHBOARD);
     await runAxeAndFailOnSerious(
       pageAsStandardUser,
       makeAxeBuilder,
@@ -539,7 +552,7 @@ test.describe('A11y — Standard User (axe)', () => {
     pageAsStandardUser,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto('/inventory');
+    await pageAsStandardUser.goto(ROUTES.INVENTORY);
     await runAxeAndFailOnSerious(
       pageAsStandardUser,
       makeAxeBuilder,
@@ -554,7 +567,7 @@ test.describe('A11y — Standard User (axe)', () => {
     makeAxeBuilder
   }, ti) => {
     const page = pageAsStandardUser;
-    await page.goto('/inventory');
+    await page.goto(ROUTES.INVENTORY);
 
     const details = page
       .getByRole('button', { name: /view domain details for/i })
@@ -563,10 +576,13 @@ test.describe('A11y — Standard User (axe)', () => {
     const count = await details.count();
     test.skip(count === 0, 'No domain details available to open');
 
+    const domainUuidRx = new RegExp(
+      `${ROUTES.DOMAIN.replace(':domainId', UUID_RX)}/?$`,
+      'i'
+    );
+
     await Promise.all([
-      page.waitForURL(/\/inventory\/domain\/[0-9a-f-]{36}\/?$/i, {
-        timeout: 10_000
-      }),
+      page.waitForURL(domainUuidRx, { timeout: 10_000 }),
       details.first().click()
     ]);
 
@@ -578,7 +594,7 @@ test.describe('A11y — Standard User (axe)', () => {
     pageAsStandardUser,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto('/settings');
+    await pageAsStandardUser.goto(ROUTES.SETTINGS);
     await runAxeAndFailOnSerious(
       pageAsStandardUser,
       makeAxeBuilder,
@@ -618,10 +634,10 @@ test.describe('Admin API Test — Standard User', () => {
   test('GET /metrics/customers is blocked (403)', async ({
     pageAsStandardUser
   }) => {
-    await pageAsStandardUser.goto('/');
+    await pageAsStandardUser.goto(ROUTES.HOME);
 
     const backend = process.env.BACKEND_DOMAIN;
-    const url = `${backend}/metrics/customers`;
+    const url = `${backend}${ENDPOINTS.METRICS_CUSTOMERS}`;
 
     const res = await pageAsStandardUser.context().request.get(url, {
       headers: { Accept: 'text/csv' }
