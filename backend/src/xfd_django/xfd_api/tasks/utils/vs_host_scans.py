@@ -98,15 +98,17 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
             CASE
                 WHEN POSITION('\"up\":true' IN json_serialize(state)) > 0
                     AND POSITION('\"VULNSCAN\":\"' IN ls) > 0
-                    AND TRY_CAST(
-                            TRIM(
-                                SPLIT_PART(
-                                    SPLIT_PART(ls, '\"VULNSCAN\":\"', 2),
-                                    '\"',
-                                    1
-                                )
-                            ) AS TIMESTAMPTZ
-                        ) >= GETDATE() - INTERVAL '11 days'
+                    AND DATE_TRUNC('day',
+                            TRY_CAST(
+                                TRIM(
+                                    SPLIT_PART(
+                                        SPLIT_PART(ls, '\"VULNSCAN\":\"', 2),
+                                        '\"',
+                                        1
+                                    )
+                                ) AS TIMESTAMPTZ
+                            )
+                        ) >= DATE_TRUNC('day', GETDATE() - INTERVAL '11 days')
                 THEN 1 ELSE 0
             END
         ) AS recent_up_hosts_count,
