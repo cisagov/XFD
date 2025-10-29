@@ -52,7 +52,7 @@ def handler(event):
             nmi_service_groups,
             start_dt,
             end_dt,
-        )
+        )  # pylint: disable=E1121
         # Create summaries with individual error handling
         LOGGER.info("Creating port scan summary...")
         try:
