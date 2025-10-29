@@ -46,7 +46,7 @@ export const VSDashboardGate: React.FC<{
         rel="noopener"
         sx={{ fontWeight: '600' }}
       >
-        General Questions
+        General&nbsp;Questions
       </Link>
       .
     </>
