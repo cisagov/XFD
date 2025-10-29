@@ -13,7 +13,6 @@ from django.db import connections, transaction
 from django.utils import timezone
 from psycopg2 import sql
 from psycopg2.extras import execute_values
-from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import (
     safe_fromisoformat,
     safe_parse_date,
@@ -42,7 +41,6 @@ EVENTS_CREATE_BATCH = 10_000  # TicketEvent bulk_create batch
 DB_ALIAS = "mini_data_lake"
 
 
-@cloudwatch_metric()
 def fetch_tickets_from_redshift(
     org_id_dict: dict,
     risky_service_groups: dict,
@@ -101,7 +99,6 @@ def fetch_tickets_from_redshift(
     LOGGER.info("Finished ticket processing for %d orgs.", len(org_acronyms))
 
 
-@cloudwatch_metric()
 def fetch_ticket_chunks_frozen_multi_org(
     ps_start_dt,
     ps_end_dt,
@@ -172,7 +169,6 @@ def preload_os_type_map(ip_keys) -> dict:
     return {scan.ip_string: scan.service_os_type for scan in scans}
 
 
-@cloudwatch_metric()
 def process_tickets_multi_org(
     tickets,
     org_id_dict: dict[str, str],
@@ -409,7 +405,6 @@ def process_tickets_multi_org(
     )
 
 
-@cloudwatch_metric()
 def bulk_create_ticket_events(
     events_data, using=DB_ALIAS, batch_size=EVENTS_CREATE_BATCH
 ):
@@ -506,7 +501,6 @@ def bulk_create_ticket_events(
     )
 
 
-@cloudwatch_metric()
 def bulk_upsert_tickets_sql(rows, using=DB_ALIAS, page_size=BULK_CREATE_BATCH):
     """Insert or update Ticket rows, but only update when EXCLUDED.updated_timestamp is newer."""
     if not rows:

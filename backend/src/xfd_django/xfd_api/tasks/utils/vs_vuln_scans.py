@@ -13,7 +13,6 @@ from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, 
 from django.db.models.functions import Power
 from django.utils import timezone
 from psycopg2 import sql
-from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
 from xfd_api.utils.hash import hash_ip
@@ -40,7 +39,6 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 CHUNK_SIZE = 10000  # tune as needed
 
 
-@cloudwatch_metric()
 def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     """
     Optimized and chunked vulnerability scan fetch from Redshift.
@@ -282,7 +280,6 @@ def truncate_charfields(model_cls, data_dict):
             data_dict[field.name] = val
 
 
-@cloudwatch_metric()
 def save_vuln_scan(vuln_scan: Dict) -> str:
     """Save a Vulnerability Scan record to the data lake.
 
@@ -600,7 +597,6 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
         raise QueryError(SCAN_NAME, str(e), "Error creating vuln scan summary") from e
 
 
-@cloudwatch_metric()
 def get_asset_owned_count(org):
     """Return count of IPs in the reported CIDRs for passed org."""
     # Get only CIDRs currently associated with the org via CidrOrgs.current=True
