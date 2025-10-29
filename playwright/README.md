@@ -32,9 +32,7 @@ This README will guide you through setting up, configuring, and running Playwrig
 
 Since Playwright is intended to run in 2 different modes `[localhost, GitHub Actions/AWS]`, a configuration tool at `utils/env.ts` is created to help set default URLs and headless mode options.
 
- Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. A blank dummy file is included in the repository to satisfy linters and checkers. This file can be used to set variables for running Playwright in localhost, but do not check in that file. It is excluded by .gitignore, but be careful when checking in code.
-
-Some environment variables values are defined in this README, but information that is secret will not be shared in this document. Ask the automated testing team for the values to continue setting up the configuration.
+ Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. Some environment variables values are defined in this README, but information that is secret will not be shared in this document. Ask the automated testing team for the values to continue setting up the configuration.
 
 ## **Local Testing via Terminal**
 
@@ -75,11 +73,10 @@ PW_STANDARD_USER_2FA_SECRET=
 
 PW_XFD_2FA_ISSUER=
 PW_XFD_URL=
-PW_HEADLESS=
 
 ```
 
-In local testing, `PW_HEADLESS` can optionally be set to true or false.
+In local testing, the variables can be found at the team's Regression Testing Sharepoint. Please contact the team for details.
 
 ### **Environment Variables for Local Testing in VS Code**
 
@@ -101,9 +98,24 @@ If you are using testing in VS Code using the Playwright extension, add the foll
         "PW_STANDARD_USER_2FA_SECRET": "",
         "PW_XFD_2FA_ISSUER": "",
         "PW_XFD_URL": "",
-        "PW_HEADLESS": ""
 }
 ```
+
+## **First time use in Local Testing**
+
+For the first time use, developers wishing to use the Playwright tests or develop new ones should first read the documentation located at: [Playwright installation guide](https://playwright.dev/docs/intro#installing-playwright).
+
+Begin installation at the `xfd/playwright` directory by first running `npx playwright install`.
+
+After this is done, pull down a copy `.env` file from the team Sharepoint. Place it in the `xfd/playwright` directory. This will provide you with the credentials needed to run the tests.
+
+Once that is performed, run `source .env` to load the variables in your terminal instance. Optionally, you can include them in your `.bashrc` or `.zshrc` file to have them persist.
+
+Open up the file `2FA.png` on the team Sharepoint and scan the QR code into a mobile authenticator. This will load the 2FA tokens for all 4 service accounts. If this doesn't work, you can use the 2FA keys found in the `.env` and manually type them into an authenticator app like Google Authenticator.
+
+For the first time use, you will need to manually log in to each user account one time to set the row in the database, using username/password and the 2FA token. If your own developer account is a global administrator, you can then approve the 4 service account users and set them to their appropriate role. Or you can use your DBeaver database management tool and approve and set the user role type in the `Users` table.
+
+After all 4 service accounts have been set up for the first time, you can then run Playwright via the `npx playwright test` command and it will perform the tests as expected.
 
 ## **GitHub Actions Testing with Amazon ECS**
 

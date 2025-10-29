@@ -1,20 +1,8 @@
 // playwright/globalSetup.ts
 import { chromium, FullConfig } from '@playwright/test';
 import * as OTPAuth from 'otpauth';
-import * as dotenv from 'dotenv';
 import * as fs from 'fs';
-import * as path from 'path';
-import { determineUrl } from './utils/env';
 import { userRoles } from './.auth/userRoles';
-
-const envPath = path.resolve(__dirname, '.env');
-
-if (!process.env.CI && fs.existsSync(envPath)) {
-  console.log('📥 Running locally — loading .env file');
-  dotenv.config({ path: envPath, override: true });
-} else {
-  console.log('🚀 Running in CI/CD — skipping .env load');
-}
 
 async function loginAndSaveStorage(
   role: string,
@@ -61,15 +49,16 @@ async function loginAndSaveStorage(
 }
 
 async function globalSetup(config: FullConfig) {
-  const baseUrl = determineUrl();
-  if (!baseUrl) {
-    throw new Error('❌ PW_XFD_URL is not defined.');
-  }
-
   fs.mkdirSync('.auth', { recursive: true });
 
   for (const { role, username, password, totpSecret } of userRoles) {
-    await loginAndSaveStorage(role, username, password, totpSecret, baseUrl);
+    await loginAndSaveStorage(
+      role,
+      username,
+      password,
+      totpSecret,
+      String(process.env.PW_XFD_URL)
+    );
   }
 }
 

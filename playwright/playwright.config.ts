@@ -1,7 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
-import { determineUrl, determineHeadless } from './utils/env';
-
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -34,8 +32,8 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: determineUrl(),
-    headless: determineHeadless(),
+    baseURL: process.env.PW_XFD_URL,
+    headless: !!process.env.CI || false,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry'
