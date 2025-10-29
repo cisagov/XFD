@@ -1,6 +1,12 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef
+} from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Query } from 'types';
+import { Query, User, UserOrganization } from 'types';
 import { useAuthContext } from 'context';
 import {
   Alert,
@@ -15,6 +21,7 @@ import {
 import {
   DataGrid,
   GridColDef,
+  GridFilterModel,
   GridPaginationModel,
   GridRenderCellParams,
   GridSortModel
@@ -62,6 +69,14 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const filterTimerRef = useRef<number | null>(null);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: PAGE_SIZE
+  });
   const [sortModel, setSortModel] = useState<GridSortModel>([
     {
       field: 'created_at',
@@ -80,13 +95,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     }
   }, [state]);
 
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: PAGE_SIZE,
-    pageCount: 0,
-    filters: filters
-  });
-
   const vulnerabilitiesSearch = useCallback(
     async ({
       filters,
@@ -101,7 +109,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       try {
         const tableFilters = normalizeFilters(
           filters,
-          currentOrganization,
+          currentOrganization
+            ? ({
+                ...currentOrganization,
+                tags: currentOrganization.tags ?? []
+              } as UserOrganization)
+            : undefined,
           user?.user_type,
           state?.orgId
         );
@@ -197,50 +210,58 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
   useEffect(() => {
     fetchVulnerabilities({
-      page: 1,
-      pageSize: PAGE_SIZE,
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
     });
-  }, [fetchVulnerabilities, sortModel, filters, onlyOpenVulns]);
+  }, [
+    fetchVulnerabilities,
+    sortModel,
+    filters,
+    onlyOpenVulns,
+    paginationModel.page,
+    paginationModel.pageSize
+  ]);
 
-  const handlePaginationModelChange = useCallback(
-    (model: GridPaginationModel) => {
-      setPaginationModel((prev) => ({
-        ...prev,
-        page: model.page,
-        pageSize: model.pageSize
-      }));
+  // const handlePaginationModelChange = useCallback(
+  //   (model: GridPaginationModel) => {
+  //     setPaginationModel((prev) => ({
+  //       ...prev,
+  //       page: model.page,
+  //       pageSize: model.pageSize,
+  //       filters: prev.filters
+  //     }));
 
-      if (model.page === 0 && paginationModel.page !== 0) {
-        return;
-      }
+  //     if (model.page === 0 && paginationModel.page !== 0) {
+  //       return;
+  //     }
 
-      if (
-        model.page !== paginationModel.page ||
-        model.pageSize !== paginationModel.pageSize
-      ) {
-        fetchVulnerabilities({
-          page: model.page + 1,
-          pageSize: model.pageSize,
-          order: sortModel[0]?.field,
-          sort: sortModel[0]?.sort ?? 'desc',
-          filters: filters || [],
-          showAll: !onlyOpenVulns
-        });
-      }
-    },
-    [
-      fetchVulnerabilities,
-      sortModel,
-      filters,
-      onlyOpenVulns,
-      paginationModel.page,
-      paginationModel.pageSize
-    ]
-  );
+  //     if (
+  //       model.page !== paginationModel.page ||
+  //       model.pageSize !== paginationModel.pageSize
+  //     ) {
+  //       fetchVulnerabilities({
+  //         page: model.page + 1,
+  //         pageSize: model.pageSize,
+  //         order: sortModel[0]?.field,
+  //         sort: sortModel[0]?.sort ?? 'desc',
+  //         filters: filters || [],
+  //         showAll: !onlyOpenVulns
+  //       });
+  //     }
+  //   },
+  //   [
+  //     fetchVulnerabilities,
+  //     sortModel,
+  //     filters,
+  //     onlyOpenVulns,
+  //     paginationModel.page,
+  //     paginationModel.pageSize
+  //   ]
+  // );
   const showAllVulnsButton = (
     <Button
       size="small"
@@ -625,6 +646,34 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               rowCount={totalResults}
               columns={vulCols}
               loading={isLoading}
+              filterMode="server"
+              filterModel={filterModel}
+              onFilterModelChange={(model) => {
+                setFilterModel(model);
+                if (filterTimerRef.current) {
+                  clearTimeout(filterTimerRef.current);
+                }
+                filterTimerRef.current = window.setTimeout(() => {
+                  setFilters(
+                    model.items.map((item) => ({
+                      field: item.field,
+                      operator: item.operator,
+                      value: item.value
+                    }))
+                  );
+                }, 1000);
+              }}
+              paginationMode="server"
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => {
+                setPaginationModel((prev) => ({
+                  ...prev,
+                  page: model.page,
+                  pageSize: model.pageSize
+                }));
+              }}
+              // onPaginationModelChange={handlePaginationModelChange}
+              pageSizeOptions={[15, 30, 50, 100]}
               sortModel={sortModel}
               sortingMode="server"
               onSortModelChange={(model) => {
@@ -648,10 +697,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   placement: 'bottom-start'
                 }
               }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={handlePaginationModelChange}
-              pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
               showToolbar
             />

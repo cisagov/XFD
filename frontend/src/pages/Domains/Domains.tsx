@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
@@ -18,12 +18,14 @@ import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRound
 import {
   DataGrid,
   GridColDef,
+  GridFilterModel,
+  GridPaginationModel,
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { differenceInCalendarDays, parseISO, set } from 'date-fns';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
@@ -62,6 +64,14 @@ export const Domains: React.FC = () => {
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const filterTimerRef = useRef<number | null>(null);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: PAGE_SIZE
+  });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
   useEffect(() => {
@@ -82,9 +92,7 @@ export const Domains: React.FC = () => {
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE,
-            pageCount: 0,
-            filters: q.filters
+            pageSize: PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -94,9 +102,7 @@ export const Domains: React.FC = () => {
         setPaginationModel((prevState) => ({
           ...prevState,
           page: q.page - 1,
-          pageSize: q.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (q.pageSize ?? PAGE_SIZE)),
-          filters: q.filters
+          pageSize: q.pageSize ?? PAGE_SIZE
         }));
       } catch (e) {
         console.error(e);
@@ -134,23 +140,31 @@ export const Domains: React.FC = () => {
     return `${days} days ago`;
   };
 
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: PAGE_SIZE,
-    pageCount: 0,
-    filters: filters
-  });
-
   useEffect(() => {
     setIsLoading(true);
     fetchDomains({
-      page: 1,
-      pageSize: PAGE_SIZE,
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
       filters,
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? undefined
     });
-  }, [fetchDomains, filters, sortModel]);
+  }, [
+    fetchDomains,
+    filters,
+    sortModel,
+    paginationModel.page,
+    paginationModel.pageSize
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
+      }
+    };
+  }, []);
 
   const resetDomains = useCallback(() => {
     history.replace({ ...location, state: null });
@@ -160,7 +174,7 @@ export const Domains: React.FC = () => {
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      filters: []
+      pageSize: PAGE_SIZE
     }));
     fetchDomains({
       page: 1,
@@ -433,6 +447,33 @@ export const Domains: React.FC = () => {
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
+              filterMode="server"
+              filterModel={filterModel}
+              onFilterModelChange={(model) => {
+                setFilterModel(model);
+                if (filterTimerRef.current) {
+                  clearTimeout(filterTimerRef.current);
+                }
+                filterTimerRef.current = window.setTimeout(() => {
+                  setFilters(
+                    model.items.map((item) => ({
+                      field: item.field,
+                      operator: item.operator,
+                      value: item.value
+                    }))
+                  );
+                }, 1000);
+              }}
+              paginationMode="server"
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => {
+                setPaginationModel((prev) => ({
+                  ...prev,
+                  page: model.page,
+                  pageSize: model.pageSize
+                }));
+              }}
+              pageSizeOptions={[15, 30, 50, 100]}
               sortingMode="server"
               sortModel={sortModel}
               onSortModelChange={(model) => {
@@ -449,18 +490,6 @@ export const Domains: React.FC = () => {
                   placement: 'bottom-start'
                 }
               }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                fetchDomains({
-                  page: model.page + 1,
-                  pageSize: model.pageSize,
-                  filters: filters,
-                  order: sortModel[0]?.field,
-                  sort: sortModel[0]?.sort ?? undefined
-                });
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
               showToolbar
             />
