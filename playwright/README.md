@@ -32,9 +32,7 @@ This README will guide you through setting up, configuring, and running Playwrig
 
 Since Playwright is intended to run in 2 different modes `[localhost, GitHub Actions/AWS]`, a configuration tool at `utils/env.ts` is created to help set default URLs and headless mode options.
 
- Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. A blank dummy file is included in the repository to satisfy linters and checkers. This file can be used to set variables for running Playwright in localhost, but do not check in that file. It is excluded by .gitignore, but be careful when checking in code.
-
-Some environment variables values are defined in this README, but information that is secret will not be shared in this document. Ask the automated testing team for the values to continue setting up the configuration.
+ Environment variables pertinent to Playwright are located in `xfd/playwright/.env` and are prefixed with `PW_*`. Some environment variables values are defined in this README, but information that is secret will not be shared in this document. Ask the automated testing team for the values to continue setting up the configuration.
 
 ## **Local Testing via Terminal**
 
@@ -57,18 +55,28 @@ This mode is intended for frontend developers to write their own feature test ca
 For local testing, the following variables need to be loaded into your environment.
 
 ```env
-PW_XFD_URL=http://localhost
-PW_XFD_USERNAME
-PW_XFD_PASSWORD
-PW_XFD_2FA_ISSUER
-PW_XFD_2FA_SECRET
-PW_XFD_USER_ROLE
-PW_XFD_LOGIN
-PW_HEADLESS=false
-PW_CI=false
+PW_GLOBAL_ADMIN_USERNAME=
+PW_GLOBAL_ADMIN_PASSWORD=
+PW_GLOBAL_ADMIN_2FA_SECRET=
+
+PW_REGIONAL_ADMIN_USERNAME=
+PW_REGIONAL_ADMIN_PASSWORD=
+PW_REGIONAL_ADMIN_2FA_SECRET=
+
+PW_GLOBAL_VIEW_USERNAME=
+PW_GLOBAL_VIEW_PASSWORD=
+PW_GLOBAL_VIEW_2FA_SECRET=
+
+PW_STANDARD_USER_USERNAME=
+PW_STANDARD_USER_PASSWORD=
+PW_STANDARD_USER_2FA_SECRET=
+
+PW_XFD_2FA_ISSUER=
+PW_XFD_URL=
+
 ```
 
-In local testing, `PW_HEADLESS` can optionally be set to true or false. `PW_CI` should be set to false, as this variable will adjust the behavior of how the global setup will load the other environment variables.
+In local testing, the variables can be found at the team's Regression Testing Sharepoint. Please contact the team for details.
 
 ### **Environment Variables for Local Testing in VS Code**
 
@@ -76,17 +84,38 @@ If you are using testing in VS Code using the Playwright extension, add the foll
 
 ```json
 "playwright.env": {
-        "PW_XFD_URL":"http://localhost",
-        "PW_XFD_USERNAME":"",
-        "PW_XFD_PASSWORD":"",
-        "PW_XFD_2FA_ISSUER":"",
-        "PW_XFD_2FA_SECRET":"",
-        "PW_XFD_USER_ROLE":"",
-        "PW_XFD_LOGIN" : "",
-        "PW_HEADLESS" : "false",
-        "PW_CI": "false"
+        "PW_GLOBAL_ADMIN_USERNAME": "",
+        "PW_GLOBAL_ADMIN_PASSWORD": "",
+        "PW_GLOBAL_ADMIN_2FA_SECRET": "",
+        "PW_REGIONAL_ADMIN_USERNAME": "",
+        "PW_REGIONAL_ADMIN_PASSWORD": "",
+        "PW_REGIONAL_ADMIN_2FA_SECRET": "",
+        "PW_GLOBAL_VIEW_USERNAME": "",
+        "PW_GLOBAL_VIEW_PASSWORD": "",
+        "PW_GLOBAL_VIEW_2FA_SECRET": "",
+        "PW_STANDARD_USER_USERNAME": "",
+        "PW_STANDARD_USER_PASSWORD": "",
+        "PW_STANDARD_USER_2FA_SECRET": "",
+        "PW_XFD_2FA_ISSUER": "",
+        "PW_XFD_URL": "",
 }
 ```
+
+## **First time use in Local Testing**
+
+For the first time use, developers wishing to use the Playwright tests or develop new ones should first read the documentation located at: [Playwright installation guide](https://playwright.dev/docs/intro#installing-playwright).
+
+Begin installation at the `xfd/playwright` directory by first running `npx playwright install`.
+
+After this is done, pull down a copy `.env` file from the team Sharepoint. Place it in the `xfd/playwright` directory. This will provide you with the credentials needed to run the tests.
+
+Once that is performed, run `source .env` to load the variables in your terminal instance. Optionally, you can include them in your `.bashrc` or `.zshrc` file to have them persist.
+
+Open up the file `2FA.png` on the team Sharepoint and scan the QR code into a mobile authenticator. This will load the 2FA tokens for all 4 service accounts. If this doesn't work, you can use the 2FA keys found in the `.env` and manually type them into an authenticator app like Google Authenticator.
+
+For the first time use, you will need to manually log in to each user account one time to set the row in the database, using username/password and the 2FA token. If your own developer account is a global administrator, you can then approve the 4 service account users and set them to their appropriate role. Or you can use your DBeaver database management tool and approve and set the user role type in the `Users` table.
+
+After all 4 service accounts have been set up for the first time, you can then run Playwright via the `npx playwright test` command and it will perform the tests as expected.
 
 ## **GitHub Actions Testing with Amazon ECS**
 
@@ -96,11 +125,9 @@ There is no need for any frontend developer to alter any configuration of Playwr
 
 ## **Logging into Crossfeed and Preserving Browser State**
 
-The global setup script located at `xfd/playwright/global-setup.ts` performs the task of logging into Crossfeed and storing the browsers state to `xfd/playwright/storageState.json`. This script works by manually performing the steps to login to Crossfeed through the browser.
+The global setup script located at `xfd/playwright/global-setup.ts` performs the task of logging into Crossfeed for each uer role and storing the browsers state to `xfd/playwright/${role}.json`, where `role` can be one of [`global-admin`, `regional-admin`, `global-view`, `standard-user`]. This script works by manually performing the steps to login to Crossfeed through the browser.
 
 This process does not use the PIV card certificate process, but a username/password process with 2FA tokens. The necessary environment variables are not stored in code, but populated by the build process (manually setting environment variables, set by docker-compose, or populated by GitHub Actions).
-
-The login process also uses `waitForFrontend()` to listen for a response code 200 from Crossfeed's frontend before performing the login procedure.
 
 The `OTPAuth` module is used to generate the 2FA token needed for login, using a 2FA secret string that is not released publically.
 
@@ -110,18 +137,19 @@ If the global setup script fails to login, manually check the login process by l
 
 Test cases are added by adding `*.spec.ts` files under the `xfd/playwright/e2e` folder.
 
-Tests are defined with a `.beforeEach()` and `.afterEach()` method which create a new browser instance for each individual test case. Each test case is its own discrete task, and the success or failure state of one case should not affect the status of other cases (unless otherwise intended).
+Tests are defined to receive an page argument with the login state for one of the four available user roles [`pageAsGlobalAdmin`, `pageAsRegionalAdmin`, `pageAsGlobalView`, `pageAsStandardUser`]. The test case will then run as the provided user.
 
 ```typescript
-test.describe('home', () => {
-  test.beforeEach(async ({ browser }) => {
-    const context = await browser.newContext();
-    page = await context.newPage();
-    await page.goto('/');
-  });
-
-  test.afterEach(async () => {
-    await page.close();
+test('Global Admin: homepage accessibility', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await runAccessibilityTest(
+      pageAsGlobalAdmin,
+      makeAxeBuilder,
+      testInfo,
+      'Global Admin'
+    );
   });
   ```
 

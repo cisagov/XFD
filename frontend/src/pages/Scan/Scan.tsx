@@ -11,6 +11,7 @@ import {
 import { Header } from '@trussworks/react-uswds';
 import { OrganizationOption } from 'pages/Scans/ScansView';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const setFrequency = async (body: ScanFormValues) => {
   if (body.is_single_scan) body.frequency = 1;
@@ -21,7 +22,7 @@ export const setFrequency = async (body: ScanFormValues) => {
 
 const ScanComponent: React.FC = () => {
   const { scanId } = useParams<any>();
-  const { apiGet, apiPut, setFeedbackMessage } = useAuthContext();
+  const { apiGet, apiPost, setFeedbackMessage } = useAuthContext();
   const [scan, setScan] = useState<Scan>();
   const [organizationOptions, setOrganizationOptions] = useState<
     OrganizationOption[]
@@ -47,14 +48,16 @@ const ScanComponent: React.FC = () => {
         scan: Scan;
         schema: ScanSchema;
         organizations: OrganizationType[];
-      }>(`/scans/${scanId}`);
+      }>(ENDPOINTS.SCAN.replace('{scan_id}', scanId));
       setScan(scan);
       setDefaultValues(scan);
       setScanSchema(schema);
       setOrganizationOptions(
         organizations.map((e) => ({ label: e.name, value: e.id }))
       );
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setTags(tags);
     } catch (e) {
       console.error(e);
@@ -64,7 +67,7 @@ const ScanComponent: React.FC = () => {
   const onSubmit = async (body: ScanFormValues) => {
     try {
       setFrequency(body);
-      await apiPut(`/scans/${scanId}`, {
+      await apiPost(ENDPOINTS.SCAN_UPDATE.replace('{scan_id}', scanId), {
         body: {
           ...body,
           organizations: body.organizations

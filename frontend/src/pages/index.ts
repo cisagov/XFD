@@ -1,12 +1,11 @@
 export * from './AuthLogin';
-export * from './AuthCreateAccount';
 export * from './Domains';
 export * from './Domain';
 export * from './LoginGovCallback';
 export * from './OktaCallback';
 export * from './Scans';
 export * from './Search';
-export * from './TermsOfUse';
+export * from '../components/Dialog/TermsOfUse';
 export * from './Vulnerability';
 export { default as AdminTools } from './AdminTools';
 export { default as Feeds } from './Feeds';

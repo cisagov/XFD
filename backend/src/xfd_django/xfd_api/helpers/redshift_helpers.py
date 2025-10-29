@@ -6,7 +6,10 @@ Redshift or CVE JSON feeds.
 # Standard Python Libraries
 from datetime import datetime
 import json
+import logging
 from typing import Any, Dict, List, Optional
+
+LOGGER = logging.getLogger(__name__)
 
 
 def safe_json_loads(raw_text: Optional[str]) -> Optional[Any]:
@@ -126,37 +129,44 @@ def extract_ssvc(adp_items: Optional[List[Dict[str, Any]]]) -> Dict[str, Optiona
         "adp_date_updated": None,
     }
     if not adp_items:
+        LOGGER.warning("No adp_items found. Returning empty SSVC response.")
         return result
 
-    adp_item = adp_items[0]  # latest already chosen in SQL
-    result["adp_provider"] = str(
-        adp_item.get("providerMetadata", {}).get("shortName") or ""
-    )
-    result["adp_title"] = str(adp_item.get("title") or "")
+    for adp_item in adp_items:
+        metrics_list = adp_item.get("metrics") or []
+        for metric_item in metrics_list:
+            other = metric_item.get("other") or {}
+            if str(other.get("type") or "").lower() != "ssvc":
+                continue
 
-    metrics_list = adp_item.get("metrics") or []
-    for metric_item in metrics_list:
-        other = metric_item.get("other") or {}
-        if str(other.get("type") or "").lower() != "ssvc":
-            continue
-        content = other.get("content") or {}
-        result["ssvc_version"] = str(content.get("version") or "")
-        result["ssvc_timestamp"] = str(content.get("timestamp") or "")
-        options_list = content.get("options") or []
-        for option_item in options_list:
-            # option_item is like {"Exploitation": "none"} etc.
-            for option_key, option_value in option_item.items():
-                key_normalized = str(option_key).strip().lower().replace(" ", "_")
-                if key_normalized == "exploitation":
-                    result["exploitation"] = str(option_value)
-                elif key_normalized == "automatable":
-                    result["automatable"] = str(option_value)
-                elif key_normalized == "technical_impact":
-                    result["technical_impact"] = str(option_value)
-        break  # only the first SSVC block
-    result["adp_date_updated"] = str(
-        adp_item.get("providerMetadata", {}).get("dateUpdated") or ""
-    )
+            # Found SSVC block — extract
+            content = other.get("content") or {}
+            result["ssvc_version"] = str(content.get("version") or "")
+            result["ssvc_timestamp"] = str(content.get("timestamp") or "")
+            options_list = content.get("options") or []
+            for option_item in options_list:
+                # option_item is like {"Exploitation": "none"}
+                for option_key, option_value in option_item.items():
+                    key_normalized = str(option_key).strip().lower().replace(" ", "_")
+                    if key_normalized == "exploitation":
+                        result["exploitation"] = str(option_value)
+                    elif key_normalized == "automatable":
+                        result["automatable"] = str(option_value)
+                    elif key_normalized == "technical_impact":
+                        result["technical_impact"] = str(option_value)
+
+            # Fill in metadata from this same ADP item
+            result["adp_provider"] = str(
+                adp_item.get("providerMetadata", {}).get("shortName") or ""
+            )
+            result["adp_title"] = str(adp_item.get("title") or "")
+            result["adp_date_updated"] = str(
+                adp_item.get("providerMetadata", {}).get("dateUpdated") or ""
+            )
+            LOGGER.info("SSVC data identified and returned.")
+            return result  # stop once we found the right SSVC block
+
+    # No SSVC found at all
     return result
 
 

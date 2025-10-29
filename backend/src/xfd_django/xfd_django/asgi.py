@@ -93,7 +93,7 @@ def get_application() -> FastAPI:
     # Third-Party Libraries
     from xfd_api.views import api_router  # pylint: disable=C0415
 
-    app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
+    app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG, log_config=None)
 
     # Create one pooled client on startup
     @app.on_event("startup")

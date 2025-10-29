@@ -190,6 +190,12 @@ variable "log_metric_db_deletion" {
   default     = "crossfeed-staging-DBDeletion"
 }
 
+variable "matomo_force_index_url" {
+  description = "Public URL for Matomo dashboard; should match {frontend_domain}/matomo"
+  type        = string
+  default     = "staging.crossfeed.cyber.dhs.gov/matomo"
+}
+
 variable "sns_topic_alarms" {
   description = "sns_alarm_topic_name"
   type        = string
@@ -911,4 +917,16 @@ variable "zscaler_cert_bucket_name" {
   description = "zscaler_cert_bucket_name"
   type        = string
   default     = "cisa-crossfeed-staging-zscaler"
+}
+
+variable "backend_api_log_group_name" {
+  description = "backend_api_log_group_name"
+  type        = string
+  default     = "cyhy-staging-backend-api"
+}
+
+variable "backend_api_requests_log_group_name" {
+  description = "backend_api_requests_log_group_name"
+  type        = string
+  default     = "cyhy-staging-backend-api-requests"
 }

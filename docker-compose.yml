@@ -2,7 +2,7 @@
 services:
   db:
     container_name: db
-    image: postgres:15.3
+    image: postgres:17.6
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
       - ./backend/db-init:/docker-entrypoint-initdb.d
@@ -61,7 +61,7 @@ services:
 
   minio:
     container_name: minio
-    image: bitnami/minio:2020.9.26
+    image: bitnamilegacy/minio:2020.9.26
     user: root
     command: 'minio server /data'
     networks:

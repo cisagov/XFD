@@ -7,12 +7,15 @@ import logging
 
 # Third-Party Libraries
 from django.core.paginator import Paginator
-from django.db.models import Prefetch
+from django.db.models import Case, F, IntegerField, Prefetch, Value, When
+from django.db.models.expressions import OrderBy
+from django.db.models.fields import GenericIPAddressField
+from django.db.models.functions import Cast
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import Domain, DomainSearchView, Organization, Service
 
 from ..auth import get_org_memberships, is_global_view_admin
-from ..helpers.filter_helpers import apply_domain_filters, sort_direction
+from ..helpers.filter_helpers import apply_domain_filters
 from ..helpers.s3_client import S3Client
 from ..schema_models.domain import DomainSearch
 
@@ -91,11 +94,76 @@ def get_domain_by_id(domain_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+IPV4_RE = r"^(25[0-5]|2[0-4]\d|1?\d{1,2})(\.(25[0-5]|2[0-4]\d|1?\d{1,2})){3}$"
+
+
+def apply_sort(qs, sort: str | None, order: str | None):
+    """Apply sorting to a queryset based on sort field and order."""
+    desc = str(order).lower() == "desc"
+
+    if sort == "name":
+        return qs.annotate(
+            is_ipv4=Case(
+                When(name__regex=IPV4_RE, then=Value(1)),
+                default=Value(0),
+                output_field=IntegerField(),
+            ),
+            name_inet=Case(
+                When(
+                    name__regex=IPV4_RE,
+                    then=Cast("name", output_field=GenericIPAddressField()),
+                ),
+                default=Value(None),
+                output_field=GenericIPAddressField(),
+            ),
+        ).order_by(
+            F("is_ipv4"),  # domains (0) then IPs (1); use .desc() to put IPs first
+            OrderBy(F("name_inet"), descending=desc, nulls_last=True),
+            OrderBy(F("name"), descending=desc),
+        )
+
+    if sort == "ip":
+        # If you’re certain ip values are valid IPs, you can drop the Case/When and Cast directly.
+        return qs.annotate(
+            ip_inet=Case(
+                When(
+                    ip__isnull=False,
+                    then=Cast("ip", output_field=GenericIPAddressField()),
+                ),
+                default=Value(None),
+                output_field=GenericIPAddressField(),
+            ),
+        ).order_by(
+            OrderBy(F("ip_inet"), descending=desc, nulls_last=True),  # numeric IP sort
+            OrderBy(F("ip"), descending=desc),  # stable fallback
+        )
+    if sort == "domain":
+        # If you’re certain ip values are valid IPs, you can drop the Case/When and Cast directly.
+        return qs.annotate(
+            domain_string_inet=Case(
+                When(
+                    domain_string__isnull=False,
+                    then=Cast("domain_string", output_field=GenericIPAddressField()),
+                ),
+                default=Value(None),
+                output_field=GenericIPAddressField(),
+            ),
+        ).order_by(
+            OrderBy(
+                F("domain_string_inet"), descending=desc, nulls_last=True
+            ),  # numeric IP sort
+            OrderBy(F("domain_string"), descending=desc),  # stable fallback
+        )
+
+    field = sort or "id"  # default if None
+    return qs.order_by(("-" if desc else "") + field)
+
+
 def search_domains(domain_search: DomainSearch, current_user):
     """List domains by search filter."""
     try:
-        domains = DomainSearchView.objects.order_by(
-            sort_direction(domain_search.sort, domain_search.order)
+        domains = apply_sort(
+            DomainSearchView.objects.all(), domain_search.order, domain_search.sort
         )
 
         # Apply global user permission filters

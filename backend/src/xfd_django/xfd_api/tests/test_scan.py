@@ -207,8 +207,8 @@ def test_update_by_global_admin_succeeds():
 
     scan = Scan.objects.create(name="censys", arguments="{}", frequency=999999)
 
-    response = client.put(
-        "/scans/{}".format(scan.id),
+    response = client.post(
+        "/update_scan/{}".format(scan.id),
         json={
             "name": "findomain",
             "arguments": "{}",
@@ -261,8 +261,8 @@ def test_update_non_granular_to_granular_by_global_admin():
     )
     organization.tags.set([tag])
 
-    response = client.put(
-        "/scans/{}".format(scan.id),
+    response = client.post(
+        "/update_scan/{}".format(scan.id),
         json={
             "name": "findomain",
             "arguments": "{}",
@@ -302,8 +302,8 @@ def test_update_by_global_view_fails():
 
     scan = Scan.objects.create(name="censys", arguments="{}", frequency=999999)
 
-    response = client.put(
-        "/scans/{}".format(scan.id),
+    response = client.post(
+        "/update_scan/{}".format(scan.id),
         json={"name": "findomain", "arguments": "{}", "frequency": 999991},
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )

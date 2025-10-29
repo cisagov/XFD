@@ -2,6 +2,11 @@ import React from 'react';
 import { TermsOfUse } from '../TermsOfUse';
 import { render, fireEvent, waitFor } from 'test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
+import { ENDPOINTS } from '@/constants/endpoints';
+
+vi.mock('@mui/x-data-grid', () => ({
+  DataGrid: () => <div>DATA_GRID</div>
+}));
 
 // vi.mock('react-router-dom', () => ({
 //   ...vi.requireActual('react-router-dom'),
@@ -91,7 +96,7 @@ it('handles valid terms submission correctly', async () => {
       touVersion: 'v5-user'
     }
   });
-  const checkbox = getByLabelText('I accept the above Terms and Conditions.');
+  const checkbox = getByLabelText(/I accept the above Terms and Conditions/);
   expect(checkbox).not.toBeChecked();
   fireEvent.click(checkbox);
   await waitFor(() => {
@@ -100,7 +105,7 @@ it('handles valid terms submission correctly', async () => {
   fireEvent.click(getByText('Submit'));
   await waitFor(() => {
     expect(mockPost).toHaveBeenCalledTimes(1);
-    expect(mockPost.mock.calls[0][0]).toEqual('/users/me/acceptTerms');
+    expect(mockPost.mock.calls[0][0]).toEqual(ENDPOINTS.USER_ACCEPT_TERMS);
     expect(mockPost.mock.calls[0][1]).toMatchObject({
       body: { version: 'v5-user' }
     });

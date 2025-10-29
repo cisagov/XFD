@@ -19,6 +19,8 @@ import MenuIcon from '@mui/icons-material/Menu';
 import cisaLogo from 'assets/cisaSeal.svg';
 import { NavMenuButton } from './NavMenuButton';
 import { NavMenuDrawer } from './NavMenuDrawer';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 export interface MenuItemType {
   menuItemTitle: string;
@@ -55,30 +57,46 @@ const LEARNING_CENTER_DOC_KEYS = {
 export const Header: React.FC = () => {
   const history = useHistory();
   const { apiPost, logout } = useAuthContext();
-  const { userLevel } = useUserLevel();
+  const { userLevel, user_type } = useUserLevel();
   const [openDrawer, setOpenDrawer] = React.useState(false);
   const toggleDrawer = (newOpen: boolean) => () => {
     setOpenDrawer(newOpen);
   };
+
+  const roleBasedPath = () => {
+    switch (user_type) {
+      case 'globalAdmin':
+        return ROUTES.GLOBAL_ADMIN_DASHBOARD;
+      case 'globalView':
+        return ROUTES.GLOBAL_VIEW_DASHBOARD;
+      case 'regionalAdmin':
+        return ROUTES.REGION_ADMIN_DASHBOARD;
+      case 'standard':
+        return ROUTES.VSDASHBOARD;
+      default:
+        return ROUTES.LOGIN;
+    }
+  };
+
   const adminHubMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Admin Tools',
-      path: '/admin-tools',
+      path: ROUTES.ADMIN_TOOLS,
       users: GLOBAL_ADMIN
     },
     {
       menuItemTitle: 'Manage Organizations',
-      path: '/organizations',
+      path: ROUTES.ORGANIZATIONS,
       users: REGIONAL_ADMIN
     },
     {
       menuItemTitle: 'Manage Users',
-      path: '/users',
+      path: ROUTES.USERS,
       users: REGIONAL_ADMIN
     },
     {
       menuItemTitle: 'User Registration',
-      path: '/region-admin-dashboard',
+      path: roleBasedPath(),
       users: REGIONAL_ADMIN
     }
   ].filter(({ users }) => users <= userLevel);
@@ -86,7 +104,7 @@ export const Header: React.FC = () => {
   const userMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Account Settings',
-      path: '/settings',
+      path: ROUTES.SETTINGS,
       users: STANDARD_USER
     },
     {
@@ -99,7 +117,7 @@ export const Header: React.FC = () => {
   const vulnScanningMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Vulnerability Scanning',
-      path: '/VSDashboard',
+      path: ROUTES.VSDASHBOARD,
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
@@ -125,13 +143,13 @@ export const Header: React.FC = () => {
   const inventoryMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Findings Library',
-      path: '/inventory',
+      path: ROUTES.INVENTORY,
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
 
   const handleLogoClick = () => {
-    history.push('/VSDashboard');
+    history.push(ROUTES.VSDASHBOARD);
   };
 
   const sectorVulnSnapshotsMenuItems: MenuItemType[] = [
@@ -253,7 +271,7 @@ export const Header: React.FC = () => {
     } else if (item.objectStoreParams) {
       try {
         const response = await apiPost<{ url: string }>(
-          '/v1/object-store/presigned-url',
+          ENDPOINTS.OBJECT_STORE_PRESIGNED_URL,
           {
             body: item.objectStoreParams
           }

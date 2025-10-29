@@ -1,6 +1,6 @@
 import React from 'react';
 import * as router from 'react-router-dom';
-import { RouteGuard } from '../RouteGuard';
+import { RouteGuard } from '../Routes/RouteGuard';
 import { render, testUser } from 'test-utils';
 import { afterAll, afterEach, beforeEach, expect, it, vi } from 'vitest';
 
@@ -63,18 +63,6 @@ it('redirects to /create-account if user is not fully registered', () => {
   });
   expect(mockPush).toHaveBeenCalled();
   expect(mockPush.mock.calls[0][0]).toEqual('/create-account');
-});
-
-it('redirects to /terms if user must sign terms', () => {
-  render(<RouteGuard component={Protected} />, {
-    authContext: {
-      user: testUser,
-      token: 'some-token',
-      userMustSign: true
-    }
-  });
-  expect(mockPush).toHaveBeenCalledTimes(1);
-  expect(mockPush.mock.calls[0][0]).toEqual('/terms');
 });
 
 it('redirects to unauth if user is not authenticated and unauth is string', () => {
