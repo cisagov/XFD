@@ -56,7 +56,6 @@ jobs:
       PW_STANDARD_USER_PASSWORD: ${{ secrets.PW_STANDARD_USER_PASSWORD }}
       PW_STANDARD_USER_2FA_SECRET: ${{ secrets.PW_STANDARD_USER_2FA_SECRET }}
       PW_XFD_2FA_ISSUER: ${{ secrets.PW_XFD_2FA_ISSUER }}
-      PW_HEADLESS: true
       CI: true
       ENVIRONMENT: staging
       GIT_BRANCH: develop
@@ -184,7 +183,6 @@ jobs:
       PW_STANDARD_USER_PASSWORD: ${{ secrets.PW_STANDARD_USER_PASSWORD }}
       PW_STANDARD_USER_2FA_SECRET: ${{ secrets.PW_STANDARD_USER_2FA_SECRET }}
       PW_XFD_2FA_ISSUER: ${{ secrets.PW_XFD_2FA_ISSUER }}
-      PW_HEADLESS: true
       CI: true
       ENVIRONMENT: integration
       GIT_BRANCH: integration
