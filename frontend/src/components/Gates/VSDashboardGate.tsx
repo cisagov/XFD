@@ -35,6 +35,23 @@ export const VSDashboardGate: React.FC<{
   const adminUsers = new Set(['globalView', 'globalAdmin', 'regionalAdmin']);
   const noDataMsgPart1 = 'There is no data available for ';
   const noDataMsgPart2 = adminUsers.has(userType) ? 'this' : 'your';
+  const noDataMsgPart3_admin =
+    "modify filter to see other organization's results.";
+  const noDataMsgPart3_standard = (
+    <>
+      contact the CyHy team through Support under{' '}
+      <Link
+        href={MAILTO_INQUIRY}
+        target="_blank"
+        rel="noopener"
+        sx={{ fontWeight: '600' }}
+      >
+        General Questions
+      </Link>
+      .
+    </>
+  );
+
   useClearFiltersOnMount(filters, removeFilter);
   const { orgId, orgName } = useOrgInfo(filters, currentOrganization);
   const {
@@ -60,7 +77,7 @@ export const VSDashboardGate: React.FC<{
         <NoDataMessage userType={noDataUserType} />
       </PageSection>
     );
-  } else if (assetsOwned === 0 || hostsScanned === 0) {
+  } else if (assetsOwned === 0 && hostsScanned === 0) {
     return (
       <PageSection>
         <NoDataMessage
@@ -105,7 +122,11 @@ export const VSDashboardGate: React.FC<{
         />
       </PageSection>
     );
-  } else if (isEmptyAfterScans(vulnScanData)) {
+  } else if (
+    isEmptyAfterScans(vulnScanData) &&
+    hostsScanned > 0 &&
+    assetsOwned > 0
+  ) {
     return (
       <VulnerabilityScan
         orgId={orgId}
@@ -114,37 +135,42 @@ export const VSDashboardGate: React.FC<{
         isKeyMetricsNull={true}
         alertMsg={
           <>
-            Discovery and assets scans were completed for
+            Discovery and vulnerability scans were completed for
             {adminUsers.has(userType) ? ' this ' : ' your '}
             organization, but no data is available. Please{' '}
-            {adminUsers.has(userType) ? (
-              "modify filter to see other organization's results."
-            ) : (
-              <>
-                contact the CyHy team through Support under{' '}
-                <Link
-                  href={MAILTO_INQUIRY}
-                  target="_blank"
-                  rel="noopener"
-                  sx={{ fontWeight: '600' }}
-                >
-                  General Questions
-                </Link>
-                .
-              </>
-            )}
+            {adminUsers.has(userType)
+              ? noDataMsgPart3_admin
+              : noDataMsgPart3_standard}
           </>
         }
       />
     );
-  } else if (isEmptyAfterScans(vulnScanData) && hostsScanned > 0) {
+  } else if (
+    isEmptyAfterScans(vulnScanData) &&
+    assetsOwned > 0 &&
+    hostsScanned === 0
+  ) {
     return (
       <VulnerabilityScan
         orgId={orgId}
         orgName={orgName}
         vulnScanData={vulnScanData}
         isKeyMetricsNull={true}
-        alertMsg={<>TO ADD</>}
+        alertMsg={
+          <>
+            A discovery scan was completed for
+            {adminUsers.has(userType) ? ' this ' : ' your '}
+            organization, but no hosts were found, so a vulnerability scan could
+            not be performed.{' '}
+            {adminUsers.has(userType) ? (
+              `Please ${noDataMsgPart3_admin}`
+            ) : (
+              <>
+                If this result is unexpected, please {noDataMsgPart3_standard}
+              </>
+            )}
+          </>
+        }
       />
     );
   }

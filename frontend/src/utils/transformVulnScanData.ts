@@ -442,15 +442,9 @@ export function isEmptyAfterScans(obj: AnyObject): boolean {
 
   if (!vulnSummary) return false;
 
-  const assetsOwned = vulnSummary.assetsOwned;
-  const hostsScanned = vulnSummary.hostsScanned;
-
-  const assetsOwnedPopulated = assetsOwned != null && assetsOwned !== 0;
-  const hostsScannedPopulated = hostsScanned != null && hostsScanned !== 0;
-
   const allMetricsEmpty = metrics.every(
     (m: AnyObject) => m.value == null || m.value === 0
   );
 
-  return assetsOwnedPopulated && hostsScannedPopulated && allMetricsEmpty;
+  return allMetricsEmpty;
 }

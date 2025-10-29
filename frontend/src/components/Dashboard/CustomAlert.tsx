@@ -20,11 +20,11 @@ const CustomAlert: React.FC<CustomAlertProps> = ({
   );
   if (isAlertActive) {
     return (
-      <Alert severity="info" sx={{ width: '100%' }}>
+      <Alert severity="info" sx={{ width: '100%', py: 1 }}>
         <AlertTitle
           variant="largeBody"
           color="primary.darker"
-          sx={{ fontWeight: 700 }}
+          sx={{ fontWeight: 700, mb: 1 }}
         >
           {headerMsg}
         </AlertTitle>
