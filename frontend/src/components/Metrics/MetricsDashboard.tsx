@@ -3,6 +3,7 @@ import { Box, Button } from '@mui/material';
 import { useAuthContext } from 'context/AuthContext';
 import MatomoLogo from '@/assets/matomo-logo.png';
 import ScansWidget from './Widgets/ScansWidget';
+import { ROUTES } from '@/constants/routes';
 
 const MetricsDashboard: React.FC = () => {
   const { user } = useAuthContext();
@@ -24,7 +25,7 @@ const MetricsDashboard: React.FC = () => {
               gap: 1
             }}
             onClick={() =>
-              window.open('/matomo', '_blank', 'noopener,noreferrer')
+              window.open(ROUTES.MATOMO, '_blank', 'noopener,noreferrer')
             }
             aria-label="Open Matomo Dashboard"
           >

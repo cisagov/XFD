@@ -6,7 +6,6 @@ export * from './Table';
 export * from './Paginator';
 export * from './ColumnFilter';
 export * from './SelectFilter';
-export * from './AuthForm';
 export * from './FileInput';
 export * from './ImportExport';
 export * from './Routes/RouteGuard';

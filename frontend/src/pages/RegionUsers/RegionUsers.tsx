@@ -22,6 +22,7 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { formatDate, parseISO } from 'date-fns';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -59,8 +60,7 @@ export const RegionUsers: React.FC = () => {
   const apiRefCurrentUsers = useGridApiRef();
   const regionalAdminId = user?.region_id;
   const { formattedUserType } = useUserLevel();
-  const getOrgsURL = `/organizations/region_id/`;
-  const getUsersURL = `/v2/users?invite_pending=`;
+  const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
 
   const pendingCols: GridColDef[] = [
     {
@@ -359,7 +359,9 @@ export const RegionUsers: React.FC = () => {
       return;
     }
     try {
-      const rows = await apiGet<OrganizationType[]>(getOrgsURL + row.region_id);
+      const rows = await apiGet<OrganizationType[]>(
+        ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', row.region_id)
+      );
       setOrganizations(rows);
       if (row.roles.length > 0) {
         setSelectedOrg({
@@ -374,11 +376,7 @@ export const RegionUsers: React.FC = () => {
   };
   const fetchPendingUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(
-        user?.user_type === 'regionalAdmin'
-          ? `${getUsersURL}true&region_id=${regionalAdminId}`
-          : `${getUsersURL}true`
-      );
+      const rows = await apiGet<User[]>(`${getUsersURL}true`);
       setPendingUsers(rows);
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -388,11 +386,7 @@ export const RegionUsers: React.FC = () => {
   }, [apiGet]);
   const fetchCurrentUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(
-        user?.user_type === 'regionalAdmin'
-          ? `${getUsersURL}false&region_id=${regionalAdminId}`
-          : `${getUsersURL}false`
-      );
+      const rows = await apiGet<User[]>(`${getUsersURL}false`);
       setCurrentUsers(transformData(rows));
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -409,7 +403,7 @@ export const RegionUsers: React.FC = () => {
 
   const deleteUser = useCallback(
     (user_id: string): Promise<boolean> => {
-      return apiDelete(`/users/${user_id}`).then(
+      return apiDelete(ENDPOINTS.USER.replace('{user_id}', user_id)).then(
         () => {
           apiRefPendingUsers.current?.updateRows([
             { id: user_id, _action: 'delete' }
@@ -435,9 +429,12 @@ export const RegionUsers: React.FC = () => {
       org_name: string
     ): Promise<{ success: boolean; body: string }> => {
       try {
-        const res = await apiPost(`/v2/update_user/${user_id}`, {
-          body: { invite_pending: false }
-        });
+        const res = await apiPost(
+          ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', user_id),
+          {
+            body: { invite_pending: false }
+          }
+        );
         apiRefPendingUsers.current?.updateRows([
           { id: user_id, _action: 'delete' }
         ]);
@@ -462,9 +459,15 @@ export const RegionUsers: React.FC = () => {
       selectedOrgId: any
     ): Promise<{ success: boolean; body: string }> => {
       try {
-        const res = await apiPost(`/v2/organizations/${selectedOrgId}/users`, {
-          body: { user_id, role: 'user' }
-        });
+        const res = await apiPost(
+          ENDPOINTS.ORGANIZATION_ADD_USER.replace(
+            '{organization_id}',
+            selectedOrgId
+          ),
+          {
+            body: { user_id, role: 'user' }
+          }
+        );
         return updateUser(user_id, res.organization.name);
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
@@ -477,7 +480,10 @@ export const RegionUsers: React.FC = () => {
   const sendApprovalEmail = useCallback(
     async (user_id: string): Promise<{ status_code: number; body: string }> => {
       try {
-        const res = await apiPost(`/users/${user_id}/register/approve`);
+        const res = await apiPost(
+          ENDPOINTS.USERS_REGISTER_APPROVE.replace('{user_id}', user_id),
+          {}
+        );
         return { status_code: res.status_code, body: res.body };
       } catch (e: any) {
         return {
@@ -549,9 +555,15 @@ export const RegionUsers: React.FC = () => {
 
   const removeOrgFromUser = useCallback(
     (org_id: String, roleId: String) => {
-      apiPost(`/organizations/${org_id}/roles/${roleId}/remove`, {
-        body: {}
-      }).then(
+      apiPost(
+        ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+          '{organization_id}',
+          org_id.toString()
+        ).replace('{role_id}', roleId.toString()),
+        {
+          body: {}
+        }
+      ).then(
         (res) => {
           console.log(res);
         },
@@ -694,10 +706,7 @@ export const RegionUsers: React.FC = () => {
           </Alert>
         )}
         <Typography variant="h2" style={{ fontSize: '1.25rem' }} pb={2} pt={5}>
-          Members of
-          {user?.user_type === 'regionalAdmin'
-            ? ` Region ${regionalAdminId}`
-            : ' all regions'}
+          Members of all regions
         </Typography>
         <Paper sx={{ height: '667px' }}>
           <DataGrid
