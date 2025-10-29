@@ -12,16 +12,16 @@ from django.db import models
 from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
 from django.db.models.functions import Power
 from django.utils import timezone
+from psycopg2 import sql
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
-from xfd_api.tasks.utils.mdl_insert_utils import (
-    save_cve_to_datalake,
-    save_ip_to_datalake,
-)
 from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
 from xfd_api.utils.hash import hash_ip
-from xfd_api.utils.scan_utils.alerting import IngestionError, QueryError
+from xfd_api.utils.scan_utils.alerting import QueryError
 from xfd_mini_dl.models import (
     Cidr,
+    Cve,
+    Ip,
     Organization,
     Ticket,
     Vulnerability,
@@ -37,101 +37,145 @@ logging.basicConfig(
 LOGGER = logging.getLogger(__name__)
 SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
+CHUNK_SIZE = 10000  # tune as needed
 
 
-def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id, org_acronym):
+@cloudwatch_metric()
+def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     """
-    Fetch vulnerability scans from Redshift for a specific organization.
+    Optimized and chunked vulnerability scan fetch from Redshift.
 
-    Uses parameterized queries for safety and cleaner syntax.
+    Fetches scans in chunks, bulk-saves IPs and CVEs for all orgs.
     """
+    if not org_id_dict:
+        LOGGER.warning("No organizations provided for vulnerability scan fetch.")
+        return
+
+    acronyms = list(org_id_dict.keys())
     LOGGER.info(
-        "Started processing vulnerability scans for org %s (%s)...", org_acronym, org_id
+        "Started optimized chunked vuln scan fetch for %d orgs: %s",
+        len(acronyms),
+        acronyms,
     )
 
-    query = """
+    base_query = sql.SQL(
+        """
         SELECT *
         FROM vmtableau.vuln_scans
         WHERE time >= %s
           AND time < %s
-          AND owner = %s
+          AND owner IN ({acronyms})
+        ORDER BY time
+        LIMIT %s OFFSET %s
+        """
+    ).format(acronyms=sql.SQL(", ").join([sql.Placeholder()] * len(acronyms)))
+
+    offset = 0
+    total_processed = 0
+
+    while True:
+        params = [ps_start_dt, ps_end_dt] + acronyms + [CHUNK_SIZE, offset]
+        vuln_scans_chunk = fetch_from_redshift_with_params(base_query, params)
+
+        if not vuln_scans_chunk:
+            if offset == 0:
+                LOGGER.warning("No vulnerability scans found in frozen table.")
+            break
+
+        LOGGER.info(
+            "Fetched %d vuln scans from Redshift (offset=%d)",
+            len(vuln_scans_chunk),
+            offset,
+        )
+
+        process_vulnerability_scans_bulk(vuln_scans_chunk, org_id_dict)
+
+        total_processed += len(vuln_scans_chunk)
+        offset += CHUNK_SIZE
+
+        LOGGER.info(
+            "Processed %d vuln scans so far (next offset=%d)",
+            total_processed,
+            offset,
+        )
+
+    LOGGER.info(
+        "Completed bulk chunked vuln scan sync. Total processed: %d", total_processed
+    )
+
+
+def process_vulnerability_scans_bulk(vuln_scans_chunk, org_id_dict):
     """
+    Optimized vulnerability scan processing for a single chunk.
 
-    params = [ps_start_dt, ps_end_dt, org_acronym]
+    Bulk-saves IPs and CVEs for all orgs in the chunk.
+    """
+    if not vuln_scans_chunk:
+        LOGGER.debug("Empty vuln scan chunk, skipping.")
+        return
 
-    vuln_scans = fetch_from_redshift_with_params(query, params)
-    LOGGER.info(
-        "Fetched %d vulnerability scans from Redshift for %s (%s)",
-        len(vuln_scans),
-        org_acronym,
-        org_id,
-    )
+    ip_records = {}
+    cve_records = {}
 
-    if vuln_scans:
-        process_vulnerability_scans(vuln_scans, org_id, org_acronym)
-        LOGGER.info("Finished processing vulnerability scans for %s", org_acronym)
-    else:
-        LOGGER.warning("No vulnerability scans found for %s (%s)", org_acronym, org_id)
+    for vuln in vuln_scans_chunk:
+        owner = vuln.get("owner")
+        org_id = org_id_dict.get(owner)
+        if not org_id:
+            continue
 
+        ip_str = vuln.get("ip")
+        if ip_str:
+            ip_records[(org_id, ip_str)] = {
+                "ip": ip_str,
+                "ip_hash": hash_ip(ip_str),
+                "organization_id": org_id,
+            }
 
-def process_vulnerability_scans(vuln_scans, org_id, org_acronym):
-    """Process and save vulnerability scans for a single org."""
-    LOGGER.info(
-        "Processing %d vulnerability scans for org %s", len(vuln_scans), org_acronym
-    )
+        cve_str = vuln.get("cve")
+        if cve_str:
+            cve_records[cve_str] = {"name": cve_str}
 
-    for vuln in vuln_scans:
-        try:
-            # Validate ownership
-            if vuln.get("owner") != org_acronym:
-                LOGGER.warning(
-                    "Skipping scan for unexpected owner '%s' (expected '%s')",
-                    vuln.get("owner"),
-                    org_acronym,
-                )
-                continue
+    ip_map = {}
+    if ip_records:
+        LOGGER.info("Bulk saving %d IPs...", len(ip_records))
+        ip_objs = bulk_save_ips(list(ip_records.values()))
+        ip_map = {(ip_obj.organization_id, ip_obj.ip): ip_obj.id for ip_obj in ip_objs}
 
-            ip_id = (
-                save_ip_to_datalake(
-                    {
-                        "ip": vuln["ip"],
-                        "ip_hash": hash_ip(vuln["ip"]),
-                        "organization": org_id,
-                    }
-                )
-                if vuln.get("ip")
-                else None
-            )
+    cve_map = {}
+    if cve_records:
+        LOGGER.info("Bulk saving %d CVEs...", len(cve_records))
+        cve_objs = bulk_save_cves(list(cve_records.values()))
+        cve_map = {cve_obj.name: cve_obj.id for cve_obj in cve_objs}
 
-            cve = (
-                save_cve_to_datalake({"name": vuln["cve"]}) if vuln.get("cve") else None
-            )
+    vuln_scan_dicts = []
+    for vuln in vuln_scans_chunk:
+        owner = vuln.get("owner")
+        org_id = org_id_dict.get(owner)
+        if not org_id:
+            continue
 
-            vuln_scan_dict = build_vuln_scan_dict(vuln, org_id, ip_id, cve)
+        ip_str = vuln.get("ip")
+        cve_str = vuln.get("cve")
+        ip_id = ip_map.get((org_id, ip_str)) if ip_str else None
+        cve_id = cve_map.get(cve_str) if cve_str else None
 
-            try:
-                save_vuln_scan(vuln_scan_dict)
-            except Exception as e:
-                LOGGER.exception("Error saving vulnerability scan: %s", e)
-                raise e
+        vs_dict = build_vuln_scan_dict(vuln, org_id, ip_id, cve_id)
+        truncate_charfields(VulnScan, vs_dict)
+        vuln_scan_dicts.append(vs_dict)
 
-        except Exception as e:
-            LOGGER.exception("Error processing Vulnerability Scan: %s", e)
-            raise IngestionError(
-                SCAN_NAME,
-                str(e),
-                f"Failed processing vulnerability scans for {org_acronym}",
-            ) from e
+    if vuln_scan_dicts:
+        LOGGER.info("Bulk inserting %d vulnerability scans...", len(vuln_scan_dicts))
+        bulk_save_vuln_scans(vuln_scan_dicts)
 
 
-def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
+def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
     """Construct a vulnerability scan dictionary."""
     return {
         "id": vuln.get("_id"),
         "cert_id": vuln.get("cert", None),
         "cpe": vuln.get("cpe", None),
         "cve_string": vuln.get("cve", None),
-        "cve": cve,
+        "cve_id": cve_id,
         "cvss_base_score": vuln.get("cvss_base_score", None),
         "cvss_temporal_score": vuln.get("cvss_temporal_score", None),
         "cvss_temporal_vector": vuln.get("cvss_temporal_vector", None),
@@ -140,7 +184,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
         "exploit_available": vuln.get("exploit_available", None),
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
-        "ip": ip_id if ip_id else None,
+        "ip_id": ip_id if ip_id else None,
         "latest": vuln.get("latest", None),
         "owner": vuln.get("owner", None),
         "osvdb_id": vuln.get("osvdb", None),
@@ -195,6 +239,29 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
     }
 
 
+def bulk_save_ips(ip_data_list):
+    """Insert or get IPs in bulk."""
+    objs = [Ip(**d) for d in ip_data_list]
+    Ip.objects.bulk_create(objs, ignore_conflicts=True)
+    # Fetch map of ip->id for all inserted/existing
+    existing = Ip.objects.filter(ip__in=[d["ip"] for d in ip_data_list])
+    return existing
+
+
+def bulk_save_cves(cve_data_list):
+    """Insert or get CVEs in bulk."""
+    objs = [Cve(**d) for d in cve_data_list]
+    Cve.objects.bulk_create(objs, ignore_conflicts=True)
+    existing = Cve.objects.filter(name__in=[d["name"] for d in cve_data_list])
+    return existing
+
+
+def bulk_save_vuln_scans(vuln_scan_dicts):
+    """Bulk insert or update vuln scans."""
+    objs = [VulnScan(**v) for v in vuln_scan_dicts]
+    VulnScan.objects.bulk_create(objs, ignore_conflicts=True)
+
+
 def truncate_charfields(model_cls, data_dict):
     """Trim or stringify charfields in the given data dict to their model-defined max_length."""
     for field in model_cls._meta.fields:
@@ -215,6 +282,7 @@ def truncate_charfields(model_cls, data_dict):
             data_dict[field.name] = val
 
 
+@cloudwatch_metric()
 def save_vuln_scan(vuln_scan: Dict) -> str:
     """Save a Vulnerability Scan record to the data lake.
 
@@ -259,9 +327,6 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
         )
 
         if not included.exists():
-            LOGGER.info(
-                "No vulnerability scan tickets found for organization %s.", org.acronym
-            )
             VulnScanSummary.objects.update_or_create(
                 summary_date=summary_date,
                 organization=org,
@@ -530,18 +595,12 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
                 "top_5_risky_hosts": top_5_hosts,
             },
         )
-
-        LOGGER.info(
-            "Created/updated vuln scan summary for organization %s (%s)",
-            org.acronym,
-            org.id,
-        )
-
     except Exception as e:
         LOGGER.exception("Error creating vuln scan summary for org %s: %s", org_id, e)
         raise QueryError(SCAN_NAME, str(e), "Error creating vuln scan summary") from e
 
 
+@cloudwatch_metric()
 def get_asset_owned_count(org):
     """Return count of IPs in the reported CIDRs for passed org."""
     # Get only CIDRs currently associated with the org via CidrOrgs.current=True

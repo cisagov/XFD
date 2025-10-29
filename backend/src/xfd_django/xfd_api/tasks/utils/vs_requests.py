@@ -1,5 +1,4 @@
 """Vs Requests Helpers."""
-# VALIDATE ??????
 # Standard Python Libraries
 import datetime
 from ipaddress import IPv4Network, IPv6Network
@@ -36,11 +35,20 @@ def fetch_orgs_from_redshift():
     return org_id_dict
 
 
-def fetch_org_id_dict_fast(db_name="mini_data_lake"):
-    """Fast path for tests: map acronym -> id using MDL only."""
-    rows = Organization.objects.using(db_name).values("id", "acronym")
+def fetch_org_id_dict_fast(db_name="mini_data_lake", org_ids=None):
+    """
+    Fast path for tests or lookups: map acronym -> id using MDL only.
+
+    If org_ids is provided, only those organizations are included.
+    """
+    query = Organization.objects.using(db_name).values("id", "acronym")
+
+    if org_ids:
+        # Filter efficiently if a list or set of IDs is provided
+        query = query.filter(id__in=org_ids)
+
     # Assumes acronym is unique; if not, last one wins.
-    return {r["acronym"]: r["id"] for r in rows}
+    return {r["acronym"]: r["id"] for r in query}
 
 
 def process_orgs(request_list):
