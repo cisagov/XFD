@@ -217,14 +217,6 @@ SCAN_SCHEMA = {
         memory="16384",
         description="Pull in organization and asset data from VSs Vulnerability database",
     ),
-    "vs_port_scan_worker": ScanSchema(
-        type="fargate",
-        is_passive=True,
-        global_scan=True,
-        cpu="2048",
-        memory="16384",
-        description="Pull in port scan data from VSs Vulnerability database",
-    ),
     "cveSync": ScanSchema(
         type="fargate",
         is_passive=True,
