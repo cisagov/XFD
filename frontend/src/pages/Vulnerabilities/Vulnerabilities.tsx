@@ -226,42 +226,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     paginationModel.pageSize
   ]);
 
-  // const handlePaginationModelChange = useCallback(
-  //   (model: GridPaginationModel) => {
-  //     setPaginationModel((prev) => ({
-  //       ...prev,
-  //       page: model.page,
-  //       pageSize: model.pageSize,
-  //       filters: prev.filters
-  //     }));
-
-  //     if (model.page === 0 && paginationModel.page !== 0) {
-  //       return;
-  //     }
-
-  //     if (
-  //       model.page !== paginationModel.page ||
-  //       model.pageSize !== paginationModel.pageSize
-  //     ) {
-  //       fetchVulnerabilities({
-  //         page: model.page + 1,
-  //         pageSize: model.pageSize,
-  //         order: sortModel[0]?.field,
-  //         sort: sortModel[0]?.sort ?? 'desc',
-  //         filters: filters || [],
-  //         showAll: !onlyOpenVulns
-  //       });
-  //     }
-  //   },
-  //   [
-  //     fetchVulnerabilities,
-  //     sortModel,
-  //     filters,
-  //     onlyOpenVulns,
-  //     paginationModel.page,
-  //     paginationModel.pageSize
-  //   ]
-  // );
   const showAllVulnsButton = (
     <Button
       size="small"
