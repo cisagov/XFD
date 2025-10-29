@@ -59,7 +59,6 @@ def delete_message(queue_url, receipt_handle):
     """Delete a processed message from the queue."""
     try:
         sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
-        LOGGER.info("Deleted processed message.")
     except Exception as e:
         LOGGER.error("Error deleting message: %s", e)
 
@@ -136,7 +135,7 @@ def main():
     # Special batching logic for vulnScanningSync
     # ------------------------------------------
     if scan_name == "vulnScanningSync":
-        batch_size = int(os.getenv("VULN_BATCH_SIZE", "100"))
+        batch_size = int(os.getenv("VULN_BATCH_SIZE", "1500"))
         LOGGER.info(
             "Bulk mode enabled for vulnScanningSync (batch size=%d)", batch_size
         )

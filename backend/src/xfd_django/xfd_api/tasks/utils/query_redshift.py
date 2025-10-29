@@ -11,7 +11,11 @@ from typing import Any, Tuple
 # Third-Party Libraries
 import psycopg2
 from psycopg2 import sql
-from xfd_api.tasks.utils.cloudwatch_metrics import emit_redshift_metric
+from psycopg2.pool import SimpleConnectionPool
+from xfd_api.tasks.utils.cloudwatch_metrics import (
+    cloudwatch_metric,
+    emit_redshift_metric,
+)
 from xfd_api.tasks.utils.datetime_utils import to_utc_naive
 from xfd_api.utils.scan_utils.alerting import QueryError
 
@@ -24,43 +28,94 @@ logging.basicConfig(
 )
 LOGGER = logging.getLogger(__name__)
 
+# --- Connection pool (per process / worker) ---
+_POOL = None
 
-def query_redshift(query, params=None):
-    """Execute a query on Redshift and return results as a list of dictionaries."""
-    conn = psycopg2.connect(
-        dbname=os.environ.get("REDSHIFT_DATABASE"),
-        user=os.environ.get("REDSHIFT_USER"),
-        password=os.environ.get("REDSHIFT_PASSWORD"),
-        host=os.environ.get("REDSHIFT_HOST"),
-        port=5439,
-    )
-    query_name = str(query)[:120].replace("\n", " ")  # short label
-    start = time.perf_counter()
-    rows_returned = 0
-    success = True
 
-    try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cursor.execute(query, params or ())
-        results = cursor.fetchall()
-        rows_returned = len(results)
-        return [dict(row) for row in results]
-    except Exception as e:
-        success = False
-        raise QueryError(SCAN_NAME, str(e)) from e
-    finally:
-        duration = time.perf_counter() - start
-        emit_redshift_metric(query_name, duration, rows_returned, success)
-        LOGGER.info(
-            "[Redshift] [%0.3fs] [%d rows] success=%s :: %s",
-            duration,
-            rows_returned,
-            success,
-            query_name,
+def _get_pool():
+    """Create or return a singleton connection pool per worker."""
+    global _POOL
+    if _POOL is None:
+        LOGGER.info("[Redshift] Initializing connection pool...")
+        _POOL = SimpleConnectionPool(
+            minconn=1,
+            maxconn=2,  # allow a couple concurrent cursors per process
+            dbname=os.environ.get("REDSHIFT_DATABASE"),
+            user=os.environ.get("REDSHIFT_USER"),
+            password=os.environ.get("REDSHIFT_PASSWORD"),
+            host=os.environ.get("REDSHIFT_HOST"),
+            port=5439,
+            connect_timeout=10,
         )
+    return _POOL
 
-        cursor.close()
-        conn.close()
+
+@cloudwatch_metric()
+def query_redshift(query, params=None):
+    """Execute a query on Redshift and return results as list of dicts."""
+    pool = _get_pool()
+    query_name = str(query)[:120].replace("\n", " ")
+    rows_returned = 0
+
+    for attempt in range(5):  # retry up to 5 times
+        conn = None
+        cursor = None
+        start = time.perf_counter()
+        success = True
+        try:
+            conn = pool.getconn()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cursor.execute(query, params or ())
+            results = cursor.fetchall()
+            rows_returned = len(results)
+            return [dict(row) for row in results]  # ✅ success -> return immediately
+
+        except psycopg2.OperationalError as e:
+            success = False
+            if "Connection refused" in str(e) or "terminating connection" in str(e):
+                sleep = 2**attempt
+                LOGGER.warning(
+                    "[Redshift] Connection error (%s). Retrying in %ss (attempt %d/5)",
+                    e,
+                    sleep,
+                    attempt + 1,
+                )
+                time.sleep(sleep)
+                # drop the bad connection
+                if conn:
+                    pool.putconn(conn, close=True)
+                _reset_pool()
+                continue  # ✅ actually retry
+            raise QueryError(SCAN_NAME, str(e)) from e
+
+        except Exception as e:
+            success = False
+            raise QueryError(SCAN_NAME, str(e)) from e
+
+        finally:
+            duration = time.perf_counter() - start
+            emit_redshift_metric(query_name, duration, rows_returned, success)
+            LOGGER.info(
+                "[Redshift] [%0.3fs] [%d rows] success=%s",
+                duration,
+                rows_returned,
+                success,
+            )
+            if cursor:
+                cursor.close()
+            if conn:
+                pool.putconn(conn)
+    # if we exhausted retries
+    raise QueryError(SCAN_NAME, "Max Redshift retries exceeded")
+
+
+def _reset_pool():
+    """Safely reset the global connection pool."""
+    global _POOL
+    if _POOL:
+        _POOL.closeall()
+
+    _POOL = None
 
 
 def detect_data_set(query):
@@ -105,15 +160,8 @@ def fetch_from_redshift_with_params(query: str, params: Tuple[Any, ...]):
     if IS_LOCAL:
         data_set = detect_data_set(query)
         return load_test_data(data_set)
-
-    start_time = datetime.datetime.now()
     try:
         result = query_redshift(query, params=params)
-        duration_seconds = (datetime.datetime.now() - start_time).total_seconds()
-        # Do NOT log params to avoid leaking sensitive values
-        LOGGER.info(
-            "[Redshift] [%.3fs] [%s records] %s", duration_seconds, len(result), query
-        )
         return result
     except Exception as e:
         LOGGER.info("Error fetching data from Redshift: %s", e)

@@ -305,7 +305,6 @@ def save_vuln_scan(vuln_scan: Dict) -> str:
     return str(vuln_scan_obj.id)
 
 
-@cloudwatch_metric()
 def create_vuln_scan_summary(summary_date=None, org_id=None):
     """Fill vuln_scan_summary table for today's date for a single organization."""
     try:
@@ -328,9 +327,6 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
         )
 
         if not included.exists():
-            LOGGER.info(
-                "No vulnerability scan tickets found for organization %s.", org.acronym
-            )
             VulnScanSummary.objects.update_or_create(
                 summary_date=summary_date,
                 organization=org,
@@ -599,13 +595,6 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
                 "top_5_risky_hosts": top_5_hosts,
             },
         )
-
-        LOGGER.info(
-            "Created/updated vuln scan summary for organization %s (%s)",
-            org.acronym,
-            org.id,
-        )
-
     except Exception as e:
         LOGGER.exception("Error creating vuln scan summary for org %s: %s", org_id, e)
         raise QueryError(SCAN_NAME, str(e), "Error creating vuln scan summary") from e
@@ -646,7 +635,6 @@ def get_asset_owned_count(org):
     return total_ips
 
 
-@cloudwatch_metric()
 def get_risky_services_count(org):
     """Return count of risky services for passed org."""
     return (
