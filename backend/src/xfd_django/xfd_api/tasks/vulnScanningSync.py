@@ -16,14 +16,13 @@ from xfd_api.tasks.utils.vs_port_scans import (
     create_port_scan_summary,
     fetch_port_scans_from_redshift,
 )
-from xfd_api.tasks.utils.vs_requests import fetch_org_id_dict_fast
-from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift
+from xfd_api.tasks.utils.vs_tickets import fetch_tickets_from_redshift_single_org
 from xfd_api.tasks.utils.vs_vuln_scans import (
     create_vuln_scan_summary,
-    fetch_vuln_scan_chunks_frozen,
+    fetch_vuln_scans_from_redshift,
 )
 from xfd_api.utils.scan_utils.alerting import ScanExecutionError
-from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
+from xfd_mini_dl.models import NMIServiceGroup, Organization, RiskyServiceGroup
 
 LOGGER = logging.getLogger(__name__)
 
@@ -106,11 +105,14 @@ def main(event):  # pylint: disable=R0915
     # Use fixed window + deterministic keyset on (time, _id)
     ps_start_dt = event.get("start_datetime")
     ps_end_dt = event.get("end_datetime")
-    org_list = event.get("org_list")
 
-    org_ids = [org.get("id") for org in org_list if org.get("id")]
+    org_id = event.get("organizationId")
 
-    org_id_dict = fetch_org_id_dict_fast(org_ids=org_ids)
+    try:
+        org = Organization.objects.get(id=org_id)
+        acronym = org.acronym
+    except Organization.DoesNotExist:
+        LOGGER.warning("No acronym found for the org with the following id: %s", org_id)
 
     # Normalize start_datetime
     if isinstance(ps_start_dt, (int, float)):  # timestamp
@@ -130,11 +132,9 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Frozen port-scan window: [%s .. %s]", ps_start_dt, ps_end_dt)
 
-    LOGGER.info("Processing %d organizations", len(org_id_dict))
-
     # Start Vuln Scan
     try:
-        fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict)
+        fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, acronym, org_id)
     except Exception as e:
         LOGGER.exception("Vuln Scan error occurred: %s", e)
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
@@ -151,7 +151,8 @@ def main(event):  # pylint: disable=R0915
     }
 
     fetch_port_scans_from_redshift(
-        org_id_dict,
+        org_id,
+        acronym,
         risky_service_groups,
         nmi_service_groups,
         ps_start_dt,
@@ -159,19 +160,19 @@ def main(event):  # pylint: disable=R0915
     )
 
     # Create summaries with individual error handling
-    LOGGER.info("Creating port scan summaries for all organizations...")
+    LOGGER.info("Creating port scan summary...")
     try:
-        for org_id in org_id_dict.values():
-            create_port_scan_summary(org_id=org_id)
-        LOGGER.info("Finished port scan summaries")
+        create_port_scan_summary(org_id=org_id)
+        LOGGER.info("Finished port scan summary")
     except Exception as e:
-        LOGGER.error("Failed to create port scan summaries: %s", e, exc_info=True)
+        LOGGER.error("Failed to create port scan summary: %s", e, exc_info=True)
 
     LOGGER.info("Vuln and port scan syncs have completed")
 
     # Process Tickets (Chunked)
-    fetch_tickets_from_redshift(
-        org_id_dict,
+    fetch_tickets_from_redshift_single_org(
+        org_id,
+        acronym,
         risky_service_groups,
         nmi_service_groups,
         ps_start_dt,
@@ -182,16 +183,13 @@ def main(event):  # pylint: disable=R0915
 
     LOGGER.info("Creating vulnerability scan summary...")
 
-    for org_id in org_id_dict.values():
-        try:
-            create_vuln_scan_summary(org_id=org_id)
-        except Exception as e:
-            LOGGER.error(
-                "Failed to create vuln scan summary for org %s: %s",
-                org_id,
-                e,
-                exc_info=True,
-            )
+    try:
+        create_vuln_scan_summary(org_id=org_id)
+        LOGGER.info("Finished vulnerability scan summary")
+    except Exception as e:
+        LOGGER.error(
+            "Failed to create vulnerability scan summary: %s", e, exc_info=True
+        )
 
     LOGGER.info("Finished vulnerability scan summary")
 
