@@ -45,14 +45,14 @@ def handler(event):
         nmi_service_groups = {
             nsg.service_name: nsg.group for nsg in NMIServiceGroup.objects.all()
         }
-        fetch_port_scans_from_redshift(
+        fetch_port_scans_from_redshift(  # pylint: disable=E1121
             organization_id,
             organization_acronym,
             risky_service_groups,
             nmi_service_groups,
             start_dt,
             end_dt,
-        )  # pylint: disable=E1121
+        )
         # Create summaries with individual error handling
         LOGGER.info("Creating port scan summary...")
         try:
