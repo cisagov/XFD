@@ -10,8 +10,9 @@ import time
 from django.db import connections, transaction
 from django.db.models import Count, Max, Min, Q
 from django.utils import timezone
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
-from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen_single_org
+from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen_bulk
 from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import IngestionError, QueryError
 from xfd_mini_dl.models import (
@@ -35,37 +36,40 @@ VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
 CHUNK_SIZE = 500_000
 
 
+@cloudwatch_metric()
 def fetch_port_scans_from_redshift(
-    org_id,
-    org_acronym,
-    risky_service_groups,
-    nmi_service_groups,
-    ps_start_dt,
-    ps_end_dt,
+    org_id_dict, risky_service_groups, nmi_service_groups, ps_start_dt, ps_end_dt
 ):
-    """Fetch and process port_scans for a single org."""
-    LOGGER.info("Started processing port scans for org: %s", org_acronym)
+    """
+    Fetch and process port scans for all organizations in org_id_dict at once.
+
+    org_id_dict: {acronym: org_id}
+    """
+    if not org_id_dict:
+        LOGGER.warning("No organizations provided for port scan fetch.")
+        return
 
     total_processed = 0
     chunk_number = 1
+    org_acronyms = list(org_id_dict.keys())
 
-    for chunk in fetch_in_chunks_keyset_frozen_single_org(
+    for chunk in fetch_in_chunks_keyset_frozen_bulk(
         table="vmtableau.port_scans",
         time_col="time",
         start_dt=ps_start_dt,
         end_dt=ps_end_dt,
         chunk_size=CHUNK_SIZE,
-        org_acronym=org_acronym,
+        org_acronyms=org_acronyms,
     ):
         LOGGER.info(
-            "Processing port scan chunk #%d with %d rows for org %s",
+            "Processing port scan chunk #%d with %d rows for %d orgs",
             chunk_number,
             len(chunk),
-            org_acronym,
+            len(org_acronyms),
         )
 
-        bulk_insert_ips_and_link_to_port_scans_single_org(
-            chunk, org_id, org_acronym, risky_service_groups, nmi_service_groups
+        bulk_insert_ips_and_link_to_port_scans(
+            chunk, org_id_dict, risky_service_groups, nmi_service_groups
         )
 
         total_processed += len(chunk)
@@ -73,35 +77,32 @@ def fetch_port_scans_from_redshift(
 
     if total_processed == 0:
         LOGGER.warning(
-            "No port scans found in Redshift for the requested org (%s) within the specified date range.",
-            org_acronym,
+            "No port scans found in Redshift for the requested organizations within the specified date range."
         )
     else:
         LOGGER.info(
-            "Processed %d total port scans across %d chunks for org %s",
+            "Processed %d total port scans across %d chunks for %d organizations",
             total_processed,
             chunk_number - 1,
-            org_acronym,
+            len(org_id_dict),
         )
 
 
-def bulk_insert_ips_and_link_to_port_scans_single_org(
-    port_scans, org_id, org_acronym, risky_service_groups, nmi_service_groups
+@cloudwatch_metric()
+def bulk_insert_ips_and_link_to_port_scans(
+    port_scans, org_id_dict, risky_service_groups, nmi_service_groups
 ):
-    """Bulk insert IPs and link them to port scans for a single org."""
+    """Bulk insert IPs and link them to port scans for multiple orgs."""
     ip_key_to_obj = {}
     port_scan_batch = []
     affected_keys = set()
 
     for port_scan in port_scans:
         try:
-            # Verify owner matches the expected acronym
-            if port_scan.get("owner") != org_acronym:
-                LOGGER.warning(
-                    "Skipping port scan for unexpected owner '%s' (expected '%s')",
-                    port_scan.get("owner"),
-                    org_acronym,
-                )
+            owner = port_scan.get("owner")
+            org_id = org_id_dict.get(owner)
+            if not org_id:
+                LOGGER.warning("No org_id found for owner '%s'. Skipping scan.", owner)
                 continue
 
             ip_str = port_scan.get("ip")
@@ -124,6 +125,7 @@ def bulk_insert_ips_and_link_to_port_scans_single_org(
                 {
                     "raw": port_scan,
                     "service_obj": service_obj,
+                    "org_id": org_id,
                 }
             )
 
@@ -131,23 +133,24 @@ def bulk_insert_ips_and_link_to_port_scans_single_org(
             LOGGER.exception("Error staging port scan: %s", e)
             raise IngestionError(SCAN_NAME, str(e), "Failed staging port scans") from e
 
-    # Step 2: Bulk insert IPs
+    # Bulk insert IPs
     ip_objs = list(ip_key_to_obj.values())
     if ip_objs:
         Ip.objects.bulk_create(ip_objs, ignore_conflicts=True, batch_size=1000)
 
-    # Step 3: Link to IP records
+    # Link to IP records
     ip_records = Ip.objects.filter(
         ip__in=[ip.ip for ip in ip_objs],
-        organization_id=org_id,
+        organization_id__in=[ip.organization_id for ip in ip_objs],
     )
-    ip_map = {(ip.ip, org_id): ip for ip in ip_records}
+    ip_map = {(ip.ip, ip.organization_id): ip for ip in ip_records}
 
-    # Step 4: Build and insert PortScan records
+    # Build and insert PortScan records
     port_scan_objs = []
     for item in port_scan_batch:
         port_scan = item["raw"]
         service_obj = item["service_obj"]
+        org_id = item["org_id"]
 
         ip_str = port_scan.get("ip")
         ip_obj = ip_map.get((ip_str, org_id)) if ip_str else None
@@ -190,17 +193,20 @@ def bulk_insert_ips_and_link_to_port_scans_single_org(
 
     if port_scan_objs:
         LOGGER.info(
-            "Bulk creating %d port scans for org %s", len(port_scan_objs), org_acronym
+            "Bulk creating %d port scans for %d orgs",
+            len(port_scan_objs),
+            len(org_id_dict),
         )
         PortScan.objects.bulk_create(
             port_scan_objs, batch_size=5000, ignore_conflicts=True
         )
 
-    # Step 5: Update latest flag
+    # Update latest flag
     if affected_keys:
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 
 
+@cloudwatch_metric()
 def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
     """Update the latest flag for a large set of affected keys in manageable batches."""
     db = "mini_data_lake"
@@ -236,7 +242,7 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
                         JOIN (
                             VALUES {values_sql}
                         ) AS keys(org_id, ip_string, port)
-                        ON ps.organization_id = keys.org_id
+                        ON ps.organization_id = keys.org_id::uuid
                         AND ps.ip_string = keys.ip_string
                         AND ps.port = keys.port
                     )
@@ -257,6 +263,7 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=5000):
         LOGGER.error(f"Failed to update latest flags: {e}", exc_info=True)
 
 
+@cloudwatch_metric()
 def create_port_scan_summary(summary_date=None, org_id=None):
     """Create port summary record for a single organization."""
     try:
@@ -330,6 +337,7 @@ def create_port_scan_summary(summary_date=None, org_id=None):
         raise QueryError(SCAN_NAME, str(e), "Error creating port scan summary") from e
 
 
+@cloudwatch_metric()
 def create_port_scan_service_summaries(summary_date=None):
     """Fill the port scan service summary table."""
     try:
@@ -385,6 +393,7 @@ def create_port_scan_service_summaries(summary_date=None):
         ) from e
 
 
+@cloudwatch_metric()
 def enforce_latest_flag_port_scan():
     """
     Enforce the `latest` boolean flag on the PortScan table for all orgs/IPs/ports.
