@@ -31,16 +31,20 @@ export const VSDashboardGate: React.FC<{
   removeFilter: any;
 }> = ({ filters, removeFilter }) => {
   const { currentOrganization, user } = useAuthContext();
-
+  const userType = user?.user_type || 'standard';
+  const adminUsers = new Set(['globalView', 'globalAdmin', 'regionalAdmin']);
+  const noDataMsgPart1 = 'There is no data available for ';
+  const noDataMsgPart2 = adminUsers.has(userType) ? 'this' : 'your';
   useClearFiltersOnMount(filters, removeFilter);
-
   const { orgId, orgName } = useOrgInfo(filters, currentOrganization);
-
   const {
     data: vulnScanData,
     loading,
     error
   } = useVulnScanData(orgId ? orgId : currentOrganization?.id);
+  const assetsOwned = vulnScanData.vulnScanSummary[0]?.assetsOwned;
+  const hostsScanned = vulnScanData.vulnScanSummary[0]?.hostsScanned;
+
   if (loading) {
     return (
       <PageSection>
@@ -50,25 +54,22 @@ export const VSDashboardGate: React.FC<{
   }
   if (error || isDataEmpty(vulnScanData)) {
     const noDataUserType =
-      error === 'NO_DATA' ? 'standard' : user?.user_type || 'standard';
+      error === 'NO_DATA' ? 'standard' : userType || 'standard';
     return (
       <PageSection>
         <NoDataMessage userType={noDataUserType} />
       </PageSection>
     );
-  } else if (
-    vulnScanData.vulnScanSummary[0]?.assetsOwned === 0 ||
-    vulnScanData.vulnScanSummary[0]?.hostsScanned === 0
-  ) {
+  } else if (assetsOwned === 0 || hostsScanned === 0) {
     return (
       <PageSection>
         <NoDataMessage
-          userType={user?.user_type || 'standard'}
-          headerMsg={`There is no data available for ${
-            (user?.user_type || 'standard') === 'standard' ? 'your' : 'this'
-          } organization.`}
+          userType={userType || 'standard'}
+          headerMsg={`${noDataMsgPart1}${noDataMsgPart2} organization.`}
           customMessage={
-            (user?.user_type || 'standard') === 'standard' ? (
+            adminUsers ? (
+              <>Please select another organization from the filter options.</>
+            ) : (
               <>
                 Please notify the CyHy team using the{' '}
                 <Link href={MAILTO_INQUIRY} target="_blank" rel="noopener">
@@ -76,8 +77,6 @@ export const VSDashboardGate: React.FC<{
                 </Link>{' '}
                 option in the Support menu.
               </>
-            ) : (
-              <>Please select another organization from the filter options.</>
             )
           }
         />
@@ -85,22 +84,22 @@ export const VSDashboardGate: React.FC<{
     );
   } else if (
     vulnScanData.vulnScanSummary[0]?.recentlyEnrolled &&
-    vulnScanData.vulnScanSummary[0]?.hostsScanned === 0
+    hostsScanned === 0
   ) {
     return (
       <PageSection>
         <NoDataMessage
-          userType={user?.user_type || 'standard'}
+          userType={userType || 'standard'}
           headerMsg={
-            (user?.user_type || 'standard') === 'standard'
-              ? 'There is no data available for your organization at this time, please check back soon to see your data. In the meantime, you can explore helpful resources in the Learning Center.'
-              : 'There is no data available for this organization.'
+            adminUsers
+              ? `${noDataMsgPart1}${noDataMsgPart2} organization.`
+              : `${noDataMsgPart1}${noDataMsgPart2} organization at this time, please check back soon to see your data. In the meantime, you can explore helpful resources in the Learning Center.`
           }
           customMessage={
-            (user?.user_type || 'standard') === 'standard' ? (
-              <></>
-            ) : (
+            adminUsers ? (
               <>Please select another organization from the filter options.</>
+            ) : (
+              <></>
             )
           }
         />
@@ -113,6 +112,39 @@ export const VSDashboardGate: React.FC<{
         orgName={orgName}
         vulnScanData={vulnScanData}
         isKeyMetricsNull={true}
+        alertMsg={
+          <>
+            Discovery and assets scans were completed for
+            {adminUsers.has(userType) ? ' this ' : ' your '}
+            organization, but no data is available. Please{' '}
+            {adminUsers.has(userType) ? (
+              "modify filter to see other organization's results."
+            ) : (
+              <>
+                contact the CyHy team through Support under{' '}
+                <Link
+                  href={MAILTO_INQUIRY}
+                  target="_blank"
+                  rel="noopener"
+                  sx={{ fontWeight: '600' }}
+                >
+                  General Questions
+                </Link>
+                .
+              </>
+            )}
+          </>
+        }
+      />
+    );
+  } else if (isEmptyAfterScans(vulnScanData) && hostsScanned > 0) {
+    return (
+      <VulnerabilityScan
+        orgId={orgId}
+        orgName={orgName}
+        vulnScanData={vulnScanData}
+        isKeyMetricsNull={true}
+        alertMsg={<>TO ADD</>}
       />
     );
   }
