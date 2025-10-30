@@ -1,23 +1,10 @@
 import { useState, useEffect } from 'react';
 import { VulnScanDataTransformed } from 'types/vuln-scan-stats';
-import {
-  transformVulnScanData,
-  NO_DATA_FALLBACK_LABEL
-} from 'utils/transformVulnScanData';
+import { transformVulnScanData } from 'utils/transformVulnScanData';
 import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
-
-const InitialVSData: VulnScanDataTransformed = {
-  vulnScanSummary: [],
-  vulnScanKeyMetrics: [],
-  detectedServicesKeyMetrics: [],
-  detectedHostsKeyMetrics: [],
-  detectedHostsTop5VulnerableHosts: [],
-  topVulnerabilities: [],
-  topKevVulnerabilities: [],
-  riskyServices: [],
-  severityByProminence: []
-};
+import { InitialVSData } from '@/constants/vsdashdata';
+import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
 
 export function useVulnScanData(orgId: string) {
   const { apiPost } = useAuthContext();
