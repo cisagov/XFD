@@ -203,20 +203,16 @@ def get_org_memberships(current_user) -> list[str]:
 
 def is_valid_org(org_id: str, user) -> bool:
     """Validate the user is authorized to see the organization's data."""
-    if is_global_view_admin(user):
+    if is_global_view_admin(user) or user.user_type == "regionalAdmin":
         return True
-    elif user.user_type == "regionalAdmin":
-        return is_regional_admin_for_organization(user, org_id)
     else:
         return str(org_id) in get_org_memberships(user)
 
 
 def is_valid_region(region_id: str, user) -> bool:
     """Validate user is allowed to see specified region."""
-    if is_global_view_admin(user):
+    if is_global_view_admin(user) or user.user_type == "regionalAdmin":
         return True
-    elif user.user_type == "regionalAdmin":
-        return region_id == user.region_id
     else:
         user_orgs = get_org_memberships(user)
         user_regions = {get_organization_region(org_id) for org_id in user_orgs}

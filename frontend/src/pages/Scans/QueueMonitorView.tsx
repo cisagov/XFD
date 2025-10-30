@@ -3,6 +3,7 @@ import { useAuthContext } from 'context';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Stack } from '@mui/system';
 import { Alert, Box, Button as MuiButton, Paper } from '@mui/material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Queue {
   name: string;
@@ -18,7 +19,7 @@ const QueueMonitorView: React.FC = () => {
 
   const fetchQueues = useCallback(async () => {
     try {
-      const { result } = await apiPost('/queues/search', { body: {} });
+      const { result } = await apiPost(ENDPOINTS.QUEUES_SEARCH, { body: {} });
 
       // Ensure each queue has a unique 'id' (using its name)
       const queuesWithId = result.map((queue: Queue) => ({

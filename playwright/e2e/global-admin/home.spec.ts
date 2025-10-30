@@ -1,6 +1,7 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
 import type { Page, TestInfo } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Home Page Accessibility', () => {
   test('Global Admin: homepage accessibility', async ({
@@ -56,7 +57,7 @@ async function runAccessibilityTest(
   testInfo: TestInfo,
   role: string
 ) {
-  await page.goto('/');
+  await page.goto(ROUTES.HOME);
 
   const axe = makeAxeBuilder(page);
   const results = await axe.analyze();

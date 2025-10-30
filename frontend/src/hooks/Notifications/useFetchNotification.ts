@@ -1,3 +1,4 @@
+import { ENDPOINTS } from '@/constants/endpoints';
 import { useCallback } from 'react';
 import { MaintenanceNotification } from 'types';
 
@@ -11,7 +12,7 @@ export function useFetchNotification(
 ) {
   return useCallback(async () => {
     try {
-      const rows = await apiGet('/notifications');
+      const rows = await apiGet(ENDPOINTS.NOTIFICATIONS);
       let activeRow;
       const inactiveRows: MaintenanceNotification[] = [];
       for (const row of rows) {

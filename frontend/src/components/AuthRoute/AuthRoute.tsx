@@ -1,6 +1,7 @@
 import React from 'react';
 import { RouteProps, Redirect, Route } from 'react-router-dom';
 import { useAuthContext } from 'context';
+import { ROUTES } from '@/constants/routes';
 
 interface AuthRedirectRouteProps extends RouteProps {
   redirectUrl?: string;
@@ -8,7 +9,7 @@ interface AuthRedirectRouteProps extends RouteProps {
 }
 
 export const AuthRedirectRoute: React.FC<AuthRedirectRouteProps> = ({
-  redirectUrl = '/',
+  redirectUrl = ROUTES.HOME,
   component,
   ...rest
 }) => {

@@ -13,6 +13,7 @@ import {
 import { SavedSearch } from 'types/saved-search';
 import { useAuthContext } from 'context';
 import { Add } from '@mui/icons-material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface SaveSearchModalProps {
   searchTerm: string;
@@ -60,11 +61,17 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     try {
       if (activeSearch) {
-        await apiPost('/update_saved-searches/' + activeSearch.id, body);
+        await apiPost(
+          ENDPOINTS.SAVED_SEARCH_UPDATE.replace(
+            '{saved_search_id}',
+            activeSearch.id
+          ),
+          body
+        );
       } else {
-        await apiPost('/saved-searches', body);
+        await apiPost(ENDPOINTS.SAVED_SEARCHES, body);
       }
-      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {

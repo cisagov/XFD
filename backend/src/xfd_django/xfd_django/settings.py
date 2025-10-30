@@ -87,6 +87,8 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
 ]
 
+ALLOWED_ADMIN_ROLES = ["globalView", "globalAdmin", "regionalAdmin"]
+
 
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases

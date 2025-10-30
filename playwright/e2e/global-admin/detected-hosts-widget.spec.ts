@@ -1,5 +1,6 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('VS Dashboard — Detected Hosts & Top Vulnerable Hosts', () => {
   const hostMetrics = [
@@ -12,7 +13,7 @@ test.describe('VS Dashboard — Detected Hosts & Top Vulnerable Hosts', () => {
     test.skip(`should show "${label}" button with number`, async ({
       page: pageAsGlobalAdmin
     }) => {
-      await pageAsGlobalAdmin.goto('/VSDashboard', {
+      await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD, {
         waitUntil: 'networkidle'
       });
       await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts', {

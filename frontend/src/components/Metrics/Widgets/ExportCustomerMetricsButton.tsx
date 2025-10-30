@@ -3,6 +3,7 @@ import Button from '@mui/material/Button';
 import { FileDownload } from '@mui/icons-material';
 import Tooltip from '@mui/material/Tooltip';
 import { useAuthContext } from 'context';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const ExportCustomerMetricsButton: React.FC = () => {
   const { apiGet, user } = useAuthContext();
@@ -24,7 +25,7 @@ export const ExportCustomerMetricsButton: React.FC = () => {
     if (loading) return;
     setLoading(true);
     try {
-      const res: any = await apiGet('/metrics/customers', {
+      const res: any = await apiGet(ENDPOINTS.METRICS_CUSTOMERS, {
         response: true,
         responseType: 'blob',
         headers: { Accept: 'text/csv' },
