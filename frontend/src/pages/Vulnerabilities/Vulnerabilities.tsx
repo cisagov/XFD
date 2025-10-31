@@ -679,7 +679,18 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                setFilterModel(model);
+                const mappedModel = model.items.map((item) => ({
+                  ...item,
+                  value:
+                    typeof item.value === 'string'
+                      ? item.value.trim()
+                      : item.value
+                }));
+                const modelWithTrimmedValues = {
+                  ...model,
+                  items: mappedModel
+                };
+                setFilterModel(modelWithTrimmedValues);
                 const mappedFilters = model.items
                   .map((item) => ({
                     field: item.field,
