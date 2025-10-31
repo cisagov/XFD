@@ -9,8 +9,20 @@ from typing import Dict
 
 # Third-Party Libraries
 from django.db import models
-from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
-from django.db.models.functions import Power
+from django.db.models import (
+    CharField,
+    Count,
+    ExpressionWrapper,
+    F,
+    FloatField,
+    Max,
+    Min,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
+)
+from django.db.models.functions import Cast, Coalesce, Power
 from django.utils import timezone
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.mdl_insert_utils import (
@@ -22,9 +34,9 @@ from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import IngestionError, QueryError
 from xfd_mini_dl.models import (
     Cidr,
+    IpsSubs,
     Organization,
     Ticket,
-    Vulnerability,
     VulnScan,
     VulnScanSummary,
 )
@@ -423,7 +435,12 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
             for kev in top_kevs_qs
         ]
 
-        # Risky hosts
+        subq = (
+            IpsSubs.objects.filter(ip_id=OuterRef("ip_id"))
+            .order_by("sub_domain_id")
+            .values("sub_domain_id")[:1]
+        )
+        # Top 5 risky hosts by severity breakdown
         tickets = Ticket.objects.filter(
             organization=org,
             is_open=True,
@@ -437,8 +454,9 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
             Power(F("cvss_base_score"), 7) / 1000000, output_field=FloatField()
         )
 
+        # Build the annotated queryset (include ip_id so it's available in the result)
         risky_host_qs = (
-            tickets.values("ip_string")
+            tickets.values("ip_string", "ip_id")
             .annotate(
                 total=Count("id"),
                 low=Count("id", filter=Q(cvss_severity=1)),
@@ -447,18 +465,15 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
                 critical=Count("id", filter=Q(cvss_severity=4)),
                 weighted=Sum(weighted_expr),
                 sample_ticket_id=Min("id"),
+                domain_id=Coalesce(
+                    Cast(Subquery(subq), output_field=CharField()),
+                    Cast(F("ip_id"), output_field=CharField()),
+                ),
             )
             .order_by("-weighted")[:5]
         )
 
-        ticket_ids = [str(item["sample_ticket_id"]) for item in risky_host_qs]
-        vuln_domain_map = {
-            str(v.id): str(v.domain_id)
-            for v in Vulnerability.objects.filter(id__in=ticket_ids).only(
-                "id", "domain_id"
-            )
-        }
-
+        # Final dict for JSON field — cast domain_id to str if needed
         top_5_hosts = {
             item["ip_string"]: {
                 "total": item["total"],
@@ -469,7 +484,9 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
                 "rrs": round(item["weighted"], 2)
                 if item["weighted"] is not None
                 else 0,
-                "domain_id": vuln_domain_map.get(str(item["sample_ticket_id"])),
+                "domain_id": str(item["domain_id"])
+                if item["domain_id"] is not None
+                else None,
             }
             for item in risky_host_qs
         }
