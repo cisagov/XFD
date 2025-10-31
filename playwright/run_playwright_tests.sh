@@ -33,7 +33,6 @@ OVERRIDES=$(jq -n \
   --arg standard_2fa "$PW_STANDARD_USER_2FA_SECRET" \
   --arg git_branch "$GIT_BRANCH" \
   --arg environment "$ENVIRONMENT" \
-  --arg headless "$PW_HEADLESS" \
   --arg ci "$CI" \
   --arg s3HtmlPath "$S3_HTML_PATH" \
   --arg s3JsonPath "$S3_JSON_PATH" \
@@ -61,7 +60,6 @@ OVERRIDES=$(jq -n \
           { "name": "PW_STANDARD_USER_2FA_SECRET", "value": $standard_2fa },
           { "name": "GIT_BRANCH", "value": $git_branch },
           { "name": "ENVIRONMENT", "value": $environment },
-          { "name": "PW_HEADLESS", "value": $headless },
           { "name": "CI", "value": $ci },
           { "name": "S3_HTML_PATH", "value": $s3HtmlPath },
           { "name": "S3_JSON_PATH", "value": $s3JsonPath },

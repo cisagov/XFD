@@ -15,7 +15,6 @@ import { FaTimes } from 'react-icons/fa';
 import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
@@ -119,6 +118,13 @@ const ScansView: React.FC = () => {
       });
       console.log(e);
     }
+  };
+
+  const setFrequency = async (body: ScanFormValues) => {
+    if (body.is_single_scan) body.frequency = 1;
+    if (body.frequencyUnit === 'minute') body.frequency *= 60;
+    else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
+    else body.frequency *= 60 * 60 * 24;
   };
 
   const onSubmit = async (body: ScanFormValues) => {

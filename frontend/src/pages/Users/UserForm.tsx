@@ -567,6 +567,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             id="state"
             size="small"
             options={STATE_OPTIONS}
+            disabled={!['globalAdmin'].includes(user?.user_type || '')}
             value={values.state || null}
             onChange={(_, newValue) => {
               setValues((prev: any) => ({
@@ -588,6 +589,11 @@ export const UserForm: React.FC<UserFormProps> = ({
                       State is required
                     </Typography>
                   ) : null
+                }
+                disabled={
+                  !['globalAdmin', 'regionalAdmin'].includes(
+                    user?.user_type || ''
+                  )
                 }
               />
             )}

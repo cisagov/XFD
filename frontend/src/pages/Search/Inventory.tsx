@@ -17,7 +17,7 @@ import { ContextType } from 'context/SearchProvider';
 import { SortBar } from './SortBar';
 import { useAuthContext } from 'context';
 import { NoResults } from 'components/NoResults';
-import { exportCSV } from 'components/ImportExport';
+import { exportCSV } from 'utils/exportCSV';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
