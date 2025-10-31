@@ -76,7 +76,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const state = location.state as LocationState;
 
   const [columnVisibilityModel, setColumnVisibilityModel] =
-    React.useState<GridColumnVisibilityModel>({});
+    useState<GridColumnVisibilityModel>({});
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
