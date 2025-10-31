@@ -28,8 +28,7 @@ import {
   GridFilterModel,
   GridPaginationModel,
   GridRenderCellParams,
-  GridSortModel,
-  useGridApiRef
+  GridSortModel
 } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
@@ -81,7 +80,6 @@ const formatDays = (dateString: string) => {
 
 export const Domains: React.FC = () => {
   const { showAllOrganizations } = useAuthContext();
-  const apiRef = useGridApiRef();
   const history = useHistory();
   const location = useLocation();
   const state = location.state as
@@ -89,17 +87,7 @@ export const Domains: React.FC = () => {
     | undefined;
 
   const [columnVisibilityModel, setColumnVisibilityModel] =
-    React.useState<GridColumnVisibilityModel>({
-      name: true,
-      organization_name: true,
-      ip: true,
-      ports_preview: true,
-      services_preview: true,
-      vulnerabilities_count: true,
-      updated_at: true,
-      created_at: true,
-      view: true
-    });
+    useState<GridColumnVisibilityModel>({});
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
@@ -122,14 +110,6 @@ export const Domains: React.FC = () => {
     pageSize: PAGE_SIZE
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
-
-  useEffect(() => {
-    apiRef.current?.setColumnVisibilityModel(columnVisibilityModel);
-  }, [columnVisibilityModel, apiRef]);
-
-  const handleVisibilityChange = (newModel: GridColumnVisibilityModel) => {
-    setColumnVisibilityModel(newModel);
-  };
 
   useEffect(() => {
     if (state) {
@@ -504,23 +484,10 @@ export const Domains: React.FC = () => {
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
-              initialState={{
-                columns: {
-                  columnVisibilityModel: {
-                    name: true,
-                    organization_name: true,
-                    ip: true,
-                    ports_preview: true,
-                    services_preview: true,
-                    vulnerabilities_count: true,
-                    updated_at: true,
-                    created_at: true,
-                    view: true
-                  }
-                }
-              }}
               columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={handleVisibilityChange}
+              onColumnVisibilityModelChange={(model) =>
+                setColumnVisibilityModel(model)
+              }
               loading={isLoading}
               filterMode="server"
               filterModel={filterModel}
@@ -589,6 +556,9 @@ export const Domains: React.FC = () => {
                 toolbar: { exportTitle: 'Domains' } as any,
                 basePopper: {
                   placement: 'bottom-start'
+                },
+                columnsManagement: {
+                  disableResetButton: true
                 }
               }}
               disableRowSelectionOnClick

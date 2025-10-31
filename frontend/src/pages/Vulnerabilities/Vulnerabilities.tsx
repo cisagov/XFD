@@ -25,8 +25,7 @@ import {
   GridFilterModel,
   GridPaginationModel,
   GridRenderCellParams,
-  GridSortModel,
-  useGridApiRef
+  GridSortModel
 } from '@mui/x-data-grid';
 import {
   Checklist,
@@ -72,23 +71,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   group_by
 }) => {
   const { currentOrganization, apiPost, user } = useAuthContext();
-  const apiRef = useGridApiRef();
   const history = useHistory();
   const location = useLocation();
   const state = location.state as LocationState;
 
   const [columnVisibilityModel, setColumnVisibilityModel] =
-    React.useState<GridColumnVisibilityModel>({
-      name: true,
-      organization_name: true,
-      ip: true,
-      ports_preview: true,
-      services_preview: true,
-      vulnerabilities_count: true,
-      updated_at: true,
-      created_at: true,
-      view: true
-    });
+    React.useState<GridColumnVisibilityModel>({});
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
@@ -119,14 +107,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       setPreloadedFiltersActive(extracted.length > 0);
     }
   }, [state]);
-
-  useEffect(() => {
-    apiRef.current?.setColumnVisibilityModel(columnVisibilityModel);
-  }, [columnVisibilityModel, apiRef]);
-
-  const handleVisibilityChange = (newModel: GridColumnVisibilityModel) => {
-    setColumnVisibilityModel(newModel);
-  };
 
   const vulnerabilitiesSearch = useCallback(
     async ({
@@ -663,7 +643,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               columns={vulCols}
               loading={isLoading}
               columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={handleVisibilityChange}
+              onColumnVisibilityModelChange={(model) =>
+                setColumnVisibilityModel(model)
+              }
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
@@ -738,6 +720,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {
                   placement: 'bottom-start'
+                },
+                columnsManagement: {
+                  disableResetButton: true
                 }
               }}
               disableRowSelectionOnClick
