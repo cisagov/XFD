@@ -215,7 +215,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 0,
       pageSize: PAGE_SIZE
     }));
-    setIsLoading(true);
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
@@ -237,11 +236,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     });
   }, [
     fetchVulnerabilities,
-    sortModel,
     filters,
-    onlyOpenVulns,
     paginationModel.page,
-    paginationModel.pageSize
+    paginationModel.pageSize,
+    onlyOpenVulns,
+    sortModel[0]?.field,
+    sortModel[0]?.sort
   ]);
 
   useEffect(() => {

@@ -121,6 +121,8 @@ export const Domains: React.FC = () => {
 
   const fetchDomains = useCallback(
     async (q: Query<DomainSearchApiResponse>) => {
+      setIsLoading(true);
+      setLoadingError(false);
       try {
         const { domains, count } = await listDomains(q);
         if (domains.length === 0) {
@@ -193,8 +195,6 @@ export const Domains: React.FC = () => {
       page: 0,
       pageSize: PAGE_SIZE
     }));
-    setIsLoading(true);
-    setLoadingError(false);
     fetchDomains({
       page: 1,
       pageSize: PAGE_SIZE,
