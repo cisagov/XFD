@@ -121,24 +121,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   }, [state]);
 
   useEffect(() => {
-    // update internal state so DataGrid knows which columns are hidden
     apiRef.current?.setColumnVisibilityModel(columnVisibilityModel);
   }, [columnVisibilityModel, apiRef]);
 
   const handleVisibilityChange = (newModel: GridColumnVisibilityModel) => {
     setColumnVisibilityModel(newModel);
   };
-
-  // useEffect(() => {
-  //   try {
-  //     localStorage.setItem(
-  //       'vulnerabilitiesColumnVisibility',
-  //       JSON.stringify(columnVisibilityModel)
-  //     );
-  //   } catch {
-  //     // Ignore write errors
-  //   }
-  // }, [columnVisibilityModel]);
 
   const vulnerabilitiesSearch = useCallback(
     async ({

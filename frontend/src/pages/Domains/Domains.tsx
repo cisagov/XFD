@@ -124,7 +124,6 @@ export const Domains: React.FC = () => {
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
   useEffect(() => {
-    // update internal state so DataGrid knows which columns are hidden
     apiRef.current?.setColumnVisibilityModel(columnVisibilityModel);
   }, [columnVisibilityModel, apiRef]);
 
@@ -415,17 +414,6 @@ export const Domains: React.FC = () => {
       </Alert>
     </Paper>
   );
-
-  // useEffect(() => {
-  //   try {
-  //     localStorage.setItem(
-  //       'domainsColumnVisibility',
-  //       JSON.stringify(columnVisibilityModel)
-  //     );
-  //   } catch {
-  //     // Ignore write errors
-  //   }
-  // }, [columnVisibilityModel]);
 
   return (
     <Box
