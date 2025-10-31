@@ -24,10 +24,12 @@ import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRound
 import {
   DataGrid,
   GridColDef,
+  GridColumnVisibilityModel,
   GridFilterModel,
   GridPaginationModel,
   GridRenderCellParams,
-  GridSortModel
+  GridSortModel,
+  useGridApiRef
 } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
@@ -51,22 +53,63 @@ export interface DomainRow {
   created_at: string;
 }
 
+const formatPreview = (
+  preview: string,
+  totalCount: number,
+  maxFullCount = 3,
+  maxPreviewCount = 2
+) => {
+  if (totalCount <= maxFullCount) {
+    // Show full preview as-is
+    return preview;
+  } else {
+    // Show first N preview, add (X total)
+    const previewItems = preview.split(',').map((item) => item.trim());
+    const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
+    return `${limitedPreview} (${totalCount} total)`;
+  }
+};
+
+const formatDays = (dateString: string) => {
+  const date = parseISO(dateString);
+  const days = differenceInCalendarDays(Date.now(), date);
+  if (days <= 1) {
+    return `${days} day ago`;
+  }
+  return `${days} days ago`;
+};
+
 export const Domains: React.FC = () => {
+  const { showAllOrganizations } = useAuthContext();
+  const apiRef = useGridApiRef();
+  const history = useHistory();
   const location = useLocation();
   const state = location.state as
     | { orgName?: string; orgId?: string }
     | undefined;
-  const { showAllOrganizations } = useAuthContext();
+
+  const [columnVisibilityModel, setColumnVisibilityModel] =
+    React.useState<GridColumnVisibilityModel>({
+      name: true,
+      organization_name: true,
+      ip: true,
+      ports_preview: true,
+      services_preview: true,
+      vulnerabilities_count: true,
+      updated_at: true,
+      created_at: true,
+      view: true
+    });
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
     showAllOrganizations,
     state?.orgId ?? ''
   );
-  const history = useHistory();
   const [filters, setFilters] = useState<
     Query<DomainSearchApiResponse>['filters']
   >([]);
+  const lastFiltersKeyRef = useRef<string>(JSON.stringify(filters));
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
@@ -79,6 +122,15 @@ export const Domains: React.FC = () => {
     pageSize: PAGE_SIZE
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
+
+  useEffect(() => {
+    // update internal state so DataGrid knows which columns are hidden
+    apiRef.current?.setColumnVisibilityModel(columnVisibilityModel);
+  }, [columnVisibilityModel, apiRef]);
+
+  const handleVisibilityChange = (newModel: GridColumnVisibilityModel) => {
+    setColumnVisibilityModel(newModel);
+  };
 
   useEffect(() => {
     if (state) {
@@ -120,32 +172,6 @@ export const Domains: React.FC = () => {
     [listDomains]
   );
 
-  function formatPreview(
-    preview: string,
-    totalCount: number,
-    maxFullCount = 3,
-    maxPreviewCount = 2
-  ) {
-    if (totalCount <= maxFullCount) {
-      // Show full preview as-is
-      return preview;
-    } else {
-      // Show first N preview, add (X total)
-      const previewItems = preview.split(',').map((item) => item.trim());
-      const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
-      return `${limitedPreview} (${totalCount} total)`;
-    }
-  }
-
-  const formatDays = (dateString: string) => {
-    const date = parseISO(dateString);
-    const days = differenceInCalendarDays(Date.now(), date);
-    if (days <= 1) {
-      return `${days} day ago`;
-    }
-    return `${days} days ago`;
-  };
-
   useEffect(() => {
     setIsLoading(true);
     fetchDomains({
@@ -158,9 +184,10 @@ export const Domains: React.FC = () => {
   }, [
     fetchDomains,
     filters,
-    sortModel,
     paginationModel.page,
-    paginationModel.pageSize
+    paginationModel.pageSize,
+    sortModel[0]?.field,
+    sortModel[0]?.sort
   ]);
 
   useEffect(() => {
@@ -171,6 +198,10 @@ export const Domains: React.FC = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    lastFiltersKeyRef.current = JSON.stringify(filters);
+  }, [filters]);
 
   const resetDomains = useCallback(() => {
     history.replace({ ...location, state: null });
@@ -385,6 +416,17 @@ export const Domains: React.FC = () => {
     </Paper>
   );
 
+  // useEffect(() => {
+  //   try {
+  //     localStorage.setItem(
+  //       'domainsColumnVisibility',
+  //       JSON.stringify(columnVisibilityModel)
+  //     );
+  //   } catch {
+  //     // Ignore write errors
+  //   }
+  // }, [columnVisibilityModel]);
+
   return (
     <Box
       display="flex"
@@ -474,22 +516,62 @@ export const Domains: React.FC = () => {
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
+              initialState={{
+                columns: {
+                  columnVisibilityModel: {
+                    name: true,
+                    organization_name: true,
+                    ip: true,
+                    ports_preview: true,
+                    services_preview: true,
+                    vulnerabilities_count: true,
+                    updated_at: true,
+                    created_at: true,
+                    view: true
+                  }
+                }
+              }}
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={handleVisibilityChange}
+              loading={isLoading}
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                setFilterModel(model);
+                const mappedModel = model.items.map((item) => ({
+                  ...item,
+                  value:
+                    typeof item.value === 'string'
+                      ? item.value.trim()
+                      : item.value
+                }));
+                const modelWithTrimmedValues = {
+                  ...model,
+                  items: mappedModel
+                };
+                setFilterModel(modelWithTrimmedValues);
+                const mappedFilters = modelWithTrimmedValues.items
+                  .map((item) => ({
+                    field: item.field,
+                    operator: item.operator,
+                    value: item.value
+                  }))
+                  .filter(
+                    (item) =>
+                      item.value !== undefined &&
+                      item.value !== null &&
+                      String(item.value).trim() !== ''
+                  );
+                const mappedKeys = JSON.stringify(mappedFilters);
+                if (mappedKeys === lastFiltersKeyRef.current) {
+                  return;
+                }
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
                 }
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
-                  setFilters(
-                    model.items.map((item) => ({
-                      field: item.field,
-                      operator: item.operator,
-                      value: item.value
-                    }))
-                  );
+                  setFilters(mappedFilters);
+                  lastFiltersKeyRef.current = mappedKeys;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
                 }, 1000);
