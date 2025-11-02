@@ -1,35 +1,27 @@
 import React from 'react';
-import { classes, Root } from './Styling/sortBarStyle';
 import {
-  Select,
+  IconButton,
   FormControl,
   MenuItem,
+  Select,
   SelectProps,
-  IconButton
+  Stack,
+  Typography
 } from '@mui/material';
 import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { ContextType } from 'context/SearchProvider';
-import { SavedSearch } from 'types';
 
 interface Props {
   sortField: ContextType['sortField'];
   sortDirection?: ContextType['sortDirection'];
   setSort: ContextType['setSort'];
-  saveSearch?(): void;
   isFixed: boolean;
-  existingSavedSearch?: SavedSearch;
   children?: React.ReactNode;
+  advancedFiltersReq?: boolean;
 }
 
 export const SortBar: React.FC<Props> = (props) => {
-  const {
-    sortField,
-    sortDirection,
-    setSort,
-    saveSearch,
-    children,
-    existingSavedSearch
-  } = props;
+  const { sortField, sortDirection, setSort, children } = props;
 
   const toggleDirection = () => {
     setSort(sortField, sortDirection === 'asc' ? 'desc' : 'asc');
@@ -40,53 +32,38 @@ export const SortBar: React.FC<Props> = (props) => {
   };
 
   return (
-    <Root className={classes.root}>
-      <div className={classes.sortMenu}>
-        <IconButton
-          className={classes.toggleDirection}
-          onClick={toggleDirection}
-          aria-label={`Sort ${
-            sortDirection === 'asc' ? 'Descending' : 'Ascending'
-          }`}
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      flexWrap="wrap"
+      sx={{ mb: 2 }}
+    >
+      <IconButton
+        onClick={toggleDirection}
+        aria-label={`Sort ${
+          sortDirection === 'asc' ? 'Descending' : 'Ascending'
+        }`}
+      >
+        {sortDirection === 'asc' ? <ArrowUpward /> : <ArrowDownward />}
+      </IconButton>
+      <Typography id="sort-by-label" variant="body1">
+        Sort by:
+      </Typography>
+      <FormControl size="small">
+        <Select
+          labelId="sort-by-label"
+          value={sortField ?? 'name'}
+          onChange={onSetSortField}
+          sx={{ minWidth: 160 }}
         >
-          {!sortDirection || sortDirection === 'desc' ? (
-            <ArrowDownward />
-          ) : (
-            <ArrowUpward />
-          )}
-        </IconButton>
-        <span id="sort-by-label">Sort by: </span>
-        <FormControl className={classes.openFields}>
-          <Select
-            disableUnderline
-            labelId="sort-by-label"
-            value={sortField}
-            onChange={onSetSortField}
-            classes={{ select: classes.selectInp }}
-          >
-            <MenuItem classes={{ root: classes.option }} value="name">
-              Domain Name
-            </MenuItem>
-            <MenuItem classes={{ root: classes.option }} value="ip">
-              IP
-            </MenuItem>
-            <MenuItem classes={{ root: classes.option }} value="updatedAt">
-              Last Seen
-            </MenuItem>
-            <MenuItem classes={{ root: classes.option }} value="createdAt">
-              First Seen
-            </MenuItem>
-          </Select>
-        </FormControl>
-      </div>
+          <MenuItem value="name">Domain Name</MenuItem>
+          <MenuItem value="ip">IP</MenuItem>
+          <MenuItem value="updated_at">Last Seen</MenuItem>
+          <MenuItem value="created_at">First Seen</MenuItem>
+        </Select>
+      </FormControl>
       {children}
-      <div>
-        {saveSearch && (
-          <button onClick={saveSearch}>
-            {existingSavedSearch ? 'Update Saved Search' : 'Save Search'}
-          </button>
-        )}
-      </div>
-    </Root>
+    </Stack>
   );
 };

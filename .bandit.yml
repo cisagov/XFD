@@ -8,4 +8,8 @@
 tests:
 
 skips:
-  - B101  # skip "assert used" check since assertions are required in pytests
+  # Skip "assert used" check since assertions are required in pytests
+  - B101
+  # Skip "pseudo-random generators not suitable for security"
+  # b/c it's used for sample data
+  - B311

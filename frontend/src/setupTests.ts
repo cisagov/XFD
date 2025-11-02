@@ -1,3 +1,7 @@
-import '@testing-library/jest-dom/extend-expect';
+import { expect } from 'vitest';
+import '@testing-library/jest-dom';
+import * as matchers from '@testing-library/jest-dom/matchers';
 
-process.env.REACT_APP_TERMS_VERSION = '1';
+expect.extend(matchers);
+
+import.meta.env.VITE_TERMS_VERSION = '1';

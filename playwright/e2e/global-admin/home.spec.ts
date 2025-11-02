@@ -1,66 +1,71 @@
-import { test, expect, Page } from '@playwright/test';
-import exp from 'constants';
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
+import type { Page, TestInfo } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
-test.describe.configure({ mode: 'serial' });
-let page: Page;
-
-test.beforeAll(async ({ browser }) => {
-  page = await browser.newPage();
-  await page.goto('/');
-});
-
-test.afterAll(async () => {
-  await page.close();
-});
-test('home', async () => {
-  // Expect home page to show Latest Vulnerabilities.
-  await expect(
-    page.getByRole('heading', { name: 'Latest Vulnerabilities' })
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Open Vulnerabilities by Domain' })
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Most Common Ports' })
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Most Common Vulnerabilities' })
-  ).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Severity Levels' })
-  ).toBeVisible();
-  await expect(
-    page.getByPlaceholder('Search a domain, vuln, port, service, IP')
-  ).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Inventory' })).toBeVisible();
-  await page.screenshot({ path: 'test-results/img/global-admin/home.png' });
-});
-
-test('Open Vulnerabilities by Domain', async () => {
-  await page.getByRole('button', { name: 'All' }).click();
-  await page.screenshot({
-    path: 'test-results/img/global-admin/open_vuln_all.png'
+test.describe('Home Page Accessibility', () => {
+  test('Global Admin: homepage accessibility', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await runAccessibilityTest(
+      pageAsGlobalAdmin,
+      makeAxeBuilder,
+      testInfo,
+      'Global Admin'
+    );
   });
-  if (
-    (await page.getByRole('button', { name: 'Medium' }).isDisabled()) == false
-  ) {
-    await page.getByRole('button', { name: 'Medium' }).click();
-    await page.screenshot({
-      path: 'test-results/img/global-admin/open_vuln_medium.png'
-    });
-  }
-  if (
-    (await page.getByRole('button', { name: 'High' }).isDisabled()) == false
-  ) {
-    await page.getByRole('button', { name: 'High' }).click();
-    await page.screenshot({
-      path: 'test-results/img/global-admin/open_vuln_high.png'
-    });
-  }
-  if ((await page.getByLabel('Go to next page').isDisabled()) == false) {
-    await page.getByLabel('Go to next page').click();
-  }
-  if ((await page.getByLabel('Go to previous page').isDisabled()) == false) {
-    await page.getByLabel('Go to previous page').click();
-  }
+  test('Regional Admin: homepage accessibility', async ({
+    pageAsRegionalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await runAccessibilityTest(
+      pageAsRegionalAdmin,
+      makeAxeBuilder,
+      testInfo,
+      'Regional Admin'
+    );
+  });
+  test('Global View: homepage accessibility', async ({
+    pageAsGlobalView,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await runAccessibilityTest(
+      pageAsGlobalView,
+      makeAxeBuilder,
+      testInfo,
+      'Global View'
+    );
+  });
+  test('Standard User: homepage accessibility', async ({
+    pageAsStandardUser,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await runAccessibilityTest(
+      pageAsStandardUser,
+      makeAxeBuilder,
+      testInfo,
+      'Standard User'
+    );
+  });
 });
+
+// Extracted helper function
+async function runAccessibilityTest(
+  page: Page,
+  makeAxeBuilder: (page: Page) => any,
+  testInfo: TestInfo,
+  role: string
+) {
+  await page.goto(ROUTES.HOME);
+
+  const axe = makeAxeBuilder(page);
+  const results = await axe.analyze();
+
+  await testInfo.attach(`${role} - accessibility-scan-results`, {
+    body: JSON.stringify(results, null, 2),
+    contentType: 'application/json'
+  });
+
+  expect(results.violations).toHaveLength(0);
+}

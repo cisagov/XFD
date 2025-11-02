@@ -1,43 +1,39 @@
 import React from 'react';
 import { render, waitFor } from 'test-utils';
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { LoginGovCallback } from '../LoginGovCallback';
+import { ENDPOINTS } from '@/constants/endpoints';
 
-jest.spyOn(Storage.prototype, 'getItem');
-const mockGetItem = jest.mocked(localStorage.getItem);
+vi.spyOn(Storage.prototype, 'getItem');
+const mockGetItem = vi.mocked(localStorage.getItem);
 
-jest.spyOn(Storage.prototype, 'removeItem');
-const mockRemoveItem = jest.mocked(localStorage.removeItem);
+vi.spyOn(Storage.prototype, 'removeItem');
+const mockRemoveItem = vi.mocked(localStorage.removeItem);
 
-// jest.mock('react-router-dom', () => ({
-//   ...jest.requireActual('react-router-dom'),
-//   useHistory: jest.fn()
-// }));
-// const mockRouter = jest.mocked(router);
-
-// const mockHistory = {
-//   push: jest.fn()
-// };
-const mockPost = jest.fn();
-const mockLogin = jest.fn();
+const mockPost = vi.fn();
+const mockLogin = vi.fn();
 const { location: originalLocation } = window;
 
 beforeAll(() => {
-  delete window.location;
-  window.location = {} as unknown as Location;
-  // mockRouter.useHistory.mockReturnValue(
-  //   (mockHistory as unknown) as ReturnType<typeof router.useHistory>
-  // );
+  // Securely mock window.location instead of overwriting it
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: { search: '' } as Location
+  });
 });
 
 beforeEach(() => {
   mockPost.mockReset();
   mockLogin.mockReset();
-  // mockHistory.push.mockReset();
 });
 
 afterAll(() => {
-  window.location = originalLocation;
-  jest.restoreAllMocks();
+  // Restore original window.location
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    value: originalLocation
+  });
+  vi.restoreAllMocks();
 });
 
 const renderMocked = () => {
@@ -50,15 +46,21 @@ const renderMocked = () => {
 };
 
 it('can handle successful OAuth callback', async () => {
-  window.location.search = '?state=fake_oauth_state&code=fake_oauth_code';
+  Object.defineProperty(window.location, 'search', {
+    configurable: true,
+    value: '?state=fake_oauth_state&code=fake_oauth_code'
+  });
+
   mockGetItem
     .mockReturnValueOnce('FAKE_NONCE')
     .mockReturnValueOnce('FAKE_STATE');
   mockPost.mockResolvedValue({ token: 'some_new_token' });
+
   renderMocked();
+
   await waitFor(() => {
     expect(mockPost).toHaveBeenCalledTimes(1);
-    expect(mockPost.mock.calls[0][0]).toEqual('/auth/callback');
+    expect(mockPost.mock.calls[0][0]).toEqual(ENDPOINTS.V1_CALLBACK);
     expect(mockPost.mock.calls[0][1]).toMatchObject({
       body: {
         state: 'fake_oauth_state',
@@ -68,36 +70,34 @@ it('can handle successful OAuth callback', async () => {
       }
     });
   });
+
   await waitFor(() => {
     expect(mockLogin).toHaveBeenCalledTimes(1);
     expect(mockLogin.mock.calls[0][0]).toEqual('some_new_token');
   });
+
   await waitFor(() => {
     expect(mockRemoveItem).toHaveBeenCalledTimes(2);
     expect(mockRemoveItem).toHaveBeenCalledWith('nonce');
     expect(mockRemoveItem).toHaveBeenCalledWith('state');
   });
-  // await waitFor(() => {
-  //   expect(mockHistory.push).toHaveBeenCalledTimes(1);
-  //   expect(mockHistory.push).toHaveBeenCalledWith('/');
-  // });
 });
 
-it('still navigates home on api errors', async () => {
-  // on errors, since user was not logged in successfully,
-  // navigating home will cause route guard to redirect appropriately
-  window.location.search = '?state=fake_oauth_state&code=fake_oauth_code';
+it('still navigates home on API errors', async () => {
+  Object.defineProperty(window.location, 'search', {
+    configurable: true,
+    value: '?state=fake_oauth_state&code=fake_oauth_code'
+  });
+
   mockGetItem
     .mockReturnValueOnce('FAKE_NONCE')
     .mockReturnValueOnce('FAKE_STATE');
   mockPost.mockRejectedValue(new Error('some network error'));
+
   renderMocked();
+
   await waitFor(() => {
     expect(mockPost).toHaveBeenCalledTimes(1);
     expect(mockLogin).not.toHaveBeenCalled();
   });
-  // await waitFor(() => {
-  //   expect(mockHistory.push).toHaveBeenCalledTimes(1);
-  //   expect(mockHistory.push).toHaveBeenCalledWith('/');
-  // });
 });

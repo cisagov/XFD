@@ -12,7 +12,7 @@ To deploy Crossfeed for the first time in a fresh AWS environment, you need to d
 
 ### Set up a custom domain for the frontend
 
-Pick a custom domain for your frontend and create an [ACM certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) for your domain. Then, set the `frontend_domain` and `frontend_cert_arn` variables in `infrastructure/stage.tfvars` and `infrastructure/prod.tfvars` accordingly.
+Pick a custom domain for your frontend and create an [ACM certificate](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html) for your domain. Then, set the `frontend_domain` variables in `infrastructure/stage.tfvars` and `infrastructure/prod.tfvars` accordingly.
 
 ### Set up authentication mechanism (Cognito or login.gov)
 
@@ -27,20 +27,20 @@ In `backend/env.yml`, set the following variables:
 
 ```yml
 USE_COGNITO: 1
-REACT_APP_USER_POOL_ID: us-east-1_uxiY8DOum
+VITE_USER_POOL_ID: us-east-1_uxiY8DOum
 ```
 
 In `frontend/stage.env` / `frontend/prod.env`, make sure the following environment variables are set:
 
 ```text
-REACT_APP_USE_COGNITO=1
-REACT_APP_USER_POOL_ID=us-east-1_uxiY8DOum
-REACT_APP_USER_POOL_CLIENT_ID=1qf4cii9v0t9hn1hnr54f2ao0j
+VITE_USE_COGNITO=1
+VITE_USER_POOL_ID=us-east-1_uxiY8DOum
+VITE_USER_POOL_CLIENT_ID=1qf4cii9v0t9hn1hnr54f2ao0j
 ```
 
 #### login.gov setup
 
-In `backend/env.yml`, `frontend/stage.env`, and `frontend/prod.env`, remove the lines that set the `USE_COGNITO` or `REACT_APP_USE_COGNITO` environment variables. Both variables must be unset for login.gov authentication to be used!
+In `backend/env.yml`, `frontend/stage.env`, and `frontend/prod.env`, remove the lines that set the `USE_COGNITO` or `VITE_USE_COGNITO` environment variables. Both variables must be unset for login.gov authentication to be used!
 
 Run the following to generate a login.gov RSA key (preferably in a non-git directory outside of crossfeed!):
 
@@ -61,7 +61,7 @@ First, make sure you set the following SSM variables manually through the AWS Co
 - `/crossfeed/staging/DATABASE_USER`
 - `/crossfeed/staging/DATABASE_PASSWORD`
 - `/crossfeed/staging/APP_JWT_SECRET`
-- `/crossfeed/staging/REACT_APP_TERMS_VERSION`
+- `/crossfeed/staging/VITE_TERMS_VERSION`
 
 Optional variables:
 
@@ -71,7 +71,6 @@ Optional variables:
 - `/crossfeed/staging/CENSYS_API_ID`
 - `/crossfeed/staging/CENSYS_API_SECRET`
 - `/crossfeed/staging/SHODAN_API_KEY`
-- `/crossfeed/staging/HIBP_API_KEY`
 - `/crossfeed/staging/SIXGILL_CLIENT_ID`
 - `/crossfeed/staging/SIXGILL_CLIENT_SECRET`
 - `/crossfeed/staging/PE_SHODAN_API_KEYS`

@@ -1,9 +1,8 @@
 ---
-version: '3.4'
-
 services:
   db:
-    image: postgres:15.3
+    container_name: db
+    image: postgres:17.6
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
       - ./backend/db-init:/docker-entrypoint-initdb.d
@@ -17,48 +16,52 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     command: ['postgres', '-c', 'log_statement=all', '-c', 'log_duration=on']
+    restart: always
 
   frontend:
+    container_name: frontend
     build: ./frontend
     volumes:
       - ./frontend/src:/app/src
     ports:
-      - '80:3000'
-    env_file:
-      - ./.env
-    tty: true
-
-  backend:
-    build: ./backend
-    volumes:
-      - ./backend/src:/app/src
-      - /var/run/docker.sock:/var/run/docker.sock
-    networks:
-      - backend
-    ports:
-      - '3000:3000'
+      - "80:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
     env_file:
       - ./.env
     depends_on:
-      - db
+      - backend
+    networks:
+      - backend
+    tty: true
+    restart: always
 
-  python-backend:
+
+  backend:
+    container_name: backend
     build:
       context: ./backend
       dockerfile: ./Dockerfile.python
     volumes:
-      - ./backend:/app/src
+      - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - backend
+      backend:
+        aliases:
+          - elasticmq
     ports:
-      - '8000:8000'
+      - '3000:3000'
     env_file:
       - ./.env
+    environment:
+      DMZ_SYNC_ENDPOINT: "http://backend:3000"
+      CF_API_KEY: "${CF_API_KEY}"
     depends_on:
       - db
+    restart: always
 
   minio:
-    image: bitnami/minio:2020.9.26
+    container_name: minio
+    image: bitnamilegacy/minio:2020.9.26
     user: root
     command: 'minio server /data'
     networks:
@@ -72,8 +75,10 @@ services:
       - MINIO_SECRET_KEY=aws_secret_key
     logging:
       driver: json-file
+    restart: always
 
   docs:
+    container_name: docs
     build:
       context: ./
       dockerfile: ./Dockerfile.docs
@@ -85,8 +90,10 @@ services:
     ports:
       - '4000:4000'
       - '44475:44475'
+    restart: always
 
   es:
+    container_name: es
     image: docker.elastic.co/elasticsearch/elasticsearch:7.9.0
     environment:
       - discovery.type=single-node
@@ -105,7 +112,17 @@ services:
       - 9200:9200
       - 9300:9300
     logging:
-      driver: none
+      driver: json-file
+    restart: always
+
+  redis:
+    container_name: redis
+    image: redis:7.0
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+    restart: always
 
   # kib:
   #   image: docker.elastic.co/kibana/kibana:7.9.0
@@ -119,7 +136,8 @@ services:
   #     LOGGING_QUIET: 'true'
 
   matomodb:
-    image: mariadb:10.6
+    container_name: matomodb
+    image: mariadb:11.4
     command: --max-allowed-packet=64MB
     networks:
       - backend
@@ -128,10 +146,14 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=password
     logging:
-      driver: none
+      driver: json-file
+    ports:
+      - 3306:3306
+    restart: always
 
   matomo:
-    image: matomo:3.14.1
+    container_name: matomo
+    image: matomo:5.2.1
     user: root
     networks:
       - backend
@@ -147,19 +169,18 @@ services:
       - MATOMO_GENERAL_PROXY_URI_HEADER=1
       - MATOMO_GENERAL_ASSUME_SECURE_PROTOCOL=1
     logging:
-      driver: none
-  rabbitmq:
-    image: 'rabbitmq:3.8-management'
+      driver: json-file
     ports:
-      - '5672:5672'  # RabbitMQ default port
-      - '15672:15672'  # RabbitMQ management plugin
+      - "8080:80"
+    restart: always
+
+  elasticmq:
+    container_name: elasticmq
+    image: softwaremill/elasticmq-native
+    ports:
+      - "9324:9324"
     networks:
       - backend
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    volumes:
-      - rabbitmq-data:/var/lib/rabbitmq
 
 volumes:
   postgres-data:
@@ -171,3 +192,4 @@ volumes:
 
 networks:
   backend:
+    name: backend

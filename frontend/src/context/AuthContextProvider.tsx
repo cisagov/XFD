@@ -13,7 +13,8 @@ import {
 import Cookies from 'universal-cookie';
 import { Snackbar } from '@mui/material';
 import { Alert } from '@mui/material';
-import { AlertProps } from '@mui/lab';
+import { AlertProps } from '@mui/material/Alert';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const currentTermsVersion = '1';
 
@@ -37,22 +38,32 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     type: AlertProps['severity'];
   } | null>(null);
   const cookies = useMemo(() => new Cookies(), []);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const logout = useCallback(async () => {
+    setIsLoggingOut(true);
     const shouldReload = !!token;
 
+    // Clear local storage/cookies and sign out
     localStorage.clear();
     await Auth.signOut();
     cookies.remove('crossfeed-token', {
-      domain: process.env.REACT_APP_COOKIE_DOMAIN
+      domain: import.meta.env.VITE_COOKIE_DOMAIN
     });
+
+    // Clear user state after successful sign out
+    setAuthUser(null);
+    setIsLoggingOut(false); // Reset logout state
 
     if (shouldReload) {
       // Refresh the page only if the token was previously defined
       // (i.e. it is now invalid / has expired now).
       window.location.reload();
     }
-  }, [cookies, token]);
+
+    // Reset logout state even on error
+    setIsLoggingOut(false);
+  }, [cookies, token, setAuthUser]);
 
   const handleError = useCallback(
     async (e: Error) => {
@@ -68,18 +79,34 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const { apiGet, apiPost } = api;
 
   const getProfile = useCallback(async () => {
-    const user: User = await apiGet<User>('/users/me');
+    const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
+
+    // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
+    // Currently commented to meet "waiting room" needs and allow login for state selection
+    // and user terms acceptance for new users.
+    //
+    // This acts as a backup safeguard to alert users login is unavailable and log them out.
+    // If user is blocked due to maintenance, show alert and logout.
+    //
+    // if (user.login_blocked_by_maintenance) {
+    //   alert(
+    //     'Product has not officially been launched. Please check back again.'
+    //   );
+    //   await logout();
+    //   return;
+    // }
+
     setAuthUser({
       ...user,
-      isRegistered: user.firstName !== ''
+      isRegistered: user.first_name !== ''
     });
-  }, [setAuthUser, apiGet]);
+  }, [apiGet]);
 
   const setProfile = useCallback(
     async (user: User) => {
       setAuthUser({
         ...user,
-        isRegistered: user.firstName !== ''
+        isRegistered: user.first_name !== ''
       });
     },
     [setAuthUser]
@@ -87,10 +114,10 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
 
   const refreshUser = useCallback(async () => {
     try {
-      if (!token && process.env.REACT_APP_USE_COGNITO) {
+      if (!token && import.meta.env.VITE_USE_COGNITO) {
         const session = await Auth.currentSession();
         const { token } = await apiPost<{ token: string; user: User }>(
-          '/auth/callback',
+          ENDPOINTS.V1_CALLBACK,
           {
             body: {
               token: session.getIdToken().getJwtToken()
@@ -153,7 +180,8 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         touVersion,
         userMustSign,
         setFeedbackMessage,
-        userType: '',
+        user_type: '',
+        isLoggingOut,
         ...api
       }}
     >

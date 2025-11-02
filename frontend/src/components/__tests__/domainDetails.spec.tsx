@@ -1,4 +1,5 @@
-import { generateWebpageTree } from 'components/DomainDetails';
+import { generateWebpageTree } from 'pages/Domains/DomainDetails';
+import { describe, it, expect } from 'vitest';
 
 describe('generateWebpageTree', () => {
   it('no path', () => {

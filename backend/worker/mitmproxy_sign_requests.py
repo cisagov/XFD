@@ -44,6 +44,7 @@ class SignRequests:
             key=self.private_key.encode(), key_id=key_id, algorithm="rsa-sha256"
         )
 
+    # TODO are key_id and algorithm necessary?
     def key_resolver(self, key_id, algorithm):
         """
         Resolve the key for the given key_id and algorithm.
@@ -57,6 +58,7 @@ class SignRequests:
         """
         return self.public_key.encode()
 
+    # TODO is method necessary?
     def verify_signature(self, method, url, date, signature):
         """
         Verify the signature of the HTTP request.
@@ -109,7 +111,7 @@ class SignRequests:
         except Exception as e:
             flow.response = http.HTTPResponse.make(
                 500,
-                f"mitmproxy failed:<br> {e}<br><br>{traceback.format_exc()}",
+                "mitmproxy failed:<br> {}<br><br>{}".format(e, traceback.format_exc()),
                 {"Content-Type": "text/html"},
             )
 

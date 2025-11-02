@@ -1,0 +1,50 @@
+[CLASSES]
+min-public-methods=1
+
+[DESIGN]
+max-branches=20
+max-args=6
+max-locals=20
+max-nested-blocks=6
+
+
+[FORMAT]
+max-line-length=120
+
+[MESSAGES CONTROL]
+disable=C0103,  # Conforms to snake_case
+        C0209,  # Formatting a regular string which could be an f-string (consider-using-f-string)
+        C0301,  # Line too long
+        C0412,  # Import not grouped. Need this for bastion.py to work
+        C0415,  # Import outside top-level (consider refactoring)
+        C0302,  # Too many lines in module
+        C0413,  # Wrong import position
+        E1101,  # Class has no 'objects' member (doesn't understand it's a django model)
+        E0213,  # Self not first argument
+        E0606,  # Possibly used variable before assignment
+        E0611,  # No name in module
+        R0801,  # Duplicate code
+        R0901,  # Too many ancestors
+        R0902,  # Too many instance attributes
+        R0903,  # Too few public methods
+        R0911,  # Too many return statements
+        R0914,  # Too many local variables
+        R0917,  # Too many positional arguments
+        R1705,  # Unnecessary else
+        R1729,  # Use a generator
+        R1732,  # Consider using 'with'
+        W0102,  # Default value [] as argument
+        W0106,  # Expression not assigned
+        W0108,  # Lambda may not be necessary
+        W0212,  # Access to a protected member
+        W0221,  # Model-validate name conflict
+        W0511,  # TODO comments
+        W0612,  # Unused variable
+        W0613,  # Unused argument
+        W0621,  # Redefining name from outer scope
+        W0622,  # Redefining built-in print
+        W0707,  # Consider explicitly re-raising exception
+        W0718,  # Catching too general exception
+        W0719,  # Too broad exception
+        W1203,  # Use lazy % formatting in logging functions
+        W1514,  # Unspecified encoding

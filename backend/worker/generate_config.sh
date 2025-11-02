@@ -12,12 +12,9 @@ port=5432
 [shodan]
 key1=${PE_SHODAN_API_KEYS}
 
-[hibp]
-key=${HIBP_API_KEY}
-
 [pe_api]
 pe_api_key=${PE_API_KEY}
-pe_api_url=https://api.staging-cd.crossfeed.cyber.dhs.gov/pe/apiv1/
+pe_api_url=${PE_API_URL}/apiv1/
 cf_api_key=${CF_API_KEY}
 
 [staging]
@@ -28,7 +25,7 @@ client_id=${SIXGILL_CLIENT_ID}
 client_secret=${SIXGILL_CLIENT_SECRET}
 
 [whoisxml]
-key=
+key=${WHOIS_XML_KEY}
 
 [intelx]
 api_key=${INTELX_API_KEY}
@@ -46,6 +43,10 @@ api_key=${INTELX_API_KEY}
 [xpanse]
 api_key=${XPANSE_API_KEY}
 auth_id=${XPANSE_AUTH_ID}
+
+[was]
+username=${QUALYS_USERNAME}
+password=${QUALYS_PASSWORD}
 
 
 EOF

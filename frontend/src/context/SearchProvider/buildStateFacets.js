@@ -40,11 +40,15 @@ function getValueFacet(aggregations, fieldName) {
 
 const FACETS = [
   'name',
-  'fromRootDomain',
+  'from_root_domain',
   'services.port',
   'vulnerabilities.cve',
   'vulnerabilities.severity',
   'organization.name',
+  // The following commented-out code is to be used for future .x releases.
+  // Returning org id and region id with facets will allow for a full range of dynamic filters.
+  // 'organization.id',
+  //'organization.region_id',
   'services.products.cpe'
 ];
 export default function buildStateFacets(aggregations) {
@@ -55,6 +59,25 @@ export default function buildStateFacets(aggregations) {
     if (value) {
       facets[facetName] = value;
     }
+  }
+
+  // Special handling for no_services filter aggregation
+  if (
+    aggregations.no_services &&
+    typeof aggregations.no_services.doc_count === 'number'
+  ) {
+    facets['no_services'] = [
+      {
+        field: 'no_services',
+        type: 'value',
+        data: [
+          {
+            value: true,
+            count: aggregations.no_services.doc_count
+          }
+        ]
+      }
+    ];
   }
 
   if (Object.keys(facets).length > 0) {

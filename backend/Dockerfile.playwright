@@ -1,0 +1,15 @@
+FROM mcr.microsoft.com/playwright:v1.50.1-jammy
+
+# Set working directory
+WORKDIR /app
+
+# Install needed tools
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y git awscli
+
+# Copy the test runner script
+COPY ../worker/entrypoint.playwright.sh /entrypoint.playwright.sh
+RUN chmod +x /entrypoint.playwright.sh
+
+# Define entrypoint
+ENTRYPOINT ["/entrypoint.playwright.sh"]

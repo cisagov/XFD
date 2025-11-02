@@ -38,7 +38,7 @@ environment variables use values that are stored in SSM.
 
 | Name                            | Description                                                               | Sample value                                  |
 | ------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------- |
-| `REACT_APP_API_URL`             | URL for REST API                                                          | `https://api.staging.crossfeed.cyber.dhs.gov` | -->
+| `VITE_API_URL`             | URL for REST API                                                          | `https://api.staging.crossfeed.cyber.dhs.gov` | -->
 
 ### Authentication
 
@@ -48,4 +48,4 @@ with their credential from either provider.
 The REST API then verifies the credential and issues the user a JWT. The user uses this server-provided JWT
 to authenticate any future requests to the Crossfeed API by passing the JWT in the `Authorization` header.
 
-One can also pass an API Key in the `Authorization` header when accessing the REST API programmatically. For more details, see [API Reference](/api-reference/).
+One can also pass an API Key in the `Authorization` header when accessing the REST API programmatically.

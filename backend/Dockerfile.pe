@@ -7,7 +7,7 @@ COPY ./package* ./
 
 COPY src ./src
 
-RUN apt update && apt install git zlib1g-dev
+RUN apt update && apt install -y git zlib1g-dev
 
 RUN apt-get update && apt-get install -y jq
 
@@ -28,7 +28,7 @@ RUN ./aws/install
 # Sync the latest from cf-staging branch
 RUN git clone -b crossfeed-SQS https://github.com/cisagov/ATC-Framework.git && \
     cd ATC-Framework && \
-    git checkout 995ec3c28de41c3bb9ac8381441d8214b7e87a1d && \
+    git checkout 115aca7ca6e9b4e739104058f888ca3c259f7d69 && \
     pip install .
 
 RUN python -m spacy download en_core_web_lg

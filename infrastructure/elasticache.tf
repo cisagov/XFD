@@ -1,18 +1,20 @@
+
 resource "aws_security_group" "elasticache_security_group" {
   name_prefix = "elasticache-"
   description = "ElastiCache security group"
-  vpc_id      = aws_vpc.crossfeed_vpc.id
+  vpc_id      = var.is_dmz ? aws_vpc.crossfeed_vpc[0].id : data.aws_ssm_parameter.vpc_id[0].value
   ingress {
     from_port   = 6379
     to_port     = 6379
     protocol    = "tcp"
-    cidr_blocks = [aws_vpc.crossfeed_vpc.cidr_block] // Dynamically restrict to a specific CIDR block, ideally your VPC's CIDR
+    cidr_blocks = [var.is_dmz ? aws_vpc.crossfeed_vpc[0].cidr_block : data.aws_ssm_parameter.vpc_cidr_block[0].value] // Dynamically restrict to a specific CIDR block, ideally your VPC's CIDR
   }
 }
 
+
 resource "aws_elasticache_subnet_group" "crossfeed_vpc" {
-  name       = "crossfeed-vpc-subnet-group"
-  subnet_ids = [aws_subnet.backend.id]
+  name       = "crossfeed-${var.stage}-elasticache-subnet-group"
+  subnet_ids = [var.is_dmz ? aws_subnet.backend[0].id : data.aws_ssm_parameter.subnet_db_1_id[0].value]
 
   tags = {
     Name = "crossfeed_vpc"
@@ -20,7 +22,7 @@ resource "aws_elasticache_subnet_group" "crossfeed_vpc" {
 }
 
 resource "aws_elasticache_parameter_group" "xfd_redis_group" {
-  name   = "my-redis7-1"
+  name   = "crossfeed-${var.stage}-redis7-group"
   family = "redis7"
 
   parameter {
@@ -31,9 +33,9 @@ resource "aws_elasticache_parameter_group" "xfd_redis_group" {
 
 resource "aws_elasticache_cluster" "crossfeed_vpc_elasticache_cluster" {
   count                = var.create_elasticache_cluster ? 1 : 0
-  cluster_id           = "crossfeed-vpc-cluster"
+  cluster_id           = "crossfeed-${var.stage}-elasticache-cluster"
   engine               = "redis"
-  node_type            = "cache.r7g.xlarge"
+  node_type            = var.is_dmz ? "cache.r7g.xlarge" : "cache.r6g.xlarge"
   num_cache_nodes      = 1
   parameter_group_name = aws_elasticache_parameter_group.xfd_redis_group.name
   engine_version       = "7.1"
@@ -49,7 +51,8 @@ resource "aws_elasticache_cluster" "crossfeed_vpc_elasticache_cluster" {
 }
 
 resource "aws_iam_policy" "elasticache_policy" {
-  name        = "elasticache_policy"
+  count       = var.is_dmz ? 1 : 0
+  name        = "crossfeed-${var.stage}-elasticache-policy"
   description = "Policy to allow ElastiCache operations"
   policy = jsonencode({
     Version = "2012-10-17"
@@ -57,30 +60,29 @@ resource "aws_iam_policy" "elasticache_policy" {
       {
         Effect = "Allow"
         Action = [
+          "elasticache:AddTagsToResource",
           "elasticache:CreateCacheCluster",
+          "elasticache:CreateCacheParameterGroup",
           "elasticache:CreateCacheSubnetGroup",
+          "elasticache:DeleteCacheParameterGroup",
           "elasticache:DeleteCacheSubnetGroup",
-          "elasticache:DescribeCacheSubnetGroups",
           "elasticache:DescribeCacheClusters",
           "elasticache:DescribeCacheEngineVersions",
-          "elasticache:DescribeCacheSecurityGroups",
+          "elasticache:DescribeCacheParameterGroups",
           "elasticache:DescribeCacheParameters",
-          "elasticache:DescribeCacheParameterGroups",
-          "elasticache:ModifyCacheSubnetGroup",
-          "elasticache:AddTagsToResource",
+          "elasticache:DescribeCacheSecurityGroups",
+          "elasticache:DescribeCacheSubnetGroups",
           "elasticache:ListTagsForResource",
-          "elasticache:CreateCacheParameterGroup",
-          "elasticache:DeleteCacheParameterGroup",
-          "elasticache:DescribeCacheParameterGroups",
           "elasticache:ModifyCacheParameterGroup",
-          "iam:ListAttachedUserPolicies",
+          "elasticache:ModifyCacheSubnetGroup",
+          "iam:AttachUserPolicy",
           "iam:CreatePolicy",
           "iam:CreatePolicyVersion",
-          "iam:AttachUserPolicy",
-          "iam:GetPolicyVersion",
-          "iam:ListPolicyVersions",
           "iam:DeletePolicy",
-          "iam:DetachUserPolicy"
+          "iam:DetachUserPolicy",
+          "iam:GetPolicyVersion",
+          "iam:ListAttachedUserPolicies",
+          "iam:ListPolicyVersions",
         ]
         Resource = "*"
       }
@@ -89,6 +91,7 @@ resource "aws_iam_policy" "elasticache_policy" {
 }
 
 resource "aws_iam_user_policy_attachment" "elasticache_user_policy_attachment" {
+  count      = var.is_dmz ? 1 : 0
   user       = "crossfeed-deploy-staging"
-  policy_arn = aws_iam_policy.elasticache_policy.arn
+  policy_arn = aws_iam_policy.elasticache_policy[0].arn
 }

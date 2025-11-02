@@ -19,10 +19,7 @@ app.use((req, res, next) => {
 // These CORS origins work in all Crossfeed environments
 app.use(
   cors({
-    origin: [
-      /^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/,
-      /^https:\/\/(.*\.)?readysetcyber\.cyber\.dhs\.gov$/
-    ],
+    origin: [/^https:\/\/(.*\.)?crossfeed\.cyber\.dhs\.gov$/],
     methods: 'GET,POST,PUT,DELETE,OPTIONS'
   })
 );
@@ -34,25 +31,26 @@ app.use(
       directives: {
         defaultSrc: [
           "'self'",
-          'https://cognito-idp.us-east-1.amazonaws.com',
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov'
+          `${process.env.COGNITO_URL}`,
+          `${process.env.BACKEND_DOMAIN}`
         ],
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
           'data:',
-          'https://staging-cd.crossfeed.cyber.dhs.gov',
+          `https://${process.env.DOMAIN}`,
           'https://www.ssa.gov',
           'https://www.dhs.gov'
         ],
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          'https://api.staging-cd.crossfeed.cyber.dhs.gov',
+          `${process.env.BACKEND_DOMAIN}`,
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
           'https://www.ssa.gov/accessibility/andi/fandi.js',
           'https://www.ssa.gov/accessibility/andi/andi.js',
-          'https://www.dhs.gov'
+          'https://www.dhs.gov',
+          'https://static.cloudflareinsights.com'
         ],
         frameAncestors: ["'none'"]
       }
@@ -65,15 +63,31 @@ app.use(
   })
 );
 
+//Middleware to set Cache-Control headers
+app.use((req, res, next) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  next();
+});
+
 app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '0');
   next();
 });
 
-app.use(express.static(path.join(__dirname, '../build')));
+app.use(
+  express.static(path.join(__dirname, '../dist'), {
+    setHeaders: (res, path) => {
+      if (path.endsWith('.js')) {
+        res.setHeader('Content-Type', 'application/javascript');
+      }
+    },
+    maxAge: 'no-cache, no-store, must-revalidate'
+  })
+);
 
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, '../build/index.html'));
+  res.setHeader('Content-Type', 'text/html');
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 export const handler = serverless(app, {

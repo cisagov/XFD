@@ -1,19 +1,20 @@
-@import '~@trussworks/react-uswds/lib/index.css';
-
 $theme-font-path: '~uswds/fonts';
 $theme-image-path: '~uswds/img';
 $theme-show-notifications: false;
+$project-font-type-tokens: ();
 
 // Import required global packages
-@import '~uswds/scss/packages/required';
-@import '~uswds/scss/packages/global';
-@import '~uswds/scss/packages/uswds-utilities';
-@import '~uswds/scss/packages/usa-banner';
-@import '~uswds/scss/packages/usa-header';
-@import '~uswds/scss/packages/usa-table';
-@import '~uswds/scss/packages/usa-alert';
-@import '~uswds/scss/packages/usa-modal';
-@import '~uswds/scss/packages/form-controls';
+@import 'uswds/scss/packages/required';
+@import 'uswds/scss/packages/global';
+@import 'uswds/scss/packages/uswds-utilities';
+@import 'uswds/scss/packages/usa-banner';
+@import 'uswds/scss/packages/usa-header';
+@import 'uswds/scss/packages/usa-table';
+@import 'uswds/scss/packages/usa-alert';
+@import 'uswds/scss/packages/usa-modal';
+@import 'uswds/scss/packages/form-controls';
+
+@import '@trussworks/react-uswds/lib/index.css';
 
 @import '@aws-amplify/ui-react/styles.css';
 

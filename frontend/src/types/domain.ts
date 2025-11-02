@@ -1,7 +1,7 @@
 import { Organization } from './organization';
-import { Vulnerability } from './vulnerability';
-import { Webpage } from './webpage';
-
+import { Scan } from './scan';
+import { Cpe } from './cpe';
+import { Cve } from './cve';
 export interface Product {
   // Common name
   name: string;
@@ -27,17 +27,17 @@ export interface Service {
   port: number;
   service: string;
   id: number;
-  lastSeen: string | null;
+  last_seen: string | null;
   banner: string | null;
-  censysMetadata: {
+  censys_metadata: {
     product: string;
     revision: string;
     description: string;
     version: string;
     manufacturer: string;
   } | null;
-  censysIpv4Results: any;
-  intrigueIdentResults: {
+  censys_ipv4_results: any;
+  intrigue_ident_results: {
     fingerprint: {
       type: string;
       vendor: string;
@@ -62,30 +62,135 @@ export interface Service {
       result?: boolean;
     }[];
   };
-  wappalyzerResults: WappalyzerResult[];
+  wappalyzer_results: WappalyzerResult[];
   products: Product[];
   productSource: string | null;
-  serviceSource: string | null;
+  service_source: string | null;
+}
+
+export interface Webpage {
+  id: string;
+  created_at: Date;
+  updated_at: Date;
+  synced_at: Date | null;
+  domain: Domain;
+  discovered_by: Scan;
+  last_seen: Date | null;
+  s3_key: string | null;
+  url: string;
+  status: number;
+  response_size: number | null;
+}
+
+export interface Vulnerability {
+  id: string;
+  domain: Domain;
+  created_at: string;
+  last_seen: string | null;
+  title: string;
+  cve: string | null;
+  is_kev?: string | boolean | null;
+  is_kev_ransomware?: string | boolean | null;
+  cwe: string | null;
+  cpe: string | null;
+  description: string;
+  cvss: number | null;
+  severity: string | null;
+  updated_at?: string | null;
+  created_by?: string | null;
+  product?: string | null;
+  domain_string?: string | null;
+  ip_string?: string | null;
+  cvss_vector?: string | null;
+  severity_int?: number | null;
+  service_string?: string | null;
+  is_risky_service?: boolean | null;
+  plugin_id?: string | null;
+  solution?: string | null;
+  synopsis?: string | null;
+  results?: string | null;
+  ticket_history?: string | null;
+  kev_results?: {} | null;
+  protocol?: string | null;
+  port?: number | string | null;
+  domain_id?: string | null;
+  service_id?: number | null;
+  scan_id?: string | null;
+  scan?: Scan | null;
+  organization?: Organization | null;
+  needs_population?: boolean | null;
+  os?: string | null;
+  state: string;
+  source: string;
+  scan_source?: string | null;
+  structured_data: { [x: string]: any } | null;
+  substate: string;
+  notes?: string | null;
+  actions:
+    | {
+        type: 'state-change' | 'comment';
+        state?: string;
+        substate?: string;
+        value?: string;
+        automatic: boolean;
+        user_id: string | null;
+        userName?: string | null;
+        date: string;
+      }[]
+    | null;
+  references:
+    | {
+        url: string;
+        name: string;
+        source: string;
+        tags: string[];
+      }[]
+    | null;
+  service?: Service | null;
+  cve_full: Cve | null;
+  cpes?: Cpe[] | null;
 }
 
 export interface Domain {
   id: string;
   name: string;
   ip: string;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
   screenshot: string | null;
   country: string | null;
   asn: string | null;
-  cloudHosted: boolean;
-  services: Service[];
-  vulnerabilities: Vulnerability[];
-  webpages: Webpage[];
-  organization: Organization;
-  ssl: SSLInfo | null;
-  censysCertificatesResults: any;
-  fromRootDomain: string | null;
-  subdomainSource: string | null;
+  cloud_hosted: boolean | null;
+  services?: Service[] | null;
+  vulnerabilities?: Vulnerability[] | null;
+  webpages?: Webpage[] | null;
+  organization?: Organization | null;
+  ssl?: SSLInfo | null;
+  censys_certificates_results: any;
+  from_root_domain: string | null;
+  subdomain_source: string | null;
+  synced_at?: string | null;
+  ip_only?: boolean | null;
+  reverse_name?: string | null;
+  trustymail_results?: any | null;
+}
+
+export interface DomainSearchApiResponse {
+  id: string;
+  name: string;
+  ip: string;
+  created_at: string;
+  updated_at: string;
+  country: string | null;
+  cloud_hosted: boolean;
+  organization: {
+    id: string;
+    name: string;
+  };
+  ports_preview: string;
+  services_preview: string;
+  services_count: number;
+  vulnerabilities_count: number;
 }
 
 export interface SSLInfo {

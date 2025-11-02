@@ -1,21 +1,85 @@
-import React, { useEffect, useState } from 'react';
-import { styled } from '@mui/material/styles';
+import React, {
+  PropsWithChildren,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { useLocation } from 'react-router-dom';
-import { ScopedCssBaseline } from '@mui/material';
-import { Header, GovBanner } from 'components';
+import { withSearch } from '@elastic/react-search-ui';
+import { Alert, AlertTitle, Box, Typography } from '@mui/material';
+import { styled, useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/system';
+import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
-import { CrossfeedFooter } from './Footer';
-import { RSCFooter } from './ReadySetCyber/RSCFooter';
-import { RSCHeader } from './ReadySetCyber/RSCHeader';
-import { SkipToMainContent } from './SkipToMainContent/index';
-interface LayoutProps {
-  children: React.ReactNode;
-}
+import { matchPath } from 'utils/matchPath';
+import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
+import { ContextType } from 'context';
+import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
+import { useStaticsContext } from 'context/StaticsContext';
+import { useFilterDrawerContext } from 'context/FilterDrawerContext';
+import { useUserLevel } from 'hooks/useUserLevel';
+import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
+import { FILTER_ENABLED_PATHS } from '@/constants/filterPaths';
+import { ROUTES } from '@/constants/routes';
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+const Main = styled('main', {
+  shouldForwardProp: (prop) =>
+    prop !== 'open' && prop !== 'user' && prop !== 'topOffset'
+})<{
+  open?: boolean;
+  user?: boolean;
+  topOffset?: number;
+}>(({ topOffset }) => ({
+  minHeight: '100vh',
+  overflowY: 'auto',
+  overscrollBehavior: 'contain',
+  paddingTop: topOffset ?? 0
+}));
+
+export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
+  children,
+  filters,
+  addFilter
+  // removeFilter
+}) => {
+  const { pathname } = useLocation();
   const { logout, user } = useAuthContext();
+  const topRef = useRef<HTMLDivElement>(null);
+  const [topOffset, setTopOffset] = useState(0);
+
+  const noAlertPaths = ['/create-account', ROUTES.LOGIN, ROUTES.OKTA_CALLBACK];
+
+  useEffect(() => {
+    localStorage.setItem('es-search-filters', JSON.stringify(filters));
+  }, [filters]);
+
+  const { regions } = useStaticsContext();
+
+  const [initialFilters, setInitialFilters] = useState<any[]>([]);
+
+  const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
+    useFilterDrawerContext();
+
+  const [siteWideAlert, setSiteWideAlert] = useState(() => {
+    return localStorage.getItem('siteWideAlertOff') === 'true';
+  });
+
+  useEffect(() => {
+    if (topRef.current) {
+      setTopOffset(topRef.current.getBoundingClientRect().height);
+    }
+  }, [siteWideAlert, user, pathname]);
+
+  const handleAlertClose = () => {
+    setSiteWideAlert(true);
+    localStorage.setItem('siteWideAlertOff', 'true');
+  };
+
+  const userLevel = useUserLevel().userLevel;
+
   const [loggedIn, setLoggedIn] = useState<boolean>(
     user !== null && user !== undefined ? true : false
   );
@@ -24,15 +88,22 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     loggedIn
   );
 
-  const handleCountdownEnd = (shouldLogout: boolean) => {
-    if (shouldLogout) {
-      logout();
-    } else {
-      resetTimeout();
-    }
-  };
+  const handleCountdownEnd = useCallback(
+    (shouldLogout: boolean) => {
+      if (shouldLogout) {
+        logout();
+      } else {
+        resetTimeout();
+      }
+    },
+    [logout, resetTimeout]
+  );
 
-  const { pathname } = useLocation();
+  useEffect(() => {
+    if (!matchPath(FILTER_ENABLED_PATHS, pathname)) {
+      setIsFilterDrawerOpen(false);
+    }
+  }, [pathname, setIsFilterDrawerOpen]);
 
   useEffect(() => {
     // set logged in if use exists then set true, otherwise set false
@@ -40,69 +111,97 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     else setLoggedIn(false);
   }, [user]);
 
+  const initialFiltersForUser = useUserTypeFilters(regions, user, userLevel);
+
+  useEffect(() => {
+    initialFiltersForUser.forEach((filter) => {
+      filter.values.forEach((val) => {
+        addFilter(filter.field, val, filter.type);
+      });
+      setInitialFilters(initialFiltersForUser);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regions, user]);
+
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+
   return (
-    <StyledScopedCssBaseline classes={{ root: classes.overrides }}>
-      <div className={classes.root}>
-        <UserInactiveModal
-          isOpen={isTimedOut}
-          onCountdownEnd={handleCountdownEnd}
-          countdown={60} // 60 second timer for user inactivity timeout
-        />
-        <div style={{ display: 'flex' }}>
-          <GovBanner />
-          <SkipToMainContent />
-        </div>
-        {!pathname.includes('/readysetcyber') ? (
-          <>
-            <Header />
-
-            <div className="main-content" id="main-content" tabIndex={-1} />
-            {pathname === '/inventory' ? (
-              children
-            ) : (
-              <div className={classes.content}>{children}</div>
-            )}
-
-            <CrossfeedFooter />
-          </>
-        ) : (
-          <>
-            <RSCHeader />
-            <div className={classes.content}>{children}</div>
-            <RSCFooter />
-          </>
+    <>
+      <UserInactiveModal
+        isOpen={isTimedOut}
+        onCountdownEnd={handleCountdownEnd}
+        countdown={60}
+      />
+      <Box
+        ref={topRef}
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.appBar
+        }}
+      >
+        <GovBanner />
+        {!siteWideAlert && user && !noAlertPaths.includes(pathname) && (
+          <Box sx={{ backgroundColor: '#E5F6FD' }}>
+            <Box
+              display="flex"
+              flexDirection="column"
+              maxWidth="1152px"
+              width="100%"
+              margin="auto"
+            >
+              <Alert severity="info" onClose={handleAlertClose}>
+                <AlertTitle
+                  variant="largeBody"
+                  color="primary.darker"
+                  sx={{ fontWeight: '700' }}
+                >
+                  CyHy Dashboard - Beta (Early Access)
+                </AlertTitle>
+                <Typography
+                  variant="body1"
+                  color="primary.darker"
+                  fontWeight="600"
+                >
+                  You are using an early release version of the CyHy Dashboard.
+                  This site is fully functional, but some features are still
+                  being improved and refined. Your feedback during this stage
+                  directly shapes improvements. Please go to the Support menu to
+                  share feedback, report bugs, or submit questions so we can
+                  enhance the dashboard to better meet your needs.
+                </Typography>
+              </Alert>
+            </Box>
+          </Box>
         )}
-      </div>
-    </StyledScopedCssBaseline>
+        <Header />
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerToggle />
+        )}
+      </Box>
+      <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerV2
+            setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+            isFilterDrawerOpen={isFilterDrawerOpen}
+            isMobile={isMobile}
+            initialFilters={initialFilters}
+            topOffset={topOffset}
+          />
+        )}
+        {children}
+      </Main>
+    </>
   );
 };
 
-//Styling
-const PREFIX = 'Layout';
-
-const classes = {
-  root: `${PREFIX}-root`,
-  overrides: `${PREFIX}-overrides`,
-  content: `${PREFIX}-content`
-};
-
-const StyledScopedCssBaseline = styled(ScopedCssBaseline)(({ theme }) => ({
-  [`& .${classes.root}`]: {
-    position: 'relative',
-    height: '100vh',
-    display: 'flex',
-    flexFlow: 'column nowrap'
-    // overflow: 'auto'
-  },
-
-  [`& .${classes.overrides}`]: {
-    WebkitFontSmoothing: 'unset',
-    MozOsxFontSmoothing: 'unset'
-  },
-
-  [`& .${classes.content}`]: {
-    flex: '1',
-    display: 'block',
-    position: 'relative'
-  }
-}));
+export const LayoutWithSearch = withSearch(
+  ({ addFilter, removeFilter, filters }: ContextType) => ({
+    addFilter,
+    removeFilter,
+    filters
+  })
+)(Layout);

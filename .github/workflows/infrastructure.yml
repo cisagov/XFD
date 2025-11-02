@@ -8,14 +8,14 @@ on:
   push:
     branches:
       - develop
-      - production
+      - integration
     paths:
       - infrastructure/**
       - .github/workflows/infrastructure.yml
   pull_request:
     branches:
       - develop
-      - production
+      - integration
     paths:
       - infrastructure/**
       - .github/workflows/infrastructure.yml
@@ -53,34 +53,37 @@ jobs:
           sudo mv terraform /usr/local/bin
 
       - name: Terraform init
-        run: terraform init -backend-config=stage.config
+        run: terraform init -backend-config=stage-cd.config
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - name: Terraform validation
         run: terraform validate
 
       - name: Terraform plan
-        run: terraform plan -var-file=stage.tfvars -out stage.plan
+        run: terraform plan -var-file=stage-cd.tfvars -out stage-cd.plan
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - name: Terraform apply
         if: github.ref == 'refs/heads/develop'
-        run: terraform apply stage.plan
+        run: terraform apply stage-cd.plan
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - if: ${{ always() }}
-        run: rm stage.plan || true
+        run: rm stage-cd.plan || true
 
-  prod:
+  integration:
     timeout-minutes: 4320
     runs-on: ubuntu-latest
-    environment: production
+    environment: integration
     concurrency: '1'
     steps:
       - uses: actions/checkout@v3
@@ -92,29 +95,33 @@ jobs:
           sudo mv terraform /usr/local/bin
 
       - name: Terraform init
-        run: terraform init -backend-config=prod.config -input=false
+        run: terraform init -backend-config=integration.config -input=false
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - name: Terraform validation
         run: terraform validate
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - name: Terraform plan
-        run: terraform plan -var-file=prod.tfvars -out prod.plan
+        run: terraform plan -var-file=integration.tfvars -out integration.plan
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - name: Terraform apply
-        if: github.ref == 'refs/heads/production'
-        run: terraform apply prod.plan
+        if: github.ref == 'refs/heads/integration'
+        run: terraform apply integration.plan
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: "us-east-1"
 
       - if: ${{ always() }}
-        run: rm prod.plan || true
+        run: rm integration.plan || true

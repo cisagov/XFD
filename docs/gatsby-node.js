@@ -47,8 +47,8 @@ exports.createPages = async ({ actions, graphql }) => {
   const { createPage, createRedirect } = actions;
 
   createRedirect({
-    fromPath: '/usage',
-    toPath: '/user-guide/quickstart',
+    fromPath: '/docs/usage',
+    toPath: '/docs/user-guide/quickstart',
     isPermanent: false,
   });
 
@@ -61,7 +61,7 @@ async function createMarkdownPages(createPage, graphql) {
 
   pages.forEach(({ node }) => {
     createPage({
-      path: node.fields.slug,
+      path: `/docs${node.fields.slug}`,
       component: pageTemplate,
       context: {
         name: node.fields.slug,

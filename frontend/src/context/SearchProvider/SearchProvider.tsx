@@ -3,6 +3,7 @@ import applyDisjunctiveFaceting from './applyDisjunctiveFaceting';
 import buildState from './buildState';
 import { useAuthContext } from 'context';
 import { SearchProvider as ESProvider } from '@elastic/react-search-ui';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface ApiResponse {
   suggest: any;
@@ -11,17 +12,45 @@ interface SearchProviderProps {
   children: React.ReactNode;
 }
 export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
-  const { apiPost, currentOrganization, showAllOrganizations } =
-    useAuthContext();
+  const { apiPost } = useAuthContext();
 
   const config = {
     debug: false,
     alwaysSearchOnInitialLoad: false,
+    trackUrlState: false,
     initialState: {
       resultsPerPage: 15,
       sortField: 'name',
       sortDirection: 'asc'
     },
+    //TODO: Implement or delete these queries CRASM-2819
+    // debug: false,
+    // alwaysSearchOnInitialLoad: false,
+    // trackUrlState: false,
+    // initialState: {
+    //   resultsPerPage: 15,
+    //   sortField: 'name',
+    //   sortDirection: 'asc'
+    // },
+    // searchQuery: {
+    //   search_fields: {
+    //     name: {}
+    //   },
+    //   result_fields: {
+    //     name: {
+    //       raw: {}
+    //     }
+    //   }
+    // },
+    // autocompleteQuery: {
+    //   suggestions: {
+    //     types: {
+    //       documents: {
+    //         fields: ['name']
+    //       }
+    //     }
+    //   }
+    // },
 
     onResultClick: () => {
       /* Not implemented */
@@ -29,9 +58,9 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     onAutocompleteResultClick: (e: any, f: any) => {
       console.error(e, f);
     },
-    onAutocomplete: async ({ searchTerm }: { searchTerm: string }) => {
-      // const requestBody = buildAutocompleteRequest({ searchTerm });
-      // const json = await apiPost<ApiResponse>('/search', {
+    onAutocomplete: async ({ search_term }: { search_term: string }) => {
+      // const requestBody = buildAutocompleteRequest({ search_term });
+      // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
       //   body: {
       //     ...requestBody
       //   },
@@ -66,16 +95,14 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         sortDirection,
         sortField
       };
-      if (!showAllOrganizations && currentOrganization) {
-        if ('rootDomains' in currentOrganization)
-          body.organizationId = currentOrganization.id;
-        else body.tagId = currentOrganization.id;
-      }
-      const responseJson = await apiPost<ApiResponse>('/search', {
+
+      const responseJson = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
         body
       });
       const responseJsonWithDisjunctiveFacetCounts =
-        await applyDisjunctiveFaceting(responseJson, state, ['fromRootDomain']);
+        await applyDisjunctiveFaceting(responseJson, state, [
+          'from_root_domain'
+        ]);
       return buildState(responseJsonWithDisjunctiveFacetCounts, resultsPerPage);
     }
   };
@@ -85,7 +112,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
   return (
     <ESProvider
       config={config}
-      key={`es-provider-${currentOrganization?.name}-${showAllOrganizations}`}
+      // key={`es-provider-${currentOrganization?.name}-${showAllOrganizations}`}
     >
       {children}
     </ESProvider>

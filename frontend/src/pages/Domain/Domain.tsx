@@ -1,7 +1,7 @@
 import React from 'react';
 import { useParams } from 'react-router-dom';
 import classes from './styles.module.scss';
-import { DomainDetails } from 'components';
+import { DomainDetails } from './DomainDetails';
 
 export const Domain: React.FC = () => {
   const { domainId } = useParams<any>();

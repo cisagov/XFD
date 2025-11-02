@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { useApi } from 'hooks';
 import { User, Organization, OrganizationTag } from 'types';
-import { AlertProps } from '@mui/lab';
+import { AlertProps } from '@mui/material/Alert';
 
 export interface AuthUser extends User {
   isRegistered: boolean;
@@ -10,14 +10,14 @@ export interface AuthUser extends User {
 export type CurrentOrganization = Organization | OrganizationTag;
 
 export interface AuthContextType extends ReturnType<typeof useApi> {
-  userType: string;
+  user_type: string;
   login(token: string): void;
   logout(): Promise<void>;
   user?: AuthUser | null;
   setUser(user: User): void;
   token: string | null;
   currentOrganization?: CurrentOrganization | null;
-  setOrganization: (organization: CurrentOrganization) => void;
+  setOrganization: (organization: CurrentOrganization | null) => void;
   showMaps: boolean;
   setShowMaps: (showMap: boolean) => void;
   showAllOrganizations: boolean;
@@ -31,6 +31,7 @@ export interface AuthContextType extends ReturnType<typeof useApi> {
   maximumRole: 'user' | 'admin';
   touVersion: string;
   userMustSign: boolean;
+  isLoggingOut: boolean | null;
 }
 
 export const AuthContext = React.createContext<AuthContextType>(undefined!);

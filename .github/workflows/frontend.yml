@@ -5,21 +5,19 @@ on:
   push:
     branches:
       - develop
-      - production
+      - integration
     paths:
       - 'frontend/**'
+      - 'docs/**'
       - '.github/workflows/frontend.yml'
   pull_request:
     branches:
       - develop
-      - production
+      - integration
     paths:
       - 'frontend/**'
+      - 'docs/**'
       - '.github/workflows/frontend.yml'
-
-defaults:
-  run:
-    working-directory: ./frontend
 
 jobs:
   lint:
@@ -28,7 +26,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20.19.4'
       - name: Restore npm cache
         uses: actions/cache@v3
         with:
@@ -37,8 +35,11 @@ jobs:
           restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: npm ci
+        working-directory: ./frontend
       - name: Lint
         run: npm run lint
+        working-directory: ./frontend
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -46,7 +47,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20.19.4'
       - name: Restore npm cache
         uses: actions/cache@v3
         with:
@@ -55,10 +56,14 @@ jobs:
           restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: npm ci
+        working-directory: ./frontend
       - name: Build
         run: npm run build
+        working-directory: ./frontend
       - name: Test
         run: npm run test
+        working-directory: ./frontend
+
   deploy_staging:
     needs: [lint, test]
     runs-on: ubuntu-latest
@@ -69,7 +74,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20.19.4'
       - name: Restore npm cache
         uses: actions/cache@v3
         with:
@@ -78,41 +83,74 @@ jobs:
           restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
         run: npm ci
+        working-directory: ./frontend
+      # TODO: Reenable docs site CRASM-1070, CRASM-2124
+      # - name: Build Docs
+      #   run: |
+      #     npm ci
+      #     npm run build
+      #   working-directory: ./docs
+      # - name: Copy Docs to Frontend
+      #   run: cp -R ./docs/public ./frontend/docs-build
       - name: Build Staging
-        run: cp stage.env .env && npm run build
-
+        run: |
+          cp stage-cd.env .env
+          npm run build
+        working-directory: ./frontend
       - name: Deploy Staging
-        run: npx sls deploy --stage=staging
+        run: npx sls deploy --stage=staging-cd
+        working-directory: ./frontend
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SLS_DEBUG: '*'
 
-  deploy_prod:
+  deploy_integration:
     needs: [lint, test]
     runs-on: ubuntu-latest
-    environment: production
+    environment: integration
     concurrency: '1'
-    if: github.event_name == 'push' && github.ref == 'refs/heads/production'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
     steps:
       - uses: actions/checkout@v3
+      - name: Debug Directory Structure
+        run: |
+          pwd
+          ls -la .
       - uses: actions/setup-node@v3
         with:
-          node-version: '18'
+          node-version: '20.19.4'
       - name: Restore npm cache
         uses: actions/cache@v3
         with:
           path: ~/.npm
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
-      - name: Install dependencies
+      - name: Install Frontend Dependencies
         run: npm ci
-
-      - name: Build Production
-        run: cp prod.env .env && npm run build
-
-      - name: Deploy Production
-        run: npx sls deploy --stage=staging
+        working-directory: ./frontend
+      # TODO: Reenable docs site CRASM-1070, CRASM-2124
+      # - name: Install Docs Dependencies
+      #   run: |
+      #     npm ci
+      #   working-directory: ./docs
+      # - name: Build Docs
+      #   run: npm run build
+      #   working-directory: ./docs
+      # - name: Copy Docs to Frontend
+      #   run: cp -R ./docs/public ./frontend/docs-build
+      - name: Build Integration
+        run: |
+          cp integration.env .env
+          npm run build
+        working-directory: ./frontend
+      - name: Debug Directory Structure After Build
+        run: |
+          ls -la ./frontend/docs-build
+          ls -la ./frontend
+      - name: Deploy Integration
+        run: npx sls deploy --stage=integration
+        working-directory: ./frontend
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

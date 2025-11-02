@@ -1,36 +1,64 @@
-import { Cpe } from './cpe';
 export interface Cve {
-  id: string;
+  id: string | null;
   name: string | null;
-  description: string | null;
-  modifiedAt: Date;
-  publishedAt: Date;
+  published_at: string | null; // ISO date string
+  modified_at: string | null; // ISO date string
   status: string | null;
-  cvssV2Source: string | null;
-  cvssV2Type: string | null;
-  cvssV2Version: string | null;
-  cvssV2VectorString: string | null;
-  cvssV2BaseScore: string | null;
-  cvssV2BaseSeverity: string | null;
-  cvssV2ExploitabilityScore: string | null;
-  cvssV2ImpactScore: string | null;
-  cvssV3Source: string | null;
-  cvssV3Type: string | null;
-  cvssV3Version: string | null;
-  cvssV3VectorString: string | null;
-  cvssV3BaseScore: string | null;
-  cvssV3BaseSeverity: string | null;
-  cvssV3ExploitabilityScore: string | null;
-  cvssV3ImpactScore: string | null;
-  cvssV4Source: string | null;
-  cvssV4Type: string | null;
-  cvssV4Version: string | null;
-  cvssV4VectorString: string | null;
-  cvssV4BaseScore: string | null;
-  cvssV4BaseSeverity: string | null;
-  cvssV4ExploitabilityScore: string | null;
-  cvssV4ImpactScore: string | null;
-  references: string[] | null;
-  weaknesses: string[] | null;
-  cpes: Cpe[];
+  description: string | null;
+
+  cvss_v2_source: string | null;
+  cvss_v2_type: string | null;
+  cvss_v2_version: string | null;
+  cvss_v2_vector_string: string | null;
+  cvss_v2_base_score: string | null;
+  cvss_v2_base_severity: string | null;
+  cvss_v2_exploitability_score: string | null;
+  cvss_v2_impact_score: string | null;
+
+  cvss_v3_source: string | null;
+  cvss_v3_type: string | null;
+  cvss_v3_version: string | null;
+  cvss_v3_vector_string: string | null;
+  cvss_v3_base_score: string | null;
+  cvss_v3_base_severity: string | null;
+  cvss_v3_exploitability_score: string | null;
+  cvss_v3_impact_score: string | null;
+
+  cvss_v4_source: string | null;
+  cvss_v4_type: string | null;
+  cvss_v4_version: string | null;
+  cvss_v4_vector_string: string | null;
+  cvss_v4_base_score: string | null;
+  cvss_v4_base_severity: string | null;
+  cvss_v4_exploitability_score: string | null;
+  cvss_v4_impact_score: string | null;
+
+  weaknesses: string[];
+  reference_urls: string[];
+  cpe_list: string[];
+
+  dve_score: number | null;
+  source_attribution: string | null;
+  assigner: string | null;
+  title: string | null;
+  cna_source_json: string | null;
+  cna_affected_json: string | null;
+  cna_problem_types_json: string | null;
+  ssvc: Ssvc | null;
+}
+
+export interface Ssvc {
+  automatable: string | null;
+  created_at: string | null;
+  cve_id?: string | null;
+  adp_date_updated: string | null;
+  exploitation: string | null;
+  id?: number | null;
+  adp_provider: string | null;
+  adp_title?: string | null;
+  ssvc_timestamp: string | null;
+  ssvc_version: string | null;
+  technical_impact: string | null;
+  title: string | null;
+  updated_at: string | null;
 }

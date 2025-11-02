@@ -1,5 +1,6 @@
 import classes from './Scans.module.scss';
 import React, { useCallback, useRef, useState } from 'react';
+// TODO: Refactor to use Material-UI components
 import {
   Button,
   Modal,
@@ -9,24 +10,29 @@ import {
   ModalRef
 } from '@trussworks/react-uswds';
 import { ModalToggleButton } from 'components';
-import { ImportExport } from 'components';
-// import { Column, CellProps } from 'react-table';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-// import { FaTimes, FaEdit } from 'react-icons/fa';
 import { FaTimes } from 'react-icons/fa';
 import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
-// @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
-// import { Link } from 'react-router-dom';
-import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { Alert, Box, IconButton, Paper } from '@mui/material';
-//Needed for the CustomToolbar:
-// import { Button as MuiButton } from '@mui/material';
-// import CustomToolbar from 'components/DataGrid/CustomToolbar';
-// import { Add, Publish } from '@mui/icons-material';
+
+import {
+  Alert,
+  Button as MuiButton,
+  Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  IconButton,
+  Paper,
+  DialogTitle,
+  Snackbar,
+  SnackbarCloseReason
+} from '@mui/material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -44,8 +50,9 @@ export interface ScansRow {
   tags: string;
   mode: string;
   frequency: number;
-  lastRun: string;
+  last_run: string;
   description: string;
+  concurrent_tasks: number;
 }
 
 const ScansView: React.FC = () => {
@@ -60,6 +67,9 @@ const ScansView: React.FC = () => {
   const [scanSchema, setScanSchema] = useState<ScanSchema>({});
   const deleteModalRef = useRef<ModalRef>(null);
   const [errors, setErrors] = useState<Errors>({});
+  const [open, setOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
 
   const [values] = useState<ScanFormValues>({
     name: 'censys',
@@ -67,10 +77,11 @@ const ScansView: React.FC = () => {
     organizations: [],
     frequency: 1,
     frequencyUnit: 'minute',
-    isGranular: false,
-    isUserModifiable: false,
-    isSingleScan: false,
-    tags: []
+    is_granular: false,
+    is_user_modifiable: false,
+    is_single_scan: false,
+    tags: [],
+    concurrent_tasks: 1
   });
 
   const fetchScans = useCallback(async () => {
@@ -79,8 +90,10 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans/');
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      }>(ENDPOINTS.SCANS);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
@@ -94,15 +107,24 @@ const ScansView: React.FC = () => {
 
   const deleteRow = async (id: string) => {
     try {
-      await apiDelete(`/scans/${id}`, { body: {} });
+      await apiDelete(ENDPOINTS.SCAN.replace('{scan_id}', id));
       setScans(scans.filter((scan) => scan.id !== id));
     } catch (e: any) {
       setErrors({
         global:
-          e.status === 422 ? 'Unable to delete scan' : e.message ?? e.toString()
+          e.status === 422
+            ? 'Unable to delete scan'
+            : (e.message ?? e.toString())
       });
       console.log(e);
     }
+  };
+
+  const setFrequency = async (body: ScanFormValues) => {
+    if (body.is_single_scan) body.frequency = 1;
+    if (body.frequencyUnit === 'minute') body.frequency *= 60;
+    else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
+    else body.frequency *= 60 * 60 * 24;
   };
 
   const onSubmit = async (body: ScanFormValues) => {
@@ -111,7 +133,7 @@ const ScansView: React.FC = () => {
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      const scan = await apiPost('/scans/', {
+      const scan = await apiPost(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
@@ -121,10 +143,14 @@ const ScansView: React.FC = () => {
         }
       });
       setScans(scans.concat(scan));
+      setSnackbarMsg('Scan created successfully!');
+      setSnackbarOpen(true);
     } catch (e: any) {
       setErrors({
         global: e.message ?? e.toString()
       });
+      setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
+      setSnackbarOpen(true);
       console.log(e);
     }
   };
@@ -132,10 +158,25 @@ const ScansView: React.FC = () => {
   const invokeScheduler = async () => {
     setErrors({ ...errors, scheduler: '' });
     try {
-      await apiPost('/scheduler/invoke', { body: {} });
+      await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
       console.error(e);
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
+    }
+  };
+
+  const formatFrequency = (frequency: number): string => {
+    if (frequency >= 86400 && frequency % 86400 === 0) {
+      const days = frequency / 86400;
+      return `${days} day${days > 1 ? 's' : ''}`;
+    } else if (frequency >= 3600 && frequency % 3600 === 0) {
+      const hours = frequency / 3600;
+      return `${hours} hour${hours > 1 ? 's' : ''}`;
+    } else if (frequency >= 60 && frequency % 60 === 0) {
+      const minutes = frequency / 60;
+      return `${minutes} minute${minutes > 1 ? 's' : ''}`;
+    } else {
+      return `${frequency} second${frequency !== 1 ? 's' : ''}`;
     }
   };
 
@@ -147,7 +188,7 @@ const ScansView: React.FC = () => {
 
   const runScan = async (id: string) => {
     try {
-      await apiPost(`/scans/${id}/run`, { body: {} });
+      await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
       console.error(e);
       setErrors({ ...errors, scheduler: 'Run failed.' });
@@ -155,7 +196,29 @@ const ScansView: React.FC = () => {
     await invokeScheduler();
   };
 
-  //Code for new table//
+  const handleSubmit = () => {
+    runScan(selectedId);
+    setOpen(false);
+  };
+  const handleClose = () => {
+    setOpen(false);
+  };
+
+  type SnackbarCloseReason = 'timeout' | 'clickaway';
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleSnackbarClose = (
+    event: React.SyntheticEvent<any> | Event,
+    reason?: SnackbarCloseReason
+  ) => {
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleClick = () => {
+    setOpen(true);
+  };
 
   React.useEffect(() => {
     fetchScans();
@@ -167,16 +230,18 @@ const ScansView: React.FC = () => {
       name: scan.name,
       tags: scan.tags.map((tag) => tag.name).join(', '),
       mode:
-        scanSchema[scan.name] && scanSchema[scan.name].isPassive
+        scanSchema[scan.name] && scanSchema[scan.name].is_passive
           ? 'Passive'
           : 'Active',
       frequency: scan.frequency,
-      lastRun:
-        !scan.lastRun ||
-        new Date(scan.lastRun).getTime() === new Date(0).getTime()
+      last_run:
+        !scan.last_run ||
+        new Date(scan.last_run).getTime() === new Date(0).getTime()
           ? 'None'
-          : `${formatDistanceToNow(parseISO(scan.lastRun))} ago`,
-      description: scanSchema[scan.name]?.description
+          : `${formatDistanceToNow(parseISO(scan.last_run))} ago`,
+      description: scanSchema[scan.name]?.description,
+      concurrent_tasks: scan.concurrent_tasks,
+      is_single_scan: scan.is_single_scan
     };
   });
 
@@ -187,14 +252,19 @@ const ScansView: React.FC = () => {
       minWidth: 50,
       flex: 0.5,
       disableExport: true,
+      filterable: false,
+      sortable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
-            aria-label={`Run scan for ${cellValues.row.name}`}
+            aria-label={`Run ${cellValues.row.name} scan.`}
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
-              runScan(cellValues.row.id);
+              setSelectedId(cellValues.row.id);
+              setSelectedName(cellValues.row.name);
+              handleClick();
             }}
           >
             <FaPlayCircle />
@@ -202,21 +272,123 @@ const ScansView: React.FC = () => {
         );
       }
     },
-    { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'tags', headerName: 'Tags', minWidth: 100, flex: 1 },
-    { field: 'mode', headerName: 'Mode', minWidth: 100, flex: 1 },
-    { field: 'frequency', headerName: 'Frequency', minWidth: 100, flex: 1 },
-    { field: 'lastRun', headerName: 'Last Run', minWidth: 100, flex: 1 },
+    {
+      field: 'name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Scan name: ${cellValues.row.name}`}
+          >
+            {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'tags',
+      headerName: 'Tags',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Tags for ${cellValues.row.name} scan: ${cellValues.row.tags}`}
+          >
+            {cellValues.row.tags}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'mode',
+      headerName: 'Mode',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Mode for ${cellValues.row.name} scan: ${cellValues.row.mode}`}
+          >
+            {cellValues.row.mode}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'frequency',
+      headerName: 'Frequency',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (params: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={
+              params.row.is_single_scan
+                ? `Frequency for ${params.row.name} scan: Single Scan`
+                : `Frequency for ${params.row.name} scan: ${formatFrequency(Number(params.value))}`
+            }
+          >
+            {params.row.is_single_scan
+              ? 'Single Scan'
+              : formatFrequency(Number(params.value))}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'last_run',
+      headerName: 'Last Run',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Last run for ${cellValues.row.name} scan: ${cellValues.row.last_run}`}
+          >
+            {cellValues.row.last_run}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'concurrent_tasks',
+      headerName: 'Concurrent Tasks',
+      minWidth: 100,
+      flex: 1,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Concurrent tasks for ${cellValues.row.name} scan: ${cellValues.row.concurrent_tasks}`}
+          >
+            {cellValues.row.concurrent_tasks}
+          </Box>
+        );
+      }
+    },
     {
       field: 'delete',
       headerName: 'Delete',
       minWidth: 50,
       flex: 1,
       disableExport: true,
+      filterable: false,
+      sortable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
-            aria-label={`Delete scan for ${cellValues.row.name}`}
+            aria-label={`Delete ${cellValues.row.name} scan.`}
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
@@ -230,42 +402,59 @@ const ScansView: React.FC = () => {
         );
       }
     },
-    { field: 'description', headerName: 'Description', minWidth: 250, flex: 5 }
+    {
+      field: 'description',
+      headerName: 'Description',
+      minWidth: 250,
+      flex: 5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Description for ${cellValues.row.name} scan: ${cellValues.row.description}`}
+          >
+            {cellValues.row.description}
+          </Box>
+        );
+      }
+    }
   ];
 
   //To-do: Add a button to toolbar to import scans
-  // const importScanButton = (
-  //   <MuiButton
-  //     size="small"
-  //     sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-  //     startIcon={<Publish />}
-  //     onClick={() => {
-  //       setDialogOpen(true);
-  //     }}
-  //   >
-  //     Import
-  //   </MuiButton>
-  // );
-
   //To-do: Add a button to toolbar to add scans
-  // const addScanButton = (
-  //   <MuiButton
-  //     size="small"
-  //     sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-  //     startIcon={<Add />}
-  //     onClick={() => {
-  //       addScanModalRef.current?.toggleModal(undefined, true);
-  //     }}
-  //   >
-  //     Add Scan
-  //   </MuiButton>
-  // );
-
   //To-do: Dialogs/Modals need to be built for Import and Add Scan. Export is already handled by MUI DataGrid.
 
   return (
     <>
       <Box mb={3}>
+        <Dialog
+          open={open}
+          onClose={handleClose}
+          aria-labelledby="run-scan-dialog-title"
+          aria-describedby="run-scan-dialog-description"
+        >
+          <DialogTitle id="run-scan-dialog-title">Confirmation</DialogTitle>
+          <DialogContent>
+            <DialogContentText id="run-scan-dialog-description">
+              Are you sure you would like to run the {selectedName} scan?
+            </DialogContentText>
+          </DialogContent>
+          <DialogActions>
+            <MuiButton
+              onClick={handleClose}
+              aria-label="Cancel running the scan"
+            >
+              Cancel
+            </MuiButton>
+            <MuiButton
+              variant="contained"
+              onClick={handleSubmit}
+              aria-label="Confirm and run the scan"
+            >
+              Run
+            </MuiButton>
+          </DialogActions>
+        </Dialog>
         <Paper elevation={0}>
           {scans?.length === 0 ? (
             <Alert severity="info">No scans found</Alert>
@@ -274,10 +463,6 @@ const ScansView: React.FC = () => {
               rows={scansRows}
               columns={scansCols}
               //To-do: re-enable Custom Toolbar to handle scan Create, Export, Import,
-              // slots={{ toolbar: CustomToolbar }}
-              // slotProps={{
-              //   toolbar: { children: [importScanButton, addScanButton] }
-              // }}
             />
           )}
         </Paper>
@@ -296,31 +481,15 @@ const ScansView: React.FC = () => {
         type="create"
         scanSchema={scanSchema}
       ></ScanForm>
-      <ImportExport<Scan>
-        name="scans"
-        fieldsToImport={['name', 'arguments', 'frequency']}
-        onImport={async (results) => {
-          // TODO: use a batch call here instead.
-          const createdScans = [];
-          for (const result of results) {
-            createdScans.push(
-              await apiPost('/scans/', {
-                body: {
-                  ...result,
-                  // These fields are initially parsed as strings, so they need
-                  // to be converted to objects.
-                  arguments: JSON.parse(
-                    (result.arguments as unknown as string) || ''
-                  )
-                }
-              })
-            );
-          }
-          setScans(scans.concat(...createdScans));
-        }}
-      />
-
-      <Modal ref={deleteModalRef} id="deleteModal">
+      {/* To-Do: Undefined props are needed to avoid errors. This Modal needs to
+      be replaced with a MUI Dialog. */}
+      <Modal
+        ref={deleteModalRef}
+        id="deleteModal"
+        placeholder={undefined}
+        onPointerEnterCapture={undefined}
+        onPointerLeaveCapture={undefined}
+      >
         <ModalHeading>Delete scan?</ModalHeading>
         <p>
           Are you sure you would like to delete the <code>{selectedName}</code>{' '}
@@ -348,6 +517,18 @@ const ScansView: React.FC = () => {
           </ButtonGroup>
         </ModalFooter>
       </Modal>
+      <Snackbar
+        open={snackbarOpen}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarMsg.includes('failed') ? 'error' : 'success'}
+          sx={{ width: '100%' }}
+        >
+          <span tabIndex={0}>{snackbarMsg}</span>
+        </Alert>
+      </Snackbar>
     </>
   );
 };

@@ -2,20 +2,20 @@ import { format } from 'date-fns';
 
 export interface MaintenanceNotification {
   id: string;
-  maintenanceType: string;
+  maintenance_type: string;
   status: string;
-  updatedBy: string;
+  updated_by: string;
   message: string;
-  startDatetime: string;
-  endDatetime: string;
+  start_datetime: string;
+  end_datetime: string;
 }
 
 export const initialNotificationValues = {
   id: '1',
-  maintenanceType: '',
+  maintenance_type: '',
   status: 'inactive',
-  updatedBy: '',
+  updated_by: '',
   message: '',
-  startDatetime: format(new Date(), 'yyyy-MM-dd HH:mm'),
-  endDatetime: format(new Date(), 'yyyy-MM-dd HH:mm')
+  start_datetime: format(new Date(), 'yyyy-MM-dd HH:mm'),
+  end_datetime: format(new Date(), 'yyyy-MM-dd HH:mm')
 };

@@ -1,13 +1,14 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { testUser, testOrganization, waitFor, fireEvent } from 'test-utils';
+import { vi } from 'vitest';
 import { useAuthContext } from '../AuthContext';
 import { AuthContextProvider } from 'context/AuthContextProvider';
 
 const mockedApi = {
-  apiGet: jest.fn()
+  apiGet: vi.fn()
 };
-jest.mock('hooks/useApi', () => ({
+vi.mock('hooks/useApi', () => ({
   useApi: () => mockedApi
 }));
 
@@ -60,7 +61,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 const renderLoggedIn = async (user?: any, args?: Omit<Props, 'onLogin'>) => {
@@ -100,10 +101,10 @@ it('parses extendedOrg for provided organization', async () => {
   });
 });
 
-it('sets user as max role for globalView userType', async () => {
+it('sets user as max role for globalView user_type', async () => {
   const { getByTestId } = await renderLoggedIn({
     ...testUser,
-    userType: 'globalView'
+    user_type: 'globalView'
   });
   expect(getByTestId('maxRole')).toHaveTextContent('user');
 });
@@ -126,7 +127,7 @@ it('sets max role as admin when user has any admin role', async () => {
 it('sets touVersion based on max role and current terms', async () => {
   const { getByTestId } = await renderLoggedIn({
     ...testUser,
-    userType: 'globalView'
+    user_type: 'globalView'
   });
   expect(getByTestId('touVersion')).toHaveTextContent('v1-user');
 });
@@ -142,7 +143,7 @@ it('CISA users do not have to sign terms', async () => {
 it('users have to sign if they have not accepted terms', async () => {
   const { getByTestId } = await renderLoggedIn({
     ...testUser,
-    dateAcceptedTerms: null,
+    date_accepted_terms: null,
     email: 'anything@not_cisa_dhs.gov'
   });
   expect(getByTestId('userMustSign')).toHaveTextContent('true');
@@ -151,9 +152,9 @@ it('users have to sign if they have not accepted terms', async () => {
 it('users have to sign if they have not signed newer terms', async () => {
   const { getByTestId } = await renderLoggedIn({
     ...testUser,
-    dateAcceptedTerms: new Date(),
+    date_accepted_terms: new Date(),
     email: 'anything@not_cisa_dhs.gov',
-    acceptedTermsVersion: 'v0-user'
+    accepted_terms_version: 'v0-user'
   });
   expect(getByTestId('userMustSign')).toHaveTextContent('true');
 });

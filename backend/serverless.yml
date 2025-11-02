@@ -6,24 +6,94 @@ useDotenv: true
 configValidationMode: error
 
 custom:
-  webpack:
-    webpackConfig: webpack.backend.config.js
+  # Single source of truth from env.yml (or SSM in GovCloud)
+  adotLayerArnSelected: ${file(env.yml):${self:provider.stage}.ADOT_ARN}
+  # Functions expect an array of ARNs
+  adotLayers:
+    - ${self:custom.adotLayerArnSelected}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
-    certificateName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
+    certificateName: ${file(env.yml):${self:provider.stage}.CERT_DOMAIN, ''}
     stage: ${self:provider.stage}
     createRoute53Record: false
+  prune:
+    automatic: true
+    includeLayers: true
+    number: 3
+  pythonRequirements:
+    dockerizePip: true
+    noDeploy:
+      - boto3
+      - botocore
+      - docker
+      - pytest
+      - pytest-django
+      - pytest-env
+      - pylint
+      - mypy
+      - mypy-extensions
+      - python-dotenv
+      - pika
+      - isort
+      - black
+      - pipdeptree
+      - MarkupSafe
+      - uvloop
+
+  # Resource policies for GovCloud (Private) vs Non-GovCloud (Regional)
+  privateResourcePolicy:
+    - Effect: Deny
+      Principal: '*'
+      Action: 'execute-api:Invoke'
+      Resource: execute-api:/${self:provider.stage}/*/*
+      Condition:
+        StringNotEquals:
+          'aws:sourceVpce': ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
+    - Effect: Allow
+      Principal: '*'
+      Action: execute-api:Invoke
+      Resource: execute-api:/${self:provider.stage}/*/*
+
+  regionalResourcePolicy:
+    - Effect: Allow
+      Principal: '*'
+      Action: execute-api:Invoke
+      Resource: execute-api:/${self:provider.stage}/*/*
+      Condition:
+        IpAddress:
+          aws:SourceIp:
+            'Fn::Split':
+              - ','
+              - ${file(env.yml):${self:provider.stage}.DMZ_CIDR, ''}
+
+  # Conditional logic for GovCloud vs
+  # non-GovCloud (Private endpoints require a VPC Endpoint)
+  serverlessIfElse:
+    - If: '"${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE}" == "PRIVATE"'
+      Set:
+        provider.vpcEndpointIds:
+          - ${file(env.yml):${self:provider.stage}.VPC_ENDPOINT, ''}
+        provider.apiGateway.resourcePolicy: ${self:custom.privateResourcePolicy}
+      ElseSet:
+        provider.apiGateway.resourcePolicy: ${self:custom.regionalResourcePolicy}
+      ElseExclude:
+        - provider.vpcEndpointIds
 
 provider:
   name: aws
-  region: us-east-1
-  endpointType: REGIONAL
-  runtime: nodejs16.x
+  region: ${opt:region, env:AWS_REGION, env:AWS_DEFAULT_REGION,
+    file(env.yml):${self:provider.stage}.REGION, 'us-east-1'}
+  endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
+  runtime: python3.11
   timeout: 30
   stage: ${opt:stage, 'dev'}
   environment: ${file(env.yml):${self:provider.stage}, ''}
   vpc: ${file(env.yml):${self:provider.stage}-vpc, ''}
+  logs:
+    restApi: true
+  deploymentBucket:
+    serverSideEncryption: AES256
   apiGateway:
     binaryMediaTypes:
       - image/*
@@ -33,124 +103,25 @@ provider:
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
-        Condition:
-          IpAddress:
-            aws:SourceIp:
-              - ${file(env.yml):${self:provider.stage}.DMZ_CIDR, ''}
-  logs:
-    restApi: true
-  deploymentBucket:
-    serverSideEncryption: AES256
-  iam:
-    role:
-      statements:
-        # TODO: make the resources more specific. See Resource: '*' was
-        - Effect: Allow
-          Action:
-            - lambda:InvokeAsync
-            - lambda:InvokeFunction
-            - cognito-idp:AdminDisableUser
-            - cognito-idp:ListUsers
-            - cognito-idp:AdminSetUserPassword
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - ecs:RunTask
-            - ecs:ListTasks
-            - ecs:DescribeTasks
-            - ecs:DescribeServices
-            - ecs:UpdateService
-            - iam:PassRole
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - ses:SendRawEmail
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - s3:GetObject
-            - s3:GetObjectAcl
-            - s3:PutObject
-            - s3:PutObjectAcl
-            - s3:PutBucketAcl
-            - s3:GetBucketAcl
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - sts:AssumeRole
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - sqs:ReceiveMessage
-            - sqs:DeleteMessage
-            - sqs:SendMessage
-            - sqs:GetQueueAttributes
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - logs:CreateExportTask
-            - logs:CreateLogStream
-            - logs:Describe*
-            - logs:Get*
-            - logs:List*
-            - logs:PutLogEvents
-            - logs:StartQuery
-            - logs:StopQuery
-            - logs:TestMetricFilter
-            - logs:FilterLogEvents
-            - logs:StartLiveTail
-            - logs:StopLiveTail
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - ssm:DescribeParameters
-            - ssm:GetParameter
-            - ssm:GetParameters
-            - ssm:GetParametersByPath
-            - ssm:PutParameter
-          Resource: '*'
+  tracing:
+    lambda: true
+
 
 resources:
+  Conditions:
+    IsDMZ:
+      Fn::Or:
+        - Fn::Equals:
+            - ${self:provider.stage}
+            - staging-cd
+        - Fn::Equals:
+            - ${self:provider.stage}
+            - integration
   Resources:
-    ShodanQueue:
+    ASMSyncQueue:
       Type: AWS::SQS::Queue
       Properties:
-        QueueName: ${self:provider.stage}-shodan-queue
-        VisibilityTimeout: 18000  # 5 hours
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
-    DnstwistQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-dnstwist-queue
-        VisibilityTimeout: 18000  # 5 hours
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
-    HibpQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-hibp-queue
-        VisibilityTimeout: 18000  # 5 hours
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
-    IntelxQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-intelx-queue
-        VisibilityTimeout: 18000  # 5 hours
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
-    CybersixgillQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-cybersixgill-queue
-        VisibilityTimeout: 18000  # 5 hours
-        MaximumMessageSize: 262144  # 256 KB
-        MessageRetentionPeriod: 604800  # 7 days
-    XpanseQueue:
-      Type: AWS::SQS::Queue
-      Properties:
-        QueueName: ${self:provider.stage}-xpanse-queue
+        QueueName: ${self:provider.stage}-asmSync-queue
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
@@ -160,7 +131,10 @@ functions:
   - ${file(./src/api/functions.yml)}
 
 plugins:
+  - serverless-iam-roles-per-function
+  - serverless-better-credentials
   - serverless-domain-manager
-  - serverless-webpack
   - serverless-dotenv-plugin
   - serverless-python-requirements
+  - serverless-plugin-ifelse
+  - serverless-prune-versions

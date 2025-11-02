@@ -28,6 +28,7 @@ frontend/coverage
 
 # production
 frontend/build
+frontend/docs-build
 
 # misc
 .env
@@ -54,3 +55,7 @@ minio-data
 infrastructure/lambdas/security_headers.zip
 *.hcl
 .iac-data
+.log
+
+# VS Code
+*.vscode/*

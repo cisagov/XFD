@@ -2,7 +2,7 @@ import { Cve } from './cve';
 export interface Cpe {
   id: string;
   name: string;
-  lastSeenAt: Date;
+  last_seen_at: Date;
   vendor?: string | any;
   version: string;
   cves: Cve[];

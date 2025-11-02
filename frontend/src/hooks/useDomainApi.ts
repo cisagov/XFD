@@ -1,50 +1,59 @@
-import { Query, Domain } from 'types';
+import { Query, Domain, DomainSearchApiResponse } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
+import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
+import { ENDPOINTS } from '@/constants/endpoints';
 
-export interface DomainQuery extends Query<Domain> {
+export interface DomainQuery extends Query<DomainSearchApiResponse> {
   showAll?: boolean;
 }
 
 interface ApiResponse {
-  result: Domain[];
+  result: DomainSearchApiResponse[];
   count: number;
   url?: string;
 }
 
 const PAGE_SIZE = 15;
 
-export const useDomainApi = (showAll?: boolean) => {
-  const { currentOrganization, apiPost, apiGet } = useAuthContext();
+export const useDomainApi = (showAll?: boolean, orgId?: string) => {
+  const { currentOrganization, apiPost, apiGet, user } = useAuthContext();
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
-      const { page, sort, filters, pageSize = PAGE_SIZE } = query;
-
+      const { page, filters, pageSize = PAGE_SIZE, order, sort } = query;
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
           (accum, next) => ({
             ...accum,
-            [next.id]: next.value
+            [next.field]: next.value
           }),
           {}
         );
+      const isExcludedOrg = ORGANIZATION_EXCLUSIONS.some((exc) =>
+        currentOrganization?.name.toLowerCase().includes(exc)
+      );
 
-      if (!showAll && currentOrganization) {
-        if ('rootDomains' in currentOrganization)
-          tableFilters['organization'] = currentOrganization.id;
-        else tableFilters['tag'] = currentOrganization.id;
+      if (
+        currentOrganization &&
+        !isExcludedOrg &&
+        user?.user_type === 'standard'
+      ) {
+        tableFilters['organization'] = currentOrganization.id;
+      }
+      if (orgId) {
+        tableFilters['organization'] = orgId;
       }
 
       const { result, count, url } = await apiPost<ApiResponse>(
-        doExport ? '/domain/export' : '/domain/search',
+        doExport ? ENDPOINTS.DOMAIN_EXPORT : ENDPOINTS.DOMAIN_SEARCH,
         {
           body: {
             pageSize,
             page,
-            sort: sort[0]?.id ?? 'name',
-            order: sort[0]?.desc ? 'DESC' : 'ASC',
-            filters: tableFilters
+            filters: tableFilters,
+            order,
+            sort
           }
         }
       );
@@ -56,12 +65,14 @@ export const useDomainApi = (showAll?: boolean) => {
         pageCount: Math.ceil(count / pageSize)
       };
     },
-    [apiPost, showAll, currentOrganization]
+    [apiPost, currentOrganization, user, orgId]
   );
 
   const getDomain = useCallback(
     async (domainId: string) => {
-      return await apiGet<Domain>(`/domain/${domainId}`);
+      return await apiGet<Domain>(
+        ENDPOINTS.DOMAIN.replace('{domain_id}', domainId)
+      );
     },
     [apiGet]
   );

@@ -1,42 +1,65 @@
-import { chromium, FullConfig, test as setup } from '@playwright/test';
+// playwright/globalSetup.ts
+import { chromium, FullConfig } from '@playwright/test';
 import * as OTPAuth from 'otpauth';
-import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import { userRoles } from './.auth/userRoles';
 
-dotenv.config();
-
-const authFile = './storageState.json';
-
-let totp = new OTPAuth.TOTP({
-  issuer: process.env.PW_XFD_2FA_ISSUER,
-  label: 'Crossfeed',
-  algorithm: 'SHA1',
-  digits: 6,
-  period: 30,
-  secret: process.env.PW_XFD_2FA_SECRET
-});
-
-async function globalSetup(config: FullConfig) {
-  const { baseURL, storageState } = config.projects[0].use;
+async function loginAndSaveStorage(
+  role: string,
+  username: string,
+  password: string,
+  totpSecret: string,
+  baseUrl: string
+) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
 
-  //Log in with credentials.
-  await page.goto(String(process.env.PW_XFD_URL));
-  await page
-    .getByPlaceholder('Enter your email address')
-    .fill(String(process.env.PW_XFD_USERNAME));
-  await page
-    .getByPlaceholder('Enter your password')
-    .fill(String(process.env.PW_XFD_PASSWORD));
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await page
-    .getByPlaceholder('Enter code from your authenticator app')
-    .fill(totp.generate());
-  await page.getByRole('button', { name: 'Confirm' }).click();
-  //Wait for storageState to write to json file for other tests to use.
-  await page.waitForTimeout(1000);
-  await page.context().storageState({ path: authFile });
+  const totp = new OTPAuth.TOTP({
+    issuer: process.env.PW_XFD_2FA_ISSUER,
+    label: role,
+    algorithm: 'SHA1',
+    digits: 6,
+    period: 30,
+    secret: totpSecret
+  });
+
+  console.log(`🔐 Logging in as ${role}...`);
+  await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
+
+  await page.getByTestId('button').click();
+  await page.getByLabel('Email Address').fill(username);
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.waitForFunction(() => document.title.includes('Login.gov'));
+  await page.getByLabel('Email address').fill(username);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Submit' }).click();
+  await page.getByLabel('One-time code').fill(totp.generate());
+  await page.getByRole('button', { name: 'Submit' }).click();
+
+  // Give time for redirects/session to finalize
+  await page.waitForTimeout(7000);
+
+  const filePath = `.auth/${role}.json`;
+  await page.context().storageState({ path: filePath });
+
   await page.close();
+  await browser.close();
+
+  console.log(`✅ Saved auth state for ${role} to ${filePath}`);
+}
+
+async function globalSetup(config: FullConfig) {
+  fs.mkdirSync('.auth', { recursive: true });
+
+  for (const { role, username, password, totpSecret } of userRoles) {
+    await loginAndSaveStorage(
+      role,
+      username,
+      password,
+      totpSecret,
+      String(process.env.PW_XFD_URL)
+    );
+  }
 }
 
 export default globalSetup;

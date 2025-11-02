@@ -5,6 +5,11 @@ export function formReadableDate(date: string) {
   return format(parsedDate, 'yyyy-MM-dd HH:mm');
 }
 
+export function formatDate(dateString?: string | null): string {
+  if (!dateString) return '';
+  return new Date(dateString).toISOString().split('T')[0];
+}
+
 export function humanReadableDate(date: string) {
   const parsedDate = new Date(date);
   return format(parsedDate, 'LLL dd, yyyy hh:mm a');

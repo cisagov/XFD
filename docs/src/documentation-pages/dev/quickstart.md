@@ -32,19 +32,29 @@ This quickstart describes the initial setup required to run an instance of Cross
    ```bash
    cd backend
    # Generate schema
-   npm run syncdb
+   make syncdb
    # Populate sample data
-   npm run syncdb -- -d populate
+   make syncdb-populate
    ```
 
    If you ever need to drop and recreate the database, you can run `npm run syncdb -- -d dangerouslyforce`.
 
-7. Navigate to [http://localhost](http://localhost) in a browser. The first time please navigate to [http://localhost/signup](http://localhost/signup) to create account. Local accounts can be set to Global Admin to aide in development.
-8. Hot reloading for source files is enabled, but after changes to non-source code files stopping and starting Docker Compose is required. The following are examples of changes that will require restarting the environment:
+7. Populate the redis cache for the stats endpoint:
+
+   ```bash
+   cd backend
+   # Populate cache
+   make populate-cache
+   ```
+
+   If you ever need to drop and recreate the database, you can run `npm run syncdb -- -d dangerouslyforce`.
+
+8. Navigate to [http://localhost](http://localhost) in a browser. The first time please navigate to [http://localhost/signup](http://localhost/signup) to create account. Local accounts can be set to Global Admin to aide in development.
+9. Hot reloading for source files is enabled, but after changes to non-source code files stopping and starting Docker Compose is required. The following are examples of changes that will require restarting the environment:
    - Frontend or backend dependency changes
    - Backend changes to `serverless.yml` or `env.yml`
    - Environment variables in root `.env`
-9. Install [Prettier](https://www.robinwieruch.de/how-to-use-prettier-vscode) in your dev environment to format code on save.
+10. Install [Prettier](https://www.robinwieruch.de/how-to-use-prettier-vscode) in your dev environment to format code on save.
 
 ### Simulate SQS Process
 
@@ -82,8 +92,11 @@ This quickstart describes the initial setup required to run an instance of Cross
 To run tests, first make sure you have already started Crossfeed with `npm start` (or, at bare minimum, that the database container is running). Then run:
 
 ```bash
+pre-commit run --all-files
+
 cd backend
-npm test
+make pytest
+make pylint
 ```
 
 If snapshot tests fail, update snapshots by running `npm test -- -u`.

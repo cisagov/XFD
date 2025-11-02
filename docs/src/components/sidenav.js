@@ -10,26 +10,26 @@ import classNames from 'classnames';
 
 const SIDENAV_ITEMS = {
   dev: [
-    { text: 'Quickstart', link: '/dev/quickstart/' },
-    { text: 'Overall System Architecture', link: '/dev/architecture/' },
-    { text: 'Frontend', link: '/dev/frontend/' },
-    { text: 'REST API', link: '/dev/rest-api/' },
-    { text: 'Database', link: '/dev/database/' },
-    { text: 'Worker', link: '/dev/worker/' },
+    { text: 'Quickstart', link: '/docs/dev/quickstart/' },
+    { text: 'Overall System Architecture', link: '/docs/dev/architecture/' },
+    { text: 'Frontend', link: '/docs/dev/frontend/' },
+    { text: 'REST API', link: '/docs/dev/rest-api/' },
+    { text: 'Database', link: '/docs/dev/database/' },
+    { text: 'Worker', link: '/docs/dev/worker/' },
     // { text: 'Scheduler', link: '/dev/scheduler/' },
-    { text: 'Search', link: '/dev/search/' },
-    { text: 'Analytics', link: '/dev/analytics/' },
-    { text: 'Deployment', link: '/dev/deployment/' },
-    { text: 'Setting up your own instance', link: '/dev/own-instance/' },
-    { text: 'Contribution Guidelines', link: '/dev/guidelines/' },
+    { text: 'Search', link: '/docs/dev/search/' },
+    { text: 'Analytics', link: '/docs/dev/analytics/' },
+    { text: 'Deployment', link: '/docs/dev/deployment/' },
+    { text: 'Setting up your own instance', link: '/docs/dev/own-instance/' },
+    { text: 'Contribution Guidelines', link: '/docs/dev/guidelines/' },
   ],
   'user-guide': [
-    { text: 'Quickstart', link: '/user-guide/quickstart/' },
+    { text: 'Quickstart', link: '/docs/user-guide/quickstart/' },
     {
       text: 'Crossfeed Product Overview',
-      link: '/user-guide/product-overview/',
+      link: '/docs/user-guide/product-overview/',
     },
-    { text: 'Administration', link: '/user-guide/administration/' },
+    { text: 'Administration', link: '/docs/user-guide/administration/' },
   ],
 };
 

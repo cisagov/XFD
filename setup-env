@@ -178,9 +178,9 @@ with LINEAGE_CONFIG.open("r") as f:
 
 if lineage["version"] == "1":
     for parent_name, v in lineage["lineage"].items():
-        remote_url = v["remote-url"]
-        print(f"git remote add {parent_name} {remote_url};")
-        print(f"git remote set-url --push {parent_name} no_push;")
+      remote_url = v["remote-url"]
+      print("git remote add {parent_name} {remote_url};".format(parent_name=parent_name, remote_url=remote_url))
+      print("git remote set-url --push {parent_name} no_push;".format(parent_name=parent_name))
 else:
     print(f'Unsupported lineage version: {lineage["version"]}', file=sys.stderr)
 END_OF_LINE

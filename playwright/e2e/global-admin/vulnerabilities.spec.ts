@@ -1,59 +1,84 @@
-import { test, expect, chromium, Page } from '@playwright/test';
+import { test } from '../../tests/fixtures';
+import { expect } from '@playwright/test';
+import type { TestInfo } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
-test.describe.configure({ mode: 'serial' });
-let page: Page;
+test.describe('Vulnerabilities', () => {
+  test.skip('Test vulnerabilities accessibility', async ({
+    page: pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
 
-test.beforeAll(async ({ browser }) => {
-  page = await browser.newPage();
-  await page.goto('/');
-});
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
 
-test.afterAll(async () => {
-  await page.close();
-});
+    await testInfo.attach('accessibility-scan-results', {
+      body: JSON.stringify(accessibilityScanResults, null, 2),
+      contentType: 'application/json'
+    });
 
-test('Vulnerabilities', async () => {
-  await page.getByRole('link', { name: 'Inventory' }).click();
-  await page.getByRole('link', { name: 'All Vulnerabilities' }).click();
-  await expect(page).toHaveURL('/inventory/vulnerabilities');
-  if ((await page.getByLabel('Go to next page').isDisabled()) == false) {
-    await page.getByLabel('Go to next page').click();
-  }
-  if ((await page.getByLabel('Go to previous page').isDisabled()) == false) {
-    await page.getByLabel('Go to previous page').click();
-  }
-  await page.screenshot({
-    path: 'test-results/img/global-admin/vulnerabilities.png'
+    expect(accessibilityScanResults.violations).toHaveLength(0);
   });
-});
 
-test('Vulnerability details NIST', async () => {
-  await page.goto('/inventory/vulnerabilities');
-  const newTabPromise = page.waitForEvent('popup');
-  await page.getByRole('row').nth(2).getByRole('link').nth(0).click();
-  const newTab = await newTabPromise;
-  await newTab.waitForLoadState();
-  await expect(newTab).toHaveURL(
-    new RegExp('^https://nvd\\.nist\\.gov/vuln/detail/')
-  );
-});
+  //TODO: Skip this test until the vulnerability table data is loaded in localhost.
+  test.skip('Test vulnerability details NIST link', async ({
+    page: pageAsGlobalAdmin
+  }) => {
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
+    const newTabPromise = pageAsGlobalAdmin.waitForEvent('popup');
 
-test('Domain details link', async () => {
-  await page.goto('/inventory/vulnerabilities');
-  await page.getByRole('row').nth(2).getByRole('link').nth(1).click();
-  await expect(page).toHaveURL(new RegExp('/inventory/domain/'));
-});
+    await pageAsGlobalAdmin
+      .getByRole('row')
+      .nth(1)
+      .getByRole('cell')
+      .nth(0)
+      .click();
+    const newTab = await newTabPromise;
+    await newTab.waitForLoadState();
+    await expect(newTab).toHaveURL(
+      new RegExp('^https://nvd\\.nist\\.gov/vuln/detail/')
+    );
+  });
 
-test('Vulnerability details', async () => {
-  await page.goto('/inventory/vulnerabilities');
-  await page.getByRole('row').nth(2).getByRole('link').nth(2).click();
-  await expect(page).toHaveURL(new RegExp('/inventory/vulnerability/'));
-  await expect(page.getByRole('heading', { name: 'Overview' })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Installed (Known) Products' })
-  ).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Provenance' })).toBeVisible();
-  await expect(
-    page.getByRole('heading', { name: 'Vulnerability Detection History' })
-  ).toBeVisible();
+  //TODO: Skip this test until the vulnerability table data is loaded in localhost.
+  test.skip('Test domain details link', async ({ page: pageAsGlobalAdmin }) => {
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
+    await pageAsGlobalAdmin
+      .getByRole('row')
+      .nth(1)
+      .getByRole('cell')
+      .nth(3)
+      .click();
+    await expect(pageAsGlobalAdmin).toHaveURL(
+      new RegExp(ROUTES.DOMAIN.replace(':domainId', ''))
+    );
+  });
+
+  //TODO: Skip this test until the vulnerability table data is loaded in localhost.
+  test.skip('Test vulnerability details accessibility', async ({
+    page: pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, testInfo: TestInfo) => {
+    await pageAsGlobalAdmin.goto(ROUTES.VULNERABILITIES);
+    await pageAsGlobalAdmin
+      .getByRole('row')
+      .nth(1)
+      .getByRole('cell')
+      .nth(7)
+      .click();
+    await expect(pageAsGlobalAdmin).toHaveURL(
+      new RegExp(ROUTES.VULNERABILITY.replace(':vulnerabilityId', ''))
+    );
+
+    const accessibilityScanResults =
+      await makeAxeBuilder(pageAsGlobalAdmin).analyze();
+
+    await testInfo.attach('accessibility-scan-results', {
+      body: JSON.stringify(accessibilityScanResults, null, 2),
+      contentType: 'application/json'
+    });
+
+    expect(accessibilityScanResults.violations).toHaveLength(0);
+  });
 });

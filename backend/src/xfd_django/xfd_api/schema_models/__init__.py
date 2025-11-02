@@ -1,0 +1,1 @@
+"""Initialize schema directory."""
