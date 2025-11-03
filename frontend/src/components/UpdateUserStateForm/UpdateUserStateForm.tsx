@@ -111,7 +111,7 @@ export const UpdateStateForm: React.FC<{
           </Alert>
         )}
         <FormControl fullWidth size="small" sx={{ mt: 1 }}>
-          <InputLabel id="state-select-label">State</InputLabel>
+          <InputLabel id="state-select-label">Select Your State</InputLabel>
           <Select
             labelId="state-select-label"
             id="state"
