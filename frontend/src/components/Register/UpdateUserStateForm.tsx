@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import * as registerFormStyles from './registerFormStyle';
 import {
+  Alert,
   Button,
   CircularProgress,
+  Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  InputLabel,
   MenuItem,
   Select,
   Typography
@@ -15,8 +18,6 @@ import { SelectChangeEvent } from '@mui/material/Select';
 import { STATE_OPTIONS } from '@/constants/constants';
 import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
-
-const StyledDialog = registerFormStyles.StyledDialog;
 
 export interface UpdateStateFormValues {
   state: string;
@@ -84,9 +85,9 @@ export const UpdateStateForm: React.FC<{
     }
   };
   return (
-    <StyledDialog
+    <Dialog
       open={open}
-      onClose={(event, reason) => {
+      onClose={(event: any, reason: string) => {
         if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
           logout(); // <-- logout if closed without saving to force state
         } else {
@@ -96,34 +97,35 @@ export const UpdateStateForm: React.FC<{
       maxWidth="xs"
       fullWidth
     >
-      <DialogTitle id="form-dialog-title">Update State Information</DialogTitle>
-      <DialogContent>
+      <DialogTitle id="form-dialog-title" sx={{ pb: 1 }}>
+        Update State Information
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
         {errorRequestMessage && (
-          <p className="text-error">{errorRequestMessage}</p>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {errorRequestMessage}
+          </Alert>
         )}
-        State
-        <Select
-          displayEmpty
-          size="small"
-          id="state"
-          value={values.state}
-          name="state"
-          onChange={handleChange}
-          fullWidth
-          renderValue={
-            values.state !== ''
-              ? undefined
-              : () => <Typography color="#bdbdbd">Select your State</Typography>
-          }
-        >
-          {STATE_OPTIONS.map((state: string, index: number) => (
-            <MenuItem key={index} value={state}>
-              {state}
-            </MenuItem>
-          ))}
-        </Select>
+        <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+          <InputLabel id="state-select-label">State</InputLabel>
+          <Select
+            labelId="state-select-label"
+            id="state"
+            value={values.state}
+            name="state"
+            label="State"
+            onChange={handleChange}
+            displayEmpty={false}
+          >
+            {STATE_OPTIONS.map((state: string, index: number) => (
+              <MenuItem key={index} value={state}>
+                {state}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ p: 2, pt: 1 }}>
         <Button
           variant="outlined"
           onClick={logout} // <-- logout when Cancel clicked to force state value
@@ -146,6 +148,6 @@ export const UpdateStateForm: React.FC<{
           Save
         </Button>
       </DialogActions>
-    </StyledDialog>
+    </Dialog>
   );
 };
