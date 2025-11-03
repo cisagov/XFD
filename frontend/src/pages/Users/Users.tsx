@@ -67,7 +67,6 @@ export const Users: React.FC = () => {
   const { user, apiDelete, apiGet, apiPost } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
-  const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
@@ -402,16 +401,6 @@ export const Users: React.FC = () => {
       }
     });
   }
-  const addUserButton = user?.user_type === 'globalAdmin' && (
-    <Button
-      size="small"
-      sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-      startIcon={<Add />}
-      onClick={() => setNewUserDialogOpen(true)}
-    >
-      Invite New User
-    </Button>
-  );
 
   const deleteRow = async (row: UserType) => {
     try {
@@ -463,8 +452,6 @@ export const Users: React.FC = () => {
       setUsers={setUsers}
       values={formValues}
       setValues={setFormValues}
-      newUserDialogOpen={newUserDialogOpen}
-      setNewUserDialogOpen={setNewUserDialogOpen}
       editUserDialogOpen={editUserDialogOpen}
       setEditUserDialogOpen={setEditUserDialogOpen}
       apiErrorStates={apiErrorStates}
@@ -530,7 +517,6 @@ export const Users: React.FC = () => {
             slots={{ toolbar: CustomToolbar }}
             slotProps={{
               toolbar: {
-                children: addUserButton,
                 // Disabling export for users table as per temp solution mentioned in CRASM-2509
                 disableExport: true,
                 exportTitle: 'Users'
@@ -553,7 +539,7 @@ export const Users: React.FC = () => {
         </Paper>
       ) : null}
       {confirmDeleteUserDialog}
-      {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
+      {editUserDialogOpen && renderUserForm}
       <InfoDialog
         isOpen={infoDialogOpen}
         handleClick={() => {
