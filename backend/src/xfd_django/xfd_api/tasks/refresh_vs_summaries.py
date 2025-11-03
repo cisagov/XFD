@@ -99,6 +99,7 @@ def handler(event):
 
         # except Exception as e:
         #     LOGGER.error("error flagging latest port scans: %s", e)
+
         try:
             if not is_local:
                 LOGGER.info("Creating Host summaries.")
@@ -127,6 +128,12 @@ def handler(event):
         try:
             LOGGER.info("Creating VS summaries.")
             create_vuln_scan_summary()
+            if is_local:
+                orgs = Organization.objects.all()
+                for org in orgs:
+                    LOGGER.info("Creating Fake vuln host summary for org %s.", org.name)
+                    create_vuln_scan_summary(org_id=str(org.id))
+                    create_port_scan_summary(org_id=str(org.id))
 
         except Exception as e:
             LOGGER.error("error saving VS summary: %s", e)
