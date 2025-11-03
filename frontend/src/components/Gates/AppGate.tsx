@@ -7,7 +7,7 @@ import { useMaintenanceNotifications } from '@/hooks/useMaintenanceNotifications
 
 // Shared components
 import { LoginBlockedDialog } from 'components/LoginBlockedDialog';
-import { UpdateStateForm } from 'components/Register';
+import { UpdateStateForm } from '@/components/UpdateUserStateForm';
 import InvitePendingCard from 'components/Dialog/InvitePendingCard';
 import { ENDPOINTS } from '@/constants/endpoints';
 
