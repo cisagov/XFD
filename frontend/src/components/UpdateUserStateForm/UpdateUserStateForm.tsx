@@ -54,28 +54,20 @@ export const UpdateStateForm: React.FC<{
       });
 
       localStorage.setItem('user_state', values.state);
+      const notifications = await apiGet('/notifications');
+      const active = notifications.find(
+        (n: any) =>
+          n.status === 'active' &&
+          n.maintenance_type === 'major' &&
+          new Date(n.start_datetime) <= new Date() &&
+          new Date(n.end_datetime) >= new Date()
+      );
 
-      try {
-        const notifications = await apiGet('/notifications');
-        const active = notifications.find(
-          (n: any) =>
-            n.status === 'active' &&
-            n.maintenance_type === 'major' &&
-            new Date(n.start_datetime) <= new Date() &&
-            new Date(n.end_datetime) >= new Date()
-        );
-
-        if (active && user?.user_type !== 'globalAdmin') {
-          window.dispatchEvent(
-            new CustomEvent('maintenance-blocked', {
-              detail: { message: active.message }
-            })
-          );
-        }
-      } catch (notificationError) {
-        console.warn(
-          'Failed to check maintenance notifications:',
-          notificationError
+      if (active && user?.user_type !== 'globalAdmin') {
+        window.dispatchEvent(
+          new CustomEvent('maintenance-blocked', {
+            detail: { message: active.message }
+          })
         );
       }
 
