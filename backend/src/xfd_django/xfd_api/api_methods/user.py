@@ -237,6 +237,7 @@ def get_users(current_user):
                             {
                                 "id": str(role.organization.id),
                                 "name": role.organization.name,
+                                "acronym": role.organization.acronym,
                             }
                             if role.organization
                             else None
@@ -429,6 +430,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                             {
                                 "id": str(role.organization.id),
                                 "name": role.organization.name,
+                                "acronym": role.organization.acronym,
                             }
                             if role.organization
                             else None

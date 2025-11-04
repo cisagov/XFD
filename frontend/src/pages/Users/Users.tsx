@@ -58,6 +58,7 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
+  org_acronym?: string | null | undefined;
   full_name: string;
   approved_by?: ApprovedBy | null;
   date_approved?: string | null;
@@ -104,6 +105,8 @@ export const Users: React.FC = () => {
               .join(', ')
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
+        row.org_acronym = row.roles[0]?.organization.acronym || '';
+        console.log('row', row.roles);
       });
 
       const filteredRows = rows;
@@ -183,6 +186,22 @@ export const Users: React.FC = () => {
             aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
           >
             {cellValues.row.orgs}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'org_acronym',
+      headerName: 'Org Acronym',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization acronym ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
+          >
+            {cellValues.row.org_acronym}
           </Box>
         );
       }
