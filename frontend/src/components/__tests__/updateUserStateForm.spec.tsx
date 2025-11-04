@@ -1,7 +1,13 @@
 import React from 'react';
-import { render, fireEvent, waitFor, screen, testUser } from 'test-utils';
+import {
+  render,
+  fireEvent,
+  waitFor,
+  screen,
+} from '../../test-utils/test-utils';
+import { testUser } from '../../test-utils/user';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { UpdateStateForm } from '../../components/UpdateUserStateForm/UpdateUserStateForm';
+import { UpdateStateForm } from '../UpdateUserStateForm/UpdateUserStateForm';
 
 vi.mock('@/constants/constants', () => ({
   STATE_OPTIONS: ['California', 'Texas', 'New York', 'Florida']
