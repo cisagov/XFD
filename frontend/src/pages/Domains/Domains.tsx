@@ -23,6 +23,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import {
   DataGrid,
+  getGridStringOperators,
   GridColDef,
   GridColumnVisibilityModel,
   GridFilterModel,
@@ -227,6 +228,21 @@ export const Domains: React.FC = () => {
     [domains, formatDays, formatPreview]
   );
 
+  const stringFilterOperators = useMemo(() => {
+    try {
+      const operators = getGridStringOperators();
+      const allowedOperators = ['contains', 'equals'];
+      return operators.filter((op) =>
+        allowedOperators.includes(op.value as string)
+      );
+    } catch (e) {
+      return [
+        { label: 'Contains', value: 'contains' } as any,
+        { label: 'Equals', value: 'equals' } as any
+      ];
+    }
+  }, []);
+
   const domCols = useMemo<GridColDef[]>(
     () => [
       {
@@ -234,6 +250,7 @@ export const Domains: React.FC = () => {
         headerName: 'Domain',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -250,6 +267,7 @@ export const Domains: React.FC = () => {
         headerName: 'Organization',
         minWidth: 100,
         flex: 1.5,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -266,6 +284,7 @@ export const Domains: React.FC = () => {
         headerName: 'IP',
         minWidth: 50,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -282,6 +301,7 @@ export const Domains: React.FC = () => {
         headerName: 'Ports',
         minWidth: 100,
         flex: 1.2,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -298,6 +318,7 @@ export const Domains: React.FC = () => {
         headerName: 'Services',
         minWidth: 100,
         flex: 1.5,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -314,6 +335,7 @@ export const Domains: React.FC = () => {
         headerName: 'Vulnerabilities',
         minWidth: 50,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -330,6 +352,7 @@ export const Domains: React.FC = () => {
         headerName: 'Updated At',
         minWidth: 50,
         flex: 0.9,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -346,6 +369,7 @@ export const Domains: React.FC = () => {
         headerName: 'Created At',
         minWidth: 50,
         flex: 0.9,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
           return (
             <Box
@@ -558,7 +582,15 @@ export const Domains: React.FC = () => {
                   placement: 'bottom-start'
                 },
                 columnsManagement: {
-                  disableResetButton: true
+                  disableResetButton: true,
+                  getTogglableColumns: (columns) => {
+                    const alwaysVisible = ['name'];
+                    return columns
+                      .filter(
+                        (col) => col.field && !alwaysVisible.includes(col.field)
+                      )
+                      .map((col) => col.field as string);
+                  }
                 }
               }}
               disableRowSelectionOnClick

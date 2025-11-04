@@ -19,8 +19,8 @@ interface LooseVulnerabilityRow {
   id: string;
   title: string;
   severity: string;
-  is_kev: string;
-  is_kev_ransomware: string;
+  is_kev: boolean | string;
+  is_kev_ransomware: boolean | string;
   domain: string | undefined;
   domainId: string | undefined;
   product: string;

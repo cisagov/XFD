@@ -18,8 +18,10 @@ import {
   Stack,
   Typography
 } from '@mui/material';
+
 import {
   DataGrid,
+  getGridStringOperators,
   GridColDef,
   GridColumnVisibilityModel,
   GridFilterModel,
@@ -313,8 +315,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: vuln.is_kev ? 'Yes' : 'No',
-          is_kev_ransomware: vuln.is_kev_ransomware ? 'Yes' : 'No',
+          is_kev: vuln.is_kev === null ? null : Boolean(vuln.is_kev),
+          is_kev_ransomware:
+            vuln?.is_kev_ransomware === null
+              ? null
+              : Boolean(vuln?.is_kev_ransomware),
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -325,6 +330,21 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     [vulnerabilities]
   );
 
+  const stringFilterOperators = useMemo(() => {
+    try {
+      const operators = getGridStringOperators();
+      const allowedOperators = ['contains', 'equals'];
+      return operators.filter((op) =>
+        allowedOperators.includes(op.value as string)
+      );
+    } catch (e) {
+      return [
+        { label: 'Contains', value: 'contains' } as any,
+        { label: 'Equals', value: 'equals' } as any
+      ];
+    }
+  }, []);
+
   const vulCols: GridColDef<VulnerabilityRow>[] = useMemo(
     () => [
       {
@@ -332,6 +352,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Vulnerability',
         minWidth: 100,
         flex: 2,
+        filterOperators: stringFilterOperators,
         sortComparator: (v1: any, v2: any) => {
           const collator = new Intl.Collator(undefined, {
             numeric: true,
@@ -355,6 +376,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Severity',
         minWidth: 100,
         flex: 0.5,
+        filterOperators: stringFilterOperators,
         sortComparator: (v1: any, v2: any) => {
           const severityLevels: Record<string, number> = {
             'N/A': 1,
@@ -390,13 +412,18 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
+        type: 'singleSelect',
+        valueOptions: [
+          { value: 'true', label: 'Yes' },
+          { value: 'false', label: 'No' }
+        ],
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
               component="span"
               aria-label={`KEV status ${cellValues.row.is_kev}`}
             >
-              {cellValues.row.is_kev}
+              {cellValues.row.is_kev ? 'Yes' : 'No'}
             </Box>
           );
         }
@@ -407,6 +434,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         minWidth: 100,
         flex: 0.5,
         filterable: true,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => (
           <Box
             component="span"
@@ -421,6 +449,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Domain',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -438,6 +467,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Product',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -454,6 +484,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Days Open',
         minWidth: 100,
         flex: 0.5,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -470,6 +501,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Status',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -637,7 +669,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Vulnerabilities Table"
           >
-            <DataGrid
+            <DataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
@@ -649,29 +681,44 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                const mappedModel = model.items.map((item) => ({
+                const mappedItems = model.items.map((item) => ({
                   ...item,
                   value:
                     typeof item.value === 'string'
                       ? item.value.trim()
                       : item.value
                 }));
-                const modelWithTrimmedValues = {
-                  ...model,
-                  items: mappedModel
-                };
-                setFilterModel(modelWithTrimmedValues);
-                const mappedFilters = model.items
-                  .map((item) => ({
-                    field: item.field,
-                    operator: item.operator,
-                    value: item.value
-                  }))
+                const normalizedModel = { ...model, items: mappedItems };
+                setFilterModel(normalizedModel);
+
+                const mappedFilters = normalizedModel.items
+                  .map((item) => {
+                    let val: any = item.value;
+                    if (
+                      item.field === 'is_kev' ||
+                      item.field === 'is_kev_ransomware'
+                    ) {
+                      if (typeof val === 'string') {
+                        const v = val.toLowerCase();
+                        if (v === 'yes' || v === 'true') val = true;
+                        else if (v === 'no' || v === 'false') val = false;
+                        else val = null;
+                      } else {
+                        val = val == null ? null : Boolean(val);
+                      }
+                    }
+                    return {
+                      field: item.field,
+                      operator: item.operator,
+                      value: val
+                    };
+                  })
+
                   .filter(
-                    (item) =>
-                      item.value !== undefined &&
-                      item.value !== null &&
-                      String(item.value).trim() !== ''
+                    (f) =>
+                      f.value !== undefined &&
+                      f.value !== null &&
+                      !(typeof f.value === 'string' && f.value.trim() === '')
                   );
 
                 const mappedKey = JSON.stringify(mappedFilters);
@@ -722,7 +769,15 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   placement: 'bottom-start'
                 },
                 columnsManagement: {
-                  disableResetButton: true
+                  disableResetButton: true,
+                  getTogglableColumns: (columns) => {
+                    const alwaysVisible = ['title'];
+                    return columns
+                      .filter(
+                        (col) => col.field && !alwaysVisible.includes(col.field)
+                      )
+                      .map((col) => col.field as string);
+                  }
                 }
               }}
               disableRowSelectionOnClick
