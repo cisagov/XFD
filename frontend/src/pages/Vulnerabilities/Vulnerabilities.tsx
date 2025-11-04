@@ -418,7 +418,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           { value: true, label: 'Yes' },
           { value: false, label: 'No' }
         ],
-        // filterOperators: [{ label: 'is', value: 'is' } as any],
         filterOperators: getGridSingleSelectOperators().filter(
           (op) => op.value === 'is'
         ),
@@ -453,15 +452,44 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         minWidth: 100,
         flex: 0.5,
         filterable: true,
-        filterOperators: stringFilterOperators,
-        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => (
-          <Box
-            component="span"
-            aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
-          >
-            {cellValues.row.is_kev_ransomware}
-          </Box>
-        )
+        filterOperators: getGridSingleSelectOperators().filter(
+          (op) => op.value === 'is'
+        ),
+        type: 'singleSelect',
+        valueOptions: [
+          { value: true, label: 'Yes' },
+          { value: false, label: 'No' }
+        ],
+        valueGetter: (params: any) =>
+          params?.row
+            ? params.row.is_kev_ransomware == null
+              ? null
+              : Boolean(params.row.is_kev_ransomware)
+            : null,
+        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          // <Box
+          //   component="span"
+          //   aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
+          // >
+          //   {cellValues.row.is_kev_ransomware}
+          // </Box>
+          const v = cellValues.row.is_kev_ransomware;
+          if (v === null || v === undefined) {
+            return (
+              <Box component="span" aria-label={`Ransomware status unknown`}>
+                N/A
+              </Box>
+            );
+          }
+          return (
+            <Box
+              component="span"
+              aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
+            >
+              {cellValues.row.is_kev_ransomware ? 'Yes' : 'No'}
+            </Box>
+          );
+        }
       },
       {
         field: 'domain',
