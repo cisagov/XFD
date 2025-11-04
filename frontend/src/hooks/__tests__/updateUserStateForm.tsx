@@ -3,7 +3,6 @@ import { render, fireEvent, waitFor, screen, testUser } from 'test-utils';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { UpdateStateForm } from '../../components/UpdateUserStateForm/UpdateUserStateForm';
 
-// Mock the constants
 vi.mock('@/constants/constants', () => ({
   STATE_OPTIONS: ['California', 'Texas', 'New York', 'Florida']
 }));
@@ -46,7 +45,9 @@ describe('UpdateStateForm component', () => {
       authContext: mockAuthContext
     });
 
-    expect(screen.queryByText('Update State Information')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Update State Information')
+    ).not.toBeInTheDocument();
   });
 
   it('shows state options in select dropdown', async () => {
@@ -103,48 +104,45 @@ describe('UpdateStateForm component', () => {
       authContext: mockAuthContext
     });
 
-    // Select a state
     const selectElement = screen.getByRole('combobox');
     fireEvent.mouseDown(selectElement);
-    
+
     await waitFor(() => {
       const californiaOption = screen.getByText('California');
       fireEvent.click(californiaOption);
     });
 
-    // Click Save
     const saveButton = screen.getByRole('button', { name: /save/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(mockAuthContext.apiPost).toHaveBeenCalledWith('/v2/update_user/test-user-123', {
-        body: { state: 'California' }
-      });
+      expect(mockAuthContext.apiPost).toHaveBeenCalledWith(
+        '/v2/update_user/test-user-123',
+        {
+          body: { state: 'California' }
+        }
+      );
     });
   });
 
   it('shows loading state when save is in progress', async () => {
-    // Make apiPost hang to simulate loading
     mockAuthContext.apiPost.mockImplementation(() => new Promise(() => {}));
 
     render(<UpdateStateForm {...mockProps} />, {
       authContext: mockAuthContext
     });
 
-    // Select a state
     const selectElement = screen.getByRole('combobox');
     fireEvent.mouseDown(selectElement);
-    
+
     await waitFor(() => {
       const californiaOption = screen.getByText('California');
       fireEvent.click(californiaOption);
     });
 
-    // Click Save
     const saveButton = screen.getByRole('button', { name: /save/i });
     fireEvent.click(saveButton);
 
-    // Should show loading spinner
     await waitFor(() => {
       expect(screen.getByRole('progressbar')).toBeInTheDocument();
     });
@@ -157,21 +155,23 @@ describe('UpdateStateForm component', () => {
       authContext: mockAuthContext
     });
 
-    // Select a state
     const selectElement = screen.getByRole('combobox');
     fireEvent.mouseDown(selectElement);
-    
+
     await waitFor(() => {
       const californiaOption = screen.getByText('California');
       fireEvent.click(californiaOption);
     });
 
-    // Click Save
     const saveButton = screen.getByRole('button', { name: /save/i });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
-      expect(screen.getByText('Something went wrong updating the state. Please try again.')).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          'Something went wrong updating the state. Please try again.'
+        )
+      ).toBeInTheDocument();
     });
   });
 
@@ -183,16 +183,14 @@ describe('UpdateStateForm component', () => {
       authContext: mockAuthContext
     });
 
-    // Select a state
     const selectElement = screen.getByRole('combobox');
     fireEvent.mouseDown(selectElement);
-    
+
     await waitFor(() => {
       const californiaOption = screen.getByText('California');
       fireEvent.click(californiaOption);
     });
 
-    // Click Save
     const saveButton = screen.getByRole('button', { name: /save/i });
     fireEvent.click(saveButton);
 
@@ -221,24 +219,21 @@ describe('UpdateStateForm component', () => {
   it('saves state to localStorage after successful API call', async () => {
     mockAuthContext.apiPost.mockResolvedValue({});
     mockAuthContext.apiGet.mockResolvedValue([]);
-    
-    // Mock localStorage
+
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
 
     render(<UpdateStateForm {...mockProps} />, {
       authContext: mockAuthContext
     });
 
-    // Select a state
     const selectElement = screen.getByRole('combobox');
     fireEvent.mouseDown(selectElement);
-    
+
     await waitFor(() => {
       const californiaOption = screen.getByText('California');
       fireEvent.click(californiaOption);
     });
 
-    // Click Save
     const saveButton = screen.getByRole('button', { name: /save/i });
     fireEvent.click(saveButton);
 
@@ -267,16 +262,14 @@ describe('UpdateStateForm component', () => {
       authContext: mockAuthContext
     });
 
-    // Select a state
     const selectElement = screen.getByRole('combobox');
     fireEvent.mouseDown(selectElement);
-    
+
     await waitFor(() => {
       const californiaOption = screen.getByText('California');
       fireEvent.click(californiaOption);
     });
 
-    // Click Save
     const saveButton = screen.getByRole('button', { name: /save/i });
     fireEvent.click(saveButton);
 
