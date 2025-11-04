@@ -21,6 +21,7 @@ import {
 
 import {
   DataGrid,
+  getGridSingleSelectOperators,
   getGridStringOperators,
   GridColDef,
   GridColumnVisibilityModel,
@@ -414,10 +415,28 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         flex: 0.3,
         type: 'singleSelect',
         valueOptions: [
-          { value: 'true', label: 'Yes' },
-          { value: 'false', label: 'No' }
+          { value: true, label: 'Yes' },
+          { value: false, label: 'No' }
         ],
+        // filterOperators: [{ label: 'is', value: 'is' } as any],
+        filterOperators: getGridSingleSelectOperators().filter(
+          (op) => op.value === 'is'
+        ),
+        valueGetter: (params: any) =>
+          params?.row
+            ? params.row.is_kev == null
+              ? null
+              : Boolean(params.row.is_kev)
+            : null,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          const v = cellValues.row.is_kev;
+          if (v === null || v === undefined) {
+            return (
+              <Box component="span" aria-label={`KEV status unknown`}>
+                N/A
+              </Box>
+            );
+          }
           return (
             <Box
               component="span"
