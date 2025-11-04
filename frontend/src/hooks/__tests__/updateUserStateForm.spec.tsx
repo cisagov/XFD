@@ -3,11 +3,11 @@ import {
   render,
   fireEvent,
   waitFor,
-  screen,
+  screen
 } from '../../test-utils/test-utils';
 import { testUser } from '../../test-utils/user';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { UpdateStateForm } from '../UpdateUserStateForm/UpdateUserStateForm';
+import { UpdateStateForm } from '../../components/UpdateUserStateForm/UpdateUserStateForm';
 
 vi.mock('@/constants/constants', () => ({
   STATE_OPTIONS: ['California', 'Texas', 'New York', 'Florida']
