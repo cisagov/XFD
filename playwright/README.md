@@ -84,20 +84,21 @@ If you are using testing in VS Code using the Playwright extension, add the foll
 
 ```json
 "playwright.env": {
-        "PW_GLOBAL_ADMIN_USERNAME": "",
-        "PW_GLOBAL_ADMIN_PASSWORD": "",
-        "PW_GLOBAL_ADMIN_2FA_SECRET": "",
-        "PW_REGIONAL_ADMIN_USERNAME": "",
-        "PW_REGIONAL_ADMIN_PASSWORD": "",
-        "PW_REGIONAL_ADMIN_2FA_SECRET": "",
-        "PW_GLOBAL_VIEW_USERNAME": "",
-        "PW_GLOBAL_VIEW_PASSWORD": "",
-        "PW_GLOBAL_VIEW_2FA_SECRET": "",
-        "PW_STANDARD_USER_USERNAME": "",
-        "PW_STANDARD_USER_PASSWORD": "",
-        "PW_STANDARD_USER_2FA_SECRET": "",
-        "PW_XFD_2FA_ISSUER": "",
-        "PW_XFD_URL": "",
+        "PW_GLOBAL_ADMIN_USERNAME": "xfd.pw.globaladm@gmail.com",
+        "PW_GLOBAL_ADMIN_PASSWORD": "Pw_@ut0m@t1on251",
+        "PW_GLOBAL_ADMIN_2FA_SECRET": "6AQL2GQKW4XTSDDLCDPPBQROY34P7LJD",
+        "PW_REGIONAL_ADMIN_USERNAME": "xfd.pw.regionaladm@gmail.com",
+        "PW_REGIONAL_ADMIN_PASSWORD": "Pw_@ut0m@1on252",
+        "PW_REGIONAL_ADMIN_2FA_SECRET": "7Q4AEQO6O7PHOXAWFU2WJVHHIQIIONIB",
+        "PW_GLOBAL_VIEW_USERNAME": "xfd.pw.globalview@gmail.com",
+        "PW_GLOBAL_VIEW_PASSWORD": "Pw_@ut0m@1on253",
+        "PW_GLOBAL_VIEW_2FA_SECRET": "GQAIPR6R4C3ITB5CAXJXUQWTJLQHFRPD",
+        "PW_STANDARD_USER_USERNAME": "xfd.pw.standarduser@gmail.com",
+        "PW_STANDARD_USER_PASSWORD": "Pw_@ut0m@1on254",
+        "PW_STANDARD_USER_2FA_SECRET": "DKNN4H6HXYF37GGNFH54YDVEWLEQFFRK",
+        "PW_XFD_2FA_ISSUER": "Login.gov",
+        "PW_XFD_URL": "https://staging-cd.crossfeed.cyber.dhs.gov",
+        "CI": "False"
 }
 ```
 

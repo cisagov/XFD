@@ -63,3 +63,6 @@ local-scan-execution:
 #Create local dev api key. ONLY run this after initial login, since that is when the user(user is tied to api_key) is created
 generate-dev-api-key:
 	docker compose exec backend python manage.py generate_dev_api_key
+
+# Import test users from seed file into backend DB
+import-test-users:
