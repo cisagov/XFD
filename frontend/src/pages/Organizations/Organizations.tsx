@@ -140,6 +140,22 @@ export const Organizations: React.FC = () => {
       }
     },
     {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
+          </Box>
+        );
+      }
+    },
+    {
       field: 'state',
       headerName: 'State',
       minWidth: 100,
