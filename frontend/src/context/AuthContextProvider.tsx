@@ -1,3 +1,4 @@
+// frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Auth } from 'aws-amplify';
 import { AuthContext, AuthUser } from './AuthContext';
@@ -36,38 +37,58 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     message: string;
     type: AlertProps['severity'];
   } | null>(null);
-  const cookies = useMemo(() => new Cookies(), []);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // One cookies instance for the lifetime of the provider
+  const cookies = useMemo(() => new Cookies(), []);
+
+  // Compute cookie options that work both locally and in prod
+  const cookieOpts = useMemo(() => {
+    const isLocalhost =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+    const domainEnv = import.meta.env.VITE_COOKIE_DOMAIN as string | undefined;
+    return {
+      path: '/',
+      // Only set a domain attribute if we're NOT on localhost (cookie APIs treat localhost specially)
+      domain: !isLocalhost && domainEnv ? domainEnv : undefined,
+      secure: window.location.protocol === 'https:'
+    } as const;
+  }, []);
 
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
+
+    // If we had a token, we’ll reload at the end to reset app state
     const shouldReload = !!token;
 
-    // Clear local storage/cookies and sign out
-    localStorage.clear();
-    await Auth.signOut();
-    cookies.remove('crossfeed-token', {
-      domain: import.meta.env.VITE_COOKIE_DOMAIN
-    });
+    try {
+      // Clear local storage and Amplify session (if any)
+      localStorage.clear();
+      try {
+        await Auth.signOut();
+      } catch {
+        // ignore if Amplify isn't actively signed in
+      }
 
-    // Clear user state after successful sign out
-    setAuthUser(null);
-    setIsLoggingOut(false); // Reset logout state
+      // Remove both cookies the backend may have set
+      cookies.remove('token', cookieOpts);
+      cookies.remove('crossfeed-token', cookieOpts);
 
-    if (shouldReload) {
-      // Refresh the page only if the token was previously defined
-      // (i.e. it is now invalid / has expired now).
-      window.location.reload();
+      // Clear in-memory state
+      setAuthUser(null);
+      setToken(null);
+    } finally {
+      setIsLoggingOut(false);
+      if (shouldReload) {
+        window.location.reload();
+      }
     }
-
-    // Reset logout state even on error
-    setIsLoggingOut(false);
-  }, [cookies, token, setAuthUser]);
+  }, [cookies, cookieOpts, setToken, token]);
 
   const handleError = useCallback(
     async (e: Error) => {
       if (e.message.includes('401')) {
-        // Unauthorized, log out user
         await logout();
       }
     },
@@ -79,22 +100,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
 
   const getProfile = useCallback(async () => {
     const user: User = await apiGet<User>('/users/me');
-
-    // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
-    // Currently commented to meet "waiting room" needs and allow login for state selection
-    // and user terms acceptance for new users.
-    //
-    // This acts as a backup safeguard to alert users login is unavailable and log them out.
-    // If user is blocked due to maintenance, show alert and logout.
-    //
-    // if (user.login_blocked_by_maintenance) {
-    //   alert(
-    //     'Product has not officially been launched. Please check back again.'
-    //   );
-    //   await logout();
-    //   return;
-    // }
-
     setAuthUser({
       ...user,
       isRegistered: user.first_name !== ''
@@ -111,46 +116,45 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     [setAuthUser]
   );
 
+  // Keep your existing Cognito refresh (no-op when VITE_USE_COGNITO is false)
   const refreshUser = useCallback(async () => {
     try {
       if (!token && import.meta.env.VITE_USE_COGNITO) {
         const session = await Auth.currentSession();
-        const { token } = await apiPost<{ token: string; user: User }>(
-          '/auth/callback',
-          {
-            body: {
-              token: session.getIdToken().getJwtToken()
-            }
+        const { token: newToken } = await apiPost<{
+          token: string;
+          user: User;
+        }>('/auth/callback', {
+          body: {
+            token: session.getIdToken().getJwtToken()
           }
-        );
-        setToken(token);
+        });
+        setToken(newToken);
       }
     } catch (error) {
       console.log(error);
     }
   }, [apiPost, setToken, token]);
 
-  const extendedOrg = useMemo(() => {
-    return getExtendedOrg(org, authUser);
-  }, [org, authUser]);
+  // 🔑 NEW: bootstrap the SPA token from cookies after SAML ACS redirect
+  useEffect(() => {
+    if (!token) {
+      const cookieToken =
+        cookies.get('token') || cookies.get('crossfeed-token');
+      if (cookieToken) {
+        setToken(cookieToken);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, cookies]);
 
-  const maximumRole = useMemo(() => {
-    return getMaximumRole(authUser);
-  }, [authUser]);
-
-  const touVersion = useMemo(() => {
-    return getTouVersion(maximumRole);
-  }, [maximumRole]);
-
-  const userMustSign = useMemo(() => {
-    return getUserMustSign(authUser, touVersion);
-  }, [authUser, touVersion]);
-
+  // On first mount, try Cognito refresh (if enabled)
   useEffect(() => {
     refreshUser();
     // eslint-disable-next-line
   }, []);
 
+  // When token changes, either clear user or fetch profile
   useEffect(() => {
     if (!token) {
       setAuthUser(null);
@@ -158,6 +162,17 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       getProfile();
     }
   }, [token, getProfile]);
+
+  const extendedOrg = useMemo(
+    () => getExtendedOrg(org, authUser),
+    [org, authUser]
+  );
+  const maximumRole = useMemo(() => getMaximumRole(authUser), [authUser]);
+  const touVersion = useMemo(() => getTouVersion(maximumRole), [maximumRole]);
+  const userMustSign = useMemo(
+    () => getUserMustSign(authUser, touVersion),
+    [authUser, touVersion]
+  );
 
   return (
     <AuthContext.Provider

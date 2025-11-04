@@ -4,59 +4,21 @@ import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
 import { CrossfeedWarning } from 'components/WarningBanner';
 import { initialNotificationValues, MaintenanceNotification } from 'types';
-import { v4 as uuidv4 } from 'uuid';
-import pkceChallenge from 'pkce-challenge';
 
 const LoginButton = () => {
-  // TODO: Capture default values here once determined
-  const domain = import.meta.env.VITE_COGNITO_DOMAIN || 'default_value';
-  const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || 'default_value';
-  const callbackUrl =
-    import.meta.env.VITE_COGNITO_CALLBACK_URL || 'default_value';
-
-  const redirectToAuth = async () => {
-    const { code_challenge, code_verifier } = await pkceChallenge();
-    const state = uuidv4();
-
-    console.log('Starting OAuth fetch with:', {
-      code_challenge,
-      code_verifier,
-      state
-    });
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/get-oauth-meta`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code_verifier, state })
-        }
-      );
-
-      const json = await res.json();
-      localStorage.setItem('oauthMeta', json.signedToken);
-      console.log('Stored oauthMeta:', json.signedToken);
-
-      const authorizeUrl = `https://${domain}/oauth2/authorize?identity_provider=Okta&redirect_uri=${encodeURIComponent(
-        callbackUrl
-      )}&response_type=code&client_id=${clientId}&scope=email+openid+profile&state=${state}&code_challenge=${encodeURIComponent(
-        code_challenge
-      )}&code_challenge_method=S256`;
-
-      window.location.href = authorizeUrl;
-    } catch (err) {
-      console.error('Error preparing OAuth metadata:', err);
-    }
+  const redirectToAuth = () => {
+    const next = encodeURIComponent(window.location.pathname || '/');
+    window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
   };
 
   return (
     <Button
       onClick={redirectToAuth}
-      type={'button'}
+      type="button"
       size="big"
       style={{ width: 'fit-content' }}
     >
-      Sign in with LOGIN.GOV
+      Sign in
     </Button>
   );
 };
