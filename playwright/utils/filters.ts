@@ -7,6 +7,35 @@ export type DrawerConfig = {
   urlKeys?: { region: string[]; org: string[] };
 };
 
+export type AppKind = 'VS' | 'INV';
+export const PRESETS: Record<AppKind, DrawerConfig> = {
+  VS: {
+    headingRx: /^filter$/i,
+    closeBtnName: /^close$/i,
+    filtersBtnName: /filters?/i,
+    urlKeys: {
+      region: ['region', 'regionId', 'region_id'],
+      org: ['organization', 'orgId', 'organization_id']
+    }
+  },
+  INV: {
+    headingRx: /^filter$/i,
+    closeBtnName: /^close-filter-drawer$/i,
+    filtersBtnName: /filters?/i,
+    urlKeys: {
+      region: ['region', 'regionId', 'region_id'],
+      org: ['organization', 'orgId', 'organization_id']
+    }
+  }
+};
+
+export const VS: DrawerConfig = PRESETS.VS;
+export const INV: DrawerConfig = PRESETS.INV;
+
+type AppArg = DrawerConfig | AppKind | undefined;
+const toCfg = (arg?: AppArg): DrawerConfig =>
+  typeof arg === 'string' ? PRESETS[arg] : (arg ?? PRESETS.VS);
+
 export function getFiltersButton(page: Page, cfg: DrawerConfig): Locator {
   return page
     .getByRole('button', { name: cfg.filtersBtnName ?? /filters?/i })
@@ -57,46 +86,111 @@ export async function openFiltersDrawer(
 
 export async function closeFilterDrawer(
   page: Page,
-  cfg: DrawerConfig,
-  opts: { assertHidden: boolean }
-): Promise<void> {
-  const closeBtn = page.getByRole('button', { name: cfg.closeBtnName }).first();
+  app?: AppArg, // <-- accepts DrawerConfig or "VS" | "INV"
+  opts?: { assertHidden?: boolean; timeout?: number }
+) {
+  const cfg = toCfg(app);
+  const timeout = opts?.timeout ?? 5000;
 
-  if (!(await closeBtn.isVisible().catch(() => false))) {
-    const heading = page.getByRole('heading', { name: cfg.headingRx }).first();
-    await heading.focus().catch(() => {});
-  }
+  const canInteract = async (loc: Locator) => {
+    if ((await loc.count()) === 0) return false;
+    try {
+      const el = loc.first();
+      if (!(await el.isVisible())) return false;
+      if (!(await el.isEnabled())) return false;
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
-  await expect(closeBtn, 'Close button not found').toBeVisible();
-  await expect(closeBtn).toBeEnabled();
+  const heading = page.getByRole('heading', { name: cfg.headingRx }).first();
+  const drawer = heading
+    .locator(
+      'xpath=ancestor-or-self::*[' +
+        'self::aside or @role="dialog" or @role="region" or self::div' +
+        '][1]'
+    )
+    .first();
 
-  const canClick = await closeBtn.click({ trial: true, timeout: 500 }).then(
-    () => true,
-    () => false
-  );
-  if (canClick) {
-    await closeBtn.click();
-  } else {
-    await closeBtn.focus().catch(() => {});
-    await page.keyboard.press('Enter').catch(async () => {
-      await page.keyboard.press(' ');
-    });
-  }
+  const drawerExists = (await drawer.count()) > 0;
+  const scoped = (sel: string) =>
+    drawerExists ? drawer.locator(sel) : page.locator(sel);
+  const scopedRole = (role: Parameters<Page['getByRole']>[0], ropts: any) =>
+    drawerExists
+      ? drawer.getByRole(role as any, ropts)
+      : page.getByRole(role as any, ropts);
 
-  if (opts.assertHidden) {
-    await page.waitForTimeout(100); // transition grace
-    const drawer = await waitForFiltersDrawer(page, cfg, 2000).catch(
-      () => null
-    );
-    if (drawer) {
+  const candidates: Locator[] = [
+    scoped('[data-testid="close-filter-drawer"]'),
+    scoped('#close-filter-drawer'),
+    scoped('.close-filter-drawer'),
+    scopedRole('button', { name: cfg.closeBtnName }),
+    scopedRole('button', { name: /^(close|close filters?|hide filters?)$/i }),
+    scopedRole('button', { name: /^(hide|done|apply|dismiss|cancel)$/i }),
+    scoped('button[aria-label*="close" i], button[title*="close" i]'),
+    page.getByRole('button', { name: /^close$/i })
+  ];
+
+  let closedByClick = false;
+  for (const loc of candidates) {
+    if (await canInteract(loc)) {
       try {
-        await expect(drawer).toBeHidden({ timeout: 1000 });
-      } catch {
-        /* tolerate flake */
+        await loc.first().click({ timeout: 1200 });
+        closedByClick = true;
+        break;
+      } catch {}
+    }
+  }
+
+  const stillVisible =
+    (await drawer.count()) > 0 && (await drawer.isVisible().catch(() => false));
+
+  if (!closedByClick && stillVisible) {
+    try {
+      await page.keyboard.press('Escape');
+    } catch {}
+
+    if (await drawer.isVisible().catch(() => false)) {
+      const backdrop = page.locator(
+        [
+          '.MuiBackdrop-root',
+          '.MuiModal-backdrop',
+          '[data-overlay="true"]',
+          '[role="presentation"]',
+          '[data-testid="modal-overlay"]'
+        ].join(', ')
+      );
+      if (await canInteract(backdrop)) {
+        try {
+          await backdrop.first().click();
+        } catch {}
       }
     }
-  } else {
-    await page.waitForTimeout(100);
+
+    if (await drawer.isVisible().catch(() => false)) {
+      const toggle = page
+        .getByRole('button', { name: cfg.filtersBtnName ?? /^filters?$/i })
+        .first();
+      if (await canInteract(toggle)) {
+        try {
+          await toggle.click();
+        } catch {}
+      }
+    }
+  }
+
+  if (opts?.assertHidden) {
+    await expect
+      .poll(
+        async () => {
+          const cnt = await drawer.count();
+          if (cnt === 0) return true;
+          return !(await drawer.isVisible().catch(() => false));
+        },
+        { timeout }
+      )
+      .toBeTruthy();
   }
 }
 
@@ -170,7 +264,7 @@ export async function selectAnyOrganization(
     await input.fill('');
     await input.type(ch, { delay: 15 });
     await page.waitForTimeout(80);
-    listbox = page.getByRole('listbox').first(); // re-acquire
+    listbox = page.getByRole('listbox').first();
     count = await listbox.getByRole('option').count();
   }
   expect(

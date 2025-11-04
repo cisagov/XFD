@@ -6,7 +6,6 @@ import { ROUTES } from '../../../frontend/src/constants/routes';
 import { ENDPOINTS } from '../../../frontend/src/constants/endpoints';
 import { runAxeAndFailOnSerious } from '../../utils/a11y';
 import {
-  DrawerConfig,
   openFiltersDrawer,
   closeFilterDrawer,
   ensureSectionOpen,
@@ -15,7 +14,9 @@ import {
   isVisible,
   hasValue,
   urlHasBothFilters,
-  escapeForTextSelector
+  escapeForTextSelector,
+  VS,
+  INV
 } from '../../utils/filters';
 
 const UUID_RX = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
@@ -501,28 +502,6 @@ test.describe('Admin API Test — Regional Admin', () => {
     expect([401, 403]).toContain(res.status());
   });
 });
-
-/* ---------------- per-page configs ---------------- */
-
-const INV: DrawerConfig = {
-  headingRx: /^filter$/i,
-  closeBtnName: /^close-filter-drawer$/i,
-  filtersBtnName: /filters?/i,
-  urlKeys: {
-    region: ['region', 'regionId', 'region_id'],
-    org: ['organization', 'orgId', 'organization_id']
-  }
-};
-
-const VS: DrawerConfig = {
-  headingRx: /^filter$/i,
-  closeBtnName: /^close$/i,
-  filtersBtnName: /filter/i,
-  urlKeys: {
-    region: ['region', 'regionId', 'region_id'],
-    org: ['organization', 'orgId', 'organization_id']
-  }
-};
 
 test.describe('VSDashboard — Regional Admin: Filter permissions', () => {
   test('Filters are enabled; selecting Region & Organization updates state (URL or empty-state)', async ({
