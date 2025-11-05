@@ -11,7 +11,6 @@ import {
   TextField,
   Typography
 } from '@mui/material';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
 import {
   initialUserFormValues,
@@ -63,8 +62,6 @@ type UserFormProps = {
   setUsers: Function;
   values: UserFormValues;
   setValues: Function;
-  newUserDialogOpen: boolean;
-  setNewUserDialogOpen: Function;
   editUserDialogOpen: boolean;
   setEditUserDialogOpen: Function;
   apiErrorStates: ApiErrorStates;
@@ -219,8 +216,6 @@ export const UserForm: React.FC<UserFormProps> = ({
   setUsers,
   values,
   setValues,
-  newUserDialogOpen,
-  setNewUserDialogOpen,
   editUserDialogOpen,
   setEditUserDialogOpen,
   apiErrorStates,
@@ -311,7 +306,6 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const onResetForm = () => {
     setEditUserDialogOpen(false);
-    setNewUserDialogOpen(false);
     setInfoDialogOpen(false);
     setValues(initialUserFormValues);
     setFormErrors({
@@ -321,45 +315,6 @@ export const UserForm: React.FC<UserFormProps> = ({
       user_type: false,
       state: false
     });
-  };
-
-  const handleCloseAddUserDialog = (value: CloseReason) => {
-    if (value === 'backdropClick' || value === 'escapeKeyDown') {
-      return;
-    }
-    onResetForm();
-  };
-
-  const onCreateUserSubmit = async () => {
-    if (!validateForm(values)) {
-      return;
-    }
-    const body: ApiBody = {
-      first_name: values.first_name,
-      last_name: values.last_name,
-      email: values.email,
-      user_type: values.user_type,
-      state: values.state,
-      region_id: values.region_id
-    };
-    try {
-      const user = await apiPost(ENDPOINTS.USERS, {
-        body
-      });
-      user.full_name = `${user.first_name} ${user.last_name}`;
-      setUsers(users.concat(user));
-      setApiErrorStates({ ...apiErrorStates, getAddUserError: '' });
-      handleCloseAddUserDialog('closeButtonClick');
-      setInfoDialogContent('This user has been successfully invited.');
-      setInfoDialogOpen(true);
-    } catch (e: any) {
-      setApiErrorStates({ ...apiErrorStates, getAddUserError: e.message });
-      setInfoDialogContent(
-        'This user has been not been invited. Check the console log for more details.'
-      );
-      console.log(e);
-      setValues(initialUserFormValues);
-    }
   };
 
   const handleEditUserSubmit = async () => {
@@ -602,12 +557,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         </Grid>
         <Grid size={{ xs: 12 }}>
           <Typography mb={1}>Organization</Typography>
-          {newUserDialogOpen ? (
-            <Alert severity="info">
-              An organization cannot be selected until the user is in the
-              system.
-            </Alert>
-          ) : isLoading ? (
+          {isLoading ? (
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
@@ -756,22 +706,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     />
   );
 
-  const inviteUserFormDialog = (
-    <ConfirmDialog
-      isOpen={newUserDialogOpen}
-      onConfirm={onCreateUserSubmit}
-      onCancel={onResetForm}
-      onClose={(_, reason) => handleCloseAddUserDialog(reason)}
-      title={'Invite a User'}
-      content={formContents}
-    />
-  );
-  return (
-    <>
-      {inviteUserFormDialog}
-      {editUserFormDialog}
-    </>
-  );
+  return <>{editUserFormDialog}</>;
 };
 
 export default UserForm;
