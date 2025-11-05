@@ -882,6 +882,7 @@ SUMMARY_CONFIG = {
             "up_host_count",
             "down_host_count",
             "scanned_asset_count",
+            "recent_up_hosts_count",
         ],
     },
     "port": {

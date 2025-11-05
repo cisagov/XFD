@@ -231,6 +231,7 @@ class HostScanSummaryResponse(BaseModel):
     up_host_count: Optional[int] = 0
     down_host_count: Optional[int] = 0
     scanned_asset_count: Optional[int] = 0
+    recent_up_hosts_count: Optional[int] = 0
     port_scan_min_timestamp: Optional[datetime] = None
     port_scan_max_timestamp: Optional[datetime] = None
     vuln_scan_min_timestamp: Optional[datetime] = None
@@ -346,6 +347,7 @@ class HostScanSummaryV2Response(BaseModel):
     up_host_count: Optional[int] = 0
     down_host_count: Optional[int] = 0
     scanned_asset_count: Optional[int] = 0
+    recent_up_hosts_count: Optional[int] = 0
     port_scan_min_timestamp: Optional[datetime] = None
     port_scan_max_timestamp: Optional[datetime] = None
     vuln_scan_min_timestamp: Optional[datetime] = None
@@ -422,6 +424,7 @@ class VsTrendCondensedResponse(BaseModel):
     host_summary_up_host_count: Optional[List[int]] = []
     host_summary_down_host_count: Optional[List[int]] = []
     host_summary_scanned_asset_count: Optional[List[int]] = []
+    host_summary_recent_up_hosts_count: Optional[List[int]] = []
 
     port_scan_summary_id: Optional[List[int]] = []
     port_scan_summary_start_date: Optional[List[datetime]] = []
@@ -562,6 +565,7 @@ class HostSummaryModel(BaseSummaryModel):
     up_host_count: Optional[int]
     down_host_count: Optional[int]
     scanned_asset_count: Optional[int]
+    recent_up_hosts_count: Optional[int]
     port_scan_min_timestamp: Optional[datetime]
     port_scan_max_timestamp: Optional[datetime]
     vuln_scan_min_timestamp: Optional[datetime]
