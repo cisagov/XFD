@@ -144,9 +144,9 @@ def assert_auth_failure(resp, context=""):
         ("GET", "/users/region_id/{region_id}"),
         ("GET", "/users/state/{state}"),
         ("GET", "/v2/users"),
-        ("PUT", "/v2/users/{user_id}"),
-        ("PUT", "/users/{user_id}/register/approve"),
-        ("PUT", "/users/{user_id}/register/deny"),
+        ("POST", "/v2/update_user/{user_id}"),
+        ("POST", "/users/{user_id}/register/approve"),
+        ("POST", "/users/{user_id}/register/deny"),
         ("POST", "/users"),
     ],
 )
@@ -172,9 +172,9 @@ def test_auth_failure_single_request(
         ("POST", "/users/region_id/{region_id}"),
         ("POST", "/users/state/{state}"),
         ("POST", "/v2/users"),
-        ("GET", "/v2/users/{user_id}"),
+        ("GET", "/v2/update_user/{user_id}"),
         ("GET", "/users/{user_id}/register/approve"),
-        ("GET", "/users/{user_id}/register/deny"),
+        ("POST", "/users/{user_id}/register/deny"),
     ],
 )
 def test_methods_not_allowed(method, endpoint_template, test_user, region_id, state):
@@ -613,14 +613,14 @@ def test_get_users_v2_invalid_invite_pending_returns_422():
 
 
 # ========================================
-#   PUT v2 users
+#   POST v2 users
 # ========================================
 
 
 @pytest.mark.integration
 def test_update_user_v2_success(test_user):
     """
-    PUT /v2/users/{user_id}.
+    POST /v2/update_user/{user_id}.
 
     - returns 200
     - updates only the provided field(s)
@@ -628,10 +628,10 @@ def test_update_user_v2_success(test_user):
     """
     user_id = test_user["id"]
     new_first = "UpdatedFirst"
-    url = f"{BASE_URL}/v2/users/{user_id}"
+    url = f"{BASE_URL}/v2/update_user/{user_id}"
     payload = {"first_name": new_first}
 
-    resp = requests.put(url, json=payload, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, json=payload, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
 
     data = resp.json()
@@ -642,32 +642,36 @@ def test_update_user_v2_success(test_user):
 
 @pytest.mark.integration
 def test_update_user_v2_not_found_invalid_uuid():
-    """PUT /v2/users/{bad-uuid} should return 404 for malformed UUID."""
-    url = f"{BASE_URL}/v2/users/{INVALID}"
-    resp = requests.put(url, json={"first_name": "X"}, headers=HEADERS, timeout=TIMEOUT)
+    """POST /v2/update_user/{bad-uuid} should return 404 for malformed UUID."""
+    url = f"{BASE_URL}/v2/update_user/{INVALID}"
+    resp = requests.post(
+        url, json={"first_name": "X"}, headers=HEADERS, timeout=TIMEOUT
+    )
     assert resp.status_code == 404, f"Expected 404 Not Found, got {resp.status_code}"
 
 
 @pytest.mark.integration
 def test_update_user_v2_not_found_nonexistent_uuid():
-    """PUT /v2/users/{random-uuid} should return 404 when the user doesn't exist."""
-    url = f"{BASE_URL}/v2/users/{BAD_ID}"
-    resp = requests.put(url, json={"first_name": "X"}, headers=HEADERS, timeout=TIMEOUT)
+    """POST /v2/update_user/{random-uuid} should return 404 when the user doesn't exist."""
+    url = f"{BASE_URL}/v2/update_user/{BAD_ID}"
+    resp = requests.post(
+        url, json={"first_name": "X"}, headers=HEADERS, timeout=TIMEOUT
+    )
     assert resp.status_code == 404, f"Expected 404 Not Found, got {resp.status_code}"
 
 
 @pytest.mark.integration
 def test_update_user_v2_email_update_forbidden(test_user):
     """
-    PUT /v2/users/{user_id} attempting to change email.
+    POST /v2/update_user/{user_id} attempting to change email.
 
     when not allowed should return 403 with an unauthorized-fields message.
     """
     user_id = test_user["id"]
-    url = f"{BASE_URL}/v2/users/{user_id}"
+    url = f"{BASE_URL}/v2/update_user/{user_id}"
     payload = {"email": "newemail@example.com"}
 
-    resp = requests.put(url, json=payload, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, json=payload, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 403, f"Expected 403 Forbidden, got {resp.status_code}"
     err = resp.json()
     detail = err.get("detail", "")
@@ -677,13 +681,13 @@ def test_update_user_v2_email_update_forbidden(test_user):
 
 @pytest.mark.integration
 def test_update_user_v2_change_user_type_by_admin(test_user):
-    """PUT /v2/users/{user_id} changing user_type should succeed for a global‑admin key."""
+    """POST /v2/update_user/{user_id} changing user_type should succeed for a global‑admin key."""
     user_id = test_user["id"]
-    url = f"{BASE_URL}/v2/users/{user_id}"
+    url = f"{BASE_URL}/v2/update_user/{user_id}"
     new_type = "globalAdmin" if test_user["user_type"] != "globalAdmin" else "standard"
     payload = {"user_type": new_type}
 
-    resp = requests.put(url, json=payload, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, json=payload, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert (
@@ -692,7 +696,7 @@ def test_update_user_v2_change_user_type_by_admin(test_user):
 
 
 # =======================================
-#   PUT v2 users/user_id/register/approve
+#   POST v2 users/user_id/register/approve
 # =======================================
 
 
@@ -707,7 +711,7 @@ def current_user_id():
 @pytest.mark.integration
 def test_register_approve_success(test_user):
     """
-    PUT /users/{user_id}/register/approve.
+    POST /users/{user_id}/register/approve.
 
     - returns 200
     - returns RegisterUserResponse with status_code and body
@@ -715,7 +719,7 @@ def test_register_approve_success(test_user):
     user_id = test_user["id"]
     url = f"{BASE_URL}/users/{user_id}/register/approve"
 
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert isinstance(data, dict)
@@ -726,12 +730,12 @@ def test_register_approve_success(test_user):
 @pytest.mark.integration
 def test_register_approve_invalid_uuid():
     """
-    PUT /users/not-a-uuid/register/approve.
+    POST /users/not-a-uuid/register/approve.
 
     should return 404 with detail 'Invalid user ID.'
     """
     url = f"{BASE_URL}/users/not-a-uuid/register/approve"
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 404, f"Expected 404 Not Found, got {resp.status_code}"
     err = resp.json()
     assert err.get("detail") == "Invalid user ID."
@@ -739,10 +743,10 @@ def test_register_approve_invalid_uuid():
 
 @pytest.mark.integration
 def test_register_approve_user_not_found():
-    """PUT /users/{random_uuid}/register/approve should return 404 with detail 'User not found.'."""
+    """POST /users/{random_uuid}/register/approve should return 404 with detail 'User not found.'."""
     random_id = str(uuid.uuid4())
     url = f"{BASE_URL}/users/{random_id}/register/approve"
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 404, f"Expected 404 Not Found, got {resp.status_code}"
     err = resp.json()
     assert err.get("detail") == "User not found."
@@ -751,26 +755,26 @@ def test_register_approve_user_not_found():
 @pytest.mark.integration
 def test_register_approve_self_forbidden(current_user_id):
     """
-    PUT /users/{me}/register/approve.
+    POST /users/{me}/register/approve.
 
     should return 403 with detail 'Users cannot approve themselves.'
     """
     url = f"{BASE_URL}/users/{current_user_id}/register/approve"
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 403, f"Expected 403 Forbidden, got {resp.status_code}"
     err = resp.json()
     assert err.get("detail") == "Users cannot approve themselves."
 
 
 # =======================================
-#   PUT v2 users/user_id/register/deny
+#   POST v2 users/user_id/register/deny
 # =======================================
 
 
 @pytest.mark.integration
 def test_register_deny_success(test_user):
     """
-    PUT /users/{user_id}/register/deny.
+    POST /users/{user_id}/register/deny.
 
     - returns 200
     - returns RegisterUserResponse with status_code and body
@@ -778,7 +782,7 @@ def test_register_deny_success(test_user):
     user_id = test_user["id"]
     url = f"{BASE_URL}/users/{user_id}/register/deny"
 
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 200, f"Expected 200 OK, got {resp.status_code}"
     data = resp.json()
     assert data.get("status_code") == 200
@@ -787,9 +791,9 @@ def test_register_deny_success(test_user):
 
 @pytest.mark.integration
 def test_register_deny_invalid_uuid():
-    """PUT /users/not-a-uuid/register/deny should return 404 with detail 'User not found.'."""
+    """POST /users/not-a-uuid/register/deny should return 404 with detail 'User not found.'."""
     url = f"{BASE_URL}/users/not-a-uuid/register/deny"
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 404, f"Expected 404 Not Found, got {resp.status_code}"
     err = resp.json()
     assert err.get("detail") == "User not found."
@@ -797,10 +801,10 @@ def test_register_deny_invalid_uuid():
 
 @pytest.mark.integration
 def test_register_deny_user_not_found():
-    """PUT /users/{random_uuid}/register/deny should return 404 with detail 'User not found.'."""
+    """POST /users/{random_uuid}/register/deny should return 404 with detail 'User not found.'."""
     random_id = str(uuid.uuid4())
     url = f"{BASE_URL}/users/{random_id}/register/deny"
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 404, f"Expected 404 Not Found, got {resp.status_code}"
     err = resp.json()
     assert err.get("detail") == "User not found."
@@ -808,9 +812,9 @@ def test_register_deny_user_not_found():
 
 @pytest.mark.integration
 def test_register_deny_self_forbidden(current_user_id):
-    """PUT /users/{me}/register/deny should return 403 with detail 'Users cannot approve themselves.'."""
+    """POST /users/{me}/register/deny should return 403 with detail 'Users cannot approve themselves.'."""
     url = f"{BASE_URL}/users/{current_user_id}/register/deny"
-    resp = requests.put(url, headers=HEADERS, timeout=TIMEOUT)
+    resp = requests.post(url, headers=HEADERS, timeout=TIMEOUT)
     assert resp.status_code == 403, f"Expected 403 Forbidden, got {resp.status_code}"
     err = resp.json()
     assert err.get("detail") == "Users cannot approve themselves."

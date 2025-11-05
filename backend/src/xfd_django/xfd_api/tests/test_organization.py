@@ -171,8 +171,8 @@ def test_update_org_by_global_admin():
     is_passive = True
     tags = [{"name": "updated"}]
 
-    response = client.put(
-        "/organizations/{}".format(organization.id),
+    response = client.post(
+        "/update_organization/{}".format(organization.id),
         json={
             "name": new_name,
             "acronym": new_acronym,
@@ -223,8 +223,8 @@ def test_update_org_by_global_view_fails():
     is_passive = True
     tags = [{"name": "updated"}]
 
-    response = client.put(
-        "/organizations/{}".format(organization.id),
+    response = client.post(
+        "/update_organization/{}".format(organization.id),
         json={
             "name": new_name,
             "acronym": new_acronym,
@@ -1831,8 +1831,8 @@ def test_add_user_to_org_v2_organization_not_found():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_add_user_to_org_v2_region_mismatch():
-    """Test adding a user to an organization where the region does not match."""
+def test_add_user_to_org_v2_region_allowed():
+    """Test adding a user to an organization where a different region is accepted by a regional admin."""
     admin = User.objects.create(
         first_name="Admin",
         last_name="User",
@@ -1875,8 +1875,8 @@ def test_add_user_to_org_v2_region_mismatch():
         json=payload,
     )
 
-    assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access due to region mismatch."
+    # Expect success because regional admins may now add users across regions
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2445,3 +2445,59 @@ def test_get_organizations_by_region_empty():
 
     assert response.status_code == 404
     assert response.json()["detail"] == "No organizations found for the given region"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_organizations_by_region_global_view_empty_region():
+    """Test that a GlobalViewAdmin gets a 404 when no organizations are found for the region."""
+    region_id = "11"
+
+    user = User.objects.create(
+        first_name="Global",
+        last_name="Viewer",
+        email="{}@example.com".format(uuid.uuid4().hex),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/organizations/region_id/{}".format(region_id),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "No organizations found for the given region"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_get_organizations_by_region_global_view():
+    """Test that a GlobalViewAdmin can retrieve organizations for a given region."""
+    region_id = "2"
+    organization = Organization.objects.create(
+        name="Test Org",
+        acronym="TEST",
+        root_domains=["test.com"],
+        region_id=region_id,
+    )
+
+    region_id = 2
+
+    user = User.objects.create(
+        first_name="Global",
+        last_name="Viewer",
+        email="{}@example.com".format(uuid.uuid4().hex),
+        user_type=UserType.GLOBAL_VIEW,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    response = client.get(
+        "/organizations/region_id/{}".format(region_id),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert any(result["id"] == str(organization.id) for result in data)

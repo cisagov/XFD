@@ -88,3 +88,25 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudwatch_bucket
     }
   }
 }
+
+resource "aws_cloudwatch_log_group" "backend" {
+  name              = var.backend_api_log_group_name
+  retention_in_days = 3653
+  kms_key_id        = aws_kms_key.key.arn
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "backend_api_requests" {
+  name              = var.backend_api_requests_log_group_name
+  retention_in_days = 3653
+  kms_key_id        = aws_kms_key.key.arn
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}

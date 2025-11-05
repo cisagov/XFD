@@ -20,20 +20,6 @@ const Settings: React.FC = () => {
             .join(', ')}
       </h2>
       <h2>Region: {user && user.region_id ? user.region_id : 'None'} </h2>
-      {user?.user_type === 'globalAdmin' && (
-        <>
-          <Button
-            type="button"
-            onClick={() => {
-              window.location.href = `/matomo`;
-            }}
-          >
-            Matomo
-          </Button>
-          <br />
-          <br />
-        </>
-      )}
       <Button type="button" onClick={logout}>
         Logout
       </Button>

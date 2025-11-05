@@ -8,6 +8,7 @@ import {
   FilterDrawerContextProvider,
   SearchProvider
 } from 'context';
+import { NavigationProvider } from 'context/NavigationContextProvider';
 
 const testContext: ContextType = {
   addFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
@@ -54,6 +55,9 @@ vi.mock('components/Header/Header', () => ({
 vi.mock('components/GovBanner', () => ({
   GovBanner: () => <div>GOV_BANNER</div>
 }));
+vi.mock('@mui/x-data-grid', () => ({
+  DataGrid: () => <div>DATA_GRID</div>
+}));
 
 afterAll(() => {
   vi.restoreAllMocks();
@@ -65,7 +69,9 @@ describe('Layout component', () => {
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <Layout {...testContext} />
+            <NavigationProvider>
+              <Layout {...testContext} />
+            </NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>
@@ -78,7 +84,9 @@ describe('Layout component', () => {
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <Layout {...testContext}>some children</Layout>
+            <NavigationProvider>
+              <Layout {...testContext}>some children</Layout>
+            </NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>

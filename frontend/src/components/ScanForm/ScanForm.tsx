@@ -12,6 +12,7 @@ import {
 import MultiSelect from 'pages/Scans/MultiSelect';
 import { OrganizationOption } from 'pages/Scans/ScansView';
 import { Link } from 'react-router-dom';
+import { ROUTES } from '@/constants/routes';
 
 export interface ScanFormValues {
   name: string;
@@ -24,6 +25,33 @@ export interface ScanFormValues {
   is_user_modifiable: boolean;
   is_single_scan: boolean;
   concurrent_tasks: number;
+  useDateRange: boolean;
+  startDate?: string;
+  endDate?: string;
+}
+
+const MAX_SCAN_DAYS = Number(import.meta.env.VITE_MAX_SCAN_DAYS || 365);
+
+export interface ScanArguments {
+  start_datetime?: string;
+  end_datetime?: string;
+  [key: string]: any; // fallback for other dynamic args
+}
+
+// Helper: get UTC midnight string for X days ago
+function getUTCDateMidnight(daysAgo: number): string {
+  const date = new Date();
+  date.setUTCHours(0, 0, 0, 0);
+  date.setUTCDate(date.getUTCDate() - daysAgo);
+  return date.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+}
+
+// Helper: get current UTC datetime trimmed to minutes for datetime-local max attribute
+function getUTCNowString(): string {
+  const now = new Date();
+  // zero-out seconds & ms so it matches datetime-local precision
+  now.setUTCSeconds(0, 0);
+  return now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
 }
 
 export const ScanForm: React.FC<{
@@ -47,7 +75,7 @@ export const ScanForm: React.FC<{
 }) => {
   const setDefault = () => ({
     name: scan ? scan.name : 'censys',
-    arguments: scan ? scan.arguments : '{}',
+    arguments: scan ? scan.arguments : {},
     frequency: scan ? scan.frequency : 1,
     frequencyUnit: scan ? propValues.frequencyUnit : 'day',
     is_granular: scan ? scan.is_granular : false,
@@ -55,19 +83,25 @@ export const ScanForm: React.FC<{
     is_single_scan: scan ? scan.is_single_scan : false,
     organizations: scan ? propValues.organizations : [],
     tags: scan ? propValues.tags : [],
-    concurrent_tasks: scan ? scan.concurrent_tasks : 1
+    concurrent_tasks: scan ? scan.concurrent_tasks : 1,
+    useDateRange: !!(
+      scan?.arguments?.start_datetime || scan?.arguments?.end_datetime
+    ),
+    startDate: scan?.arguments?.start_datetime || '',
+    endDate: scan?.arguments?.end_datetime || ''
   });
+
   const [organizationOptions, setOrganizationOptions] =
     useState<OrganizationOption[]>(organizationOption);
   const [tagOptions, setTagOptions] = useState<OrganizationOption[]>([]);
   const [values, setValues] = useState<ScanFormValues>(setDefault());
   const [schemaUpdated, setSchemaUpdated] = useState<boolean>(false);
+  const [dateRangeError, setDateRangeError] = useState<string>('');
 
   const onTextChange: React.ChangeEventHandler<
     HTMLInputElement | HTMLSelectElement
   > = (e) => {
     onChange(e.target.name, e.target.value);
-    //Ensures global scans can't be granular
     if (type === 'create' && scanSchema[e.target.value]) {
       onChange('is_granular', false);
     }
@@ -80,29 +114,32 @@ export const ScanForm: React.FC<{
     }));
   };
 
-  const setDefaultValues = useCallback(async () => {
-    try {
-      setOrganizationOptions(organizationOption);
-      setTagOptions(tags.map((tag) => ({ label: tag.name, value: tag.id })));
-      if (scanSchema && scanSchema[values.name]) {
-        setSchemaUpdated(true);
-      }
-      if (scan) {
-        setValues((values) => ({
-          ...values,
-          name: scan.name,
-          frequency: propValues.frequency,
-          frequencyUnit: propValues.frequencyUnit,
-          is_granular: scan.is_granular,
-          is_user_modifiable: scan.is_user_modifiable,
-          is_single_scan: scan.is_single_scan,
-          organizations: propValues.organizations,
-          tags: propValues.tags,
-          concurrent_tasks: scan.concurrent_tasks
-        }));
-      }
-    } catch (e) {
-      console.error(e);
+  const setDefaultValues = useCallback(() => {
+    setOrganizationOptions(organizationOption);
+    setTagOptions(tags.map((tag) => ({ label: tag.name, value: tag.id })));
+    if (scanSchema && scanSchema[values.name]) {
+      setSchemaUpdated(true);
+    }
+    if (scan) {
+      setValues((values) => ({
+        ...values,
+        name: scan.name,
+        frequency: propValues.frequency,
+        frequencyUnit: propValues.frequencyUnit,
+        is_granular: scan.is_granular,
+        is_user_modifiable: scan.is_user_modifiable,
+        is_single_scan:
+          scan.is_single_scan ||
+          !!(scan.arguments?.start_datetime || scan.arguments?.end_datetime),
+        organizations: propValues.organizations,
+        tags: propValues.tags,
+        concurrent_tasks: scan.concurrent_tasks,
+        useDateRange: !!(
+          scan.arguments?.start_datetime || scan.arguments?.end_datetime
+        ),
+        startDate: scan.arguments?.start_datetime || '',
+        endDate: scan.arguments?.end_datetime || ''
+      }));
     }
   }, [
     organizationOption,
@@ -120,13 +157,76 @@ export const ScanForm: React.FC<{
     setDefaultValues();
   }, [setDefaultValues]);
 
+  // Clear date error when user adjusts start or end date
+  useEffect(() => {
+    if (values.useDateRange && dateRangeError) {
+      setDateRangeError('');
+    }
+  }, [values.startDate, values.endDate]);
+
   return (
     <Form
       onSubmit={async (e) => {
         e.preventDefault();
+
+        // Validate date range if used
+        if (values.useDateRange) {
+          if (!values.startDate || !values.endDate) {
+            setDateRangeError('Please select both start and end date.');
+            return;
+          }
+
+          const start = new Date(values.startDate);
+          const end = new Date(values.endDate);
+          const now = new Date();
+
+          if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            setDateRangeError('Invalid date format.');
+            return;
+          }
+
+          if (start >= end) {
+            setDateRangeError('Start date must be before end date.');
+            return;
+          }
+
+          // Prevent future dates (end and start must be <= now)
+          // Compare as UTC-aware dates: inputs are in local time but ISO strings created earlier are UTC
+          // Here, we compare timestamps directly.
+          if (
+            start.getTime() > now.getTime() ||
+            end.getTime() > now.getTime()
+          ) {
+            setDateRangeError('Dates cannot be in the future.');
+            return;
+          }
+
+          // Ensure that (end - start) <= 365 days (align with backend)
+          const diffDays =
+            (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24);
+          if (diffDays > MAX_SCAN_DAYS) {
+            setDateRangeError(
+              `Date range cannot exceed ${MAX_SCAN_DAYS} days.`
+            );
+            return;
+          }
+        } else {
+          setDateRangeError('');
+        }
+
         await onSubmit({
           name: values.name,
-          arguments: values.arguments,
+          arguments: JSON.stringify({
+            ...values.arguments,
+            ...(values.useDateRange && {
+              start_datetime: values.startDate
+                ? new Date(values.startDate).toISOString()
+                : null,
+              end_datetime: values.endDate
+                ? new Date(values.endDate).toISOString()
+                : null
+            })
+          }),
           organizations: values.organizations,
           tags: values.tags,
           frequency: values.frequency,
@@ -139,8 +239,9 @@ export const ScanForm: React.FC<{
       }}
       className={classes.form}
     >
-      {type === 'create' &&
-        scanSchema && <Label htmlFor="name">Name</Label> && (
+      {type === 'create' && scanSchema && (
+        <>
+          <Label htmlFor="name">Name</Label>
           <Dropdown
             aria-label="Select scan dropdown"
             required
@@ -152,26 +253,17 @@ export const ScanForm: React.FC<{
           >
             {Object.keys(scanSchema)
               .sort((a, b) => a.localeCompare(b))
-              .map((i) => {
-                return (
-                  <option key={i} value={i}>
-                    {i}
-                  </option>
-                );
-              })}
+              .map((i) => (
+                <option key={i} value={i}>
+                  {i}
+                </option>
+              ))}
           </Dropdown>
-        )}
+        </>
+      )}
+
       {schemaUpdated && <p>{scanSchema[values.name].description}</p>}
-      {/* <Label htmlFor="arguments">Arguments</Label>
-        <TextInput
-          required
-          id="arguments"
-          name="arguments"
-          className={classes.textField}
-          type="text"
-          value={values.arguments}
-          onChange={onTextChange}
-        /> */}
+
       {(values.name === 'censysIpv4' ||
         values.name === 'censysCertificates' ||
         (schemaUpdated && !scanSchema[values.name].global) ||
@@ -184,12 +276,12 @@ export const ScanForm: React.FC<{
           onChange={(e) => {
             onChange('is_granular', e.target.checked);
             if (!e.target.checked) {
-              // Only granular scans can be user-modifiable.
               onChange('is_user_modifiable', false);
             }
           }}
         />
       )}
+
       {values.is_granular && (
         <>
           <Label htmlFor="organizations">Enabled Organizations</Label>
@@ -211,6 +303,7 @@ export const ScanForm: React.FC<{
           <br />
         </>
       )}
+
       {values.is_granular && (
         <>
           <Checkbox
@@ -223,13 +316,75 @@ export const ScanForm: React.FC<{
           <br />
         </>
       )}
+
+      {values.name === 'vulnScanningSync' && (
+        <>
+          <Checkbox
+            id="useDateRange"
+            label="Limit scan to specific date range"
+            name="useDateRange"
+            checked={values.useDateRange}
+            onChange={(e) => {
+              onChange('useDateRange', e.target.checked);
+
+              if (e.target.checked) {
+                onChange('is_single_scan', true);
+
+                // Default to 2 days ago → today (UTC midnight)
+                const defaultStart = getUTCDateMidnight(2);
+                const defaultEnd = getUTCDateMidnight(0);
+                onChange('startDate', defaultStart);
+                onChange('endDate', defaultEnd);
+              } else {
+                // Clear values when unchecked so they are not accidentally kept in state
+                onChange('startDate', '');
+                onChange('endDate', '');
+                setDateRangeError('');
+              }
+            }}
+          />
+          {values.useDateRange && (
+            <div className={classes.dateRangeContainer}>
+              <Label htmlFor="startDate">Start Date (UTC)</Label>
+              <TextInput
+                id="startDate"
+                name="startDate"
+                type="datetime-local"
+                value={values.startDate}
+                onChange={(e) => onChange('startDate', e.target.value)}
+                max={getUTCNowString()} // Prevent selecting future datetimes
+              />
+              <Label htmlFor="endDate">End Date (UTC)</Label>
+              <TextInput
+                id="endDate"
+                name="endDate"
+                type="datetime-local"
+                value={values.endDate}
+                onChange={(e) => onChange('endDate', e.target.value)}
+                max={getUTCNowString()} // Prevent selecting future datetimes
+              />
+              {dateRangeError && (
+                <p style={{ color: 'red' }}>{dateRangeError}</p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
       <Checkbox
         id="is_single_scan"
         label="Run scan once"
         name="is_single_scan"
         checked={values.is_single_scan}
+        disabled={values.useDateRange}
         onChange={(e) => onChange('is_single_scan', e.target.checked)}
       />
+      {values.useDateRange && (
+        <p style={{ color: 'red' }}>
+          Must run once while limiting to a date range
+        </p>
+      )}
+
       {!values.is_single_scan && (
         <div className="form-group form-inline">
           <label style={{ marginRight: '10px' }} htmlFor="frequency">
@@ -273,9 +428,7 @@ export const ScanForm: React.FC<{
           className={classes.textField}
           style={{ width: '150px' }}
           value={values.concurrent_tasks}
-          onChange={(e) => {
-            onChange(e.target.name, Number(e.target.value));
-          }}
+          onChange={(e) => onChange(e.target.name, Number(e.target.value))}
         />
         <span
           className="usa-hint"
@@ -291,14 +444,15 @@ export const ScanForm: React.FC<{
         </span>
       </div>
       <br />
+
       {type === 'edit' && (
-        <Link to={`/admin-tools`}>
+        <Link to={ROUTES.ADMIN_TOOLS}>
           <Button type="button" outline>
-            {' '}
             Return to Scans
           </Button>
         </Link>
       )}
+
       <Button type="submit" color="secondary.main">
         {type === 'edit' ? 'Save Changes' : 'Create Scan'}
       </Button>

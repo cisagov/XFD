@@ -13,7 +13,7 @@ import random
 import secrets
 import string
 import sys
-from typing import Optional
+from typing import Dict, Iterable
 import uuid
 
 # Third-Party Libraries
@@ -21,7 +21,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 from faker import Faker
-from xfd_api.helpers.regionStateMap import REGION_STATE_MAP
+from xfd_api.helpers.regionStateMap import REGION_STATE_MAP, STATE_ABBR_MAP
 from xfd_api.models import Domain, Service, Vulnerability
 from xfd_api.schema_models.scan import SCAN_SCHEMA
 from xfd_api.tasks.refresh_material_views import handler as refresh_materialized_views
@@ -32,11 +32,13 @@ from xfd_mini_dl.models import (
     Cidr,
     CidrOrgs,
     Cve,
+    CveSsvc,
     Host,
     Ip,
     Location,
     Organization,
     PortScan,
+    Role,
     Scan,
     ScanResult,
     Ticket,
@@ -58,10 +60,11 @@ PROB_SAMPLE_VULNERABILITIES = 0.5
 SAMPLE_STATES = ["Virginia", "California", "Colorado"]
 SAMPLE_REGION_IDS = ["1", "2", "3"]
 FAKE_ORG_COUNT = 20
+NUM_ORGS_PER_REGION = 2
 FAKE_VULN_SCAN_COUNT = 200
 FAKE_PORT_SCAN_COUNT = 200
 FAKE_HOST_COUNT = 2
-FAKE_TICKET_COUNT = 100
+FAKE_TICKET_COUNT = 20
 # Load sample data files
 SAMPLE_DATA_DIR = os.path.join(settings.BASE_DIR, "xfd_api", "tasks", "sample_data")
 services = json.load(open(os.path.join(SAMPLE_DATA_DIR, "services.json")))
@@ -77,7 +80,7 @@ CVSS_VECTORS = {
 }
 
 
-def create_ip_within_org_cidr(org: Organization) -> Optional[Ip]:
+def create_ip_within_org_cidr(org: Organization) -> tuple[Ip | None, str | None]:
     """
     Create and return an Ip record with an address that falls within one of the organization's CIDRs.
 
@@ -114,7 +117,7 @@ def create_ip_within_org_cidr(org: Organization) -> Optional[Ip]:
             continue
 
     LOGGER.warning("⚠️ Failed to generate IP from any CIDR for org: %s", org)
-    return None
+    return None, None
 
 
 def build_fake_cve() -> Cve:
@@ -332,27 +335,45 @@ def build_fake_host(org):
     )
 
 
-def build_fake_ticket(org):
-    """Build a fake Ticket object."""
+SEVERITY_RANGES = {
+    "1.0": (0.1, 3.9),  # Low
+    "2.0": (4.0, 6.9),  # Medium
+    "3.0": (7.0, 8.9),  # High
+    "4.0": (9.0, 10.0),  # Critical
+}
+
+PORT_OPTIONS = [21, 22, 80, 443]
+PORT_SERVICE = {
+    21: "ftp",
+    22: "ssh",
+    80: "http",
+    443: "https",
+}
+
+
+def build_fake_ticket(org, *, severity_key: str | None = None) -> Ticket:
+    """Build a single fake Ticket object."""
     ip_record, ip_string = create_ip_within_org_cidr(org)
     cve = Cve.objects.order_by("?").first()
-    port = random.choice([21, 22, 80, 443])
-    severity_ranges = {
-        "1.0": (0.1, 3.9),  # Low
-        "2.0": (4.0, 6.9),  # Medium
-        "3.0": (7.0, 8.9),  # High
-        "4.0": (9.0, 10.0),  # Critical
-    }
-    severity = random.choice(list(severity_ranges.keys()))
-    cvss_base_score = round(random.uniform(*severity_ranges[severity]), 1)
+
+    # choose/force severity
+    if severity_key is None:
+        severity_key = random.choice(list(SEVERITY_RANGES.keys()))
+    low, high = SEVERITY_RANGES[severity_key]
+    cvss_base_score = round(random.uniform(low, high), 1)
+
+    port = random.choice(PORT_OPTIONS)
     protocol = random.choice(["tcp", "udp"])
+
     opened_time = timezone.now() - timedelta(days=random.randint(0, 30))
-    is_kev = random.choice([True, True, False])
-    # 80% chance of ticket being open (closed_timestamp = None)
-    if random.random() < 0.8:
-        closed_time = None
-    else:
-        closed_time = opened_time + timedelta(days=random.randint(30, 600))
+    is_kev = random.choice([True, True, False])  # skewed toward True
+
+    closed_time = (
+        None
+        if random.random() < 0.8
+        else opened_time + timedelta(days=random.randint(30, 600))
+    )
+
     return Ticket(
         id=str(uuid.uuid4()),
         ip=ip_record,
@@ -374,21 +395,23 @@ def build_fake_ticket(org):
         cve_string=cve.name if cve else "CVE-2021-0001",
         cvss_base_score=cvss_base_score,
         cvss_version="3.1",
-        vuln_name=cve.name
-        + " "
-        + random.choice(
-            [
-                "Super Alarming Vuln",
-                "Super Hazardous Vuln",
-                "Super Risky Vuln",
-                "Super Menacing Vuln",
-                "Super unsupported Vuln",
-            ]
-        )
-        if cve
-        else "CVE-2021-0001",
+        vuln_name=(
+            cve.name
+            + " "
+            + random.choice(
+                [
+                    "Super Alarming Vuln",
+                    "Super Hazardous Vuln",
+                    "Super Risky Vuln",
+                    "Super Menacing Vuln",
+                    "Super Unsupported Vuln",
+                ]
+            )
+            if cve
+            else "CVE-2021-0001"
+        ),
         cvss_score_source="nvd",
-        cvss_severity=Decimal(severity),
+        cvss_severity=Decimal(severity_key),
         vpr_score=Decimal("6.9"),
         false_positive=random.choices([True, False], weights=[1, 19])[0],
         updated_timestamp=timezone.now(),
@@ -409,7 +432,7 @@ def build_fake_ticket(org):
                 None,
                 "Windows 10",
                 "Linux (Ubuntu 22.04)",
-                "macOS (macOS Ventura)",
+                "macOS (Ventura)",
                 "FreeBSD",
                 "Cisco IOS",
             ]
@@ -422,8 +445,8 @@ def build_fake_ticket(org):
         if is_kev
         else False,
         is_risky=random.choice([True, False]),
-        is_open=not closed_time,
-        service_name="ftp",
+        is_open=closed_time is None,
+        service_name=PORT_SERVICE.get(port, "unknown"),
         nmi_service_group="NMI",
         risky_service_group=random.choice(
             ["Potentially Risky Service", "Known Exploited Service"]
@@ -496,78 +519,109 @@ def generate_acronym(name: str) -> str:
     return acronym[:6]
 
 
-def gen_orgs(num_orgs):
-    """Generate a specified number of organizations."""
+def get_random_state_by_region(region_id: str) -> str | None:
+    """Return a random state name from REGION_STATE_MAP that belongs to the given region_id."""
+    states_in_region = [
+        state for state, r_id in REGION_STATE_MAP.items() if r_id == region_id
+    ]
+    if not states_in_region:
+        return None
+    return random.choice(states_in_region)
+
+
+def gen_orgs(num_orgs_per_region: int, regions: Iterable[int] = range(1, 11)):
+    """Generate organizations for each region in `regions`, creating `num_orgs_per_region` organizations per region. By default, regions 1..10 (inclusive)."""
+    if num_orgs_per_region < 0:
+        raise ValueError("num_orgs_per_region must be >= 0")
+
+    regions = list(regions)  # in case a generator/range is passed
+    total_expected = num_orgs_per_region * len(regions)
+
     dummy_location, _ = Location.objects.get_or_create(
         id=uuid.uuid4(), defaults={"name": fake.city()}
     )
 
     orgs = []
-    LOGGER.info("Generating %d organizations...", num_orgs)
-    for i in range(num_orgs):
-        try:
-            company = fake.company()
-            acronym = generate_acronym(company)
-            state = fake.state()
-            region_id = REGION_STATE_MAP[state]
-            org = Organization.objects.create(
-                acronym=acronym,
-                name=company,
-                retired=False,
-                root_domains=[fake.domain_name() for _ in range(2)],
-                ip_blocks=generate_cidr_blocks(),
-                is_passive=fake.boolean(),
-                pending_domains=[fake.domain_name() for _ in range(2)],
-                date_pe_first_reported=timezone.now(),
-                country=fake.country_code(),
-                country_name=fake.country(),
-                state=fake.state_abbr(),
-                region_id=region_id,
-                state_fips=fake.random_int(min=1, max=99),
-                state_name=state,
-                county=fake.city(),
-                county_fips=fake.random_int(min=1000, max=9999),
-                type=random.choice(["PRIVATE", "FEDERAL", "STATE"]),
-                pe_report_on=fake.boolean(),
-                pe_premium=fake.boolean(),
-                pe_demo=fake.boolean(),
-                agency_type=random.choice(["Federal", "State", "Local", "Private"]),
-                is_parent=fake.boolean(),
-                pe_run_scans=fake.boolean(),
-                stakeholder=True,
-                election=fake.boolean(),
-                was_stakeholder=fake.boolean(),
-                vs_stakeholder=fake.boolean(),
-                pe_stakeholder=fake.boolean(),
-                receives_cyhy_report=fake.boolean(),
-                receives_bod_report=fake.boolean(),
-                receives_cybex_report=fake.boolean(),
-                init_stage=random.choice(["stage_1", "stage_2", "stage_3"]),
-                scheduler=random.choice(["cron", "manual", "event"]),
-                enrolled_in_vs_timestamp=timezone.now(),
-                period_start_vs_timestamp=timezone.now(),
-                report_types=["CYHY"],
-                scan_types=["CYHY"],
-                scan_windows=[],
-                scan_limits=[],
-                password=fake.password(length=12),
-                cyhy_period_start=fake.date_this_decade(),
-                location=dummy_location,
-                parent=None,
-                created_by=None,
-            )
-            orgs.append(org)
-            user = create_sample_user(org)
+    LOGGER.info(
+        "Generating %d organizations across %d regions (%s)...",
+        total_expected,
+        len(regions),
+        ", ".join(str(r) for r in regions),
+    )
 
-            # Create an API key for the user
-            create_api_key_for_user(user)
+    for region_id in regions:
+        for _ in range(num_orgs_per_region):
+            try:
+                company = fake.company()
+                acronym = generate_acronym(company)
 
-            test_user = create_test_user(org)
+                state = get_random_state_by_region(str(region_id))
+                # If no state matched this region (shouldn't happen if map is complete), fall back to 'NA'
+                state_name = state or "N/A"
+                state_abrv = STATE_ABBR_MAP.get(state_name, "NA")
 
-            create_api_key_for_user(test_user)
-        except IntegrityError:
-            continue
-    LOGGER.info("Generated %d organizations.", len(orgs))
+                org = Organization.objects.create(
+                    acronym=acronym,
+                    name=company,
+                    retired=False,
+                    root_domains=[fake.domain_name() for _ in range(2)],
+                    ip_blocks=generate_cidr_blocks(),
+                    is_passive=fake.boolean(),
+                    pending_domains=[fake.domain_name() for _ in range(2)],
+                    date_pe_first_reported=timezone.now(),
+                    country=fake.country_code(),
+                    country_name=fake.country(),
+                    state=state_abrv,
+                    region_id=region_id,
+                    state_fips=fake.random_int(min=1, max=99),
+                    state_name=state_name,
+                    county=fake.city(),
+                    county_fips=fake.random_int(min=1000, max=9999),
+                    type=random.choice(["PRIVATE", "FEDERAL", "STATE"]),
+                    pe_report_on=fake.boolean(),
+                    pe_premium=fake.boolean(),
+                    pe_demo=fake.boolean(),
+                    agency_type=random.choice(["Federal", "State", "Local", "Private"]),
+                    is_parent=fake.boolean(),
+                    pe_run_scans=fake.boolean(),
+                    stakeholder=True,
+                    election=fake.boolean(),
+                    was_stakeholder=fake.boolean(),
+                    vs_stakeholder=fake.boolean(),
+                    pe_stakeholder=fake.boolean(),
+                    receives_cyhy_report=fake.boolean(),
+                    receives_bod_report=fake.boolean(),
+                    receives_cybex_report=fake.boolean(),
+                    init_stage=random.choice(["stage_1", "stage_2", "stage_3"]),
+                    scheduler=random.choice(["cron", "manual", "event"]),
+                    enrolled_in_vs_timestamp=timezone.now(),
+                    period_start_vs_timestamp=timezone.now(),
+                    report_types=["CYHY"],
+                    scan_types=["CYHY"],
+                    scan_windows=[],
+                    scan_limits=[],
+                    password=fake.password(length=12),
+                    cyhy_period_start=fake.date_this_decade(),
+                    location=dummy_location,
+                    parent=None,
+                    created_by=None,
+                )
+                orgs.append(org)
+
+                # Primary user + API key
+
+                # Optional test user + API key
+                try:
+                    test_user = create_test_user(org)
+                    create_api_key_for_user(test_user)
+                except ValueError:
+                    pass
+
+            except IntegrityError:
+                # Likely a uniqueness collision (e.g., acronym). Skip and continue.
+                continue
+
+    LOGGER.info("Generated %d organizations (requested %d).", len(orgs), total_expected)
     return orgs
 
 
@@ -623,13 +677,50 @@ def create_cidrs_for_org(org, cidr_list, data_source=None, ips_per_cidr=4):
             LOGGER.warning("Skipping invalid CIDR: %s", cidr_str)
 
 
+def create_ssvc_for_cves():
+    """Create SSVC entries for all CVEs in the database."""
+    cves = Cve.objects.all()
+    for cve in cves:
+        try:
+            CveSsvc.objects.create(
+                cve=cve,
+                exploitation=random.choice(
+                    ["none", "poc", "active", "widespread", "unknown"]
+                ),
+                automatable=random.choice(["no", "yes", "partially", "unknown"]),
+                technical_impact=random.choice(["Low", "Medium", "High", "Critical"]),
+                adp_provider=random.choice(["ProviderA", "ProviderB", "ProviderC"]),
+                ssvc_version="1.0",
+                ssvc_timestamp=timezone.now(),
+                adp_date_updated=timezone.now(),
+                created_at=timezone.now(),
+                updated_at=timezone.now(),
+            )
+        except IntegrityError:
+            continue
+
+
 def populate_sample_data():
     """Populate the database with sample data."""
     orgs = Organization.objects.all()
+    regions = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     if len(orgs) == 0:
-        gen_orgs(FAKE_ORG_COUNT)
+        gen_orgs(NUM_ORGS_PER_REGION)
         orgs = Organization.objects.all()
+
+    master_global_admin = User.objects.create(
+        first_name="Master",
+        last_name="GlobalAdmin",
+        email=_unique_email("master_admin"),
+        user_type=UserType.GLOBAL_ADMIN,
+        state="NA",
+        region_id=1,
+        invite_pending=False,
+    )
+
+    for region in regions:
+        create_users_for_region(master_global_admin, region)
 
     for org in orgs:
         cidrs = generate_cidr_blocks()
@@ -664,6 +755,20 @@ def populate_sample_data():
                 tickets = [build_fake_ticket(org) for _ in range(FAKE_TICKET_COUNT)]
                 Ticket.objects.bulk_create(tickets, batch_size=100)
 
+                # Low Severity Tickets
+                low_tickets = [
+                    build_fake_ticket(org, severity_key="1.0")
+                    for _ in range(FAKE_TICKET_COUNT * 2)
+                ]
+                Ticket.objects.bulk_create(low_tickets, batch_size=100)
+
+                # Medium Severity Tickets
+                medium_tickets = [
+                    build_fake_ticket(org, severity_key="2.0")
+                    for _ in range(FAKE_TICKET_COUNT * 2)
+                ]
+                Ticket.objects.bulk_create(medium_tickets, batch_size=100)
+
                 # TicketEvents — after tickets exist in DB
                 created_tickets = Ticket.objects.filter(organization=org).order_by(
                     "-opened_timestamp"
@@ -674,6 +779,8 @@ def populate_sample_data():
                         build_fake_ticket_events(ticket, portscans, vulnscans)
                     )
                 TicketEvent.objects.bulk_create(all_events, batch_size=100)
+
+                create_ssvc_for_cves()
 
         except Exception as e:
             LOGGER.error("❌ Error while processing org %s: %s", org.name, e)
@@ -702,20 +809,113 @@ def populate_sample_data():
     LOGGER.info("✅ Done populating all data.")
 
 
-def create_sample_user(organization):
-    """Create a sample user linked to an organization."""
-    user = User.objects.create(
-        first_name="Sample",
+def _unique_email(prefix: str = "user") -> str:
+    domain = "cisa.gov" if random.random() < 0.2 else "example.com"
+    return f"{prefix}-{uuid.uuid4().hex[:8]}@{domain}"
+
+
+def _resolved_user_state_for_org(org) -> str:
+    """Prefer the full state name if available; fall back to the stored value."""
+    return getattr(org, "state_name", None) or getattr(org, "state", None) or "NA"
+
+
+@transaction.atomic
+def create_users_for_region(master_global_admin, region_id: int) -> Dict[str, dict]:
+    """Create three users for the given region_id."""
+    orgs = list(Organization.objects.filter(region_id=region_id).order_by("id"))
+    if not orgs:
+        raise ValueError(f"No organizations found for region_id={region_id}")
+
+    # Round-robin target org for each user we create
+    def pick_org(i: int):
+        return orgs[i % len(orgs)]
+
+    results = {}
+
+    # --- STANDARD ---
+    std_org = pick_org(0)
+    std_state = _resolved_user_state_for_org(std_org)
+    standard_user = User.objects.create(
+        first_name="Standard",
         last_name="User",
-        email="user{}@example.com".format(random.randint(1, 1000)),
-        user_type=UserType.GLOBAL_ADMIN,
-        state=random.choice(SAMPLE_STATES),
-        region_id=random.choice(SAMPLE_REGION_IDS),
+        email=_unique_email("standard"),
+        user_type=UserType.STANDARD,  # Use your actual enum/choices/related model
+        state=std_state,
+        region_id=region_id,
+        invite_pending=True,
     )
-    # Set user as the creator of the organization (optional)
-    organization.created_by = user
-    organization.save()
-    return user
+    standard_role = Role.objects.create(
+        role="STANDARD",
+        approved=False,
+        user=standard_user,
+        organization=std_org,
+        created_by=None,  # or set to a known seeder/admin user
+        approved_by=None,
+    )
+    results["standard"] = {
+        "user": standard_user,
+        "role": standard_role,
+        "organization": std_org,
+    }
+
+    # --- REGIONAL ADMIN ---
+    ra_org = pick_org(1)
+    ra_state = _resolved_user_state_for_org(ra_org)
+    regional_admin = User.objects.create(
+        first_name="Regional",
+        last_name="Admin",
+        email=_unique_email("radmin"),
+        user_type=UserType.REGIONAL_ADMIN,
+        state=ra_state,
+        region_id=region_id,
+        invite_pending=True,
+    )
+    regional_admin_role = Role.objects.create(
+        role="REGIONAL_ADMIN",
+        approved=False,
+        user=regional_admin,
+        organization=ra_org,
+        created_by=None,
+        approved_by=None,
+    )
+    results["regional_admin"] = {
+        "user": regional_admin,
+        "role": regional_admin_role,
+        "organization": ra_org,
+    }
+
+    # --- GLOBAL VIEW ---
+    gv_org = pick_org(2)
+    gv_state = _resolved_user_state_for_org(gv_org)
+    global_view = User.objects.create(
+        first_name="Global",
+        last_name="Viewer",
+        email=_unique_email("gview"),
+        user_type=UserType.GLOBAL_VIEW,
+        state=gv_state,
+        region_id=region_id,
+        invite_pending=False,
+    )
+    global_view_role = Role.objects.create(
+        role="GLOBAL_VIEW",
+        approved=True,
+        user=global_view,
+        organization=gv_org,
+        created_by=master_global_admin,
+        approved_by=master_global_admin,
+    )
+    results["global_view"] = {
+        "user": global_view,
+        "role": global_view_role,
+        "organization": gv_org,
+    }
+
+    # Optionally set an org creator (choose whichever org makes sense)
+    if getattr(ra_org, "created_by_id", None) is None:
+        ra_org.created_by = regional_admin
+        ra_org.save(update_fields=["created_by"])
+
+    return results
 
 
 def create_test_user(organization):

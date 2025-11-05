@@ -2,6 +2,7 @@ import React from 'react';
 import { Box } from '@mui/system';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 import { Subnav } from 'components';
+import { ROUTES } from '@/constants/routes';
 
 const tooltipContentJson = [
   {
@@ -34,9 +35,9 @@ export const FindingsHeader: React.FC = () => {
       </Box>
       <Subnav
         items={[
-          { title: 'Search Results', path: '/inventory', exact: true },
-          { title: 'Domains', path: '/inventory/domains' },
-          { title: 'Vulnerabilities', path: '/inventory/vulnerabilities' }
+          { title: 'Search Results', path: ROUTES.INVENTORY, exact: true },
+          { title: 'Domains', path: ROUTES.DOMAINS },
+          { title: 'Vulnerabilities', path: ROUTES.VULNERABILITIES }
         ]}
       />
     </Box>

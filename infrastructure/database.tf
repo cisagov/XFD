@@ -13,8 +13,8 @@ resource "aws_db_subnet_group" "default" {
 }
 
 resource "aws_db_parameter_group" "default" {
-  name   = "crossfeed-${var.stage}-postgres15"
-  family = "postgres15"
+  name   = "crossfeed-${var.stage}-postgres17"
+  family = "postgres17"
 
   parameter {
     name  = "rds.force_ssl"
@@ -27,16 +27,20 @@ resource "aws_db_parameter_group" "default" {
 }
 
 resource "aws_db_instance" "db" {
-  identifier                          = var.db_name
-  instance_class                      = var.db_instance_class
-  allocated_storage                   = 1000
-  max_allocated_storage               = 10000
-  storage_type                        = "gp2"
-  engine                              = "postgres"
-  engine_version                      = "15.12"
-  allow_major_version_upgrade         = true
-  skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[0]
+  identifier                  = var.db_name
+  instance_class              = var.db_instance_class
+  allocated_storage           = 1000
+  max_allocated_storage       = 10000
+  storage_type                = "gp2"
+  engine                      = "postgres"
+  engine_version              = "17.6"
+  allow_major_version_upgrade = true
+  skip_final_snapshot         = true
+  availability_zone = (
+    var.stage == "staging"
+    ? data.aws_availability_zones.available.names[1]
+    : data.aws_availability_zones.available.names[0]
+  )
   multi_az                            = true
   backup_retention_period             = 35
   storage_encrypted                   = true
@@ -61,9 +65,9 @@ resource "aws_db_instance" "db" {
     ART            = "CISA-VM"
     POC            = "Lamar Steward   Craig Duhn"
     PocEmail       = "lamar.stewart@cisa.dhs.gov"
-    Name           = "crossfeed-stage-db"
+    Name           = "crossfeed-${var.stage}-db"
     BillingProject = "VM-Crossfeed"
-    workload-type  = "staging"
+    workload-type  = var.stage
   }
 }
 

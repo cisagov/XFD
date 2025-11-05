@@ -12,8 +12,9 @@ import {
 } from '@mui/material';
 import { Save } from '@mui/icons-material';
 import { SelectChangeEvent } from '@mui/material/Select';
-import { STATE_OPTIONS } from 'constants/constants';
+import { STATE_OPTIONS } from '@/constants/constants';
 import { useAuthContext } from 'context';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const StyledDialog = registerFormStyles.StyledDialog;
 
@@ -33,7 +34,7 @@ export const UpdateStateForm: React.FC<{
   const [values, setValues] = useState<UpdateStateFormValues>(defaultValues);
   const [errorRequestMessage, setErrorRequestMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { apiPut, apiGet, logout, user } = useAuthContext();
+  const { apiPost, apiGet, logout, user } = useAuthContext();
 
   const handleChange = (event: SelectChangeEvent) => {
     setValues((values: any) => ({
@@ -49,12 +50,12 @@ export const UpdateStateForm: React.FC<{
     };
 
     try {
-      await apiPut(`/v2/users/${user_id}`, {
+      await apiPost(ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', user_id), {
         body
       });
 
       // AFTER successful state update, check maintenance immediately
-      const notifications = await apiGet('/notifications');
+      const notifications = await apiGet(ENDPOINTS.NOTIFICATIONS);
       const active = notifications.find(
         (n: any) =>
           n.status === 'active' &&

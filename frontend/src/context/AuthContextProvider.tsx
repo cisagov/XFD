@@ -15,6 +15,7 @@ import Cookies from 'universal-cookie';
 import { Snackbar } from '@mui/material';
 import { Alert } from '@mui/material';
 import { AlertProps } from '@mui/material/Alert';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const currentTermsVersion = '1';
 
@@ -116,7 +117,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     [setAuthUser]
   );
 
-  // Keep your existing Cognito refresh (no-op when VITE_USE_COGNITO is false)
+  // Keep existing Cognito refresh (no-op when VITE_USE_COGNITO is false)
   const refreshUser = useCallback(async () => {
     try {
       if (!token && import.meta.env.VITE_USE_COGNITO) {
