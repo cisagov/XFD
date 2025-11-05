@@ -64,7 +64,6 @@ describe('Vulnerabilities component', () => {
   });
 
   it('supports server-side pagination', async () => {
-    // server honors page & pageSize; default pageSize = 15
     apiPostMock.mockImplementation((_path: string, body: any) => {
       const page = body?.page ?? 1;
       const pageSize = body?.pageSize ?? 15;
@@ -129,7 +128,6 @@ describe('Vulnerabilities component', () => {
 
     expect(await screen.findByText(/Risky Vuln/i)).toBeInTheDocument();
 
-    //click on sort icon button in Title header to sort by Title ascending
     const headers = await screen.findAllByRole('columnheader');
     const titleHeader = headers.find((header) =>
       /vulnerability/i.test(header.textContent || '')
