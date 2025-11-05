@@ -2,6 +2,7 @@
 # Standard Python Libraries
 from itertools import islice
 import logging
+import os
 
 # Third-Party Libraries
 from django.db.models import F, Q
@@ -15,7 +16,7 @@ from .helpers.syncdb_helpers.es_sync import sync_es_organizations
 LOGGER = logging.getLogger(__name__)
 
 # Constants
-DOMAIN_CHUNK_SIZE = int(10)  # Adjust if needed
+DOMAIN_CHUNK_SIZE = int(os.getenv("DOMAIN_CHUNK_SIZE", "50"))  # Adjust if needed
 
 
 def chunked_queryset(queryset, chunk_size):
