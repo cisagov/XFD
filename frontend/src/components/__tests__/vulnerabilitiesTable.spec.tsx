@@ -253,21 +253,21 @@ describe('Vulnerabilities component', () => {
   //   });
   // });
 
-  // it('renders empty state when api returns no results', async () => {
-  //   apiPostMock.mockResolvedValueOnce({ result: [], count: 0 });
+  it('renders empty state when api returns no results', async () => {
+    apiPostMock.mockResolvedValueOnce({ result: [], count: 0 });
 
-  //   render(<Vulnerabilities />, {
-  //     initialHistory: ['/vulnerabilities'],
-  //     authContext: {
-  //       apiPost: apiPostMock,
-  //       currentOrganization: null,
-  //       user: testUser as unknown as AuthUser
-  //     }
-  //   });
+    render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
 
-  //   const noResultsText = await screen.findByText(/no results found/i);
-  //   expect(noResultsText).toBeInTheDocument();
-  // });
+    const noResultsText = await screen.findByText(/no results found/i);
+    expect(noResultsText).toBeInTheDocument();
+  });
 
   it('matches snapshot', () => {
     const { container } = render(<Vulnerabilities />);
