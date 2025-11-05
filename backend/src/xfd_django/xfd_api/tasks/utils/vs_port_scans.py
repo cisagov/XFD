@@ -142,8 +142,6 @@ def bulk_insert_ips_and_link_to_port_scans(
     )
     ip_map = {(ip.ip, ip.organization_id): ip for ip in ip_records}
 
-    # Build and insert PortScan records
-
     # Insert port scans using psycopg2 execute_values
     insert_port_scans_sql(
         port_scan_batch, ip_map, risky_service_groups, nmi_service_groups

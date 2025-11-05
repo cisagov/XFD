@@ -163,7 +163,7 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                 _log_data = {
                     "event": "scan_date_validation_rejected",
                     "reason": "missing_start_or_end",
-                    "user_id": getattr(current_user, "id", None),
+                    "user_id": str(getattr(current_user, "id", None)),
                     "scan_name": scan_data.name,
                     "arguments": args,
                     "status": "failure",
@@ -179,7 +179,7 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                 _log_data = {
                     "event": "scan_date_validation_rejected",
                     "reason": "multi_scan_with_date_range",
-                    "user_id": getattr(current_user, "id", None),
+                    "user_id": str(getattr(current_user, "id", None)),
                     "scan_name": scan_data.name,
                     "status": "failure",
                 }
@@ -200,7 +200,7 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                             {
                                 "event": "scan_date_validation_rejected",
                                 "reason": "start_after_end",
-                                "user_id": getattr(current_user, "id", None),
+                                "user_id": str(getattr(current_user, "id", None)),
                                 "scan_name": scan_data.name,
                                 "start_datetime": str(parsed_start),
                                 "end_datetime": str(parsed_end),
@@ -221,7 +221,7 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                             {
                                 "event": "scan_date_validation_rejected",
                                 "reason": "date_range_too_large",
-                                "user_id": getattr(current_user, "id", None),
+                                "user_id": str(getattr(current_user, "id", None)),
                                 "scan_name": scan_data.name,
                                 "start_datetime": str(parsed_start),
                                 "end_datetime": str(parsed_end),
@@ -241,7 +241,7 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                     json.dumps(
                         {
                             "event": "scan_date_validation_success",
-                            "user_id": getattr(current_user, "id", None),
+                            "user_id": str(getattr(current_user, "id", None)),
                             "scan_name": scan_data.name,
                             "start_datetime": str(parsed_start),
                             "end_datetime": str(parsed_end),
@@ -258,7 +258,7 @@ def create_scan(scan_data: NewScan, current_user):  # pylint: disable=R0912, R09
                     json.dumps(
                         {
                             "event": "scan_date_validation_error",
-                            "user_id": getattr(current_user, "id", None),
+                            "user_id": str(getattr(current_user, "id", None)),
                             "scan_name": scan_data.name,
                             "provided_start": start_dt,
                             "provided_end": end_dt,
