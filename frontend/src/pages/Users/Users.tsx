@@ -193,7 +193,7 @@ export const Users: React.FC = () => {
       field: 'org_acronym',
       headerName: 'Org Acronym',
       minWidth: 100,
-      flex: 1,
+      flex: 0.5,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
