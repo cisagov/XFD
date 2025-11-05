@@ -9,10 +9,8 @@ import {
 } from 'test-utils';
 import { makeVulnResponse } from '@/test-utils/vulnerabilities';
 import userEvent from '@testing-library/user-event';
-import { waitForElementToBeRemoved } from '@testing-library/react';
-import { describe, it, expect, vi, Mock } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import type { AuthUser } from '../../context/';
-import { useAuthContext } from '@/context';
 import Vulnerabilities from '../../pages/Vulnerabilities/Vulnerabilities';
 
 const titlePool = [
