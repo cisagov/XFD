@@ -106,7 +106,6 @@ export const Users: React.FC = () => {
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
         row.org_acronym = row.roles[0]?.organization.acronym || '';
-        console.log('row', row.roles);
       });
 
       const filteredRows = rows;
@@ -199,7 +198,7 @@ export const Users: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Organization acronym ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
+            aria-label={`Organization acronym ${cellValues.row.full_name}: ${cellValues.row.acronym}`}
           >
             {cellValues.row.org_acronym}
           </Box>
