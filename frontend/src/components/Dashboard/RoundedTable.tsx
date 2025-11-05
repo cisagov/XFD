@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Box,
   Card,
   Divider,
@@ -78,20 +77,11 @@ const cellBodySx = {
 export default function RoundedTable<T extends Record<string, any>>({
   columns,
   data,
-  noDataMessage = 'No data available.',
   tableStyles = tableSx,
   rowHeadStyles = rowHeadSx,
   rowBodyStyles = rowBodySx,
   cellBodyStyles = cellBodySx
 }: RoundedTableProps<T>) {
-  if (data.length === 0) {
-    return (
-      <Alert severity="info" sx={{ width: '100%', mt: 2 }}>
-        {noDataMessage}
-      </Alert>
-    );
-  }
-
   return (
     <>
       <Table sx={tableStyles} component="table">

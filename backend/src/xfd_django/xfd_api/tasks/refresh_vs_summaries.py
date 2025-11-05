@@ -54,6 +54,7 @@ def build_fake_host_summaries():
                 + host_ready_count
             )
             up_host_count = total_count - random.randint(0, 1500)
+            recent_up_count = abs(up_host_count - random.randint(0, 100))
             down_host_count = total_count - up_host_count
 
             HostSummary.objects.update_or_create(
@@ -69,6 +70,7 @@ def build_fake_host_summaries():
                     "up_host_count": up_host_count,
                     "down_host_count": down_host_count,
                     "scanned_asset_count": total_count,
+                    "recent_up_hosts_count": recent_up_count,
                     "port_scan_min_timestamp": random_past_datetime(25, 60),
                     "port_scan_max_timestamp": random_past_datetime(1, 5),
                     "vuln_scan_min_timestamp": random_past_datetime(25, 60),
@@ -99,6 +101,7 @@ def handler(event):
 
         # except Exception as e:
         #     LOGGER.error("error flagging latest port scans: %s", e)
+
         try:
             if not is_local:
                 LOGGER.info("Creating Host summaries.")
@@ -127,6 +130,12 @@ def handler(event):
         try:
             LOGGER.info("Creating VS summaries.")
             create_vuln_scan_summary()
+            if is_local:
+                orgs = Organization.objects.all()
+                for org in orgs:
+                    LOGGER.info("Creating Fake vuln host summary for org %s.", org.name)
+                    create_vuln_scan_summary(org_id=str(org.id))
+                    create_port_scan_summary(org_id=str(org.id))
 
         except Exception as e:
             LOGGER.error("error saving VS summary: %s", e)
