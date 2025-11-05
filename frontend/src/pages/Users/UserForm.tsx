@@ -577,7 +577,12 @@ export const UserForm: React.FC<UserFormProps> = ({
               id="org_id"
               fullWidth
               options={sortedOrgs}
-              getOptionLabel={(option) => option.name}
+              getOptionLabel={(option) => {
+                if (option.name && option.acronym) {
+                  return `${option.name} (${option.acronym})`;
+                }
+                return option.name;
+              }}
               value={sortedOrgs.find((org) => org.id === values.org_id) || null}
               onChange={(_, newValue) => {
                 handleOrgChange(newValue ? newValue.id : '');
