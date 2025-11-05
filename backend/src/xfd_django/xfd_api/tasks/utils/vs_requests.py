@@ -316,7 +316,6 @@ def save_organization_to_mdl(
     Returns:
         Organization: The created or updated organization instance.
     """
-    LOGGER.debug("Saving Organization")
     location_obj = None
     if location:
         try:
@@ -333,7 +332,7 @@ def save_organization_to_mdl(
                 },
             )
         except Exception as e:
-            LOGGER.error("Error creating location", e)
+            LOGGER.error("Error creating location: %s", e)
 
     org_obj = None
     try:
@@ -395,7 +394,7 @@ def save_organization_to_mdl(
             org_obj = organization_obj
         pass
     except Exception as e:
-        LOGGER.error("Error occurred creating org", e)
+        LOGGER.error("Error occurred creating org: %s", e)
 
     if org_obj:
         # Create CIDRs and link them

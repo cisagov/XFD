@@ -135,7 +135,7 @@ def main():
     # Special batching logic for vulnScanningSync
     # ------------------------------------------
     if scan_name == "vulnScanningSync":
-        batch_size = int(os.getenv("VULN_BATCH_SIZE", "1500"))
+        batch_size = int(os.getenv("VULN_BATCH_SIZE", "200"))
         LOGGER.info(
             "Bulk mode enabled for vulnScanningSync (batch size=%d)", batch_size
         )
@@ -171,8 +171,23 @@ def main():
 
             # Stop loop if no messages left at all
             if not org_batch:
-                LOGGER.info("No more orgs in queue. Exiting vulnScanningSync worker.")
-                break
+                # Wait and double-check before exiting, in case of delayed visibility
+                LOGGER.info("Queue appears empty. Double-checking before exit...")
+                time.sleep(5)
+
+                response = sqs.receive_message(
+                    QueueUrl=full_queue_path_name,
+                    MaxNumberOfMessages=1,
+                    WaitTimeSeconds=5,
+                )
+                if not response.get("Messages"):
+                    LOGGER.info(
+                        "Confirmed queue is empty. Exiting vulnScanningSync worker."
+                    )
+                    break
+                else:
+                    LOGGER.info("Queue had more messages, continuing drain loop.")
+                    continue
 
             LOGGER.info(
                 "Fetched %d orgs from queue for vulnScanningSync.", len(org_batch)

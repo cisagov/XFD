@@ -14,7 +14,7 @@ import os
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.vs_port_scans import (
-    create_port_scan_summary,
+    create_port_scan_summaries_bulk,
     fetch_port_scans_from_redshift,
 )
 from xfd_api.tasks.utils.vs_requests import fetch_org_id_dict_fast
@@ -161,15 +161,14 @@ def main(event):  # pylint: disable=R0915
     )
 
     # Create summaries with individual error handling
-    LOGGER.info("Creating port scan summaries for all organizations...")
+    LOGGER.info("Creating port scan summaries in bulk...")
     try:
-        for org_id in org_id_dict.values():
-            create_port_scan_summary(org_id=org_id)
-        LOGGER.info("Finished port scan summaries")
+        create_port_scan_summaries_bulk(org_ids=list(org_id_dict.values()))
+        LOGGER.info("Finished port scan summaries (bulk)")
     except Exception as e:
-        LOGGER.error("Failed to create port scan summaries: %s", e, exc_info=True)
-
-    LOGGER.info("Vuln and port scan syncs have completed")
+        LOGGER.error(
+            "Failed to create port scan summaries (bulk): %s", e, exc_info=True
+        )
 
     # Process Tickets (Chunked)
     fetch_tickets_from_redshift(
