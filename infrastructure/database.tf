@@ -33,6 +33,7 @@ resource "aws_db_instance" "db" {
   max_allocated_storage               = 10000
   storage_type                        = "gp3"
   iops                                = 16000
+  storage_throughput                  = 1000
   engine                              = "postgres"
   engine_version                      = "15.12"
   allow_major_version_upgrade         = true
