@@ -52,7 +52,10 @@ export default defineConfig(({ mode, command }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: './src/setupTests.ts'
+      setupFiles: './src/setupTests.ts',
+      deps: {
+        inline: ['@mui/x-data-grid']
+      }
     }
   };
 });
