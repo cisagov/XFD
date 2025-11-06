@@ -15,12 +15,18 @@ import {
 } from '@mui/material';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridSortModel
+} from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { ROUTES } from '@/constants/routes';
 
 const PAGE_SIZE = 15;
 
@@ -54,8 +60,9 @@ export const Domains: React.FC = () => {
     Query<DomainSearchApiResponse>['filters']
   >([]);
   const [loadingError, setLoadingError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
   useEffect(() => {
     if (state) {
@@ -139,14 +146,17 @@ export const Domains: React.FC = () => {
     fetchDomains({
       page: 1,
       pageSize: PAGE_SIZE,
-      filters
+      filters,
+      order: sortModel[0]?.field,
+      sort: sortModel[0]?.sort ?? undefined
     });
-  }, [fetchDomains, filters]);
+  }, [fetchDomains, filters, sortModel]);
 
   const resetDomains = useCallback(() => {
     history.replace({ ...location, state: null });
     setPreloadedFiltersActive(false);
     setFilters([]);
+    setSortModel([]);
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
@@ -155,7 +165,9 @@ export const Domains: React.FC = () => {
     fetchDomains({
       page: 1,
       pageSize: PAGE_SIZE,
-      filters: []
+      filters: [],
+      order: undefined,
+      sort: undefined
     });
   }, [fetchDomains, history, location]);
 
@@ -177,22 +189,6 @@ export const Domains: React.FC = () => {
 
   const domCols: GridColDef[] = [
     {
-      field: 'organization_name',
-      headerName: 'Organization',
-      minWidth: 100,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organization ${cellValues.row.organization_name}`}
-          >
-            {cellValues.row.organization_name}
-          </Box>
-        );
-      }
-    },
-    {
       field: 'name',
       headerName: 'Domain',
       minWidth: 100,
@@ -201,9 +197,25 @@ export const Domains: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Domain address ${cellValues.row.name}`}
+            aria-label={`Domain Name: ${cellValues.row.name}`}
           >
             {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'organization_name',
+      headerName: 'Organization',
+      minWidth: 100,
+      flex: 1.5,
+      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization using Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
+          >
+            {cellValues.row.organization_name}
           </Box>
         );
       }
@@ -215,7 +227,10 @@ export const Domains: React.FC = () => {
       flex: 1,
       renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
         return (
-          <Box component="span" aria-label={`IP address ${cellValues.row.ip}`}>
+          <Box
+            component="span"
+            aria-label={`IP Address for Domain ${cellValues.row.name}: ${cellValues.row.ip}`}
+          >
             {cellValues.row.ip}
           </Box>
         );
@@ -230,7 +245,7 @@ export const Domains: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Ports ${cellValues.row.ports_preview}`}
+            aria-label={`Ports for Domain ${cellValues.row.name}: ${cellValues.row.ports_preview}`}
           >
             {cellValues.row.ports_preview}
           </Box>
@@ -246,7 +261,7 @@ export const Domains: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Services ${cellValues.row.services_preview}`}
+            aria-label={`Services for Domain ${cellValues.row.name}: ${cellValues.row.services_preview}`}
           >
             {cellValues.row.services_preview}
           </Box>
@@ -262,7 +277,7 @@ export const Domains: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Vulnerabilities count ${cellValues.row.vulnerabilities_count}`}
+            aria-label={`Vulnerability Count for Domain ${cellValues.row.name}: ${cellValues.row.vulnerabilities_count}`}
           >
             {cellValues.row.vulnerabilities_count}
           </Box>
@@ -278,7 +293,7 @@ export const Domains: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Last updated ${cellValues.row.updated_at}`}
+            aria-label={`Date Last Updated At for Domain ${cellValues.row.name}: ${cellValues.row.updated_at}`}
           >
             {cellValues.row.updated_at}
           </Box>
@@ -294,7 +309,7 @@ export const Domains: React.FC = () => {
         return (
           <Box
             component="span"
-            aria-label={`Created ${cellValues.row.created_at}`}
+            aria-label={`Created At Date for Domain ${cellValues.row.name}: ${cellValues.row.created_at}`}
           >
             {cellValues.row.created_at}
           </Box>
@@ -313,11 +328,13 @@ export const Domains: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
-            aria-label={`View details for ${cellValues.row.name}`}
+            aria-label={`View Details for Domain ${cellValues.row.name}`}
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() =>
-              history.push('/inventory/domain/' + cellValues.row.id)
+              history.push(
+                ROUTES.DOMAIN.replace(':domainId', cellValues.row.id)
+              )
             }
           >
             <OpenInNewIcon />
@@ -416,13 +433,21 @@ export const Domains: React.FC = () => {
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
+              sortingMode="server"
+              sortModel={sortModel}
+              onSortModelChange={(model) => {
+                setSortModel(model);
+              }}
               slots={{
                 toolbar: CustomToolbar,
                 noRowsOverlay: CustomNoRowsOverlay
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
-                toolbar: { exportTitle: 'Domains' } as any
+                toolbar: { exportTitle: 'Domains' } as any,
+                basePopper: {
+                  placement: 'bottom-start'
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -430,10 +455,14 @@ export const Domains: React.FC = () => {
                 fetchDomains({
                   page: model.page + 1,
                   pageSize: model.pageSize,
-                  filters: filters
+                  filters: filters,
+                  order: sortModel[0]?.field,
+                  sort: sortModel[0]?.sort ?? undefined
                 });
               }}
               pageSizeOptions={[15, 30, 50, 100]}
+              disableRowSelectionOnClick
+              showToolbar
             />
           </Paper>
         ) : null}

@@ -9,18 +9,22 @@ to parents and sectors.
 # Standard Python Libraries
 from datetime import datetime
 import json
+import logging
 from uuid import uuid4
 
 # Third-Party Libraries
 from django.db import transaction
 from fastapi import HTTPException, Request
-from xfd_api.tasks.vulnScanningSync import save_organization_to_mdl
+from xfd_api.tasks.utils.vs_requests import save_organization_to_mdl
 from xfd_mini_dl.models import Organization, Sector
 
 from ..auth import is_global_view_admin
 from ..helpers.s3_client import S3Client
 from ..schema_models.sync import SyncResponse
 from ..utils.csv_utils import create_checksum
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 async def sync_post(sync_body, request: Request, current_user):
@@ -108,9 +112,9 @@ def link_parent_organization(org, parent_data, db_name="mini_data_lake_lz"):
         org.parent = parent_org
         org.save()
     except Organization.DoesNotExist:
-        print(f"Parent organization with acronym {parent_acronym} not found.")
+        LOGGER.warning("Parent organization with acronym %s not found.", parent_acronym)
     except Exception as e:
-        print("Error while linking parent org to child org:", e)
+        LOGGER.error("Error while linking parent org to child org: %s", e)
 
 
 def link_sectors_to_organization(org, sectors, db_name="mini_data_lake_lz"):
@@ -135,4 +139,6 @@ def link_sectors_to_organization(org, sectors, db_name="mini_data_lake_lz"):
                     sector_obj.organizations.add(org)
 
         except Exception as e:
-            print(f"Error linking sector {sector_acronym} to organization:", e)
+            LOGGER.error(
+                "Error linking sector %s to organization: %s", sector_acronym, e
+            )

@@ -13,13 +13,19 @@ import {
   Button,
   IconButton,
   Toolbar,
-  Typography,
-  useTheme
+  Typography
 } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import cisaLogo from 'assets/cisaSeal.svg';
 import { NavMenuButton } from './NavMenuButton';
 import { NavMenuDrawer } from './NavMenuDrawer';
+import {
+  MAILTO_BUG,
+  MAILTO_FEEDBACK,
+  MAILTO_INQUIRY
+} from '@/constants/emailLinks';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 export interface MenuItemType {
   menuItemTitle: string;
@@ -28,46 +34,74 @@ export interface MenuItemType {
   users?: number;
   onClick?: any;
   href?: string;
+  subMenuItems?: MenuItemType[];
 }
 
 // TODO: Update bucket/key names when provided.
-const LEARNING_CENTER_DOC_BUCKET_NAME = process.env
-  .REACT_APP_LEARNING_CENTER_DOC_BUCKET_NAME as string;
+const LEARNING_CENTER_DOC_BUCKET_NAME = import.meta.env
+  .VITE_LEARNING_CENTER_DOC_BUCKET_NAME as string;
 
 const LEARNING_CENTER_DOC_KEYS = {
   glossary: 'CyHy Dashboard VS Glossary.pdf',
   faq: 'CyHy Dashboard VS FAQ.pdf',
-  methodology: 'CyHy Dashboard VS Methodology.pdf'
+  methodology: 'CyHy Dashboard VS Methodology.pdf',
+  userGuide: 'CyHy Dashboard User Guide.pdf',
+  communications: 'Vulnerability Snapshot Communications Sector.pdf',
+  financialServices: 'Vulnerability Snapshot Financial Services Sector.pdf',
+  foodAndAgriculture: 'Vulnerability Snapshot Food and Agriculture Sector.pdf',
+  healthcareAndPublicHealth:
+    'Vulnerability Snapshot Healthcare and Public Health Sector.pdf',
+  informationTechnology:
+    'Vulnerability Snapshot Information Technology Sector.pdf',
+  transportationSystems:
+    'Vulnerability Snapshot Transportation Systems Sector.pdf',
+  waterAndWastewater:
+    'Vulnerability Snapshot Water and Wastewater Systems Sector.pdf'
 };
 
 export const Header: React.FC = () => {
   const history = useHistory();
   const { apiPost, logout } = useAuthContext();
-  const theme = useTheme();
-  const { userLevel } = useUserLevel();
+  const { userLevel, user_type } = useUserLevel();
   const [openDrawer, setOpenDrawer] = React.useState(false);
   const toggleDrawer = (newOpen: boolean) => () => {
     setOpenDrawer(newOpen);
   };
+
+  const roleBasedPath = () => {
+    switch (user_type) {
+      case 'globalAdmin':
+        return ROUTES.GLOBAL_ADMIN_DASHBOARD;
+      case 'globalView':
+        return ROUTES.GLOBAL_VIEW_DASHBOARD;
+      case 'regionalAdmin':
+        return ROUTES.REGION_ADMIN_DASHBOARD;
+      case 'standard':
+        return ROUTES.VSDASHBOARD;
+      default:
+        return ROUTES.LOGIN;
+    }
+  };
+
   const adminHubMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Admin Tools',
-      path: '/admin-tools',
+      path: ROUTES.ADMIN_TOOLS,
       users: GLOBAL_ADMIN
     },
     {
-      menuItemTitle: 'User Registration',
-      path: '/region-admin-dashboard',
-      users: REGIONAL_ADMIN
-    },
-    {
       menuItemTitle: 'Manage Organizations',
-      path: '/organizations',
+      path: ROUTES.ORGANIZATIONS,
       users: REGIONAL_ADMIN
     },
     {
       menuItemTitle: 'Manage Users',
-      path: '/users',
+      path: ROUTES.USERS,
+      users: REGIONAL_ADMIN
+    },
+    {
+      menuItemTitle: 'User Registration',
+      path: roleBasedPath(),
       users: REGIONAL_ADMIN
     }
   ].filter(({ users }) => users <= userLevel);
@@ -75,7 +109,7 @@ export const Header: React.FC = () => {
   const userMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Account Settings',
-      path: '/settings',
+      path: ROUTES.SETTINGS,
       users: STANDARD_USER
     },
     {
@@ -85,36 +119,28 @@ export const Header: React.FC = () => {
     }
   ].filter(({ users }) => users <= userLevel);
 
-  // const scanningResults: MenuItemType[] = [
-  //   {
-  //     menuItemTitle: 'Overview',
-  //     path: '/overview',
-  //     users: STANDARD_USER
-  //   },
-  //   {
-  //     menuItemTitle: 'Vulnerability Scanning',
-  //     path: '/VSDashboard',
-  //     users: STANDARD_USER
-  //   }
-  // ].filter(({ users }) => users <= userLevel);
-
   const vulnScanningMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Vulnerability Scanning',
-      path: '/VSDashboard',
+      path: ROUTES.VSDASHBOARD,
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
 
   const supportMenuItems: MenuItemType[] = [
     {
+      menuItemTitle: 'General Questions',
+      path: MAILTO_INQUIRY,
+      users: STANDARD_USER
+    },
+    {
       menuItemTitle: 'Report Bug',
-      path: 'mailto:vulnerability@mail.cisa.dhs.gov?subject=CyHy%20Dashboard%20Bug%20Report&body=1.%20What%20issue%20did%20you%20experience%3F%20Briefly%20describe%20the%20bug.%0A%0A2.%20What%20actions%20did%20you%20take%20before%20the%20bug%20happened%3F%20List%20each%20step%20clearly%20and%20in%20order.%0A%0A3.%20What%20did%20you%20expect%20to%20happen%3F%20Tell%20us%20what%20you%20thought%20should%20happen.%0A%0A4.%20What%20happened%20instead%3F%20Explain%20what%20actually%20happened.%0A%0A5.%20What%20environment%20and%20permissions%20were%20you%20using%3F%20Include%20your%20browser%2C%20operating%20system%2C%20and%20CyHy%20dashboard%20user%20role.%0A%0A6.%20Is%20there%20anything%20else%20we%20should%20know%3F%20Attach%20or%20list%20screenshots%2C%20errors%20messages%2C%20or%20additional%20content.%0A%0ANote%3A%20Please%20try%20refreshing%20the%20browser%2C%20clearing%20cookies%2Fcache%2C%20and%2For%20rebooting%20the%20system%20to%20mitigate%20any%20bugs%20before%20you%20submit.%20Thank%20you%21',
+      path: MAILTO_BUG,
       users: STANDARD_USER
     },
     {
       menuItemTitle: 'Send Feedback',
-      path: 'mailto:vulnerability@mail.cisa.dhs.gov?subject=Feedback%20for%20the%20CyHy%20Dashboard&body=1.%20What%20worked%20well%20for%20you%3F%0A%20%20%20%20Consider%3A%20Were%20there%20any%20features%20or%20aspects%20of%20the%20dashboard%20that%20really%20stood%20out%20or%20made%20your%20experience%20easier%3F%0A%0A2.%20What%20could%20be%20improved%3F%0A%20%20%20%20Consider%3A%20Did%20you%20run%20into%20any%20challenges%20or%20notice%20something%20that%20could%20work%20better%3F%0A%0A3.%20Was%20it%20easy%20to%20use%3F%0A%20%20%20%20Consider%3A%20How%20intuitive%20did%20you%20find%20the%20dashboard%3F%20Was%20it%20simple%20to%20navigate%20and%20accomplish%20your%20goals%3F%0A%0A4.%20Any%20additional%20suggestions%3F%0A%20%20%20%20Consider%3A%20Is%20there%20anything%20specific%20you%E2%80%99d%20love%20to%20see%20added%20or%20changed%20to%20make%20the%20dashboard%20more%20useful%3F%0A',
+      path: MAILTO_FEEDBACK,
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
@@ -122,21 +148,91 @@ export const Header: React.FC = () => {
   const inventoryMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'Findings Library',
-      path: '/inventory',
+      path: ROUTES.INVENTORY,
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
 
   const handleLogoClick = () => {
-    history.push('/VSDashboard');
+    history.push(ROUTES.VSDASHBOARD);
   };
+
+  const sectorVulnSnapshotsMenuItems: MenuItemType[] = [
+    {
+      menuItemTitle: 'Communications',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.communications
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Financial Services',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.financialServices
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Food and Agriculture',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.foodAndAgriculture
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Healthcare and Public Health',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.healthcareAndPublicHealth
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Information Technology',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.informationTechnology
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Transportation Systems',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.transportationSystems
+      },
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Water and Wastewater Systems',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.waterAndWastewater
+      },
+      users: STANDARD_USER
+    }
+  ].filter(({ users }) => users <= userLevel);
 
   const learningCenterMenuItems: MenuItemType[] = [
     {
-      menuItemTitle: 'VS Glossary',
+      menuItemTitle: 'CISA Resources',
+      path: 'https://www.cisa.gov',
+      users: STANDARD_USER
+    },
+    {
+      menuItemTitle: 'Sector Vulnerability Snapshots',
+      users: STANDARD_USER,
+      // Nest sectorVulnSnapshotsMenuItems here
+      subMenuItems: sectorVulnSnapshotsMenuItems
+    },
+    {
+      menuItemTitle: 'User Guide',
       objectStoreParams: {
         bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
-        object_key: LEARNING_CENTER_DOC_KEYS.glossary
+        object_key: LEARNING_CENTER_DOC_KEYS.userGuide
       },
       users: STANDARD_USER
     },
@@ -149,16 +245,20 @@ export const Header: React.FC = () => {
       users: STANDARD_USER
     },
     {
+      menuItemTitle: 'VS Glossary',
+      objectStoreParams: {
+        bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
+        object_key: LEARNING_CENTER_DOC_KEYS.glossary
+      },
+      users: STANDARD_USER
+    },
+
+    {
       menuItemTitle: 'VS Methodology',
       objectStoreParams: {
         bucket_name: LEARNING_CENTER_DOC_BUCKET_NAME,
         object_key: LEARNING_CENTER_DOC_KEYS.methodology
       },
-      users: STANDARD_USER
-    },
-    {
-      menuItemTitle: 'CISA Resources',
-      path: 'https://www.cisa.gov',
       users: STANDARD_USER
     }
   ].filter(({ users }) => users <= userLevel);
@@ -176,7 +276,7 @@ export const Header: React.FC = () => {
     } else if (item.objectStoreParams) {
       try {
         const response = await apiPost<{ url: string }>(
-          '/v1/object-store/presigned-url',
+          ENDPOINTS.OBJECT_STORE_PRESIGNED_URL,
           {
             body: item.objectStoreParams
           }
@@ -214,7 +314,6 @@ export const Header: React.FC = () => {
   );
 
   const allMenuItems: { [section: string]: MenuItemType[] }[] = [
-    // { 'Scanning Results': scanningResults },
     { 'Vulnerability Scanning': vulnScanningMenuItems },
     { 'Findings Library': inventoryMenuItems },
     { 'Learning Center': learningCenterMenuItems },
@@ -281,7 +380,7 @@ export const Header: React.FC = () => {
         justifyContent: 'center',
         alignItems: 'center',
         height: '84px',
-        zIndex: theme.zIndex.FilterDrawerV2 + 1
+        zIndex: (theme) => theme.zIndex.appBar
       }}
     >
       <Toolbar disableGutters sx={{ maxWidth: '1152px', width: '100%', p: 0 }}>

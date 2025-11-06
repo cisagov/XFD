@@ -1,5 +1,6 @@
 import React from 'react';
 import { render } from 'test-utils/test-utils';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import { Layout } from '../Layout';
 import { StaticsContext, StaticsContextType } from 'context/StaticsContext';
 import {
@@ -7,6 +8,7 @@ import {
   FilterDrawerContextProvider,
   SearchProvider
 } from 'context';
+import { NavigationProvider } from 'context/NavigationContextProvider';
 
 const testContext: ContextType = {
   addFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
@@ -47,15 +49,18 @@ const value: StaticsContextType = {
   setRegions: (regions: string[]) => {}
 };
 
-jest.mock('components/Header/Header', () => ({
+vi.mock('components/Header/Header', () => ({
   Header: () => <div>HEADER</div>
 }));
-jest.mock('components/GovBanner', () => ({
+vi.mock('components/GovBanner', () => ({
   GovBanner: () => <div>GOV_BANNER</div>
+}));
+vi.mock('@mui/x-data-grid', () => ({
+  DataGrid: () => <div>DATA_GRID</div>
 }));
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe('Layout component', () => {
@@ -64,7 +69,9 @@ describe('Layout component', () => {
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <Layout {...testContext} />
+            <NavigationProvider>
+              <Layout {...testContext} />
+            </NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>
@@ -77,7 +84,9 @@ describe('Layout component', () => {
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <Layout {...testContext}>some children</Layout>
+            <NavigationProvider>
+              <Layout {...testContext}>some children</Layout>
+            </NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>

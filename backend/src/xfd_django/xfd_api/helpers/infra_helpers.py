@@ -1,5 +1,6 @@
 """Infra Ops helpers."""
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
@@ -7,19 +8,16 @@ from django.conf import settings
 from django.db import connections
 import pymysql  # type: ignore
 
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
-def create_readonly_user():
+
+def create_readonly_user(user, password):
     """Create a read-only user for both the default and mini_data_lake databases."""
     # Skip user creation if running in the DMZ
     is_dmz = os.getenv("IS_DMZ", "0") == "1"
     if is_dmz:
-        print("IS_DMZ is set to 1. Skipping creation of the scanning user.")
-        return
-
-    user = os.getenv("READ_ONLY_DB_USER")
-    password = os.getenv("READ_ONLY_DB_PASSWORD")
-    if not user or not password:
-        print("READ_ONLY_DB_USER or READ_ONLY_DB_PASSWORD is not set.")
+        LOGGER.info("IS_DMZ is set to 1. Skipping creation of the scanning user.")
         return
 
     # Loop through both database aliases
@@ -36,16 +34,14 @@ def create_readonly_user():
                     cursor.execute(
                         "CREATE ROLE {} LOGIN PASSWORD %s;".format(user), [password]
                     )
-                    print(
-                        "User '{}' created successfully in {} database.".format(
-                            user, alias
-                        )
+                    LOGGER.info(
+                        "User %s created successfully in %s database.", user, alias
                     )
                 else:
-                    print(
-                        "User '{}' already exists in {} database. Skipping creation.".format(
-                            user, alias
-                        )
+                    LOGGER.info(
+                        "User %s already exists in %s database. Skipping creation.",
+                        user,
+                        alias,
                     )
 
                 # Grant read-only privileges on the specific database
@@ -61,16 +57,14 @@ def create_readonly_user():
                         user
                     )
                 )
-                print(
-                    "User '{}' configured successfully for {} database.".format(
-                        user, alias
-                    )
+                LOGGER.info(
+                    "User %s configured successfully for %s database.", user, alias
                 )
             except Exception as e:
-                print(
-                    "Error creating or configuring scan user for {} database: {}".format(
-                        alias, e
-                    )
+                LOGGER.error(
+                    "Error creating or configuring scan user for %s database: %s",
+                    alias,
+                    e,
                 )
 
 
@@ -80,13 +74,13 @@ def create_scan_user():
     is_dmz = os.getenv("IS_DMZ", "0") == "1"
 
     if is_dmz:
-        print("IS_DMZ is set to 1. Skipping creation of the scanning user.")
+        LOGGER.info("IS_DMZ is set to 1. Skipping creation of the scanning user.")
         return
 
     user = os.getenv("POSTGRES_SCAN_USER")
     password = os.getenv("POSTGRES_SCAN_PASSWORD")
     if not user or not password:
-        print("POSTGRES_SCAN_USER or POSTGRES_SCAN_PASSWORD is not set.")
+        LOGGER.warning("POSTGRES_SCAN_USER or POSTGRES_SCAN_PASSWORD is not set.")
         return
 
     db_name = settings.DATABASES["default"]["NAME"]
@@ -102,9 +96,9 @@ def create_scan_user():
                 cursor.execute(
                     "CREATE ROLE {} LOGIN PASSWORD %s;".format(user), [password]
                 )
-                print("User '{}' created successfully.".format(user))
+                LOGGER.info("User '%s' created successfully.", user)
             else:
-                print("User '{}' already exists. Skipping creation.".format(user))
+                LOGGER.info("User '%s' already exists. Skipping creation.", user)
 
             # Grant privileges (idempotent as well)
             cursor.execute("GRANT CONNECT ON DATABASE {} TO {};".format(db_name, user))
@@ -118,9 +112,9 @@ def create_scan_user():
                 )
             )
 
-            print("User '{}' configured successfully.".format(user))
+            LOGGER.info("User '%s' configured successfully.", user)
         except Exception as e:
-            print("Error creating or configuring scan user: {}".format(e))
+            LOGGER.error("Error creating or configuring scan user: %s", e)
 
 
 def create_matomo_scan_user():
@@ -128,7 +122,7 @@ def create_matomo_scan_user():
     # Only create if not in the DMZ
     is_dmz = os.getenv("IS_DMZ", "0") == "1"
     if is_dmz:
-        print("IS_DMZ is set to 1. Skipping creation of the scanning user.")
+        LOGGER.info("IS_DMZ is set to 1. Skipping creation of the scanning user.")
         return
 
     # Database connection settings
@@ -141,7 +135,9 @@ def create_matomo_scan_user():
     scan_password = os.getenv("POSTGRES_SCAN_PASSWORD")
 
     if not all([db_host, db_user, db_password, scan_user, scan_password]):
-        print("Database connection credentials or scan user details are missing.")
+        LOGGER.warning(
+            "Database connection credentials or scan user details are missing."
+        )
         return
 
     try:
@@ -173,16 +169,13 @@ def create_matomo_scan_user():
                     esc_user, esc_password
                 )
                 cursor.execute(create_user_query)
-                print(
-                    "User '{}' created successfully in Matomo database.".format(
-                        scan_user
-                    )
+                LOGGER.info(
+                    "User '%s' created successfully in Matomo database.", scan_user
                 )
             else:
-                print(
-                    "User '{}' already exists in Matomo database. Skipping creation.".format(
-                        scan_user
-                    )
+                LOGGER.info(
+                    "User '%s' already exists in Matomo database. Skipping creation.",
+                    scan_user,
                 )
 
             # Now grant permissions using the same escaped values.
@@ -206,16 +199,16 @@ def create_matomo_scan_user():
 
             # Print the grants to verify the user's permissions
             for grant in grants:
-                print(grant)
+                LOGGER.info(grant)
 
-            print(
-                "User '{}' configured successfully in Matomo database.".format(esc_user)
+            LOGGER.info(
+                "User '%s' configured successfully in Matomo database.", esc_user
             )
 
         conn.commit()
         conn.close()
 
     except Exception as e:
-        print(
-            "Error creating or configuring scan user for Matomo database: {}".format(e)
+        LOGGER.error(
+            "Error creating or configuring scan user for Matomo database: %s", e
         )

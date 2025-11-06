@@ -19,8 +19,9 @@ import { SelectChangeEvent } from '@mui/material/Select';
 import {
   STATE_ABBREVIATED_OPTIONS,
   STATE_OPTIONS
-} from '../../constants/constants';
+} from '@/constants/constants';
 import { useAuthContext } from 'context';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const StyledDialog = orgFormStyles.StyledDialog;
 
@@ -92,7 +93,9 @@ export const OrganizationForm: React.FC<{
 
   const fetchTags = useCallback(async () => {
     try {
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setTags(tags);
     } catch (e) {
       console.error(e);
@@ -167,7 +170,7 @@ export const OrganizationForm: React.FC<{
           size="small"
           margin="dense"
           id="name"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="name"
           type="text"
           fullWidth
@@ -183,7 +186,7 @@ export const OrganizationForm: React.FC<{
           size="small"
           margin="dense"
           id="acronym"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="acronym"
           type="text"
           fullWidth
@@ -264,7 +267,7 @@ export const OrganizationForm: React.FC<{
           freeSolo
           value={chosenTags}
           onChange={handleTagChange}
-          renderTags={(value: readonly string[], getTagProps) =>
+          renderValue={(value: readonly string[], getTagProps) =>
             value.map((option: string, index: number) => {
               const { key, ...tagProps } = getTagProps({ index });
               return (

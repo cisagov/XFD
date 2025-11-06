@@ -19,7 +19,6 @@ import {
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
-import { ImportExport } from 'components';
 import {
   initialUserFormValues,
   initializeUser,
@@ -29,6 +28,7 @@ import {
 import { useAuthContext } from 'context';
 import { format } from 'date-fns';
 import UserForm from './UserForm';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -58,6 +58,7 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
+  org_acronym?: string | null | undefined;
   full_name: string;
   approved_by?: ApprovedBy | null;
   date_approved?: string | null;
@@ -67,7 +68,6 @@ export const Users: React.FC = () => {
   const { user, apiDelete, apiGet, apiPost } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
-  const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
@@ -85,10 +85,11 @@ export const Users: React.FC = () => {
     initialUserFormValues
   );
 
+  // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const rows = await apiGet<UserType[]>(`/users`);
+      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
       rows.forEach((row) => {
         row.lastLoggedInString = row.last_logged_in
           ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
@@ -103,8 +104,12 @@ export const Users: React.FC = () => {
               .join(', ')
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
+        row.org_acronym = row.roles[0]?.organization.acronym || '';
       });
-      setUsers(rows);
+
+      const filteredRows = rows;
+
+      setUsers(filteredRows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
       setLoadingError(true);
@@ -112,28 +117,114 @@ export const Users: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet]);
+  }, [apiGet, user?.user_type, user?.region_id]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
   const userCols: GridColDef[] = [
-    { field: 'full_name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'email', headerName: 'Email', minWidth: 100, flex: 1.5 },
-    { field: 'region_id', headerName: 'Region', minWidth: 50, flex: 0.4 },
+    {
+      field: 'full_name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 0.9,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
+          >
+            {cellValues.row.full_name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
+          >
+            {cellValues.row.email}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'region_id',
+      headerName: 'Region',
+      minWidth: 50,
+      flex: 0.4,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Region for User ${cellValues.row.full_name}: ${cellValues.row.region_id}`}
+          >
+            {cellValues.row.region_id}
+          </Box>
+        );
+      }
+    },
     {
       field: 'orgs',
-      headerName: 'Organizations',
+      headerName: 'Organization',
       minWidth: 100,
-      flex: 1
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
+          >
+            {cellValues.row.orgs}
+          </Box>
+        );
+      }
     },
-    { field: 'user_type', headerName: 'User Type', minWidth: 100, flex: 0.75 },
+    {
+      field: 'org_acronym',
+      headerName: 'Org Acronym',
+      minWidth: 100,
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization acronym ${cellValues.row.full_name}: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.org_acronym}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'user_type',
+      headerName: 'User Type',
+      minWidth: 100,
+      flex: 0.7,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`User Type for User ${cellValues.row.full_name}: ${cellValues.row.user_type}`}
+          >
+            {cellValues.row.user_type}
+          </Box>
+        );
+      }
+    },
     {
       field: 'date_approved',
       headerName: 'Approval Date',
       minWidth: 100,
-      flex: 1,
+      flex: 0.7,
       renderCell: (params: GridRenderCellParams) => {
         const dateApproved = params.row?.date_approved;
         return (
@@ -144,11 +235,14 @@ export const Users: React.FC = () => {
                 : 'None'
             }
           >
-            <span>
+            <Box
+              component="span"
+              aria-label={`Approval Date for User ${params.row.full_name}: ${dateApproved}`}
+            >
               {dateApproved
                 ? format(new Date(dateApproved), 'MM-dd-yyyy hh:mm a')
                 : 'None'}
-            </span>
+            </Box>
           </Tooltip>
         );
       }
@@ -157,7 +251,7 @@ export const Users: React.FC = () => {
       field: 'approved_by',
       headerName: 'Approved By',
       minWidth: 100,
-      flex: 0.75,
+      flex: 0.7,
       renderCell: (params: GridRenderCellParams) => {
         const approvedBy = params.row?.approved_by;
         const fullName = approvedBy ? approvedBy.full_name : 'None';
@@ -171,7 +265,12 @@ export const Users: React.FC = () => {
                 : 'None'
             }
           >
-            <span>{fullName}</span>
+            <Box
+              component="span"
+              aria-label={`User ${params.row.full_name} approved by: ${fullName}`}
+            >
+              {fullName}
+            </Box>
           </Tooltip>
         );
       }
@@ -188,19 +287,39 @@ export const Users: React.FC = () => {
         const date1 = new Date(v1);
         const date2 = new Date(v2);
         return date1.getTime() - date2.getTime();
+      },
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Date ToU signed for User ${cellValues.row.full_name}: ${cellValues.row.dateToUSigned}`}
+          >
+            {cellValues.row.dateToUSigned}
+          </Box>
+        );
       }
     },
     {
       field: 'accepted_terms_version',
       headerName: 'ToU Version',
       minWidth: 50,
-      flex: 0.5
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`ToU Version for User ${cellValues.row.full_name}: ${cellValues.row.accepted_terms_version}`}
+          >
+            {cellValues.row.accepted_terms_version}
+          </Box>
+        );
+      }
     },
     {
       field: 'lastLoggedInString',
       headerName: 'Last Logged In',
       minWidth: 100,
-      flex: 1,
+      flex: 0.7,
       sortComparator: (v1, v2) => {
         if (v1 === 'None') return -1;
         if (v2 === 'None') return 1;
@@ -209,6 +328,16 @@ export const Users: React.FC = () => {
         const date2 = new Date(v2);
 
         return date1.getTime() - date2.getTime();
+      },
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Last Logged In Date for User ${cellValues.row.full_name}: ${cellValues.row.lastLoggedInString}`}
+          >
+            {cellValues.row.lastLoggedInString}
+          </Box>
+        );
       }
     },
     {
@@ -217,8 +346,10 @@ export const Users: React.FC = () => {
       minWidth: 50,
       flex: 0.5,
       disableExport: true,
+      sortable: false,
+      filterable: false,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `View or edit user ${cellValues.row.full_name}`;
+        const ariaLabel = `View or Edit User ${cellValues.row.full_name}`;
         const descriptionId = `description-${cellValues.row.id}`;
         return (
           <>
@@ -262,6 +393,8 @@ export const Users: React.FC = () => {
       disableExport: true,
       minWidth: 50,
       flex: 0.4,
+      sortable: false,
+      filterable: false,
       renderCell: (cellValues: GridRenderCellParams) => {
         const ariaLabel = `Delete user ${cellValues.row.full_name}`;
         const descriptionId = `delete-description-${cellValues.row.id}`;
@@ -286,20 +419,12 @@ export const Users: React.FC = () => {
       }
     });
   }
-  const addUserButton = user?.user_type === 'globalAdmin' && (
-    <Button
-      size="small"
-      sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-      startIcon={<Add />}
-      onClick={() => setNewUserDialogOpen(true)}
-    >
-      Invite New User
-    </Button>
-  );
 
   const deleteRow = async (row: UserType) => {
     try {
-      await apiDelete(`/users/${row.id}`, { body: {} });
+      await apiDelete(ENDPOINTS.USER.replace('{user_id}', String(row.id)), {
+        body: {}
+      });
       setUsers(users.filter((user) => user.id !== row.id));
       setApiErrorStates({ ...apiErrorStates, getDeleteError: '' });
       setInfoDialogContent('This user has been successfully removed.');
@@ -345,8 +470,6 @@ export const Users: React.FC = () => {
       setUsers={setUsers}
       values={formValues}
       setValues={setFormValues}
-      newUserDialogOpen={newUserDialogOpen}
-      setNewUserDialogOpen={setNewUserDialogOpen}
       editUserDialogOpen={editUserDialogOpen}
       setEditUserDialogOpen={setEditUserDialogOpen}
       apiErrorStates={apiErrorStates}
@@ -356,121 +479,94 @@ export const Users: React.FC = () => {
     />
   );
 
+  const mobileMargin = {
+    px: {
+      xs: 1,
+      sm: 1,
+      md: 1,
+      lg: 1,
+      xl: 0
+    }
+  };
+
   return (
-    <Box display="flex" justifyContent="center" sx={{ height: '100vh' }}>
-      <Box
-        mb={3}
-        mt={3}
-        display="flex"
-        flexDirection="column"
-        sx={{ width: '80%' }}
+    <Box
+      display="flex"
+      flexDirection="column"
+      minHeight="100vh"
+      maxWidth="1152px"
+      width="100%"
+      margin="auto"
+      pb={6}
+    >
+      <Typography
+        fontSize={34}
+        fontWeight="bold"
+        letterSpacing={0}
+        my={6}
+        variant="h1"
+        sx={mobileMargin}
       >
-        <Typography
-          fontSize={34}
-          fontWeight="medium"
-          letterSpacing={0}
-          my={3}
-          variant="h1"
-        >
-          Users
-        </Typography>
-        <Box mb={3} mt={3} display="flex" justifyContent="center">
-          {isLoading ? (
-            <Paper elevation={2}>
-              <Alert severity="info">Loading Users..</Alert>
-            </Paper>
-          ) : isLoading === false && loadingError ? (
-            <Stack direction="row" spacing={2}>
-              <Paper elevation={2}>
-                <Alert severity="warning">Error Loading Users!</Alert>
-              </Paper>
-              <Button
-                onClick={fetchUsers}
-                variant="contained"
-                color="primary"
-                sx={{ width: 'fit-content' }}
-              >
-                Retry
-              </Button>
-            </Stack>
-          ) : isLoading === false && loadingError === false ? (
-            <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-              <DataGrid
-                rows={users}
-                columns={userCols}
-                slots={{ toolbar: CustomToolbar }}
-                slotProps={{
-                  toolbar: {
-                    children: addUserButton,
-                    exportTitle: 'Users'
-                  } as any
-                }}
-                initialState={{
-                  pagination: { paginationModel: { pageSize: 15 } }
-                }}
-                pageSizeOptions={[15, 30, 50, 100]}
-              />
-            </Paper>
-          ) : null}
-        </Box>
-        {confirmDeleteUserDialog}
-        {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
-        {user?.user_type === 'globalAdmin' && (
-          <>
-            <ImportExport<
-              | User
-              | {
-                  roles: string;
+        Users
+      </Typography>
+      {isLoading ? (
+        <Paper elevation={2}>
+          <Alert severity="info">Loading Users..</Alert>
+        </Paper>
+      ) : isLoading === false && loadingError ? (
+        <Stack direction="row" spacing={2}>
+          <Paper elevation={2}>
+            <Alert severity="warning">Error Loading Users!</Alert>
+          </Paper>
+          <Button
+            onClick={fetchUsers}
+            variant="contained"
+            color="primary"
+            sx={{ width: 'fit-content' }}
+          >
+            Retry
+          </Button>
+        </Stack>
+      ) : isLoading === false && loadingError === false ? (
+        <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
+          <DataGrid
+            rows={users}
+            columns={userCols}
+            slots={{ toolbar: CustomToolbar }}
+            slotProps={{
+              toolbar: {
+                // Disabling export for users table as per temp solution mentioned in CRASM-2509
+                disableExport: true,
+                exportTitle: 'Users'
+              } as any,
+              basePopper: {
+                placement: 'bottom-start'
+              }
+            }}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 15 } },
+              columns: {
+                columnVisibilityModel: {
+                  dateToUSigned: false,
+                  accepted_terms_version: false
                 }
-            >
-              name="users"
-              fieldsToImport={[
-                'first_name',
-                'last_name',
-                'email',
-                'roles',
-                'user_type',
-                'state'
-              ]}
-              onImport={async (results) => {
-                const createdUsers = [];
-                for (const result of results) {
-                  const parsedRoles: {
-                    organization: string;
-                    role: string;
-                  }[] = JSON.parse(result.roles as string);
-                  const body: any = result;
-                  if (parsedRoles.length > 0) {
-                    body.organization = parsedRoles[0].organization;
-                    body.organizationAdmin = parsedRoles[0].role === 'admin';
-                  }
-                  try {
-                    createdUsers.push(
-                      await apiPost('/users', {
-                        body
-                      })
-                    );
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }
-                setUsers(users.concat(...createdUsers));
-              }}
-            />
-          </>
-        )}
-        <InfoDialog
-          isOpen={infoDialogOpen}
-          handleClick={() => {
-            window.location.reload();
-          }}
-          icon={
-            <CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />
-          }
-          title={<Typography variant="h4">Success </Typography>}
-          content={<Typography variant="body1">{infoDialogContent}</Typography>}
-        />
-      </Box>
+              }
+            }}
+            showToolbar
+          />
+        </Paper>
+      ) : null}
+      {confirmDeleteUserDialog}
+      {editUserDialogOpen && renderUserForm}
+      <InfoDialog
+        isOpen={infoDialogOpen}
+        handleClick={() => {
+          window.location.reload();
+        }}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">Success </Typography>}
+        content={<Typography variant="body1">{infoDialogContent}</Typography>}
+      />
     </Box>
   );
 };

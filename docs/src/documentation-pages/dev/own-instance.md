@@ -27,20 +27,20 @@ In `backend/env.yml`, set the following variables:
 
 ```yml
 USE_COGNITO: 1
-REACT_APP_USER_POOL_ID: us-east-1_uxiY8DOum
+VITE_USER_POOL_ID: us-east-1_uxiY8DOum
 ```
 
 In `frontend/stage.env` / `frontend/prod.env`, make sure the following environment variables are set:
 
 ```text
-REACT_APP_USE_COGNITO=1
-REACT_APP_USER_POOL_ID=us-east-1_uxiY8DOum
-REACT_APP_USER_POOL_CLIENT_ID=1qf4cii9v0t9hn1hnr54f2ao0j
+VITE_USE_COGNITO=1
+VITE_USER_POOL_ID=us-east-1_uxiY8DOum
+VITE_USER_POOL_CLIENT_ID=1qf4cii9v0t9hn1hnr54f2ao0j
 ```
 
 #### login.gov setup
 
-In `backend/env.yml`, `frontend/stage.env`, and `frontend/prod.env`, remove the lines that set the `USE_COGNITO` or `REACT_APP_USE_COGNITO` environment variables. Both variables must be unset for login.gov authentication to be used!
+In `backend/env.yml`, `frontend/stage.env`, and `frontend/prod.env`, remove the lines that set the `USE_COGNITO` or `VITE_USE_COGNITO` environment variables. Both variables must be unset for login.gov authentication to be used!
 
 Run the following to generate a login.gov RSA key (preferably in a non-git directory outside of crossfeed!):
 
@@ -61,7 +61,7 @@ First, make sure you set the following SSM variables manually through the AWS Co
 - `/crossfeed/staging/DATABASE_USER`
 - `/crossfeed/staging/DATABASE_PASSWORD`
 - `/crossfeed/staging/APP_JWT_SECRET`
-- `/crossfeed/staging/REACT_APP_TERMS_VERSION`
+- `/crossfeed/staging/VITE_TERMS_VERSION`
 
 Optional variables:
 

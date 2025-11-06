@@ -1,6 +1,7 @@
 """Test Queue Monitoring."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import uuid
 
 # Third-Party Libraries
@@ -12,6 +13,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 # Fake SQS client for a successful search scenario.
@@ -84,7 +87,7 @@ def test_search_queues_success(monkeypatch):
         json=search_payload,
     )
 
-    print(response.json())  # Debug output if needed
+    LOGGER.info(response.json())  # Debug output if needed
     assert response.status_code == 200
     data = response.json()
     # We expect one queue to be returned

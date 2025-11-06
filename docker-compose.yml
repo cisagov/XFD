@@ -2,7 +2,7 @@
 services:
   db:
     container_name: db
-    image: postgres:15.3
+    image: postgres:17.6
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
       - ./backend/db-init:/docker-entrypoint-initdb.d
@@ -16,6 +16,7 @@ services:
       - POSTGRES_USER=${DB_USERNAME}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     command: ['postgres', '-c', 'log_statement=all', '-c', 'log_duration=on']
+    restart: always
 
   frontend:
     container_name: frontend
@@ -23,10 +24,18 @@ services:
     volumes:
       - ./frontend/src:/app/src
     ports:
-      - '80:3000'
+      - "80:3000"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
     env_file:
       - ./.env
+    depends_on:
+      - backend
+    networks:
+      - backend
     tty: true
+    restart: always
+
 
   backend:
     container_name: backend
@@ -48,10 +57,11 @@ services:
       CF_API_KEY: "${CF_API_KEY}"
     depends_on:
       - db
+    restart: always
 
   minio:
     container_name: minio
-    image: bitnami/minio:2020.9.26
+    image: bitnamilegacy/minio:2020.9.26
     user: root
     command: 'minio server /data'
     networks:
@@ -65,6 +75,7 @@ services:
       - MINIO_SECRET_KEY=aws_secret_key
     logging:
       driver: json-file
+    restart: always
 
   docs:
     container_name: docs
@@ -79,6 +90,7 @@ services:
     ports:
       - '4000:4000'
       - '44475:44475'
+    restart: always
 
   es:
     container_name: es
@@ -101,6 +113,7 @@ services:
       - 9300:9300
     logging:
       driver: json-file
+    restart: always
 
   redis:
     container_name: redis
@@ -109,6 +122,7 @@ services:
       - "6379:6379"
     networks:
       - backend
+    restart: always
 
   # kib:
   #   image: docker.elastic.co/kibana/kibana:7.9.0
@@ -132,9 +146,10 @@ services:
     environment:
       - MYSQL_ROOT_PASSWORD=password
     logging:
-      driver: none
+      driver: json-file
     ports:
       - 3306:3306
+    restart: always
 
   matomo:
     container_name: matomo
@@ -154,9 +169,10 @@ services:
       - MATOMO_GENERAL_PROXY_URI_HEADER=1
       - MATOMO_GENERAL_ASSUME_SECURE_PROTOCOL=1
     logging:
-      driver: none
+      driver: json-file
     ports:
       - "8080:80"
+    restart: always
 
   elasticmq:
     container_name: elasticmq
@@ -165,20 +181,6 @@ services:
       - "9324:9324"
     networks:
       - backend
-
-  playwright:
-    container_name: playwright
-    image: mcr.microsoft.com/playwright:v1.50.1-jammy
-    working_dir: /workspace
-    volumes:
-      - ./playwright:/workspace
-      - ~/.cache:/root/.cache  # Cache Playwright browser downloads
-    env_file:
-      ./playwright/.env
-    environment:
-      - HOME=/root
-    command: >
-      /bin/bash -c "npm ci && npx playwright install --with-deps && npx playwright test"
 
 volumes:
   postgres-data:

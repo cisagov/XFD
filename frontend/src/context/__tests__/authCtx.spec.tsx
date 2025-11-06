@@ -1,13 +1,14 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { testUser, testOrganization, waitFor, fireEvent } from 'test-utils';
+import { vi } from 'vitest';
 import { useAuthContext } from '../AuthContext';
 import { AuthContextProvider } from 'context/AuthContextProvider';
 
 const mockedApi = {
-  apiGet: jest.fn()
+  apiGet: vi.fn()
 };
-jest.mock('hooks/useApi', () => ({
+vi.mock('hooks/useApi', () => ({
   useApi: () => mockedApi
 }));
 
@@ -60,7 +61,7 @@ afterEach(() => {
 });
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 const renderLoggedIn = async (user?: any, args?: Omit<Props, 'onLogin'>) => {

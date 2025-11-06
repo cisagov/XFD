@@ -10,7 +10,6 @@ import dns.resolver
 from xfd_api.helpers.asset_inserts import create_or_update_ip
 from xfd_mini_dl.models import Cidr, Organization, SubDomains
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 DATE = datetime.datetime.now(datetime.timezone.utc)
 

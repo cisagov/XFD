@@ -53,7 +53,7 @@ class CisaKevScan:
 
             kev_data = response.json()
             vulnerabilities = kev_data.get("vulnerabilities", [])
-            self.logger.info(f"Retrieved {len(vulnerabilities)} KEV entries.")
+            self.logger.info("Retrieved %d KEV entries.", len(vulnerabilities))
 
             # Step 1: Clear table
             CisaKevCatalog.objects.all().delete()
@@ -84,14 +84,16 @@ class CisaKevScan:
             ]
 
             CisaKevCatalog.objects.bulk_create(entries)
-            self.logger.info(f"Inserted {len(entries)} records into CisaKevCatalog.")
+            self.logger.info("Inserted %d records into CisaKevCatalog.", len(entries))
 
             # Step 3: Flag CVEs that are now on the KEV list
             flagged_count = flag_known_exploited_cves()
-            self.logger.info(f"Flagged {flagged_count} CVE records as known exploited.")
+            self.logger.info(
+                "Flagged %d CVE records as known exploited.", flagged_count
+            )
 
         except Exception as e:
-            self.logger.exception(f"Failed to ingest CISA KEV catalog: {e}")
+            self.logger.exception("Failed to ingest CISA KEV catalog: %s", e)
 
 
 def handler(*args, **kwargs):

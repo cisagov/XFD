@@ -10,9 +10,10 @@ import {
   Button,
   Box
 } from '@mui/material';
-import { SavedSearch } from '../../types/saved-search';
-import { useAuthContext } from '../../context';
+import { SavedSearch } from 'types/saved-search';
+import { useAuthContext } from 'context';
 import { Add } from '@mui/icons-material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface SaveSearchModalProps {
   searchTerm: string;
@@ -38,7 +39,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     name: false,
     duplicate: false
   });
-  const { apiGet, apiPost, apiPut } = useAuthContext();
+  const { apiGet, apiPost } = useAuthContext();
   const { savedSearches, setSavedSearches, setSavedSearchCount, activeSearch } =
     useSavedSearchContext();
   const [savedSearchValues, setSavedSearchValues] = useState<
@@ -60,11 +61,17 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     try {
       if (activeSearch) {
-        await apiPut('/saved-searches/' + activeSearch.id, body);
+        await apiPost(
+          ENDPOINTS.SAVED_SEARCH_UPDATE.replace(
+            '{saved_search_id}',
+            activeSearch.id
+          ),
+          body
+        );
       } else {
-        await apiPost('/saved-searches', body);
+        await apiPost(ENDPOINTS.SAVED_SEARCHES, body);
       }
-      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
@@ -151,10 +158,12 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         aria-label="Save Search form"
         aria-labelledby="save-search-form-title"
         aria-describedby="save-search-form-description"
-        PaperProps={{
-          component: 'form',
-          onSubmit: handleSubmit,
-          style: { width: '30%', minWidth: '300px' }
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
+            style: { width: '30%', minWidth: '300px' }
+          }
         }}
       >
         <DialogTitle id="update-saved-search-title">
@@ -174,8 +183,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               variant="outlined"
               value={savedSearchValues.name}
               onChange={(e) => handleChange(e.target.name, e.target.value)}
-              inputProps={{
-                'aria-label': 'Enter a name for your saved filter'
+              slotProps={{
+                htmlInput: {
+                  'aria-label': 'Enter a name for your saved filter'
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -252,10 +263,12 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       <Dialog
         open={saveDialogOpen}
         onClose={handleCloseModal}
-        PaperProps={{
-          component: 'form',
-          onSubmit: handleSubmit,
-          style: { width: '30%', minWidth: '300px' }
+        slotProps={{
+          paper: {
+            component: 'form',
+            onSubmit: handleSubmit,
+            style: { width: '30%', minWidth: '300px' }
+          }
         }}
         aria-label="Save Search"
         aria-labelledby="save-search-dialog-title"
@@ -276,8 +289,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               variant="outlined"
               value={savedSearchValues.name}
               onChange={(e) => handleChange(e.target.name, e.target.value)}
-              inputProps={{
-                'aria-label': 'Enter a name for your saved search'
+              slotProps={{
+                htmlInput: {
+                  'aria-label': 'Enter a name for your saved search'
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {

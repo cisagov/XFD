@@ -225,7 +225,7 @@ def execute_dnstwist_data(domain_dict):
             dshield_attack_count=domain_dict["dshield_attack_count"],
         )
     except Exception as e:
-        LOGGER.error(f"Error adding domain permutation to data lake {str(e)}")
+        LOGGER.error("Error adding domain permutation to data lake: %s", str(e))
 
 
 def process_org(org, orgs_list, data_source, failures):
@@ -251,7 +251,7 @@ def process_org(org, orgs_list, data_source, failures):
                 # Get subdomain uid
                 # Check Blocklist
                 for dom in finalorglist:
-                    print("Checking Blocklist", dom)
+                    LOGGER.info("Checking Blocklist: %s", dom)
                     domain_dict, perm_list = checkBlocklist(
                         dom, data_source, org, perm_list
                     )

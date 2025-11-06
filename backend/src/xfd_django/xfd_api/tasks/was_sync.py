@@ -1,6 +1,7 @@
 """WasSync scan."""
 # Standard Python Libraries
 import datetime
+import logging
 import os
 import time
 from typing import Optional
@@ -16,6 +17,8 @@ from xfd_mini_dl.models import Organization, WasFindings
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
+
+LOGGER = logging.getLogger(__name__)
 
 # Constants
 MAX_RETRIES = 3  # Max retries for failed tasks
@@ -45,11 +48,7 @@ def main():
         since_timestamp_str = calculate_days_back(5)
 
         for org in all_orgs:
-            print(
-                "Processing organization: {acronym}, {name}".format(
-                    acronym=org.acronym, name=org.name
-                )
-            )
+            LOGGER.info("Processing organization: %s, %s", org.acronym, org.name)
             done = False
             page = 1
             total_pages = 2
@@ -61,19 +60,18 @@ def main():
                     org.acronym, page, per_page, since_timestamp_str
                 )
                 if not data or data.get("status") != "Processing":
-                    print(
-                        "Failed to start Was Finding sync task for org: {acronym}, {name}".format(
-                            acronym=org.acronym, name=org.name
-                        )
+                    LOGGER.warning(
+                        "Failed to start Was Finding sync task for org: %s, %s",
+                        org.acronym,
+                        org.name,
                     )
 
                     retry_count += 1
 
                     if retry_count >= MAX_RETRIES:
-                        print(
-                            "Max retries reached for org: {acronym}. Moving to next organization.".format(
-                                acronym=org.acronym
-                            )
+                        LOGGER.warning(
+                            "Max retries reached for org: %s. Moving to next organization.",
+                            org.acronym,
                         )
                         break  # Skip to next organization
 
@@ -89,8 +87,7 @@ def main():
                     was_finding_array = response.get("result", {}).get("data", [])
                     total_pages = response.get("result", {}).get("total_pages", 1)
                     current_page = response.get("result", {}).get("current_page", 1)
-                    print("findings")
-                    print(was_finding_array)
+                    LOGGER.info("findings: %s", was_finding_array)
                     save_findings_to_db(was_finding_array, org)
 
                     if current_page >= total_pages:
@@ -103,16 +100,12 @@ def main():
                         )
                     )
     except Exception as e:
-        print("failed to in main: {error}".format(error=e))
+        LOGGER.error("Failed to in main: %s", e)
 
 
 def fetch_dmz_was_findings_task(org_acronym, page, per_page, since_timestamp):
     """Fetch Was Finding task id."""
-    print(
-        "Fetching WAS finding task for organization: {acronym}".format(
-            acronym=org_acronym
-        )
-    )
+    LOGGER.info("Fetching WAS finding task for organization: %s", org_acronym)
 
     data = {
         "org_acronym": org_acronym,
@@ -131,7 +124,7 @@ def fetch_dmz_was_findings_task(org_acronym, page, per_page, since_timestamp):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ task: {error}".format(error=e))
+        LOGGER.error("Error fetching DMZ task: %s", e)
         return None
 
 
@@ -146,7 +139,7 @@ def fetch_dmz_was_finding_data(task_id):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching DMZ Was Finding data: {error}".format(error=e))
+        LOGGER.error("Error fetching DMZ Was Finding data: %s", e)
         return None
 
 
@@ -208,4 +201,4 @@ def save_findings_to_db(was_finding_array, org):
                 )
 
             except Exception as e:
-                print("Error saving Was Finding: {error}".format(error=e))
+                LOGGER.error("Error saving Was Finding: %s", e)

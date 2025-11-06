@@ -29,11 +29,13 @@ import urllib3
 from . import utils
 from .models import Domain, Endpoint
 
+LOGGER = logging.getLogger(__name__)
 # We're going to be making requests with certificate validation
 # disabled.  Commented next line due to pylint warning that urllib3 is
 # not in requests.packages
 # requests.packages.urllib3.disable_warnings()
 urllib3.disable_warnings()
+
 
 # Default, overrideable via --user-agent
 USER_AGENT = "pshtt, https scanning"
@@ -127,7 +129,7 @@ def inspect(base_domain):
 
 def result_for(domain):
     """Get the results for the provided domain."""
-    # print(utils.json_for(domain.to_object()))
+    # LOGGER.info(utils.json_for(domain.to_object()))
 
     # Because it will inform many other judgments, first identify
     # an acceptable "canonical" URL for the domain.
@@ -311,7 +313,7 @@ def basic_check(endpoint):
         if "bad handshake" in str(err) and (
             "sslv3 alert handshake failure" in str(err) or "Unexpected EOF" in str(err)
         ):
-            logging.exception(
+            LOGGER.exception(
                 "%s: Error completing TLS handshake usually due to required client authentication.",
                 endpoint.url,
             )
@@ -324,7 +326,7 @@ def basic_check(endpoint):
                 endpoint.https_full_connection = False
 
         else:
-            logging.exception(
+            LOGGER.exception(
                 "%s: Error connecting over SSL/TLS or validating certificate.",
                 endpoint.url,
             )
@@ -345,7 +347,7 @@ def basic_check(endpoint):
                     endpoint.https_full_connection = False
                     # HTTPS may still be valid, sslyze will double-check later
                     endpoint.https_valid = True
-                logging.exception(
+                LOGGER.exception(
                     "%s: Unexpected SSL protocol (or other) error during retry.",
                     endpoint.url,
                 )
@@ -353,21 +355,21 @@ def basic_check(endpoint):
                 # continue on to SSLyze to check the connection
             except requests.exceptions.RequestException as err:
                 endpoint.live = False
-                logging.exception(
+                LOGGER.exception(
                     "%s: Unexpected requests exception during retry.", endpoint.url
                 )
                 utils.debug("%s: %s", endpoint.url, err)
                 return
             except OpenSSL.SSL.Error as err:
                 endpoint.live = False
-                logging.exception(
+                LOGGER.exception(
                     "%s: Unexpected OpenSSL exception during retry.", endpoint.url
                 )
                 utils.debug("%s: %s", endpoint.url, err)
                 return
             except Exception as err:
                 endpoint.unknown_error = True
-                logging.exception(
+                LOGGER.exception(
                     "%s: Unexpected other unknown exception during requests retry.",
                     endpoint.url,
                 )
@@ -387,7 +389,7 @@ def basic_check(endpoint):
             endpoint.https_valid = True
         else:
             endpoint.live = False
-        logging.exception("%s: Error connecting.", endpoint.url)
+        LOGGER.exception("%s: Error connecting.", endpoint.url)
         utils.debug("%s: %s", endpoint.url, err)
 
     # And this is the parent of ConnectionError and other things.
@@ -395,13 +397,13 @@ def basic_check(endpoint):
     # See https://github.com/kennethreitz/requests/blob/master/requests/exceptions.py
     except requests.exceptions.RequestException as err:
         endpoint.live = False
-        logging.exception("%s: Unexpected other requests exception.", endpoint.url)
+        LOGGER.exception("%s: Unexpected other requests exception.", endpoint.url)
         utils.debug("%s: %s", endpoint.url, err)
         return
 
     except Exception as err:
         endpoint.unknown_error = True
-        logging.exception(
+        LOGGER.exception(
             "%s: Unexpected other unknown exception during initial request.",
             endpoint.url,
         )
@@ -413,7 +415,7 @@ def basic_check(endpoint):
         https_check(endpoint)
         # Double-check in case sslyze failed the first time, but the regular conneciton succeeded
         if endpoint.live is False and req is not None:
-            logging.warning(
+            LOGGER.warning(
                 "%s: Trying sslyze again since it connected once already.", endpoint.url
             )
             endpoint.live = True
@@ -447,7 +449,7 @@ def basic_check(endpoint):
                     )
     except Exception:
         # if the socket has already closed, it will throw an exception, but this is just best effort, so ignore it
-        logging.exception("Error closing socket")
+        LOGGER.exception("Error closing socket")
 
     # Endpoint is live, analyze the response.
     endpoint.headers = req.headers
@@ -462,7 +464,7 @@ def basic_check(endpoint):
         "3"
     ):
         endpoint.redirect = True
-        logging.warning("%s: Found redirect.", endpoint.url)
+        LOGGER.warning("%s: Found redirect.", endpoint.url)
 
     if endpoint.redirect:
         try:
@@ -482,7 +484,7 @@ def basic_check(endpoint):
             ultimate_req = None
         except Exception as err:
             endpoint.unknown_error = True
-            logging.exception(
+            LOGGER.exception(
                 "%s: Unexpected other unknown exception when handling Requests Header.",
                 endpoint.url,
             )
@@ -493,10 +495,10 @@ def basic_check(endpoint):
                 pass
         except (requests.exceptions.RequestException, OpenSSL.SSL.Error):
             # Swallow connection errors, but we won't be saving redirect info.
-            logging.exception("Connection error")
+            LOGGER.exception("Connection error")
         except Exception as err:
             endpoint.unknown_error = True
-            logging.exception(
+            LOGGER.exception(
                 "%s: Unexpected other unknown exception when handling redirect.",
                 endpoint.url,
             )
@@ -576,7 +578,7 @@ def basic_check(endpoint):
                 )
         except Exception as err:
             endpoint.unknown_error = True
-            logging.exception(
+            LOGGER.exception(
                 "%s: Unexpected other unknown exception when establishing redirects.",
                 endpoint.url,
             )
@@ -630,7 +632,7 @@ def hsts_check(endpoint):
             endpoint.hsts_preload = True
     except Exception as err:
         endpoint.unknown_error = True
-        logging.exception(
+        LOGGER.exception(
             "%s: Unknown exception when handling HSTS check.", endpoint.url
         )
         utils.debug("%s: %s", endpoint.url, err)
@@ -688,7 +690,7 @@ def https_check(endpoint):
     except ConnectionToServerFailed as err:
         endpoint.live = False
         endpoint.https_valid = False
-        logging.exception(
+        LOGGER.exception(
             "%s: Error in sslyze server connectivity check when connecting to %s",
             endpoint.url,
             err.server_location.hostname,
@@ -697,7 +699,7 @@ def https_check(endpoint):
         return
     except Exception as err:
         endpoint.unknown_error = True
-        logging.exception(
+        LOGGER.exception(
             "%s: Unknown exception in sslyze server connectivity check.", endpoint.url
         )
         utils.debug("%s: %s", endpoint.url, err)
@@ -742,18 +744,16 @@ def https_check(endpoint):
                         endpoint.https_bad_hostname = True
 
         if public_trust:
-            logging.warning(
-                "%s: Publicly trusted by common trust stores.", endpoint.url
-            )
+            LOGGER.warning("%s: Publicly trusted by common trust stores.", endpoint.url)
         else:
-            logging.warning(
+            LOGGER.warning(
                 "%s: Not publicly trusted - not trusted by %s.",
                 endpoint.url,
                 ", ".join(public_not_trusted_names),
             )
 
         if CA_FILE is not None:
-            logging.warning(
+            LOGGER.warning(
                 "%s: %s trusted by custom trust store.",
                 endpoint.url,
                 "" if custom_trust else "Not",
@@ -765,7 +765,7 @@ def https_check(endpoint):
         endpoint.https_custom_trusted = custom_trust
 
     except Exception as err:
-        logging.exception("%s: Error examining certificate deployment.", endpoint.url)
+        LOGGER.exception("%s: Error examining certificate deployment.", endpoint.url)
         utils.debug("%s: %s", endpoint.url, err)
 
     try:
@@ -782,7 +782,7 @@ def https_check(endpoint):
                 for dep in cert_plugin_result.certificate_deployments
             )
             if not all_verified:
-                logging.warning("%s: Missing intermediate certificate.", endpoint.url)
+                LOGGER.warning("%s: Missing intermediate certificate.", endpoint.url)
                 utils.debug(
                     "%s: Only %s certs in chain.",
                     endpoint.url,
@@ -811,17 +811,17 @@ def https_check(endpoint):
                             for dep in cert_plugin_result.certificate_deployments
                         ):
                             endpoint.https_public_trusted = True
-                            logging.warning(
+                            LOGGER.warning(
                                 "%s: Trusted after adding intermediate certs.",
                                 endpoint.url,
                             )
                 except Exception:
-                    logging.exception(
+                    LOGGER.exception(
                         "%s: Intermediate cert recheck failed.", endpoint.url
                     )
 
     except Exception:
-        logging.exception("Error while determining length of certificate chain")
+        LOGGER.exception("Error while determining length of certificate chain")
 
     if (
         endpoint.https_expired_cert
@@ -1300,7 +1300,7 @@ def is_hsts_preload_pending(domain):
     that.
     """
     if PRELOAD_PENDING is None:
-        logging.error("`PRELOAD_PENDING` has not yet been initialized!")
+        LOGGER.error("`PRELOAD_PENDING` has not yet been initialized!")
         raise RuntimeError(
             "`initialize_external_data()` must be called explicitly before "
             "using this function"
@@ -1315,7 +1315,7 @@ def is_hsts_preloaded(domain):
     If PRELOAD_LIST is None, the caches have not been initialized, so do that.
     """
     if PRELOAD_LIST is None:
-        logging.error("`PRELOAD_LIST` has not yet been initialized!")
+        LOGGER.error("`PRELOAD_LIST` has not yet been initialized!")
         raise RuntimeError(
             "`initialize_external_data()` must be called explicitly before "
             "using this function"
@@ -1337,7 +1337,7 @@ def parent_domain_for(hostname):
     If SUFFIX_LIST is None, the caches have not been initialized, so do that.
     """
     if SUFFIX_LIST is None:
-        logging.error("`SUFFIX_LIST` has not yet been initialized!")
+        LOGGER.error("`SUFFIX_LIST` has not yet been initialized!")
         raise RuntimeError(
             "`initialize_external_data()` must be called explicitly before "
             "using this function"
@@ -1487,8 +1487,8 @@ def load_preload_pending():
         requests.exceptions.ConnectionError,
         requests.exceptions.ConnectTimeout,
     ) as err:
-        logging.exception("Failed to fetch pending preload list: %s", pending_url)
-        logging.debug(err)
+        LOGGER.exception("Failed to fetch pending preload list: %s", pending_url)
+        LOGGER.debug(err)
         return []
 
     # TODO: abstract Py 2/3 check out to utils
@@ -1523,8 +1523,8 @@ def load_preload_list():
         requests.exceptions.ConnectionError,
         requests.exceptions.ConnectTimeout,
     ) as err:
-        logging.exception("Failed to fetch preload list: %s", file_url)
-        logging.debug(err)
+        LOGGER.exception("Failed to fetch preload list: %s", file_url)
+        LOGGER.debug(err)
         return []
 
     raw = request.content
@@ -1563,7 +1563,7 @@ def load_suffix_list(cache_suffix_list=None, update_list=False):
             else:
                 updatePSL()
         except Exception as err:
-            logging.exception("Unable to download the Public Suffix List...")
+            LOGGER.exception("Unable to download the Public Suffix List...")
             utils.debug(err)
             return None
 

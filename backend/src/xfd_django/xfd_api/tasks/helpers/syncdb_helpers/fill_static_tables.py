@@ -1,8 +1,14 @@
 """Functions used to fill static/lookup tables in the mdl."""
 
+# Standard Libraries
+# Standard Python Libraries
+import logging
+
 # Third-Party Libraries
 from django.db import IntegrityError
 from xfd_mini_dl.models import NMIServiceGroup, RiskyServiceGroup
+
+LOGGER = logging.getLogger(__name__)
 
 risky_service_map = {
     "ms-wbt-server": "rdp",
@@ -43,8 +49,8 @@ risky_service_map = {
 }
 
 nmi_service_group_map = {
-    "microsoft-d": "smb",
-    "ms-wbt-server": "dp",
+    "microsoft-ds": "smb",
+    "ms-wbt-server": "rdp",
     "rtelnet": "telnet",
     "smbdirect": "smb",
     "telnet": "telnet",
@@ -59,7 +65,7 @@ def fill_risky_service_lookup_table():
                 service_name=service_name, defaults={"group": group}
             )
         except IntegrityError as e:
-            print(f"Error adding {service_name}: {e}")
+            LOGGER.error("Error adding %s: %s", service_name, e)
 
 
 def fill_nmi_service_group_table():
@@ -70,4 +76,4 @@ def fill_nmi_service_group_table():
                 service_name=service_name, defaults={"group": group}
             )
         except IntegrityError as e:
-            print(f"Error adding {service_name}: {e}")
+            LOGGER.error("Error adding %s: %s", service_name, e)

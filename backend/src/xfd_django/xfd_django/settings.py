@@ -11,17 +11,23 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
 # Standard Python Libraries
+import logging.config
 import mimetypes
 import os
 
 # Python built-in
 from pathlib import Path
+from typing import Any, Dict
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.log_helpers import install_xfd_prefix
+
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
+
+install_xfd_prefix()  # Install custom logger prefix
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -36,6 +42,8 @@ CROSSFEED_SUPPORT_EMAIL_REPLYTO = os.getenv("CROSSFEED_SUPPORT_EMAIL_REPLYTO")
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
 IS_LOCAL = os.getenv("IS_LOCAL")
 NIST_API_KEY = os.getenv("NIST_API_KEY")
+IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
+IS_FARGATE = os.getenv("ECS_CONTAINER_METADATA_URI") is not None
 
 # JWT Secret Key
 JWT_SECRET = os.getenv("JWT_SECRET")
@@ -48,8 +56,10 @@ DEBUG = IS_LOCAL != "false"
 ALLOWED_HOSTS = [
     ".execute-api.us-east-1.amazonaws.com",
     os.getenv("BACKEND_DOMAIN"),
-    os.getenv("REACT_APP_API_URL"),
+    os.getenv("VITE_API_URL"),
     os.getenv("FRONTEND_DOMAIN"),
+    os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
+    os.getenv("CROSSFEED_BACKEND_DOMAIN"),
 ]
 
 MESSAGE_TAGS = {
@@ -76,6 +86,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
 ]
+
+ALLOWED_ADMIN_ROLES = ["globalView", "globalAdmin", "regionalAdmin"]
 
 
 # Database
@@ -130,6 +142,111 @@ ELASTICSEARCH_ENDPOINT = os.getenv("ELASTICSEARCH_ENDPOINT")
 
 LANGUAGE_CODE = "en-us"
 
+# Log Level defaults to INFO, can be changed to DEBUG in development
+LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
+ROOT_LEVEL = "INFO"
+# Logging configuration
+handlers: Dict[str, Any] = {
+    "console": {
+        "level": LOGGING_LEVEL,
+        "class": "logging.StreamHandler",
+        "formatter": "standard",
+    }
+}
+
+
+def _env_handlers(requests: bool = False) -> list[str]:
+    """
+    Return appropriate logging handlers based on environment.
+
+    - Uses CloudWatch if running in Lambda and not local.
+    - Otherwise falls back to console logging.
+    - `requests=True` will select the requests-specific CloudWatch handler.
+    """
+    if IS_LAMBDA and not IS_LOCAL:
+        return ["requests_cloudwatch"] if requests else ["app_cloudwatch"]
+    return ["console"]
+
+
+# Add CloudWatch handlers if in Lambda
+if IS_LAMBDA and not IS_LOCAL:
+    # Third-Party Libraries
+    import boto3
+
+    AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+    STAGE = os.getenv("STAGE", "dev")
+    logs_client = boto3.client("logs", region_name=AWS_REGION)
+
+    handlers.update(
+        {
+            "app_cloudwatch": {
+                "level": LOGGING_LEVEL,
+                "class": "watchtower.CloudWatchLogHandler",
+                "formatter": "standard",
+                "boto3_client": logs_client,
+                "log_group_name": "cyhy-{}-backend-api".format(STAGE),
+                "stream_name": "{machine_name}/{logger_name}/{process_id}",
+                "use_queues": False,
+            },
+            "requests_cloudwatch": {
+                "level": "INFO",
+                "class": "watchtower.CloudWatchLogHandler",
+                "formatter": "standard",
+                "boto3_client": logs_client,
+                "log_group_name": "cyhy-{}-backend-api-requests".format(STAGE),
+                "stream_name": "{machine_name}/{logger_name}/{process_id}",
+                "use_queues": False,
+            },
+        }
+    )
+
+# TODO: CRASM-3282
+# Consider using JSON formatter instead
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": handlers,
+    "root": {
+        "handlers": ["console"] if not IS_LAMBDA else [],
+        "level": "WARNING" if IS_LAMBDA else ROOT_LEVEL,
+    },
+    "loggers": {
+        # Catch-all for your project namespace
+        "xfd": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        # Explicitly route sibling loggers (your modules) into CloudWatch
+        "xfd_api": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        "xfd_mini_dl": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        # Request logs stay separate
+        "fastapi.requests": {
+            "handlers": _env_handlers(),
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
+# Apply the logging configuration
+LOGGING_CONFIG = None
+logging.config.dictConfig(LOGGING)
+
 TIME_ZONE = "UTC"
 
 USE_I18N = True
@@ -168,6 +285,16 @@ DMZ_API_HEADER = {
     "access_token": os.getenv("PE_API_KEY"),
     "Content-Type": "",
 }
+# Awaiting implementation of Matomo CSP, uncomment when ready
+MATOMO_CONTENT_SECURITY_POLICY = {
+    "default-src": ["*", "'unsafe-inline'", "'unsafe-eval'"],
+    "connect-src": ["*"],
+    "img-src": ["*"],
+    "style-src": ["*", "'unsafe-inline'"],
+    "frame-ancestors": ["*"],
+    "frame-src": ["*"],
+}
+
 
 # SECURITY CONFIGURATION
 SECURE_HSTS_SECONDS = 31536000  # Enable HSTS for 1 year
@@ -182,6 +309,7 @@ SECURE_CSP_POLICY = {
         "'self'",
         os.getenv("COGNITO_URL"),
         os.getenv("BACKEND_DOMAIN"),
+        os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
     ],
     "frame-src": ["'self'", "https://www.dhs.gov/ntas/"],
@@ -189,6 +317,7 @@ SECURE_CSP_POLICY = {
         "'self'",
         "data:",
         os.getenv("FRONTEND_DOMAIN"),
+        os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
         "https://www.ssa.gov",
         "https://www.dhs.gov",
         "https://fastapi.tiangolo.com/img/favicon.png",
@@ -197,6 +326,7 @@ SECURE_CSP_POLICY = {
     "script-src": [
         "'self'",
         os.getenv("BACKEND_DOMAIN"),
+        os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
         "https://www.ssa.gov/accessibility/andi/fandi.js",
         "https://www.ssa.gov/accessibility/andi/andi.js",

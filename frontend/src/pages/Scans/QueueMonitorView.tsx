@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuthContext } from 'context';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Stack } from '@mui/system';
-import { Alert, Button as MuiButton, Paper } from '@mui/material';
+import { Alert, Box, Button as MuiButton, Paper } from '@mui/material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Queue {
   name: string;
@@ -18,7 +19,7 @@ const QueueMonitorView: React.FC = () => {
 
   const fetchQueues = useCallback(async () => {
     try {
-      const { result } = await apiPost('/queues/search', { body: {} });
+      const { result } = await apiPost(ENDPOINTS.QUEUES_SEARCH, { body: {} });
 
       // Ensure each queue has a unique 'id' (using its name)
       const queuesWithId = result.map((queue: Queue) => ({
@@ -38,10 +39,58 @@ const QueueMonitorView: React.FC = () => {
   }, [fetchQueues]);
 
   const queueColumns: GridColDef[] = [
-    { field: 'name', headerName: 'Queue Name', flex: 2 },
-    { field: 'messages_available', headerName: 'Available', flex: 1 },
-    { field: 'messages_in_flight', headerName: 'In-Flight', flex: 1 },
-    { field: 'messages_delayed', headerName: 'Delayed', flex: 1 }
+    {
+      field: 'name',
+      headerName: 'Queue Name',
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component={'span'}
+          aria-label={`Queue Name for ${cellValues.row.id}: ${cellValues.row.name}`}
+        >
+          {cellValues.row.name}
+        </Box>
+      )
+    },
+    {
+      field: 'messages_available',
+      headerName: 'Available',
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component={'span'}
+          aria-label={`Messages Available for ${cellValues.row.id}: ${cellValues.row.messagesAvailable}`}
+        >
+          {cellValues.row.messagesAvailable}
+        </Box>
+      )
+    },
+    {
+      field: 'messages_in_flight',
+      headerName: 'In-Flight',
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component={'span'}
+          aria-label={`Messages In-Flight for ${cellValues.row.id}: ${cellValues.row.messagesInFlight}`}
+        >
+          {cellValues.row.messagesInFlight}
+        </Box>
+      )
+    },
+    {
+      field: 'messages_delayed',
+      headerName: 'Delayed',
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component={'span'}
+          aria-label={`Messages Delayed for ${cellValues.row.id}: ${cellValues.row.messagesDelayed}`}
+        >
+          {cellValues.row.messagesDelayed}
+        </Box>
+      )
+    }
   ];
 
   return (
@@ -56,7 +105,8 @@ const QueueMonitorView: React.FC = () => {
         <DataGrid
           rows={queues}
           columns={queueColumns}
-          pageSizeOptions={[10, 25]}
+          pageSizeOptions={[10, 25, 100]}
+          disableRowSelectionOnClick
         />
       </Paper>
     </>

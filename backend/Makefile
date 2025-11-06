@@ -23,7 +23,10 @@ syncmdl-populate:
 syncmdl-dangerously-force:
 	docker compose exec backend python manage.py syncmdl --dangerouslyforce
 
-# Syncronize the secondary database
+syncmdl-metrics:
+	docker compose exec backend python manage.py syncmdl --metrics
+
+# Synchronize the secondary database
 syncmdl_secondary:
 	docker compose exec backend python manage.py syncmdl_secondary
 
@@ -56,3 +59,7 @@ populate-cache:
 # Run scan execution locally with RabbitMQ and Docker
 local-scan-execution:
 	docker compose exec backend python manage.py local_scan_execution --scan-type=dnstwist --desired-count=1 --org-list="National Science Foundation (NSF) - CISA"
+
+#Create local dev api key. ONLY run this after initial login, since that is when the user(user is tied to api_key) is created
+generate-dev-api-key:
+	docker compose exec backend python manage.py generate_dev_api_key

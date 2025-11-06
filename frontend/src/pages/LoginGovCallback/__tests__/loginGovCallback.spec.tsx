@@ -1,15 +1,17 @@
 import React from 'react';
 import { render, waitFor } from 'test-utils';
+import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { LoginGovCallback } from '../LoginGovCallback';
+import { ENDPOINTS } from '@/constants/endpoints';
 
-jest.spyOn(Storage.prototype, 'getItem');
-const mockGetItem = jest.mocked(localStorage.getItem);
+vi.spyOn(Storage.prototype, 'getItem');
+const mockGetItem = vi.mocked(localStorage.getItem);
 
-jest.spyOn(Storage.prototype, 'removeItem');
-const mockRemoveItem = jest.mocked(localStorage.removeItem);
+vi.spyOn(Storage.prototype, 'removeItem');
+const mockRemoveItem = vi.mocked(localStorage.removeItem);
 
-const mockPost = jest.fn();
-const mockLogin = jest.fn();
+const mockPost = vi.fn();
+const mockLogin = vi.fn();
 const { location: originalLocation } = window;
 
 beforeAll(() => {
@@ -31,7 +33,7 @@ afterAll(() => {
     configurable: true,
     value: originalLocation
   });
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 const renderMocked = () => {
@@ -58,7 +60,7 @@ it('can handle successful OAuth callback', async () => {
 
   await waitFor(() => {
     expect(mockPost).toHaveBeenCalledTimes(1);
-    expect(mockPost.mock.calls[0][0]).toEqual('/auth/callback');
+    expect(mockPost.mock.calls[0][0]).toEqual(ENDPOINTS.V1_CALLBACK);
     expect(mockPost.mock.calls[0][1]).toMatchObject({
       body: {
         state: 'fake_oauth_state',

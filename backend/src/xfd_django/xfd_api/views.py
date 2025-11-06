@@ -1,10 +1,11 @@
 """This module defines the API endpoints for the FastAPI application."""
 # Standard Python Libraries
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 import hashlib
 import json
+import logging
 import os
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 
 # Third-Party Libraries
@@ -13,21 +14,25 @@ from fastapi import (
     Body,
     Depends,
     HTTPException,
+    Path,
     Query,
     Request,
     Response,
     status,
 )
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from redis import asyncio as aioredis
 import xfd_api.api_methods.dmz_sync as cybersix_module
 from xfd_api.auth import is_global_write_admin
+
+# xfd_api helpers
+from xfd_api.helpers.checksum_response import build_checksum_response
 from xfd_mini_dl.models import User
 
-# from .schemas import Cpe
 from .api_methods import api_key as api_key_methods
 from .api_methods import dmz_sync as dmz_sync_methods
+from .api_methods import matomo_proxy_handler
 from .api_methods import notification as notification_methods
 from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_check_ip
@@ -36,6 +41,13 @@ from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.dns_twist_sync import dns_twist_sync_post
 from .api_methods.domain import export_domains, get_domain_by_id, search_domains
+from .api_methods.export import export
+from .api_methods.export_customer_metrics import export_customer_metrics
+from .api_methods.metrics import (
+    default_metrics_window,
+    get_scan_daily_status_counts,
+    list_scans_org_count_by_status,
+)
 from .api_methods.object_store import get_object_store_presigned_url
 from .api_methods.pshtt_sync import pshtt_sync_post
 from .api_methods.queue_monitoring import list_queues
@@ -55,6 +67,7 @@ from .api_methods.stats import (
     get_stats_comparison_data,
     get_user_ports_count,
     get_user_services_count,
+    get_v2_trending_data,
     get_vs_condensed_trending_data,
     get_vs_trending_data,
     stats_latest_vulns,
@@ -78,12 +91,19 @@ from .api_methods.vulnerability import (
     get_vulnerability_by_id,
     get_vulnerability_by_scan_source_and_id,
     search_vulnerabilities,
+    v2_get_vulnerability_by_id,
+)
+from .api_methods.was_sync import (
+    get_all_was_scan_summaries,
+    get_was_findings_queryset,
+    paginate_queryset,
 )
 from .api_methods.xpanse_sync import xpanse_sync_post
 from .auth import (
     get_current_active_user,
     get_current_active_user_unsafe,
     handle_okta_callback,
+    sign_oauth_data,
 )
 from .login_gov import callback
 from .schema_models import organization_schema as OrganizationSchema
@@ -106,6 +126,11 @@ from .schema_models.dmz_sync import (
 )
 from .schema_models.dns_twist_sync import DnsTwistSyncBody, DnsTwistSyncResponse
 from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
+from .schema_models.export import ExportPayload, ExportResponse
+from .schema_models.metrics import (
+    GetScanDailyStatusCountsResponse,
+    ListScansOrgCountByStatusResponse,
+)
 from .schema_models.notification import CreateNotificationSchema
 from .schema_models.notification import Notification as NotificationSchema
 from .schema_models.object_store import (
@@ -138,11 +163,20 @@ from .schema_models.user_log_schema import (
 )
 from .schema_models.vulnerability import (
     CredBreachVulnerabilityResponse,
+    GetV2VulnerabilityResponse,
+    GetVulnerabilityByIdRequest,
     GetVulnerabilityResponse,
     ShodanVulnerabiltyResponse,
     VsVulnerabilityResponse,
+    VulnByIdRequest,
     VulnerabilitySearch,
     VulnerabilitySearchResponse,
+)
+from .schema_models.was_sync import (
+    GetAllWasFindingsResponse,
+    GetWasScanSummariesResponse,
+    WasFinding,
+    WasScanSummarySchema,
 )
 from .tools.serializers import serialize_organization, serialize_user
 from .tools.user_logger_decorator import (
@@ -150,6 +184,8 @@ from .tools.user_logger_decorator import (
     get_user_sync,
     log_action,
 )
+
+LOGGER = logging.getLogger(__name__)
 
 # Define API router
 api_router = APIRouter()
@@ -165,45 +201,26 @@ async def get_redis_client(request: Request):
 # ========================================
 #   Analytic Endpoints
 # ========================================
+MatomoResponse = Dict[str, Any]
 
 
 # Matomo Proxy
 @api_router.api_route(
     "/matomo/{path:path}",
-    dependencies=[Depends(get_current_active_user)],
+    methods=["GET", "POST"],
+    response_model=Optional[MatomoResponse],
     tags=["Analytics"],
 )
 async def matomo_proxy(
     path: str, request: Request, current_user: User = Depends(get_current_active_user)
 ):
     """Proxy requests to the Matomo analytics instance."""
-    # Public paths -- directly allowed
-    allowed_paths = ["/matomo.php", "/matomo.js"]
-    if any(
-        [request.url.path.startswith(allowed_path) for allowed_path in allowed_paths]
-    ):
-        return await proxy.proxy_request(path, request, os.getenv("MATOMO_URL"))
-
-    # Redirects for specific font files
-    if request.url.path in [
-        "/plugins/Morpheus/fonts/matomo.woff2",
-        "/plugins/Morpheus/fonts/matomo.woff",
-        "/plugins/Morpheus/fonts/matomo.ttf",
-    ]:
-        return RedirectResponse(
-            url="https://cdn.jsdelivr.net/gh/matomo-org/matomo@5.2.1{}".format(
-                request.url.path
-            )
-        )
-
-    # Ensure only global admin can access other paths
-    if current_user.user_type != "globalAdmin":
+    MATOMO_URL = os.getenv("VITE_MATOMO_URL", "")
+    if current_user.user_type not in ["globalAdmin"]:
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Handle the proxy request to Matomo
-    return await proxy.proxy_request(
-        request, os.getenv("MATOMO_URL", ""), path, cookie_name="MATOMO_SESSID"
-    )
+    return await matomo_proxy_handler.matomo_proxy_request(request, MATOMO_URL, path)
 
 
 # P&E Proxy
@@ -288,6 +305,18 @@ async def callback_route(request: Request):
         raise HTTPException(status_code=400, detail=str(error))
 
 
+# Return signed OAuth metadata
+@api_router.post("/auth/get-oauth-meta", tags=["Auth"])
+async def get_oauth_meta(payload: dict):
+    """Return signed OAuth metadata."""
+    state = payload.get("state")
+    code_verifier = payload.get("code_verifier")
+    if not state or not code_verifier:
+        raise HTTPException(status_code=400, detail="Missing parameters")
+    signed_token = sign_oauth_data(state, code_verifier)
+    return {"signedToken": signed_token}
+
+
 # ========================================
 #   CPE Endpoints
 # ========================================
@@ -363,7 +392,7 @@ async def get_call_all_cves(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Unexpected error: {e}",
+            detail="Unexpected error: {}".format(e),
         )
 
     # serialize
@@ -386,6 +415,24 @@ async def get_call_all_cves(
         content=response_obj,
         headers={"X-Salted-Checksum": checksum},
     )
+
+
+# ========================================
+#   New Export Endpoint
+# ========================================
+
+
+@api_router.post(
+    "/export",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=ExportResponse,
+    tags=["Export"],
+)
+async def export_post(
+    request_body: ExportPayload, current_user: User = Depends(get_current_active_user)
+):
+    """Call export."""
+    return export(request_body, current_user)
 
 
 # ========================================
@@ -474,6 +521,89 @@ async def call_search_logs_filtered(
 
 
 # ========================================
+#   Metrics Dashboard Endpoints
+# ========================================
+
+
+@api_router.get(
+    "/metrics/customers",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=bytes,
+    responses={
+        200: {
+            "content": {"text/csv": {}},
+            "description": "CSV of CustomerMetrics for yesterday.",
+        }
+    },
+    tags=["Metrics"],
+)
+async def call_export_customer_metrics_csv(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Export yesterday's CustomerMetrics as CSV."""
+    if not is_global_write_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access."
+        )
+
+    try:
+        filename, payload = export_customer_metrics()
+        headers = {
+            "Content-Disposition": 'attachment; filename="{}"'.format(filename),
+            "Access-Control-Expose-Headers": "Content-Disposition",
+        }
+        return Response(content=payload, media_type="text/csv", headers=headers)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error exporting customer metrics CSV: {}".format(e),
+        )
+
+
+@api_router.get(
+    "/metrics/scans",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=ListScansOrgCountByStatusResponse,
+    tags=["metrics"],
+)
+async def call_list_scans_org_count_by_status(
+    window_days: int = default_metrics_window,
+    current_user: User = Depends(get_current_active_user),
+):
+    """List scans and annotate with metrics."""
+    try:
+        return list_scans_org_count_by_status(window_days, current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching scan metrics: {}".format(e),
+        )
+
+
+@api_router.get(
+    "/metrics/scans/{scan_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=GetScanDailyStatusCountsResponse,
+    tags=["metrics"],
+)
+async def call_get_scan_daily_status_counts(
+    scan_id: str,
+    window_days: int = default_metrics_window,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get daily http status counts for a specific scan."""
+    try:
+        return get_scan_daily_status_counts(scan_id, window_days, current_user)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error fetching daily status counts for scan {}: {}".format(
+                scan_id, e
+            ),
+        )
+
+
+# ========================================
 #   Notification Endpoints
 # ========================================
 
@@ -530,8 +660,8 @@ async def get_notification(
 
 
 # UPDATE BY ID
-@api_router.put(
-    "/notifications/{notification_id}",
+@api_router.post(
+    "/update_notification/{notification_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=NotificationSchema,
     tags=["Notifications"],
@@ -542,7 +672,7 @@ async def update_notification(
     current_user: User = Depends(get_current_active_user),
 ):
     """Update notification key by id."""
-    return notification_methods.put(notification_id, notification_data, current_user)
+    return notification_methods.update(notification_id, notification_data, current_user)
 
 
 # TODO: Adding placeholder until we determine if we still need this.
@@ -647,8 +777,8 @@ async def upsert_organization(
     return organization.upsert_organization(organization_data, current_user)
 
 
-@api_router.put(
-    "/organizations/{organization_id}",
+@api_router.post(
+    "/update_organization/{organization_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=OrganizationSchema.GetSingleOrganizationSchema,
     tags=["Organizations"],
@@ -761,19 +891,18 @@ async def update_granular_scan(
     )
 
 
-@api_router.get(
-    "/v2/organizations",
+@api_router.post(
+    "/v2/organizations/search",
     dependencies=[Depends(get_current_active_user)],
-    response_model=List[OrganizationSchema.GetOrganizationSchema],
+    response_model=OrganizationSchema.PaginatedOrganizationsResponse,
     tags=["Organizations"],
 )
-async def list_organizations_v2(
-    state: Optional[List[str]] = Query(None),
-    region_id: Optional[List[str]] = Query(None),
+async def search_organizations_v2(
+    payload: OrganizationSchema.OrganizationSearch,
     current_user: User = Depends(get_current_active_user),
 ):
-    """Retrieve a list of all organizations (version 2)."""
-    return organization.list_organizations_v2(state, region_id, current_user)
+    """Search organizations data grid."""
+    return organization.search_organizations_v2(payload, current_user)
 
 
 @api_router.post(
@@ -882,8 +1011,8 @@ async def call_get_saved_search(
 
 
 # Update saved search by ID
-@api_router.put(
-    "/saved-searches/{saved_search_id}",
+@api_router.post(
+    "/update_saved-searches/{saved_search_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=SavedSearchUpdate,
     tags=["Saved Searches"],
@@ -972,8 +1101,8 @@ async def get_scan(scan_id: str, current_user: User = Depends(get_current_active
     return scan.get_scan(scan_id, current_user)
 
 
-@api_router.put(
-    "/scans/{scan_id}",
+@api_router.post(
+    "/update_scan/{scan_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=scanSchema.CreateScanResponseModel,
     tags=["Scans"],
@@ -1139,7 +1268,7 @@ async def dns_twist_sync(
     try:
         return await dns_twist_sync_post(sync_body, request, current_user)
     except Exception as e:
-        print(e)
+        LOGGER.error("Error occurred during DNSTwist sync: %s", e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -1192,6 +1321,22 @@ async def get_vs_trending_stats(
 ):
     """Retrieve VS Summary data filtered by the user."""
     return get_vs_trending_data(filter_data.filters, current_user)
+
+
+@api_router.post(
+    "/v2/stats/trends",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=stat_schema.V2TrendResponse,
+    response_model_exclude_none=True,
+    tags=["Stats"],
+)
+async def get_v2_trending_stats(
+    filter_data: stat_schema.V2TrendStatsPayloadSchema,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Retrieve Summary data filtered by the user - V2."""
+    result = get_v2_trending_data(filter_data, current_user)
+    return result
 
 
 @api_router.post(
@@ -1465,8 +1610,8 @@ async def call_get_users_v2(
     return get_users_v2(state, region_id, invite_pending, current_user)
 
 
-@api_router.put(
-    "/v2/users/{user_id}",
+@api_router.post(
+    "/v2/update_user/{user_id}",
     dependencies=[Depends(get_current_active_user_unsafe)],
     response_model=UserResponseV2,
     tags=["Users"],
@@ -1480,7 +1625,7 @@ async def update_user_v2_view(
     return update_user_v2(user_id, user_data, current_user)
 
 
-@api_router.put(
+@api_router.post(
     "/users/{user_id}/register/approve",
     dependencies=[Depends(get_current_active_user)],
     response_model=RegisterUserResponse,
@@ -1504,7 +1649,7 @@ async def register_approve(
     return user.approve_user_registration(user_id, current_user)
 
 
-@api_router.put(
+@api_router.post(
     "/users/{user_id}/register/deny",
     dependencies=[Depends(get_current_active_user)],
     response_model=RegisterUserResponse,
@@ -1601,7 +1746,26 @@ async def call_get_vulnerability_by_id(
 
 
 @api_router.get(
-    "/vulnerabilities/{scan_source}/{vulnerability_id}",
+    "/v2/vulnerabilities/{vuln_id}",
+    dependencies=[Depends(get_current_active_user)],
+    response_model=GetV2VulnerabilityResponse,
+    tags=["Vulnerabilities"],
+)
+async def v2_call_get_vulnerability_by_id(
+    vuln_id: str = Path(..., description="Vulnerability ID"),
+    history: Optional[bool] = Query(False, description="Include ticket history"),
+    history_limit: Optional[int] = Query(
+        None, gt=0, description="Limit for scan history"
+    ),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Get vulnerability by id."""
+    request = VulnByIdRequest(history=history, history_limit=history_limit)
+    return v2_get_vulnerability_by_id(vuln_id, request, current_user)
+
+
+@api_router.get(
+    "/v2/vulnerability_details/{vulnerability_id}",
     dependencies=[Depends(get_current_active_user)],
     response_model=Union[
         CredBreachVulnerabilityResponse,
@@ -1611,13 +1775,22 @@ async def call_get_vulnerability_by_id(
     tags=["Vulnerabilities"],
 )
 async def get_vulnerability_by_source_id_route(
-    scan_source: str,
-    vulnerability_id: str,
+    vulnerability_id: str = Path(..., description="The ID of the vulnerability"),
+    scan_source: Optional[str] = Query(None, description="Scan source (e.g. shodan)"),
+    history: Optional[bool] = Query(False, description="Include ticket history"),
+    history_limit: Optional[int] = Query(
+        10, gt=0, description="Limit for scan history"
+    ),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Get vulnerability by id."""
+    """Get vulnerability details by Id: V2."""
+    request = GetVulnerabilityByIdRequest(
+        scan_source=scan_source, history=history, history_limit=history_limit
+    )
     return get_vulnerability_by_scan_source_and_id(
-        scan_source, vulnerability_id, current_user
+        vulnerability_id=vulnerability_id,
+        request=request,
+        current_user=current_user,
     )
 
 
@@ -1703,8 +1876,10 @@ async def get_call_all_cybersixgill(
     except HTTPException:
         raise
     except Exception as e:
+        LOGGER.error("Sync error: %s", e)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Sync error: {e}"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Sync error: {}".format(e),
         )
 
     # attach checksum header
@@ -1927,3 +2102,114 @@ def generate_presigned_object_store_url(
         ObjectStorePresignedUrlResponse: _description_
     """
     return get_object_store_presigned_url(current_user, body)
+
+
+# ==========================
+# WAS Scan Endpoints  #
+# ==========================
+
+
+# POST
+@api_router.post(
+    "/was_scan_summaries",
+    response_model=GetWasScanSummariesResponse,
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(get_current_active_user)],
+    tags=["WAS Scan Summaries"],
+)
+async def get_was_scan_summaries_endpoint(
+    response: Response,
+    page: int = Query(1, ge=1, description="Which page to fetch (1-indexed)."),
+    per_page: int = Query(100, ge=1, description="How many items per page."),
+):
+    """
+    Return paginated WAS scan summaries plus an X‑Salted‑Checksum header for integrity.
+
+    - `page` & `per_page` control pagination.
+    - Only authenticated users may call this.
+    """
+    try:
+        total_pages, records = await get_all_was_scan_summaries(
+            page=page,
+            per_page=per_page,
+        )
+    except Exception as error:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected error: {}".format(error),
+        )
+
+    # Serialize ORM objects to plain dicts
+    payload = [
+        WasScanSummarySchema.model_validate(record, from_attributes=True).model_dump()
+        for record in records
+    ]
+
+    response_body = {
+        "status": "ok",
+        "payload": jsonable_encoder(payload),
+        "total_pages": total_pages,
+        "current_page": page,
+    }
+
+    return build_checksum_response(response_body, response, status.HTTP_200_OK)
+
+
+# WAS Findings Sync
+@api_router.post(
+    "/dmz_sync/was_findings",
+    response_model=GetAllWasFindingsResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(get_current_active_user)],
+    tags=["WAS findings to sync to LZ db"],
+)
+async def get_call_all_was_findings(  # noqa: D401
+    response: Response,
+    current_user: User = Depends(get_current_active_user),
+    page: int = Query(1, ge=1, description="Which page to fetch (1-indexed)."),
+    per_page: int = Query(
+        200, ge=1, le=1000, description="How many items per page (max 1000)."
+    ),
+    since_date: date
+    | None = Query(
+        default=None,
+        description="Optional date filter (records last_detected >= this).",
+    ),
+):
+    """
+    Return paginated WAS findings plus an X-Salted-Checksum header for integrity.
+
+    Notes:
+    - Authorization is enforced via `is_global_write_admin`.
+    - Pagination is controlled by `page` and `per_page`.
+    - The response body is JSON-serializable and signed with a salted checksum header.
+    """
+    # Enforce write-admin access using the shared helper (no functional change)
+    if not is_global_write_admin(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Unauthorized access.",
+        )
+
+    try:
+        queryset = get_was_findings_queryset(since_date)
+        total_pages, records = paginate_queryset(queryset, page, per_page)
+    except Exception as error:
+        LOGGER.exception("Failed to build WAS findings page: %s", error)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unexpected error: {}".format(error),
+        ) from error
+
+    payload_items = [
+        WasFinding.model_validate(record, from_attributes=True) for record in records
+    ]
+    response_body = {
+        "status": "ok",
+        "payload": jsonable_encoder(payload_items),
+        "total_pages": total_pages,
+        "current_page": page,
+    }
+
+    # Keep the same 201 return and checksum behavior
+    return build_checksum_response(response_body, response, status.HTTP_201_CREATED)

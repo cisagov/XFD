@@ -345,7 +345,7 @@ def qualys_post_call(link, header, data, validate=True):
         return json.loads(response.json())
     if response.status_code != 200:
         LOGGER.error("Error Code: %s", response.status_code)
-        LOGGER.error(f"Request Headers: {response.request.headers}")
+        LOGGER.error("Request Headers: %s", response.request.headers)
         LOGGER.error(response.text)
         raise InvalidQualysCall
     responseJson = json.loads(response.text)

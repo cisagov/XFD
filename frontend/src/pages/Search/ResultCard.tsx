@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import { Box, Typography, ButtonBase } from '@mui/material';
 import { styled } from '@mui/material/styles';
-import { Result } from '../../context/SearchProvider';
+import { Result } from 'context/SearchProvider';
 // @ts-ignore:next-line
 import { parseISO, formatDistanceToNow } from 'date-fns';
 import DOMPurify from 'dompurify';
+import { ROUTES } from '@/constants/routes';
 
 // Sync this with the backend client in es-client.ts.
 export interface WebpageRecord {
@@ -109,7 +110,7 @@ export const ResultCard: React.FC<Props> = (props) => {
 
   const onClick = () => {
     onDomainSelected(id.raw);
-    history.push(`/inventory/domain/${id.raw}`);
+    history.push(ROUTES.DOMAIN.replace(':domainId', id.raw));
   };
 
   const ports = services.raw.reduce(
@@ -180,7 +181,7 @@ export const ResultCard: React.FC<Props> = (props) => {
 
   return (
     <StyledButtonBase
-      aria-label="view domain details"
+      aria-label={`View domain details for ${name.raw}`}
       tabIndex={0}
       onClick={onClick}
       onKeyDown={(e) => {

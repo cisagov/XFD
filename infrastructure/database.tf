@@ -13,8 +13,8 @@ resource "aws_db_subnet_group" "default" {
 }
 
 resource "aws_db_parameter_group" "default" {
-  name   = "crossfeed-${var.stage}-postgres15"
-  family = "postgres15"
+  name   = "crossfeed-${var.stage}-postgres17"
+  family = "postgres17"
 
   parameter {
     name  = "rds.force_ssl"
@@ -27,16 +27,20 @@ resource "aws_db_parameter_group" "default" {
 }
 
 resource "aws_db_instance" "db" {
-  identifier                          = var.db_name
-  instance_class                      = var.db_instance_class
-  allocated_storage                   = 1000
-  max_allocated_storage               = 10000
-  storage_type                        = "gp2"
-  engine                              = "postgres"
-  engine_version                      = "15.12"
-  allow_major_version_upgrade         = true
-  skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[0]
+  identifier                  = var.db_name
+  instance_class              = var.db_instance_class
+  allocated_storage           = 1000
+  max_allocated_storage       = 10000
+  storage_type                = "gp2"
+  engine                      = "postgres"
+  engine_version              = "17.6"
+  allow_major_version_upgrade = true
+  skip_final_snapshot         = true
+  availability_zone = (
+    var.stage == "staging"
+    ? data.aws_availability_zones.available.names[1]
+    : data.aws_availability_zones.available.names[0]
+  )
   multi_az                            = true
   backup_retention_period             = 35
   storage_encrypted                   = true
@@ -61,9 +65,9 @@ resource "aws_db_instance" "db" {
     ART            = "CISA-VM"
     POC            = "Lamar Steward   Craig Duhn"
     PocEmail       = "lamar.stewart@cisa.dhs.gov"
-    Name           = "crossfeed-stage-db"
+    Name           = "crossfeed-${var.stage}-db"
     BillingProject = "VM-Crossfeed"
-    workload-type  = "staging"
+    workload-type  = var.stage
   }
 }
 
@@ -566,4 +570,72 @@ resource "aws_s3_bucket_logging" "crossfeed-xpanse-org-sync" {
   bucket        = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
   target_bucket = aws_s3_bucket.logging_bucket.id
   target_prefix = "crossfeed-xpanse-org-sync/"
+}
+
+resource "aws_s3_bucket" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = var.zscaler_cert_bucket_name
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_s3_bucket_policy" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Sid" : "RequireSSLRequests",
+        "Action" : "s3:*",
+        "Effect" : "Deny",
+        "Principal" : "*",
+        "Resource" : [
+          aws_s3_bucket.zscaler_cert_bucket[0].arn,
+          "${aws_s3_bucket.zscaler_cert_bucket[0].arn}/*"
+        ],
+        "Condition" : {
+          "Bool" : {
+            "aws:SecureTransport" : "false"
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_s3_bucket_ownership_controls" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  rule {
+    object_ownership = "ObjectWriter"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_versioning" "zscaler_cert_bucket" {
+  count  = var.is_dmz ? 0 : 1
+  bucket = aws_s3_bucket.zscaler_cert_bucket[0].id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_logging" "zscaler_cert_bucket" {
+  count         = var.is_dmz ? 0 : 1
+  bucket        = aws_s3_bucket.zscaler_cert_bucket[0].id
+  target_bucket = aws_s3_bucket.logging_bucket.id
+  target_prefix = "zscaler_cert_bucket/"
 }

@@ -16,13 +16,14 @@ import {
 import { ExpandLess, ExpandMore, KeyboardBackspace } from '@mui/icons-material';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
-import { DefinitionList } from '../../components/DefinitionList';
+import { DefinitionList } from 'components/DefinitionList';
 // @ts-ignore:next-line
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';
 import { useAuthContext } from 'context';
-import { getSeverityColor } from 'pages/Risk/utils';
+import { getSeverityColor } from 'utils/getSeverityColor';
 import { Box } from '@mui/system';
+import { ROUTES } from '@/constants/routes';
 
 const PREFIX = 'DomainDetails';
 
@@ -404,7 +405,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                   onClick={(event) => {
                     event.stopPropagation();
                     if (vuln.state !== 'closed') {
-                      history.push('/inventory/vulnerability/' + vuln.id);
+                      history.push(
+                        ROUTES.VULNERABILITY.replace(
+                          ':vulnerabilityId',
+                          vuln.id
+                        )
+                      );
                     }
                   }}
                 >

@@ -4,26 +4,18 @@ import {
   Box,
   Button,
   Card,
-  CardActions,
   Grid,
   IconButton,
-  MenuItem,
   Paper,
-  Select,
-  Switch,
-  TextField,
   Typography
 } from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
 import {
   CheckCircleOutline,
   Delete,
   Edit,
-  ErrorOutline,
   InfoOutlined
 } from '@mui/icons-material';
 import {
-  DataGrid,
   gridClasses,
   GridColDef,
   GridRenderCellParams
@@ -39,6 +31,13 @@ import { useAuthContext } from 'context';
 import { initialNotificationValues, MaintenanceNotification } from 'types';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import NotificationForm from 'components/Notifications/NotificationForm';
+import NotificationTable from 'components/Notifications/NotificationTable';
+import { useSubmitForm } from '@/hooks/Notifications/useNotificationSubmit';
+import { useNotificationApiCall } from '@/hooks/Notifications/useNotificationApiCall';
+import { useNotificationAction } from '@/hooks/Notifications/useNotificationAction';
+import { useDeleteNotification } from '@/hooks/Notifications/useDeleteNotification';
+import { useFetchNotification } from '@/hooks/Notifications/useFetchNotification';
 
 const dateValidator = (
   startDateStr: string,
@@ -78,7 +77,7 @@ const initialInfoDialogValues = {
 };
 
 export const Notifications: React.FC = () => {
-  const { apiDelete, apiGet, apiPost, apiPut, user } = useAuthContext();
+  const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const [formValues, setFormValues] = React.useState<MaintenanceNotification>(
     initialNotificationValues
   );
@@ -105,31 +104,12 @@ export const Notifications: React.FC = () => {
     minHeight: { xs: '250px', md: 'unset' }
   };
 
-  const fetchNotifications = React.useCallback(async () => {
-    try {
-      const rows = await apiGet('/notifications');
-      let activeRow;
-      const inactiveRows: MaintenanceNotification[] = [];
-      for (const row of rows) {
-        if (row.status === 'active') {
-          activeRow = { ...row };
-        } else {
-          inactiveRows.push({ ...row });
-        }
-      }
-      if (activeRow) {
-        setActiveNotification(activeRow);
-      } else {
-        setActiveNotification(initialNotificationValues);
-      }
-      if (inactiveRows.length > 0) {
-        setInactiveNotifications(inactiveRows);
-      }
-    } catch (e: any) {
-      console.log(e);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiGet]);
+  const fetchNotifications = useFetchNotification(
+    apiGet,
+    setActiveNotification,
+    setInactiveNotifications,
+    initialNotificationValues
+  );
 
   React.useEffect(() => {
     fetchNotifications();
@@ -231,14 +211,6 @@ export const Notifications: React.FC = () => {
     }, 500); // 0.5 second delay
   };
 
-  const handleChange = (event: SelectChangeEvent | any) => {
-    setFormValues((values) => ({
-      ...values,
-      [event.target.name]: event.target.value
-    }));
-    setFormDisabled(false);
-  };
-
   const onSwitchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setChecked(event.target.checked);
     if (event.target.checked) {
@@ -255,333 +227,60 @@ export const Notifications: React.FC = () => {
     setFormDisabled(false);
   };
 
-  const handleApiCall = async (
-    apiCall: () => Promise<MaintenanceNotification>,
-    successMessage: string,
-    errorMessage: string
-  ) => {
-    try {
-      const notification = await apiCall();
-      setInfoDialogValues((prevState) => ({
-        ...prevState,
-        content: successMessage
-      }));
-      setInfoDialogToggle(true);
-      return notification;
-    } catch (e: any) {
-      console.error(e);
-      setInfoDialogValues({
-        icon: (
-          <ErrorOutline
-            color="error"
-            aria-label="an error icon that displays an outlined circle with a x in the center"
-            sx={{ fontSize: '80px' }}
-          />
-        ),
-        title: 'Error',
-        content: `${errorMessage} ${e.message}. Check the console log for more details.`
-      });
-      setInfoDialogToggle(true);
-      throw e;
-    }
-  };
-
-  const handleNotificationAction = async (
-    body: MaintenanceNotification,
-    apiType: string
-  ) => {
-    let notification;
-    try {
-      if (apiType === 'put') {
-        notification = await handleApiCall(
-          () => apiPut('/notifications/' + body.id, { body }),
-          'The notification was successfully updated.',
-          'The notification was not able to be updated.'
-        );
-      } else if (apiType === 'post') {
-        notification = await handleApiCall(
-          () => apiPost('/notifications/', { body }),
-          'The creation of the new notification was successful.',
-          'The creation of the new notification was unsuccessful.'
-        );
-      } else {
-        notification = await handleApiCall(
-          () => apiDelete('/notifications/' + body.id),
-          'The deletion of the notification was successful.',
-          'The deletion of the notification was unsuccessful.'
-        );
-      }
-    } catch (error) {
-      console.error('Error occurred during handleNotificationAction:', error);
-      throw error;
-    }
-    return notification;
-  };
-
-  const deleteNotification = async () => {
-    try {
-      await handleNotificationAction(rowToDelete, 'delete');
-      if (rowToDelete.status === 'active') {
-        setActiveNotification(initialNotificationValues);
-      } else {
-        setInactiveNotifications(
-          inactiveNotifications.filter((item) => item.id !== rowToDelete.id)
-        );
-      }
-    } catch (error) {
-      console.log('Error occurred during delete request:', error);
-    }
-  };
-
-  const submitForm = async (apiType: string) => {
-    const invalidDate = dateValidator(
-      formValues.start_datetime,
-      formValues.end_datetime
-    );
-    const body: MaintenanceNotification = {
-      id: formValues.id,
-      maintenance_type: formValues.maintenance_type,
-      status: formValues.status,
-      updated_by: user?.email || '',
-      message: formValues.message,
-      start_datetime: toUTC(formValues.start_datetime),
-      end_datetime: toUTC(formValues.end_datetime)
-    };
-    const newFormErrors = {
-      maintenance_type: !formValues.maintenance_type,
-      message: !formValues.message,
-      start_datetime: invalidDate[0],
-      end_datetime: invalidDate[0],
-      dateMessage: invalidDate[1]
-    };
-    setFormErrors(newFormErrors);
-    if (Object.values(newFormErrors).some((error) => error)) {
-      return;
-    }
-    if (body.status !== 'active') {
-      body.status = 'inactive';
-    }
-    if (apiType === 'put') {
-      try {
-        const notification = await handleNotificationAction(body, apiType);
-        // former active notification
-        if (body.id === activeNotification.id) {
-          if (notification.status === 'active') {
-            setActiveNotification({ ...notification });
-          } else {
-            setActiveNotification(initialNotificationValues);
-            setInactiveNotifications([...inactiveNotifications, notification]);
-          }
-          // former inactive notification
-        } else {
-          if (body.status === 'active') {
-            const updatedActiveNotification = {
-              ...activeNotification,
-              status: 'inactive'
-            };
-            if (updatedActiveNotification.id !== '1') {
-              const formerActiveNotification = await handleNotificationAction(
-                updatedActiveNotification,
-                'put'
-              );
-              setInactiveNotifications((prevNotifications) => {
-                const updatedNotifications = prevNotifications.filter(
-                  (row) => row.id !== body.id
-                );
-                return [...updatedNotifications, formerActiveNotification];
-              });
-            } else {
-              setInactiveNotifications(
-                inactiveNotifications.filter((item) => item.id !== body.id)
-              );
-            }
-            setActiveNotification(body);
-          } else {
-            setInactiveNotifications((prevInactiveNotifications) => {
-              return prevInactiveNotifications.map((notification) => {
-                if (notification.id === body.id) {
-                  return body;
-                } else {
-                  return notification;
-                }
-              });
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Error occurred during put request:', error);
-      }
-    }
-    if (apiType === 'post') {
-      try {
-        const notification = await handleNotificationAction(body, apiType);
-        if (notification.status === 'active') {
-          if (activeNotification.status === 'active') {
-            const updatedActiveNotification = {
-              ...activeNotification,
-              status: 'inactive'
-            };
-            await handleNotificationAction(updatedActiveNotification, 'put');
-            setInactiveNotifications([
-              ...inactiveNotifications,
-              updatedActiveNotification
-            ]);
-          }
-          setActiveNotification(notification);
-        } else {
-          setInactiveNotifications([...inactiveNotifications, notification]);
-        }
-      } catch (error) {
-        console.error('Error occurred during post request:', error);
-      }
-    }
-  };
-
-  const formContents = (
-    <Grid container spacing={1}>
-      <Grid size={{ xs: 12 }}>
-        <Typography variant="body1" pb={1}>
-          Maintenance Type
-        </Typography>
-        <Select
-          displayEmpty
-          size="small"
-          id="maintenance_type"
-          value={formValues.maintenance_type}
-          name="maintenance_type"
-          onChange={handleChange}
-          fullWidth
-          renderValue={
-            formValues.maintenance_type !== ''
-              ? undefined
-              : () => (
-                  <Typography color="#bdbdbd">
-                    Select a Maintenance Type
-                  </Typography>
-                )
-          }
-          error={formErrors.maintenance_type}
-        >
-          <MenuItem value="minor">
-            Minor maintenance: Login is available to all users.
-          </MenuItem>
-          <MenuItem value="major">
-            Major maintenance: Login is restricted to admins.
-          </MenuItem>
-        </Select>
-        {formErrors.maintenance_type && (
-          <Typography pl={2} variant="caption" color="error.main">
-            Maintenance type is required
-          </Typography>
-        )}
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <Typography variant="body1" pb={1} pt={2}>
-          Start Date and Time
-        </Typography>
-        <TextField
-          id="start_datetime"
-          name="start_datetime"
-          size="small"
-          fullWidth
-          type="datetime-local"
-          onChange={handleChange}
-          value={formValues.start_datetime}
-          error={formErrors.start_datetime}
-        />
-      </Grid>
-      <Grid size={{ xs: 12, md: 6 }}>
-        <Typography variant="body1" pb={1} pt={2}>
-          End Date and Time
-        </Typography>
-        <TextField
-          id="end_datetime"
-          name="end_datetime"
-          size="small"
-          fullWidth
-          type="datetime-local"
-          onChange={handleChange}
-          defaultValue={formValues.end_datetime}
-          error={formErrors.end_datetime}
-        />
-      </Grid>
-      <Grid size={{ xs: 12 }}>
-        {formErrors.dateMessage && (
-          <Typography pl={2} variant="caption" color="error.main">
-            {formErrors.dateMessage}
-          </Typography>
-        )}
-      </Grid>
-      <Grid size={{ xs: 12 }}>
-        <Typography variant="body2">
-          * Dates should be entered in US Eastern Time.
-        </Typography>
-      </Grid>
-      <Grid size={{ xs: 12 }}>
-        <Typography variant="body1" pt={2}>
-          Maintenance Message
-        </Typography>
-        <TextField
-          placeholder="Enter the Maintenance message to be displayed..."
-          size="small"
-          margin="dense"
-          id="message"
-          name="message"
-          multiline
-          variant="standard"
-          rows={5}
-          type="text"
-          fullWidth
-          value={formValues.message}
-          onChange={handleChange}
-          error={formErrors.message}
-          helperText={formErrors.message && 'Message is required'}
-        ></TextField>
-      </Grid>
-      <Grid size={{ xs: 12 }}>
-        <Typography variant="body1" pt={2}>
-          Status
-        </Typography>
-        <Switch onChange={onSwitchChange} checked={checked} sx={{ ml: -1 }} />
-        Active
-        <Typography variant="body2">
-          * Setting a notification to active will automatically replace the
-          current active notification.
-        </Typography>
-      </Grid>
-    </Grid>
+  const handleApiCall = useNotificationApiCall(
+    setInfoDialogValues,
+    setInfoDialogToggle
   );
-  const createNotificationCard = (
-    <Grid size={{ xs: 12, sm: 10, md: 8, lg: 7 }} mt={3}>
-      <Card sx={{ p: 3 }}>
-        <Typography variant="h6" pb={2} fontWeight="500">
-          Create a Notification
-        </Typography>
-        {formContents}
-        <CardActions>
-          <Button variant="outlined" sx={{ mt: 2 }} onClick={handleResetForm}>
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            sx={{ mt: 2 }}
-            onClick={() => submitForm('post')}
-          >
-            Submit
-          </Button>
-        </CardActions>
-      </Card>
-    </Grid>
-  );
+
+  const handleNotificationAction = useNotificationAction({
+    apiPost,
+    apiDelete,
+    handleApiCall
+  });
+
+  const deleteNotification = useDeleteNotification({
+    rowToDelete,
+    setActiveNotification,
+    setInactiveNotifications,
+    initialNotificationValues,
+    inactiveNotifications,
+    handleNotificationAction
+  });
+
+  const submitForm = useSubmitForm({
+    formValues,
+    setFormErrors,
+    setActiveNotification,
+    setInactiveNotifications,
+    initialNotificationValues,
+    activeNotification,
+    inactiveNotifications,
+    user: user ?? {},
+    handleNotificationAction,
+    dateValidator
+  });
 
   const confirmEditNotificationDialog = (
     <ConfirmDialog
       isOpen={formDialogToggle}
       onClose={() => setFormDialogToggle(false)}
-      onConfirm={() => submitForm('put')}
+      onConfirm={() => submitForm('update')}
       onCancel={handleResetForm}
       title={'Update Notification'}
-      content={formContents}
+      content={
+        <NotificationForm
+          formValues={formValues}
+          formErrors={formErrors}
+          checked={checked}
+          disabled={formDisabled}
+          onSwitchChange={onSwitchChange}
+          onCancel={handleResetForm}
+          onSubmit={() => submitForm('update')}
+          isEdit={true}
+          setFormValues={setFormValues}
+          setFormDisabled={setFormDisabled}
+        />
+      }
       disabled={formDisabled}
     />
   );
@@ -618,7 +317,27 @@ export const Notifications: React.FC = () => {
           </Button>
         </Box>
       </Grid>
-      {addBtnToggle && createNotificationCard}
+      {addBtnToggle && (
+        <Grid size={{ xs: 12, sm: 10, md: 8, lg: 7 }} mt={3}>
+          <Card sx={{ p: 3 }}>
+            <Typography variant="h6" pb={2} fontWeight="500">
+              Create a Notification
+            </Typography>
+            <NotificationForm
+              formValues={formValues}
+              formErrors={formErrors}
+              checked={checked}
+              disabled={formDisabled}
+              onSwitchChange={onSwitchChange}
+              onCancel={handleResetForm}
+              onSubmit={() => submitForm('post')}
+              isEdit={false}
+              setFormValues={setFormValues}
+              setFormDisabled={setFormDisabled}
+            />
+          </Card>
+        </Grid>
+      )}
       <Grid size={{ xs: 12 }} my={5}>
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" pb={2} fontWeight="500">
@@ -626,21 +345,21 @@ export const Notifications: React.FC = () => {
           </Typography>
           {activeNotification.status === 'active' ? (
             <>
-              <DataGrid
+              <NotificationTable
+                title="Active Notification"
                 rows={[activeNotification]}
                 columns={columns}
-                getRowHeight={() => 'auto'}
-                sx={tableStyling}
+                tableStyling={tableStyling}
                 hideFooterPagination={true}
-                disableRowSelectionOnClick
-              />
-              <Typography variant="body2" mt={1}>
-                * Only one notification can be active at a time and be shown on
-                the login screen.
-                <br />* Only admins will be able to login during major
-                maintenance. Login is unaffected for minor maintenance.
-                <br />* Dates are shown in US Eastern Time.
-              </Typography>
+              >
+                <Typography variant="body2" mt={1}>
+                  * Only one notification can be active at a time and be shown
+                  on the login screen.
+                  <br />* Only admins will be able to login during major
+                  maintenance. Login is unaffected for minor maintenance.
+                  <br />* Dates are shown in US Eastern Time.
+                </Typography>
+              </NotificationTable>
             </>
           ) : (
             <Alert
@@ -684,16 +403,16 @@ export const Notifications: React.FC = () => {
             </Alert>
           ) : (
             <>
-              <DataGrid
+              <NotificationTable
+                title="Inactive Notifications"
                 rows={inactiveNotifications}
                 columns={columns}
-                getRowHeight={() => 'auto'}
-                sx={tableStyling}
-                disableRowSelectionOnClick
-              />
-              <Typography variant="body2" mt={1}>
-                * Dates are shown in US Eastern Time.
-              </Typography>
+                tableStyling={tableStyling}
+              >
+                <Typography variant="body2" mt={1}>
+                  * Dates are shown in US Eastern Time.
+                </Typography>
+              </NotificationTable>
             </>
           )}
         </Paper>

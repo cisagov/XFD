@@ -91,7 +91,7 @@ def main(event):
                 else "http://backend:3000/pshtt_sync"
             )
             serialized_data = json.dumps({"data": chunk["chunk"]}, default=str)
-            print("Serialized data for chunk:", serialized_data)
+            LOGGER.info("Serialized data for chunk: %s", serialized_data)
             response = requests.post(
                 endpoint,
                 data=serialized_data,

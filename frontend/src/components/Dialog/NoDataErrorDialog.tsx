@@ -38,12 +38,8 @@ const NoDataErrorDialog: React.FC<NoDataErrorDialogProps> = ({
       onClose={handleClose}
       maxWidth="xs"
       fullWidth
-      PaperProps={{
-        sx: {
-          textAlign: 'center',
-          padding: '2rem',
-          borderRadius: 2
-        }
+      slotProps={{
+        paper: { sx: { textAlign: 'center', padding: '2rem', borderRadius: 2 } }
       }}
     >
       <IconButton

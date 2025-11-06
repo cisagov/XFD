@@ -2,12 +2,16 @@
 # Standard Python Libraries
 from collections import defaultdict
 import json
+import logging
 
 # Third-Party Libraries
 from django.conf import settings
 from django.db.models import Count
 import redis
 from xfd_mini_dl.models import Domain
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 async def safe_redis_mget(redis_client, redis_keys, redis_semaphore):
@@ -104,6 +108,7 @@ def populate_stats_cache(
         }
 
     except Exception as e:
+        LOGGER.error("Error populating stats cache: %s", e)
         return {
             "status": "error",
             "message": "An unexpected error occurred: {}".format(e),
@@ -118,5 +123,5 @@ async def get_total_count(filtered_org_ids):
         return total_count
 
     except Exception as e:
-        print("Unexpected error fetching total count: {}".format(e))
+        LOGGER.error("Unexpected error fetching total count: %s", e)
         return 0

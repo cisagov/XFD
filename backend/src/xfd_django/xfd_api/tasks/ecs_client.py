@@ -3,12 +3,16 @@
 # Standard Python Libraries
 from datetime import datetime, timezone
 import json
+import logging
 import os
+import time
 
 # Third-Party Libraries
 import boto3
 
 from ..schema_models.scan import SCAN_SCHEMA
+
+LOGGER = logging.getLogger(__name__)
 
 
 def to_snake_case(input_str):
@@ -44,7 +48,7 @@ class ECSClient:
         count = command_options.get("count", 1)  # Number of containers to launch
 
         if self.is_local:
-            print("In the local part of ecs run_command")
+            LOGGER.info("In the local part of ecs run_command")
             tasks = []
             for i in range(count):
                 try:
@@ -65,7 +69,7 @@ class ECSClient:
                             "CF_API_KEY": os.getenv("CF_API_KEY"),
                             "CHECKSUM_SALT": os.getenv("CHECKSUM_SALT"),
                             "PE_API_KEY": os.getenv("PE_API_KEY"),
-                            "DB_DIALECT": os.getenv("DB_DIALECT"),
+                            "DB_DIALECT": "postgres",
                             "DB_HOST": os.getenv("DB_HOST"),
                             "INTELX_KEY": os.getenv("INTELX_KEY"),
                             "IS_LOCAL": "true",
@@ -74,6 +78,7 @@ class ECSClient:
                             "DB_NAME": os.getenv("DB_NAME"),
                             "DB_USERNAME": os.getenv("DB_USERNAME"),
                             "DB_PASSWORD": os.getenv("DB_PASSWORD"),
+                            "MAX_SCAN_DAYS": os.getenv("MAX_SCAN_DAYS"),
                             "MDL_NAME": os.getenv("MDL_NAME"),
                             "MDL_SECONDARY_NAME": os.getenv("MDL_SECONDARY_NAME"),
                             "MDL_USERNAME": os.getenv("MDL_USERNAME"),
@@ -87,6 +92,8 @@ class ECSClient:
                             "WORKER_USER_AGENT": os.getenv("WORKER_USER_AGENT"),
                             "SHODAN_API_KEY": command_options["SHODAN_API_KEY"],
                             "PE_SHODAN_API_KEYS": os.getenv("PE_SHODAN_API_KEYS"),
+                            "QUALYS_USERNAME": os.getenv("QUALYS_USERNAME"),
+                            "QUALYS_PASSWORD": os.getenv("QUALYS_PASSWORD"),
                             "WHOIS_XML_KEY": os.getenv("WHOIS_XML_KEY"),
                             "WHOIS_XML_THREAD_COUNT": os.getenv(
                                 "WHOIS_XML_THREAD_COUNT"
@@ -118,9 +125,9 @@ class ECSClient:
                         detach=True,
                     )
                     tasks.append({"taskArn": container.name})
-                    print("Started local container: {}".format(container_name))
+                    LOGGER.info("Started local container: %s", container_name)
                 except Exception as e:
-                    print("Error starting local container {}: {}".format(i, e))
+                    LOGGER.error("Error starting local container %d: %s", i, e)
                     return {"tasks": tasks, "failures": [{"error": str(e)}]}
             return {"tasks": tasks, "failures": []}
 
@@ -144,13 +151,6 @@ class ECSClient:
                 "value": command_options.get("SHODAN_API_KEY") or "",
             },
         ]
-
-        # Conditionally add NO_PROXY
-        if os.getenv("IS_DMZ") == "0":
-            container_env.append(
-                {"name": "HTTPS_PROXY", "value": os.getenv("LZ_PROXY_URL")}
-            )
-            print("Adding the HTTPS_PROXY")
 
         response = self.ecs.run_task(
             cluster=os.getenv("FARGATE_CLUSTER_NAME"),
@@ -225,3 +225,26 @@ class ECSClient:
             cluster=os.getenv("FARGATE_CLUSTER_NAME"), launchType="FARGATE"
         )
         return len(tasks.get("taskArns", []))
+
+    def wait_for_tasks_completion(
+        self, task_arns, poll_interval=30, timeout=60 * 60 * 24  # 1 day
+    ):
+        """Poll ECS tasks until all are stopped or timeout reached."""
+        start_time = time.time()
+        remaining_tasks = set(task_arns)
+
+        while remaining_tasks:
+            if time.time() - start_time > timeout:
+                LOGGER.error("Timeout waiting for ECS tasks to complete.")
+                break
+
+            response = self.client.describe_tasks(
+                cluster=os.getenv("FARGATE_CLUSTER_NAME"),
+                tasks=list(remaining_tasks),
+            )
+            for task in response.get("tasks", []):
+                if task["lastStatus"] == "STOPPED":
+                    remaining_tasks.discard(task["taskArn"])
+
+            LOGGER.info("Waiting for %d tasks to finish...", len(remaining_tasks))
+            time.sleep(poll_interval)

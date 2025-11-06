@@ -16,8 +16,15 @@ client = TestClient(app)
 PUBLIC_ENDPOINTS = {
     ("POST", "/auth/okta-callback"),
     ("POST", "/auth/callback"),
+    ("POST", "/auth/get-oauth-meta"),
     ("GET", "/notifications"),
     ("GET", "/healthcheck"),
+    ("GET", "/plugins/Morpheus/images/logo.svg"),
+    ("GET", "/index.php"),
+    ("GET", "/matomo/{path:path}"),  # Matomo public endpoints
+    ("PUT", "/matomo/{path:path}"),  # Matomo public endpoints
+    ("POST", "/matomo/{path:path}"),  # Matomo public endpoints
+    ("DELETE", "/matomo/{path:path}"),  # Matomo public endpoints
 }
 
 # HTTP methods to test
@@ -48,7 +55,12 @@ def test_endpoints_require_auth(method, route):
 # TODO: Create response models for any endpoints excluded here that need them
 EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("GET", "/healthcheck"),
+    ("GET", "/plugins/Morpheus/images/logo.svg"),
+    ("GET", "/index.php"),
     ("GET", "/matomo/{path:path}"),
+    ("PUT", "/matomo/{path:path}"),
+    ("POST", "/matomo/{path:path}"),
+    ("DELETE", "/matomo/{path:path}"),
     ("GET", "/pe/{path:path}"),
     ("PUT", "/pe/{path:path}"),
     ("POST", "/pe/{path:path}"),
@@ -57,6 +69,7 @@ EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("DELETE", "/api-keys/{api_key_id}"),
     ("POST", "/auth/callback"),
     ("POST", "/auth/okta-callback"),
+    ("POST", "/auth/get-oauth-meta"),
     ("POST", "/domain/export"),
     ("POST", "/vulnerabilities/export"),
     ("DELETE", "/notifications/{notification_id}"),
@@ -101,8 +114,13 @@ api_routes_test = [
 
 # Exclusion List: API calls we do NOT require tests for**
 EXCLUDED_ENDPOINTS_TESTS = {
-    ("GET", "/healthcheck"),  # Test not needed
+    ("GET", "/plugins/Morpheus/images/logo.svg"),  # Test not needed
+    ("GET", "/index.php"),  # Test not needed
     ("GET", "/matomo/{path:path}"),  # TODO
+    ("PUT", "/matomo/{path:path}"),
+    ("POST", "/matomo/{path:path}"),  # Matomo public endpoints
+    ("DELETE", "/matomo/{path:path}"),  # Matomo public endpoints
+    ("GET", "/healthcheck"),  # Test not needed
     ("GET", "/pe/{path:path}"),  # Tested
     ("PUT", "/pe/{path:path}"),  # Tested
     ("POST", "/pe/{path:path}"),  # Tested

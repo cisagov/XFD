@@ -2,13 +2,23 @@
 
 # Standard Python Libraries
 import json
+import logging
 import re
 from typing import Any, Dict, List
 
 # Third-Party Libraries
+from django.core.paginator import Paginator
 from django.db.models import Q
-from fastapi import HTTPException
-from xfd_mini_dl.models import Organization, OrganizationTag, Role, Scan, ScanTask, User
+from fastapi import HTTPException, status
+from xfd_mini_dl.models import (
+    Organization,
+    OrganizationTag,
+    Role,
+    Scan,
+    ScanTask,
+    User,
+    UserType,
+)
 
 from ..auth import (
     get_org_memberships,
@@ -16,29 +26,30 @@ from ..auth import (
     is_global_write_admin,
     is_org_admin,
     is_regional_admin,
-    is_regional_admin_for_organization,
-    matches_user_region,
 )
+from ..helpers.filter_helpers import apply_organization_filters
 from ..helpers.regionStateMap import REGION_STATE_MAP
 from ..helpers.uuid_helpers import is_valid_uuid
 from ..schema_models import organization_schema
 from ..tasks.es_client import ESClient
 from ..tools.serializers import serialize_role
 
+LOGGER = logging.getLogger(__name__)
+
 
 # GET: /organizations
 def list_organizations(current_user):
     """List organizations that the user is a member of or has access to."""
     try:
-        # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
-            current_user
-        ):
+        # Check if user is GlobalViewAdmin or Regional Admin or has memberships
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
             return []
 
         # Define filter for organizations based on admin status
         org_filter = {}
-        if not is_global_view_admin(current_user):
+        if not (is_global_view_admin(current_user) or is_regional_admin(current_user)):
             org_filter["id__in"] = get_org_memberships(current_user)
         org_filter["parent"] = None
 
@@ -89,8 +100,8 @@ def list_organizations(current_user):
         return organization_list
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while listing organizations: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # GET: /organizations/tags
@@ -98,7 +109,7 @@ def get_tags(current_user):
     """Fetch all possible organization tags."""
     try:
         # Check if user is a global admin
-        if not is_global_view_admin(current_user):
+        if not (is_global_view_admin(current_user) or is_regional_admin(current_user)):
             return []
 
         # Fetch organization tags
@@ -119,7 +130,7 @@ def get_organization(organization_id, current_user):
         if not (
             is_org_admin(current_user, organization_id)
             or is_global_view_admin(current_user)
-            or is_regional_admin_for_organization(current_user, organization_id)
+            or is_regional_admin(current_user)
         ):
             raise HTTPException(status_code=403, detail="Unauthorized")
 
@@ -167,14 +178,16 @@ def get_organization(organization_id, current_user):
             "county": organization.county,
             "county_fips": organization.county_fips,
             "type": organization.type,
-            "created_by": {
-                "id": str(organization.created_by.id),
-                "first_name": organization.created_by.first_name,
-                "last_name": organization.created_by.last_name,
-                "email": organization.created_by.email,
-            }
-            if organization.created_by
-            else None,
+            "created_by": (
+                {
+                    "id": str(organization.created_by.id),
+                    "first_name": organization.created_by.first_name,
+                    "last_name": organization.created_by.last_name,
+                    "email": organization.created_by.email,
+                }
+                if organization.created_by
+                else None
+            ),
             "user_roles": [
                 {
                     "id": str(role.id),
@@ -215,12 +228,14 @@ def get_organization(organization_id, current_user):
                 }
                 for tag in organization.tags.all()
             ],
-            "parent": {
-                "id": str(organization.parent.id),
-                "name": organization.parent.name,
-            }
-            if organization.parent
-            else None,
+            "parent": (
+                {
+                    "id": str(organization.parent.id),
+                    "name": organization.parent.name,
+                }
+                if organization.parent
+                else None
+            ),
             "children": [
                 {"id": str(child.id), "name": child.name}
                 for child in organization.children.all()
@@ -229,9 +244,11 @@ def get_organization(organization_id, current_user):
                 {
                     "id": str(task.id),
                     "created_at": task.created_at.isoformat(),
-                    "scan": {"id": str(task.scan.id), "name": task.scan.name}
-                    if task.scan
-                    else None,
+                    "scan": (
+                        {"id": str(task.scan.id), "name": task.scan.name}
+                        if task.scan
+                        else None
+                    ),
                 }
                 for task in scan_tasks
             ],
@@ -243,8 +260,10 @@ def get_organization(organization_id, current_user):
         raise http_exc
 
     except Exception as e:
-        print("An error occurred: {}".format(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception("An error occurred: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 # GET: /organizations/state/{state}
@@ -288,7 +307,12 @@ def get_by_state(state, current_user):
 def get_by_region(region_id, current_user):
     """List organizations with specific region_id."""
     # Check if the current user is a regional admin
-    if not is_regional_admin(current_user):
+    if not is_regional_admin(current_user) and not is_global_view_admin(current_user):
+        LOGGER.warning(
+            "Unauthorized access for user %s due to insufficient permissions for type: %s",
+            current_user.id,
+            current_user.user_type,
+        )
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch organizations based on the provided state
@@ -325,10 +349,10 @@ def get_by_region(region_id, current_user):
 def get_all_regions(current_user):
     """Get all regions."""
     try:
-        # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
-            current_user
-        ):
+        # Check if user is GlobalViewAdmin or RegionalAdmin or has memberships
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
             raise HTTPException(status_code=403, detail="Unauthorized")
 
         # Fetch distinct region_id values
@@ -438,12 +462,14 @@ def create_organization(organization_data, current_user):
                 }
                 for tag in organization.tags.all()
             ],
-            "parent": {
-                "id": str(organization.parent.id),
-                "name": organization.parent.name,
-            }
-            if organization.parent
-            else {},
+            "parent": (
+                {
+                    "id": str(organization.parent.id),
+                    "name": organization.parent.name,
+                }
+                if organization.parent
+                else {}
+            ),
         }
 
     except HTTPException as http_exc:
@@ -451,8 +477,8 @@ def create_organization(organization_data, current_user):
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Parent organization not found")
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while creating organization: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /organizations_upsert
@@ -460,7 +486,7 @@ def upsert_organization(organization_data, current_user):
     """Create a new organization or update it if it already exists."""
     try:
         # Check if the user is a GlobalWriteAdmin
-        if not is_global_write_admin(current_user):
+        if not (is_global_write_admin(current_user) or is_regional_admin(current_user)):
             raise HTTPException(
                 status_code=403, detail="Unauthorized access. View logs for details."
             )
@@ -518,14 +544,16 @@ def upsert_organization(organization_data, current_user):
             "county": organization.county,
             "county_fips": organization.county_fips,
             "type": organization.type,
-            "created_by": {
-                "id": str(organization.created_by.id),
-                "first_name": organization.created_by.first_name,
-                "last_name": organization.created_by.last_name,
-                "email": organization.created_by.email,
-            }
-            if organization.created_by
-            else None,
+            "created_by": (
+                {
+                    "id": str(organization.created_by.id),
+                    "first_name": organization.created_by.first_name,
+                    "last_name": organization.created_by.last_name,
+                    "email": organization.created_by.email,
+                }
+                if organization.created_by
+                else None
+            ),
             "tags": [
                 {
                     "id": str(tag.id),
@@ -535,12 +563,14 @@ def upsert_organization(organization_data, current_user):
                 }
                 for tag in organization.tags.all()
             ],
-            "parent": {
-                "id": str(organization.parent.id),
-                "name": organization.parent.name,
-            }
-            if organization.parent
-            else {},
+            "parent": (
+                {
+                    "id": str(organization.parent.id),
+                    "name": organization.parent.name,
+                }
+                if organization.parent
+                else {}
+            ),
         }
 
     except HTTPException as http_exc:
@@ -548,11 +578,11 @@ def upsert_organization(organization_data, current_user):
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Parent organization not found")
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while upserting organization: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-# PUT: /organizations/{organization_id}
+# POST: /update_organization/{organization_id}
 def update_organization(organization_id: str, organization_data, current_user):
     """Update an organization by its ID."""
     try:
@@ -561,7 +591,10 @@ def update_organization(organization_id: str, organization_data, current_user):
             raise HTTPException(status_code=404, detail="Not a valid organization id.")
 
         # Ensure the current user has permission to update the organization
-        if not is_org_admin(current_user, organization_id):
+        if not (
+            is_org_admin(current_user, organization_id)
+            or is_regional_admin(current_user)
+        ):
             raise HTTPException(status_code=403, detail="Unauthorized access.")
 
         # Fetch the existing organization with userRoles and granularScans relations
@@ -593,9 +626,8 @@ def update_organization(organization_id: str, organization_data, current_user):
             organization.parent_id = organization_data.parent
 
         # Handle tags (using the find_or_create_tags function)
-        if organization_data.tags:
-            tags = find_or_create_tags(organization_data.tags)
-            organization.tags.set(tags)
+        tags = find_or_create_tags(organization_data.tags)
+        organization.tags.set(tags)
 
         # Save the updated organization object
         organization.save()
@@ -626,14 +658,16 @@ def update_organization(organization_id: str, organization_data, current_user):
             "county": organization.county,
             "county_fips": organization.county_fips,
             "type": organization.type,
-            "created_by": {
-                "id": str(organization.created_by.id),
-                "first_name": organization.created_by.first_name,
-                "last_name": organization.created_by.last_name,
-                "email": organization.created_by.email,
-            }
-            if organization.created_by
-            else None,
+            "created_by": (
+                {
+                    "id": str(organization.created_by.id),
+                    "first_name": organization.created_by.first_name,
+                    "last_name": organization.created_by.last_name,
+                    "email": organization.created_by.email,
+                }
+                if organization.created_by
+                else None
+            ),
             "tags": [
                 {
                     "id": str(tag.id),
@@ -682,8 +716,8 @@ def update_organization(organization_id: str, organization_data, current_user):
     except Organization.DoesNotExist:
         raise HTTPException(status_code=404, detail="Organization not found")
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while updating organization details: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # DELETE: /organizations/{organization_id}
@@ -717,8 +751,8 @@ def delete_organization(org_id: str, current_user):
         raise http_exc
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while deleting organization: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /v2/organizations/{organization_id}/users
@@ -749,12 +783,6 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             raise HTTPException(status_code=404, detail="User not found.")
-
-        # Check if the current user's region matches the user's region
-        if not matches_user_region(current_user, user.region_id):
-            raise HTTPException(
-                status_code=403, detail="Unauthorized access due to region mismatch."
-            )
 
         # Prepare the new role data
         new_role_data = {
@@ -798,15 +826,19 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
         raise http_exc
 
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while adding user to organization: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /organizations/{organization_id}/roles/{role_id}/approve
 def approve_role(organization_id: str, role_id, current_user):
     """Approve a role within an organization."""
     # Check if the current user is an org admin for the organization
-    if not is_org_admin(current_user, organization_id):
+    if not (
+        is_org_admin(current_user, organization_id)
+        or is_regional_admin(current_user)
+        or current_user.user_type == UserType.GLOBAL_ADMIN
+    ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     # Validate that the role_id is a valid UUID
@@ -841,7 +873,9 @@ def approve_role(organization_id: str, role_id, current_user):
 def remove_role(organization_id: str, role_id, current_user):
     """Remove a role within an organization."""
     # Check if the current user is an org admin for the organization
-    if not is_org_admin(current_user, organization_id):
+    if not (
+        is_org_admin(current_user, organization_id) or is_regional_admin(current_user)
+    ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
     # Validate that the role_id is a valid UUID
@@ -882,10 +916,11 @@ def update_org_scan(organization_id: str, scan_id, scan_data, current_user):
     if not is_valid_uuid(organization_id):
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    # Check if the current user is either an org admin or a global write admin
+    # Check if the current user is either an org admin or a global write admin or a regional admin
     if not (
         is_org_admin(current_user, organization_id)
         or is_global_write_admin(current_user)
+        or is_regional_admin(current_user)
     ):
         raise HTTPException(status_code=403, detail="Unauthorized access.")
 
@@ -981,37 +1016,50 @@ def update_org_scan(organization_id: str, scan_id, scan_data, current_user):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# GET: /v2/organizations
-def list_organizations_v2(state, region_id, current_user):
+MAX_PAGE_SIZE = 200
+SORT_MAP = {
+    "name": "name",
+    "state": "state",
+    "region_id": "region_id",
+    "created_at": "created_at",
+}
+
+
+# POST: /v2/organizations
+def search_organizations_v2(payload, current_user):
     """List organizations that the user is a member of or has access to."""
     try:
-        # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
+        memberships = get_org_memberships(current_user)
+        if (
+            not (is_global_view_admin(current_user) or is_regional_admin(current_user))
+            and not memberships
+        ):
+            return {"result": [], "count": 0}
+
+        f = Q()
+        if not is_global_view_admin(current_user) and not is_regional_admin(
             current_user
         ):
-            return []
+            f &= Q(id__in=memberships)
 
-        # Prepare the filter criteria
-        filter_criteria = Q()
+        f = apply_organization_filters(f, payload.filters or {})
 
-        if not is_global_view_admin(current_user):
-            filter_criteria &= Q(id__in=get_org_memberships(current_user))
+        LOGGER.debug("FINAL Q OBJECT: %s", f)
+        qs = Organization.objects.filter(f)
+        LOGGER.debug("SQL: %s", str(qs.query))
 
-        if state:
-            filter_criteria &= Q(state__in=state)
+        sort_field = SORT_MAP.get(payload.sort or "", None)
+        direction = "" if (payload.order or "asc") == "asc" else "-"
+        if sort_field:
+            qs = qs.order_by("{}{}".format(direction, sort_field), "id")
+        else:
+            qs = qs.order_by("created_at", "id")
 
-        if region_id:
-            filter_criteria &= Q(region_id__in=region_id)
+        page_size = min(max(payload.pageSize or 15, 1), MAX_PAGE_SIZE)
+        paginator = Paginator(qs, page_size)
+        page_obj = paginator.get_page(payload.page or 1)
 
-        # Fetch organizations with related userRoles and tags
-        organizations = (
-            Organization.objects.filter(filter_criteria).order_by("created_at")
-            if filter_criteria
-            else Organization.objects.all().order_by("created_at")
-        )
-
-        # Serialize organizations using list comprehension
-        organization_list = [
+        result = [
             {
                 "id": str(org.id),
                 "created_at": org.created_at.isoformat(),
@@ -1031,17 +1079,14 @@ def list_organizations_v2(state, region_id, current_user):
                 "county_fips": org.county_fips,
                 "type": org.type,
             }
-            for org in organizations
+            for org in page_obj
         ]
-
-        return organization_list
-
+        return {"result": result, "count": paginator.count}
     except HTTPException as http_exc:
         raise http_exc
-
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.error("Error occurred while listing organizations: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 # POST: /search/organizations
@@ -1054,10 +1099,13 @@ def escape_special_characters(search_term: str) -> str:
 def search_organizations_task(search_body, current_user: User):
     """Handle the logic for searching organizations in Elasticsearch."""
     try:
+        if current_user.user_type == UserType.STANDARD:
+            raise HTTPException(status_code=403, detail="Unauthorized.")
+
         # Check if user is GlobalViewAdmin or has memberships
-        if not is_global_view_admin(current_user) and not get_org_memberships(
-            current_user
-        ):
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
             return []
 
         # Initialize Elasticsearch client
@@ -1090,15 +1138,14 @@ def search_organizations_task(search_body, current_user: User):
             )
 
         # Log the query for debugging
-        print("Query body: {}".format(query_body))
+        LOGGER.debug("Query body: %s", query_body)
 
         # Execute the search
         search_results = client.search_organizations(query_body)
 
         return {"body": search_results}
-
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
-        print(e)
-        raise HTTPException(
-            status_code=500, detail="An error occurred while searching organizations."
-        )
+        LOGGER.exception("Error occurred while searching organizations: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

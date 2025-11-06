@@ -49,7 +49,8 @@ app.use(
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
           'https://www.ssa.gov/accessibility/andi/fandi.js',
           'https://www.ssa.gov/accessibility/andi/andi.js',
-          'https://www.dhs.gov'
+          'https://www.dhs.gov',
+          'https://static.cloudflareinsights.com'
         ],
         frameAncestors: ["'none'"]
       }
@@ -74,7 +75,7 @@ app.use((req, res, next) => {
 });
 
 app.use(
-  express.static(path.join(__dirname, '../build'), {
+  express.static(path.join(__dirname, '../dist'), {
     setHeaders: (res, path) => {
       if (path.endsWith('.js')) {
         res.setHeader('Content-Type', 'application/javascript');
@@ -86,7 +87,7 @@ app.use(
 
 app.use((req, res) => {
   res.setHeader('Content-Type', 'text/html');
-  res.sendFile(path.join(__dirname, '../build/index.html'));
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 export const handler = serverless(app, {

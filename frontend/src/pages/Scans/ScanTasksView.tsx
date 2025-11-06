@@ -25,6 +25,7 @@ import { Box, Stack } from '@mui/system';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { KeyboardArrowDown } from '@mui/icons-material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -95,7 +96,9 @@ export const ScanTasksView: React.FC = () => {
 
   const killScanTask2 = async (id: string) => {
     try {
-      await apiPost(`/scan-tasks/${id}/kill`, { body: {} });
+      await apiPost(ENDPOINTS.SCAN_TASKS_KILL.replace('{scan_task_id}', id), {
+        body: {}
+      });
       const index = scanTasks.findIndex((task) => task.id === id);
       setScanTasks(
         Object.assign([], scanTasks, {
@@ -110,7 +113,7 @@ export const ScanTasksView: React.FC = () => {
         global:
           e.status === 422 ? 'Unable to kill scan' : (e.message ?? e.toString())
       });
-      console.log(e);
+      console.error(e);
     }
   };
 
@@ -138,7 +141,7 @@ export const ScanTasksView: React.FC = () => {
           else tableFilters['tag'] = currentOrganization.id;
         }
         const { result, count } = await apiPost<ApiResponse>(
-          '/scan-tasks/search',
+          ENDPOINTS.SCANS_TASK_SEARCH,
           {
             body: {
               page,
@@ -182,11 +185,86 @@ export const ScanTasksView: React.FC = () => {
   }));
 
   const scansTasksCols: GridColDef[] = [
-    { field: 'id', headerName: 'ID', minWidth: 100, flex: 2 },
-    { field: 'status', headerName: 'Status', minWidth: 100, flex: 1 },
-    { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'created_at', headerName: 'Created At', minWidth: 200, flex: 1 },
-    { field: 'finished_at', headerName: 'Finished At', minWidth: 200, flex: 1 },
+    {
+      field: 'id',
+      headerName: 'ID',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Scan Task ID: ${cellValues.row.id}`}
+          >
+            {cellValues.row.id}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Status for Scan Task ${cellValues.row.id}: ${cellValues.row.status}`}
+          >
+            {cellValues.row.status}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Name for Scan Task ${cellValues.row.id}: ${cellValues.row.name}`}
+          >
+            {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'created_at',
+      headerName: 'Created At',
+      minWidth: 200,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Created At Date for Scan Task ${cellValues.row.id}: ${cellValues.row.created_at}`}
+          >
+            {cellValues.row.created_at}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'finished_at',
+      headerName: 'Finished At',
+      minWidth: 200,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Finished At Date for Scan Task ${cellValues.row.id}: ${cellValues.row.finished_at}`}
+          >
+            {cellValues.row.finished_at}
+          </Box>
+        );
+      }
+    },
     {
       field: 'details',
       headerName: 'Details',
@@ -195,7 +273,7 @@ export const ScanTasksView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
-            aria-label={`Details for scan task ${cellValues.row.id}`}
+            aria-label={`View Details for scan task ${cellValues.row.id}`}
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
@@ -288,6 +366,7 @@ export const ScanTasksView: React.FC = () => {
     'shodan',
     'lookingGlass',
     'dnstwist',
+    'redshift',
     'rootDomainSync',
     'was_sync',
     'was',
@@ -302,6 +381,12 @@ export const ScanTasksView: React.FC = () => {
     'finished',
     'failed'
   ];
+
+  const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
+
+  const filteredScanNameValues = isLocal
+    ? scanNameValues.filter((name) => name !== 'redshift')
+    : scanNameValues;
 
   const scanNameDropdown = (
     <>
@@ -318,7 +403,7 @@ export const ScanTasksView: React.FC = () => {
         open={openNameMenu}
         onClose={() => setAnchorElName(null)}
       >
-        {scanNameValues.map((name, index) => (
+        {filteredScanNameValues.map((name, index) => (
           <MenuItem
             key={index + name}
             value={name}
@@ -400,7 +485,10 @@ export const ScanTasksView: React.FC = () => {
                     (child, index) => <Box key={index}>{child}</Box>
                   ),
                   exportTitle: 'Scans'
-                } as any
+                } as any,
+                basePopper: {
+                  placement: 'bottom-start'
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
@@ -425,6 +513,8 @@ export const ScanTasksView: React.FC = () => {
                 });
               }}
               pageSizeOptions={[15, 30, 50, 100]}
+              disableRowSelectionOnClick
+              showToolbar
             />
           </Paper>
         )}
@@ -441,7 +531,7 @@ export const ScanTasksView: React.FC = () => {
         <DialogTitle id="alert-dialog-title">{'Scan Details'}</DialogTitle>
         <DialogContent>
           {detailsParams?.row?.fargate_task_arn && (
-            <>
+            <Box pb={2}>
               <Typography variant="h6" component="div">
                 Logs:
               </Typography>
@@ -453,9 +543,8 @@ export const ScanTasksView: React.FC = () => {
                   target="_blank"
                   rel="noopener noreferrer"
                   href={`${
-                    process.env.CLOUDWATCH_URL
-                  }#logsV2:log-groups/log-group/${process.env
-                    .REACT_APP_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
+                    import.meta.env.VITE_CLOUDWATCH_URL
+                  }#logsV2:log-groups/log-group/${import.meta.env.VITE_FARGATE_LOG_GROUP!}/log-events/worker$252Fmain$252F${
                     (detailsParams?.row?.fargate_task_arn.match('.*/(.*)') || [
                       ''
                     ])[1]
@@ -467,34 +556,53 @@ export const ScanTasksView: React.FC = () => {
               )}
               <Log
                 token={token ?? ''}
-                url={`${process.env.REACT_APP_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
+                url={`${import.meta.env.VITE_API_URL}/scan-tasks/${detailsParams?.row?.id}/logs`}
               />
-            </>
+            </Box>
           )}
           {(() => {
             const rawInput = detailsParams?.row?.input;
-            if (!rawInput) return '';
-            try {
-              const parsedJSON = JSON.parse(rawInput);
-              const formattedJSON = JSON.stringify(parsedJSON, null, 2);
-              if (formattedJSON === '{}' || formattedJSON === '[]') return '';
+            if (!rawInput || rawInput === 'null') {
               return (
                 <>
                   <Typography variant="h6" component="div">
                     Input:
                   </Typography>
+                  <Typography variant="logText">
+                    No input data available.
+                  </Typography>
+                </>
+              );
+            }
+            try {
+              const parsedJSON = JSON.parse(rawInput);
+              const formattedJSON = JSON.stringify(parsedJSON, null, 2);
+              return (
+                <>
+                  <Typography variant="h3">Input:</Typography>
                   <pre>{formattedJSON}</pre>
                 </>
               );
             } catch (e) {
-              console.log(e);
-              return '';
+              console.error(e);
+              return (
+                <>
+                  <Typography variant="h6" component="div" pt={2}>
+                    Input:
+                  </Typography>
+                  <Typography color="error" variant="h3">
+                    Invalid input data format.
+                  </Typography>
+                </>
+              );
             }
           })()}
-          <Typography variant="h6" component="div">
+          <Typography variant="h6" component="div" pt={2}>
             Output:
           </Typography>
-          <pre>{detailsParams?.row?.output || 'None'}</pre>
+          <Typography variant="logText">
+            {detailsParams?.row?.output || 'None'}
+          </Typography>
 
           {detailsParams?.row.status !== 'finished' &&
             detailsParams?.row.status !== 'failed' && (

@@ -1,9 +1,14 @@
 import { AuthContextType } from 'context';
-import { GLOBAL_ADMIN, REGIONAL_ADMIN, STANDARD_USER } from './useUserLevel';
-import { GLOBAL_VIEW } from 'context/userStateUtils';
+import {
+  GLOBAL_ADMIN,
+  GLOBAL_VIEW,
+  REGIONAL_ADMIN,
+  STANDARD_USER
+} from './useUserLevel';
+// import { GLOBAL_VIEW } from 'context/userStateUtils';
 import { OrganizationShallow } from 'components/FilterDrawer/RegionAndOrganizationFilters';
 
-export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = false;
+export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = true;
 
 export const ORGANIZATION_EXCLUSIONS = ['dhs region'];
 
@@ -101,7 +106,7 @@ export const useUserTypeFilters: UseUserTypeFilters = (
         },
         {
           field: 'organization_id',
-          values: userOrgs,
+          values: [],
           type: 'any'
         }
       ];

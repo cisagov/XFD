@@ -15,6 +15,8 @@ export interface ListInputProps {
   setChosenTags?: (val: string[]) => void;
   localTags?: string[];
   setLocalTags?: (tags: string[]) => void;
+  disableAddButton?: boolean;
+  disableDelete?: boolean;
 }
 
 const ListInput: React.FC<ListInputProps> = ({
@@ -29,7 +31,9 @@ const ListInput: React.FC<ListInputProps> = ({
   chosenTags,
   setChosenTags,
   localTags,
-  setLocalTags
+  setLocalTags,
+  disableAddButton = false,
+  disableDelete = false
 }) => {
   if (!organization) return null;
 
@@ -63,50 +67,71 @@ const ListInput: React.FC<ListInputProps> = ({
       </Grid>
       {values.map((value, index) => (
         <Grid key={index}>
-          <Chip
-            color="primary"
-            label={typeof value === 'string' ? value : value.name}
-            onDelete={() => handleDelete(index)}
-            disabled={userType === 'globalView'}
-          />
+          {disableDelete ? (
+            <Chip
+              color="primary"
+              label={typeof value === 'string' ? value : value.name}
+              disabled={userType === 'globalView'}
+            />
+          ) : (
+            <Chip
+              color="primary"
+              label={typeof value === 'string' ? value : value.name}
+              onDelete={() => handleDelete(index)}
+              disabled={userType === 'globalView'}
+            />
+          )}
         </Grid>
       ))}
       {type === 'root_domains' &&
         organization.pending_domains?.map(
           (domain: PendingDomain, index: number) => (
             <Grid key={index}>
-              <Chip
-                sx={{ backgroundColor: '#C4C4C4' }}
-                label={`${domain.name} (verification pending)`}
-                onDelete={() => {
-                  const updated = organization.pending_domains.filter(
-                    (_: any, i: number) => i !== index
-                  );
-                  setOrganization({
-                    ...organization,
-                    pending_domains: updated
-                  });
-                }}
-                onClick={() => {
-                  setInputValue(domain.name);
-                  setDialog({ open: true, type, label, stage: 1 });
-                }}
-                disabled={userType === 'globalView'}
-              />
+              {disableDelete ? (
+                <Chip
+                  sx={{ backgroundColor: '#C4C4C4' }}
+                  label={`${domain.name} (verification pending)`}
+                  onClick={() => {
+                    setInputValue(domain.name);
+                    setDialog({ open: true, type, label, stage: 1 });
+                  }}
+                  disabled={userType === 'globalView'}
+                />
+              ) : (
+                <Chip
+                  sx={{ backgroundColor: '#C4C4C4' }}
+                  label={`${domain.name} (verification pending)`}
+                  onDelete={() => {
+                    const updated = organization.pending_domains.filter(
+                      (_: any, i: number) => i !== index
+                    );
+                    setOrganization({
+                      ...organization,
+                      pending_domains: updated
+                    });
+                  }}
+                  onClick={() => {
+                    setInputValue(domain.name);
+                    setDialog({ open: true, type, label, stage: 1 });
+                  }}
+                  disabled={userType === 'globalView'}
+                />
+              )}
             </Grid>
           )
         )}
-      {(type === 'root_domains' || userType === 'globalAdmin') && (
-        <Grid>
-          <Chip
-            label="ADD"
-            variant="outlined"
-            color="secondary"
-            onClick={() => setDialog({ open: true, type, label, stage: 0 })}
-            disabled={userType === 'globalView'}
-          />
-        </Grid>
-      )}
+      {(type === 'root_domains' || userType === 'globalAdmin') &&
+        !disableAddButton && (
+          <Grid>
+            <Chip
+              label="ADD"
+              variant="outlined"
+              color="secondary"
+              onClick={() => setDialog({ open: true, type, label, stage: 0 })}
+              disabled={userType === 'globalView'}
+            />
+          </Grid>
+        )}
     </Grid>
   );
 };

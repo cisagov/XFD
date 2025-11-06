@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import { getSeverityColor } from 'pages/Risk/utils';
+import { getSeverityColor } from 'utils/getSeverityColor';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { truncateString } from 'utils/dataTransformUtils';
 import { Vulnerability } from 'types/domain';
@@ -41,6 +41,8 @@ import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
 import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const PAGE_SIZE = 15;
 
@@ -68,6 +70,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   ]);
   const [filters, setFilters] = useState(() => extractInitialFilters(state));
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
+  const [columnVisibilityModel, setColumnVisibilityModel] = useState({});
 
   useEffect(() => {
     if (state) {
@@ -103,7 +106,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           state?.orgId
         );
         return await apiPost<ApiResponse>(
-          doExport ? '/vulnerabilities/export' : '/vulnerabilities/search',
+          doExport
+            ? ENDPOINTS.VULNERABILITIES_EXPORT
+            : ENDPOINTS.VULNERABILITIES_SEARCH,
           {
             body: {
               page,
@@ -282,8 +287,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          kev: vuln.is_kev ? 'Yes' : 'No',
-          ransomware: vuln.is_kev_ransomware ? 'Yes' : 'No',
+          is_kev: vuln.is_kev ? 'Yes' : 'No',
+          is_kev_ransomware: vuln.is_kev_ransomware ? 'Yes' : 'No',
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -355,7 +360,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'kev',
+        field: 'is_kev',
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
@@ -363,15 +368,15 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           return (
             <Box
               component="span"
-              aria-label={`KEV status ${cellValues.row.kev}`}
+              aria-label={`KEV status ${cellValues.row.is_kev}`}
             >
-              {cellValues.row.kev}
+              {cellValues.row.is_kev}
             </Box>
           );
         }
       },
       {
-        field: 'ransomware',
+        field: 'is_kev_ransomware',
         headerName: 'Ransomware',
         minWidth: 100,
         flex: 0.5,
@@ -379,9 +384,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => (
           <Box
             component="span"
-            aria-label={`Ransomware status ${cellValues.row.ransomware}`}
+            aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
           >
-            {cellValues.row.ransomware}
+            {cellValues.row.is_kev_ransomware}
           </Box>
         )
       },
@@ -466,7 +471,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               tabIndex={cellValues.tabIndex}
               color="primary"
               onClick={() =>
-                history.push(`/inventory/vulnerability/${cellValues.row.id}`)
+                history.push(
+                  ROUTES.VULNERABILITY.replace(
+                    ':vulnerabilityId',
+                    String(cellValues.row.id)
+                  )
+                )
               }
             >
               <OpenInNew />
@@ -602,6 +612,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               onSortModelChange={(model) => {
                 setSortModel(model);
               }}
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={setColumnVisibilityModel}
               slots={{
                 toolbar: CustomToolbar,
                 noRowsOverlay: CustomNoRowsOverlay
@@ -613,12 +625,17 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                     : showOpenVulnsButton,
                   exportTitle: 'Vulnerabilities'
                 } as any,
-                noRowsOverlay: { children: noRowsOverlay }
+                noRowsOverlay: { children: noRowsOverlay },
+                basePopper: {
+                  placement: 'bottom-start'
+                }
               }}
               paginationMode="server"
               paginationModel={paginationModel}
               onPaginationModelChange={handlePaginationModelChange}
               pageSizeOptions={[15, 30, 50, 100]}
+              disableRowSelectionOnClick
+              showToolbar
             />
           </Paper>
         ) : null}

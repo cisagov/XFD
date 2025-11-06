@@ -3,12 +3,15 @@
 
 # Standard Python Libraries
 from datetime import datetime, timezone
+import logging
 import uuid
 
 # Third-Party Libraries
 from django.http import JsonResponse
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_mini_dl.models import SavedSearch, User
+
+LOGGER = logging.getLogger(__name__)
 
 
 def validate_name(value: str):
@@ -87,9 +90,9 @@ def create_saved_search(request):
     except User.DoesNotExist:
         raise HTTPException(status_code=404, detail="User not found")
 
-    except Exception:
-        # logger.exception(...)  # log the real error internally
-        raise HTTPException(status_code=500, detail="Could not create saved search")
+    except Exception as e:
+        LOGGER.exception("Error creating saved search: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def list_saved_searches(user):

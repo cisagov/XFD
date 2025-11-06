@@ -3,10 +3,17 @@ import {
   Box,
   Typography,
   Link as MuiLink,
+  SxProps,
   TypographyProps
 } from '@mui/material';
 import InfoTooltipIcon from './InfoTooltipIcon';
-import { useHistory } from 'react-router-dom';
+import { useHistory, useLocation } from 'react-router-dom';
+import {
+  useNavigationContext,
+  isVSDashboard,
+  isDrillDownDestination
+} from 'context/NavigationContext';
+import { ROUTES } from '@/constants/routes';
 
 type InfoLabelProps = {
   label: string;
@@ -16,6 +23,7 @@ type InfoLabelProps = {
   typographyVariant?: TypographyProps['variant'];
   headingLevel?: 'h2' | 'h3' | 'p';
   tooltipContentJson: { content: string; id: string }[];
+  labelStyle?: SxProps;
 };
 
 const InfoLabel: React.FC<InfoLabelProps> = ({
@@ -25,9 +33,12 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
   typographyVariant = 'h2',
   headingLevel = 'h2',
   tooltipContentJson,
-  stateVariables = {}
+  stateVariables = {},
+  labelStyle
 }) => {
   const history = useHistory();
+  const location = useLocation();
+  const { markDrillDown } = useNavigationContext();
 
   const tooltipContent = (label: string): string => {
     const info = tooltipContentJson.find(
@@ -38,7 +49,17 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    history.push(link || '/inventory', stateVariables);
+
+    // Only mark as drill-down if coming from VS Dashboard to a drill-down destination
+    const isFromVSDashboard = isVSDashboard(location.pathname);
+    const targetUrl = link || ROUTES.INVENTORY;
+    const isDrillDownTarget = isDrillDownDestination(targetUrl);
+
+    if (isFromVSDashboard && isDrillDownTarget) {
+      markDrillDown(location.pathname, targetUrl);
+    }
+
+    history.push(targetUrl, stateVariables);
   };
 
   return (
@@ -53,6 +74,7 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
           variant={typographyVariant}
           component={headingLevel}
           color="primary.darker"
+          sx={labelStyle}
         >
           {label}
         </Typography>

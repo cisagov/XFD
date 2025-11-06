@@ -2,6 +2,7 @@
 # Standard Python Libraries
 from datetime import datetime, timezone
 import json
+import logging
 import uuid
 
 # Third-Party Libraries
@@ -12,6 +13,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import Log, User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -44,7 +47,7 @@ def test_search_logs_success():
         json=search_payload,
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     data = response.json()
     assert data["count"] == 1
