@@ -94,6 +94,7 @@ functions:
           # this matches any path, the token 'any' doesn't mean anything special
           path: /{any+}
           method: GET
+    iamRoleStatements: []
     # provisionedConcurrency: 1
   # TODO: Reenable docs site CRASM-1070, CRASM-2124
   # docs:
@@ -136,6 +137,7 @@ package:
     # - docs-build/**      # Include copied Gatsby static assets
 
 plugins:
+  - serverless-iam-roles-per-function
   - serverless-domain-manager
   - serverless-better-credentials
   - serverless-plugin-ifelse

@@ -4,46 +4,10 @@ import {
   StatsTrendsRawData,
   VulnScanDataTransformed
 } from 'types/vuln-scan-stats';
+import { enrolledWithinTwoWeeks, formatRange } from './dateUtils';
+import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
 
-export const NO_DATA_FALLBACK_LABEL =
-  'No results found. if unexpected, please submit an entry using the Support menu.';
-
-export function formatShortDate(
-  dateInput: string | Date | null | undefined
-): string {
-  if (!dateInput) return '';
-  const dateObj = new Date(dateInput);
-  if (Number.isNaN(dateObj.getTime())) return '';
-  return dateObj.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-}
-
-export function formatRange(
-  start?: string | Date | null | undefined,
-  end?: string | Date | null | undefined
-): string {
-  const startStr = formatShortDate(start);
-  const endStr = formatShortDate(end);
-  if (!startStr && !endStr) return 'No Dates Available';
-  // Ensures only end date is shown per CRASM-3140
-  if (startStr && endStr) return `${endStr}`;
-  return startStr || endStr;
-}
-
-function enrolledWithinTwoWeeks(timestamp?: string | null): boolean {
-  if (!timestamp) return false;
-
-  const enrolledDate = new Date(timestamp);
-  if (isNaN(enrolledDate.getTime())) return false;
-
-  const now = new Date();
-  const twoWeeksInMs = 14 * 24 * 60 * 60 * 1000;
-
-  return now.getTime() - enrolledDate.getTime() <= twoWeeksInMs;
-}
+type AnyObject = Record<string, any>;
 
 // ---------- helpers for fallback ----------
 const isBlankLike = (value: unknown) => {
@@ -106,7 +70,7 @@ const buildRangeLabel = (
 };
 
 // Picks the best label and the dates actually used, following the fallback order.
-function computeVulnerabilityScanLabel(data: StatsTrendsRawData): {
+export function computeVulnerabilityScanLabel(data: StatsTrendsRawData): {
   label: string;
   usedStart?: string;
   usedEnd?: string;
@@ -432,4 +396,17 @@ export default function isDataEmpty(data: VulnScanDataTransformed) {
     !data.riskyServices.length &&
     !data.severityByProminence.length
   );
+}
+
+export function isEmptyAfterScans(obj: AnyObject): boolean {
+  const vulnSummary = obj.vulnScanSummary?.[0];
+  const metrics = obj.vulnScanKeyMetrics || [];
+
+  if (!vulnSummary) return false;
+
+  const allMetricsEmpty = metrics.every(
+    (m: AnyObject) => m.value == null || m.value === 0
+  );
+
+  return allMetricsEmpty;
 }

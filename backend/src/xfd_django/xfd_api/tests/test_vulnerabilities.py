@@ -331,8 +331,8 @@ def test_v2_get_vulnerability_by_id_with_history(
 ):
     """Test v2 vulnerability by ID with ticket history query params."""
     response = client.get(
-        f"/v2/vulnerabilities/{vulnerability.id}?history=true&scan_limit=5",
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        "/v2/vulnerabilities/{}?history=true&scan_limit=5".format(vulnerability.id),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     data = response.json()
 
@@ -347,7 +347,7 @@ def test_v2_get_vulnerability_by_source_id(user, vulnerability, refresh_vuln_vie
     """Test v2 vulnerability_details endpoint with scan_source query param."""
     response = client.get(
         "/v2/vulnerability_details/{}".format(str(vulnerability.id)),
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     data = response.json()
 
@@ -361,8 +361,8 @@ def test_v2_get_vulnerability_by_id_not_found(user):
     """Test v2 vulnerability by ID returns 404 when not found."""
     bad_id = "00000000-0000-0000-0000-000000000000"
     response = client.get(
-        f"/v2/vulnerabilities/{bad_id}",
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        "/v2/vulnerabilities/{}".format(bad_id),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 404
@@ -748,18 +748,18 @@ def test_search_vulnerabilities_by_is_kev(user, vulnerability, refresh_vuln_view
             "filters": {"is_kev": is_kev_to_search, "false_positive": None},
             "pageSize": 25,
         },
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert resp.status_code == 200, resp.text
 
     data = resp.json()
 
-    assert data["result"], f"No results for is_kev={is_kev_to_search}"
+    assert data["result"], "No results for is_kev={}".format(is_kev_to_search)
 
     for v in data["result"]:
         assert (
             v["is_kev"] == is_kev_to_search
-        ), f"Returned is_kev={v['is_kev']} but expected {is_kev_to_search}"
+        ), "Returned is_kev={} but expected {}".format(v["is_kev"], is_kev_to_search)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -937,11 +937,13 @@ def test_search_vulnerabilities_by_scan_type(
         if scan_type and source:
             assert (
                 scan_type.lower() in source.lower()
-            ), f"Expected scan type '{scan_type}' not found in vulnerability source '{source}'"
+            ), "Expected scan type '{}' not found in vulnerability source '{}'".format(
+                scan_type, source
+            )
         else:
-            assert (
-                False
-            ), f"Scan type or source is None: scan_type={scan_type}, source={source}"
+            assert False, "Scan type or source is None: scan_type={}, source={}".format(
+                scan_type, source
+            )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 60
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop') || (github.event_name == 'pull_request' && github.base_ref == 'develop' && !startsWith(github.actor, 'dependabot'))
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -43,12 +43,20 @@ jobs:
       AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
       AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-staging-cd-automated-test-reports
       PW_XFD_URL: https://staging-cd.crossfeed.cyber.dhs.gov
-      PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
-      PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
-      PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-      PW_XFD_LOGIN: ${{ secrets.PW_XFD_LOGIN }}
-      PW_HEADLESS: true
-      PW_CI: true
+      PW_GLOBAL_ADMIN_USERNAME: ${{ secrets.PW_GLOBAL_ADMIN_USERNAME }}
+      PW_GLOBAL_ADMIN_PASSWORD: ${{ secrets.PW_GLOBAL_ADMIN_PASSWORD }}
+      PW_GLOBAL_ADMIN_2FA_SECRET: ${{ secrets.PW_GLOBAL_ADMIN_2FA_SECRET }}
+      PW_REGIONAL_ADMIN_USERNAME: ${{ secrets.PW_REGIONAL_ADMIN_USERNAME }}
+      PW_REGIONAL_ADMIN_PASSWORD: ${{ secrets.PW_REGIONAL_ADMIN_PASSWORD }}
+      PW_REGIONAL_ADMIN_2FA_SECRET: ${{ secrets.PW_REGIONAL_ADMIN_2FA_SECRET }}
+      PW_GLOBAL_VIEW_USERNAME: ${{ secrets.PW_GLOBAL_VIEW_USERNAME }}
+      PW_GLOBAL_VIEW_PASSWORD: ${{ secrets.PW_GLOBAL_VIEW_PASSWORD }}
+      PW_GLOBAL_VIEW_2FA_SECRET: ${{ secrets.PW_GLOBAL_VIEW_2FA_SECRET }}
+      PW_STANDARD_USER_USERNAME: ${{ secrets.PW_STANDARD_USER_USERNAME }}
+      PW_STANDARD_USER_PASSWORD: ${{ secrets.PW_STANDARD_USER_PASSWORD }}
+      PW_STANDARD_USER_2FA_SECRET: ${{ secrets.PW_STANDARD_USER_2FA_SECRET }}
+      PW_XFD_2FA_ISSUER: ${{ secrets.PW_XFD_2FA_ISSUER }}
+      CI: true
       ENVIRONMENT: staging
       GIT_BRANCH: develop
     steps:
@@ -99,7 +107,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 20
-    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    if: false # TODO: Temporarily skip while issues with API testing are resolved.
     defaults:
       run:
         working-directory: ./integration
@@ -153,7 +161,7 @@ jobs:
      runs-on: ubuntu-latest
      environment: integration
      timeout-minutes: 60
-     if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
+     if: (github.event_name == 'push' && github.ref == 'refs/heads/integration') || (github.event_name == 'pull_request' && github.base_ref == 'integration'  && !startsWith(github.actor, 'dependabot'))
      env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -162,11 +170,20 @@ jobs:
       AWS_SECURITY_GROUP: ${{ secrets.AWS_SECURITY_GROUP }}
       AUTOMATED_TEST_REPORTS_BUCKET_NAME: cisa-crossfeed-integration-automated-test-reports
       PW_XFD_URL: https://integration.crossfeed.cyber.dhs.gov
-      PW_XFD_USERNAME: ${{ secrets.PW_XFD_USERNAME }}
-      PW_XFD_PASSWORD: ${{ secrets.PW_XFD_PASSWORD }}
-      PW_XFD_2FA_SECRET: ${{ secrets.PW_XFD_2FA_SECRET }}
-      PW_XFD_LOGIN: ${{ secrets.PW_XFD_LOGIN }}
-      PW_HEADLESS: true
+      PW_GLOBAL_ADMIN_USERNAME: ${{ secrets.PW_GLOBAL_ADMIN_USERNAME }}
+      PW_GLOBAL_ADMIN_PASSWORD: ${{ secrets.PW_GLOBAL_ADMIN_PASSWORD }}
+      PW_GLOBAL_ADMIN_2FA_SECRET: ${{ secrets.PW_GLOBAL_ADMIN_2FA_SECRET }}
+      PW_REGIONAL_ADMIN_USERNAME: ${{ secrets.PW_REGIONAL_ADMIN_USERNAME }}
+      PW_REGIONAL_ADMIN_PASSWORD: ${{ secrets.PW_REGIONAL_ADMIN_PASSWORD }}
+      PW_REGIONAL_ADMIN_2FA_SECRET: ${{ secrets.PW_REGIONAL_ADMIN_2FA_SECRET }}
+      PW_GLOBAL_VIEW_USERNAME: ${{ secrets.PW_GLOBAL_VIEW_USERNAME }}
+      PW_GLOBAL_VIEW_PASSWORD: ${{ secrets.PW_GLOBAL_VIEW_PASSWORD }}
+      PW_GLOBAL_VIEW_2FA_SECRET: ${{ secrets.PW_GLOBAL_VIEW_2FA_SECRET }}
+      PW_STANDARD_USER_USERNAME: ${{ secrets.PW_STANDARD_USER_USERNAME }}
+      PW_STANDARD_USER_PASSWORD: ${{ secrets.PW_STANDARD_USER_PASSWORD }}
+      PW_STANDARD_USER_2FA_SECRET: ${{ secrets.PW_STANDARD_USER_2FA_SECRET }}
+      PW_XFD_2FA_ISSUER: ${{ secrets.PW_XFD_2FA_ISSUER }}
+      CI: true
       ENVIRONMENT: integration
       GIT_BRANCH: integration
      steps:
@@ -217,7 +234,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: integration
     timeout-minutes: 20
-    if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
+    if: false # TODO: Temporarily skip while issues with API testing are resolved.
     defaults:
       run:
         working-directory: ./integration

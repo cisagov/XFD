@@ -279,8 +279,8 @@ def test_update_notification_as_global_view_admin():
         updated_at=datetime.utcnow(),
     )
 
-    response = client.put(
-        "/notifications/{}".format(notification.id),
+    response = client.post(
+        "/update_notification/{}".format(notification.id),
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
         json={
             "maintenance_type": "Routine",
@@ -325,8 +325,8 @@ def test_update_notification_as_regular_user_fails():
         updated_at=datetime.utcnow(),
     )
 
-    response = client.put(
-        "/notifications/{}".format(notification.id),
+    response = client.post(
+        "/update_notification/{}".format(notification.id),
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
         json={
             "maintenance_type": "Routine",

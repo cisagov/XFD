@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { SavedSearchContext } from './SavedSearchContext';
 import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from './AuthContext';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface SavedSearchContextProviderProps {
   children: React.ReactNode;
@@ -17,7 +18,7 @@ export const SavedSearchContextProvider: React.FC<
 
   const fetchSearches = useCallback(async () => {
     try {
-      const response = await apiGet('/saved-searches');
+      const response = await apiGet(ENDPOINTS.SAVED_SEARCHES);
       setSavedSearches(response.result);
       setSavedSearchCount(response.result.length);
     } catch (e) {

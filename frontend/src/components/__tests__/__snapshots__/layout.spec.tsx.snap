@@ -113,7 +113,7 @@ exports[`Layout component > matches snapshot 1`] = `
     class="css-170g0n7"
   >
     <div
-      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-aiqi88-MuiDrawer-docked"
+      class="MuiDrawer-root MuiDrawer-anchorLeft MuiDrawer-docked css-zdu6sp-MuiDrawer-docked"
     >
       <div
         class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiDrawer-paper MuiDrawer-paperAnchorLeft MuiDrawer-paperAnchorDockedLeft css-1lwhjos-MuiPaper-root-MuiDrawer-paper"
@@ -240,8 +240,8 @@ exports[`Layout component > matches snapshot 1`] = `
                   <label
                     class="MuiFormLabel-root MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined MuiFormLabel-colorPrimary Mui-disabled MuiInputLabel-root MuiInputLabel-formControl MuiInputLabel-animated MuiInputLabel-outlined css-8b3bn2-MuiFormLabel-root-MuiInputLabel-root"
                     data-shrink="false"
-                    for=":r8:"
-                    id=":r8:-label"
+                    for=":rb:"
+                    id=":rb:-label"
                   >
                     Organization
                   </label>
@@ -256,7 +256,7 @@ exports[`Layout component > matches snapshot 1`] = `
                       autocomplete="off"
                       class="MuiInputBase-input MuiOutlinedInput-input Mui-disabled MuiInputBase-inputAdornedEnd MuiAutocomplete-input MuiAutocomplete-inputFocused css-1dune0f-MuiInputBase-input-MuiOutlinedInput-input"
                       disabled=""
-                      id=":r8:"
+                      id=":rb:"
                       placeholder="Search Organizations"
                       role="combobox"
                       spellcheck="false"

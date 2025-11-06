@@ -42,8 +42,8 @@ resource "aws_iam_role_policy" "playwright_ecs_task_policy" {
         Action = ["s3:ListBucket", "s3:GetObject", "s3:PutObject"]
         Effect = "Allow"
         Resource = [
-          "arn:aws:s3:::${var.automated_test_reports_bucket_name}",  # ListBucket on the bucket itself
-          "arn:aws:s3:::${var.automated_test_reports_bucket_name}/*" # GetObject and PutObject on all objects within the bucket
+          "arn:${var.aws_partition}:s3:::${var.automated_test_reports_bucket_name}",  # ListBucket on the bucket itself
+          "arn:${var.aws_partition}:s3:::${var.automated_test_reports_bucket_name}/*" # GetObject and PutObject on all objects within the bucket
         ]
       }
     ]
@@ -51,7 +51,7 @@ resource "aws_iam_role_policy" "playwright_ecs_task_policy" {
 }
 
 resource "aws_iam_role_policy_attachment" "playwright_ecs_execution_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+  policy_arn = "arn:${var.aws_partition}:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
   role       = aws_iam_role.playwright_worker_task_execution_role.id
 }
 
@@ -101,18 +101,25 @@ resource "aws_ecs_task_definition" "playwright_worker" {
 
         // Required by run_playwright_tests.sh
         { name = "PW_XFD_URL", value = "" },
-        { name = "PW_XFD_USERNAME", value = "" },
-        { name = "PW_XFD_PASSWORD", value = "" },
-        { name = "PW_XFD_2FA_SECRET", value = "" },
-        { name = "PW_XFD_LOGIN", value = "" },
+        { name = "PW_GLOBAL_ADMIN_USERNAME", value = "" },
+        { name = "PW_GLOBAL_ADMIN_PASSWORD", value = "" },
+        { name = "PW_GLOBAL_ADMIN_2FA_SECRET", value = "" },
+        { name = "PW_REGIONAL_ADMIN_USERNAME", value = "" },
+        { name = "PW_REGIONAL_ADMIN_PASSWORD", value = "" },
+        { name = "PW_REGIONAL_ADMIN_2FA_SECRET", value = "" },
+        { name = "PW_GLOBAL_VIEW_USERNAME", value = "" },
+        { name = "PW_GLOBAL_VIEW_PASSWORD", value = "" },
+        { name = "PW_GLOBAL_VIEW_2FA_SECRET", value = "" },
+        { name = "PW_STANDARD_USER_USERNAME", value = "" },
+        { name = "PW_STANDARD_USER_PASSWORD", value = "" },
+        { name = "PW_STANDARD_USER_2FA_SECRET", value = "" },
         { name = "ENVIRONMENT", value = "" },
         { name = "DATETIME", value = "" },
         { name = "GIT_BRANCH", value = "" },
         { name = "AUTOMATED_TEST_REPORTS_BUCKET_NAME", value = "" },
         { name = "S3_HTML_PATH", value = "" },
         { name = "S3_JSON_PATH", value = "" },
-        { name = "PW_HEADLESS", value = "" },
-        { name = "PW_CI", value = "" },
+        { name = "CI", value = "" },
       ],
 
       logConfiguration = {

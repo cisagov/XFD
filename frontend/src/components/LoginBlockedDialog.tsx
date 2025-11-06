@@ -37,7 +37,7 @@ export const LoginBlockedDialog: React.FC<LoginBlockedDialogProps> = ({
       fullWidth
     >
       <DialogTitle id="login-blocked-dialog-title">
-        Login Blocked Due to Maintenance
+        CyHy Dashboard Unavailable Due to Maintenance
       </DialogTitle>
       <DialogContent>
         <Typography variant="body1" sx={{ mt: 1 }}>
@@ -47,7 +47,7 @@ export const LoginBlockedDialog: React.FC<LoginBlockedDialogProps> = ({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} variant="contained" color="primary">
-          Close
+          Logout
         </Button>
       </DialogActions>
     </StyledDialog>

@@ -22,7 +22,6 @@ export const authCtx: AuthContextType = {
   apiDelete: vi.fn(),
   apiPatch: vi.fn(),
   apiPost: vi.fn(),
-  apiPut: vi.fn(),
   maximumRole: 'user',
   touVersion: 'v1-user',
   userMustSign: false,

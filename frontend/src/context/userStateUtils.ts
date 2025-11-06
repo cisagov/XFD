@@ -32,23 +32,3 @@ export const getUserMustSign = (user: AuthUser | null, touVersion: string) => {
         user.accepted_terms_version !== touVersion)
   );
 };
-//To-Do: CRASM-2993 - Remove constants and getUserLevel function when Feeds.tsx removed.
-export const GLOBAL_VIEW = 2;
-export const STANDARD_USER = 1;
-export const ALL_USERS = GLOBAL_VIEW | STANDARD_USER;
-
-//since allusers is called in feeds tsx, should we put this in the exported function?
-//but then it would be declared each time the function is called, doesnt that seem funky?
-
-export const getUserLevel = (user: AuthUser | null | undefined) => {
-  let userLevel = 0;
-  if (user && user.isRegistered) {
-    if (user.user_type === 'standard') {
-      userLevel = STANDARD_USER;
-    } else {
-      userLevel = GLOBAL_VIEW;
-    }
-  }
-
-  return userLevel;
-};

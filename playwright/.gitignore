@@ -4,3 +4,4 @@
 /test-results/
 node_modules/
 storageState.json
+/.auth/*.json

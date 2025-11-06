@@ -1,5 +1,6 @@
 """Sync CVE/SSVC from Redshift (AE feed) into MDL."""
 # Standard Python Libraries
+import json
 import logging
 import os
 import sys
@@ -43,6 +44,16 @@ def handler(event):
         return {"statusCode": 500, "body": str(e)}
 
 
+def parse_json(value):
+    """Parse json strings into json objects."""
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except Exception:
+            return value  # fallback to raw if invalid JSON
+    return value
+
+
 def parse_redshift_row(row: dict[str, Any]) -> dict[str, Any]:
     """Parse a Redshift row (dict) into a structured dict for CveModel."""
     return {
@@ -70,23 +81,15 @@ def parse_redshift_row(row: dict[str, Any]) -> dict[str, Any]:
 def create_or_update_cve(parsed: dict) -> CveModel:
     """Create or minimally patch a CveModel record (supports CVSS v3 + v4)."""
     weaknesses_list = extract_weaknesses_from_problem_types(
-        parsed["problem_types_json"]
+        parse_json(parsed["problem_types_json"])
     )
 
-    description_text = (
-        pick_english_description(parsed["descriptions_json"])
-        if isinstance(parsed["descriptions_json"], list)
-        else None
-    )
-    reference_urls_list = (
-        extract_references(parsed["references_json"])
-        if isinstance(parsed["references_json"], list)
-        else []
-    )
+    description_text = pick_english_description(parse_json(parsed["descriptions_json"]))
+    reference_urls_list = extract_references(parse_json(parsed["references_json"]))
 
     # NEW: dict result with both versions possible
     cvss_results: dict[str, dict[str, Optional[Any]]] = extract_cvss(
-        parsed["metrics_json"] if isinstance(parsed["metrics_json"], list) else []
+        parse_json(parsed["metrics_json"])
     )
     v3 = cvss_results.get("v3", {}) or {}
     v4 = cvss_results.get("v4", {}) or {}
@@ -192,7 +195,7 @@ def patch_cvss(cve_object, cvss_results: dict[str, dict[str, Optional[Any]]]) ->
 
 def upsert_ssvc(cve_object, adp_json):
     """Upsert SSVC data into CveSsvc model."""
-    ssvc = extract_ssvc(adp_json if isinstance(adp_json, list) else [])
+    ssvc = extract_ssvc(parse_json(adp_json))
     exploitation = (ssvc.get("exploitation") or "").lower() or None
     automatable = (ssvc.get("automatable") or "").lower() or None
     technical_impact = (ssvc.get("technical_impact") or "").lower() or None
@@ -214,7 +217,9 @@ def upsert_ssvc(cve_object, adp_json):
 
 def upsert_cve_from_redshift_row(row: Dict[str, Any]) -> None:
     """Parse a Redshift result row (dict), upsert the CVE, then upsert SSVC."""
-    parsed = parse_redshift_row(row)  # parse_redshift_row should accept a dict now
+    parsed = parse_redshift_row(
+        parse_json(row)
+    )  # parse_redshift_row should accept a dict now
     if not parsed.get("cve_name"):
         return
     with transaction.atomic():
