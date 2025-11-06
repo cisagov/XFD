@@ -30,6 +30,7 @@ class _FakeAuthOK:
     """Happy-path fake of OneLogin_Saml2_Auth used in ACS & login tests."""
 
     def __init__(self, data, old_settings=None):
+        """Initialize with request data and the old settings instance."""
         self.data = data
         self.old_settings = old_settings
         self._attrs = {
@@ -118,12 +119,12 @@ def test_login_redirect_uses_path_only_relaystate(monkeypatch):
     """
     client, saml_mod = _mount_client(
         monkeypatch,
-        env=dict(
-            IS_LOCAL="1",
-            APP_BASE_URL="http://localhost:3000",
-            FRONTEND_BASE_URL="http://localhost",
-            OKTA_SAML_METADATA_URL="https://idp.example.com/metadata",
-        ),
+        env={
+            "IS_LOCAL": "1",
+            "APP_BASE_URL": "http://localhost:3000",
+            "FRONTEND_BASE_URL": "http://localhost",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
+        },
     )
 
     # Replace the Auth class with our fake to capture return_to behavior.
@@ -146,12 +147,12 @@ def test_acs_creates_user_by_okta_id_sets_cookies_and_redirect(monkeypatch):
     """
     client, saml_mod = _mount_client(
         monkeypatch,
-        env=dict(
-            IS_LOCAL="1",
-            APP_BASE_URL="http://localhost:3000",
-            FRONTEND_BASE_URL="http://localhost",
-            OKTA_SAML_METADATA_URL="https://idp.example.com/metadata",
-        ),
+        env={
+            "IS_LOCAL": "1",
+            "APP_BASE_URL": "http://localhost:3000",
+            "FRONTEND_BASE_URL": "http://localhost",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
+        },
     )
 
     # Fake SAML class & helper funcs.
@@ -199,12 +200,12 @@ def test_acs_attaches_legacy_user_by_email(monkeypatch):
 
     client, saml_mod = _mount_client(
         monkeypatch,
-        env=dict(
-            IS_LOCAL="1",
-            APP_BASE_URL="http://localhost:3000",
-            FRONTEND_BASE_URL="http://localhost",
-            OKTA_SAML_METADATA_URL="https://idp.example.com/metadata",
-        ),
+        env={
+            "IS_LOCAL": "1",
+            "APP_BASE_URL": "http://localhost:3000",
+            "FRONTEND_BASE_URL": "http://localhost",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
+        },
     )
 
     monkeypatch.setattr(saml_mod, "OneLogin_Saml2_Auth", _FakeAuthOK)
@@ -226,15 +227,15 @@ def test_metadata_local_no_encryption_keydescriptor(monkeypatch, tmp_path):
     """Local mode: metadata should NOT include an encryption KeyDescriptor."""
     client, _ = _mount_client(
         monkeypatch,
-        env=dict(
-            IS_LOCAL="1",
-            APP_BASE_URL="http://localhost:3000",
-            FRONTEND_BASE_URL="http://localhost",
-            OKTA_SAML_METADATA_URL="https://idp.example.com/metadata",
+        env={
+            "IS_LOCAL": "1",
+            "APP_BASE_URL": "http://localhost:3000",
+            "FRONTEND_BASE_URL": "http://localhost",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
             # No certs in local mode
-            SAML_SP_CERT_PATH=None,
-            SAML_SP_PRIVATE_KEY_PATH=None,
-        ),
+            "SAML_SP_CERT_PATH": None,
+            "SAML_SP_PRIVATE_KEY_PATH": None,
+        },
     )
     resp = client.get("/saml/metadata")
     assert resp.status_code == 200
@@ -258,15 +259,15 @@ def test_metadata_prod_with_encryption_descriptor_using_cert_only(
 
     client, _ = _mount_client(
         monkeypatch,
-        env=dict(
-            IS_LOCAL="false",
-            APP_BASE_URL="https://sp.example.gov",
-            FRONTEND_BASE_URL="https://spa.example.gov",
-            OKTA_SAML_METADATA_URL="https://idp.example.com/metadata",
-            SAML_SP_CERT_PATH=str(cert_path),
+        env={
+            "IS_LOCAL": "false",
+            "APP_BASE_URL": "https://sp.example.gov",
+            "FRONTEND_BASE_URL": "https://spa.example.gov",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
+            "SAML_SP_CERT_PATH": str(cert_path),
             # Intentionally omit the private key env var
-            SAML_SP_PRIVATE_KEY_PATH=None,
-        ),
+            "SAML_SP_PRIVATE_KEY_PATH": None,
+        },
     )
 
     resp = client.get("/saml/metadata")
@@ -282,14 +283,14 @@ def test_metadata_no_encryption_when_cert_missing(monkeypatch, tmp_path):
     """No cert present: metadata must NOT advertise encryption."""
     client, _ = _mount_client(
         monkeypatch,
-        env=dict(
-            IS_LOCAL="false",
-            APP_BASE_URL="https://sp.example.gov",
-            FRONTEND_BASE_URL="https://spa.example.gov",
-            OKTA_SAML_METADATA_URL="https://idp.example.com/metadata",
-            SAML_SP_CERT_PATH=None,
-            SAML_SP_PRIVATE_KEY_PATH=None,
-        ),
+        env={
+            "IS_LOCAL": "false",
+            "APP_BASE_URL": "https://sp.example.gov",
+            "FRONTEND_BASE_URL": "https://spa.example.gov",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
+            "SAML_SP_CERT_PATH": None,
+            "SAML_SP_PRIVATE_KEY_PATH": None,
+        },
     )
     resp = client.get("/saml/metadata")
     assert resp.status_code == 200
