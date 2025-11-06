@@ -1,14 +1,6 @@
 import React from 'react';
-import {
-  fireEvent,
-  render,
-  screen,
-  testUser,
-  waitFor,
-  within
-} from 'test-utils';
+import { render, screen, testUser } from 'test-utils';
 import { makeVulnResponse } from '@/test-utils/vulnerabilities';
-import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import type { AuthUser } from '../../context/';
 import Vulnerabilities from '../../pages/Vulnerabilities/Vulnerabilities';
