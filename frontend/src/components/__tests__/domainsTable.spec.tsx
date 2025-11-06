@@ -100,6 +100,7 @@ describe('Domains component', () => {
     const errorText = await screen.findByText(/error loading domains/i);
     expect(errorText).toBeInTheDocument();
   });
+  // To-Do: CRASM-3385 Move server-side pagination, sort, and filter tests to Playwright e2e tests.
 
   // it('supports server-side pagination', async () => {
   //   apiPostMock.mockImplementationOnce((_path: string, body: any) => {
@@ -144,6 +145,10 @@ describe('Domains component', () => {
   //   const rows = await within(grid).findAllByRole('row');
   //   expect(rows.length).toBeLessThanOrEqual(15); // 15 data rows + header
   // });
+
+  // it('supports server-side sorting', async () => {});
+
+  // it('supports server-side filtering', async () => {});
 
   it('matches snapshot', () => {
     const domainComponent = <Domains />;
