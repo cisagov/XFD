@@ -4,50 +4,67 @@ import type { Page, TestInfo, Locator } from '@playwright/test';
 import { openMenuIfCollapsed, navScope } from '../../utils/menu_collapse';
 import { ROUTES } from '../../../frontend/src/constants/routes';
 import { ENDPOINTS } from '../../../frontend/src/constants/endpoints';
+import { runAxeAndFailOnSerious } from '../../utils/a11y';
+import {
+  openFiltersDrawer,
+  closeFilterDrawer,
+  ensureSectionOpen,
+  selectFromAutocomplete,
+  selectAnyOrganization,
+  isVisible,
+  hasValue,
+  urlHasBothFilters,
+  escapeForTextSelector,
+  VS,
+  INV
+} from '../../utils/filters';
 
-// Inline pattern for UUID
 const UUID_RX = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
-test.describe('Home Page — Standard User Permissions', () => {
-  test('should not display "Admin Hub" button, link, or text', async ({
-    pageAsStandardUser
+test.describe('Home Page — Regional Admin Permissions', () => {
+  test('Admin Hub expands and shows expected items', async ({
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
     const nav = await navScope(page);
 
-    const adminHubText = page.getByText(/admin hub/i);
-    await expect(
-      adminHubText,
-      '"Admin Hub" text should not be visible to Standard User'
-    ).toHaveCount(0);
+    const lcButton = nav.getByRole('button', { name: /^admin hub$/i }).first();
+    await expect(lcButton, 'Admin Hub toggle should exist').toBeVisible();
 
-    const adminHubButton = page.getByRole('button', { name: /admin hub/i });
-    await expect(
-      adminHubButton,
-      'No "Admin Hub" button should be present'
-    ).toHaveCount(0);
+    if ((await lcButton.getAttribute('aria-expanded')) !== 'true') {
+      await lcButton.click();
+      await expect(lcButton).toHaveAttribute('aria-expanded', 'true');
+    }
 
-    const adminHubLink = page.getByRole('link', { name: /admin hub/i });
-    await expect(
-      adminHubLink,
-      'No "Admin Hub" link should be visible'
-    ).toHaveCount(0);
+    const expectedItems = [
+      /manage organizations/i,
+      /manage users/i,
+      /user registration/i
+    ];
+
+    for (const rx of expectedItems) {
+      const item = nav
+        .getByRole('menuitem', { name: rx })
+        .first()
+        .or(nav.getByRole('link', { name: rx }).first());
+      await expect(item, `Missing Admin Hub item: ${rx}`).toBeVisible();
+    }
   });
 
-  test('should block access to /admin-tools for Standard User', async ({
-    pageAsStandardUser
+  test('should block access to /admin-tools for Regional Admin', async ({
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
 
     await page.goto(ROUTES.ADMIN_TOOLS, { waitUntil: 'networkidle' });
 
     const pathname = new URL(page.url()).pathname;
     expect(
       pathname !== ROUTES.ADMIN_TOOLS,
-      'Standard User should not remain on /admin-tools'
+      'Regional Admin should not remain on /admin-tools'
     ).toBeTruthy();
 
     const forbiddenText = page.getByText(
@@ -59,12 +76,12 @@ test.describe('Home Page — Standard User Permissions', () => {
     const hasNotFound = await notFoundText.count();
     expect(
       hasForbidden > 0 || hasNotFound > 0 || pathname !== ROUTES.ADMIN_TOOLS,
-      'Standard User should see a redirect or forbidden message when visiting /admin-tools'
+      'Regional Admin should see a redirect or forbidden message when visiting /admin-tools'
     ).toBeTruthy();
   });
 });
 
-test.describe('Home — Standard User Navigation (responsive)', () => {
+test.describe('Home — Regional Admin Navigation (responsive)', () => {
   async function getNavItem(page: Page, nameRx: RegExp) {
     const navDialog = page.getByRole('dialog', { name: /navigation menu/i });
     if (await navDialog.isVisible()) {
@@ -93,9 +110,9 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
   }
 
   test('Vulnerability Scanning navigates to /VSDashboard', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMobileMenuIfPresent(page);
@@ -105,22 +122,21 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
       'Nav item "Vulnerability Scanning" should be visible'
     ).toBeVisible();
 
-    // Inline regex that tolerates optional trailing slash, case-insensitive
     await Promise.all([
       page.waitForURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i')),
       item.click()
     ]);
-    await expect(page).toHaveURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i'));
 
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i'));
     await expect(
       page.getByRole('heading', { name: /vulnerability scanning/i })
     ).toBeVisible();
   });
 
   test('Findings Library navigates to /inventory', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMobileMenuIfPresent(page);
@@ -134,19 +150,19 @@ test.describe('Home — Standard User Navigation (responsive)', () => {
       page.waitForURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i')),
       item.click()
     ]);
-    await expect(page).toHaveURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i'));
 
+    await expect(page).toHaveURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i'));
     await expect(
       page.getByRole('heading', { name: /findings library|inventory/i })
     ).toBeVisible();
   });
 });
 
-test.describe('Home — Standard User: Learning Center nav', () => {
+test.describe('Home — Regional Admin: Learning Center nav', () => {
   test('Learning Center expands and shows expected items', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -181,9 +197,9 @@ test.describe('Home — Standard User: Learning Center nav', () => {
   });
 
   test('Sector Vulnerability Snapshots shows sector list', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -231,11 +247,11 @@ test.describe('Home — Standard User: Learning Center nav', () => {
   });
 });
 
-test.describe('Home — Standard User: Support nav', () => {
+test.describe('Home — Regional Admin: Support nav', () => {
   test('Support expands and shows expected items', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -267,9 +283,9 @@ test.describe('Home — Standard User: Support nav', () => {
   });
 
   test('Support toggle reflects expanded/collapsed state (aria-expanded)', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -300,11 +316,11 @@ test.describe('Home — Standard User: Support nav', () => {
   });
 });
 
-test.describe('Home — Standard User: Account Settings nav', () => {
+test.describe('Home — Regional Admin: Account Settings nav', () => {
   test('Account Settings navigates to /settings', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -335,56 +351,11 @@ test.describe('Home — Standard User: Account Settings nav', () => {
   });
 });
 
-test.describe('VSDashboard — Standard User: Filter permissions', () => {
-  test('Filter button opens drawer; Region & Organization are disabled and not expandable', async ({
-    pageAsStandardUser
-  }) => {
-    const page = pageAsStandardUser;
-    await page.goto(ROUTES.VSDASHBOARD);
-
-    const filterBtn = page.getByRole('button', { name: /^filter$/i });
-    await expect(filterBtn).toBeVisible();
-    await expect(filterBtn).toBeEnabled();
-
-    await filterBtn.click();
-    const drawerHeading = page.getByRole('heading', { name: /^filter$/i });
-    await expect(drawerHeading).toBeVisible();
-
-    await expectComboboxDisabledAndClosed(page, /^region$/i);
-    await expectComboboxDisabledAndClosed(page, /^organization$/i);
-  });
-});
-
-/* ---------------- helpers ---------------- */
-
-async function expectComboboxDisabledAndClosed(page: Page, label: RegExp) {
-  const combo = page.getByRole('combobox', { name: label }).first();
-  await expect(combo, `Missing combobox: ${label}`).toBeVisible();
-
-  const ariaDisabled = await combo.getAttribute('aria-disabled');
-  const nativelyDisabled = await combo.isDisabled().catch(() => false);
-  expect(
-    nativelyDisabled || ariaDisabled === 'true',
-    `Expected ${comboName(label)} to be disabled`
-  ).toBeTruthy();
-
-  await expect(combo).not.toHaveAttribute('aria-expanded', 'true');
-
-  await combo.click({ force: true });
-  await expect(combo).not.toHaveAttribute('aria-expanded', 'true');
-
-  await expect(page.getByRole('listbox')).toHaveCount(0, { timeout: 300 });
-}
-
-function comboName(rx: RegExp) {
-  return `combobox "${rx.source}"`;
-}
-
-test.describe('Findings Library — Standard User interactions', () => {
+test.describe('Findings Library — Regional Admin interactions', () => {
   test('first "View domain details for …" opens /inventory/domain/<uuid>', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
 
     await page.goto(ROUTES.INVENTORY);
     await expect(
@@ -408,22 +379,21 @@ test.describe('Findings Library — Standard User interactions', () => {
     const match = a11yName.match(/view domain details for\s+(.+)$/i);
     const identifier = (match?.[1] ?? '').trim();
 
-    // Build a URL regex directly from the route constant by replacing :domainId with a UUID pattern
-    const domainUuidRx = new RegExp(
+    const uuidRoute = new RegExp(
       `${ROUTES.DOMAIN.replace(':domainId', UUID_RX)}/?$`,
       'i'
     );
 
     await Promise.all([
-      page.waitForURL(domainUuidRx, { timeout: 10_000 }),
+      page.waitForURL(uuidRoute, { timeout: 10_000 }),
       firstBtn.click()
     ]);
 
-    await expect(page).toHaveURL(domainUuidRx);
+    await expect(page).toHaveURL(uuidRoute);
 
     if (identifier) {
       const idRx = new RegExp(
-        `\\b${identifier.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\b`,
+        `\\b${identifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`,
         'i'
       );
       const headingWithId = page.getByRole('heading', { name: idRx });
@@ -436,9 +406,9 @@ test.describe('Findings Library — Standard User interactions', () => {
   });
 });
 
-test.describe('Findings Library — Standard User tables', () => {
-  test('Domains tab shows "Domains Table"', async ({ pageAsStandardUser }) => {
-    const page = pageAsStandardUser;
+test.describe('Findings Library — Regional Admin tables', () => {
+  test('Domains tab shows "Domains Table"', async ({ pageAsRegionalAdmin }) => {
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.INVENTORY);
 
     await expect(
@@ -461,9 +431,9 @@ test.describe('Findings Library — Standard User tables', () => {
   });
 
   test('Vulnerabilities tab shows "Vulnerabilities Table"', async ({
-    pageAsStandardUser
+    pageAsRegionalAdmin
   }) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.INVENTORY);
 
     await expect(
@@ -486,8 +456,6 @@ test.describe('Findings Library — Standard User tables', () => {
   });
 });
 
-/* ---------------- helpers ---------------- */
-
 async function getNamedTable(page: Page, nameRx: RegExp): Promise<Locator> {
   const table = page.getByRole('table', { name: nameRx });
   if (await table.count()) return table.first();
@@ -502,9 +470,9 @@ async function getNamedTable(page: Page, nameRx: RegExp): Promise<Locator> {
   return labelled;
 }
 
-test.describe('VSDashboard — Standard User', () => {
-  test('shows "Latest Scanning Summary"', async ({ pageAsStandardUser }) => {
-    const page = pageAsStandardUser;
+test.describe('VSDashboard — Regional Admin', () => {
+  test('shows "Latest Scanning Summary"', async ({ pageAsRegionalAdmin }) => {
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.VSDASHBOARD);
 
     const summary = page
@@ -518,55 +486,241 @@ test.describe('VSDashboard — Standard User', () => {
   });
 });
 
-test.describe('A11y — Standard User (axe)', () => {
-  // Home
+test.describe('Admin API Test — Regional Admin', () => {
+  test('GET /metrics/customers is blocked (403)', async ({
+    pageAsRegionalAdmin
+  }) => {
+    await pageAsRegionalAdmin.goto(ROUTES.HOME);
+
+    const backend = process.env.BACKEND_DOMAIN;
+    const url = `${backend}${ENDPOINTS.METRICS_CUSTOMERS}`;
+
+    const res = await pageAsRegionalAdmin.context().request.get(url, {
+      headers: { Accept: 'text/csv' }
+    });
+
+    expect([401, 403]).toContain(res.status());
+  });
+});
+
+test.describe('VSDashboard — Regional Admin: Filter permissions', () => {
+  test('Filters are enabled; selecting Region & Organization updates state (URL or empty-state)', async ({
+    pageAsRegionalAdmin
+  }) => {
+    const page = pageAsRegionalAdmin;
+    await page.goto(ROUTES.VSDASHBOARD);
+
+    await openFiltersDrawer(page, VS);
+
+    const chosenRegion = await selectFromAutocomplete(
+      page,
+      /^region$/i,
+      /Region\s*2/i
+    );
+    await page.waitForTimeout(400);
+    const chosenOrg = await selectAnyOrganization(page, /^organization$/i);
+    await page.waitForTimeout(400);
+    await closeFilterDrawer(page, VS, { assertHidden: true });
+    const urlHasFilters = await urlHasBothFilters(page, VS, 1500);
+
+    const sawEmpty = await isVisible(
+      page.getByText(/no data available for this organization/i),
+      1500
+    );
+
+    let persisted = false;
+    if (!urlHasFilters && !sawEmpty) {
+      await openFiltersDrawer(page, VS);
+      await expect(
+        page.getByRole('combobox', { name: /^region$/i }).first()
+      ).toHaveValue(chosenRegion);
+      await expect(
+        page.getByRole('combobox', { name: /^organization$/i }).first()
+      ).toHaveValue(chosenOrg);
+      await closeFilterDrawer(page, VS, { assertHidden: true });
+      persisted = true;
+    }
+
+    expect(urlHasFilters || sawEmpty || persisted).toBeTruthy();
+  });
+});
+
+test.describe('Inventory — Regional Admin: Filter permissions', () => {
+  test('Filters are enabled; selecting Regions (checkbox) and Organization (search combobox) updates state', async ({
+    pageAsRegionalAdmin
+  }) => {
+    const page = pageAsRegionalAdmin;
+
+    await page.goto(ROUTES.INVENTORY);
+
+    await openFiltersDrawer(page, INV);
+
+    await ensureSectionOpen(page, /regions?/i);
+
+    const allRegions = page
+      .getByRole('checkbox', { name: /^all regions$/i })
+      .first();
+    if (await allRegions.isVisible().catch(() => false)) {
+      if (await allRegions.isChecked()) {
+        await allRegions.click();
+        await expect(allRegions).not.toBeChecked();
+      }
+    }
+
+    const region2 = page
+      .getByRole('checkbox', { name: /^region\s*2$/i })
+      .first();
+    await expect(region2).toBeVisible();
+    await region2.click();
+    await expect(region2).toBeChecked();
+
+    await ensureSectionOpen(page, /organizations?/i);
+    const chosenOrg = await selectAnyOrganization(
+      page,
+      /search organizations?/i
+    );
+
+    await closeFilterDrawer(page, INV, { assertHidden: false });
+
+    const urlHasFilters = await urlHasBothFilters(page, INV, 1500);
+
+    const emptyState = page.locator(
+      [
+        'text=/no data available/i',
+        'text=/no assets/i',
+        'text=/no results/i',
+        'text=/please select another organization/i'
+      ].join(', ')
+    );
+    const sawEmpty = await isVisible(emptyState, 1500);
+
+    let persisted = false;
+    if (!urlHasFilters && !sawEmpty) {
+      await openFiltersDrawer(page, INV);
+      await ensureSectionOpen(page, /regions?/i);
+      await expect(
+        page.getByRole('checkbox', { name: /^region\s*2$/i }).first()
+      ).toBeChecked();
+
+      await ensureSectionOpen(page, /organizations?/i);
+      const orgInput = page
+        .getByRole('combobox', { name: /search organizations?/i })
+        .first();
+
+      const chip = page.locator(`text=${escapeForTextSelector(chosenOrg)}`);
+
+      const valueMatches = await hasValue(orgInput, chosenOrg);
+      const chipVisible = await isVisible(chip, 500);
+
+      expect(valueMatches || chipVisible).toBeTruthy();
+
+      await closeFilterDrawer(page, INV, { assertHidden: false });
+      persisted = true;
+    }
+
+    expect(urlHasFilters || sawEmpty || persisted).toBeTruthy();
+  });
+});
+
+test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => {
+  // Home (static)
   test('Home: no serious/critical violations', async ({
-    pageAsStandardUser,
+    pageAsRegionalAdmin,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto(ROUTES.HOME);
+    await pageAsRegionalAdmin.goto(ROUTES.HOME);
     await runAxeAndFailOnSerious(
-      pageAsStandardUser,
+      pageAsRegionalAdmin,
       makeAxeBuilder,
       ti,
       'Home'
     );
   });
 
-  // VSDashboard
-  test('VSDashboard: no serious/critical violations', async ({
-    pageAsStandardUser,
+  // VS Dashboard (drawer OPEN)
+  test('VSDashboard (drawer open): no serious/critical violations', async ({
+    pageAsRegionalAdmin,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto(ROUTES.VSDASHBOARD);
+    const page = pageAsRegionalAdmin;
+    await page.goto(ROUTES.VSDASHBOARD);
+    await openFiltersDrawer(page, VS);
     await runAxeAndFailOnSerious(
-      pageAsStandardUser,
+      page,
       makeAxeBuilder,
       ti,
-      'VSDashboard'
+      'VSDashboard — drawer open'
+    );
+    await closeFilterDrawer(page, VS, { assertHidden: true });
+  });
+
+  // Inventory — Filters drawer open
+  test('Inventory (drawer open): no serious/critical violations', async ({
+    pageAsRegionalAdmin,
+    makeAxeBuilder
+  }, ti) => {
+    const page = pageAsRegionalAdmin;
+    await page.goto(ROUTES.INVENTORY);
+    await openFiltersDrawer(page, INV);
+    await runAxeAndFailOnSerious(
+      page,
+      makeAxeBuilder,
+      ti,
+      'Inventory — drawer open'
+    );
+    // Inventory drawer may remain mounted; don't require hidden
+    await closeFilterDrawer(page, INV, { assertHidden: false });
+  });
+
+  // Inventory — Tabs toggled
+  test('Inventory — Domains tab: no serious/critical violations', async ({
+    pageAsRegionalAdmin,
+    makeAxeBuilder
+  }, ti) => {
+    const page = pageAsRegionalAdmin;
+    await page.goto(ROUTES.INVENTORY);
+    const tabs = page
+      .getByRole('tablist', { name: /findings section tabs/i })
+      .first();
+    const domainsTab = tabs.getByRole('tab', { name: /^domains$/i }).first();
+    await domainsTab.click();
+    await expect(domainsTab).toHaveAttribute('aria-selected', 'true');
+    await runAxeAndFailOnSerious(
+      page,
+      makeAxeBuilder,
+      ti,
+      'Inventory — Domains tab'
     );
   });
 
-  // Findings Library (/inventory)
-  test('Inventory: no serious/critical violations', async ({
-    pageAsStandardUser,
+  test('Inventory — Vulnerabilities tab: no serious/critical violations', async ({
+    pageAsRegionalAdmin,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto(ROUTES.INVENTORY);
+    const page = pageAsRegionalAdmin;
+    await page.goto(ROUTES.INVENTORY);
+    const tabs = page
+      .getByRole('tablist', { name: /findings section tabs/i })
+      .first();
+    const vulnsTab = tabs
+      .getByRole('tab', { name: /^vulnerabilities$/i })
+      .first();
+    await vulnsTab.click();
+    await expect(vulnsTab).toHaveAttribute('aria-selected', 'true');
     await runAxeAndFailOnSerious(
-      pageAsStandardUser,
+      page,
       makeAxeBuilder,
       ti,
-      'Inventory'
+      'Inventory — Vulnerabilities tab'
     );
   });
 
-  // Domain details
+  // Domain details (conditional)
   test('Domain details: no serious/critical violations', async ({
-    pageAsStandardUser,
+    pageAsRegionalAdmin,
     makeAxeBuilder
   }, ti) => {
-    const page = pageAsStandardUser;
+    const page = pageAsRegionalAdmin;
     await page.goto(ROUTES.INVENTORY);
 
     const details = page
@@ -589,60 +743,17 @@ test.describe('A11y — Standard User (axe)', () => {
     await runAxeAndFailOnSerious(page, makeAxeBuilder, ti, 'Domain Details');
   });
 
-  // Settings (/settings → "My Account")
+  // Settings → My Account (static)
   test('Settings (My Account): no serious/critical violations', async ({
-    pageAsStandardUser,
+    pageAsRegionalAdmin,
     makeAxeBuilder
   }, ti) => {
-    await pageAsStandardUser.goto(ROUTES.SETTINGS);
+    await pageAsRegionalAdmin.goto(ROUTES.SETTINGS);
     await runAxeAndFailOnSerious(
-      pageAsStandardUser,
+      pageAsRegionalAdmin,
       makeAxeBuilder,
       ti,
       'Settings / My Account'
     );
-  });
-});
-
-/* ---------------- helper ---------------- */
-async function runAxeAndFailOnSerious(
-  page: Page,
-  makeAxeBuilder: (page: Page) => any,
-  testInfo: TestInfo,
-  label: string
-) {
-  const axe = makeAxeBuilder(page);
-  const results = await axe.analyze();
-
-  await testInfo.attach(`${label} — axe-results`, {
-    body: JSON.stringify(results, null, 2),
-    contentType: 'application/json'
-  });
-
-  const bad = results.violations.filter((v: any) =>
-    ['serious', 'critical'].includes(v.impact)
-  );
-
-  expect(
-    bad,
-    `${label} a11y violations (serious/critical):\n` +
-      JSON.stringify(bad, null, 2)
-  ).toHaveLength(0);
-}
-
-test.describe('Admin API Test — Standard User', () => {
-  test('GET /metrics/customers is blocked (403)', async ({
-    pageAsStandardUser
-  }) => {
-    await pageAsStandardUser.goto(ROUTES.HOME);
-
-    const backend = process.env.BACKEND_DOMAIN;
-    const url = `${backend}${ENDPOINTS.METRICS_CUSTOMERS}`;
-
-    const res = await pageAsStandardUser.context().request.get(url, {
-      headers: { Accept: 'text/csv' }
-    });
-
-    expect([401, 403]).toContain(res.status());
   });
 });
