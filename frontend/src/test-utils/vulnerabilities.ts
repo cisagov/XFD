@@ -45,15 +45,6 @@ export const makeVuln = (i = 1, overrides: Partial<Vuln> = {}): Vuln => {
   };
 };
 
-// export const makeVulnResponse = (
-//   count = 2,
-//   perItemOverride?: (index: number) => Partial<Vuln>
-// ) => {
-//   const items: Vuln[] = Array.from({ length: count }).map((_, idx) =>
-//     makeVuln(idx + 1, perItemOverride?.(idx) ?? {})
-//   );
-//   return { result: items, count: items.length };
-// };
 export const makeVulnResponse = (
   count = 2,
   perItemOverride?: (index: number) => Partial<Vuln>

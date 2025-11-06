@@ -467,12 +467,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               : Boolean(params.row.is_kev_ransomware)
             : null,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          // <Box
-          //   component="span"
-          //   aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
-          // >
-          //   {cellValues.row.is_kev_ransomware}
-          // </Box>
           const v = cellValues.row.is_kev_ransomware;
           if (v === null || v === undefined) {
             return (
