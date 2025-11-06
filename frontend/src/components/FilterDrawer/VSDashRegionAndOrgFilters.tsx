@@ -60,6 +60,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       id: currentOrganization.id,
       name: currentOrganization.name,
       root_domains: currentOrganization.root_domains,
+      acronym: currentOrganization.acronym,
       region_id: currentOrganization.region_id ?? '' // fallback to empty string if undefined
     };
   };
@@ -438,7 +439,12 @@ export const VSDashRegionAndOrgFilters: React.FC<
           disableClearable
           disabled={userLevel === STANDARD_USER}
           options={orgResults}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={(option) => {
+            if (option.name && option.acronym) {
+              return `${option.name} (${option.acronym})`;
+            }
+            return option.name;
+          }}
           slotProps={{
             listbox: {
               sx: {
