@@ -53,8 +53,7 @@
     "strictNullChecks": true,
     "target": "es5",
     "types": [
-      "vitest",
-      "@testing-library/jest-dom"
+      "vitest"
     ]
   },
   "include": [
