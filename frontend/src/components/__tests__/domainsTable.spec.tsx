@@ -1,11 +1,9 @@
 import React from 'react';
-import { render, screen, testUser, waitFor, within } from 'test-utils';
+import { render, screen, testUser } from 'test-utils';
 import { makeDomainResponse } from '@/test-utils/domains';
-import userEvent from '@testing-library/user-event';
 import type { AuthUser } from '../../context/';
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { Domains } from '../../pages/Domains/Domains';
-import { a } from 'vitest/dist/chunks/suite.d.FvehnV49';
 
 const namePool = [
   'example.com',

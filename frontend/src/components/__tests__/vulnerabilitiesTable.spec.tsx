@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, testUser } from 'test-utils';
 import { makeVulnResponse } from '@/test-utils/vulnerabilities';
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import type { AuthUser } from '../../context/';
 import Vulnerabilities from '../../pages/Vulnerabilities/Vulnerabilities';
 
