@@ -20,7 +20,7 @@ export type Vuln = {
   [k: string]: any;
 };
 
-export const makeVuln = (i = 0, overrides: Partial<Vuln> = {}): Vuln => {
+export const makeVuln = (i = 1, overrides: Partial<Vuln> = {}): Vuln => {
   const idx = i;
   return {
     id: `vuln-${idx}`,
@@ -45,6 +45,15 @@ export const makeVuln = (i = 0, overrides: Partial<Vuln> = {}): Vuln => {
   };
 };
 
+// export const makeVulnResponse = (
+//   count = 2,
+//   perItemOverride?: (index: number) => Partial<Vuln>
+// ) => {
+//   const items: Vuln[] = Array.from({ length: count }).map((_, idx) =>
+//     makeVuln(idx + 1, perItemOverride?.(idx) ?? {})
+//   );
+//   return { result: items, count: items.length };
+// };
 export const makeVulnResponse = (
   count = 2,
   perItemOverride?: (index: number) => Partial<Vuln>
@@ -52,5 +61,20 @@ export const makeVulnResponse = (
   const items: Vuln[] = Array.from({ length: count }).map((_, idx) =>
     makeVuln(idx + 1, perItemOverride?.(idx) ?? {})
   );
+
+  // ensure unique titles: if duplicates occur, append the 1-based index
+  const seen = new Map<string, number>();
+  for (let i = 0; i < items.length; i++) {
+    const title = items[i].title ?? '';
+    if (seen.has(title)) {
+      const countSeen = seen.get(title)! + 1;
+      seen.set(title, countSeen);
+      // preserve original title but add suffix so tests can target unique strings
+      items[i].title = `${title} ${i + 1}`;
+    } else {
+      seen.set(title, 1);
+    }
+  }
+
   return { result: items, count: items.length };
 };
