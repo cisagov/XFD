@@ -108,6 +108,8 @@ describe('Vulnerabilities component', () => {
     expect(errorText).toBeInTheDocument();
   });
 
+  // To-Do: CRASM-3385 Move server-side pagination, sort, and filter tests to Playwright e2e tests.
+
   // it('supports server-side pagination', async () => {
   //   apiPostMock.mockImplementation((_path: string, body: any) => {
   //     const page = body?.page ?? 1;
