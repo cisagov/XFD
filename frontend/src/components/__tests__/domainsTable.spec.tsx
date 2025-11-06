@@ -59,10 +59,10 @@ describe('Domains component', () => {
     const grid = await screen.findByRole('grid');
     expect(grid).toBeInTheDocument();
 
-    const firstDomainName = await screen.findByText(/example\.com/i);
+    const firstDomainName = await screen.findByText(/^example\.com$/i);
     expect(firstDomainName).toBeInTheDocument();
 
-    const websiteMatches = await screen.findAllByText(/website\.io/i);
+    const websiteMatches = await screen.findAllByText(/^website\.io$/i);
     expect(websiteMatches.length).toBeGreaterThan(0);
 
     const rows = await screen.findAllByRole('row');
