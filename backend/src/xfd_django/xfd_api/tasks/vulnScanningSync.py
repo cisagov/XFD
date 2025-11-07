@@ -99,6 +99,7 @@ def handler(event):
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
 
 
+# TODO: CRASM-3389: Add automated testing to VulnScanningSync
 @cloudwatch_metric()
 def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""

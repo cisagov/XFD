@@ -85,6 +85,7 @@ def fetch_port_scans_from_redshift(
         )
 
 
+# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
 @cloudwatch_metric()
 def bulk_insert_ips_and_link_to_port_scans(
     port_scans, org_id_dict, risky_service_groups, nmi_service_groups
@@ -152,6 +153,7 @@ def bulk_insert_ips_and_link_to_port_scans(
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 
 
+# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
 @cloudwatch_metric()
 def insert_port_scans_sql(
     port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
@@ -253,6 +255,7 @@ def insert_port_scans_sql(
                 execute_values(cursor, sql, subset, page_size=PAGE_SIZE)
 
 
+# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
 @cloudwatch_metric()
 def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
     """
