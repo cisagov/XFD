@@ -114,10 +114,17 @@ def handler(event):
 
         try:
             LOGGER.info("Creating Port summaries.")
-            orgs = Organization.objects.all()
-            create_port_scan_summaries_bulk(
-                org_ids=list(orgs.values_list("id", flat=True))
-            )
+            chunk_size = 500
+            org_qs = Organization.objects.order_by("id").iterator(chunk_size=chunk_size)
+            org_batch = []
+            for org in org_qs:
+                org_batch.append(org.id)
+                if len(org_batch) >= chunk_size:
+                    create_port_scan_summaries_bulk(org_ids=org_batch)
+                    org_batch.clear()
+            # Process the tail
+            if org_batch:
+                create_port_scan_summaries_bulk(org_ids=org_batch)
 
         except Exception as e:
             LOGGER.error("error saving Port summary: %s", e)
