@@ -34,6 +34,7 @@ def emit_redshift_metric(query_name: str, duration_s: float, rows: int, success=
         "RowCount": rows,
     }
     # Print JSON to stdout so CloudWatch Logs automatically picks it up.
+    # TODO: CRASM-3387: Apply LOGGER framework in place of print
     print(json.dumps(payload))  # noqa
 
 
@@ -58,9 +59,12 @@ def emit_django_metric(stage: str, count: int, duration_s: float, success=True):
         "DurationSeconds": duration_s,
         "RecordCount": count,
     }
+    # TODO: CRASM-3387: Apply LOGGER framework in place of print
     print(json.dumps(payload))  # noqa
 
 
+# TODO: CRASM-3388 Refine Cloudwatch metric decorator with more metrics
+# and add to major functions across the python backend
 def cloudwatch_metric(stage_name=None):
     """
     Time entire function execution and emit CloudWatch metrics.
