@@ -17,6 +17,34 @@ vi.mock('@mui/material', async () => {
   };
 });
 
+/*
+ * TODO: Enhanced Event Handler and Interaction Testing with Playwright
+ *
+ * While this test suite covers rendering, accessibility attributes, and basic DOM verification,
+ * comprehensive event handler and interaction testing should be implemented with Playwright
+ * later on for a more realistic user interaction simulation:
+ *
+ * 1. Event Handler Verification:
+ *    - Verify onClick handlers are called with correct parameters
+ *    - Test onKeyDown handlers for arrow keys, Enter, and Escape real event objects
+ *    - Validate event propagation and preventDefault behavior
+ *
+ * 2. Real Browser Interaction Testing:
+ *    - Keyboard navigation through menu items in browser
+ *    - Mouse hover states and visual feedback verification
+ *    - Focus management and tab order behaviors
+ *    - Screen reader compatibility
+ *
+ * 3. Integration Testing:
+ *    - Test component behavior when integrated with parent components
+ *    - Verify aria-activedescendant updates during navigation
+ *    - Test aria-selected state changes in use scenarios
+ *
+ * 4. Cross-browser Compatibility:
+ *    - Ensure consistent behavior across different browsers
+ *    - Testing with screen readers
+ */
+
 describe('AutoCompleteResults', () => {
   const mockValues = [
     {
