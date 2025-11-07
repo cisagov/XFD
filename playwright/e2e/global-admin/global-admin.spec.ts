@@ -5,6 +5,7 @@ import { openMenuIfCollapsed, navScope } from '../../utils/menu_collapse';
 import { ROUTES } from '../../../frontend/src/constants/routes';
 import { ENDPOINTS } from '../../../frontend/src/constants/endpoints';
 import { runAxeAndFailOnSerious } from '../../utils/a11y';
+import { UUID_RX } from '../../utils/constants';
 import {
   openFiltersDrawer,
   closeFilterDrawer,
@@ -18,8 +19,6 @@ import {
   VS,
   INV
 } from '../../utils/filters';
-
-const UUID_RX = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
 test.describe('Home Page — Global Admin Permissions', () => {
   test('Admin Hub expands and shows expected items', async ({
