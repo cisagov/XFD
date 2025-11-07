@@ -15,6 +15,7 @@ db_name                             = "crossfeed-prod-db"
 db_port                             = 5432
 db_table_name                       = "cfproddb"
 db_instance_class                   = "db.m5.4xlarge"
+django_env_bucket_name              = "cyhy-prod-django-env"
 ssm_crossfeed_vpc_name              = "/crossfeed/prod/VPC_NAME"
 log_metric_namespace                = "LogMetrics"
 log_metric_api_error_rate           = "crossfeed-prod-APIErrorRate"
