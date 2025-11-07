@@ -194,7 +194,7 @@ describe('VSDashboardGate', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/No Data Found/i)).toBeInTheDocument();
+    expect(screen.getByText(/No Hosts Found/i)).toBeInTheDocument();
   });
 
   it('shows VulnerabilityScan default when data is present', () => {
