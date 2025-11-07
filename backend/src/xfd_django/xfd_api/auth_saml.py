@@ -38,8 +38,8 @@ def _env_truthy(in_var: Optional[str]) -> bool:
     return in_var.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
-APP_BASE_URL = (os.getenv("APP_BASE_URL") or "").rstrip("/")
-FRONTEND_BASE_URL = (os.getenv("FRONTEND_BASE_URL") or "").rstrip("/")
+BACKEND_DOMAIN = (os.getenv("BACKEND_DOMAIN") or "").rstrip("/")
+FRONTEND_DOMAIN = (os.getenv("FRONTEND_DOMAIN") or "").rstrip("/")
 OKTA_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
 
 IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
@@ -67,13 +67,13 @@ def _build_sp_settings() -> Dict[str, Any]:
         "strict": False,  # flip to True once IdP config is finalized
         "debug": dj_settings.DEBUG,
         "sp": {
-            "entityId": f"{APP_BASE_URL}/saml/metadata",
+            "entityId": f"{BACKEND_DOMAIN}/saml/metadata",
             "assertionConsumerService": {
-                "url": f"{APP_BASE_URL}/saml/acs",
+                "url": f"{BACKEND_DOMAIN}/saml/acs",
                 "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
             },
             "singleLogoutService": {
-                "url": f"{APP_BASE_URL}/saml/logout",
+                "url": f"{BACKEND_DOMAIN}/saml/logout",
                 "binding": "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect",
             },
         },
@@ -92,7 +92,7 @@ def _build_sp_settings() -> Dict[str, Any]:
             "relaxDestinationValidation": False,
             "rejectDeprecatedAlgorithm": True,
         },
-        "baseurl": f"{APP_BASE_URL}",
+        "baseurl": f"{BACKEND_DOMAIN}",
         "contactPerson": {},
         "organization": {},
     }
@@ -230,10 +230,10 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
 def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse:
     """Return a 303 redirect to the SPA and set auth cookies."""
     relay_path = _path_only(relay)
-    target = f"{FRONTEND_BASE_URL.rstrip('/')}{relay_path}"
+    target = f"{FRONTEND_DOMAIN.rstrip('/')}{relay_path}"
     resp = RedirectResponse(target, status_code=303)
 
-    is_https = APP_BASE_URL.startswith("https://")
+    is_https = BACKEND_DOMAIN.startswith("https://")
     resp.set_cookie(
         "token", token, httponly=False, secure=is_https, samesite="Lax", path="/"
     )
@@ -273,7 +273,7 @@ def saml_login(request: Request, next: str = "/"):
 async def saml_acs(request: Request):
     """Process the SAML response posted by Okta.
 
-    Validates the response, upserts the user, mints a JWT, sets cookies, and
+    Validates th e response, upserts the user, mints a JWT, sets cookies, and
     redirects to the SPA.
     """
     form = dict(await request.form())
@@ -305,7 +305,7 @@ async def saml_acs(request: Request):
 def saml_logout(request: Request, next: str = "/"):
     """App logout (local). Add SLO later if needed."""
     next_path = _path_only(request.query_params.get("next"))
-    target = f"{FRONTEND_BASE_URL.rstrip('/')}{next_path}"
+    target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
     resp = RedirectResponse(target, status_code=303)
     resp.delete_cookie("token", path="/")
     resp.delete_cookie("crossfeed-token", path="/")

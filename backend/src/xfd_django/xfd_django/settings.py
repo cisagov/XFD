@@ -56,7 +56,6 @@ DEBUG = IS_LOCAL != "false"
 ALLOWED_HOSTS = [
     ".execute-api.us-east-1.amazonaws.com",
     os.getenv("BACKEND_DOMAIN"),
-    os.getenv("VITE_API_URL"),
     os.getenv("FRONTEND_DOMAIN"),
     os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
     os.getenv("CROSSFEED_BACKEND_DOMAIN"),

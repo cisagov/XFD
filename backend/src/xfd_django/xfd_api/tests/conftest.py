@@ -298,8 +298,8 @@ def saml_test_env(monkeypatch: Any) -> SamlEnv:
             - auth_saml: the loaded module under test
             - FakeUser: the in-memory model class
     """
-    monkeypatch.setenv("APP_BASE_URL", "http://localhost:3000")
-    monkeypatch.setenv("FRONTEND_BASE_URL", "http://localhost")
+    monkeypatch.setenv("BACKEND_DOMAIN", "http://localhost:3000")
+    monkeypatch.setenv("FRONTEND_DOMAIN", "http://localhost")
     monkeypatch.setenv("OKTA_SAML_METADATA_URL", "https://example.okta/metadata")
 
     _install_fake_django(monkeypatch)
