@@ -617,7 +617,6 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
         raise QueryError(SCAN_NAME, str(e), "Error creating vuln scan summary") from e
 
 
-@cloudwatch_metric()
 def get_asset_owned_count(org):
     """Return count of IPs in the reported CIDRs for passed org."""
     # Get only CIDRs currently associated with the org via CidrOrgs.current=True

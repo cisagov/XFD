@@ -23,11 +23,6 @@ def log_scan_result(scan_id, organization_id, http_status=200, message=""):
             http_status=http_status,
             message=message,
         )
-        LOGGER.info(
-            "Inserted scan result for scan: {}, organization: {}, http status: {} and message {}.".format(
-                scan, org, http_status, message
-            )
-        )
 
     except Exception as e:
         LOGGER.error(
