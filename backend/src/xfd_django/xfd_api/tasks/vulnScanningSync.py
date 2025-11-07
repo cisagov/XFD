@@ -11,6 +11,7 @@ from logging import FileHandler
 import os
 
 # Third-Party Libraries
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import freeze_window
 from xfd_api.tasks.utils.vs_port_scans import (
     create_port_scan_summary,
@@ -98,6 +99,7 @@ def handler(event):
         raise ScanExecutionError(SCAN_NAME, str(e), event) from e
 
 
+@cloudwatch_metric()
 def main(event):  # pylint: disable=R0915
     """Execute the vulnerability scanning synchronization task."""
     setup_vuln_sync_logging()
