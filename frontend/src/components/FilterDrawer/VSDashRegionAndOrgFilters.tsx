@@ -485,7 +485,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
                     }, 250)
                   }
                 >
-                  {option.name}
+                  {option.name && option.acronym ? (
+                    <>
+                      {option.name} ({option.acronym})
+                    </>
+                  ) : (
+                    option.name
+                  )}
                 </Button>
               </li>
             );

@@ -309,6 +309,22 @@ export const RegionUsers: React.FC = () => {
       }
     },
     {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization Acronym: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
+          </Box>
+        );
+      }
+    },
+    {
       field: 'updated_at',
       headerName: 'Updated At',
       minWidth: 100,
