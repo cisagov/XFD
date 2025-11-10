@@ -12,6 +12,10 @@ from typing import Any, Tuple
 import psycopg2
 from psycopg2 import sql
 from psycopg2.pool import SimpleConnectionPool
+from xfd_api.tasks.utils.cloudwatch_metrics import (
+    cloudwatch_metric,
+    emit_redshift_metric,
+)
 from xfd_api.tasks.utils.datetime_utils import to_utc_naive
 from xfd_api.utils.scan_utils.alerting import QueryError
 
@@ -46,9 +50,11 @@ def _get_pool():
     return _POOL
 
 
+@cloudwatch_metric()
 def query_redshift(query, params=None):
     """Execute a query on Redshift and return results as list of dicts."""
     pool = _get_pool()
+    query_name = str(query)[:120].replace("\n", " ")
     rows_returned = 0
 
     for attempt in range(5):  # retry up to 5 times
@@ -88,6 +94,7 @@ def query_redshift(query, params=None):
 
         finally:
             duration = time.perf_counter() - start
+            emit_redshift_metric(query_name, duration, rows_returned, success)
             LOGGER.info(
                 "[Redshift] [%0.3fs] [%d rows] success=%s",
                 duration,

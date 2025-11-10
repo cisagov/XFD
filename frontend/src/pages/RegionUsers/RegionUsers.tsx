@@ -46,6 +46,7 @@ const transformData = (data: User[]): User[] => {
     ...user,
     roles,
     organizations: roles.map((role) => ' ' + role.organization.name),
+    org_acronym: roles[0]?.organization.acronym || '',
     organizations_display: roles
       .map((role) => role.organization.name)
       .join(', '),
@@ -254,6 +255,20 @@ export const RegionUsers: React.FC = () => {
           {cellValues.row.organizations_display}
         </Box>
       )
+    },
+    {
+      field: 'org_acronym',
+      headerName: 'Org Acronym',
+      minWidth: 250,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component="span"
+          aria-label={`Organization acronym for User ${cellValues.row.full_name}: ${cellValues.row.org_acronym}`}
+        >
+          {cellValues.row.org_acronym}
+        </Box>
+      )
     }
   ];
   const regionIdColumn = {
@@ -289,6 +304,22 @@ export const RegionUsers: React.FC = () => {
             aria-label={`Organization Name: ${cellValues.row.name}`}
           >
             {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization Acronym: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
           </Box>
         );
       }
