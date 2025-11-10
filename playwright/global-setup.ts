@@ -52,7 +52,6 @@ async function globalSetup(config: FullConfig) {
   fs.mkdirSync('.auth', { recursive: true });
 
   for (const { role, username, password, totpSecret } of userRoles) {
-    console.log(`Testing ${role} ${username}`);
     await loginAndSaveStorage(
       role,
       username,
