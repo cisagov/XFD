@@ -12,6 +12,7 @@ from typing import Iterable, Optional
 from django.db import connections, transaction
 from django.db.models import Count, Max, Min
 from django.utils import timezone
+from psycopg2 import sql
 from psycopg2.extras import execute_values
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
@@ -149,6 +150,7 @@ def bulk_insert_ips_and_link_to_port_scans(
     )
 
     # Update latest flag
+    # TODO Determine if we want to even do this anymore, possibly wait until the new table fills a bit before removing this functionality
     if affected_keys:
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 
@@ -162,9 +164,12 @@ def insert_port_scans_sql(
     Fast, low-WAL SQL insert for port_scan using psycopg2.execute_values.
 
     Each batch runs inside its own transaction and commits automatically.
+
+    Saves to both PortScans and LatestPortScans
     """
     db = "mini_data_lake"
-    columns = [
+
+    base_columns = [
         "id",
         "ip_string",
         "ip_id",
@@ -192,26 +197,56 @@ def insert_port_scans_sql(
         "nmi_service_group",
     ]
 
-    # Prepare tuples
+    latest_columns = [
+        "port_scan_id",
+        "ip_string",
+        "ip_id",
+        "port",
+        "protocol",
+        "reason",
+        "service",
+        "service_name",
+        "service_confidence",
+        "service_method",
+        "service_cpe",
+        "service_hostname",
+        "service_extra_info",
+        "service_os_type",
+        "service_product",
+        "service_version",
+        "service_tunnel",
+        "service_device_type",
+        "source",
+        "state",
+        "time_scanned",
+        "organization_id",
+        "risky_service_group",
+        "nmi_service_group",
+    ]
+
     tuples = []
+    latest_tuples = []
+
     for item in port_scan_batch:
         ps = item["raw"]
         svc = item["service_obj"]
         org_id = item["org_id"]
-
         ip_str = ps.get("ip")
         ip_obj = ip_map.get((ip_str, org_id)) if ip_str else None
+        time_scanned = safe_fromisoformat(ps.get("time"))
+
+        ps_id = ps["_id"].replace("ObjectId('", "").replace("')", "")
 
         tuples.append(
             (
-                ps["_id"].replace("ObjectId('", "").replace("')", ""),
+                ps_id,
                 ip_str,
                 ip_obj.id if ip_obj else None,
-                False,  # latest flag always False initially
+                False,
                 ps.get("port"),
                 ps.get("protocol"),
                 ps.get("reason"),
-                json.dumps(ps.get("service") or {}),  # convert dict to JSON string
+                json.dumps(ps.get("service") or {}),
                 svc.get("name"),
                 svc.get("conf"),
                 svc.get("method"),
@@ -225,7 +260,36 @@ def insert_port_scans_sql(
                 svc.get("devicetype"),
                 ps.get("source"),
                 ps.get("state"),
-                safe_fromisoformat(ps.get("time")),
+                time_scanned,
+                org_id,
+                risky_service_groups.get(svc.get("name")),
+                nmi_service_groups.get(svc.get("name")),
+            )
+        )
+
+        latest_tuples.append(
+            (
+                ps_id,
+                ip_str,
+                ip_obj.id if ip_obj else None,
+                ps.get("port"),
+                ps.get("protocol"),
+                ps.get("reason"),
+                json.dumps(ps.get("service") or {}),
+                svc.get("name"),
+                svc.get("conf"),
+                svc.get("method"),
+                (svc.get("cpe") or [None])[0],
+                svc.get("hostname"),
+                svc.get("extrainfo"),
+                svc.get("ostype"),
+                svc.get("product"),
+                svc.get("version"),
+                svc.get("tunnel"),
+                svc.get("devicetype"),
+                ps.get("source"),
+                ps.get("state"),
+                time_scanned,
                 org_id,
                 risky_service_groups.get(svc.get("name")),
                 nmi_service_groups.get(svc.get("name")),
@@ -235,24 +299,87 @@ def insert_port_scans_sql(
     if not tuples:
         return
 
-    sql = f"""
-        INSERT INTO port_scan ({', '.join(columns)})
-        VALUES %s
-        ON CONFLICT (id) DO NOTHING
-    """  # nosec B608
+    # --- Deduplicate latest_tuples in-memory: keep newest per (org, ip, port, protocol)
+    deduped_latest = {}
+    for row in latest_tuples:
+        # indices based on latest_columns order:
+        # 0: port_scan_id, 1: ip_string, 2: ip_id, 3: port, 4: protocol, ..., 20: time_scanned, 21: organization_id
+        org_id = row[21]
+        ip_string = row[1]
+        port = row[3]
+        protocol = row[4]
+        time_scanned = row[20]
+        key = (org_id, ip_string, port, protocol)
 
-    PAGE_SIZE = 5000  # number of rows per VALUES chunk
-    BATCH_COMMIT = 10000  # number of rows per transaction
+        existing = deduped_latest.get(key)
+        if not existing:
+            deduped_latest[key] = row
+        else:
+            # compare time_scanned, prefer the later (non-None wins)
+            existing_ts = existing[20]
+            # treat None as older
+            if time_scanned and (not existing_ts or time_scanned > existing_ts):
+                deduped_latest[key] = row
+
+    latest_tuples = list(deduped_latest.values())
+    # --- end dedupe ---
+
+    # Build SQL safely using psycopg2.sql
+    # port_scan INSERT
+    insert_portscan_sql = sql.SQL(
+        "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT (id) DO NOTHING"
+    ).format(
+        table=sql.Identifier("port_scan"),
+        cols=sql.SQL(", ").join([sql.Identifier(c) for c in base_columns]),
+    )
+
+    # latest_port_scan INSERT ... ON CONFLICT ... DO UPDATE SET ...
+    conflict_cols = ["organization_id", "ip_string", "port", "protocol"]
+    # columns to update on conflict: latest_columns minus conflict_cols
+    update_cols = [c for c in latest_columns if c not in conflict_cols]
+
+    set_sql = sql.SQL(", ").join(
+        sql.SQL("{col} = EXCLUDED.{col}").format(col=sql.Identifier(c))
+        for c in update_cols
+    )
+
+    where_sql = sql.SQL(
+        "WHERE {table}.{time_col} IS NULL OR EXCLUDED.{time_col} > {table}.{time_col}"
+    ).format(
+        table=sql.Identifier("latest_port_scan"),
+        time_col=sql.Identifier("time_scanned"),
+    )
+
+    insert_latest_sql = sql.SQL(
+        "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_sql} {where_sql}"
+    ).format(
+        table=sql.Identifier("latest_port_scan"),
+        cols=sql.SQL(", ").join([sql.Identifier(c) for c in latest_columns]),
+        conflict_cols=sql.SQL(", ").join([sql.Identifier(c) for c in conflict_cols]),
+        set_sql=set_sql,
+        where_sql=where_sql,
+    )
+
+    PAGE_SIZE = 5000
+    BATCH_COMMIT = 10000
 
     total = len(tuples)
-
     for i in range(0, total, BATCH_COMMIT):
         subset = tuples[i : i + BATCH_COMMIT]
+        latest_subset = latest_tuples[i : i + BATCH_COMMIT]
+
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
-                # Safe with ON CONFLICT DO NOTHING
                 cursor.execute("SET LOCAL synchronous_commit = OFF;")
-                execute_values(cursor, sql, subset, page_size=PAGE_SIZE)
+                # execute_values expects a string query; convert the composable SQL to a string with the active cursor
+                portscan_query_str = insert_portscan_sql.as_string(cursor)
+                latest_query_str = insert_latest_sql.as_string(cursor)
+
+                execute_values(cursor, portscan_query_str, subset, page_size=PAGE_SIZE)
+                if latest_subset:
+                    execute_values(
+                        cursor, latest_query_str, latest_subset, page_size=PAGE_SIZE
+                    )
 
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
