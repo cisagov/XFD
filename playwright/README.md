@@ -84,20 +84,21 @@ If you are using testing in VS Code using the Playwright extension, add the foll
 
 ```json
 "playwright.env": {
-        "PW_GLOBAL_ADMIN_USERNAME": "",
-        "PW_GLOBAL_ADMIN_PASSWORD": "",
-        "PW_GLOBAL_ADMIN_2FA_SECRET": "",
-        "PW_REGIONAL_ADMIN_USERNAME": "",
-        "PW_REGIONAL_ADMIN_PASSWORD": "",
-        "PW_REGIONAL_ADMIN_2FA_SECRET": "",
-        "PW_GLOBAL_VIEW_USERNAME": "",
-        "PW_GLOBAL_VIEW_PASSWORD": "",
-        "PW_GLOBAL_VIEW_2FA_SECRET": "",
-        "PW_STANDARD_USER_USERNAME": "",
-        "PW_STANDARD_USER_PASSWORD": "",
-        "PW_STANDARD_USER_2FA_SECRET": "",
-        "PW_XFD_2FA_ISSUER": "",
-        "PW_XFD_URL": "",
+        "PW_GLOBAL_ADMIN_USERNAME": "xfd.pw.globaladm@gmail.com",
+        "PW_GLOBAL_ADMIN_PASSWORD": "Pw_@ut0m@t1on251",
+        "PW_GLOBAL_ADMIN_2FA_SECRET": "6AQL2GQKW4XTSDDLCDPPBQROY34P7LJD",
+        "PW_REGIONAL_ADMIN_USERNAME": "xfd.pw.regionaladm@gmail.com",
+        "PW_REGIONAL_ADMIN_PASSWORD": "Pw_@ut0m@1on252",
+        "PW_REGIONAL_ADMIN_2FA_SECRET": "7Q4AEQO6O7PHOXAWFU2WJVHHIQIIONIB",
+        "PW_GLOBAL_VIEW_USERNAME": "xfd.pw.globalview@gmail.com",
+        "PW_GLOBAL_VIEW_PASSWORD": "Pw_@ut0m@1on253",
+        "PW_GLOBAL_VIEW_2FA_SECRET": "GQAIPR6R4C3ITB5CAXJXUQWTJLQHFRPD",
+        "PW_STANDARD_USER_USERNAME": "xfd.pw.standarduser@gmail.com",
+        "PW_STANDARD_USER_PASSWORD": "Pw_@ut0m@1on254",
+        "PW_STANDARD_USER_2FA_SECRET": "DKNN4H6HXYF37GGNFH54YDVEWLEQFFRK",
+        "PW_XFD_2FA_ISSUER": "Login.gov",
+        "PW_XFD_URL": "https://staging-cd.crossfeed.cyber.dhs.gov",
+        "CI": "False"
 }
 ```
 
@@ -111,9 +112,9 @@ After this is done, pull down a copy `.env` file from the team Sharepoint. Place
 
 Once that is performed, run `source .env` to load the variables in your terminal instance. Optionally, you can include them in your `.bashrc` or `.zshrc` file to have them persist.
 
-Open up the file `2FA.png` on the team Sharepoint and scan the QR code into a mobile authenticator. This will load the 2FA tokens for all 4 service accounts. If this doesn't work, you can use the 2FA keys found in the `.env` and manually type them into an authenticator app like Google Authenticator.
+Open up the file `2FA.png` on the team Sharepoint and scan the QR code into a mobile authenticator. This will load the 2FA tokens for all 4 service accounts. If this doesn't work, you can use the 2FA keys found in the `.env` and manually type them into an authenticator app like Google Authenticator. This may be necessary if you need to manually debug a test case.
 
-For the first time use, you will need to manually log in to each user account one time to set the row in the database, using username/password and the 2FA token. If your own developer account is a global administrator, you can then approve the 4 service account users and set them to their appropriate role. Or you can use your DBeaver database management tool and approve and set the user role type in the `Users` table.
+From the backend folder, after the `make syncdl` command has been run, download the file `test-users.json` from the Sharepoint site and use the command `make import-test-users FILE=../path/to/test_users.json`. This will populate the database with the test users so they may be used in the Playwright tests.
 
 After all 4 service accounts have been set up for the first time, you can then run Playwright via the `npx playwright test` command and it will perform the tests as expected.
 
