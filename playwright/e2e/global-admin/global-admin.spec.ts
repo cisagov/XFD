@@ -20,11 +20,11 @@ import {
   INV
 } from '../../utils/filters';
 
-test.describe('Home Page — Regional Admin Permissions', () => {
+test.describe('Home Page — Global Admin Permissions', () => {
   test('Admin Hub expands and shows expected items', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -39,6 +39,7 @@ test.describe('Home Page — Regional Admin Permissions', () => {
     }
 
     const expectedItems = [
+      /admin tools/i,
       /manage organizations/i,
       /manage users/i,
       /user registration/i
@@ -53,34 +54,36 @@ test.describe('Home Page — Regional Admin Permissions', () => {
     }
   });
 
-  test('should block access to /admin-tools for Regional Admin', async ({
-    pageAsRegionalAdmin
+  test('should have access to /admin-tools for Global Admin', async ({
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
+    const response = await page.goto(ROUTES.ADMIN_TOOLS, {
+      waitUntil: 'domcontentloaded'
+    });
 
-    await page.goto(ROUTES.ADMIN_TOOLS, { waitUntil: 'networkidle' });
+    await expect(page).toHaveURL(ROUTES.ADMIN_TOOLS);
 
-    const pathname = new URL(page.url()).pathname;
     expect(
-      pathname !== ROUTES.ADMIN_TOOLS,
-      'Regional Admin should not remain on /admin-tools'
+      response && response.ok(),
+      `Expected 2xx response; got ${response?.status()}`
     ).toBeTruthy();
 
-    const forbiddenText = page.getByText(
-      /(not authorized|forbidden|access denied|permission denied)/i
+    await expect(page.getByRole('tab', { name: /^scans$/i })).toHaveAttribute(
+      'aria-selected',
+      'true'
     );
-    const notFoundText = page.getByText(/(not found|404)/i);
 
-    const hasForbidden = await forbiddenText.count();
-    const hasNotFound = await notFoundText.count();
-    expect(
-      hasForbidden > 0 || hasNotFound > 0 || pathname !== ROUTES.ADMIN_TOOLS,
-      'Regional Admin should see a redirect or forbidden message when visiting /admin-tools'
-    ).toBeTruthy();
+    await expect(
+      page.getByRole('button', { name: /manually run scheduler/i })
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /add a scan/i })
+    ).toBeVisible();
   });
 });
 
-test.describe('Home — Regional Admin Navigation (responsive)', () => {
+test.describe('Home — Global Admin Navigation (responsive)', () => {
   async function getNavItem(page: Page, nameRx: RegExp) {
     const navDialog = page.getByRole('dialog', { name: /navigation menu/i });
     if (await navDialog.isVisible()) {
@@ -109,9 +112,9 @@ test.describe('Home — Regional Admin Navigation (responsive)', () => {
   }
 
   test('Vulnerability Scanning navigates to /VSDashboard', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMobileMenuIfPresent(page);
@@ -133,9 +136,9 @@ test.describe('Home — Regional Admin Navigation (responsive)', () => {
   });
 
   test('Findings Library navigates to /inventory', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMobileMenuIfPresent(page);
@@ -157,11 +160,11 @@ test.describe('Home — Regional Admin Navigation (responsive)', () => {
   });
 });
 
-test.describe('Home — Regional Admin: Learning Center nav', () => {
+test.describe('Home — Global Admin: Learning Center nav', () => {
   test('Learning Center expands and shows expected items', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -196,9 +199,9 @@ test.describe('Home — Regional Admin: Learning Center nav', () => {
   });
 
   test('Sector Vulnerability Snapshots shows sector list', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -246,11 +249,11 @@ test.describe('Home — Regional Admin: Learning Center nav', () => {
   });
 });
 
-test.describe('Home — Regional Admin: Support nav', () => {
+test.describe('Home — Global Admin: Support nav', () => {
   test('Support expands and shows expected items', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -282,9 +285,9 @@ test.describe('Home — Regional Admin: Support nav', () => {
   });
 
   test('Support toggle reflects expanded/collapsed state (aria-expanded)', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -315,11 +318,11 @@ test.describe('Home — Regional Admin: Support nav', () => {
   });
 });
 
-test.describe('Home — Regional Admin: Account Settings nav', () => {
+test.describe('Home — Global Admin: Account Settings nav', () => {
   test('Account Settings navigates to /settings', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.HOME);
 
     await openMenuIfCollapsed(page);
@@ -350,11 +353,11 @@ test.describe('Home — Regional Admin: Account Settings nav', () => {
   });
 });
 
-test.describe('Findings Library — Regional Admin interactions', () => {
+test.describe('Findings Library — Global Admin interactions', () => {
   test('first "View domain details for …" opens /inventory/domain/<uuid>', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
 
     await page.goto(ROUTES.INVENTORY);
     await expect(
@@ -405,9 +408,9 @@ test.describe('Findings Library — Regional Admin interactions', () => {
   });
 });
 
-test.describe('Findings Library — Regional Admin tables', () => {
-  test('Domains tab shows "Domains Table"', async ({ pageAsRegionalAdmin }) => {
-    const page = pageAsRegionalAdmin;
+test.describe('Findings Library — Global Admin tables', () => {
+  test('Domains tab shows "Domains Table"', async ({ pageAsGlobalAdmin }) => {
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.INVENTORY);
 
     await expect(
@@ -430,9 +433,9 @@ test.describe('Findings Library — Regional Admin tables', () => {
   });
 
   test('Vulnerabilities tab shows "Vulnerabilities Table"', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.INVENTORY);
 
     await expect(
@@ -469,9 +472,9 @@ async function getNamedTable(page: Page, nameRx: RegExp): Promise<Locator> {
   return labelled;
 }
 
-test.describe('VSDashboard — Regional Admin', () => {
-  test('shows "Latest Scanning Summary"', async ({ pageAsRegionalAdmin }) => {
-    const page = pageAsRegionalAdmin;
+test.describe('VSDashboard — Global Admin', () => {
+  test('shows "Latest Scanning Summary"', async ({ pageAsGlobalAdmin }) => {
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.VSDASHBOARD);
 
     const summary = page
@@ -485,28 +488,28 @@ test.describe('VSDashboard — Regional Admin', () => {
   });
 });
 
-test.describe('Admin API Test — Regional Admin', () => {
-  test('GET /metrics/customers is blocked (403)', async ({
-    pageAsRegionalAdmin
+test.describe('Admin API Test — Global Admin', () => {
+  test('GET /metrics/customers is accessible', async ({
+    pageAsGlobalAdmin
   }) => {
-    await pageAsRegionalAdmin.goto(ROUTES.HOME);
+    await pageAsGlobalAdmin.goto(ROUTES.HOME);
 
     const backend = process.env.BACKEND_DOMAIN;
     const url = `${backend}${ENDPOINTS.METRICS_CUSTOMERS}`;
 
-    const res = await pageAsRegionalAdmin.context().request.get(url, {
+    const res = await pageAsGlobalAdmin.context().request.get(url, {
       headers: { Accept: 'text/csv' }
     });
 
-    expect([401, 403]).toContain(res.status());
+    expect([200]).toContain(res.status());
   });
 });
 
-test.describe('VSDashboard — Regional Admin: Filter permissions', () => {
+test.describe('VSDashboard — Global Admin: Filter permissions', () => {
   test('Filters are enabled; selecting Region & Organization updates state (URL or empty-state)', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.VSDASHBOARD);
 
     await openFiltersDrawer(page, VS);
@@ -544,11 +547,11 @@ test.describe('VSDashboard — Regional Admin: Filter permissions', () => {
   });
 });
 
-test.describe('Inventory — Regional Admin: Filter permissions', () => {
+test.describe('Inventory — Global Admin: Filter permissions', () => {
   test('Filters are enabled; selecting Regions (checkbox) and Organization (search combobox) updates state', async ({
-    pageAsRegionalAdmin
+    pageAsGlobalAdmin
   }) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
 
     await page.goto(ROUTES.INVENTORY);
 
@@ -621,27 +624,22 @@ test.describe('Inventory — Regional Admin: Filter permissions', () => {
   });
 });
 
-test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => {
+test.describe('A11y — Global Admin (axe, minimal critical surfaces)', () => {
   // Home (static)
   test('Home: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    await pageAsRegionalAdmin.goto(ROUTES.HOME);
-    await runAxeAndFailOnSerious(
-      pageAsRegionalAdmin,
-      makeAxeBuilder,
-      ti,
-      'Home'
-    );
+    await pageAsGlobalAdmin.goto(ROUTES.HOME);
+    await runAxeAndFailOnSerious(pageAsGlobalAdmin, makeAxeBuilder, ti, 'Home');
   });
 
   // VS Dashboard (drawer OPEN)
   test('VSDashboard (drawer open): no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.VSDASHBOARD);
     await openFiltersDrawer(page, VS);
     await runAxeAndFailOnSerious(
@@ -655,10 +653,10 @@ test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => 
 
   // Inventory — Filters drawer open
   test('Inventory (drawer open): no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.INVENTORY);
     await openFiltersDrawer(page, INV);
     await runAxeAndFailOnSerious(
@@ -673,10 +671,10 @@ test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => 
 
   // Inventory — Tabs toggled
   test('Inventory — Domains tab: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.INVENTORY);
     const tabs = page
       .getByRole('tablist', { name: /findings section tabs/i })
@@ -693,10 +691,10 @@ test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => 
   });
 
   test('Inventory — Vulnerabilities tab: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.INVENTORY);
     const tabs = page
       .getByRole('tablist', { name: /findings section tabs/i })
@@ -716,10 +714,10 @@ test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => 
 
   // Domain details (conditional)
   test('Domain details: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    const page = pageAsRegionalAdmin;
+    const page = pageAsGlobalAdmin;
     await page.goto(ROUTES.INVENTORY);
 
     const details = page
@@ -744,15 +742,30 @@ test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => 
 
   // Settings → My Account (static)
   test('Settings (My Account): no serious/critical violations', async ({
-    pageAsRegionalAdmin,
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, ti) => {
-    await pageAsRegionalAdmin.goto(ROUTES.SETTINGS);
+    await pageAsGlobalAdmin.goto(ROUTES.SETTINGS);
     await runAxeAndFailOnSerious(
-      pageAsRegionalAdmin,
+      pageAsGlobalAdmin,
       makeAxeBuilder,
       ti,
       'Settings / My Account'
     );
+  });
+
+  // Admin Hub → Admin Tools (static)
+  test('Admin Tools: no serious/critical violations', async ({
+    pageAsGlobalAdmin,
+    makeAxeBuilder
+  }, ti) => {
+    const page = pageAsGlobalAdmin;
+
+    await page.goto(ROUTES.ADMIN_TOOLS);
+
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('main')).toBeVisible({ timeout: 10_000 });
+
+    await runAxeAndFailOnSerious(page, makeAxeBuilder, ti, 'Admin Tools');
   });
 });
