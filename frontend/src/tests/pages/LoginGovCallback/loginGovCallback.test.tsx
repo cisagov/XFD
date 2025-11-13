@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, waitFor } from 'test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
-import { LoginGovCallback } from '../LoginGovCallback';
+import { LoginGovCallback } from '../../../pages/LoginGovCallback/LoginGovCallback';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 vi.spyOn(Storage.prototype, 'getItem');
