@@ -9,6 +9,29 @@ This document outlines the plan to restructure frontend unit tests from scattere
 
 ## Current Test Structure Analysis
 
+### Current Testing Stack
+
+**Testing Framework:** **Vitest** (`^3.2.4`) - Modern, Vite-native testing framework
+- Fully migrated from Jest to Vitest
+- Uses jsdom environment for DOM simulation
+- Configuration in `vite.config.mts`
+
+**Testing Libraries in Active Use:**
+- **@testing-library/react** (`^14.3.1`) - **Heavily used** for component testing
+- **@testing-library/user-event** (`^13.5.0`) - User interaction simulation  
+- **@testing-library/jest-dom** (`^6.6.3`) - DOM matchers (toBeInTheDocument, etc.)
+- **jsdom** (`^26.1.0`) - Browser environment simulation
+- **Custom test-utils** - Wrapper utilities that provide:
+  - Custom `render()` function with context providers (AuthContext, Router, Theme)
+  - Mock data exports (`testUser`, `testOrganization`)
+  - Re-exports of all testing-library functions
+
+**Usage Evidence:**
+- Component tests extensively use `render()`, `screen`, `findBy*`, `waitFor`
+- All React component tests follow React Testing Library patterns
+- Tests import from both direct `@testing-library/react` and custom `test-utils`
+- No legacy testing patterns found (no Enzyme, no Jest-specific imports)
+
 ### Existing Test Locations
 
 The tests are currently distributed across multiple `__tests__` directories:
@@ -55,6 +78,7 @@ The tests are currently distributed across multiple `__tests__` directories:
 2. **Scattered organization**: Tests spread across different `__tests__` directories
 3. **Inconsistent structure**: Some tests in `__tests__` folders, others directly in component folders
 4. **Non-standard file extensions**: Hook tests don't follow naming conventions
+5. **⚠️ Incomplete Jest → Vitest migration**: Hook tests still use Jest APIs (`jest.spyOn`, `jest.mocked`, etc.) and import missing `jest-date-mock` dependency
 
 ## Target Structure
 
@@ -173,6 +197,30 @@ Check and update any test configuration files that might reference the old test 
 - `vite.config.mts`
 - `package.json` test scripts
 - CI/CD configuration files
+
+### Step 6: Fix Jest Remnants (Complete Vitest Migration)
+
+**Issue Found:** Some hook tests still use Jest APIs instead of Vitest equivalents.
+
+**Files to Fix:**
+- `hooks/__tests__/usePersistentState.tsx`:
+  - `jest.spyOn()` → `vi.spyOn()`
+  - `jest.mocked()` → `vi.mocked()`
+  - `jest.restoreAllMocks()` → `vi.restoreAllMocks()`
+  - `jest.fn()` → `vi.fn()`
+  
+- `hooks/__tests__/useUserActivityTimeout.ts`:
+  - `jest.useFakeTimers()` → `vi.useFakeTimers()`
+  - `jest.clearAllTimers()` → `vi.clearAllTimers()`
+  - `jest.advanceTimersByTime()` → `vi.advanceTimersByTime()`
+  - Remove `jest-date-mock` import (not in package.json, likely causing errors)
+  - Replace with Vitest date mocking alternatives
+
+**Why This Matters:**
+- Ensures complete consistency across all test files
+- Eliminates dependency on Jest APIs
+- Fixes potential runtime errors from missing `jest-date-mock`
+- Completes the Jest → Vitest migration
 
 ## Acceptance Criteria Checklist
 
