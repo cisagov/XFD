@@ -930,3 +930,9 @@ variable "backend_api_requests_log_group_name" {
   type        = string
   default     = "cyhy-staging-backend-api-requests"
 }
+
+variable "django_env_bucket_name" {
+  description = "django_env_bucket_name"
+  type        = string
+  default     = "cyhy-staging-django-env"
+}
