@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, Tab } from '@mui/material';
-import { useLocation, useHistory } from 'react-router-dom';
+import { useLocation, useHistory, Link } from 'react-router-dom';
 import { useNavigationContext } from 'context/NavigationContext';
 import { ROUTES } from '@/constants/routes';
 
@@ -46,46 +46,35 @@ export const Subnav = ({ items }: NavTabsProps) => {
       value={currentTab}
       onChange={handleChange}
       aria-label="Findings section tabs"
-      slotProps={{
-        indicator: {
-          sx: {
-            height: 4,
-            backgroundColor: 'primary.dark'
-          }
-        }
-      }}
       sx={{
         minHeight: 'auto',
         mb: 3
       }}
     >
-      {items.map((item) => (
-        <Tab
-          key={item.title}
-          label={item.title}
-          value={item.path}
-          id={`tab-${item.path}`}
-          aria-controls={`tabpanel-${item.path}`}
-          sx={{
-            minWidth: 'fit-content',
-            px: 0,
-            py: 1,
-            mr: 3,
-            mb: '3px',
-            textTransform: 'none',
-            color: 'neutrals.main',
-            fontWeight: 600,
-            fontSize: '16px',
-            '&.Mui-selected': {
-              color: 'primary.dark',
-              fontWeight: 'bold'
-            },
-            '&:hover': {
-              color: 'primary.darker'
-            }
-          }}
-        />
-      ))}
+      {items.map((item) => {
+        const pathString = getPathString(item.path);
+        return (
+          <Tab
+            component={Link}
+            to={item.path}
+            onClick={() => {
+              if (pathString === ROUTES.INVENTORY) {
+                clearDrillDown();
+              }
+            }}
+            key={item.title}
+            label={item.title}
+            value={item.path}
+            sx={{
+              minWidth: 'fit-content',
+              px: 0,
+              py: 1,
+              mr: 3,
+              mb: '3px'
+            }}
+          />
+        );
+      })}
     </Tabs>
   );
 };

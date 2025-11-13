@@ -74,6 +74,7 @@ declare module '@mui/material/Button' {
   interface ButtonPropsVariantOverrides {
     globalNav: true;
     primaryContained: true;
+    primaryText: true;
   }
 }
 
@@ -149,6 +150,18 @@ const theme = createTheme({
             '&:hover': {
               color: theme.palette.primary.darker
             }
+          })
+        },
+        {
+          props: { variant: 'primaryText' },
+          style: ({ theme }) => ({
+            color: theme.palette.primary.dark,
+            textTransform: 'none',
+            '&:hover': {
+              color: theme.palette.primary.darker
+            },
+            fontSize: theme.typography.button.fontSize,
+            fontWeight: theme.typography.button.fontWeight
           })
         }
       ]
@@ -256,6 +269,33 @@ const theme = createTheme({
           },
           '&.Mui-selected': {
             backgroundColor: theme.palette.primary.light
+          }
+        })
+      }
+    },
+
+    MuiTabs: {
+      styleOverrides: {
+        indicator: ({ theme }) => ({
+          backgroundColor: theme.palette.primary.dark,
+          height: 4
+        })
+      }
+    },
+
+    MuiTab: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          textTransform: 'none',
+          fontSize: '16px',
+          fontWeight: 600,
+          color: theme.palette.neutrals.main,
+          '&.Mui-selected': {
+            color: theme.palette.primary.dark,
+            fontWeight: 'bold'
+          },
+          '&:hover': {
+            color: theme.palette.primary.darker
           }
         })
       }
