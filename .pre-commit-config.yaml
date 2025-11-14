@@ -50,7 +50,7 @@ repos:
     hooks:
       - id: eslint
         name: ESLint (frontend)
-        entry: npx eslint
+        entry: npx eslint -c frontend/eslint.config.js frontend --ext .js,.jsx,.ts,.tsx
         language: system
         types: [file]
         files: ^frontend/.*\.(js|jsx|ts|tsx)$
