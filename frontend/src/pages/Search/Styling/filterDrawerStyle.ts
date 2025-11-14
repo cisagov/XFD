@@ -1,5 +1,5 @@
-import { styled } from '@mui/material/styles';
-import { Paper } from '@mui/material';
+import styled from '@mui/material/styles/styled';
+import Paper from '@mui/material/Paper';
 
 const Wrapper = Paper;
 const PREFIX = 'FilterDrawer';

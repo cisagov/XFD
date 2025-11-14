@@ -1,16 +1,18 @@
 import React, { FC } from 'react';
-import { ContextType } from 'context';
+import { useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { useTheme } from '@mui/material/styles';
+import useTheme from '@mui/material/styles/useTheme';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/system/Stack';
+import Typography from '@mui/material/Typography';
+import CloseIcon from '@mui/icons-material/Close';
+import { ContextType } from 'context';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import { matchPath } from 'utils/matchPath';
-import { useLocation } from 'react-router-dom';
-import { Stack } from '@mui/system';
-import { Button, IconButton, Toolbar, Typography } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
 import { ROUTES } from '@/constants/routes';
 

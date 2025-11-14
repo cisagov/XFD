@@ -33,6 +33,7 @@ export const LoginGovCallback: React.FC = () => {
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
     } catch (e) {
+      console.error('Login.gov callback error: ', e);
     } finally {
       // route guard on ROUTES.HOME will respond appropriately
       historyPush(ROUTES.HOME);

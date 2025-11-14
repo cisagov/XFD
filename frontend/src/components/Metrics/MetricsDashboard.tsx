@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Button } from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import { useAuthContext } from 'context/AuthContext';
 import MatomoLogo from '@/assets/matomo-logo.png';
 import ScansWidget from './Widgets/ScansWidget';

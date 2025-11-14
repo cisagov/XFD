@@ -6,19 +6,19 @@ import React, {
   useRef
 } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Query, UserOrganization } from 'types';
-import { useAuthContext } from 'context';
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  IconButton,
-  Paper,
-  Stack,
-  Typography
-} from '@mui/material';
-
+import { differenceInCalendarDays, parseISO } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Checklist from '@mui/icons-material/Checklist';
+import DynamicFeed from '@mui/icons-material/DynamicFeed';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
+import OpenInNew from '@mui/icons-material/OpenInNew';
 import {
   DataGrid,
   getGridSingleSelectOperators,
@@ -30,17 +30,8 @@ import {
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
-import {
-  Checklist,
-  DynamicFeed,
-  FiberManualRecordRounded,
-  OpenInNew
-} from '@mui/icons-material';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import { getSeverityColor } from 'utils/getSeverityColor';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { truncateString } from 'utils/dataTransformUtils';
+import { useAuthContext } from 'context';
+import { Query, UserOrganization } from 'types';
 import { Vulnerability } from 'types/domain';
 import {
   ApiResponse,
@@ -48,9 +39,13 @@ import {
   SearchParams,
   VulnerabilityRow
 } from 'types/vulnerabilities';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
+import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+import { getSeverityColor } from 'utils/getSeverityColor';
+import { truncateString } from 'utils/dataTransformUtils';
 import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
 import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
-import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -338,7 +333,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       return operators.filter((op) =>
         allowedOperators.includes(op.value as string)
       );
-    } catch (e) {
+    } catch {
       return [
         { label: 'Contains', value: 'contains' } as any,
         { label: 'Equals', value: 'equals' } as any

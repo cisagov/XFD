@@ -1,6 +1,6 @@
 import React from 'react';
 import Button from '@mui/material/Button';
-import { FileDownload } from '@mui/icons-material';
+import FileDownload from '@mui/icons-material/FileDownload';
 import Tooltip from '@mui/material/Tooltip';
 import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';

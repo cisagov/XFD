@@ -1,7 +1,11 @@
 import React, { useEffect } from 'react';
 import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
-import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
 import { CrossfeedWarning } from 'components/WarningBanner';
 import { MaintenanceNotification } from 'types';
 import { v4 as uuidv4 } from 'uuid';

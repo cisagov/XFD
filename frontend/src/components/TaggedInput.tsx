@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { styled, useTheme } from '@mui/material/styles';
-import { Box, Button, Chip } from '@mui/material';
-import { Check } from '@mui/icons-material';
+import styled from '@mui/material/styles/styled';
+import useTheme from '@mui/material/styles/useTheme';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Check from '@mui/icons-material/Check';
 
 const PREFIX = 'TaggedArrayInput';
 

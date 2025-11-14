@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ErrorOutline } from '@mui/icons-material';
+import React from 'react';
+import ErrorOutline from '@mui/icons-material/ErrorOutline';
 import { MaintenanceNotification } from 'types';
 
 export function useNotificationApiCall(

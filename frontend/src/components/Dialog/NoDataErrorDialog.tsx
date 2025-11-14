@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  Typography,
-  IconButton,
-  Box
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import IconButton from '@mui/material/IconButton';
+import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 

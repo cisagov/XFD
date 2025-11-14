@@ -58,7 +58,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
     onAutocompleteResultClick: (e: any, f: any) => {
       console.error(e, f);
     },
-    onAutocomplete: async ({ search_term }: { search_term: string }) => {
+    onAutocomplete: async () => {
       // const requestBody = buildAutocompleteRequest({ search_term });
       // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
       //   body: {

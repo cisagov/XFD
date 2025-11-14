@@ -1,16 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  Alert,
-  Autocomplete,
-  Button,
-  DialogContent,
-  FormControlLabel,
-  Grid,
-  Radio,
-  RadioGroup,
-  TextField,
-  Typography
-} from '@mui/material';
+import { isEqual } from 'lodash';
+import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
+import Button from '@mui/material/Button';
+import DialogContent from '@mui/material/DialogContent';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Grid from '@mui/material/Grid';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
 import {
   initialUserFormValues,
@@ -20,7 +19,6 @@ import {
 } from 'types';
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
-import { isEqual } from 'lodash';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
@@ -54,8 +52,6 @@ type ApiBody = {
   state: string;
   region_id: string;
 };
-
-type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
 type UserFormProps = {
   users: UserType[];

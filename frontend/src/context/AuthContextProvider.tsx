@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Auth } from 'aws-amplify';
+import Alert, { AlertProps } from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { AuthContext, AuthUser } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
 import { useApi } from 'hooks/useApi';
@@ -11,9 +13,6 @@ import {
   getUserMustSign
 } from './userStateUtils';
 import Cookies from 'universal-cookie';
-import { Snackbar } from '@mui/material';
-import { Alert } from '@mui/material';
-import { AlertProps } from '@mui/material/Alert';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 export const currentTermsVersion = '1';

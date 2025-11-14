@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { initializeUser, User, Organization as OrganizationType } from 'types';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
-import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
-import InfoDialog from 'components/Dialog/InfoDialog';
-import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
-import { useAuthContext } from 'context';
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { formatDate, parseISO } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import CloseIcon from '@mui/icons-material/Close';
+import DoneIcon from '@mui/icons-material/Done';
+import InfoOutline from '@mui/icons-material/InfoOutline';
 import {
   DataGrid,
   GridColDef,
@@ -14,14 +18,13 @@ import {
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import DoneIcon from '@mui/icons-material/Done';
-import {
-  CheckCircleOutline as CheckIcon,
-  InfoOutline
-} from '@mui/icons-material';
-import CloseIcon from '@mui/icons-material/Close';
+import { initializeUser, User, Organization as OrganizationType } from 'types';
+import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
+import InfoDialog from 'components/Dialog/InfoDialog';
+import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
+import { useAuthContext } from 'context';
 import { useUserLevel } from 'hooks/useUserLevel';
-import { formatDate, parseISO } from 'date-fns';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 type DialogStates = {
@@ -59,7 +62,6 @@ export const RegionUsers: React.FC = () => {
   const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
-  const regionalAdminId = user?.region_id;
   const { formattedUserType } = useUserLevel();
   const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
 
@@ -837,7 +839,7 @@ export const RegionUsers: React.FC = () => {
             isInfoDialogOpen: false
           }));
         }}
-        icon={<CheckIcon color="success" sx={{ fontSize: '80px' }} />}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
       />

@@ -7,8 +7,12 @@ import React, {
 } from 'react';
 import { useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { Alert, AlertTitle, Box, Typography } from '@mui/material';
-import { styled, useTheme } from '@mui/material/styles';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import styled from '@mui/material/styles/styled';
+import useTheme from '@mui/material/styles/useTheme';
 import { useMediaQuery } from '@mui/system';
 import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
