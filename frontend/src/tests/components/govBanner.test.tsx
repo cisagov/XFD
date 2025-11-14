@@ -1,5 +1,5 @@
 import React from 'react';
-import { GovBanner } from '../GovBanner';
+import { GovBanner } from '../../components/GovBanner';
 import { render, fireEvent, waitFor } from 'test-utils/test-utils';
 import { describe, it, expect } from 'vitest';
 
