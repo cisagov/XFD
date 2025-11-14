@@ -43,12 +43,25 @@ def load_django_env_config(ttl_seconds: int = 3600):
     # Use cached file if still fresh
     if os.path.exists(cache_path):
         mtime = os.path.getmtime(cache_path)
-        if time.time() - mtime < ttl_seconds:
+        age = time.time() - mtime
+        if age < ttl_seconds:
             with open(cache_path, encoding="utf-8") as f:
                 data = json.load(f)
-            LOGGER.info("Loaded Django config from cache (%s)", cache_path)
+            LOGGER.info(
+                "Loaded Django config from cache (%s); age %.1f sec (TTL %s sec)",
+                cache_path,
+                age,
+                ttl_seconds,
+            )
             _inject_env(data)
             return
+        else:
+            LOGGER.info(
+                "Cached env.json found at %s but expired (age %.1f sec > TTL %s sec)",
+                cache_path,
+                age,
+                ttl_seconds,
+            )
 
     # Fetch from S3 and cache
     try:
