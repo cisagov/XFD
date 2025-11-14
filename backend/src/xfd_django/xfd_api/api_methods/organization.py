@@ -1022,6 +1022,7 @@ SORT_MAP = {
     "state": "state",
     "region_id": "region_id",
     "created_at": "created_at",
+    "acronym": "acronym",
 }
 
 
@@ -1054,7 +1055,6 @@ def search_organizations_v2(payload, current_user):
             qs = qs.order_by("{}{}".format(direction, sort_field), "id")
         else:
             qs = qs.order_by("created_at", "id")
-
         page_size = min(max(payload.pageSize or 15, 1), MAX_PAGE_SIZE)
         paginator = Paginator(qs, page_size)
         page_obj = paginator.get_page(payload.page or 1)
