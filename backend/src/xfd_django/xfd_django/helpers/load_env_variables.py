@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-from pathlib import Path
 import time
 
 # Third-Party Libraries
@@ -20,13 +19,14 @@ def load_django_env_config(ttl_seconds: int = 3600):
 
     # --- Local / backend/xfd_django/env.json ---
     if is_local:
-        local_path = os.path.join(Path(__file__).resolve().parents[2], "env.json")
+        local_path = "/app/env.json"
+
         try:
             with open(local_path, encoding="utf-8") as f:
                 data = json.load(f)
             LOGGER.info("Loaded Django config from local file: %s", local_path)
         except FileNotFoundError:
-            LOGGER.warning("Local env.json not found at %s", local_path)
+            LOGGER.info("Local env.json not found at %s", local_path)
             data = {}
         _inject_env(data)
         return

@@ -3,16 +3,12 @@
 import io
 import json
 import os
-import sys
 import time
 from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 import pytest
 from xfd_django.helpers.load_env_variables import load_django_config
-
-# Ensure /app/src is on sys.path for imports like xfd_django.helpers
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 
 @pytest.fixture
