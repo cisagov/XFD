@@ -1,5 +1,5 @@
 import React from 'react';
-import { TermsOfUse } from '../TermsOfUse';
+import { TermsOfUse } from '../../components/Dialog/TermsOfUse/TermsOfUse';
 import { render, fireEvent, waitFor } from 'test-utils';
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from 'vitest';
 import { ENDPOINTS } from '@/constants/endpoints';
