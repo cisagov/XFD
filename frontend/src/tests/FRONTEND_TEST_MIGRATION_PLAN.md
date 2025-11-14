@@ -5,7 +5,17 @@
 
 ## Overview
 
-This document outlines the plan to restructure frontend unit tests from scattered `__tests__` directories into a centralized `frontend/src/tests` folder with consistent organization and naming conventions.
+This document outlines the plan to restructure frontend unit tests from scattered `__tests__` directories into a centralized `frontend/src/tests` folder with **mirrored directory structure** matching the actual component/page organization and consistent naming conventions.
+
+## Strategy Decision: Mirror Component Structure
+
+After initial implementation, we've decided to **mirror the actual component/page directory structure** in tests for better maintainability:
+
+### Benefits of Mirrored Structure:
+- **Intuitive navigation**: Easy to find tests by following the same path as components
+- **Maintainable import paths**: Simple relative imports (e.g., `../ComponentName`)
+- **Scalable**: Avoids naming conflicts as project grows
+- **Future-proof**: Component reorganizations are reflected in test structure
 
 ## Current Test Structure Analysis
 
@@ -87,54 +97,30 @@ The tests are currently distributed across multiple `__tests__` directories:
 ```
 frontend/src/tests/
 ├── components/
-│   ├── AuthRoute/
-│   ├── Dashboard/
-│   ├── DataGrid/
 │   ├── Dialog/
 │   │   └── TermsOfUse/
-│   │       └── termsOfUse.test.tsx
-│   ├── FilterDrawer/
-│   │   └── AutoCompletedResults.test.tsx
-│   ├── FindingsLibrary/
+│   │       └── termsOfUse.test.tsx (from Dialog/TermsOfUse/__tests__/)
 │   ├── Gates/
-│   │   └── vs-dashboard-gate.test.tsx
+│   │   └── vs-dashboard-gate.test.tsx (from Gates/__tests__/)
 │   ├── Header/
-│   ├── Layout/
-│   ├── Logs/
-│   ├── Metrics/
-│   ├── Notifications/
+│   │   └── header.test.tsx (from components/__tests__/)
 │   ├── Routes/
-│   ├── ScanForm/
+│   │   └── routeGuard.test.tsx (from components/__tests__/)
 │   ├── UpdateUserStateForm/
-│   ├── domainsTable.test.tsx
-│   ├── layout.test.tsx
-│   ├── routeGuard.test.tsx
-│   ├── header.test.tsx
-│   ├── govBanner.test.tsx
-│   ├── updateUserStateForm.test.tsx
-│   ├── domainDetails.test.tsx
-│   ├── vulnerabilitiesTable.test.tsx
+│   │   └── updateUserStateForm.test.tsx (from components/__tests__/)
+│   ├── govBanner.test.tsx (from components/__tests__/ - root level component)
+│   ├── layout.test.tsx (from components/__tests__/ - root level component)
 │   └── __snapshots__/
-│       ├── header.test.tsx.snap
-│       ├── govBanner.test.tsx.snap
-│       ├── domainDetails.test.tsx.snap
-│       ├── domainsTable.test.tsx.snap
-│       ├── vulnerabilitiesTable.test.tsx.snap
-│       ├── layout.test.tsx.snap
-│       └── termsOfUse.test.tsx.snap
+│       └── (snapshots will be generated in appropriate subdirectories)
 ├── pages/
-│   ├── AdminTools/
 │   ├── Domain/
+│   │   └── domainDetails.test.tsx (MOVED from components/__tests__/)
 │   ├── Domains/
-│   ├── LoginGovCallback/
-│   │   └── loginGovCallback.test.tsx
-│   ├── Organization/
-│   ├── Organizations/
-│   ├── Scans/
-│   ├── Settings/
-│   ├── Users/
+│   │   └── domainsTable.test.tsx (MOVED from components/__tests__/)
 │   ├── Vulnerabilities/
-│   └── VulnerabilityScanDash/
+│   │   └── vulnerabilities.test.tsx (existing from pages/__tests__/)
+│   │   └── vulnerabilitiesTable.test.tsx (MOVED from components/__tests__/)
+│   └── (other page test directories as needed)
 ├── context/
 │   └── authCtx.test.tsx
 ├── hooks/
@@ -181,24 +167,44 @@ mkdir -p frontend/src/tests/pages/{AdminTools,Domain,Domains,LoginGovCallback,Or
 | `hooks/__tests__/useVulnScanData.ts` | `tests/hooks/useVulnScanData.test.ts` | ✅ add .test |
 | `pages/LoginGovCallback/__tests__/loginGovCallback.spec.tsx` | `tests/pages/LoginGovCallback/loginGovCallback.test.tsx` | ✅ spec→test |
 
-### Step 3: Snapshot Files Migration
+### Step 3: RESTRUCTURE - Mirror Component Architecture
 
-All `__snapshots__` directories should be consolidated:
-- Move all snapshot files to `tests/components/__snapshots__/`
+**REVISED APPROACH:** Instead of flattening all tests, mirror the actual component/page structure:
+
+**Page Tests (incorrectly placed in components/):**
+- `components/__tests__/domainDetails.spec.tsx` → `tests/pages/Domain/domainDetails.test.tsx`
+- `components/__tests__/domainsTable.spec.tsx` → `tests/pages/Domains/domainsTable.test.tsx`  
+- `components/__tests__/vulnerabilitiesTable.spec.tsx` → `tests/pages/Vulnerabilities/vulnerabilitiesTable.test.tsx`
+
+**Component Tests (organized by actual component location):**
+- `components/__tests__/header.spec.tsx` → `tests/components/Header/header.test.tsx`
+- `components/__tests__/layout.spec.tsx` → `tests/components/layout.test.tsx` (root level)
+- `components/__tests__/govBanner.spec.tsx` → `tests/components/govBanner.test.tsx` (root level)
+- `components/__tests__/routeGuard.spec.tsx` → `tests/components/Routes/routeGuard.test.tsx`
+- `components/__tests__/updateUserStateForm.spec.tsx` → `tests/components/UpdateUserStateForm/updateUserStateForm.test.tsx`
+- `Dialog/TermsOfUse/__tests__/termsOfUse.spec.tsx` → `tests/components/Dialog/TermsOfUse/termsOfUse.test.tsx`
+- `Gates/__tests__/vs-dashboard-gate.spec.tsx` → `tests/components/Gates/vs-dashboard-gate.test.tsx`
+
+### Step 4: Import Path Updates
+
+Update all import statements to use simple relative paths:
+- From nested: `'../../components/Header/Header'` 
+- To simple: `'../Header'` (when in same directory structure)
+
+### Step 5: Snapshot Files Migration
+
+Move snapshots to match the new structure:
+- Create `__snapshots__` directories in appropriate test subdirectories
 - Update snapshot file names to match new test file names (spec→test)
 
-### Step 4: Import Updates
-
-After moving files, update all import statements in test files to reflect new relative paths from the centralized location.
-
-### Step 5: Configuration Updates
+### Step 6: Configuration Updates
 
 Check and update any test configuration files that might reference the old test locations:
 - `vite.config.mts`
 - `package.json` test scripts
 - CI/CD configuration files
 
-### Step 6: Fix Jest Remnants (Complete Vitest Migration)
+### Step 7: Fix Jest Remnants (Complete Vitest Migration) ✅ COMPLETED
 
 **Issue Found:** Some hook tests still use Jest APIs instead of Vitest equivalents.
 
@@ -222,14 +228,37 @@ Check and update any test configuration files that might reference the old test 
 - Fixes potential runtime errors from missing `jest-date-mock`
 - Completes the Jest → Vitest migration
 
+## Current Status (After Initial Migration)
+
+### ✅ Completed Steps:
+1. **Created centralized tests directory** at `frontend/src/tests/`
+2. **Moved and renamed all test files** from scattered `__tests__` directories
+3. **Jest → Vitest conversion** completed for all hook tests
+4. **Consistent naming**: All files now use `.test.tsx/.test.ts` convention
+5. **Updated import paths** for all moved files
+6. **All tests verified working** - 13/13 test files functional
+
+### ⚠️ Current Issue: 
+**Flattened structure doesn't match component organization**. Tests are currently in `tests/components/` root level but should mirror actual component structure.
+
+### 🔄 Next: Restructure to Mirror Component Architecture
+
+**Required Moves:**
+- **Page tests** (incorrectly in components/) → `tests/pages/`
+- **Nested components** → proper subdirectories matching `src/components/`
+- **Update import paths** to use simple relative paths
+- **Move snapshots** to appropriate subdirectories
+
 ## Acceptance Criteria Checklist
 
-- [ ] Create new folder: `src/frontend/tests` ✅ (Note: should be `frontend/src/tests`)
-- [ ] No frontend unit tests are outside of this new folder
-- [ ] Create subfolders within tests (components, pages, etc.) matching frontend code organization
-- [ ] Move existing tests to their respective locations
-- [ ] All test files follow the `nameOfTest.test.tsx` naming convention
-- [ ] Update imports in test files and ensure tests still run
+- [x] Create new folder: `frontend/src/tests/` 
+- [x] All test files follow the `nameOfTest.test.tsx` naming convention
+- [x] Update imports in test files and ensure tests still run
+- [x] Complete Jest → Vitest migration
+- [ ] **Mirror component/page directory structure in tests**
+- [ ] No frontend unit tests are outside of the centralized tests folder
+- [ ] Create subfolders within tests matching actual frontend code organization  
+- [ ] All tests verified working after restructure
 - [ ] Ensure CI and coverage still work
 
 ## Testing Types Reference
