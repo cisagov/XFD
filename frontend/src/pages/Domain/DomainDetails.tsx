@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { styled } from '@mui/material/styles';
 import { useHistory } from 'react-router-dom';
 import {
@@ -157,7 +158,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
       const result = await getDomain(domainId);
       setDomain(result);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }, [domainId, getDomain]);
 

@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useRef
 } from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Query, UserOrganization } from 'types';
 import { useAuthContext } from 'context';
@@ -151,7 +152,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           }
         );
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
         return;
       }
@@ -195,7 +196,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }));
         setLoadingError(false);
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
       } finally {
         setIsLoading(false);

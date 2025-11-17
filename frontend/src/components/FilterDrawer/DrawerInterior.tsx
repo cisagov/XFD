@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import {
   AccordionDetails,
   Accordion as MuiAccordion,
@@ -101,7 +102,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       setSavedSearchCount(updatedSearches.result.length); // Update the count
       localStorage.removeItem('savedSearch');
     } catch (e) {
-      console.log(e);
+      logger.error(e);
     }
   };
   const displaySavedSearch = (id: string) => {

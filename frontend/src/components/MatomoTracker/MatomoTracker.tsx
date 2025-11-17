@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { logger } from '@/utils/logger';
 
 export const MatomoTracker = () => {
   useEffect(() => {
@@ -7,7 +8,7 @@ export const MatomoTracker = () => {
     const siteId = import.meta.env.VITE_MATOMO_SITEID;
 
     if (!apiUrl || !matomoPath) {
-      console.error('Matomo configuration missing.');
+      logger.error('Matomo configuration missing.');
       return;
     }
 

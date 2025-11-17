@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import { Organization as OrganizationType, Role } from 'types';
 import { Alert, Box, IconButton, Paper, Typography } from '@mui/material';
@@ -103,7 +104,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
       setRemoveUserDialogOpen(false);
       setInfoDialogOpen(true);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setHasError(e + '.');
     }
   };
