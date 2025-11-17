@@ -3204,6 +3204,11 @@ class LatestPortScan(AutoLengthCheckModel):
     nmi_service_group = models.CharField(max_length=255, null=True, blank=True)
     risky_service_group = models.CharField(max_length=255, null=True, blank=True)
 
+    current = models.BooleanField(
+        default=True,
+        help_text="Whether this port scan is considered current (scanned within 14 days).",
+    )
+
     class Meta:
         """Meta class for the LatestPortScan model."""
 

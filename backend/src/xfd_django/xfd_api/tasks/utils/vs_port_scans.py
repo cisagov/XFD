@@ -85,6 +85,8 @@ def fetch_port_scans_from_redshift(
             len(org_id_dict),
         )
 
+    mark_stale_latest_port_scans()
+
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
 @cloudwatch_metric()
@@ -222,6 +224,7 @@ def insert_port_scans_sql(
         "organization_id",
         "risky_service_group",
         "nmi_service_group",
+        "current",  # <-- NEW FIELD
     ]
 
     tuples = []
@@ -237,6 +240,7 @@ def insert_port_scans_sql(
 
         ps_id = ps["_id"].replace("ObjectId('", "").replace("')", "")
 
+        # Row for port_scan table
         tuples.append(
             (
                 ps_id,
@@ -267,6 +271,7 @@ def insert_port_scans_sql(
             )
         )
 
+        # Row for latest_port_scan table (always current=True)
         latest_tuples.append(
             (
                 ps_id,
@@ -293,6 +298,7 @@ def insert_port_scans_sql(
                 org_id,
                 risky_service_groups.get(svc.get("name")),
                 nmi_service_groups.get(svc.get("name")),
+                True,  # <-- ALWAYS SET TRUE
             )
         )
 
@@ -302,30 +308,26 @@ def insert_port_scans_sql(
     # --- Deduplicate latest_tuples in-memory: keep newest per (org, ip, port, protocol)
     deduped_latest = {}
     for row in latest_tuples:
-        # indices based on latest_columns order:
-        # 0: port_scan_id, 1: ip_string, 2: ip_id, 3: port, 4: protocol, ..., 20: time_scanned, 21: organization_id
         org_id = row[21]
         ip_string = row[1]
         port = row[3]
         protocol = row[4]
         time_scanned = row[20]
+
         key = (org_id, ip_string, port, protocol)
 
         existing = deduped_latest.get(key)
         if not existing:
             deduped_latest[key] = row
         else:
-            # compare time_scanned, prefer the later (non-None wins)
             existing_ts = existing[20]
-            # treat None as older
             if time_scanned and (not existing_ts or time_scanned > existing_ts):
                 deduped_latest[key] = row
 
     latest_tuples = list(deduped_latest.values())
     # --- end dedupe ---
 
-    # Build SQL safely using psycopg2.sql
-    # port_scan INSERT
+    # Build SQL
     insert_portscan_sql = sql.SQL(
         "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT (id) DO NOTHING"
     ).format(
@@ -333,9 +335,8 @@ def insert_port_scans_sql(
         cols=sql.SQL(", ").join([sql.Identifier(c) for c in base_columns]),
     )
 
-    # latest_port_scan INSERT ... ON CONFLICT ... DO UPDATE SET ...
     conflict_cols = ["organization_id", "ip_string", "port", "protocol"]
-    # columns to update on conflict: latest_columns minus conflict_cols
+
     update_cols = [c for c in latest_columns if c not in conflict_cols]
 
     set_sql = sql.SQL(", ").join(
@@ -351,7 +352,8 @@ def insert_port_scans_sql(
     )
 
     insert_latest_sql = sql.SQL(
-        "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_sql} {where_sql}"
+        "INSERT INTO {table} ({cols}) VALUES %s "
+        "ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_sql} {where_sql}"
     ).format(
         table=sql.Identifier("latest_port_scan"),
         cols=sql.SQL(", ").join([sql.Identifier(c) for c in latest_columns]),
@@ -371,7 +373,6 @@ def insert_port_scans_sql(
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
                 cursor.execute("SET LOCAL synchronous_commit = OFF;")
-                # execute_values expects a string query; convert the composable SQL to a string with the active cursor
                 portscan_query_str = insert_portscan_sql.as_string(cursor)
                 latest_query_str = insert_latest_sql.as_string(cursor)
 
@@ -678,3 +679,21 @@ def enforce_latest_flag_port_scan():
 
     duration = time.time() - start
     LOGGER.info("Completed enforce_latest_flag in %.2fs", duration)
+
+
+@cloudwatch_metric()
+def mark_stale_latest_port_scans():
+    """Mark any LatestPortScan rows where time_scanned is older than 14 days as current = FALSE."""
+    db = "mini_data_lake"
+
+    sql = """
+        UPDATE latest_port_scan
+        SET current = FALSE
+        WHERE current = TRUE
+          AND time_scanned < NOW() - INTERVAL '14 days';
+    """
+
+    with connections[db].cursor() as cur:
+        cur.execute(sql)
+
+    LOGGER.info("Marked stale LatestPortScan rows as current=FALSE.")
