@@ -232,7 +232,7 @@ def clean_and_authorize_filters(search_body: DomainSearchBody, current_user):
     new_filters = list(non_org_filters)
 
     if is_global_view_admin(current_user) or current_user.user_type == "regionalAdmin":
-        # For global admins, keep all filters intact (no validation)
+        # For global admins and regional admins, keep all filters intact (no validation)
         # So just return early with filters untouched
         return
 
