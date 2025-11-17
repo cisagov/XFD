@@ -2,7 +2,7 @@ import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { render, screen } from '@testing-library/react';
 import { describe, it, vi, beforeEach, expect } from 'vitest';
-import { VSDashboardGate } from '../../components/Gates/VSDashboardGate';
+import { VSDashboardGate } from '../../../components/Gates/VSDashboardGate';
 import { InitialVSData, EmptyVSData } from '@/constants/vsdashdata';
 
 vi.mock('@/context/AuthContext', () => ({
