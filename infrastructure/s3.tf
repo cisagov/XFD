@@ -354,6 +354,15 @@ resource "aws_s3_bucket_policy" "django_env_bucket" {
   })
 }
 
+# Block all public access (belt & suspenders)
+resource "aws_s3_bucket_public_access_block" "django_env_bucket" {
+  bucket                  = aws_s3_bucket.django_env_bucket.id
+  block_public_acls       = true
+  ignore_public_acls      = true
+  block_public_policy     = true
+  restrict_public_buckets = true
+}
+
 resource "aws_s3_bucket_ownership_controls" "django_env_bucket" {
   bucket = aws_s3_bucket.django_env_bucket.id
   rule {
@@ -361,11 +370,14 @@ resource "aws_s3_bucket_ownership_controls" "django_env_bucket" {
   }
 }
 
+# Default encryption with KMS
 resource "aws_s3_bucket_server_side_encryption_configuration" "django_env_bucket" {
   bucket = aws_s3_bucket.django_env_bucket.id
+
   rule {
     apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
+      sse_algorithm     = "aws:kms"
+      kms_master_key_id = aws_kms_key.django_env.arn
     }
   }
 }
