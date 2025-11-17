@@ -349,6 +349,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
       <Button
         onClick={() => history.goBack()}
         startIcon={<KeyboardBackspace />}
+        variant="primaryText"
       >
         Back To Results
       </Button>

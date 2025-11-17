@@ -432,7 +432,7 @@ export const ScanForm: React.FC<{
         />
         <span
           className="usa-hint"
-          style={{ marginTop: '0.5rem', display: 'block' }}
+          style={{ marginTop: '0.5rem', display: 'block', color: '#3c4044ff' }}
         >
           {schemaUpdated
             ? scanSchema[values.name].max_concurrent_tasks
