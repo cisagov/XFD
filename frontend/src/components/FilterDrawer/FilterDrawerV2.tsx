@@ -1,7 +1,7 @@
 import React, { FC } from 'react';
 import { useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import useTheme from '@mui/material/styles/useTheme';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';

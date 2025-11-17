@@ -12,7 +12,7 @@ import ListItem from '@mui/material/ListItem';
 import Radio from '@mui/material/Radio';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import useTheme from '@mui/material/styles/useTheme';
+import { useTheme } from '@mui/material/styles';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';

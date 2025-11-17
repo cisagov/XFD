@@ -12,7 +12,7 @@ import ListItem from '@mui/material/ListItem';
 import Stack from '@mui/system/Stack';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
-import useTheme from '@mui/material/styles/useTheme';
+import { useTheme } from '@mui/material/styles';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import { useAuthContext } from 'context';

@@ -3,7 +3,7 @@ import { useHistory } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import ButtonBase from '@mui/material/ButtonBase';
 import Typography from '@mui/material/Typography';
-import styled from '@mui/material/styles/styled';
+import { styled } from '@mui/material/styles';
 import { Result } from 'context/SearchProvider';
 // @ts-ignore:next-line
 import { parseISO, formatDistanceToNow } from 'date-fns';

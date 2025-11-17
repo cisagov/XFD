@@ -3,7 +3,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
-import styled from '@mui/material/styles/styled';
+import { styled } from '@mui/material/styles';
 import cisa_logo from 'assets/cisaSeal.svg';
 
 // TODO: adjust styling so warning doesn't overlap other components when vertical screen size is too small

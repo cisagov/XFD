@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import styled from '@mui/material/styles/styled';
-import useTheme from '@mui/material/styles/useTheme';
+import { styled, useTheme } from '@mui/material/styles';
 import ExpandLess from '@mui/icons-material/ExpandLess';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import clsx from 'classnames';

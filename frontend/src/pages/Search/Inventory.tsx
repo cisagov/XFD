@@ -9,7 +9,7 @@ import Paper from '@mui/material/Paper';
 import Select from '@mui/material/Select';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
-import useTheme from '@mui/material/styles/useTheme';
+import { useTheme } from '@mui/material/styles';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import { ResultCard } from './ResultCard';
 import { ContextType } from 'context/SearchProvider';
