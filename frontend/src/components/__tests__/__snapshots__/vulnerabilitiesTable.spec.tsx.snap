@@ -44,53 +44,47 @@ exports[`Vulnerabilities component > matches snapshot 1`] = `
       </div>
     </div>
     <div
-      class="MuiTabs-root css-1hg2dns-MuiTabs-root"
+      class="MuiTabs-root css-7h72q6-MuiTabs-root"
     >
       <div
-        class="MuiTabs-scroller MuiTabs-fixed css-s2t35c-MuiTabs-scroller"
+        class="MuiTabs-scroller MuiTabs-fixed css-1626ypp-MuiTabs-scroller"
         style="overflow: hidden; margin-bottom: 0px;"
       >
         <div
           aria-label="Findings section tabs"
-          class="MuiTabs-list MuiTabs-flexContainer css-hzcega-MuiTabs-list"
+          class="MuiTabs-list MuiTabs-flexContainer css-m9849h-MuiTabs-list"
           role="tablist"
         >
-          <button
-            aria-controls="tabpanel-/inventory"
+          <a
             aria-selected="false"
-            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-13wcy1-MuiButtonBase-root-MuiTab-root"
-            id="tab-/inventory"
+            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-okqs11-MuiButtonBase-root-MuiTab-root"
+            href="/inventory"
             role="tab"
             tabindex="0"
-            type="button"
           >
             Search Results
-          </button>
-          <button
-            aria-controls="tabpanel-/inventory/domains"
+          </a>
+          <a
             aria-selected="false"
-            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-13wcy1-MuiButtonBase-root-MuiTab-root"
-            id="tab-/inventory/domains"
+            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-okqs11-MuiButtonBase-root-MuiTab-root"
+            href="/inventory/domains"
             role="tab"
             tabindex="-1"
-            type="button"
           >
             Domains
-          </button>
-          <button
-            aria-controls="tabpanel-/inventory/vulnerabilities"
+          </a>
+          <a
             aria-selected="false"
-            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-13wcy1-MuiButtonBase-root-MuiTab-root"
-            id="tab-/inventory/vulnerabilities"
+            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-okqs11-MuiButtonBase-root-MuiTab-root"
+            href="/inventory/vulnerabilities"
             role="tab"
             tabindex="-1"
-            type="button"
           >
             Vulnerabilities
-          </button>
+          </a>
         </div>
         <span
-          class="MuiTabs-indicator css-19tjs4o-MuiTabs-indicator"
+          class="MuiTabs-indicator css-11pih04-MuiTabs-indicator"
           style="left: 0px; width: 0px;"
         />
       </div>
