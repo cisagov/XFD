@@ -30,6 +30,7 @@
     "@nivo/line": "^0.99.0",
     "@nivo/pie": "^0.80.0",
     "@trussworks/react-uswds": "^5.1.1",
+    "@typescript-eslint/parser": "^8.46.4",
     "autoprefixer": "^10.4.13",
     "aws-amplify": "^5.3.12",
     "axios": "^1.12.2",
@@ -162,5 +163,6 @@
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
-  }
+  },
+  "type": "module"
 }
