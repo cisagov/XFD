@@ -58,9 +58,7 @@ it('gives default value if none exists', () => {
 
 it('updates state with default value', () => {
   getItemMock.mockReturnValue(null);
-  render(
-    <TestComp storagekey="testkey" defaultVal="zxcv" onclick={vi.fn()} />
-  );
+  render(<TestComp storagekey="testkey" defaultVal="zxcv" onclick={vi.fn()} />);
   expect(setItemMock).toHaveBeenCalledTimes(1);
   expect(setItemMock).toHaveBeenCalledWith('testkey', JSON.stringify('zxcv'));
 });
