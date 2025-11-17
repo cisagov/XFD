@@ -17,7 +17,7 @@ vi.mock('context', () => ({
   useAuthContext: vi.fn()
 }));
 
-vi.mock('../transformVulnScanData', () => ({
+vi.mock('@/utils/transformVulnScanData', () => ({
   transformVulnScanData: vi.fn((data) => data)
 }));
 
