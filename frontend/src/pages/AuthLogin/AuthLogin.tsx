@@ -3,6 +3,7 @@ import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
 import { CrossfeedWarning } from 'components/WarningBanner';
+import { ENDPOINTS } from '@/constants/endpoints';
 import { MaintenanceNotification } from 'types';
 
 const MaintenanceAlert: React.FC<any> = ({ notification }) => {

@@ -40,7 +40,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   } | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // One cookies instance for the lifetime of the provider
+  // Single cookies instance for the lifetime of the provider
   const cookies = useMemo(() => new Cookies(), []);
 
   // Compute cookie options that work both locally and in prod
@@ -51,7 +51,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     const domainEnv = import.meta.env.VITE_COOKIE_DOMAIN as string | undefined;
     return {
       path: '/',
-      // Only set a domain attribute if we're NOT on localhost (cookie APIs treat localhost specially)
+      // Only set a domain attribute if NOT on localhost (cookie APIs treat localhost specially)
       domain: !isLocalhost && domainEnv ? domainEnv : undefined,
       secure: window.location.protocol === 'https:'
     } as const;
@@ -60,7 +60,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
 
-    // If we had a token, we’ll reload at the end to reset app state
+    // If the user has a token, reload at the end to reset app state
     const shouldReload = !!token;
 
     try {
@@ -100,7 +100,23 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const { apiGet, apiPost } = api;
 
   const getProfile = useCallback(async () => {
-    const user: User = await apiGet<User>('/users/me');
+    const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
+
+    // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
+    // Currently commented to meet "waiting room" needs and allow login for state selection
+    // and user terms acceptance for new users.
+    //
+    // This acts as a backup safeguard to alert users login is unavailable and log them out.
+    // If user is blocked due to maintenance, show alert and logout.
+    //
+    // if (user.login_blocked_by_maintenance) {
+    //   alert(
+    //     'Product has not officially been launched. Please check back again.'
+    //   );
+    //   await logout();
+    //   return;
+    // }
+
     setAuthUser({
       ...user,
       isRegistered: user.first_name !== ''
@@ -118,6 +134,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   );
 
   // Keep existing Cognito refresh (no-op when VITE_USE_COGNITO is false)
+  // TODO: Removine this logic if we fully switch to SAML only
   const refreshUser = useCallback(async () => {
     try {
       if (!token && import.meta.env.VITE_USE_COGNITO) {
@@ -137,7 +154,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     }
   }, [apiPost, setToken, token]);
 
-  // 🔑 NEW: bootstrap the SPA token from cookies after SAML ACS redirect
+  // SPA token update from cookies after SAML ACS redirect
   useEffect(() => {
     if (!token) {
       const cookieToken =
