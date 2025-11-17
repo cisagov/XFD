@@ -1,8 +1,5 @@
 # Frontend Test Structure Documentation
 
-**Implemented:** CRASM-3382 - Standardized frontend unit test file organization  
-**Status:** ✅ Complete
-
 ## Overview
 
 This document describes the standardized frontend test structure implemented to organize all unit tests in a centralized, maintainable way. All tests are now located in `frontend/src/tests` with a **mirrored directory structure** that exactly matches the actual component/page organization.
@@ -14,8 +11,8 @@ The test structure **exactly mirrors** the actual source code organization:
 
 ```
 src/components/Header/ ↔ tests/components/Header/
-src/pages/Domain/     ↔ tests/pages/Domain/
-src/hooks/            ↔ tests/hooks/
+src/pages/Domain/      ↔ tests/pages/Domain/
+src/hooks/             ↔ tests/hooks/
 ```
 
 ### Benefits of This Approach:
@@ -47,7 +44,7 @@ Located in `src/test-utils/`, these provide:
 
 ## Current Test Organization
 
-All tests are now centralized in `frontend/src/tests/` with the following structure:
+All tests are centralized in `frontend/src/tests/` with the following structure:
 
 ```
 frontend/src/tests/
@@ -90,7 +87,7 @@ frontend/src/tests/
 ### Naming Conventions
 
 - **All test files**: Use `.test.tsx` (React components) or `.test.ts` (pure functions/hooks)
-- **No more `.spec.*`**: Standardized on `.test.*` convention
+- **DO NOT USE `.spec.*`**: Standardized on `.test.*` convention
 - **Snapshot files**: Automatically managed by Vitest in `__snapshots__/` directories
 
 ## Writing Tests
@@ -211,6 +208,9 @@ describe('Vulnerabilities page integration', () => {
 });
 ```
 
+#### End-to-end Tests
+**Use Playwright**
+
 ### Best Practices
 
 1. **Descriptive test names**: Use clear, specific descriptions
@@ -277,15 +277,4 @@ import { testUser } from 'test-utils';
 ```bash
 npm test -- --update-snapshots
 ```
-
-### Getting Help
-
-- Check existing tests for patterns and examples
-- Review [Testing Library documentation](https://testing-library.com/docs/react-testing-library/intro/)
-- See [Vitest documentation](https://vitest.dev/) for testing framework specifics
-
----
-
-**Status**: ✅ Migration Complete  
-**Test Files**: 17/18 passing (1 pre-existing issue unrelated to migration)  
 **Last Updated**: November 2025
