@@ -1,9 +1,9 @@
 import React from 'react';
 import { render, screen, testUser } from 'test-utils';
 import { makeDomainResponse } from '@/test-utils/domains';
-import type { AuthUser } from '../../context/';
+import type { AuthUser } from '../../../context/';
 import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
-import { Domains } from '../../pages/Domains/Domains';
+import { Domains } from '../../../pages/Domains/Domains';
 
 const namePool = [
   'example.com',
