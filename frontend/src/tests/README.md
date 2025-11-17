@@ -164,7 +164,8 @@ npm test -- --coverage
 npm test -- --coverage --run
 
 # Update snapshots
-npm test -- --update-snapshots
+npm test -- --update
+npm test -- -u
 ```
 
 ### Coverage Reports
@@ -309,7 +310,8 @@ import { testUser } from 'test-utils';
 
 **Snapshot mismatches**: Update snapshots after structural changes
 ```bash
-npm test -- --update-snapshots
+npm test -- --update
+npm test -- -u
 ```
 
 **Failing tests blocking coverage**: Exclude problematic test files
