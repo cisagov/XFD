@@ -3,9 +3,7 @@ import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
 import { CrossfeedWarning } from 'components/WarningBanner';
-import { initialNotificationValues, MaintenanceNotification } from 'types';
-import { v4 as uuidv4 } from 'uuid';
-import pkceChallenge from 'pkce-challenge';
+import { MaintenanceNotification } from 'types';
 
 const MaintenanceAlert: React.FC<any> = ({ notification }) => {
   if (!notification) return null;
@@ -38,7 +36,7 @@ const LoginButton = () => {
       size="big"
       style={{ width: 'fit-content' }}
     >
-      Sign in
+      Sign in with LOGIN.GOV
     </Button>
   );
 };
