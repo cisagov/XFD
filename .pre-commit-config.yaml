@@ -49,13 +49,10 @@ repos:
   - repo: local
     hooks:
       - id: eslint
-        name: ESLint (frontend)
-        entry: npx eslint -c eslint.config.js . --ext .js,.jsx,.ts,.tsx
+        name: ESLint
+        entry: npx eslint frontend --cache
         language: system
-        types: [file]
-        files: ^frontend/.*\.(js|jsx|ts|tsx)$
-        working-directory: frontend
-
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
 
   # GitHub Actions hooks
   - repo: https://github.com/python-jsonschema/check-jsonschema
