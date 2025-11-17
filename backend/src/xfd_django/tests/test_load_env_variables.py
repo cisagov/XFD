@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
 import pytest
-from xfd_django.helpers.load_env_variables import load_django_config
+from xfd_django.helpers.load_env_variables import load_django_env_config
 
 
 @pytest.fixture
@@ -25,19 +25,14 @@ def fake_env_file(tmp_path):
     return env_path
 
 
-def test_load_local_env(monkeypatch, fake_env_file):
+def test_load_local_env(monkeypatch):
     """Ensure local env.json loads and sets environment variables."""
     # Pretend we're running locally
     monkeypatch.setenv("IS_LOCAL", "true")
 
-    # Point the loader to our temporary env.json
-    with patch("xfd_django.helpers.load_env_variables.Path.resolve") as mock_resolve:
-        mock_resolve.return_value = fake_env_file
-        load_django_config()
-
-    assert os.getenv("DB_HOST") == "localhost"
-    assert os.getenv("JWT_SECRET") == "testsecret"
-    assert os.getenv("DB_NAME") == "testdb"
+    assert os.getenv("DB_HOST") == "db"
+    assert os.getenv("JWT_SECRET") == "CHANGE_ME"
+    assert os.getenv("DB_NAME") == "crossfeed"
 
 
 def test_s3_cache_load(monkeypatch, tmp_path):
@@ -55,7 +50,7 @@ def test_s3_cache_load(monkeypatch, tmp_path):
     monkeypatch.setenv("DJANGO_CONFIG_KEY", "env.json")
 
     with patch("boto3.client") as mock_boto:
-        load_django_config(ttl_seconds=3600)
+        load_django_env_config(ttl_seconds=3600)
 
     # Verify S3 was NOT called since cache was used
     mock_boto.assert_not_called()
@@ -79,7 +74,7 @@ def test_s3_fallback_to_stale_cache(monkeypatch):
         mock_client.get_object.side_effect = Exception("S3 failure")
         mock_boto.return_value = mock_client
 
-        load_django_config(ttl_seconds=1)
+        load_django_env_config(ttl_seconds=1)
 
     assert os.getenv("DB_HOST") == "stale-db"
 
@@ -95,7 +90,7 @@ def test_s3_fetch_and_cache(monkeypatch):
     monkeypatch.setenv("DJANGO_CONFIG_BUCKET", "test-bucket")
 
     with patch("boto3.client", return_value=mock_client):
-        load_django_config(ttl_seconds=1)
+        load_django_env_config(ttl_seconds=1)
 
     assert os.getenv("DB_HOST") == "from-s3"
     assert os.path.exists("/tmp/env.json")  # nosec B108

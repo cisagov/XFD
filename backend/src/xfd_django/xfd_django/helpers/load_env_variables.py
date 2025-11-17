@@ -7,7 +7,6 @@ import time
 
 # Third-Party Libraries
 import boto3
-from botocore.exceptions import ClientError
 
 LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +71,7 @@ def load_django_env_config(ttl_seconds: int = 3600):
         with open(cache_path, "w", encoding="utf-8") as f:
             f.write(body)
         LOGGER.info("Fetched Django config from S3 and cached at %s", cache_path)
-    except ClientError as e:
+    except Exception as e:
         LOGGER.error("Failed to load Django config from S3: %s", e)
         # fallback: stale cache if available
         if os.path.exists(cache_path):
@@ -80,6 +79,8 @@ def load_django_env_config(ttl_seconds: int = 3600):
                 data = json.load(f)
             LOGGER.warning("Using stale cached config from %s", cache_path)
         else:
+            # TODO: CRASM: 3166
+            # Create Cloudwatch or ADOT Alarm so admins can be notified of this immediately
             raise
     _inject_env(data)
 
