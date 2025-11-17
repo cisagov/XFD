@@ -683,14 +683,14 @@ def enforce_latest_flag_port_scan():
 
 @cloudwatch_metric()
 def mark_stale_latest_port_scans():
-    """Mark any LatestPortScan rows where time_scanned is older than 14 days as current = FALSE."""
+    """Mark any LatestPortScan rows where time_scanned is older than 21 days as current = FALSE."""
     db = "mini_data_lake"
 
     sql = """
         UPDATE latest_port_scan
         SET current = FALSE
         WHERE current = TRUE
-          AND time_scanned < NOW() - INTERVAL '14 days';
+          AND time_scanned < NOW() - INTERVAL '21 days';
     """
 
     with connections[db].cursor() as cur:
