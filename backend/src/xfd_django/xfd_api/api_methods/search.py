@@ -11,7 +11,6 @@ from xfd_api.auth import (
     get_organization_region,
     get_tag_organizations,
     is_global_view_admin,
-    is_regional_admin_for_organization,
 )
 from xfd_api.helpers.elastic_search import build_request
 from xfd_api.helpers.s3_client import S3Client
@@ -232,36 +231,11 @@ def clean_and_authorize_filters(search_body: DomainSearchBody, current_user):
 
     new_filters = list(non_org_filters)
 
-    if is_global_view_admin(current_user):
+    if is_global_view_admin(current_user) or current_user.user_type == "regionalAdmin":
         # For global admins, keep all filters intact (no validation)
         # So just return early with filters untouched
         return
 
-    elif current_user.user_type == "regionalAdmin" and current_user.region_id:
-        region_id = current_user.region_id
-
-        # Always inject region filter
-        new_filters.append(
-            {"field": "organization.region_id", "values": [region_id], "type": "any"}
-        )
-
-        # Include only the orgs that are in-region
-        requested_org_ids = set(extract_org_ids_from_filters(filters))
-
-        valid_org_ids = {
-            org_id
-            for org_id in requested_org_ids
-            if is_regional_admin_for_organization(current_user, org_id)
-        }
-
-        if valid_org_ids:
-            new_filters.append(
-                {
-                    "field": "organization_id",
-                    "values": [{"id": org_id} for org_id in valid_org_ids],
-                    "type": "any",
-                }
-            )
     else:
         # Standard user: allowed orgs only
         requested_org_ids = set(extract_org_ids_from_filters(filters))
