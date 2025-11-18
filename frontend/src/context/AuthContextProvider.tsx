@@ -142,7 +142,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         const { token: newToken } = await apiPost<{
           token: string;
           user: User;
-        }>('/auth/callback', {
+        }>(ENDPOINTS.V1_CALLBACK, {
           body: {
             token: session.getIdToken().getJwtToken()
           }
