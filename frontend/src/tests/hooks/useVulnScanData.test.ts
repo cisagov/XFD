@@ -6,8 +6,6 @@ import { InitialVSData } from '@/constants/vsdashdata';
 import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
 import { transformVulnScanData } from '@/utils/transformVulnScanData';
 
-
-
 // -------------------- Mocks --------------------
 vi.mock('context', () => ({
   useAuthContext: vi.fn()
