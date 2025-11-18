@@ -26,7 +26,7 @@ src/hooks/             ↔ tests/hooks/
 
 ### Framework & Tools
 - **Vitest** (`^3.2.4`) - Modern, Vite-native testing framework
-- **jsdom** (`^26.1.0`) - Browser environment simulation  
+- **jsdom** (`^26.1.0`) - Browser environment simulation
 - **@testing-library/react** (`^14.3.1`) - Component testing utilities
 - **@testing-library/user-event** (`^13.5.0`) - User interaction simulation
 - **@testing-library/jest-dom** (`^6.6.3`) - DOM matchers (toBeInTheDocument, etc.)
@@ -34,7 +34,7 @@ src/hooks/             ↔ tests/hooks/
 ### Custom Test Utilities
 Located in `src/test-utils/`, these provide:
 - **Custom render()** function with pre-configured providers (AuthContext, Router, Theme)
-- **Mock data exports** (`testUser`, `testOrganization`)  
+- **Mock data exports** (`testUser`, `testOrganization`)
 - **Re-exports** of all testing-library functions for convenient imports
 
 ### Configuration
@@ -101,9 +101,9 @@ frontend/src/tests/
 import { Header } from '../../../components/Header/Header';
 ```
 
-**Page Tests** → `tests/pages/[PagePath]/`  
+**Page Tests** → `tests/pages/[PagePath]/`
 ```typescript
-// For src/pages/Domain/DomainDetails.tsx  
+// For src/pages/Domain/DomainDetails.tsx
 // Write tests in: tests/pages/Domain/domainDetails.test.tsx
 import { DomainDetails } from '../../../pages/Domain/DomainDetails';
 ```
@@ -126,7 +126,7 @@ import { formatDate } from '../../utils/dateUtils';
 
 **Relative Imports from Test Files:**
 - Component tests: `'../../../components/[ComponentPath]/ComponentName'`
-- Page tests: `'../../../pages/[PagePath]/PageName'`  
+- Page tests: `'../../../pages/[PagePath]/PageName'`
 - Hook tests: `'../../hooks/hookName'`
 - Utility tests: `'../../utils/utilityName'`
 
@@ -199,7 +199,7 @@ npm test -- --coverage --run --exclude="**/useVulnScanData.test.ts"
 
 ### Test Categories
 - **Unit Tests**: Individual components, hooks, utilities
-- **Integration Tests**: Multiple components working together  
+- **Integration Tests**: Multiple components working together
 - **Snapshot Tests**: Component rendering consistency
 
 ## Testing Guidelines
@@ -217,7 +217,7 @@ describe('Header component', () => {
   });
 });
 
-// Hook unit test  
+// Hook unit test
 describe('useVulnScanData', () => {
   it('returns initial data when orgId is empty', () => {
     const { result } = renderHook(() => useVulnScanData(''));
@@ -233,9 +233,9 @@ describe('Vulnerabilities page integration', () => {
   it('loads and displays vulnerability data', async () => {
     const mockData = makeVulnResponse(5);
     apiPost.mockResolvedValue(mockData);
-    
+
     render(<Vulnerabilities />);
-    
+
     await waitFor(() => {
       expect(screen.getByRole('table')).toBeInTheDocument();
     });
@@ -264,9 +264,9 @@ import { fireEvent, waitFor } from 'test-utils';
 it('submits form when button clicked', async () => {
   const onSubmit = vi.fn();
   render(<Form onSubmit={onSubmit} />);
-  
+
   fireEvent.click(screen.getByRole('button', { name: /submit/i }));
-  
+
   await waitFor(() => {
     expect(onSubmit).toHaveBeenCalled();
   });
@@ -274,14 +274,14 @@ it('submits form when button clicked', async () => {
 
 // Testing async operations
 it('shows loading state during API call', async () => {
-  const slowApi = vi.fn().mockImplementation(() => 
+  const slowApi = vi.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, 100))
   );
-  
+
   render(<Component api={slowApi} />);
-  
+
   expect(screen.getByText(/loading/i)).toBeInTheDocument();
-  
+
   await waitFor(() => {
     expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
   });
@@ -297,7 +297,7 @@ it('shows loading state during API call', async () => {
 // ❌ Wrong - old flat structure
 import { Component } from '../../Component';
 
-// ✅ Correct - mirrored structure  
+// ✅ Correct - mirrored structure
 import { Component } from '../../../components/Header/Component';
 ```
 
