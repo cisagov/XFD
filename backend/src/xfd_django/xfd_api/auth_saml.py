@@ -29,17 +29,23 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Env helpers & config
-# -----------------------------------------------------------------------------
+# =============================================================================
 def _env_truthy(in_var: Optional[str]) -> bool:
     if in_var is None:
         return False
     return in_var.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
-BACKEND_DOMAIN = (os.getenv("BACKEND_DOMAIN") or "").rstrip("/")
-FRONTEND_DOMAIN = (os.getenv("FRONTEND_DOMAIN") or "").rstrip("/")
+BACKEND_DOMAIN = (
+    os.getenv("BACKEND_DOMAIN") or os.getenv("APP_BASE_URL") or ""
+).rstrip("/")
+FRONTEND_DOMAIN = (
+    os.getenv("FRONTEND_DOMAIN") or os.getenv("FRONTEND_BASE_URL") or ""
+).rstrip("/")
+
+# Sourced from environment Django settings
 OKTA_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
 
 IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
@@ -49,22 +55,40 @@ WANT_NAMEID_ENCRYPTED = _env_truthy(os.getenv("WANT_NAMEID_ENCRYPTED"))  # optio
 
 
 def _read_text_file(path: str) -> str:
+    """Read and return the contents of a text file."""
     with open(path, encoding="utf-8") as f:
         return f.read().strip()
 
 
-# -----------------------------------------------------------------------------
-# SAML settings
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Injectable IdP parser + lazy settings cache to avoid import-time fetch errors
+# =============================================================================
+_IdPParser = OneLogin_Saml2_IdPMetadataParser
+_SAML_SETTINGS_CACHE: Optional[Dict[str, Any]] = None
+
+
+def reset_saml_settings_cache_for_tests() -> None:
+    """Clear cached SAML settings for tests."""
+    global _SAML_SETTINGS_CACHE
+    _SAML_SETTINGS_CACHE = None
+
+
+def set_idp_metadata_parser_for_tests(parser_cls) -> None:
+    """Inject a fake IdP metadata parser for tests."""
+    global _IdPParser
+    _IdPParser = parser_cls
+
+
 def _build_sp_settings() -> Dict[str, Any]:
-    """Build SAML settings dict by merging SP config with Okta IdP metadata URL."""
+    """Build SAML settings dict by merging SP config with Okta IdP metadata."""
     if not OKTA_METADATA_URL:
         raise RuntimeError("OKTA_SAML_METADATA_URL is not set")
 
-    idp_data = OneLogin_Saml2_IdPMetadataParser.parse_remote(OKTA_METADATA_URL)
+    # Fetch & parse IdP metadata
+    idp_data = _IdPParser.parse_remote(OKTA_METADATA_URL)
 
     sp_settings: Dict[str, Any] = {
-        "strict": False,  # flip to True once IdP config is finalized
+        "strict": False,  # consider True once IdP config is finalized
         "debug": dj_settings.DEBUG,
         "sp": {
             "entityId": f"{BACKEND_DOMAIN}/saml/metadata",
@@ -84,8 +108,8 @@ def _build_sp_settings() -> Dict[str, Any]:
             "wantAssertionsSigned": True,
             "wantMessagesSigned": False,
             "wantNameId": True,
-            "wantNameIdEncrypted": False,  # toggled below
-            "wantAssertionsEncrypted": False,  # toggled below
+            "wantNameIdEncrypted": False,  # toggle local below
+            "wantAssertionsEncrypted": False,  # toggle local below
             "requestedAuthnContext": True,
             "signatureAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
             "digestAlgorithm": "http://www.w3.org/2001/04/xmlenc#sha256",
@@ -97,32 +121,41 @@ def _build_sp_settings() -> Dict[str, Any]:
         "organization": {},
     }
 
-    if not IS_LOCAL:
-        if not SAML_SP_CERT_PATH or not SAML_SP_PRIVATE_KEY_PATH:
-            raise RuntimeError(
-                "SAML_SP_CERT_PATH and SAML_SP_PRIVATE_KEY_PATH must be set when IS_LOCAL is false."
-            )
-        sp_cert = _read_text_file(SAML_SP_CERT_PATH)
-        sp_key = _read_text_file(SAML_SP_PRIVATE_KEY_PATH)
-
-        sp_settings["sp"]["x509cert"] = sp_cert
-        sp_settings["sp"]["privateKey"] = sp_key
-        sp_settings["security"]["wantAssertionsEncrypted"] = True
-        sp_settings["security"]["wantNameIdEncrypted"] = WANT_NAMEID_ENCRYPTED
-        logger.info("SAML assertion encryption ENABLED (non-local environment).")
+    if IS_LOCAL:
+        logger.info("SAML encryption DISABLED (local).")
     else:
-        logger.info("SAML assertion encryption DISABLED (local development).")
+        if SAML_SP_CERT_PATH:
+            try:
+                sp_cert = _read_text_file(SAML_SP_CERT_PATH)
+                sp_settings["sp"]["x509cert"] = sp_cert
+                if SAML_SP_PRIVATE_KEY_PATH:
+                    sp_key = _read_text_file(SAML_SP_PRIVATE_KEY_PATH)
+                    sp_settings["sp"]["privateKey"] = sp_key
+                sp_settings["security"]["wantAssertionsEncrypted"] = True
+                sp_settings["security"]["wantNameIdEncrypted"] = WANT_NAMEID_ENCRYPTED
+                logger.info("SAML encryption ENABLED (cert present).")
+            except FileNotFoundError:
+                logger.warning(
+                    "SAML_SP_CERT_PATH set but file not found; continuing without encryption."
+                )
+        else:
+            logger.info("No SP cert configured; encryption NOT advertised.")
 
-    settings = OneLogin_Saml2_IdPMetadataParser.merge_settings(sp_settings, idp_data)
-    return settings
+    # Merge with IdP metadata
+    return _IdPParser.merge_settings(sp_settings, idp_data)
 
 
-SAML_SETTINGS_DATA = _build_sp_settings()  # load once at import
+def _get_settings_dict() -> Dict[str, Any]:
+    """Return the merged SAML settings (build lazily and cache)."""
+    global _SAML_SETTINGS_CACHE
+    if _SAML_SETTINGS_CACHE is None:
+        _SAML_SETTINGS_CACHE = _build_sp_settings()
+    return _SAML_SETTINGS_CACHE
 
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # OneLogin plumbing
-# -----------------------------------------------------------------------------
+# =============================================================================
 def _starlette_to_saml_request(request: Request) -> Dict[str, Any]:
     """Translate FastAPI/Starlette request to python3-saml expected dict."""
     return {
@@ -139,16 +172,17 @@ def _starlette_to_saml_request(request: Request) -> Dict[str, Any]:
 def _get_auth(
     request: Request, with_post: Optional[dict] = None
 ) -> OneLogin_Saml2_Auth:
+    """Return a OneLogin_Saml2_Auth instance for the given request."""
     data = _starlette_to_saml_request(request)
     if with_post:
         data["post_data"] = with_post
-    settings = OneLogin_Saml2_Settings(settings=SAML_SETTINGS_DATA)
+    settings = OneLogin_Saml2_Settings(settings=_get_settings_dict())
     return OneLogin_Saml2_Auth(data, old_settings=settings)
 
 
-# -----------------------------------------------------------------------------
-# Small helpers to keep endpoint bodies slim (fixes R0915)
-# -----------------------------------------------------------------------------
+# =============================================================================
+# Helpers
+# =============================================================================
 def _path_only(raw: Optional[str]) -> str:
     """Return a safe, path-only string that always starts with '/'."""
     val = raw or "/"
@@ -215,7 +249,6 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
         if email and user.email != email:
             user.email = email
 
-    # Clean/legacy fields
     user.cognito_username = None
     user.cognito_use_case_description = None
     user.cognito_email_verified = True
@@ -241,13 +274,13 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
     return resp
 
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Routes
-# -----------------------------------------------------------------------------
+# =============================================================================
 @router.get("/saml/metadata")
 def saml_metadata():
     """SAML SP metadata endpoint."""
-    settings = OneLogin_Saml2_Settings(settings=SAML_SETTINGS_DATA)
+    settings = OneLogin_Saml2_Settings(settings=_get_settings_dict())
     metadata = settings.get_sp_metadata()
     errors = settings.validate_metadata(metadata)
     if errors:
@@ -271,11 +304,7 @@ def saml_login(request: Request, next: str = "/"):
 
 @router.post("/saml/acs")
 async def saml_acs(request: Request):
-    """Process the SAML response posted by Okta.
-
-    Validates th e response, upserts the user, mints a JWT, sets cookies, and
-    redirects to the SPA.
-    """
+    """Process the SAML response posted by Okta: validate, upsert user, JWT, cookies, redirect."""
     form = dict(await request.form())
     auth = _get_auth(request, with_post=form)
     auth.process_response()
@@ -292,9 +321,8 @@ async def saml_acs(request: Request):
         )
 
     user = _upsert_user(identity)
-
     token = create_jwt_token(user)
-    # sanity-check JSON shape
+
     validate_json_serialization(user_to_dict(user), label="User Dict")
 
     relay = form.get("RelayState") or "/"
@@ -303,7 +331,7 @@ async def saml_acs(request: Request):
 
 @router.get("/saml/logout")
 def saml_logout(request: Request, next: str = "/"):
-    """App logout (local). Add SLO later if needed."""
+    """App logout logic ()."""
     next_path = _path_only(request.query_params.get("next"))
     target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
     resp = RedirectResponse(target, status_code=303)
