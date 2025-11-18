@@ -1,6 +1,7 @@
 """VS Port Scan Helper."""
 
 # Standard Python Libraries
+from datetime import timedelta
 from itertools import islice
 import json
 import logging
@@ -30,6 +31,7 @@ LOGGER = logging.getLogger(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")
 SCAN_NAME = "VulnScanningSync"
 VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
+LATEST_PORT_SCAN_CUTOFF = int(os.getenv("LATEST_PORT_SCAN_CUTOFF", "14"))
 
 CHUNK_SIZE = 500_000
 
@@ -376,11 +378,37 @@ def insert_port_scans_sql(
                 portscan_query_str = insert_portscan_sql.as_string(cursor)
                 latest_query_str = insert_latest_sql.as_string(cursor)
 
-                execute_values(cursor, portscan_query_str, subset, page_size=PAGE_SIZE)
-                if latest_subset:
+                try:
                     execute_values(
-                        cursor, latest_query_str, latest_subset, page_size=PAGE_SIZE
+                        cursor, portscan_query_str, subset, page_size=PAGE_SIZE
                     )
+                except Exception as exc:
+                    LOGGER.exception(
+                        "Failed inserting into port_scan",
+                        extra={
+                            "batch_start": i,
+                            "batch_end": i + len(subset),
+                            "batch_size": len(subset),
+                            "error": str(exc),
+                        },
+                    )
+                    raise
+                if latest_subset:
+                    try:
+                        execute_values(
+                            cursor, latest_query_str, latest_subset, page_size=PAGE_SIZE
+                        )
+                    except Exception as exc:
+                        LOGGER.exception(
+                            "Failed upserting into latest_port_scan",
+                            extra={
+                                "batch_start": i,
+                                "batch_end": i + len(latest_subset),
+                                "batch_size": len(latest_subset),
+                                "error": str(exc),
+                            },
+                        )
+                        raise
 
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
@@ -392,80 +420,97 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
     Only flips rows that actually need changing.
     """
     db = "mini_data_lake"
+
     if not affected_keys:
+        LOGGER.info("No affected keys provided for updating latest flags.")
         return
 
     keys = sorted(set(affected_keys))
+    start_time = time.time()
 
-    with connections[db].cursor() as cur, transaction.atomic(using=db):
-        cur.execute("SET LOCAL synchronous_commit = OFF;")
+    try:
+        with connections[db].cursor() as cur, transaction.atomic(using=db):
+            cur.execute("SET LOCAL synchronous_commit = OFF;")
 
-        # 1) Temp table for keys
-        cur.execute(
-            """
-            CREATE TEMP TABLE _ps_keys(
-              organization_id uuid,
-              ip_string text,
-              port int,
-              PRIMARY KEY (organization_id, ip_string, port)
-            ) ON COMMIT DROP;
-        """
+            # 1) Temp table for keys
+            cur.execute(
+                """
+                CREATE TEMP TABLE _ps_keys(
+                  organization_id uuid,
+                  ip_string text,
+                  port int,
+                  PRIMARY KEY (organization_id, ip_string, port)
+                ) ON COMMIT DROP;
+                """
+            )
+            execute_values(
+                cur,
+                "INSERT INTO _ps_keys (organization_id, ip_string, port) VALUES %s",
+                keys,
+                page_size=batch_size,
+            )
+            cur.execute("ANALYZE _ps_keys;")
+
+            # 2) Latest row per key, only look back 90 days
+            cur.execute(
+                """
+                CREATE TEMP TABLE _ps_latest_ids (id text PRIMARY KEY) ON COMMIT DROP;
+
+                INSERT INTO _ps_latest_ids (id)
+                SELECT DISTINCT ON (ps.organization_id, ps.ip_string, ps.port) ps.id
+                FROM port_scan ps
+                JOIN _ps_keys k
+                  ON ps.organization_id = k.organization_id
+                 AND ps.ip_string      = k.ip_string
+                 AND ps.port           = k.port
+                WHERE ps.time_scanned IS NOT NULL
+                  AND ps.time_scanned > NOW() - INTERVAL '90 days'
+                ORDER BY ps.organization_id, ps.ip_string, ps.port, ps.time_scanned DESC;
+                """
+            )
+            cur.execute("ANALYZE _ps_latest_ids;")
+
+            # 3a) Turn off stale 'latest=true'
+            cur.execute(
+                """
+                UPDATE port_scan p
+                   SET latest = FALSE
+                FROM _ps_keys k
+                WHERE p.latest = TRUE
+                  AND p.organization_id = k.organization_id
+                  AND p.ip_string       = k.ip_string
+                  AND p.port            = k.port
+                  AND NOT EXISTS (
+                        SELECT 1 FROM _ps_latest_ids l WHERE l.id = p.id
+                  );
+                """
+            )
+
+            # 3b) Turn on the true latest
+            cur.execute(
+                """
+                UPDATE port_scan p
+                   SET latest = TRUE
+                FROM _ps_latest_ids l
+                WHERE p.id = l.id
+                  AND p.latest IS DISTINCT FROM TRUE;
+                """
+            )
+
+        duration = time.time() - start_time
+        LOGGER.info(
+            "Updated latest flags for %d distinct keys via DISTINCT ON in %.2fs.",
+            len(keys),
+            duration,
         )
-        execute_values(
-            cur,
-            "INSERT INTO _ps_keys (organization_id, ip_string, port) VALUES %s",
-            keys,
-            page_size=batch_size,
+
+    except Exception as e:
+        LOGGER.exception(
+            "Failed updating latest flags for %d keys in update_latest_flag_for_keys_batched: %s",
+            len(keys),
+            e,
         )
-        cur.execute("ANALYZE _ps_keys;")
-
-        # 2) Latest row per key, but ONLY look back 90 days
-        cur.execute(
-            """
-            CREATE TEMP TABLE _ps_latest_ids (id text PRIMARY KEY) ON COMMIT DROP;
-
-            INSERT INTO _ps_latest_ids (id)
-            SELECT DISTINCT ON (ps.organization_id, ps.ip_string, ps.port) ps.id
-            FROM port_scan ps
-            JOIN _ps_keys k
-              ON ps.organization_id = k.organization_id
-             AND ps.ip_string      = k.ip_string
-             AND ps.port           = k.port
-            WHERE ps.time_scanned IS NOT NULL
-              AND ps.time_scanned > NOW() - INTERVAL '90 days'
-            ORDER BY ps.organization_id, ps.ip_string, ps.port, ps.time_scanned DESC;
-        """
-        )
-        cur.execute("ANALYZE _ps_latest_ids;")
-
-        # 3a) Turn off stale 'latest=true'
-        cur.execute(
-            """
-            UPDATE port_scan p
-               SET latest = FALSE
-            FROM _ps_keys k
-            WHERE p.latest = TRUE
-              AND p.organization_id = k.organization_id
-              AND p.ip_string       = k.ip_string
-              AND p.port            = k.port
-              AND NOT EXISTS (
-                    SELECT 1 FROM _ps_latest_ids l WHERE l.id = p.id
-              );
-        """
-        )
-
-        # 3b) Turn on the true latest
-        cur.execute(
-            """
-            UPDATE port_scan p
-               SET latest = TRUE
-            FROM _ps_latest_ids l
-            WHERE p.id = l.id
-              AND p.latest IS DISTINCT FROM TRUE;
-        """
-        )
-
-    LOGGER.info("Updated latest flags for %d distinct keys via DISTINCT ON.", len(keys))
+        raise
 
 
 def chunked(iterable, n):
@@ -496,7 +541,7 @@ def create_port_scan_summaries_bulk(
     # summary_date is passed as date (or defaults to CURRENT_DATE in SQL).
     with transaction.atomic(using="mini_data_lake"):
         with connections["mini_data_lake"].cursor() as cur:
-            sql = """
+            sql_insert = """
             WITH base AS (
                 SELECT
                     ps.organization_id,
@@ -576,14 +621,36 @@ def create_port_scan_summaries_bulk(
             """
             # Convert to list so it’s a concrete array param
             org_id_list = list(org_ids)
-            i = 1
+            chunk_number = 1
+
             for org_chunk in chunked(org_id_list, 10):
-                cur.execute(sql, [org_chunk, summary_date])
-                LOGGER.info("Finished %d/15 chunks", i)
-                i += 1
+                try:
+                    with transaction.atomic(using="mini_data_lake"):
+                        with connections["mini_data_lake"].cursor() as cur:
+                            cur.execute(sql_insert, [org_chunk, summary_date])
+
+                    LOGGER.info(
+                        "Successfully finished chunk %d (%d org_ids)",
+                        chunk_number,
+                        len(org_chunk),
+                    )
+
+                except Exception as e:
+                    LOGGER.error(
+                        "FAILED chunk %d for org_ids=%s — error: %s",
+                        chunk_number,
+                        org_chunk,
+                        str(e),
+                        exc_info=True,
+                    )
+                    # Continue to next chunk
+                    # (Do NOT raise unless you want abort-on-first-error behavior)
+
+                chunk_number += 1
 
             LOGGER.info(
-                "Bulk port scan summaries upserted for %d orgs", len(org_id_list)
+                "Bulk port scan summaries upserted for %d orgs",
+                len(org_id_list),
             )
 
 
@@ -655,7 +722,7 @@ def enforce_latest_flag_port_scan():
     start = time.time()
     db = "mini_data_lake"
 
-    sql = """
+    sql_insert = """
         WITH ranked_scans AS (
             SELECT
                 id,
@@ -674,26 +741,37 @@ def enforce_latest_flag_port_scan():
           AND port_scan.latest IS DISTINCT FROM (ranked_scans.scan_rank = 1);
     """
 
-    with connections[db].cursor() as cursor:
-        cursor.execute(sql)
+    try:
+        with connections[db].cursor() as cursor:
+            cursor.execute(sql_insert)
 
-    duration = time.time() - start
-    LOGGER.info("Completed enforce_latest_flag in %.2fs", duration)
+        duration = time.time() - start
+        LOGGER.info("Completed enforce_latest_flag in %.2fs", duration)
+
+    except Exception as e:
+        LOGGER.exception("Failed to enforce latest flag on port scans: %s", e)
+        # Do not raise — just log the failure and let the job continue
 
 
 @cloudwatch_metric()
 def mark_stale_latest_port_scans():
     """Mark any LatestPortScan rows where time_scanned is older than 21 days as current = FALSE."""
-    db = "mini_data_lake"
+    try:
+        cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
 
-    sql = """
-        UPDATE latest_port_scan
-        SET current = FALSE
-        WHERE current = TRUE
-          AND time_scanned < NOW() - INTERVAL '21 days';
-    """
+        with connections["mini_data_lake"].cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE latest_port_scan
+                SET current = FALSE
+                WHERE time_scanned < %s
+                """,
+                [cutoff_date],
+            )
 
-    with connections[db].cursor() as cur:
-        cur.execute(sql)
+        LOGGER.info("Marked stale LatestPortScan rows as current=FALSE.")
 
-    LOGGER.info("Marked stale LatestPortScan rows as current=FALSE.")
+    except Exception as e:
+        LOGGER.exception(
+            "Failed to mark stale LatestPortScan rows as current=FALSE: %s", e
+        )
