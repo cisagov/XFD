@@ -6,11 +6,7 @@ import { InitialVSData } from '@/constants/vsdashdata';
 import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
 import { transformVulnScanData } from '@/utils/transformVulnScanData';
 
-// TODO: Fix pre-existing mocking issues in this test file
-// This test file has mocking configuration problems that existed before migration:
-// 1. useAuthContext mock returns undefined, causing "Cannot destructure property 'apiPost'" errors
-// 2. transformVulnScanData mock setup is incorrect, causing "mockReturnValue is not a function" errors
-// These issues need to be resolved to make tests functional again.
+
 
 // -------------------- Mocks --------------------
 vi.mock('context', () => ({
@@ -26,11 +22,11 @@ describe('useVulnScanData', () => {
   let mockApiPost: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockApiPost = vi.fn();
-    (useAuthContext as any).mockReturnValue({
+    vi.mocked(useAuthContext).mockReturnValue({
       apiPost: mockApiPost
-    });
-    vi.resetAllMocks();
+    } as any);
   });
 
   it('sets error and initial data when orgId is empty', async () => {
@@ -72,6 +68,11 @@ describe('useVulnScanData', () => {
     };
     mockApiPost.mockResolvedValue(apiResponse);
 
+    // Mock transformVulnScanData to return the expected structure for this test
+    vi.mocked(transformVulnScanData).mockReturnValue({
+      vulnScanSummary: [{ vulnerabilityScan: NO_DATA_FALLBACK_LABEL }]
+    } as any);
+
     const { result } = renderHook(() => useVulnScanData('org-2'));
 
     await waitFor(() => {
@@ -92,7 +93,7 @@ describe('useVulnScanData', () => {
     const transformedData = {
       vulnScanSummary: [{ vulnerabilityScan: '2025-01-01' }]
     };
-    (transformVulnScanData as any).mockReturnValue(transformedData);
+    vi.mocked(transformVulnScanData).mockReturnValue(transformedData as any);
 
     const { result } = renderHook(() => useVulnScanData('org-3'));
 
