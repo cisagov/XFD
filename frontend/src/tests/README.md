@@ -7,15 +7,17 @@ This document describes the standardized frontend test structure implemented to 
 ## Design Principles
 
 ### Mirrored Directory Structure
+
 The test structure **exactly mirrors** the actual source code organization:
 
-```
+```text
 src/components/Header/ ↔ tests/components/Header/
 src/pages/Domain/      ↔ tests/pages/Domain/
 src/hooks/             ↔ tests/hooks/
 ```
 
-### Benefits of This Approach:
+### Benefits of This Approach
+
 - **Intuitive Navigation**: Find tests by following the same path as source files
 - **Maintainable**: Simple relative import paths, easier to refactor
 - **Scalable**: No naming conflicts as the project grows
@@ -25,6 +27,7 @@ src/hooks/             ↔ tests/hooks/
 ## Testing Stack
 
 ### Framework & Tools
+
 - **Vitest** (`^3.2.4`) - Modern, Vite-native testing framework
 - **jsdom** (`^26.1.0`) - Browser environment simulation
 - **@testing-library/react** (`^14.3.1`) - Component testing utilities
@@ -32,12 +35,15 @@ src/hooks/             ↔ tests/hooks/
 - **@testing-library/jest-dom** (`^6.6.3`) - DOM matchers (toBeInTheDocument, etc.)
 
 ### Custom Test Utilities
+
 Located in `src/test-utils/`, these provide:
+
 - **Custom render()** function with pre-configured providers (AuthContext, Router, Theme)
 - **Mock data exports** (`testUser`, `testOrganization`)
 - **Re-exports** of all testing-library functions for convenient imports
 
 ### Configuration
+
 - **Main config**: `vite.config.mts`
 - **Setup file**: `src/setupTests.ts`
 - **Environment**: jsdom for DOM testing
@@ -46,7 +52,7 @@ Located in `src/test-utils/`, these provide:
 
 All tests are centralized in `frontend/src/tests/` with the following structure:
 
-```
+```text
 frontend/src/tests/
 ├── components/                    # Component tests
 │   ├── Dialog/
@@ -95,6 +101,7 @@ frontend/src/tests/
 ### Location Guidelines
 
 **Component Tests** → `tests/components/[ComponentPath]/`
+
 ```typescript
 // For src/components/Header/Header.tsx
 // Write tests in: tests/components/Header/header.test.tsx
@@ -102,6 +109,7 @@ import { Header } from '../../../components/Header/Header';
 ```
 
 **Page Tests** → `tests/pages/[PagePath]/`
+
 ```typescript
 // For src/pages/Domain/DomainDetails.tsx
 // Write tests in: tests/pages/Domain/domainDetails.test.tsx
@@ -109,6 +117,7 @@ import { DomainDetails } from '../../../pages/Domain/DomainDetails';
 ```
 
 **Hook Tests** → `tests/hooks/`
+
 ```typescript
 // For src/hooks/useVulnScanData.ts
 // Write tests in: tests/hooks/useVulnScanData.test.ts
@@ -116,6 +125,7 @@ import { useVulnScanData } from '../../hooks/useVulnScanData';
 ```
 
 **Utility Tests** → `tests/utils/`
+
 ```typescript
 // For src/utils/dateUtils.ts
 // Write tests in: tests/utils/dateUtils.test.ts
@@ -125,12 +135,14 @@ import { formatDate } from '../../utils/dateUtils';
 ### Import Patterns
 
 **Relative Imports from Test Files:**
+
 - Component tests: `'../../../components/[ComponentPath]/ComponentName'`
 - Page tests: `'../../../pages/[PagePath]/PageName'`
 - Hook tests: `'../../hooks/hookName'`
 - Utility tests: `'../../utils/utilityName'`
 
 **Test Utilities:**
+
 ```typescript
 import { render, screen, fireEvent, waitFor } from 'test-utils';
 import { testUser, testOrganization } from 'test-utils';
@@ -145,6 +157,7 @@ import { testUser, testOrganization } from 'test-utils';
 ## Running Tests
 
 ### Commands
+
 ```bash
 # Run all tests (watch mode - default)
 npm test
@@ -173,11 +186,13 @@ npm test -- -u
 The project is configured to generate comprehensive test coverage reports:
 
 **Coverage Configuration:**
+
 - **Provider**: v8 (fast, accurate)
 - **Reports**: Terminal output + HTML + JSON
 - **Output**: `frontend/coverage/` (excluded from git)
 
 **Coverage Commands:**
+
 ```bash
 # Generate coverage with terminal output
 npm test -- --coverage --run
@@ -187,17 +202,20 @@ npm test -- --coverage --run --exclude="**/useVulnScanData.test.ts"
 ```
 
 **Coverage Reports Generated:**
+
 - **Terminal**: Immediate coverage summary in console
 - **HTML Report**: `coverage/index.html` - Interactive, detailed coverage explorer
 - **JSON Report**: `coverage/coverage-final.json` - Machine-readable data for CI/CD
 
 **Coverage Exclusions:**
+
 - Test files (`**/*.{test,spec}.{js,ts,jsx,tsx}`)
 - Setup files (`src/setupTests.ts`)
 - Test utilities (`**/test-utils/**`)
 - Node modules and build artifacts
 
 ### Test Categories
+
 - **Unit Tests**: Individual components, hooks, utilities
 - **Integration Tests**: Multiple components working together
 - **Snapshot Tests**: Component rendering consistency
@@ -207,7 +225,9 @@ npm test -- --coverage --run --exclude="**/useVulnScanData.test.ts"
 ### Test Types
 
 #### Unit Tests
+
 Test individual components, hooks, or utilities in isolation.
+
 ```typescript
 // Component unit test
 describe('Header component', () => {
@@ -227,7 +247,9 @@ describe('useVulnScanData', () => {
 ```
 
 #### Integration Tests
+
 Test multiple components or systems working together.
+
 ```typescript
 describe('Vulnerabilities page integration', () => {
   it('loads and displays vulnerability data', async () => {
@@ -244,7 +266,8 @@ describe('Vulnerabilities page integration', () => {
 ```
 
 #### End-to-end Tests
-**Use Playwright**
+
+Use Playwright for end-to-end testing.
 
 ### Best Practices
 
@@ -293,6 +316,7 @@ it('shows loading state during API call', async () => {
 ### Common Issues
 
 **Import path errors**: Ensure relative paths are correct for the new structure
+
 ```typescript
 // ❌ Wrong - old flat structure
 import { Component } from '../../Component';
@@ -302,6 +326,7 @@ import { Component } from '../../../components/Header/Component';
 ```
 
 **Missing test utilities**: Import from the centralized test-utils
+
 ```typescript
 // ✅ Correct imports
 import { render, screen, fireEvent } from 'test-utils';
@@ -309,12 +334,14 @@ import { testUser } from 'test-utils';
 ```
 
 **Snapshot mismatches**: Update snapshots after structural changes
+
 ```bash
 npm test -- --update
 npm test -- -u
 ```
 
 **Failing tests blocking coverage**: Exclude problematic test files
+
 ```bash
 # Skip specific failing test file
 npm test -- --coverage --run --exclude="**/useVulnScanData.test.ts"
@@ -324,6 +351,7 @@ npm test -- --exclude="**/file1.test.ts" --exclude="**/file2.test.tsx"
 ```
 
 **Context/Provider issues**: Some tests may fail due to missing context providers
+
 - Check if components require AuthContext, ThemeProvider, or Router
 - Use the custom `render()` function from `test-utils` which includes providers
 - For hook tests, ensure proper context setup with `renderHook()`
