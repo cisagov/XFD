@@ -26,7 +26,6 @@
     "@mui/x-charts": "^8.9.2",
     "@mui/x-data-grid": "^8.9.2",
     "@trussworks/react-uswds": "^5.1.1",
-    "autoprefixer": "^10.4.13",
     "aws-amplify": "^5.3.12",
     "classnames": "^2.3.2",
     "cookie": "^1.0.2",
