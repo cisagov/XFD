@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u
 
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
@@ -19,16 +19,24 @@ OVERRIDES=$(jq -n \
   --arg bucket "$AUTOMATED_TEST_REPORTS_BUCKET_NAME" \
   --arg region "$AWS_REGION" \
   --arg url "$PW_XFD_URL" \
-  --arg username "$PW_XFD_USERNAME" \
-  --arg password "$PW_XFD_PASSWORD" \
-  --arg otpsecret "$PW_XFD_2FA_SECRET" \
-  --arg login "$PW_XFD_LOGIN" \
+  --arg global_admin_username "$PW_GLOBAL_ADMIN_USERNAME" \
+  --arg global_admin_password "$PW_GLOBAL_ADMIN_PASSWORD" \
+  --arg global_admin_2fa "$PW_GLOBAL_ADMIN_2FA_SECRET" \
+  --arg regional_admin_username "$PW_REGIONAL_ADMIN_USERNAME" \
+  --arg regional_admin_password "$PW_REGIONAL_ADMIN_PASSWORD" \
+  --arg regional_admin_2fa "$PW_REGIONAL_ADMIN_2FA_SECRET" \
+  --arg global_view_username "$PW_GLOBAL_VIEW_USERNAME" \
+  --arg global_view_password "$PW_GLOBAL_VIEW_PASSWORD" \
+  --arg global_view_2fa "$PW_GLOBAL_VIEW_2FA_SECRET" \
+  --arg standard_username "$PW_STANDARD_USER_USERNAME" \
+  --arg standard_password "$PW_STANDARD_USER_PASSWORD" \
+  --arg standard_2fa "$PW_STANDARD_USER_2FA_SECRET" \
   --arg git_branch "$GIT_BRANCH" \
   --arg environment "$ENVIRONMENT" \
-  --arg headless "$PW_HEADLESS" \
-  --arg ci "$PW_CI" \
+  --arg ci "$CI" \
   --arg s3HtmlPath "$S3_HTML_PATH" \
   --arg s3JsonPath "$S3_JSON_PATH" \
+  --arg clusterName "$CLUSTER_NAME" \
   '{
     containerOverrides: [
       {
@@ -38,16 +46,24 @@ OVERRIDES=$(jq -n \
           { "name": "AUTOMATED_TEST_REPORTS_BUCKET_NAME", "value": $bucket },
           { "name": "AWS_REGION", "value": $region },
           { "name": "PW_XFD_URL", "value": $url },
-          { "name": "PW_XFD_USERNAME", "value": $username },
-          { "name": "PW_XFD_PASSWORD", "value": $password },
-          { "name": "PW_XFD_2FA_SECRET", "value": $otpsecret },
-          { "name": "PW_XFD_LOGIN", "value": $login },
+          { "name": "PW_GLOBAL_ADMIN_USERNAME", "value": $global_admin_username },
+          { "name": "PW_GLOBAL_ADMIN_PASSWORD", "value": $global_admin_password },
+          { "name": "PW_GLOBAL_ADMIN_2FA_SECRET", "value": $global_admin_2fa },
+          { "name": "PW_REGIONAL_ADMIN_USERNAME", "value": $regional_admin_username },
+          { "name": "PW_REGIONAL_ADMIN_PASSWORD", "value": $regional_admin_password },
+          { "name": "PW_REGIONAL_ADMIN_2FA_SECRET", "value": $regional_admin_2fa },
+          { "name": "PW_GLOBAL_VIEW_USERNAME", "value": $global_view_username },
+          { "name": "PW_GLOBAL_VIEW_PASSWORD", "value": $global_view_password },
+          { "name": "PW_GLOBAL_VIEW_2FA_SECRET", "value": $global_view_2fa },
+          { "name": "PW_STANDARD_USER_USERNAME", "value": $standard_username },
+          { "name": "PW_STANDARD_USER_PASSWORD", "value": $standard_password },
+          { "name": "PW_STANDARD_USER_2FA_SECRET", "value": $standard_2fa },
           { "name": "GIT_BRANCH", "value": $git_branch },
           { "name": "ENVIRONMENT", "value": $environment },
-          { "name": "PW_HEADLESS", "value": $headless },
-          { "name": "PW_CI", "value": $ci },
+          { "name": "CI", "value": $ci },
           { "name": "S3_HTML_PATH", "value": $s3HtmlPath },
-          { "name": "S3_JSON_PATH", "value": $s3JsonPath }
+          { "name": "S3_JSON_PATH", "value": $s3JsonPath },
+          { "name": "CLUSTER_NAME", "value": $clusterName }
         ]
       }
     ]

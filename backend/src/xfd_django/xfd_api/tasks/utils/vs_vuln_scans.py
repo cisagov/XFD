@@ -9,22 +9,34 @@ from typing import Dict
 
 # Third-Party Libraries
 from django.db import models
-from django.db.models import Count, ExpressionWrapper, F, FloatField, Max, Min, Q, Sum
-from django.db.models.functions import Power
-from django.utils import timezone
-from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
-from xfd_api.tasks.utils.mdl_insert_utils import (
-    save_cve_to_datalake,
-    save_ip_to_datalake,
+from django.db.models import (
+    CharField,
+    Count,
+    ExpressionWrapper,
+    F,
+    FloatField,
+    Max,
+    Min,
+    OuterRef,
+    Q,
+    Subquery,
+    Sum,
 )
-from xfd_api.tasks.utils.query_redshift import fetch_from_redshift
+from django.db.models.functions import Cast, Coalesce, Power
+from django.utils import timezone
+from psycopg2 import sql
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
+from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
+from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
 from xfd_api.utils.hash import hash_ip
-from xfd_api.utils.scan_utils.alerting import IngestionError
+from xfd_api.utils.scan_utils.alerting import QueryError
 from xfd_mini_dl.models import (
     Cidr,
+    Cve,
+    Ip,
+    IpsSubs,
     Organization,
     Ticket,
-    Vulnerability,
     VulnScan,
     VulnScanSummary,
 )
@@ -32,72 +44,150 @@ from xfd_mini_dl.models import (
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 SCAN_NAME = "VulnScanningSync"
 IS_LOCAL = os.getenv("IS_LOCAL")
+CHUNK_SIZE = 10000  # tune as needed
 
 
-def fetch_vuln_scans_from_redshift(ps_start_dt, ps_end_dt, org_id_dict):
-    """Fetch vuln_scans from redshift."""
-    LOGGER.info("Started processing vulnerability scans...")
-    # Query with frozen window
-    vuln_scans = fetch_from_redshift(
-        f"""
+@cloudwatch_metric()
+def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
+    """
+    Optimized and chunked vulnerability scan fetch from Redshift.
+
+    Fetches scans in chunks, bulk-saves IPs and CVEs for all orgs.
+    """
+    if not org_id_dict:
+        LOGGER.warning("No organizations provided for vulnerability scan fetch.")
+        return
+
+    acronyms = list(org_id_dict.keys())
+    LOGGER.info(
+        "Started optimized chunked vuln scan fetch for %d orgs: %s",
+        len(acronyms),
+        acronyms,
+    )
+
+    base_query = sql.SQL(
+        """
         SELECT *
         FROM vmtableau.vuln_scans
-        WHERE time >= '{ps_start_dt.strftime('%Y-%m-%d %H:%M:%S')}'
-        AND time < '{ps_end_dt.strftime('%Y-%m-%d %H:%M:%S')}'
-        """  # nosec B608
+        WHERE time >= %s
+          AND time < %s
+          AND owner IN ({acronyms})
+        ORDER BY time
+        LIMIT %s OFFSET %s
+        """
+    ).format(acronyms=sql.SQL(", ").join([sql.Placeholder()] * len(acronyms)))
+
+    offset = 0
+    total_processed = 0
+
+    while True:
+        params = [ps_start_dt, ps_end_dt] + acronyms + [CHUNK_SIZE, offset]
+        vuln_scans_chunk = fetch_from_redshift_with_params(base_query, params)
+
+        if not vuln_scans_chunk:
+            if offset == 0:
+                LOGGER.warning("No vulnerability scans found in frozen table.")
+            break
+
+        LOGGER.info(
+            "Fetched %d vuln scans from Redshift (offset=%d)",
+            len(vuln_scans_chunk),
+            offset,
+        )
+
+        process_vulnerability_scans_bulk(vuln_scans_chunk, org_id_dict)
+
+        total_processed += len(vuln_scans_chunk)
+        offset += CHUNK_SIZE
+
+        LOGGER.info(
+            "Processed %d vuln scans so far (next offset=%d)",
+            total_processed,
+            offset,
+        )
+
+    LOGGER.info(
+        "Completed bulk chunked vuln scan sync. Total processed: %d", total_processed
     )
-    LOGGER.info("Fetched %d vulnerability scans from Redshift", len(vuln_scans))
-    if vuln_scans:
-        process_vulnerability_scans(vuln_scans, org_id_dict)
-        LOGGER.info("Finished processing vulnerability scans")
 
 
-def process_vulnerability_scans(vuln_scans, org_id_dict):
-    """Process and save vulnerability scans."""
-    for vuln in vuln_scans:
-        try:
-            owner_id = org_id_dict.get(vuln.get("owner"))
-            ip_id = (
-                save_ip_to_datalake(
-                    {
-                        "ip": vuln["ip"],
-                        "ip_hash": hash_ip(vuln["ip"]),
-                        "organization": owner_id,
-                    }
-                )
-                if vuln.get("ip")
-                else None
-            )
-            cve = (
-                save_cve_to_datalake({"name": vuln["cve"]}) if vuln.get("cve") else None
-            )
-            vuln_scan_dict = build_vuln_scan_dict(vuln, owner_id, ip_id, cve)
-            try:
-                save_vuln_scan(vuln_scan_dict)
-            except Exception as e:
-                LOGGER.exception("Error saving vulnerability scan: %s", e)
-                # Raise to catch in the outer block
-                raise e
-        except Exception as e:
-            LOGGER.exception("Error processing Vulnerability Scan: %s", e)
-            raise IngestionError(
-                SCAN_NAME, str(e), "Failed processing vulnerability scans"
-            ) from e
+def process_vulnerability_scans_bulk(vuln_scans_chunk, org_id_dict):
+    """
+    Optimized vulnerability scan processing for a single chunk.
+
+    Bulk-saves IPs and CVEs for all orgs in the chunk.
+    """
+    if not vuln_scans_chunk:
+        LOGGER.debug("Empty vuln scan chunk, skipping.")
+        return
+
+    ip_records = {}
+    cve_records = {}
+
+    for vuln in vuln_scans_chunk:
+        owner = vuln.get("owner")
+        org_id = org_id_dict.get(owner)
+        if not org_id:
+            continue
+
+        ip_str = vuln.get("ip")
+        if ip_str:
+            ip_records[(org_id, ip_str)] = {
+                "ip": ip_str,
+                "ip_hash": hash_ip(ip_str),
+                "organization_id": org_id,
+            }
+
+        cve_str = vuln.get("cve")
+        if cve_str:
+            cve_records[cve_str] = {"name": cve_str}
+
+    ip_map = {}
+    if ip_records:
+        LOGGER.info("Bulk saving %d IPs...", len(ip_records))
+        ip_objs = bulk_save_ips(list(ip_records.values()))
+        ip_map = {(ip_obj.organization_id, ip_obj.ip): ip_obj.id for ip_obj in ip_objs}
+
+    cve_map = {}
+    if cve_records:
+        LOGGER.info("Bulk saving %d CVEs...", len(cve_records))
+        cve_objs = bulk_save_cves(list(cve_records.values()))
+        cve_map = {cve_obj.name: cve_obj.id for cve_obj in cve_objs}
+
+    vuln_scan_dicts = []
+    for vuln in vuln_scans_chunk:
+        owner = vuln.get("owner")
+        org_id = org_id_dict.get(owner)
+        if not org_id:
+            continue
+
+        ip_str = vuln.get("ip")
+        cve_str = vuln.get("cve")
+        ip_id = ip_map.get((org_id, ip_str)) if ip_str else None
+        cve_id = cve_map.get(cve_str) if cve_str else None
+
+        vs_dict = build_vuln_scan_dict(vuln, org_id, ip_id, cve_id)
+        truncate_charfields(VulnScan, vs_dict)
+        vuln_scan_dicts.append(vs_dict)
+
+    if vuln_scan_dicts:
+        LOGGER.info("Bulk inserting %d vulnerability scans...", len(vuln_scan_dicts))
+        bulk_save_vuln_scans(vuln_scan_dicts)
 
 
-def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
+def build_vuln_scan_dict(vuln, owner_id, ip_id, cve_id):
     """Construct a vulnerability scan dictionary."""
     return {
         "id": vuln.get("_id"),
         "cert_id": vuln.get("cert", None),
         "cpe": vuln.get("cpe", None),
         "cve_string": vuln.get("cve", None),
-        "cve": cve,
+        "cve_id": cve_id,
         "cvss_base_score": vuln.get("cvss_base_score", None),
         "cvss_temporal_score": vuln.get("cvss_temporal_score", None),
         "cvss_temporal_vector": vuln.get("cvss_temporal_vector", None),
@@ -106,7 +196,7 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
         "exploit_available": vuln.get("exploit_available", None),
         "exploitability_ease": vuln.get("exploit_ease", None),
         "ip_string": vuln.get("ip", None),
-        "ip": ip_id if ip_id else None,
+        "ip_id": ip_id if ip_id else None,
         "latest": vuln.get("latest", None),
         "owner": vuln.get("owner", None),
         "osvdb_id": vuln.get("osvdb", None),
@@ -161,6 +251,29 @@ def build_vuln_scan_dict(vuln, owner_id, ip_id, cve):
     }
 
 
+def bulk_save_ips(ip_data_list):
+    """Insert or get IPs in bulk."""
+    objs = [Ip(**d) for d in ip_data_list]
+    Ip.objects.bulk_create(objs, ignore_conflicts=True)
+    # Fetch map of ip->id for all inserted/existing
+    existing = Ip.objects.filter(ip__in=[d["ip"] for d in ip_data_list])
+    return existing
+
+
+def bulk_save_cves(cve_data_list):
+    """Insert or get CVEs in bulk."""
+    objs = [Cve(**d) for d in cve_data_list]
+    Cve.objects.bulk_create(objs, ignore_conflicts=True)
+    existing = Cve.objects.filter(name__in=[d["name"] for d in cve_data_list])
+    return existing
+
+
+def bulk_save_vuln_scans(vuln_scan_dicts):
+    """Bulk insert or update vuln scans."""
+    objs = [VulnScan(**v) for v in vuln_scan_dicts]
+    VulnScan.objects.bulk_create(objs, ignore_conflicts=True)
+
+
 def truncate_charfields(model_cls, data_dict):
     """Trim or stringify charfields in the given data dict to their model-defined max_length."""
     for field in model_cls._meta.fields:
@@ -181,6 +294,7 @@ def truncate_charfields(model_cls, data_dict):
             data_dict[field.name] = val
 
 
+@cloudwatch_metric()
 def save_vuln_scan(vuln_scan: Dict) -> str:
     """Save a Vulnerability Scan record to the data lake.
 
@@ -203,13 +317,21 @@ def save_vuln_scan(vuln_scan: Dict) -> str:
     return str(vuln_scan_obj.id)
 
 
-def create_vuln_scan_summary(summary_date=None):
-    """Fill vuln_scan_summary table for todays date."""
-    if summary_date is None:
-        summary_date = timezone.now().date()
+def create_vuln_scan_summary(summary_date=None, org_id=None):
+    """Fill vuln_scan_summary table for today's date for a single organization."""
+    try:
+        if summary_date is None:
+            summary_date = timezone.now().date()
 
-    for org in Organization.objects.all():
-        # Base queryset for this org
+        if not org_id:
+            LOGGER.error("Organization ID is required to create a vuln scan summary.")
+            return
+
+        org = Organization.objects.filter(id=org_id).first()
+        if not org:
+            LOGGER.error("Organization with ID %s not found.", org_id)
+            return
+
         all_org_tickets = Ticket.objects.filter(organization=org)
         open_tickets = all_org_tickets.filter(is_open=True)
         included = open_tickets.filter(
@@ -261,7 +383,7 @@ def create_vuln_scan_summary(summary_date=None):
                     "top_5_risky_hosts": {},
                 },
             )
-            continue  # Skip orgs with no valid tickets
+            return  # skip if no data for this org
 
         start_date = included.aggregate(Min("updated_timestamp"))[
             "updated_timestamp__min"
@@ -270,13 +392,13 @@ def create_vuln_scan_summary(summary_date=None):
             "updated_timestamp__max"
         ]
 
-        # Severity logic using cvss_severity
         severity_map = {1: "low", 2: "medium", 3: "high", 4: "critical"}
+
         severity_counts = {
             f"{name}_severity_count": included.filter(cvss_severity=level).count()
             for level, name in severity_map.items()
         }
-        # TODO confirm if the distinct field should be id and not ip_string
+
         unique_sev_counts = {
             f"unique_{name}_severity_count": included.filter(cvss_severity=level)
             .values("vuln_source_id")
@@ -285,7 +407,6 @@ def create_vuln_scan_summary(summary_date=None):
             for level, name in severity_map.items()
         }
 
-        # KEV by severity
         kev_counts = {
             f"{name}_kev_count": included.filter(
                 is_kev=True, cvss_severity=level
@@ -322,18 +443,14 @@ def create_vuln_scan_summary(summary_date=None):
         six_to_nine = sum(1 for c in ip_counts.values() if 6 <= c <= 9)
         ten_plus = sum(1 for c in ip_counts.values() if c >= 10)
 
-        # Filtered and grouped by CVE string
+        # Top CVEs
         top_cves_qs = (
             included.filter(~Q(cve_string__isnull=True), ~Q(cve_string=""))
             .values("cve_string")
             .annotate(
                 count=Count("ip_string"),
-                cvss_base_score=Max(
-                    "cvss_base_score"
-                ),  # or Avg if you want to average across tickets
-                severity=Max(
-                    "cvss_severity"
-                ),  # assuming severity is consistent across same CVE
+                cvss_base_score=Max("cvss_base_score"),
+                severity=Max("cvss_severity"),
                 vuln_name=Max("vuln_name"),
             )
             .order_by("-count")[:5]
@@ -354,7 +471,7 @@ def create_vuln_scan_summary(summary_date=None):
             for cve in top_cves_qs
         ]
 
-        # Same logic but filtered for KEVs
+        # Top KEVs
         top_kevs_qs = (
             included.filter(is_kev=True)
             .filter(~Q(cve_string__isnull=True), ~Q(cve_string=""))
@@ -382,6 +499,12 @@ def create_vuln_scan_summary(summary_date=None):
             }
             for kev in top_kevs_qs
         ]
+
+        subq = (
+            IpsSubs.objects.filter(ip_id=OuterRef("ip_id"))
+            .order_by("sub_domain_id")
+            .values("sub_domain_id")[:1]
+        )
         # Top 5 risky hosts by severity breakdown
         tickets = Ticket.objects.filter(
             organization=org,
@@ -392,13 +515,13 @@ def create_vuln_scan_summary(summary_date=None):
             false_positive__in=[False, None],
         )
 
-        # Base RRS score expression: (cvss_base_score^7) / 1,000,000
         weighted_expr = ExpressionWrapper(
             Power(F("cvss_base_score"), 7) / 1000000, output_field=FloatField()
         )
 
+        # Build the annotated queryset (include ip_id so it's available in the result)
         risky_host_qs = (
-            tickets.values("ip_string")
+            tickets.values("ip_string", "ip_id")
             .annotate(
                 total=Count("id"),
                 low=Count("id", filter=Q(cvss_severity=1)),
@@ -407,20 +530,15 @@ def create_vuln_scan_summary(summary_date=None):
                 critical=Count("id", filter=Q(cvss_severity=4)),
                 weighted=Sum(weighted_expr),
                 sample_ticket_id=Min("id"),
+                domain_id=Coalesce(
+                    Cast(Subquery(subq), output_field=CharField()),
+                    Cast(F("ip_id"), output_field=CharField()),
+                ),
             )
             .order_by("-weighted")[:5]
         )
 
-        ticket_ids = [str(item["sample_ticket_id"]) for item in risky_host_qs]
-
-        # Build a mapping from ticket_id → domain_id
-        vuln_domain_map = {
-            str(v.id): str(v.domain_id)
-            for v in Vulnerability.objects.filter(id__in=ticket_ids).only(
-                "id", "domain_id"
-            )
-        }
-        # Convert to dictionary for JSONField
+        # Final dict for JSON field — cast domain_id to str if needed
         top_5_hosts = {
             item["ip_string"]: {
                 "total": item["total"],
@@ -431,7 +549,9 @@ def create_vuln_scan_summary(summary_date=None):
                 "rrs": round(item["weighted"], 2)
                 if item["weighted"] is not None
                 else 0,
-                "domain_id": vuln_domain_map.get(str(item["sample_ticket_id"])),
+                "domain_id": str(item["domain_id"])
+                if item["domain_id"] is not None
+                else None,
             }
             for item in risky_host_qs
         }
@@ -445,9 +565,7 @@ def create_vuln_scan_summary(summary_date=None):
                 "end_date": end_date,
                 "assets_owned_count": get_asset_owned_count(org),
                 "false_positive_count": all_org_tickets.filter(
-                    false_positive=True,
-                    is_open=True,
-                    vuln_source="nessus",
+                    false_positive=True, is_open=True, vuln_source="nessus"
                 ).count(),
                 "vulnerable_host_count": included.values("ip_string")
                 .distinct()
@@ -494,6 +612,9 @@ def create_vuln_scan_summary(summary_date=None):
                 "top_5_risky_hosts": top_5_hosts,
             },
         )
+    except Exception as e:
+        LOGGER.exception("Error creating vuln scan summary for org %s: %s", org_id, e)
+        raise QueryError(SCAN_NAME, str(e), "Error creating vuln scan summary") from e
 
 
 def get_asset_owned_count(org):

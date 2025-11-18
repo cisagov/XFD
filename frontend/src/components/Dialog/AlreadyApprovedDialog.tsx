@@ -1,0 +1,54 @@
+import React from 'react';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Grid
+} from '@mui/material';
+
+type DialogComponentProps = {
+  isOpen: boolean;
+  handleClick: () => void;
+  icon: React.ReactNode;
+  title: React.ReactNode;
+  content: React.ReactNode;
+  screenWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+};
+
+const AlreadyApprovedDialog: React.FC<DialogComponentProps> = ({
+  isOpen,
+  handleClick,
+  icon,
+  title,
+  content,
+  screenWidth = 'sm'
+}) => {
+  return (
+    <Dialog open={isOpen} fullWidth maxWidth={screenWidth}>
+      <Grid sx={{ textAlign: 'center' }}>
+        <DialogTitle sx={{ fontSize: 20 }}>
+          <Grid sx={{ mt: 2 }}>{icon}</Grid>
+          <Grid>{title}</Grid>
+        </DialogTitle>
+        <DialogContent>
+          <Grid>
+            <DialogContent>{content}</DialogContent>
+          </Grid>
+          <Grid sx={{ mt: 3, mb: 1 }}>
+            <Button
+              sx={{ width: '30%' }}
+              onClick={handleClick}
+              size="large"
+              variant="contained"
+            >
+              Ok
+            </Button>
+          </Grid>
+        </DialogContent>
+      </Grid>
+    </Dialog>
+  );
+};
+
+export default AlreadyApprovedDialog;

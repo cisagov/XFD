@@ -1,10 +1,11 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () => {
   test.beforeEach(async ({ page: pageAsGlobalAdmin }) => {
     // Navigate to the dashboard page before each test
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
   });
 
   test.skip('should display main widget heading and tooltip', async ({

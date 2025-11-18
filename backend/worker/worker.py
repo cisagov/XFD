@@ -59,7 +59,6 @@ def delete_message(queue_url, receipt_handle):
     """Delete a processed message from the queue."""
     try:
         sqs.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
-        LOGGER.info("Deleted processed message.")
     except Exception as e:
         LOGGER.error("Error deleting message: %s", e)
 
@@ -78,13 +77,13 @@ def main():
     is_dmz = os.getenv("IS_DMZ")
     if str(is_dmz).lower() not in {"true", "1"}:
         zscaler_cert = ensure_zscaler_cert_downloaded()
-        os.environ["AWS_CA_BUNDLE"] = zscaler_cert
+        os.environ["AWS_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
         os.environ["REQUESTS_CA_BUNDLE"] = zscaler_cert
         os.environ["SSL_CERT_FILE"] = zscaler_cert
         LOGGER.info("Set Zscaler cert environment variables for outbound TLS.")
     else:
         # If not set, ensure these are not set so traffic is direct
-        os.environ.pop("AWS_CA_BUNDLE", None)
+        os.environ["AWS_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
         os.environ.pop("REQUESTS_CA_BUNDLE", None)
         os.environ.pop("SSL_CERT_FILE", None)
         LOGGER.info("DMZ mode enabled. Skipping Zscaler cert injection.")
@@ -131,6 +130,102 @@ def main():
         else SERVICE_QUEUE_URL
     )
     LOGGER.info("Polling queue: %s", full_queue_path_name)
+
+    # ------------------------------------------
+    # Special batching logic for vulnScanningSync
+    # ------------------------------------------
+    if scan_name == "vulnScanningSync":
+        batch_size = int(os.getenv("VULN_BATCH_SIZE", "200"))
+        LOGGER.info(
+            "Bulk mode enabled for vulnScanningSync (batch size=%d)", batch_size
+        )
+
+        while True:
+            org_batch = []
+            receipt_handles = []
+
+            # Pull up to batch_size orgs
+            while len(org_batch) < batch_size:
+                try:
+                    response = sqs.receive_message(
+                        QueueUrl=full_queue_path_name,
+                        MaxNumberOfMessages=10,  # SQS hard API cap
+                        WaitTimeSeconds=3,
+                    )
+                    messages = response.get("Messages", [])
+                    if not messages:
+                        break  # queue temporarily empty
+
+                    for msg in messages:
+                        data = process_message(msg)
+                        org = data.get("org")
+                        org_id = data.get("id")
+                        if org and org_id:
+                            org_batch.append({"org": org, "id": org_id})
+                            receipt_handles.append(msg["ReceiptHandle"])
+                        if len(org_batch) >= batch_size:
+                            break
+                except Exception as e:
+                    LOGGER.error("Error pulling batch from queue: %s", e)
+                    break
+
+            # Stop loop if no messages left at all
+            if not org_batch:
+                # Wait and double-check before exiting, in case of delayed visibility
+                LOGGER.info("Queue appears empty. Double-checking before exit...")
+                time.sleep(5)
+
+                response = sqs.receive_message(
+                    QueueUrl=full_queue_path_name,
+                    MaxNumberOfMessages=1,
+                    WaitTimeSeconds=5,
+                )
+                if not response.get("Messages"):
+                    LOGGER.info(
+                        "Confirmed queue is empty. Exiting vulnScanningSync worker."
+                    )
+                    break
+                else:
+                    LOGGER.info("Queue had more messages, continuing drain loop.")
+                    continue
+
+            LOGGER.info(
+                "Fetched %d orgs from queue for vulnScanningSync.", len(org_batch)
+            )
+
+            # Combine orgs into one task payload
+            task_options = dict(command_options)
+            task_options.update({"org_list": org_batch})
+
+            try:
+                result = scan_fn(task_options)
+                http_status = (
+                    result.get("status_code") if isinstance(result, dict) else None
+                )
+                message_body = (
+                    result.get("body") if isinstance(result, dict) else str(result)
+                )
+
+                for org in org_batch:
+                    log_scan_result(
+                        scan_id=task_options.get("scanId"),
+                        organization_id=org["id"],
+                        http_status=http_status,
+                        message=message_body,
+                    )
+
+                # Delete all processed messages
+                for rh in receipt_handles:
+                    delete_message(full_queue_path_name, rh)
+
+            except Exception as e:
+                LOGGER.exception("Error running vulnScanningSync batch: %s", e)
+
+            # Optional: short cool down between batches to reduce Redshift contention
+            time.sleep(2)
+
+        LOGGER.info("Completed vulnScanningSync worker loop.")
+        return
 
     while True:
         message_data = get_message(full_queue_path_name)

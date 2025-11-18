@@ -1,3 +1,4 @@
+import { ENDPOINTS } from '@/constants/endpoints';
 import { useEffect, useState } from 'react';
 
 export function useMaintenanceNotifications(
@@ -19,7 +20,7 @@ export function useMaintenanceNotifications(
         user.date_accepted_terms &&
         !isLoginBlockedDialogOpen
       ) {
-        const notifications = await apiGet('/notifications');
+        const notifications = await apiGet(ENDPOINTS.NOTIFICATIONS);
         const active = notifications.find(
           (n: any) =>
             n.status === 'active' &&

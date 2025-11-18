@@ -460,12 +460,6 @@ def get_vs_condensed_trending_data(filters, current_user):
                 status_code=404, detail="Access denied to requested organization."
             )
 
-    if current_user.user_type == "regionalAdmin" and current_user.region_id:
-        if organization.region_id != current_user.region_id:
-            raise HTTPException(
-                status_code=404, detail="Access denied to requested organization."
-            )
-
     start_date = filters.start_date
     end_date = filters.end_date
     sources = filters.sources or []
@@ -540,12 +534,6 @@ def get_vs_trending_data(filters, current_user):
     ):
         org_ids = get_org_memberships(current_user)
         if uuid.UUID(organization_id) not in org_ids:
-            raise HTTPException(
-                status_code=404, detail="Access denied to requested organization."
-            )
-
-    if current_user.user_type == "regionalAdmin" and current_user.region_id:
-        if organization.region_id != current_user.region_id:
             raise HTTPException(
                 status_code=404, detail="Access denied to requested organization."
             )
@@ -763,12 +751,6 @@ def get_v2_trending_data(payload, current_user):  # pylint: disable=R0915
                 status_code=404, detail="Access denied to requested organization."
             )
 
-    if current_user.user_type == "regionalAdmin" and current_user.region_id:
-        if organization.region_id != current_user.region_id:
-            raise HTTPException(
-                status_code=404, detail="Access denied to requested organization."
-            )
-
     start_date = filters.start_date
     end_date = filters.end_date
     sources = filters.sources or []
@@ -900,6 +882,7 @@ SUMMARY_CONFIG = {
             "up_host_count",
             "down_host_count",
             "scanned_asset_count",
+            "recent_up_hosts_count",
         ],
     },
     "port": {
@@ -1254,14 +1237,6 @@ def get_stats_comparison_data(filters, current_user):
             raise HTTPException(
                 status_code=404, detail="Access denied to requested organization."
             )  # User has no accessible organizations
-
-    # Regional Admins can only view vulnerabilities in their region
-
-    if current_user.user_type == "regionalAdmin" and current_user.region_id:
-        if organization.region_id != current_user.region_id:
-            raise HTTPException(
-                status_code=404, detail="Access denied to requested organization."
-            )
 
     base_date = filters.base_date
     compare_date = filters.compare_date

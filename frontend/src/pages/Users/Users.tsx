@@ -28,6 +28,7 @@ import {
 import { useAuthContext } from 'context';
 import { format } from 'date-fns';
 import UserForm from './UserForm';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -57,6 +58,7 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
+  org_acronym?: string | null | undefined;
   full_name: string;
   approved_by?: ApprovedBy | null;
   date_approved?: string | null;
@@ -66,7 +68,6 @@ export const Users: React.FC = () => {
   const { user, apiDelete, apiGet, apiPost } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
-  const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
@@ -84,10 +85,11 @@ export const Users: React.FC = () => {
     initialUserFormValues
   );
 
+  // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const rows = await apiGet<UserType[]>(`/users`);
+      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
       rows.forEach((row) => {
         row.lastLoggedInString = row.last_logged_in
           ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
@@ -102,12 +104,10 @@ export const Users: React.FC = () => {
               .join(', ')
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
+        row.org_acronym = row.roles[0]?.organization.acronym || '';
       });
 
-      let filteredRows = rows;
-      if (user?.user_type === 'regionalAdmin' && user.region_id) {
-        filteredRows = rows.filter((row) => row.region_id === user.region_id);
-      }
+      const filteredRows = rows;
 
       setUsers(filteredRows);
       setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
@@ -184,6 +184,22 @@ export const Users: React.FC = () => {
             aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
           >
             {cellValues.row.orgs}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'org_acronym',
+      headerName: 'Org Acronym',
+      minWidth: 100,
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization acronym ${cellValues.row.full_name}: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.org_acronym}
           </Box>
         );
       }
@@ -403,20 +419,12 @@ export const Users: React.FC = () => {
       }
     });
   }
-  const addUserButton = user?.user_type === 'globalAdmin' && (
-    <Button
-      size="small"
-      sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-      startIcon={<Add />}
-      onClick={() => setNewUserDialogOpen(true)}
-    >
-      Invite New User
-    </Button>
-  );
 
   const deleteRow = async (row: UserType) => {
     try {
-      await apiDelete(`/users/${row.id}`, { body: {} });
+      await apiDelete(ENDPOINTS.USER.replace('{user_id}', String(row.id)), {
+        body: {}
+      });
       setUsers(users.filter((user) => user.id !== row.id));
       setApiErrorStates({ ...apiErrorStates, getDeleteError: '' });
       setInfoDialogContent('This user has been successfully removed.');
@@ -462,8 +470,6 @@ export const Users: React.FC = () => {
       setUsers={setUsers}
       values={formValues}
       setValues={setFormValues}
-      newUserDialogOpen={newUserDialogOpen}
-      setNewUserDialogOpen={setNewUserDialogOpen}
       editUserDialogOpen={editUserDialogOpen}
       setEditUserDialogOpen={setEditUserDialogOpen}
       apiErrorStates={apiErrorStates}
@@ -529,7 +535,6 @@ export const Users: React.FC = () => {
             slots={{ toolbar: CustomToolbar }}
             slotProps={{
               toolbar: {
-                children: addUserButton,
                 // Disabling export for users table as per temp solution mentioned in CRASM-2509
                 disableExport: true,
                 exportTitle: 'Users'
@@ -552,7 +557,7 @@ export const Users: React.FC = () => {
         </Paper>
       ) : null}
       {confirmDeleteUserDialog}
-      {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
+      {editUserDialogOpen && renderUserForm}
       <InfoDialog
         isOpen={infoDialogOpen}
         handleClick={() => {

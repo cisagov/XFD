@@ -17,6 +17,7 @@ import os
 
 # Python built-in
 from pathlib import Path
+from typing import Any, Dict
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
@@ -87,7 +88,6 @@ MIDDLEWARE = [
 ]
 
 ALLOWED_ADMIN_ROLES = ["globalView", "globalAdmin", "regionalAdmin"]
-ALLOWED_ADMIN_DOMAINS = ["cisa.dhs.gov"]
 
 
 # Database
@@ -146,13 +146,27 @@ LANGUAGE_CODE = "en-us"
 LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
 ROOT_LEVEL = "INFO"
 # Logging configuration
-handlers = {
+handlers: Dict[str, Any] = {
     "console": {
         "level": LOGGING_LEVEL,
         "class": "logging.StreamHandler",
         "formatter": "standard",
     }
 }
+
+
+def _env_handlers(requests: bool = False) -> list[str]:
+    """
+    Return appropriate logging handlers based on environment.
+
+    - Uses CloudWatch if running in Lambda and not local.
+    - Otherwise falls back to console logging.
+    - `requests=True` will select the requests-specific CloudWatch handler.
+    """
+    if IS_LAMBDA and not IS_LOCAL:
+        return ["requests_cloudwatch"] if requests else ["app_cloudwatch"]
+    return ["console"]
+
 
 # Add CloudWatch handlers if in Lambda
 if IS_LAMBDA and not IS_LOCAL:
@@ -170,21 +184,27 @@ if IS_LAMBDA and not IS_LOCAL:
                 "class": "watchtower.CloudWatchLogHandler",
                 "formatter": "standard",
                 "boto3_client": logs_client,
-                "log_group_name": "crossfeed-{}-backend-api".format(STAGE),
+                "log_group_name": "cyhy-{}-backend-api".format(STAGE),
+                "stream_name": "{machine_name}/{logger_name}/{process_id}",
+                "use_queues": False,
             },
             "requests_cloudwatch": {
                 "level": "INFO",
                 "class": "watchtower.CloudWatchLogHandler",
                 "formatter": "standard",
                 "boto3_client": logs_client,
-                "log_group_name": "crossfeed-{}-backend-api-requests".format(STAGE),
+                "log_group_name": "cyhy-{}-backend-api-requests".format(STAGE),
+                "stream_name": "{machine_name}/{logger_name}/{process_id}",
+                "use_queues": False,
             },
         }
     )
 
+# TODO: CRASM-3282
+# Consider using JSON formatter instead
 LOGGING = {
     "version": 1,
-    "disable_existing_loggers": True,
+    "disable_existing_loggers": False,
     "formatters": {
         "standard": {
             "format": "%(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
@@ -193,18 +213,28 @@ LOGGING = {
     },
     "handlers": handlers,
     "root": {
-        # Root always logs to console so Fargate/ECS and Lambda prints still go somewhere
-        "handlers": ["console"],
-        "level": ROOT_LEVEL,
+        "handlers": ["console"] if not IS_LAMBDA else [],
+        "level": "WARNING" if IS_LAMBDA else ROOT_LEVEL,
     },
     "loggers": {
+        # Catch-all for your project namespace
         "xfd": {
-            "handlers": (
-                ["app_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
-            ),
+            "handlers": _env_handlers(),
             "level": LOGGING_LEVEL,
             "propagate": False,
         },
+        # Explicitly route sibling loggers (your modules) into CloudWatch
+        "xfd_api": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        "xfd_mini_dl": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        # Request logs stay separate
         "fastapi.requests": {
             "handlers": (
                 ["requests_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
@@ -216,6 +246,7 @@ LOGGING = {
 }
 
 # Apply the logging configuration
+LOGGING_CONFIG = None
 logging.config.dictConfig(LOGGING)
 
 TIME_ZONE = "UTC"

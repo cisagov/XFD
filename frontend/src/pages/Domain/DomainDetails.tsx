@@ -21,8 +21,9 @@ import { DefinitionList } from 'components/DefinitionList';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';
 import { useAuthContext } from 'context';
-import { getSeverityColor } from 'pages/Risk/utils';
+import { getSeverityColor } from 'utils/getSeverityColor';
 import { Box } from '@mui/system';
+import { ROUTES } from '@/constants/routes';
 
 const PREFIX = 'DomainDetails';
 
@@ -347,6 +348,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
       <Button
         onClick={() => history.goBack()}
         startIcon={<KeyboardBackspace />}
+        variant="primaryText"
       >
         Back To Results
       </Button>
@@ -400,7 +402,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                     <AccordionSummary
                       onClick={() => {
                         if (!isDisabled) {
-                          history.push('/inventory/vulnerability/' + vuln.id);
+                          history.push(
+                            ROUTES.VULNERABILITY.replace(
+                              ':vulnerabilityId',
+                              vuln.id
+                            )
+                          );
                         }
                       }}
                       onKeyDown={(event) => {
@@ -409,7 +416,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                           (event.key === 'Enter' || event.key === ' ')
                         ) {
                           event.preventDefault();
-                          history.push('/inventory/vulnerability/' + vuln.id);
+                          history.push(
+                            ROUTES.VULNERABILITY.replace(
+                              ':vulnerabilityId',
+                              vuln.id
+                            )
+                          );
                         }
                       }}
                       aria-label={`Vulnerability: ${vuln.title} - ${formatSeverity(vuln.severity)}`}

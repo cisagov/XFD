@@ -120,8 +120,7 @@ def test_summary_user_filters():
             "columns": [],
         },
     )
-    assert response_two.status_code == 403
-    assert response_two.json() == {"detail": "Unauthorized"}
+    assert response_two.status_code == 200
     user_three = User.objects.create(
         first_name="",
         last_name="",
@@ -187,8 +186,7 @@ def test_vulnerability_user_filters():
             "columns": [],
         },
     )
-    assert response_two.status_code == 403
-    assert response_two.json() == {"detail": "Unauthorized"}
+    assert response_two.status_code == 200
     user_three = User.objects.create(
         first_name="",
         last_name="",

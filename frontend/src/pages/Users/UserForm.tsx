@@ -1,29 +1,16 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState
-} from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Autocomplete,
-  Box,
   Button,
   DialogContent,
   FormControlLabel,
   Grid,
-  MenuItem,
   Radio,
   RadioGroup,
-  Select,
   TextField,
   Typography
 } from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
-import { Check, WarningAmber as WarningIcon } from '@mui/icons-material';
-import InfoDialog from 'components/Dialog/InfoDialog';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
 import {
   initialUserFormValues,
@@ -32,8 +19,9 @@ import {
   UserFormValues
 } from 'types';
 import { useAuthContext } from 'context';
-import { REGION_STATE_MAP, STATE_OPTIONS } from 'constants/constants';
+import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { isEqual } from 'lodash';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -58,6 +46,15 @@ interface UserType extends User {
   approved_by_id?: string | null | undefined;
 }
 
+type ApiBody = {
+  first_name?: string;
+  last_name?: string;
+  user_type?: string;
+  email?: string;
+  state: string;
+  region_id: string;
+};
+
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
 type UserFormProps = {
@@ -65,8 +62,6 @@ type UserFormProps = {
   setUsers: Function;
   values: UserFormValues;
   setValues: Function;
-  newUserDialogOpen: boolean;
-  setNewUserDialogOpen: Function;
   editUserDialogOpen: boolean;
   setEditUserDialogOpen: Function;
   apiErrorStates: ApiErrorStates;
@@ -92,20 +87,48 @@ type ElevationControlProps = {
   userOrg?: string | null;
 };
 
-const allowedDomains = ['cisa.dhs.gov'];
-const allowSubdomains = true;
+const getAllowedDomains = (): string[] => {
+  const raw = import.meta.env.VITE_ALLOWED_ADMIN_EMAIL_DOMAINS;
+
+  if (!raw) return [];
+
+  if (raw.trim() === '*') return ['*'];
+
+  if (raw.trim().startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map((d) => d.trim()).filter(Boolean);
+      }
+      return [];
+    } catch (err) {
+      console.warn('Invalid JSON for VITE_ALLOWED_ADMIN_EMAIL_DOMAINS:', err);
+    }
+  }
+
+  return raw
+    .split(',')
+    .map((d: string) => d.trim())
+    .filter(Boolean);
+};
+
+const allowedDomains = getAllowedDomains();
+
+const allowingAllDomains =
+  Array.isArray(allowedDomains) &&
+  allowedDomains.length === 1 &&
+  allowedDomains[0] === '*';
 
 const isPermittedEmail = (email: string): boolean => {
+  if (allowingAllDomains) return true;
   const atIndex = email.lastIndexOf('@');
   if (atIndex === -1) return false;
 
   const domain = email.slice(atIndex + 1).toLowerCase();
 
-  return allowedDomains.some((d) => {
+  return allowedDomains.some((d: any) => {
     const candidate = d.toLowerCase();
-    return allowSubdomains
-      ? domain === candidate || domain.endsWith(`.${candidate}`)
-      : domain === candidate;
+    return domain === candidate;
   });
 };
 
@@ -193,8 +216,6 @@ export const UserForm: React.FC<UserFormProps> = ({
   setUsers,
   values,
   setValues,
-  newUserDialogOpen,
-  setNewUserDialogOpen,
   editUserDialogOpen,
   setEditUserDialogOpen,
   apiErrorStates,
@@ -225,13 +246,19 @@ export const UserForm: React.FC<UserFormProps> = ({
       let rows: Organization[] = [];
       if (values.region_id) {
         rows = await apiGet<Organization[]>(
-          '/organizations/region_id/' + values.region_id
+          ENDPOINTS.ORGANIZATIONS_REGION.replace(
+            '{region_id}',
+            values.region_id
+          )
         );
       }
       setOrganizationsInRegion(rows);
       setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: '' }));
     } catch (e: any) {
-      setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: e.message }));
+      setApiErrorStates((prev: any) => ({
+        ...prev,
+        getOrgsError: e.message + ('. ' + e.response?.data?.detail || '')
+      }));
       console.log(e);
     } finally {
       setIsLoading(false);
@@ -279,7 +306,6 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const onResetForm = () => {
     setEditUserDialogOpen(false);
-    setNewUserDialogOpen(false);
     setInfoDialogOpen(false);
     setValues(initialUserFormValues);
     setFormErrors({
@@ -289,45 +315,6 @@ export const UserForm: React.FC<UserFormProps> = ({
       user_type: false,
       state: false
     });
-  };
-
-  const handleCloseAddUserDialog = (value: CloseReason) => {
-    if (value === 'backdropClick' || value === 'escapeKeyDown') {
-      return;
-    }
-    onResetForm();
-  };
-
-  const onCreateUserSubmit = async () => {
-    if (!validateForm(values)) {
-      return;
-    }
-    const body = {
-      first_name: values.first_name,
-      last_name: values.last_name,
-      email: values.email,
-      user_type: values.user_type,
-      state: values.state,
-      region_id: values.region_id
-    };
-    try {
-      const user = await apiPost('/users', {
-        body
-      });
-      user.full_name = `${user.first_name} ${user.last_name}`;
-      setUsers(users.concat(user));
-      setApiErrorStates({ ...apiErrorStates, getAddUserError: '' });
-      handleCloseAddUserDialog('closeButtonClick');
-      setInfoDialogContent('This user has been successfully invited.');
-      setInfoDialogOpen(true);
-    } catch (e: any) {
-      setApiErrorStates({ ...apiErrorStates, getAddUserError: e.message });
-      setInfoDialogContent(
-        'This user has been not been invited. Check the console log for more details.'
-      );
-      console.log(e);
-      setValues(initialUserFormValues);
-    }
   };
 
   const handleEditUserSubmit = async () => {
@@ -340,25 +327,43 @@ export const UserForm: React.FC<UserFormProps> = ({
       console.log('User role elevation detected, confirming with user');
     }
 
-    const body = {
+    const body: ApiBody = {
       first_name: values.first_name,
       last_name: values.last_name,
-      user_type: values.user_type,
       state: values.state,
       region_id: values.region_id
     };
+    if (user?.user_type === 'globalAdmin') {
+      body.first_name = values.first_name;
+      body.last_name = values.last_name;
+      body.user_type = values.user_type;
+    }
     try {
-      await apiPost(`/v2/update_user/${values.id}`, { body });
+      await apiPost(
+        ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', String(values.id)),
+        {
+          body
+        }
+      );
       if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId) {
           await apiPost(
-            `/organizations/${values.originalOrgId}/roles/${values.originalRoleId}/remove`,
+            ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+              '{organization_id}',
+              String(values.originalOrgId)
+            ).replace('{role_id}', String(values.originalRoleId)),
             { body: {} }
           );
         }
-        await apiPost(`/v2/organizations/${values.org_id}/users`, {
-          body: { user_id: values.id, role: 'user' }
-        });
+        await apiPost(
+          ENDPOINTS.ORGANIZATION_ADD_USER.replace(
+            '{organization_id}',
+            String(values.org_id)
+          ),
+          {
+            body: { user_id: values.id, role: 'user' }
+          }
+        );
       }
       const updatedUsers = users.map((user) =>
         user.id === values.id
@@ -375,7 +380,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogContent('This user has been successfully updated.');
       setInfoDialogOpen(true);
     } catch (e: any) {
-      setApiErrorStates({ ...apiErrorStates, getUpdateUserError: e.message });
+      setApiErrorStates({
+        ...apiErrorStates,
+        getUpdateUserError: e.message + ('. ' + e.response?.data?.detail || '')
+      });
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
@@ -399,16 +407,6 @@ export const UserForm: React.FC<UserFormProps> = ({
     setValues((values: any) => ({
       ...values,
       [name]: value
-    }));
-  };
-
-  const handleStateChange = (event: SelectChangeEvent) => {
-    setValues((values: any) => ({
-      ...values,
-      [event.target.name]: event.target.value,
-      region_id: REGION_STATE_MAP[String(event.target.value)],
-      org_id: '',
-      org_name: ''
     }));
   };
 
@@ -524,6 +522,7 @@ export const UserForm: React.FC<UserFormProps> = ({
             id="state"
             size="small"
             options={STATE_OPTIONS}
+            disabled={!['globalAdmin'].includes(user?.user_type || '')}
             value={values.state || null}
             onChange={(_, newValue) => {
               setValues((prev: any) => ({
@@ -546,7 +545,11 @@ export const UserForm: React.FC<UserFormProps> = ({
                     </Typography>
                   ) : null
                 }
-                disabled={user?.user_type !== 'globalAdmin'}
+                disabled={
+                  !['globalAdmin', 'regionalAdmin'].includes(
+                    user?.user_type || ''
+                  )
+                }
               />
             )}
             isOptionEqualToValue={(option, value) => option === value}
@@ -554,17 +557,12 @@ export const UserForm: React.FC<UserFormProps> = ({
         </Grid>
         <Grid size={{ xs: 12 }}>
           <Typography mb={1}>Organization</Typography>
-          {newUserDialogOpen ? (
-            <Alert severity="info">
-              An organization cannot be selected until the user is in the
-              system.
-            </Alert>
-          ) : isLoading ? (
+          {isLoading ? (
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
-              {apiErrorStates.getOrgsError}. An error occurred retrieving
-              organizations for this state.
+              {apiErrorStates.getOrgsError}. See the network tab for more
+              details.
             </Alert>
           ) : values.state === '' ? (
             <Alert severity="info">Select a state to make a selection.</Alert>
@@ -578,12 +576,13 @@ export const UserForm: React.FC<UserFormProps> = ({
               size="small"
               id="org_id"
               fullWidth
-              disabled={
-                organizationsInRegion.length === 0 ||
-                user?.user_type !== 'globalAdmin'
-              }
               options={sortedOrgs}
-              getOptionLabel={(option) => option.name}
+              getOptionLabel={(option) => {
+                if (option.name && option.acronym) {
+                  return `${option.name} (${option.acronym})`;
+                }
+                return option.name;
+              }}
               value={sortedOrgs.find((org) => org.id === values.org_id) || null}
               onChange={(_, newValue) => {
                 handleOrgChange(newValue ? newValue.id : '');
@@ -712,22 +711,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     />
   );
 
-  const inviteUserFormDialog = (
-    <ConfirmDialog
-      isOpen={newUserDialogOpen}
-      onConfirm={onCreateUserSubmit}
-      onCancel={onResetForm}
-      onClose={(_, reason) => handleCloseAddUserDialog(reason)}
-      title={'Invite a User'}
-      content={formContents}
-    />
-  );
-  return (
-    <>
-      {inviteUserFormDialog}
-      {editUserFormDialog}
-    </>
-  );
+  return <>{editUserFormDialog}</>;
 };
 
 export default UserForm;

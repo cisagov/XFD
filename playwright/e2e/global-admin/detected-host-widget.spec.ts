@@ -1,11 +1,12 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Detected Hosts View Details', () => {
   test.skip('View Details link navigates to /inventory/domains', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
     const detectedLink = pageAsGlobalAdmin
@@ -23,7 +24,7 @@ test.describe('Detected Hosts Info icon', () => {
   test.skip('Detected Hosts info-icon tooltip matches expected content', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
     const infoIcon = pageAsGlobalAdmin
@@ -43,7 +44,7 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Chart', () => {
   test.skip('Top Vulnerable Hosts filters: accessibility, chart behavior, and bar colors', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
     const heading = pageAsGlobalAdmin.getByRole('heading', {
       name: 'Top Vulnerable Hosts'
@@ -111,7 +112,7 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Tooltips', () => {
   }) => {
     const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pause(800);
 
     const heading = pageAsGlobalAdmin.getByRole('heading', {
@@ -158,7 +159,7 @@ test.describe('Detected Hosts, Top Vulnerable Hosts Navigation', () => {
   test.skip('Clicking Top Vulnerable Hosts chart bar navigates to host detail page', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
     const widget = pageAsGlobalAdmin
       .getByRole('heading', { name: 'Top Vulnerable Hosts' })
@@ -194,7 +195,7 @@ test.describe('Detected Hosts ARIA labels', () => {
   test.skip('ARIA: Detected + Top Vulnerable Hosts have correct roles and labels', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
     // ===== Detected Hosts Section =====
@@ -254,7 +255,7 @@ test.describe('Detected Hosts Keyboard Movement', () => {
   test.skip('Keyboard navigation traverses Detected Hosts widget', async ({
     page: pageAsGlobalAdmin
   }) => {
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pageAsGlobalAdmin
       .getByRole('heading', { name: 'Detected Hosts' })
       .waitFor();
@@ -318,7 +319,7 @@ test.describe('Detected Hosts Metric Boxes', () => {
   }) => {
     const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     await pageAsGlobalAdmin.waitForSelector('text=Detected Hosts');
 
     const widgetContainer = pageAsGlobalAdmin

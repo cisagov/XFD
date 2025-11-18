@@ -15,7 +15,6 @@ import { FaTimes } from 'react-icons/fa';
 import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
@@ -33,6 +32,7 @@ import {
   Snackbar,
   SnackbarCloseReason
 } from '@mui/material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -90,8 +90,10 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans');
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      }>(ENDPOINTS.SCANS);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
@@ -105,7 +107,7 @@ const ScansView: React.FC = () => {
 
   const deleteRow = async (id: string) => {
     try {
-      await apiDelete(`/scans/${id}`, { body: {} });
+      await apiDelete(ENDPOINTS.SCAN.replace('{scan_id}', id));
       setScans(scans.filter((scan) => scan.id !== id));
     } catch (e: any) {
       setErrors({
@@ -118,13 +120,20 @@ const ScansView: React.FC = () => {
     }
   };
 
+  const setFrequency = async (body: ScanFormValues) => {
+    if (body.is_single_scan) body.frequency = 1;
+    if (body.frequencyUnit === 'minute') body.frequency *= 60;
+    else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
+    else body.frequency *= 60 * 60 * 24;
+  };
+
   const onSubmit = async (body: ScanFormValues) => {
     try {
       // For now, parse the arguments as JSON. We'll want to add a GUI for this in the future
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      const scan = await apiPost('/scans', {
+      const scan = await apiPost(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
@@ -149,7 +158,7 @@ const ScansView: React.FC = () => {
   const invokeScheduler = async () => {
     setErrors({ ...errors, scheduler: '' });
     try {
-      await apiPost('/scheduler/invoke', { body: {} });
+      await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
       console.error(e);
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
@@ -179,7 +188,7 @@ const ScansView: React.FC = () => {
 
   const runScan = async (id: string) => {
     try {
-      await apiPost(`/scans/${id}/run`, { body: {} });
+      await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
       console.error(e);
       setErrors({ ...errors, scheduler: 'Run failed.' });

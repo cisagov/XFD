@@ -29,6 +29,8 @@ import { CheckCircleOutline } from '@mui/icons-material';
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -76,9 +78,6 @@ export const Organizations: React.FC = () => {
         if (i.field === 'state') filters.state = String(i.value).trim();
         if (i.field === 'region_id') filters.region_id = String(i.value).trim();
       });
-      if (user?.user_type === 'regionalAdmin' && region_id) {
-        filters.region_id = region_id;
-      }
       return filters;
     },
     [user?.user_type, region_id]
@@ -100,9 +99,12 @@ export const Organizations: React.FC = () => {
     setIsLoading(true);
     setLoadingError(false);
     try {
-      const data = await apiPost<OrgsApiResponse>('/v2/organizations/search', {
-        body: requestBody
-      });
+      const data = await apiPost<OrgsApiResponse>(
+        ENDPOINTS.ORGANIZATIONS_SEARCH,
+        {
+          body: requestBody
+        }
+      );
       if (myId !== reqIdRef.current) return; // ignore stale responses
       setOrganizations(data.result);
       setRowCount(data.count);
@@ -133,6 +135,22 @@ export const Organizations: React.FC = () => {
             aria-label={`Organization Name: ${cellValues.row.name}`}
           >
             {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
           </Box>
         );
       }
@@ -191,7 +209,12 @@ export const Organizations: React.FC = () => {
               aria-label={ariaLabel}
               aria-describedby={descriptionId}
               onClick={() =>
-                history.push('/organizations/' + cellValues.row.id)
+                history.push(
+                  ROUTES.ORGANIZATION.replace(
+                    ':organizationId',
+                    cellValues.row.id
+                  )
+                )
               }
             >
               <EditNoteOutlinedIcon />
@@ -204,7 +227,9 @@ export const Organizations: React.FC = () => {
 
   const onSubmit = async (body: Object) => {
     try {
-      const org = await apiPost('/organizations', { body });
+      const org = await apiPost<Organization>(ENDPOINTS.ORGANIZATIONS, {
+        body
+      });
       setOrganizations((prev) => [...prev, org]);
       setInfoDialogOpen(true);
     } catch (e: any) {
