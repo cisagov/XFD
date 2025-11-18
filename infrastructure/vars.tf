@@ -930,3 +930,9 @@ variable "backend_api_requests_log_group_name" {
   type        = string
   default     = "cyhy-staging-backend-api-requests"
 }
+
+variable "remediation_lambda_role_arn" {
+  description = "IAM role ARN for remediation Lambdas (ECS restart, Lambda concurrency scaling, etc.)."
+  type        = string
+  default     = ""
+}
