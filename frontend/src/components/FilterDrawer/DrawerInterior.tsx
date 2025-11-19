@@ -23,6 +23,7 @@ import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface Props {
   addFilter: ContextType['addFilter'];
