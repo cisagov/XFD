@@ -84,7 +84,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       });
       return url!;
     } catch (e) {
-      logger.error(e);
+      logger.error('Inventory.exportCSV failed:', { error: e });
       return null;
     }
   };

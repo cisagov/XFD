@@ -102,7 +102,7 @@ const ScansView: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      logger.error(e);
+      logger.error('ScansView.fetchScans failed:', { error: e });
     }
   }, [apiGet]);
 
@@ -117,7 +117,7 @@ const ScansView: React.FC = () => {
             ? 'Unable to delete scan'
             : (e.message ?? e.toString())
       });
-      logger.error(e);
+      logger.error('ScansView.deleteRow failed:', { error: e, scanId: id });
     }
   };
 
@@ -152,7 +152,7 @@ const ScansView: React.FC = () => {
       });
       setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
       setSnackbarOpen(true);
-      logger.error(e);
+      logger.error('ScansView.createScan failed:', { error: e });
     }
   };
 
@@ -161,7 +161,7 @@ const ScansView: React.FC = () => {
     try {
       await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
-      logger.error(e);
+      logger.error('ScansView.invokeScheduler failed:', { error: e });
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
     }
   };
@@ -191,7 +191,7 @@ const ScansView: React.FC = () => {
     try {
       await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
-      logger.error(e);
+      logger.error('ScansView.runScan failed:', { error: e, scanId: id });
       setErrors({ ...errors, scheduler: 'Run failed.' });
     }
     await invokeScheduler();

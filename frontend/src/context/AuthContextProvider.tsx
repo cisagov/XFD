@@ -128,7 +128,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         setToken(token);
       }
     } catch (error) {
-      logger.error(error);
+      logger.error('AuthContextProvider.refreshUser failed:', { error });
     }
   }, [apiPost, setToken, token]);
 

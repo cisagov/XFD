@@ -94,7 +94,10 @@ export const Logs: FC<LogsProps> = () => {
       const results = await apiPost(endpoint, { body });
 
       if (!results || !Array.isArray(results.result)) {
-        logger.error('Invalid response format:', results);
+        logger.error('Logs.fetchLogs: Invalid response format', {
+          endpoint,
+          results
+        });
         setLogs({ count: 0, result: [] });
         return;
       }
@@ -108,7 +111,7 @@ export const Logs: FC<LogsProps> = () => {
 
       setLogs({ count: results.count, result: rowsWithId });
     } catch (e) {
-      logger.error(`Fetch logs error from ${endpoint}:`, e);
+      logger.error('Logs.fetchLogs: Fetch failed', { error: e, endpoint });
       setLogs({ count: 0, result: [] });
     }
   }, [apiPost, filters]);
@@ -125,7 +128,10 @@ export const Logs: FC<LogsProps> = () => {
       const zonedDate = toZonedTime(utcDate, timeZone);
       return format(zonedDate, 'MM/dd/yyyy hh:mm a');
     } catch (error) {
-      logger.error('Error parsing date:', error);
+      logger.error('Logs.formatTimestamp: Date parse failed', {
+        error,
+        timestamp
+      });
       return null;
     }
   };

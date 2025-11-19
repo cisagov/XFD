@@ -104,7 +104,11 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
       setRemoveUserDialogOpen(false);
       setInfoDialogOpen(true);
     } catch (e) {
-      logger.error(e);
+      logger.error('OrgMembers.removeUser failed:', {
+        error: e,
+        organizationId: organization?.id,
+        roleId: selectedRow?.id
+      });
       setHasError(e + '.');
     }
   };

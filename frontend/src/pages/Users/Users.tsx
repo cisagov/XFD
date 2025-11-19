@@ -435,7 +435,7 @@ export const Users: React.FC = () => {
       setInfoDialogContent(
         'This user has been not been removed. Check the console log for more details.'
       );
-      logger.error(e);
+      logger.error('Users.deleteRow failed:', { error: e, userId: row.id });
     }
   };
 

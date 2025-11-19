@@ -111,7 +111,7 @@ export const Organizations: React.FC = () => {
       setRowCount(data.count);
     } catch (e) {
       if (myId === reqIdRef.current) {
-        logger.error(e);
+        logger.error('Organizations.fetchOrganizations failed:', { error: e });
         setLoadingError(true);
       }
     } finally {
@@ -242,7 +242,7 @@ export const Organizations: React.FC = () => {
         type: 'error'
       });
       setChosenTags([]);
-      logger.error(e);
+      logger.error('Organizations.handleSubmit failed:', { error: e });
     }
   };
 

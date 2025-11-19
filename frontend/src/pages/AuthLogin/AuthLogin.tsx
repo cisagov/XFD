@@ -59,7 +59,9 @@ const LoginButton = () => {
 
       window.location.href = authorizeUrl;
     } catch (err) {
-      logger.error('Error preparing OAuth metadata:', err);
+      logger.error('AuthLogin: OAuth metadata preparation failed', {
+        error: err
+      });
     }
   };
 
@@ -91,7 +93,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
       });
       setNotification(activeRow);
     } catch (e: any) {
-      logger.error(e);
+      logger.error('AuthLogin.fetchNotifications failed:', { error: e });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiGet]);

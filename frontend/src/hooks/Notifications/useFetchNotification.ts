@@ -32,7 +32,9 @@ export function useFetchNotification(
         setInactiveNotifications(inactiveRows);
       }
     } catch (e: any) {
-      logger.error(e);
+      logger.error('useFetchNotification: Failed to fetch notifications', {
+        error: e
+      });
     }
   }, [
     apiGet,

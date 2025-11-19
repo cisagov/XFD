@@ -597,7 +597,11 @@ export const RegionUsers: React.FC = () => {
         }
       ).then(
         (res) => {
-          logger.info(res);
+          logger.info('RegionUsers: Organization role removed successfully', {
+            response: res,
+            organizationId: org_id,
+            roleId
+          });
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });

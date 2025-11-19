@@ -21,7 +21,11 @@ export function useNotificationApiCall(
       setInfoDialogToggle(true);
       return notification;
     } catch (e: any) {
-      logger.error(e);
+      logger.error('useNotificationApiCall: API call failed', {
+        error: e,
+        successMessage,
+        errorMessage
+      });
       setInfoDialogValues({
         icon: React.createElement(ErrorOutline, {
           color: 'error',

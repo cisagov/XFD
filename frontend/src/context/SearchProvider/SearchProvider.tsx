@@ -57,7 +57,10 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       /* Not implemented */
     },
     onAutocompleteResultClick: (e: any, f: any) => {
-      logger.error(e, f);
+      logger.error(
+        'SearchProvider.onAutocompleteResultClick: Not implemented',
+        { e, f }
+      );
     },
     onAutocomplete: async ({ search_term }: { search_term: string }) => {
       // const requestBody = buildAutocompleteRequest({ search_term });

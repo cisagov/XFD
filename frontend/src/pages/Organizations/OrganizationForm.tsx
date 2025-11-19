@@ -99,7 +99,7 @@ export const OrganizationForm: React.FC<{
       );
       setTags(tags);
     } catch (e) {
-      logger.error(e);
+      logger.error('OrganizationForm.fetchTags failed:', { error: e });
     }
   }, [apiGet]);
 
