@@ -6,7 +6,6 @@ import prettierPlugin from 'eslint-plugin-prettier';
 import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 
 export default [
-  // Ignore tests globally (within this config file)
   {
     ignores: ['tests/**', 'assets']
   },
@@ -33,7 +32,7 @@ export default [
     rules: {
       'prettier/prettier': 'error',
       'unused-imports/no-unused-imports': 'error',
-
+      'no-console': 'error',
       '@typescript-eslint/no-unused-vars': [
         'error',
         {
@@ -45,10 +44,8 @@ export default [
           caughtErrors: 'none'
         }
       ],
-
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-
       'no-restricted-imports': [
         'error',
         {
@@ -77,10 +74,9 @@ export default [
     rules: {
       'prettier/prettier': 'error',
       'unused-imports/no-unused-imports': 'error',
-
+      'no-console': 'error',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
-
       'no-restricted-imports': [
         'error',
         {
