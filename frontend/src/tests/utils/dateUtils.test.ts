@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enrolledWithinTwoWeeks, formatRange } from '../dateUtils';
+import { enrolledWithinTwoWeeks, formatRange } from '../../utils/dateUtils';
 
 describe('enrolledWithinTwoWeeks', () => {
   it('returns true for a timestamp within 14 days', () => {

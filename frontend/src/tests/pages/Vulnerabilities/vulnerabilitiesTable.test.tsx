@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen, testUser } from 'test-utils';
 import { makeVulnResponse } from '@/test-utils/vulnerabilities';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
-import type { AuthUser } from '../../context/';
-import Vulnerabilities from '../../pages/Vulnerabilities/Vulnerabilities';
+import type { AuthUser } from '../../../context/';
+import Vulnerabilities from '../../../pages/Vulnerabilities/Vulnerabilities';
 
 const titlePool = [
   'CVE-2013-4041 Risky Vuln',

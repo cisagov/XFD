@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isEmptyAfterScans,
   shouldSkipVulnType
-} from '../transformVulnScanData';
+} from '../../utils/transformVulnScanData';
 
 describe('isEmptyAfterScans', () => {
   it('returns false if vulnScanSummary is missing', () => {

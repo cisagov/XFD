@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { AutoCompleteResults } from './AutoCompletedResults';
+import { AutoCompleteResults } from '../../../components/FilterDrawer/AutoCompletedResults';
 
 // Mock MUI components to avoid theme issues
 vi.mock('@mui/material', async () => {

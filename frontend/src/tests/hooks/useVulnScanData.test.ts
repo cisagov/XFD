@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import { useVulnScanData } from '../useVulnScanData';
+import { useVulnScanData } from '../../hooks/useVulnScanData';
 import { useAuthContext } from 'context';
 import { InitialVSData } from '@/constants/vsdashdata';
 import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
@@ -11,7 +11,7 @@ vi.mock('context', () => ({
   useAuthContext: vi.fn()
 }));
 
-vi.mock('../transformVulnScanData', () => ({
+vi.mock('@/utils/transformVulnScanData', () => ({
   transformVulnScanData: vi.fn((data) => data)
 }));
 
@@ -20,11 +20,11 @@ describe('useVulnScanData', () => {
   let mockApiPost: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockApiPost = vi.fn();
-    (useAuthContext as any).mockReturnValue({
+    vi.mocked(useAuthContext).mockReturnValue({
       apiPost: mockApiPost
-    });
-    vi.resetAllMocks();
+    } as any);
   });
 
   it('sets error and initial data when orgId is empty', async () => {
@@ -66,6 +66,11 @@ describe('useVulnScanData', () => {
     };
     mockApiPost.mockResolvedValue(apiResponse);
 
+    // Mock transformVulnScanData to return the expected structure for this test
+    vi.mocked(transformVulnScanData).mockReturnValue({
+      vulnScanSummary: [{ vulnerabilityScan: NO_DATA_FALLBACK_LABEL }]
+    } as any);
+
     const { result } = renderHook(() => useVulnScanData('org-2'));
 
     await waitFor(() => {
@@ -86,7 +91,7 @@ describe('useVulnScanData', () => {
     const transformedData = {
       vulnScanSummary: [{ vulnerabilityScan: '2025-01-01' }]
     };
-    (transformVulnScanData as any).mockReturnValue(transformedData);
+    vi.mocked(transformVulnScanData).mockReturnValue(transformedData as any);
 
     const { result } = renderHook(() => useVulnScanData('org-3'));
 

@@ -1,12 +1,13 @@
 import React from 'react';
-import { usePersistentState } from 'hooks';
+import { usePersistentState } from '../../hooks';
 import { render, fireEvent, waitFor } from 'test-utils';
+import { vi, it, expect, afterAll, afterEach } from 'vitest';
 
-jest.spyOn(Storage.prototype, 'setItem');
-const setItemMock = jest.mocked(localStorage.setItem);
+vi.spyOn(Storage.prototype, 'setItem');
+const setItemMock = vi.mocked(localStorage.setItem);
 
-jest.spyOn(Storage.prototype, 'getItem');
-const getItemMock = jest.mocked(localStorage.getItem);
+vi.spyOn(Storage.prototype, 'getItem');
+const getItemMock = vi.mocked(localStorage.getItem);
 
 interface TestCompProps {
   storagekey: string;
@@ -31,7 +32,7 @@ const TestComp: React.FC<TestCompProps> = ({
 };
 
 afterAll(() => {
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 afterEach(() => {
@@ -42,7 +43,7 @@ afterEach(() => {
 it('gives existing value if found', () => {
   getItemMock.mockReturnValue('1234');
   const { getByTestId } = render(
-    <TestComp storagekey="testkey" defaultVal="5678" onclick={jest.fn()} />
+    <TestComp storagekey="testkey" defaultVal="5678" onclick={vi.fn()} />
   );
   expect(getByTestId('state')).toHaveTextContent('1234');
 });
@@ -50,16 +51,14 @@ it('gives existing value if found', () => {
 it('gives default value if none exists', () => {
   getItemMock.mockReturnValue(null);
   const { getByTestId } = render(
-    <TestComp storagekey="testkey" defaultVal="zxcv" onclick={jest.fn()} />
+    <TestComp storagekey="testkey" defaultVal="zxcv" onclick={vi.fn()} />
   );
   expect(getByTestId('state')).toHaveTextContent('zxcv');
 });
 
 it('updates state with default value', () => {
   getItemMock.mockReturnValue(null);
-  render(
-    <TestComp storagekey="testkey" defaultVal="zxcv" onclick={jest.fn()} />
-  );
+  render(<TestComp storagekey="testkey" defaultVal="zxcv" onclick={vi.fn()} />);
   expect(setItemMock).toHaveBeenCalledTimes(1);
   expect(setItemMock).toHaveBeenCalledWith('testkey', JSON.stringify('zxcv'));
 });

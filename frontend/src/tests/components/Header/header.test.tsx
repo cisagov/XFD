@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, testUser, testOrganization } from 'test-utils';
 import { describe, expect, it, vi } from 'vitest';
-import { Header } from '../Header/Header';
+import { Header } from '../../../components/Header/Header';
 
 vi.mock('@elastic/react-search-ui', () => ({
   withSearch: () => (comp: any) => comp

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { User } from 'types/user';
 import { ENDPOINTS } from '@/constants/endpoints';
 
@@ -28,7 +29,7 @@ export default function useFirstLoginPopup(
       const refreshed = await apiGet(ENDPOINTS.USERS_ME);
       setUser?.(refreshed);
     } catch (err) {
-      console.error('Failed to update first_login:', err);
+      logger.error('Failed to update first_login:', err);
     }
   };
 

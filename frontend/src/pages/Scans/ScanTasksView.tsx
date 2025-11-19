@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { OrgQuery } from 'types';
 import { Scan, ScanTask } from 'types';
 import { useAuthContext } from 'context';
@@ -113,7 +114,7 @@ export const ScanTasksView: React.FC = () => {
         global:
           e.status === 422 ? 'Unable to kill scan' : (e.message ?? e.toString())
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -162,7 +163,7 @@ export const ScanTasksView: React.FC = () => {
           pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
         }));
       } catch (e) {
-        console.error(e);
+        logger.error(e);
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -584,7 +585,7 @@ export const ScanTasksView: React.FC = () => {
                 </>
               );
             } catch (e) {
-              console.error(e);
+              logger.error(e);
               return (
                 <>
                   <Typography variant="h6" component="div" pt={2}>

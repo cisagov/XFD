@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { SavedSearchContext } from './SavedSearchContext';
 import { SavedSearch } from '../types/saved-search';
 import { useAuthContext } from './AuthContext';
@@ -22,7 +23,7 @@ export const SavedSearchContextProvider: React.FC<
       setSavedSearches(response.result);
       setSavedSearchCount(response.result.length);
     } catch (e) {
-      console.log(e);
+      logger.error(e);
     }
   }, [apiGet, setSavedSearches, setSavedSearchCount]);
 

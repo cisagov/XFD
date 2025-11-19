@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import { Auth } from 'aws-amplify';
 import { AuthContext, AuthUser } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
@@ -127,7 +128,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         setToken(token);
       }
     } catch (error) {
-      console.log(error);
+      logger.error(error);
     }
   }, [apiPost, setToken, token]);
 
