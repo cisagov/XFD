@@ -15,6 +15,7 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import { useStaticsContext } from 'context/StaticsContext';
 import {
@@ -155,7 +156,7 @@ export const RegionAndOrganizationFilters: React.FC<
 
         setOrgResults(sortedOrgs);
       } catch (e) {
-        console.log(e);
+        logger.error(e);
       }
     },
     [apiPost, setOrgResults, filters]

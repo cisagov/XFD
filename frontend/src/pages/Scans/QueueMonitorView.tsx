@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -32,7 +33,7 @@ const QueueMonitorView: React.FC = () => {
 
       setQueues(queuesWithId);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setErrors({ global: 'Failed to fetch queue data.' });
     }
   }, [apiPost]);

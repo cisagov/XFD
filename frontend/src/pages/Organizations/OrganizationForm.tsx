@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import * as orgFormStyles from './orgFormStyle';
 import { Organization, OrganizationTag } from 'types';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -94,7 +95,7 @@ export const OrganizationForm: React.FC<{
       );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }, [apiGet]);
 

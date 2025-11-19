@@ -19,6 +19,7 @@ import {
 import { useAuthContext } from 'context';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface LogsProps {}
 
@@ -91,7 +92,7 @@ export const Logs: FC<LogsProps> = () => {
       const results = await apiPost(endpoint, { body });
 
       if (!results || !Array.isArray(results.result)) {
-        console.error('Invalid response format:', results);
+        logger.error('Invalid response format:', results);
         setLogs({ count: 0, result: [] });
         return;
       }
@@ -105,7 +106,7 @@ export const Logs: FC<LogsProps> = () => {
 
       setLogs({ count: results.count, result: rowsWithId });
     } catch (e) {
-      console.error(`Fetch logs error from ${endpoint}:`, e);
+      logger.error(`Fetch logs error from ${endpoint}:`, e);
       setLogs({ count: 0, result: [] });
     }
   }, [apiPost, filters]);
@@ -122,7 +123,7 @@ export const Logs: FC<LogsProps> = () => {
       const zonedDate = toZonedTime(utcDate, timeZone);
       return format(zonedDate, 'MM/dd/yyyy hh:mm a');
     } catch (error) {
-      console.error('Error parsing date:', error);
+      logger.error('Error parsing date:', error);
       return null;
     }
   };

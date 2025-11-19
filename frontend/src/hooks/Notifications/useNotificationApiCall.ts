@@ -1,5 +1,6 @@
 import React from 'react';
 import ErrorOutline from '@mui/icons-material/ErrorOutline';
+import { logger } from '@/utils/logger';
 import { MaintenanceNotification } from 'types';
 
 export function useNotificationApiCall(
@@ -20,7 +21,7 @@ export function useNotificationApiCall(
       setInfoDialogToggle(true);
       return notification;
     } catch (e: any) {
-      console.error(e);
+      logger.error(e);
       setInfoDialogValues({
         icon: React.createElement(ErrorOutline, {
           color: 'error',

@@ -20,6 +20,7 @@ import {
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -98,7 +99,7 @@ const getAllowedDomains = (): string[] => {
       }
       return [];
     } catch (err) {
-      console.warn('Invalid JSON for VITE_ALLOWED_ADMIN_EMAIL_DOMAINS:', err);
+      logger.warn('Invalid JSON for VITE_ALLOWED_ADMIN_EMAIL_DOMAINS:', err);
     }
   }
 
@@ -255,7 +256,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         ...prev,
         getOrgsError: e.message + ('. ' + e.response?.data?.detail || '')
       }));
-      console.log(e);
+      logger.error(e);
     } finally {
       setIsLoading(false);
     }
@@ -320,7 +321,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     const oldRoleLevel = USER_TYPE_MAP[user?.user_type || 'standard'] || 0;
     const newRoleLevel = USER_TYPE_MAP[values?.user_type] || 0;
     if (newRoleLevel > oldRoleLevel) {
-      console.log('User role elevation detected, confirming with user');
+      logger.info('User role elevation detected, confirming with user');
     }
 
     const body: ApiBody = {
@@ -383,7 +384,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
-      console.log(e);
+      logger.error(e);
     }
   };
 

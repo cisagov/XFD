@@ -22,6 +22,7 @@ import { useUserLevel } from 'hooks/useUserLevel';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -81,7 +82,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       });
       return url!;
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       return null;
     }
   };

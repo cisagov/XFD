@@ -26,6 +26,7 @@ import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
 import { useAuthContext } from 'context';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -598,7 +599,7 @@ export const RegionUsers: React.FC = () => {
         }
       ).then(
         (res) => {
-          console.log(res);
+          logger.info(res);
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });

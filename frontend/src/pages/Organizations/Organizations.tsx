@@ -29,6 +29,7 @@ import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -75,6 +76,7 @@ export const Organizations: React.FC = () => {
         }
         if (i.field === 'state') filters.state = String(i.value).trim();
         if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+        if (i.field === 'acronym') filters.acronym = String(i.value).trim();
       });
       return filters;
     },
@@ -108,7 +110,7 @@ export const Organizations: React.FC = () => {
       setRowCount(data.count);
     } catch (e) {
       if (myId === reqIdRef.current) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
       }
     } finally {
@@ -239,7 +241,7 @@ export const Organizations: React.FC = () => {
         type: 'error'
       });
       setChosenTags([]);
-      console.error(e);
+      logger.error(e);
     }
   };
 

@@ -16,6 +16,7 @@ import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import Place from '@mui/icons-material/Place';
 import Public from '@mui/icons-material/Public';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import {
   PendingDomain,
@@ -80,7 +81,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -112,7 +113,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 

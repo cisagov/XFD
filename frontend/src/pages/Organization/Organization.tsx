@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
@@ -55,7 +56,7 @@ export const Organization: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }, [apiGet, setOrganization, organizationId]);
 

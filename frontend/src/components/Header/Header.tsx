@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import {
@@ -282,10 +283,10 @@ export const Header: React.FC = () => {
         if (response.url) {
           window.open(response.url, '_blank');
         } else {
-          console.error('Presigned URL missing');
+          logger.error('Presigned URL missing');
         }
       } catch (err) {
-        console.error('Failed to fetch presigned url:', err);
+        logger.error('Failed to fetch presigned url:', err);
       }
     }
   };

@@ -1,4 +1,5 @@
 import classes from './Scans.module.scss';
+import { logger } from '@/utils/logger';
 import React, { useCallback, useRef, useState } from 'react';
 import { FaPlayCircle } from 'react-icons/fa';
 import { FaTimes } from 'react-icons/fa';
@@ -98,7 +99,7 @@ const ScansView: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   }, [apiGet]);
 
@@ -113,7 +114,7 @@ const ScansView: React.FC = () => {
             ? 'Unable to delete scan'
             : (e.message ?? e.toString())
       });
-      console.log(e);
+      logger.error(e);
     }
   };
 
@@ -148,7 +149,7 @@ const ScansView: React.FC = () => {
       });
       setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
       setSnackbarOpen(true);
-      console.log(e);
+      logger.error(e);
     }
   };
 
@@ -157,7 +158,7 @@ const ScansView: React.FC = () => {
     try {
       await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
     }
   };
@@ -187,7 +188,7 @@ const ScansView: React.FC = () => {
     try {
       await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setErrors({ ...errors, scheduler: 'Run failed.' });
     }
     await invokeScheduler();

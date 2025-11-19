@@ -25,6 +25,7 @@ import { useAuthContext } from 'context';
 import classes from './Scans.module.scss';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -112,7 +113,7 @@ export const ScanTasksView: React.FC = () => {
         global:
           e.status === 422 ? 'Unable to kill scan' : (e.message ?? e.toString())
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -161,7 +162,7 @@ export const ScanTasksView: React.FC = () => {
           pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
         }));
       } catch (e) {
-        console.error(e);
+        logger.error(e);
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -583,7 +584,7 @@ export const ScanTasksView: React.FC = () => {
                 </>
               );
             } catch (e) {
-              console.error(e);
+              logger.error(e);
               return (
                 <>
                   <Typography variant="h6" component="div" pt={2}>

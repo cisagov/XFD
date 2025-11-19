@@ -17,6 +17,7 @@ import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 import { OrganizationShallow } from './RegionAndOrganizationFilters';
 import { Organization } from 'types';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = false;
@@ -137,7 +138,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          console.log(e);
+          logger.error(e);
         }
       }
     },

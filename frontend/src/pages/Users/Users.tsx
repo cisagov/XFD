@@ -24,6 +24,7 @@ import {
 import { useAuthContext } from 'context';
 import UserForm from './UserForm';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -429,7 +430,7 @@ export const Users: React.FC = () => {
       setInfoDialogContent(
         'This user has been not been removed. Check the console log for more details.'
       );
-      console.log(e);
+      logger.error(e);
     }
   };
 

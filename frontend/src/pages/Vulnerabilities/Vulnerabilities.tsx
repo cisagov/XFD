@@ -5,6 +5,7 @@ import React, {
   useMemo,
   useRef
 } from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import Alert from '@mui/material/Alert';
@@ -146,7 +147,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           }
         );
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
         return;
       }
@@ -190,7 +191,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }));
         setLoadingError(false);
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
       } finally {
         setIsLoading(false);
