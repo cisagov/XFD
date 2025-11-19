@@ -1,6 +1,13 @@
 # XFD
 
+<<<<<<< HEAD
 [![GitHub Build Status](https://github.com/cisagov/ASM-Dashboard/workflows/build/badge.svg)](https://github.com/cisagov/ASM-Dashboard/actions)
+=======
+[![GitHub Build Status](https://github.com/cisagov/skeleton-generic/workflows/build/badge.svg)](https://github.com/cisagov/skeleton-generic/actions)
+[![License](https://img.shields.io/github/license/cisagov/skeleton-generic
+)](https://spdx.org/licenses/)
+[![CodeQL](https://github.com/cisagov/skeleton-generic/workflows/CodeQL/badge.svg)](https://github.com/cisagov/skeleton-generic/actions/workflows/codeql-analysis.yml)
+>>>>>>> fa65f8eb826ee1d4f37ec41dbb774148586d5e28
 
 ## Contributing
 
