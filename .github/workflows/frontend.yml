@@ -34,7 +34,7 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./frontend
       - name: Lint
         run: npm run lint
@@ -48,22 +48,14 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '20.19.4'
-      - name: Debug Working Directory and Package File
-        run: |
-          echo "--- Current Working Directory ---"
-          pwd
-          echo "--- Files in Current Directory ---"
-          ls -lA
-          echo "--- Content of frontend/package.json ---"
-          cat ./frontend/package.json # Check the package.json the install relies on
-      # - name: Restore npm cache
-      #   uses: actions/cache@v3
-      #   with:
-      #     path: ~/.npm
-      #     key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
-      #     restore-keys: ${{ runner.os }}-node-
+      - name: Restore npm cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}-v2
+          restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./frontend
       - name: Build
         run: npm run build
@@ -90,7 +82,7 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
       - name: Install dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./frontend
       # TODO: Reenable docs site CRASM-1070, CRASM-2124
       # - name: Build Docs
@@ -135,7 +127,7 @@ jobs:
           key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
           restore-keys: ${{ runner.os }}-node-
       - name: Install Frontend Dependencies
-        run: npm install
+        run: npm ci
         working-directory: ./frontend
       # TODO: Reenable docs site CRASM-1070, CRASM-2124
       # - name: Install Docs Dependencies
