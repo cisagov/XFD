@@ -171,7 +171,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogContent>
           <DialogContentText id="update-saved-search-description">
             <TextField
-              autoFocus
               required
               margin="dense"
               id="name"
@@ -252,7 +251,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               }
             }}
             color="primary"
-            autoFocus
             aria-label="Save the search"
           >
             Save
@@ -277,7 +275,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogContent>
           <Box paddingBottom={'1em'}>
             <TextField
-              autoFocus
               required
               margin="dense"
               id="name"

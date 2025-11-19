@@ -3,6 +3,7 @@ import tsParser from '@typescript-eslint/parser';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import unusedImportsPlugin from 'eslint-plugin-unused-imports';
+import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 
 export default [
   {
@@ -25,11 +26,13 @@ export default [
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
       '@typescript-eslint': tsPlugin,
-      'unused-imports': unusedImportsPlugin
+      'unused-imports': unusedImportsPlugin,
+      'jsx-a11y': jsxA11yPlugin
     },
     rules: {
       'unused-imports/no-unused-imports': 'error',
       'no-console': 'error',
+      ...jsxA11yPlugin.configs.recommended.rules,
       '@typescript-eslint/no-unused-vars': [
         'error',
         {

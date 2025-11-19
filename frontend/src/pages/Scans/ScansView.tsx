@@ -524,7 +524,7 @@ const ScansView: React.FC = () => {
           severity={snackbarMsg.includes('failed') ? 'error' : 'success'}
           sx={{ width: '100%' }}
         >
-          <span tabIndex={0}>{snackbarMsg}</span>
+          <span>{snackbarMsg}</span>
         </Alert>
       </Snackbar>
     </>

@@ -217,7 +217,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               Enter a domain to begin verification.
             </DialogContentText>
             <TextField
-              autoFocus
               fullWidth
               label="Domain"
               onChange={(e) => setInputValue(e.target.value)}
@@ -227,7 +226,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
       default:
         return (
           <TextField
-            autoFocus
             fullWidth
             placeholder={`Enter ${dialog.label?.slice(0, -1)}(s)`}
             onChange={(e) => setInputValue(e.target.value)}
