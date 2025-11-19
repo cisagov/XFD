@@ -1,6 +1,7 @@
 """VS Port Scan Helper."""
 
 # Standard Python Libraries
+from collections import namedtuple
 from datetime import timedelta
 from itertools import islice
 import json
@@ -159,21 +160,9 @@ def bulk_insert_ips_and_link_to_port_scans(
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 
 
-# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
-@cloudwatch_metric()
-def insert_port_scans_sql(
-    port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
-):
-    """
-    Fast, low-WAL SQL insert for port_scan using psycopg2.execute_values.
-
-    Each batch runs inside its own transaction and commits automatically.
-
-    Saves to both PortScans and LatestPortScans
-    """
-    db = "mini_data_lake"
-
-    base_columns = [
+PortScanRow = namedtuple(
+    "PortScanRow",
+    [
         "id",
         "ip_string",
         "ip_id",
@@ -199,9 +188,12 @@ def insert_port_scans_sql(
         "organization_id",
         "risky_service_group",
         "nmi_service_group",
-    ]
+    ],
+)
 
-    latest_columns = [
+LatestPortScanRow = namedtuple(
+    "LatestPortScanRow",
+    [
         "port_scan_id",
         "ip_string",
         "ip_id",
@@ -226,8 +218,21 @@ def insert_port_scans_sql(
         "organization_id",
         "risky_service_group",
         "nmi_service_group",
-        "current",  # <-- NEW FIELD
-    ]
+        "current",
+    ],
+)
+
+
+# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
+@cloudwatch_metric()
+def insert_port_scans_sql(
+    port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
+):
+    """Insert rows into port_scan + upsert into latest_port_scan."""
+    db = "mini_data_lake"
+
+    base_columns = PortScanRow._fields
+    latest_columns = LatestPortScanRow._fields
 
     tuples = []
     latest_tuples = []
@@ -236,109 +241,112 @@ def insert_port_scans_sql(
         ps = item["raw"]
         svc = item["service_obj"]
         org_id = item["org_id"]
+
         ip_str = ps.get("ip")
         ip_obj = ip_map.get((ip_str, org_id)) if ip_str else None
         time_scanned = safe_fromisoformat(ps.get("time"))
 
         ps_id = ps["_id"].replace("ObjectId('", "").replace("')", "")
 
-        # Row for port_scan table
-        tuples.append(
-            (
-                ps_id,
-                ip_str,
-                ip_obj.id if ip_obj else None,
-                False,
-                ps.get("port"),
-                ps.get("protocol"),
-                ps.get("reason"),
-                json.dumps(ps.get("service") or {}),
-                svc.get("name"),
-                svc.get("conf"),
-                svc.get("method"),
-                (svc.get("cpe") or [None])[0],
-                svc.get("hostname"),
-                svc.get("extrainfo"),
-                svc.get("ostype"),
-                svc.get("product"),
-                svc.get("version"),
-                svc.get("tunnel"),
-                svc.get("devicetype"),
-                ps.get("source"),
-                ps.get("state"),
-                time_scanned,
-                org_id,
-                risky_service_groups.get(svc.get("name")),
-                nmi_service_groups.get(svc.get("name")),
-            )
+        # ---------------------------
+        # Build PortScanRow safely
+        # ---------------------------
+        row = PortScanRow(
+            id=ps_id,
+            ip_string=ip_str,
+            ip_id=ip_obj.id if ip_obj else None,
+            latest=False,
+            port=ps.get("port"),
+            protocol=ps.get("protocol"),
+            reason=ps.get("reason"),
+            service=json.dumps(ps.get("service") or {}),
+            service_name=svc.get("name"),
+            service_confidence=svc.get("conf"),
+            service_method=svc.get("method"),
+            service_cpe=(svc.get("cpe") or [None])[0],
+            service_hostname=svc.get("hostname"),
+            service_extra_info=svc.get("extrainfo"),
+            service_os_type=svc.get("ostype"),
+            service_product=svc.get("product"),
+            service_version=svc.get("version"),
+            service_tunnel=svc.get("tunnel"),
+            service_device_type=svc.get("devicetype"),
+            source=ps.get("source"),
+            state=ps.get("state"),
+            time_scanned=time_scanned,
+            organization_id=org_id,
+            risky_service_group=risky_service_groups.get(svc.get("name")),
+            nmi_service_group=nmi_service_groups.get(svc.get("name")),
         )
 
-        # Row for latest_port_scan table (always current=True)
-        latest_tuples.append(
-            (
-                ps_id,
-                ip_str,
-                ip_obj.id if ip_obj else None,
-                ps.get("port"),
-                ps.get("protocol"),
-                ps.get("reason"),
-                json.dumps(ps.get("service") or {}),
-                svc.get("name"),
-                svc.get("conf"),
-                svc.get("method"),
-                (svc.get("cpe") or [None])[0],
-                svc.get("hostname"),
-                svc.get("extrainfo"),
-                svc.get("ostype"),
-                svc.get("product"),
-                svc.get("version"),
-                svc.get("tunnel"),
-                svc.get("devicetype"),
-                ps.get("source"),
-                ps.get("state"),
-                time_scanned,
-                org_id,
-                risky_service_groups.get(svc.get("name")),
-                nmi_service_groups.get(svc.get("name")),
-                True,  # <-- ALWAYS SET TRUE
-            )
+        tuples.append(row)
+
+        # ---------------------------
+        # Build LatestPortScanRow safely
+        # ---------------------------
+        latest_row = LatestPortScanRow(
+            port_scan_id=ps_id,
+            ip_string=ip_str,
+            ip_id=ip_obj.id if ip_obj else None,
+            port=ps.get("port"),
+            protocol=ps.get("protocol"),
+            reason=ps.get("reason"),
+            service=json.dumps(ps.get("service") or {}),
+            service_name=svc.get("name"),
+            service_confidence=svc.get("conf"),
+            service_method=svc.get("method"),
+            service_cpe=(svc.get("cpe") or [None])[0],
+            service_hostname=svc.get("hostname"),
+            service_extra_info=svc.get("extrainfo"),
+            service_os_type=svc.get("ostype"),
+            service_product=svc.get("product"),
+            service_version=svc.get("version"),
+            service_tunnel=svc.get("tunnel"),
+            service_device_type=svc.get("devicetype"),
+            source=ps.get("source"),
+            state=ps.get("state"),
+            time_scanned=time_scanned,
+            organization_id=org_id,
+            risky_service_group=risky_service_groups.get(svc.get("name")),
+            nmi_service_group=nmi_service_groups.get(svc.get("name")),
+            current=True,
         )
+
+        latest_tuples.append(latest_row)
 
     if not tuples:
         return
 
-    # --- Deduplicate latest_tuples in-memory: keep newest per (org, ip, port, protocol)
-    deduped_latest = {}
+    # --------------------------------------------------
+    # Deduplicate latest_tuples using named attributes
+    # --------------------------------------------------
+    deduped = {}
+
     for row in latest_tuples:
-        org_id = row[21]
-        ip_string = row[1]
-        port = row[3]
-        protocol = row[4]
-        time_scanned = row[20]
+        key = (row.organization_id, row.ip_string, row.port, row.protocol)
+        existing = deduped.get(key)
 
-        key = (org_id, ip_string, port, protocol)
-
-        existing = deduped_latest.get(key)
         if not existing:
-            deduped_latest[key] = row
+            deduped[key] = row
         else:
-            existing_ts = existing[20]
-            if time_scanned and (not existing_ts or time_scanned > existing_ts):
-                deduped_latest[key] = row
+            if row.time_scanned and (
+                not existing.time_scanned or row.time_scanned > existing.time_scanned
+            ):
+                deduped[key] = row
 
-    latest_tuples = list(deduped_latest.values())
-    # --- end dedupe ---
+    latest_tuples = list(deduped.values())
 
+    # --------------------------------------------------
     # Build SQL
+    # --------------------------------------------------
     insert_portscan_sql = sql.SQL(
         "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT (id) DO NOTHING"
     ).format(
         table=sql.Identifier("port_scan"),
-        cols=sql.SQL(", ").join([sql.Identifier(c) for c in base_columns]),
+        cols=sql.SQL(", ").join(map(sql.Identifier, base_columns)),
     )
 
     conflict_cols = ["organization_id", "ip_string", "port", "protocol"]
-
     update_cols = [c for c in latest_columns if c not in conflict_cols]
 
     set_sql = sql.SQL(", ").join(
@@ -347,19 +355,16 @@ def insert_port_scans_sql(
     )
 
     where_sql = sql.SQL(
-        "WHERE {table}.{time_col} IS NULL OR EXCLUDED.{time_col} > {table}.{time_col}"
-    ).format(
-        table=sql.Identifier("latest_port_scan"),
-        time_col=sql.Identifier("time_scanned"),
-    )
+        "WHERE {tbl}.time_scanned IS NULL OR EXCLUDED.time_scanned > {tbl}.time_scanned"
+    ).format(tbl=sql.Identifier("latest_port_scan"))
 
     insert_latest_sql = sql.SQL(
         "INSERT INTO {table} ({cols}) VALUES %s "
         "ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_sql} {where_sql}"
     ).format(
         table=sql.Identifier("latest_port_scan"),
-        cols=sql.SQL(", ").join([sql.Identifier(c) for c in latest_columns]),
-        conflict_cols=sql.SQL(", ").join([sql.Identifier(c) for c in conflict_cols]),
+        cols=sql.SQL(", ").join(map(sql.Identifier, latest_columns)),
+        conflict_cols=sql.SQL(", ").join(map(sql.Identifier, conflict_cols)),
         set_sql=set_sql,
         where_sql=where_sql,
     )
@@ -368,6 +373,10 @@ def insert_port_scans_sql(
     BATCH_COMMIT = 10000
 
     total = len(tuples)
+
+    # --------------------------------------------------
+    # Insert batched with error logging
+    # --------------------------------------------------
     for i in range(0, total, BATCH_COMMIT):
         subset = tuples[i : i + BATCH_COMMIT]
         latest_subset = latest_tuples[i : i + BATCH_COMMIT]
@@ -375,12 +384,13 @@ def insert_port_scans_sql(
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
                 cursor.execute("SET LOCAL synchronous_commit = OFF;")
-                portscan_query_str = insert_portscan_sql.as_string(cursor)
-                latest_query_str = insert_latest_sql.as_string(cursor)
 
                 try:
                     execute_values(
-                        cursor, portscan_query_str, subset, page_size=PAGE_SIZE
+                        cursor,
+                        insert_portscan_sql.as_string(cursor),
+                        [row for row in subset],
+                        page_size=PAGE_SIZE,
                     )
                 except Exception as exc:
                     LOGGER.exception(
@@ -393,10 +403,14 @@ def insert_port_scans_sql(
                         },
                     )
                     raise
+
                 if latest_subset:
                     try:
                         execute_values(
-                            cursor, latest_query_str, latest_subset, page_size=PAGE_SIZE
+                            cursor,
+                            insert_latest_sql.as_string(cursor),
+                            [row for row in latest_subset],
+                            page_size=PAGE_SIZE,
                         )
                     except Exception as exc:
                         LOGGER.exception(
