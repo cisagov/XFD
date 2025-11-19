@@ -323,7 +323,7 @@ def insert_port_scans_sql(
     deduped = {}
 
     for row in latest_tuples:
-        key = (row.organization_id, row.ip_string, row.port, row.protocol)
+        key = (row.organization_id, row.ip_id, row.port, row.protocol)
         existing = deduped.get(key)
 
         if not existing:
@@ -346,7 +346,7 @@ def insert_port_scans_sql(
         cols=sql.SQL(", ").join(map(sql.Identifier, base_columns)),
     )
 
-    conflict_cols = ["organization_id", "ip_string", "port", "protocol"]
+    conflict_cols = ["organization_id", "ip_id", "port", "protocol"]
     update_cols = [c for c in latest_columns if c not in conflict_cols]
 
     set_sql = sql.SQL(", ").join(
@@ -769,7 +769,7 @@ def enforce_latest_flag_port_scan():
 
 @cloudwatch_metric()
 def mark_stale_latest_port_scans():
-    """Mark any LatestPortScan rows where time_scanned is older than 21 days as current = FALSE."""
+    """Mark any LatestPortScan rows where time_scanned is older than cut off as current = FALSE."""
     try:
         cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
 

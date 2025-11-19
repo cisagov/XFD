@@ -3217,12 +3217,12 @@ class LatestPortScan(AutoLengthCheckModel):
         db_table = "latest_port_scan"
         constraints = [
             models.UniqueConstraint(
-                fields=["organization", "ip_string", "port", "protocol"],
+                fields=["organization", "ip", "port", "protocol"],
                 name="unique_latest_port_scan_per_combo",
-            ),
+            )
         ]
         indexes = [
-            models.Index(fields=["organization", "ip_string", "port", "protocol"]),
+            models.Index(fields=["organization", "ip", "port", "protocol"]),
             models.Index(fields=["time_scanned"]),
             models.Index(fields=["state"]),
         ]
