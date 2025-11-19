@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import {
   Accordion,
@@ -156,7 +157,7 @@ export const RegionAndOrganizationFilters: React.FC<
 
         setOrgResults(sortedOrgs);
       } catch (e) {
-        console.log(e);
+        logger.error(e);
       }
     },
     [apiPost, setOrgResults, filters]

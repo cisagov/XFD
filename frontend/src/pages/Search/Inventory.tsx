@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { ResultCard } from './ResultCard';
 import {
   Button,
@@ -83,7 +84,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       });
       return url!;
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       return null;
     }
   };

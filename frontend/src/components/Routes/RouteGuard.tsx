@@ -2,6 +2,7 @@ import React from 'react';
 import { RouteProps, Route, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import { ROUTES } from '@/constants/routes';
+import { logger } from '@/utils/logger';
 
 interface AuthRedirectRouteProps extends RouteProps {
   unauth?: string | React.ComponentType;
@@ -47,7 +48,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     window.location.pathname !== ROUTES.HOME &&
     window.location.pathname !== ROUTES.LOGOUT
   ) {
-    console.log('User is not approved.');
+    logger.info('User is not approved.');
     history.push(ROUTES.HOME);
     return null;
   }
@@ -69,7 +70,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
       user.user_type !== 'globalAdmin' &&
       !permissions.includes(user.user_type)
     ) {
-      console.log('User access denied. Logging out!');
+      logger.info('User access denied. Logging out!');
       logout();
       history.push(ROUTES.HOME);
       return null;

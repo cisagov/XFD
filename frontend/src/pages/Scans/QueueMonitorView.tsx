@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { Stack } from '@mui/system';
@@ -29,7 +30,7 @@ const QueueMonitorView: React.FC = () => {
 
       setQueues(queuesWithId);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setErrors({ global: 'Failed to fetch queue data.' });
     }
   }, [apiPost]);

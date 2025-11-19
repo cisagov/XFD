@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import {
   PendingDomain,
@@ -90,7 +91,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -109,7 +110,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -141,7 +142,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error(e);
     }
   };
 

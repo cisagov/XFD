@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import {
   Alert,
   Box,
@@ -434,7 +435,7 @@ export const Users: React.FC = () => {
       setInfoDialogContent(
         'This user has been not been removed. Check the console log for more details.'
       );
-      console.log(e);
+      logger.error(e);
     }
   };
 
