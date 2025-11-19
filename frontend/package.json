@@ -163,6 +163,7 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
+    "type": "module",
     "typecheck": "tsc --noEmit"
   }
 }
