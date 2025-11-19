@@ -27,6 +27,14 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '20.19.4'
+      - name: Debug Working Directory and Package File
+        run: |
+          echo "--- Current Working Directory ---"
+          pwd
+          echo "--- Files in Current Directory ---"
+          ls -lA
+          echo "--- Content of frontend/package.json ---"
+          cat ./frontend/package.json # Check the package.json the install relies on
       - name: Restore npm cache
         uses: actions/cache@v3
         with:
@@ -48,6 +56,14 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: '20.19.4'
+      - name: Debug Working Directory and Package File
+        run: |
+          echo "--- Current Working Directory ---"
+          pwd
+          echo "--- Files in Current Directory ---"
+          ls -lA
+          echo "--- Content of frontend/package.json ---"
+          cat ./frontend/package.json # Check the package.json the install relies on
       - name: Restore npm cache
         uses: actions/cache@v3
         with:
