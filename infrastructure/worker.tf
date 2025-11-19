@@ -77,6 +77,8 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         "${aws_ssm_parameter.crossfeed_send_db_host.arn}",
         "${aws_ssm_parameter.crossfeed_send_db_name.arn}",
         "${aws_ssm_parameter.es_endpoint.arn}",
+        "${aws_ssm_parameter.worker_sg_id.arn}",
+        "${aws_ssm_parameter.worker_subnet_id.arn}",
         "${data.aws_ssm_parameter.censys_api_id.arn}",
         "${data.aws_ssm_parameter.censys_api_secret.arn}",
         "${data.aws_ssm_parameter.cf_api_key.arn}",
@@ -121,7 +123,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       "Action": [
         "kms:Decrypt"
       ],
-      "Resource": "${jsondecode(data.aws_ssm_parameter.worker_kms_keys.value)}"
+      "Resource": "${data.aws_ssm_parameter.worker_kms_keys.value}"
     }
   ]
 }
@@ -191,6 +193,18 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
         "sqs:ReceiveMessage"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTask",
+        "ecs:DescribeTaskDefinition",
+        "ecs:DescribeTasks",
+        "ecs:RunTask",
+        "ecs:StopTask",
+        "iam:PassRole"
+      ],
+      "Resource": "*"
     }
   ]
 }
@@ -257,6 +271,14 @@ resource "aws_ecs_task_definition" "worker" {
         "value": "${var.db_port}"
       },
       {
+        "name": "FARGATE_CLUSTER_NAME",
+        "value": "${var.worker_ecs_cluster_name}"
+      },
+      {
+        "name": "FARGATE_TASK_DEFINITION_NAME",
+        "value": "${var.worker_ecs_task_definition_family}"
+      },
+      {
         "name": "IS_DMZ",
         "value": "${var.is_dmz}"
       },
@@ -313,6 +335,14 @@ resource "aws_ecs_task_definition" "worker" {
       {
         "name": "ELASTICSEARCH_ENDPOINT",
         "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
+      },
+      {
+        "name": "FARGATE_SG_ID",
+        "valueFrom": "${aws_ssm_parameter.worker_sg_id.arn}"
+      },
+      {
+        "name": "FARGATE_SUBNET_ID",
+        "valueFrom": "${aws_ssm_parameter.worker_subnet_id.arn}"
       },
       {
         "name": "INTELX_API_KEY",
