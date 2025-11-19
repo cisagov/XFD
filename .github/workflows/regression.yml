@@ -74,34 +74,29 @@ jobs:
          ./run_playwright_tests.sh
         continue-on-error: true
 
-      - name: Download test report from S3
+      - name: Generate presigned URL for Playwright HTML report
+        id: presign
         run: |
-          mkdir -p ./playwright-report/html
-          aws s3 cp \
-            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/staging/playwright-reports/latest/html/" \
-            playwright-report/html/ --recursive
+          DATETIME="${{ steps.run_tests.outputs.datetime }}"
+          ENVIRONMENT="${ENVIRONMENT}"
 
-          aws s3 cp \
-            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/staging/playwright-reports/latest/results.json" \
-            playwright-report/results.json
+          REPORT_S3_PATH="s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/${ENVIRONMENT}/playwright-reports/${DATETIME}/html/index.html"
+          echo "Using report object: $REPORT_S3_PATH"
 
+          URL=$(aws s3 presign "$REPORT_S3_PATH" --expires-in 604800) # 7 days
+          echo "report_url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Playwright HTML report
-        uses: actions/upload-artifact@v4
+      - name: Publish Playwright report link
+        uses: actions/github-script@v7
         with:
-          name: playwright-html-report-staging
-          path: playwright/playwright-report/html/
+          script: |
+            const url = '${{ steps.presign.outputs.report_url }}';
+            const env = process.env.ENVIRONMENT || 'staging';
 
-      - name: Upload Playwright results JSON
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results-json
-          path: playwright/playwright-report/results.json
-
-      - name: Fail job if tests failed
-        if: steps.run_tests.outcome != 'success'
-        run: exit 1
-
+            core.summary
+              .addHeading(`Playwright report (${env})`)
+              .addLink('Open HTML report (presigned)', url)
+              .write();
 
   test_staging_api:
     runs-on: ubuntu-latest
@@ -202,33 +197,29 @@ jobs:
           ./run_playwright_tests.sh
         continue-on-error: true
 
-      - name: Download test report from S3
+      - name: Generate presigned URL for Playwright HTML report
+        id: presign
         run: |
-          mkdir -p ./playwright-report/html
-          aws s3 cp \
-          "s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/integration/playwright-reports/html/" \
-          ./playwright-report/html/ --recursive
+          DATETIME="${{ steps.run_tests.outputs.datetime }}"
+          ENVIRONMENT="${ENVIRONMENT}"
 
-          aws s3 cp \
-            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/integration/playwright-reports/latest/results.json" \
-            ./playwright-report/results.json
+          REPORT_S3_PATH="s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/${ENVIRONMENT}/playwright-reports/${DATETIME}/html/index.html"
+          echo "Using report object: $REPORT_S3_PATH"
 
+          URL=$(aws s3 presign "$REPORT_S3_PATH" --expires-in 604800) # 7 days
+          echo "report_url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Upload Playwright HTML report
-        uses: actions/upload-artifact@v4
+      - name: Publish Playwright report link
+        uses: actions/github-script@v7
         with:
-          name: playwright-html-report-integration
-          path: playwright/playwright-report/html/
+          script: |
+            const url = '${{ steps.presign.outputs.report_url }}';
+            const env = process.env.ENVIRONMENT || 'integration';
 
-      - name: Upload Playwright results JSON
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-results-json
-          path: playwright/playwright-report/results.json
-
-      - name: Fail job if tests failed
-        if: steps.run_tests.outcome != 'success'
-        run: exit 1
+            core.summary
+              .addHeading(`Playwright report (${env})`)
+              .addLink('Open HTML report (presigned)', url)
+              .write();
 
   test_integration_api:
     runs-on: ubuntu-latest

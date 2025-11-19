@@ -12,6 +12,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const reporters: any[] = process.env.CI
+  ? [
+      ['list', { printSteps: true }],
+      ['github'] // only enabled in CI/CD
+    ]
+  : [
+      ['json', { outputFile: 'playwright-report/results.json' }],
+      ['html', { outputFolder: 'playwright-report/html', open: 'never' }]
+    ];
+
 export default defineConfig({
   globalSetup: './global-setup',
   testDir: './e2e',
@@ -24,11 +34,7 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: process.env.CI ? 2 : undefined,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: [
-    ['list', { printSteps: true }],
-    ['json', { outputFile: 'playwright-report/results.json' }],
-    ['html', { outputFolder: 'playwright-report/html', open: 'never' }]
-  ],
+  reporter: reporters,
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
