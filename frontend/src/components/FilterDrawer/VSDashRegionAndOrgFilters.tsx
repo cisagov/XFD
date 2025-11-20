@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { Box, Button, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { useAuthContext } from 'context';
@@ -60,6 +61,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       id: currentOrganization.id,
       name: currentOrganization.name,
       root_domains: currentOrganization.root_domains,
+      acronym: currentOrganization.acronym,
       region_id: currentOrganization.region_id ?? '' // fallback to empty string if undefined
     };
   };
@@ -134,7 +136,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          console.log(e);
+          logger.error(e);
         }
       }
     },
@@ -438,7 +440,12 @@ export const VSDashRegionAndOrgFilters: React.FC<
           disableClearable
           disabled={userLevel === STANDARD_USER}
           options={orgResults}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={(option) => {
+            if (option.name && option.acronym) {
+              return `${option.name} (${option.acronym})`;
+            }
+            return option.name;
+          }}
           slotProps={{
             listbox: {
               sx: {
@@ -479,7 +486,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
                     }, 250)
                   }
                 >
-                  {option.name}
+                  {option.name && option.acronym ? (
+                    <>
+                      {option.name} ({option.acronym})
+                    </>
+                  ) : (
+                    option.name
+                  )}
                 </Button>
               </li>
             );

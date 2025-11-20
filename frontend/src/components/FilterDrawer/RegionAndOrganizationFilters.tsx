@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import {
   Accordion,
@@ -41,6 +42,7 @@ export interface OrganizationShallow {
   region_id: string;
   name: string;
   id: string;
+  acronym: string;
   root_domains: string[];
 }
 
@@ -155,7 +157,7 @@ export const RegionAndOrganizationFilters: React.FC<
 
         setOrgResults(sortedOrgs);
       } catch (e) {
-        console.log(e);
+        logger.error(e);
       }
     },
     [apiPost, setOrgResults, filters]
@@ -488,7 +490,12 @@ export const RegionAndOrganizationFilters: React.FC<
               }, 250);
               return;
             }}
-            getOptionLabel={(option) => option.name}
+            getOptionLabel={(option) => {
+              if (option.name && option.acronym) {
+                return `${option.name} (${option.acronym})`;
+              }
+              return option.name;
+            }}
             slotProps={{
               listbox: {
                 sx: {
@@ -526,7 +533,13 @@ export const RegionAndOrganizationFilters: React.FC<
                       }, 250)
                     }
                   >
-                    {option.name}
+                    {option.name && option.acronym ? (
+                      <>
+                        {option.name} ({option.acronym})
+                      </>
+                    ) : (
+                      option.name
+                    )}
                   </Button>
                 </li>
               );

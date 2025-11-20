@@ -1,5 +1,6 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 import { AuthContext, AuthUser } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
 import { useApi } from 'hooks/useApi';
@@ -73,6 +74,8 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       // Clear in-memory state
       setAuthUser(null);
       setToken(null);
+    } catch (error) {
+      logger.error(error);
     } finally {
       setIsLoggingOut(false);
       if (shouldReload) {
@@ -83,6 +86,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
 
   const handleError = useCallback(
     async (in_error: Error) => {
+      logger.error(in_error);
       if (in_error.message.includes('401')) {
         await logout();
         const next = encodeURIComponent(window.location.pathname || '/');

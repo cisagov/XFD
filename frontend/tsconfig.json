@@ -51,7 +51,10 @@
     "skipLibCheck": true,
     "strict": true,
     "strictNullChecks": true,
-    "target": "es5"
+    "target": "es5",
+    "types": [
+      "vitest"
+    ]
   },
   "include": [
     "src/**/*"

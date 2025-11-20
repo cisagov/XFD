@@ -3108,6 +3108,126 @@ class CisaKevCatalog(models.Model):
         db_table = "cisa_kev_catalog"
 
 
+class LatestPortScan(AutoLengthCheckModel):
+    """Stores only the most recent PortScan record per (organization, ip, port, protocol)."""
+
+    # ✅ Internal UUID primary key (consistent with other models)
+    id = models.UUIDField(
+        primary_key=True,
+        editable=False,
+        default=uuid.uuid4,
+        help_text="Unique identifier for a LatestPortScan record in the database.",
+    )
+
+    # Keep the original scanner-provided PortScan ID (for traceability)
+    port_scan_id = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Original PortScan ID from the scanner (not a foreign key).",
+    )
+
+    ip_string = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="IP address of the host that was port scanned.",
+    )
+
+    ip = models.ForeignKey(
+        "Ip",
+        related_name="latest_port_scans",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        help_text="Foreign key to the related IP address.",
+    )
+
+    port = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Number of the port that was scanned.",
+    )
+
+    protocol = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Protocol for this port scan (e.g. 'tcp' or 'udp').",
+    )
+
+    state = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="State of the port, as reported by the scanner; see nmap states.",
+    )
+
+    time_scanned = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Timestamp when the port was scanned.",
+    )
+
+    organization = models.ForeignKey(
+        "Organization",
+        related_name="latest_port_scans",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        help_text="Organization that owns the scanned IP.",
+    )
+
+    # --- Service metadata fields (copied from PortScan) ---
+    service = models.JSONField(
+        default=dict, help_text="Details about this port, as reported by the scanner."
+    )
+    service_name = models.CharField(max_length=255, null=True, blank=True)
+    service_confidence = models.IntegerField(null=True, blank=True)
+    service_method = models.CharField(max_length=255, null=True, blank=True)
+    service_cpe = models.TextField(null=True, blank=True)
+    service_hostname = models.TextField(null=True, blank=True)
+    service_extra_info = models.TextField(null=True, blank=True)
+    service_os_type = models.TextField(null=True, blank=True)
+    service_product = models.TextField(null=True, blank=True)
+    service_version = models.CharField(max_length=255, null=True, blank=True)
+    service_tunnel = models.CharField(max_length=255, null=True, blank=True)
+    service_device_type = models.TextField(null=True, blank=True)
+
+    source = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True,
+        help_text="Source of the scan (e.g. 'nmap').",
+    )
+
+    nmi_service_group = models.CharField(max_length=255, null=True, blank=True)
+    risky_service_group = models.CharField(max_length=255, null=True, blank=True)
+
+    current = models.BooleanField(
+        default=True,
+        help_text="Whether this port scan is considered current (scanned within 14 days).",
+    )
+
+    class Meta:
+        """Meta class for the LatestPortScan model."""
+
+        app_label = app_label_name
+        managed = manage_db
+        db_table = "latest_port_scan"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "ip", "port", "protocol"],
+                name="unique_latest_port_scan_per_combo",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["organization", "ip", "port", "protocol"]),
+            models.Index(fields=["time_scanned"]),
+            models.Index(fields=["state"]),
+        ]
+
+
 class PortScan(AutoLengthCheckModel):
     """The PortScan model."""
 

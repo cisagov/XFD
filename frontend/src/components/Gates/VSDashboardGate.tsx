@@ -156,6 +156,7 @@ export const VSDashboardGate: React.FC<{
         orgName={orgName}
         vulnScanData={vulnScanData}
         isKeyMetricsNull={true}
+        headerAlertMsg="No Hosts Found"
         alertMsg={
           <>
             A discovery scan was completed for

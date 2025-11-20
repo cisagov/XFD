@@ -11,7 +11,7 @@ from django.utils import timezone
 LOGGER = logging.getLogger(__name__)
 # Third-Party Libraries
 from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
-from xfd_api.tasks.utils.vs_port_scans import create_port_scan_summary
+from xfd_api.tasks.utils.vs_port_scans import create_port_scan_summaries_bulk
 from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_mini_dl.models import HostSummary, Organization
 
@@ -114,7 +114,17 @@ def handler(event):
 
         try:
             LOGGER.info("Creating Port summaries.")
-            create_port_scan_summary()
+            chunk_size = 500
+            org_qs = Organization.objects.order_by("id").iterator(chunk_size=chunk_size)
+            org_batch = []
+            for org in org_qs:
+                org_batch.append(org.id)
+                if len(org_batch) >= chunk_size:
+                    create_port_scan_summaries_bulk(org_ids=org_batch)
+                    org_batch.clear()
+            # Process the tail
+            if org_batch:
+                create_port_scan_summaries_bulk(org_ids=org_batch)
 
         except Exception as e:
             LOGGER.error("error saving Port summary: %s", e)
@@ -135,7 +145,6 @@ def handler(event):
                 for org in orgs:
                     LOGGER.info("Creating Fake vuln host summary for org %s.", org.name)
                     create_vuln_scan_summary(org_id=str(org.id))
-                    create_port_scan_summary(org_id=str(org.id))
 
         except Exception as e:
             LOGGER.error("error saving VS summary: %s", e)

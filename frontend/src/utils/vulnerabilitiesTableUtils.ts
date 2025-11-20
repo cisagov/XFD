@@ -105,7 +105,7 @@ export const normalizeFilters = (
   orgId?: string
 ) => {
   const result = filters
-    .filter((f) => Boolean(f.value))
+    .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
     .reduce<Record<string, string | boolean>>((acc, cur) => {
       acc[cur.field] = cur.value as string;
       return acc;

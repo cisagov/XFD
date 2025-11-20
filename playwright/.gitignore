@@ -5,3 +5,4 @@
 node_modules/
 storageState.json
 /.auth/*.json
+test_users.json

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import {
   Alert,
   Box,
@@ -58,6 +59,7 @@ interface UserType extends User {
   lastLoggedInString?: string | null | undefined;
   dateToUSigned?: string | null | undefined;
   orgs?: string | null | undefined;
+  org_acronym?: string | null | undefined;
   full_name: string;
   approved_by?: ApprovedBy | null;
   date_approved?: string | null;
@@ -67,7 +69,6 @@ export const Users: React.FC = () => {
   const { user, apiDelete, apiGet, apiPost } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
-  const [newUserDialogOpen, setNewUserDialogOpen] = useState(false);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
@@ -104,6 +105,7 @@ export const Users: React.FC = () => {
               .join(', ')
           : 'None';
         row.full_name = `${row.first_name} ${row.last_name}`;
+        row.org_acronym = row.roles[0]?.organization.acronym || '';
       });
 
       const filteredRows = rows;
@@ -183,6 +185,22 @@ export const Users: React.FC = () => {
             aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.orgs}`}
           >
             {cellValues.row.orgs}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'org_acronym',
+      headerName: 'Org Acronym',
+      minWidth: 100,
+      flex: 0.5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization acronym ${cellValues.row.full_name}: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.org_acronym}
           </Box>
         );
       }
@@ -402,16 +420,6 @@ export const Users: React.FC = () => {
       }
     });
   }
-  const addUserButton = user?.user_type === 'globalAdmin' && (
-    <Button
-      size="small"
-      sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-      startIcon={<Add />}
-      onClick={() => setNewUserDialogOpen(true)}
-    >
-      Invite New User
-    </Button>
-  );
 
   const deleteRow = async (row: UserType) => {
     try {
@@ -427,7 +435,7 @@ export const Users: React.FC = () => {
       setInfoDialogContent(
         'This user has been not been removed. Check the console log for more details.'
       );
-      console.log(e);
+      logger.error(e);
     }
   };
 
@@ -463,8 +471,6 @@ export const Users: React.FC = () => {
       setUsers={setUsers}
       values={formValues}
       setValues={setFormValues}
-      newUserDialogOpen={newUserDialogOpen}
-      setNewUserDialogOpen={setNewUserDialogOpen}
       editUserDialogOpen={editUserDialogOpen}
       setEditUserDialogOpen={setEditUserDialogOpen}
       apiErrorStates={apiErrorStates}
@@ -530,7 +536,6 @@ export const Users: React.FC = () => {
             slots={{ toolbar: CustomToolbar }}
             slotProps={{
               toolbar: {
-                children: addUserButton,
                 // Disabling export for users table as per temp solution mentioned in CRASM-2509
                 disableExport: true,
                 exportTitle: 'Users'
@@ -553,7 +558,7 @@ export const Users: React.FC = () => {
         </Paper>
       ) : null}
       {confirmDeleteUserDialog}
-      {(newUserDialogOpen || editUserDialogOpen) && renderUserForm}
+      {editUserDialogOpen && renderUserForm}
       <InfoDialog
         isOpen={infoDialogOpen}
         handleClick={() => {

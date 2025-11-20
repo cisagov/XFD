@@ -1,4 +1,11 @@
-import React, { useCallback, useState, useEffect } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
@@ -17,7 +24,11 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import {
   DataGrid,
+  getGridStringOperators,
   GridColDef,
+  GridColumnVisibilityModel,
+  GridFilterModel,
+  GridPaginationModel,
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
@@ -43,25 +54,63 @@ export interface DomainRow {
   created_at: string;
 }
 
+const formatPreview = (
+  preview: string,
+  totalCount: number,
+  maxFullCount = 3,
+  maxPreviewCount = 2
+) => {
+  if (totalCount <= maxFullCount) {
+    // Show full preview as-is
+    return preview;
+  } else {
+    // Show first N preview, add (X total)
+    const previewItems = preview.split(',').map((item) => item.trim());
+    const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
+    return `${limitedPreview} (${totalCount} total)`;
+  }
+};
+
+const formatDays = (dateString: string) => {
+  const date = parseISO(dateString);
+  const days = differenceInCalendarDays(Date.now(), date);
+  if (days <= 1) {
+    return `${days} day ago`;
+  }
+  return `${days} days ago`;
+};
+
 export const Domains: React.FC = () => {
+  const { showAllOrganizations } = useAuthContext();
+  const history = useHistory();
   const location = useLocation();
   const state = location.state as
     | { orgName?: string; orgId?: string }
     | undefined;
-  const { showAllOrganizations } = useAuthContext();
+
+  const [columnVisibilityModel, setColumnVisibilityModel] =
+    useState<GridColumnVisibilityModel>({});
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
     showAllOrganizations,
     state?.orgId ?? ''
   );
-  const history = useHistory();
   const [filters, setFilters] = useState<
     Query<DomainSearchApiResponse>['filters']
   >([]);
+  const lastFiltersKeyRef = useRef<string>(JSON.stringify(filters));
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const filterTimerRef = useRef<number | null>(null);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: PAGE_SIZE
+  });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
 
   useEffect(() => {
@@ -74,6 +123,8 @@ export const Domains: React.FC = () => {
 
   const fetchDomains = useCallback(
     async (q: Query<DomainSearchApiResponse>) => {
+      setIsLoading(true);
+      setLoadingError(false);
       try {
         const { domains, count } = await listDomains(q);
         if (domains.length === 0) {
@@ -82,9 +133,7 @@ export const Domains: React.FC = () => {
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE,
-            pageCount: 0,
-            filters: q.filters
+            pageSize: PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -94,12 +143,10 @@ export const Domains: React.FC = () => {
         setPaginationModel((prevState) => ({
           ...prevState,
           page: q.page - 1,
-          pageSize: q.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (q.pageSize ?? PAGE_SIZE)),
-          filters: q.filters
+          pageSize: q.pageSize ?? PAGE_SIZE
         }));
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
       } finally {
         setIsLoading(false);
@@ -108,59 +155,47 @@ export const Domains: React.FC = () => {
     [listDomains]
   );
 
-  function formatPreview(
-    preview: string,
-    totalCount: number,
-    maxFullCount = 3,
-    maxPreviewCount = 2
-  ) {
-    if (totalCount <= maxFullCount) {
-      // Show full preview as-is
-      return preview;
-    } else {
-      // Show first N preview, add (X total)
-      const previewItems = preview.split(',').map((item) => item.trim());
-      const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
-      return `${limitedPreview} (${totalCount} total)`;
-    }
-  }
-
-  const formatDays = (dateString: string) => {
-    const date = parseISO(dateString);
-    const days = differenceInCalendarDays(Date.now(), date);
-    if (days <= 1) {
-      return `${days} day ago`;
-    }
-    return `${days} days ago`;
-  };
-
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: PAGE_SIZE,
-    pageCount: 0,
-    filters: filters
-  });
-
   useEffect(() => {
     setIsLoading(true);
     fetchDomains({
-      page: 1,
-      pageSize: PAGE_SIZE,
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
       filters,
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? undefined
     });
-  }, [fetchDomains, filters, sortModel]);
+  }, [
+    fetchDomains,
+    filters,
+    paginationModel.page,
+    paginationModel.pageSize,
+    sortModel[0]?.field,
+    sortModel[0]?.sort
+  ]);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    lastFiltersKeyRef.current = JSON.stringify(filters);
+  }, [filters]);
 
   const resetDomains = useCallback(() => {
     history.replace({ ...location, state: null });
     setPreloadedFiltersActive(false);
     setFilters([]);
+    setFilterModel({ items: [] });
     setSortModel([]);
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      filters: []
+      pageSize: PAGE_SIZE
     }));
     fetchDomains({
       page: 1,
@@ -171,178 +206,211 @@ export const Domains: React.FC = () => {
     });
   }, [fetchDomains, history, location]);
 
-  const domRows: DomainRow[] = domains.map((domain) => ({
-    id: domain.id,
-    organization_name: domain.organization.name,
-    name: domain.name,
-    ip: domain.ip,
-    ports_preview: formatPreview(domain.ports_preview, domain.services_count),
-    services_preview: formatPreview(
-      domain.services_preview,
-      domain.services_count
-    ),
-    services_count: domain.services_count,
-    vulnerabilities_count: domain.vulnerabilities_count,
-    updated_at: formatDays(domain.updated_at),
-    created_at: formatDays(domain.created_at)
-  }));
+  const domRows = useMemo<DomainRow[]>(
+    () =>
+      domains.map((domain) => ({
+        id: domain.id,
+        organization_name: domain.organization.name,
+        name: domain.name,
+        ip: domain.ip,
+        ports_preview: formatPreview(
+          domain.ports_preview,
+          domain.services_count
+        ),
+        services_preview: formatPreview(
+          domain.services_preview,
+          domain.services_count
+        ),
+        services_count: domain.services_count,
+        vulnerabilities_count: domain.vulnerabilities_count,
+        updated_at: formatDays(domain.updated_at),
+        created_at: formatDays(domain.created_at)
+      })),
+    [domains, formatDays, formatPreview]
+  );
 
-  const domCols: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Domain',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Domain Name: ${cellValues.row.name}`}
-          >
-            {cellValues.row.name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'organization_name',
-      headerName: 'Organization',
-      minWidth: 100,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organization using Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
-          >
-            {cellValues.row.organization_name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'ip',
-      headerName: 'IP',
-      minWidth: 50,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`IP Address for Domain ${cellValues.row.name}: ${cellValues.row.ip}`}
-          >
-            {cellValues.row.ip}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'ports_preview',
-      headerName: 'Ports',
-      minWidth: 100,
-      flex: 1.2,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Ports for Domain ${cellValues.row.name}: ${cellValues.row.ports_preview}`}
-          >
-            {cellValues.row.ports_preview}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'services_preview',
-      headerName: 'Services',
-      minWidth: 100,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Services for Domain ${cellValues.row.name}: ${cellValues.row.services_preview}`}
-          >
-            {cellValues.row.services_preview}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'vulnerabilities_count',
-      headerName: 'Vulnerabilities',
-      minWidth: 50,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Vulnerability Count for Domain ${cellValues.row.name}: ${cellValues.row.vulnerabilities_count}`}
-          >
-            {cellValues.row.vulnerabilities_count}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'updated_at',
-      headerName: 'Updated At',
-      minWidth: 50,
-      flex: 0.9,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Date Last Updated At for Domain ${cellValues.row.name}: ${cellValues.row.updated_at}`}
-          >
-            {cellValues.row.updated_at}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created At',
-      minWidth: 50,
-      flex: 0.9,
-      renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Created At Date for Domain ${cellValues.row.name}: ${cellValues.row.created_at}`}
-          >
-            {cellValues.row.created_at}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'view',
-      headerName: 'Details',
-      minWidth: 100,
-      flex: 0.3,
-      disableExport: true,
-      filterable: false,
-      sortable: false,
-      disableColumnMenu: true,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <IconButton
-            aria-label={`View Details for Domain ${cellValues.row.name}`}
-            tabIndex={cellValues.tabIndex}
-            color="primary"
-            onClick={() =>
-              history.push(
-                ROUTES.DOMAIN.replace(':domainId', cellValues.row.id)
-              )
-            }
-          >
-            <OpenInNewIcon />
-          </IconButton>
-        );
-      }
+  const stringFilterOperators = useMemo(() => {
+    try {
+      const operators = getGridStringOperators();
+      const allowedOperators = ['contains', 'equals'];
+      return operators.filter((op) =>
+        allowedOperators.includes(op.value as string)
+      );
+    } catch (e) {
+      return [
+        { label: 'Contains', value: 'contains' } as any,
+        { label: 'Equals', value: 'equals' } as any
+      ];
     }
-  ];
+  }, []);
+
+  const domCols = useMemo<GridColDef[]>(
+    () => [
+      {
+        field: 'name',
+        headerName: 'Domain',
+        minWidth: 100,
+        flex: 1,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Domain Name: ${cellValues.row.name}`}
+            >
+              {cellValues.row.name}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'organization_name',
+        headerName: 'Organization',
+        minWidth: 100,
+        flex: 1.5,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Organization using Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
+            >
+              {cellValues.row.organization_name}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'ip',
+        headerName: 'IP',
+        minWidth: 50,
+        flex: 1,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`IP Address for Domain ${cellValues.row.name}: ${cellValues.row.ip}`}
+            >
+              {cellValues.row.ip}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'ports_preview',
+        headerName: 'Ports',
+        minWidth: 100,
+        flex: 1.2,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Ports for Domain ${cellValues.row.name}: ${cellValues.row.ports_preview}`}
+            >
+              {cellValues.row.ports_preview}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'services_preview',
+        headerName: 'Services',
+        minWidth: 100,
+        flex: 1.5,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Services for Domain ${cellValues.row.name}: ${cellValues.row.services_preview}`}
+            >
+              {cellValues.row.services_preview}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'vulnerabilities_count',
+        headerName: 'Vulnerabilities',
+        minWidth: 50,
+        flex: 1,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Vulnerability Count for Domain ${cellValues.row.name}: ${cellValues.row.vulnerabilities_count}`}
+            >
+              {cellValues.row.vulnerabilities_count}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'updated_at',
+        headerName: 'Updated At',
+        minWidth: 50,
+        flex: 0.9,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Date Last Updated At for Domain ${cellValues.row.name}: ${cellValues.row.updated_at}`}
+            >
+              {cellValues.row.updated_at}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'created_at',
+        headerName: 'Created At',
+        minWidth: 50,
+        flex: 0.9,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Created At Date for Domain ${cellValues.row.name}: ${cellValues.row.created_at}`}
+            >
+              {cellValues.row.created_at}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'view',
+        headerName: 'Details',
+        minWidth: 100,
+        flex: 0.3,
+        disableExport: true,
+        filterable: false,
+        sortable: false,
+        disableColumnMenu: true,
+        renderCell: (cellValues: GridRenderCellParams) => {
+          return (
+            <IconButton
+              aria-label={`View Details for Domain ${cellValues.row.name}`}
+              tabIndex={cellValues.tabIndex}
+              color="primary"
+              onClick={() =>
+                history.push(
+                  ROUTES.DOMAIN.replace(':domainId', cellValues.row.id)
+                )
+              }
+            >
+              <OpenInNewIcon />
+            </IconButton>
+          );
+        }
+      }
+    ],
+    [history]
+  );
 
   const noRowsOverlay = (
     <Paper>
@@ -415,7 +483,15 @@ export const Domains: React.FC = () => {
               <Alert severity="warning">Error Loading Domains!</Alert>
             </Paper>
             <Button
-              onClick={() => fetchDomains}
+              onClick={() =>
+                fetchDomains({
+                  page: paginationModel.page + 1,
+                  pageSize: paginationModel.pageSize,
+                  filters,
+                  order: sortModel[0]?.field,
+                  sort: sortModel[0]?.sort ?? undefined
+                })
+              }
               variant="contained"
               color="primary"
               sx={{ width: 'fit-content' }}
@@ -433,10 +509,68 @@ export const Domains: React.FC = () => {
               rows={domRows}
               rowCount={totalResults}
               columns={domCols}
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={(model) =>
+                setColumnVisibilityModel(model)
+              }
+              loading={isLoading}
+              filterMode="server"
+              filterModel={filterModel}
+              onFilterModelChange={(model) => {
+                const mappedModel = model.items.map((item) => ({
+                  ...item,
+                  value:
+                    typeof item.value === 'string'
+                      ? item.value.trim()
+                      : item.value
+                }));
+                const modelWithTrimmedValues = {
+                  ...model,
+                  items: mappedModel
+                };
+                setFilterModel(modelWithTrimmedValues);
+                const mappedFilters = modelWithTrimmedValues.items
+                  .map((item) => ({
+                    field: item.field,
+                    operator: item.operator,
+                    value: item.value
+                  }))
+                  .filter(
+                    (item) =>
+                      item.value !== undefined &&
+                      item.value !== null &&
+                      String(item.value).trim() !== ''
+                  );
+                const mappedKeys = JSON.stringify(mappedFilters);
+                if (mappedKeys === lastFiltersKeyRef.current) {
+                  return;
+                }
+                if (filterTimerRef.current) {
+                  clearTimeout(filterTimerRef.current);
+                }
+                filterTimerRef.current = window.setTimeout(() => {
+                  setIsLoading(true);
+                  setFilters(mappedFilters);
+                  lastFiltersKeyRef.current = mappedKeys;
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  filterTimerRef.current = null;
+                }, 1000);
+              }}
+              paginationMode="server"
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => {
+                setPaginationModel((prev) => ({
+                  ...prev,
+                  page: model.page,
+                  pageSize: model.pageSize
+                }));
+              }}
+              pageSizeOptions={[15, 30, 50, 100]}
               sortingMode="server"
               sortModel={sortModel}
               onSortModelChange={(model) => {
                 setSortModel(model);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
               }}
               slots={{
                 toolbar: CustomToolbar,
@@ -447,20 +581,19 @@ export const Domains: React.FC = () => {
                 toolbar: { exportTitle: 'Domains' } as any,
                 basePopper: {
                   placement: 'bottom-start'
+                },
+                columnsManagement: {
+                  disableResetButton: true,
+                  getTogglableColumns: (columns) => {
+                    const alwaysVisible = ['name'];
+                    return columns
+                      .filter(
+                        (col) => col.field && !alwaysVisible.includes(col.field)
+                      )
+                      .map((col) => col.field as string);
+                  }
                 }
               }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={(model) => {
-                fetchDomains({
-                  page: model.page + 1,
-                  pageSize: model.pageSize,
-                  filters: filters,
-                  order: sortModel[0]?.field,
-                  sort: sortModel[0]?.sort ?? undefined
-                });
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
               showToolbar
             />

@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState
 } from 'react';
+import { logger } from '@/utils/logger';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 import { Organization } from 'types';
 import { useAuthContext } from 'context';
@@ -77,6 +78,7 @@ export const Organizations: React.FC = () => {
         }
         if (i.field === 'state') filters.state = String(i.value).trim();
         if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+        if (i.field === 'acronym') filters.acronym = String(i.value).trim();
       });
       return filters;
     },
@@ -110,7 +112,7 @@ export const Organizations: React.FC = () => {
       setRowCount(data.count);
     } catch (e) {
       if (myId === reqIdRef.current) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
       }
     } finally {
@@ -135,6 +137,22 @@ export const Organizations: React.FC = () => {
             aria-label={`Organization Name: ${cellValues.row.name}`}
           >
             {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
           </Box>
         );
       }
@@ -225,7 +243,7 @@ export const Organizations: React.FC = () => {
         type: 'error'
       });
       setChosenTags([]);
-      console.error(e);
+      logger.error(e);
     }
   };
 

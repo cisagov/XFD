@@ -16,6 +16,7 @@ LOGGER = logging.getLogger(__name__)
 
 def fill_cidr_live_ips_bulk_update():
     """Fill live_ips field in the cidr table based on recent port scans."""
+    LOGGER.info("Starting fill_cidr_live_ips_bulk_update")
     start_time = time.time()
 
     with transaction.atomic(using="mini_data_lake"):

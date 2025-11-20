@@ -1,4 +1,5 @@
 import { MaintenanceNotification } from 'types';
+import { logger } from '@/utils/logger';
 
 interface UseDeleteNotificationProps {
   rowToDelete: MaintenanceNotification;
@@ -33,7 +34,7 @@ export function useDeleteNotification({
         );
       }
     } catch (error) {
-      console.log('Error occurred during delete request:', error);
+      logger.error('Error occurred during delete request:', error);
     }
   };
 }
