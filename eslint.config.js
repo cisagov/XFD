@@ -7,7 +7,7 @@ import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
 
 export default [
   {
-    ignores: ['tests/**', 'assets']
+    ignores: ['tests/**', 'assets', 'dist/**']
   },
 
   // TypeScript files (*.ts, *.tsx)
