@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { initializeUser, User, Organization as OrganizationType } from 'types';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
@@ -596,7 +597,7 @@ export const RegionUsers: React.FC = () => {
         }
       ).then(
         (res) => {
-          console.log(res);
+          logger.info(res);
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });

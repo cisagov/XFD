@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState
 } from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
@@ -145,7 +146,7 @@ export const Domains: React.FC = () => {
           pageSize: q.pageSize ?? PAGE_SIZE
         }));
       } catch (e) {
-        console.error(e);
+        logger.error(e);
         setLoadingError(true);
       } finally {
         setIsLoading(false);

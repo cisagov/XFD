@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { Box, Button, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
 import { useAuthContext } from 'context';
@@ -135,7 +136,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          console.log(e);
+          logger.error(e);
         }
       }
     },

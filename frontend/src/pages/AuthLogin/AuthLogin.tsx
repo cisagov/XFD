@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import { Button } from '@trussworks/react-uswds';
 import { Alert, AlertTitle, Box, Grid, Typography } from '@mui/material';
@@ -58,7 +59,7 @@ const LoginButton = () => {
 
       window.location.href = authorizeUrl;
     } catch (err) {
-      console.error('Error preparing OAuth metadata:', err);
+      logger.error('Error preparing OAuth metadata:', err);
     }
   };
 
@@ -90,7 +91,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
       });
       setNotification(activeRow);
     } catch (e: any) {
-      console.log(e);
+      logger.error(e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiGet]);
