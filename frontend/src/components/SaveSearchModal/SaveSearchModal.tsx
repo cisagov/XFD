@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import {
   Dialog,
@@ -75,7 +76,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
-      console.error(e);
+      logger.error(e);
     }
   };
 
@@ -215,7 +216,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 try {
                   handleDialogClose();
                 } catch (e) {
-                  console.error(e);
+                  logger.error(e);
                 }
               }
             }}
@@ -232,7 +233,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 setUpdateDialogOpen(false);
                 savedSearchValues.name = '';
               } catch (e) {
-                console.error(e);
+                logger.error(e);
               }
             }}
             disabled={
@@ -248,7 +249,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                   setUpdateDialogOpen(false);
                   savedSearchValues.name = '';
                 } catch (e) {
-                  console.error(e);
+                  logger.error(e);
                 }
               }
             }}
@@ -320,7 +321,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 try {
                   handleCloseModal();
                 } catch (e) {
-                  console.error(e);
+                  logger.error(e);
                 }
               }
             }}
@@ -347,7 +348,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                   handleSave(savedSearchValues);
                   handleCloseModal();
                 } catch (e) {
-                  console.error(e);
+                  logger.error(e);
                 }
               }
             }}
