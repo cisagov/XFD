@@ -1,6 +1,5 @@
 // frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Auth } from 'aws-amplify';
 import { AuthContext, AuthUser } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
 import { useApi } from 'hooks/useApi';
@@ -66,11 +65,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     try {
       // Clear local storage and Amplify session (if any)
       localStorage.clear();
-      try {
-        await Auth.signOut();
-      } catch {
-        // ignore if Amplify isn't actively signed in
-      }
 
       // Remove both cookies the backend may have set
       cookies.remove('token', cookieOpts);
@@ -88,10 +82,11 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   }, [cookies, cookieOpts, setToken, token]);
 
   const handleError = useCallback(
-    async (e: Error) => {
-      if (e.message.includes('401')) {
-        // Unauthorized, log out user
+    async (in_error: Error) => {
+      if (in_error.message.includes('401')) {
         await logout();
+        const next = encodeURIComponent(window.location.pathname || '/');
+        window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
       }
     },
     [logout]
@@ -134,26 +129,11 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     [setAuthUser]
   );
 
-  // Keep existing Cognito refresh (no-op when VITE_USE_COGNITO is false)
-  // TODO: Removine this logic if we fully switch to SAML only
+  // New, SAML-only "refresh": just refetch the profile if we already have a token
   const refreshUser = useCallback(async () => {
-    try {
-      if (!token && import.meta.env.VITE_USE_COGNITO) {
-        const session = await Auth.currentSession();
-        const { token: newToken } = await apiPost<{
-          token: string;
-          user: User;
-        }>(ENDPOINTS.V1_CALLBACK, {
-          body: {
-            token: session.getIdToken().getJwtToken()
-          }
-        });
-        setToken(newToken);
-      }
-    } catch (error) {
-      console.log(error);
-    }
-  }, [apiPost, setToken, token]);
+    if (!token) return;
+    await getProfile();
+  }, [token, getProfile]);
 
   // SPA token update from cookies after SAML ACS redirect
   useEffect(() => {
