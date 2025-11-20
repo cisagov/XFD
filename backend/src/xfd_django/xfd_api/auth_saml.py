@@ -33,6 +33,7 @@ router = APIRouter()
 # Env helpers & config
 # =============================================================================
 def _env_truthy(in_var: Optional[str]) -> bool:
+    """Return True if an environment variable-like string is truthy."""
     if in_var is None:
         return False
     return in_var.strip().lower() in {"1", "true", "yes", "y", "on"}
@@ -63,20 +64,23 @@ def _read_text_file(path: str) -> str:
 # =============================================================================
 # Injectable IdP parser + lazy settings cache to avoid import-time fetch errors
 # =============================================================================
-_IdPParser = OneLogin_Saml2_IdPMetadataParser
-_SAML_SETTINGS_CACHE: Optional[Dict[str, Any]] = None
+
+
+class _SamlConfig:
+    """Mutable SAML settings holder used to avoid module-level globals."""
+
+    idp_parser = OneLogin_Saml2_IdPMetadataParser
+    settings_cache: Optional[Dict[str, Any]] = None
 
 
 def reset_saml_settings_cache_for_tests() -> None:
     """Clear cached SAML settings for tests."""
-    global _SAML_SETTINGS_CACHE
-    _SAML_SETTINGS_CACHE = None
+    _SamlConfig.settings_cache = None
 
 
 def set_idp_metadata_parser_for_tests(parser_cls) -> None:
     """Inject a fake IdP metadata parser for tests."""
-    global _IdPParser
-    _IdPParser = parser_cls
+    _SamlConfig.idp_parser = parser_cls
 
 
 def _build_sp_settings() -> Dict[str, Any]:
@@ -85,7 +89,7 @@ def _build_sp_settings() -> Dict[str, Any]:
         raise RuntimeError("OKTA_SAML_METADATA_URL is not set")
 
     # Fetch & parse IdP metadata
-    idp_data = _IdPParser.parse_remote(OKTA_METADATA_URL)
+    idp_data = _SamlConfig.idp_parser.parse_remote(OKTA_METADATA_URL)
 
     sp_settings: Dict[str, Any] = {
         "strict": False,  # consider True once IdP config is finalized
@@ -136,21 +140,20 @@ def _build_sp_settings() -> Dict[str, Any]:
                 logger.info("SAML encryption ENABLED (cert present).")
             except FileNotFoundError:
                 logger.warning(
-                    "SAML_SP_CERT_PATH set but file not found; continuing without encryption."
+                    "SAML_SP_CERT_PATH set but file not found; continuing without encryption.",
                 )
         else:
             logger.info("No SP cert configured; encryption NOT advertised.")
 
     # Merge with IdP metadata
-    return _IdPParser.merge_settings(sp_settings, idp_data)
+    return _SamlConfig.idp_parser.merge_settings(sp_settings, idp_data)
 
 
 def _get_settings_dict() -> Dict[str, Any]:
     """Return the merged SAML settings (build lazily and cache)."""
-    global _SAML_SETTINGS_CACHE
-    if _SAML_SETTINGS_CACHE is None:
-        _SAML_SETTINGS_CACHE = _build_sp_settings()
-    return _SAML_SETTINGS_CACHE
+    if _SamlConfig.settings_cache is None:
+        _SamlConfig.settings_cache = _build_sp_settings()
+    return _SamlConfig.settings_cache
 
 
 # =============================================================================
@@ -170,7 +173,8 @@ def _starlette_to_saml_request(request: Request) -> Dict[str, Any]:
 
 
 def _get_auth(
-    request: Request, with_post: Optional[dict] = None
+    request: Request,
+    with_post: Optional[dict] = None,
 ) -> OneLogin_Saml2_Auth:
     """Return a OneLogin_Saml2_Auth instance for the given request."""
     data = _starlette_to_saml_request(request)
@@ -268,9 +272,19 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
 
     is_https = BACKEND_DOMAIN.startswith("https://")
     resp.set_cookie(
-        "token", token, httponly=False, secure=is_https, samesite="Lax", path="/"
+        "token",
+        token,
+        secure=is_https,
+        samesite="Lax",
+        path="/",
     )
-    resp.set_cookie("crossfeed-token", token, secure=is_https, samesite="Lax", path="/")
+    resp.set_cookie(
+        "crossfeed-token",
+        token,
+        secure=is_https,
+        samesite="Lax",
+        path="/",
+    )
     return resp
 
 
@@ -279,13 +293,14 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
 # =============================================================================
 @router.get("/saml/metadata")
 def saml_metadata():
-    """SAML SP metadata endpoint."""
+    """Return the SAML SP metadata document."""
     settings = OneLogin_Saml2_Settings(settings=_get_settings_dict())
     metadata = settings.get_sp_metadata()
     errors = settings.validate_metadata(metadata)
     if errors:
         raise HTTPException(
-            status_code=500, detail=f"SP metadata invalid: {', '.join(errors)}"
+            status_code=500,
+            detail=f"SP metadata invalid: {', '.join(errors)}",
         )
     return Response(content=metadata, media_type="application/xml")
 
@@ -293,9 +308,9 @@ def saml_metadata():
 @router.get("/saml/login")
 def saml_login(request: Request, next: str = "/"):
     """
-    SP-initiated login. Optional `next` controls where the user lands after login.
+    Start an SP-initiated SAML login.
 
-    Pass a *path-only* RelayState to Okta.
+    Optional `next` controls where the user lands after login.
     """
     next_path = _path_only(request.query_params.get("next"))
     auth = _get_auth(request)
@@ -304,7 +319,7 @@ def saml_login(request: Request, next: str = "/"):
 
 @router.post("/saml/acs")
 async def saml_acs(request: Request):
-    """Process the SAML response posted by Okta: validate, upsert user, JWT, cookies, redirect."""
+    """Process the SAML response, upsert a user, issue JWT, and set cookies."""
     form = dict(await request.form())
     auth = _get_auth(request, with_post=form)
     auth.process_response()
@@ -331,7 +346,7 @@ async def saml_acs(request: Request):
 
 @router.get("/saml/logout")
 def saml_logout(request: Request, next: str = "/"):
-    """App logout logic ()."""
+    """Log the user out of the app and clear auth cookies."""
     next_path = _path_only(request.query_params.get("next"))
     target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
     resp = RedirectResponse(target, status_code=303)
