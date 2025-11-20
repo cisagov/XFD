@@ -111,6 +111,7 @@ ssm_qualys_username                  = "/crossfeed/integration/QUALYS_USERNAME"
 ssm_qualys_password                  = "/crossfeed/integration/QUALYS_PASSWORD"
 ssm_nist_api_key                     = "/crossfeed/integration/NIST_API_KEY"
 ssm_vs_pull_date_range               = "/crossfeed/integration/VS_PULL_DATE_RANGE"
+ssm_latest_port_scan_cutoff          = "/crossfeed/integration/LATEST_PORT_SCAN_CUTOFF"
 create_elasticache_cluster           = true
 matomo_availability_zone             = "us-east-1a"
 create_email_sender_instance         = false
