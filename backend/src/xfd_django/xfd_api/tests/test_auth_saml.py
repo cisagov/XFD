@@ -524,3 +524,31 @@ def test_metadata_no_encryption_when_cert_missing(
     assert resp.status_code == 200
     xml = resp.text
     assert '<KeyDescriptor use="encryption"' not in xml
+
+
+@pytest.mark.django_db
+def test_saml_logout_clears_cookies_and_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that /saml/logout clears cookies and redirects to frontend root."""
+    client, _saml_mod, _user_manager = _mount_client(
+        monkeypatch,
+        env={
+            "IS_LOCAL": "1",
+            "BACKEND_DOMAIN": "http://localhost:3000",
+            "FRONTEND_DOMAIN": "http://localhost",
+            "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
+        },
+    )
+
+    # Hit logout without following redirect so we see the 303
+    resp = client.get("/saml/logout", follow_redirects=False)
+
+    assert resp.status_code in (302, 303)
+    # Basic sanity: it should redirect back to the SPA root by default
+    assert resp.headers["location"] == "http://localhost/"
+
+    # Optional: verify cookies are being cleared (Set-Cookie with empty value)
+    set_cookie_headers = resp.headers.get("set-cookie", "")
+    assert "token=" in set_cookie_headers
+    assert "crossfeed-token=" in set_cookie_headers
