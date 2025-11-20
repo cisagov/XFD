@@ -130,6 +130,9 @@ class ECSClient:
                             "XPANSE_API_KEY": os.getenv("XPANSE_API_KEY"),
                             "XPANSE_AUTH_ID": os.getenv("XPANSE_AUTH_ID"),
                             "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "90"),
+                            "LATEST_PORT_SCAN_CUTOFF": os.get(
+                                "LATEST_PORT_SCAN_CUTOFF", "14"
+                            ),
                         },
                         detach=True,
                     )
