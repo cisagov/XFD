@@ -7,7 +7,6 @@ import {
 } from '../../utils/filters';
 
 test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284', () => {
-  
   // Helper function to open VS Dashboard filters
   async function openVSFiltersDrawer(page: any) {
     await page.waitForLoadState('domcontentloaded');
@@ -30,21 +29,30 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
   // Helper to check if filters have values
   async function checkFiltersHaveValues(page: any) {
     await openVSFiltersDrawer(page);
-    
-    const regionInput = page.getByRole('combobox', { name: /^region$/i }).first();
+
+    const regionInput = page
+      .getByRole('combobox', { name: /^region$/i })
+      .first();
     const currentRegionValue = await regionInput.inputValue();
-    
-    const orgInput = page.getByRole('combobox', { name: /^organization$/i }).first();
+
+    const orgInput = page
+      .getByRole('combobox', { name: /^organization$/i })
+      .first();
     const currentOrgValue = await orgInput.inputValue();
-    
-    console.log(`Filter check - Region: "${currentRegionValue}", Org: "${currentOrgValue}"`);
-    
+
+    console.log(
+      `Filter check - Region: "${currentRegionValue}", Org: "${currentOrgValue}"`
+    );
+
     await closeVSFiltersDrawer(page);
-    
+
     return {
       region: currentRegionValue,
       org: currentOrgValue,
-      hasFilters: currentRegionValue !== '' && !currentRegionValue.includes('All Regions') && currentOrgValue !== ''
+      hasFilters:
+        currentRegionValue !== '' &&
+        !currentRegionValue.includes('All Regions') &&
+        currentOrgValue !== ''
     };
   }
 
@@ -53,9 +61,9 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     pageAsGlobalView
   }) => {
     const page = pageAsGlobalView;
-    
+
     console.log('=== Testing Drill-down Filter Persistence (Global View) ===');
-    
+
     // Navigate to VS Dashboard
     await page.goto(ROUTES.VSDASHBOARD);
     await page.waitForLoadState('domcontentloaded');
@@ -72,15 +80,23 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
 
     // Step 2: Drill-down navigation (Key Metrics buttons)
     console.log('Step 2: Drilling down via Key Metrics');
-    const kevButton = page.getByRole('button', { name: /detected kevs/i }).first();
-    const vulnButton = page.getByRole('button', { name: /detected vulnerabilities/i }).first();
-    
+    const kevButton = page
+      .getByRole('button', { name: /detected kevs/i })
+      .first();
+    const vulnButton = page
+      .getByRole('button', { name: /detected vulnerabilities/i })
+      .first();
+
     if (await kevButton.isVisible({ timeout: 5000 })) {
       await kevButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**', { timeout: 10000 });
+      await page.waitForURL('**/inventory/vulnerabilities**', {
+        timeout: 10000
+      });
     } else if (await vulnButton.isVisible({ timeout: 5000 })) {
       await vulnButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**', { timeout: 10000 });
+      await page.waitForURL('**/inventory/vulnerabilities**', {
+        timeout: 10000
+      });
     } else {
       test.skip(true, 'No drill-down elements available');
     }
@@ -94,7 +110,7 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     // Step 4: Verify filters are preserved
     console.log('Step 4: Checking if filters persisted');
     const finalFilters = await checkFiltersHaveValues(page);
-    
+
     expect(finalFilters.hasFilters).toBeTruthy();
     console.log('✅ PASS: Filters correctly persisted after drill-down');
   });
@@ -104,9 +120,11 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     pageAsGlobalView
   }) => {
     const page = pageAsGlobalView;
-    
-    console.log('=== Testing Drill-down + Domains Tab Filter Persistence (Global View) ===');
-    
+
+    console.log(
+      '=== Testing Drill-down + Domains Tab Filter Persistence (Global View) ==='
+    );
+
     // Navigate to VS Dashboard
     await page.goto(ROUTES.VSDASHBOARD);
     await page.waitForLoadState('domcontentloaded');
@@ -123,10 +141,14 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
 
     // Step 2: Drill-down to Findings Library
     console.log('Step 2: Drilling down to Findings Library');
-    const kevButton = page.getByRole('button', { name: /detected kevs/i }).first();
+    const kevButton = page
+      .getByRole('button', { name: /detected kevs/i })
+      .first();
     if (await kevButton.isVisible({ timeout: 5000 })) {
       await kevButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**', { timeout: 10000 });
+      await page.waitForURL('**/inventory/vulnerabilities**', {
+        timeout: 10000
+      });
     } else {
       test.skip(true, 'No drill-down elements available');
     }
@@ -151,9 +173,11 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     // Step 5: Verify filters are preserved
     console.log('Step 5: Checking if filters persisted after Domains tab');
     const finalFilters = await checkFiltersHaveValues(page);
-    
+
     expect(finalFilters.hasFilters).toBeTruthy();
-    console.log('✅ PASS: Filters correctly persisted after drill-down + Domains tab');
+    console.log(
+      '✅ PASS: Filters correctly persisted after drill-down + Domains tab'
+    );
   });
 
   // ✅ Browser back navigation preserves filters
@@ -161,9 +185,9 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     pageAsGlobalView
   }) => {
     const page = pageAsGlobalView;
-    
+
     console.log('=== Testing Browser Back Navigation (Global View) ===');
-    
+
     // Navigate to VS Dashboard
     await page.goto(ROUTES.VSDASHBOARD);
     await page.waitForLoadState('domcontentloaded');
@@ -180,7 +204,9 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
 
     // Step 2: Drill-down navigation
     console.log('Step 2: Drilling down');
-    const kevButton = page.getByRole('button', { name: /detected kevs/i }).first();
+    const kevButton = page
+      .getByRole('button', { name: /detected kevs/i })
+      .first();
     if (await kevButton.isVisible({ timeout: 5000 })) {
       await kevButton.click();
       await page.waitForURL('**/inventory/vulnerabilities**');
@@ -198,12 +224,12 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     // Step 4: Verify filters are preserved
     console.log('Step 4: Checking filters after browser back');
     const finalFilters = await checkFiltersHaveValues(page);
-    
+
     expect(finalFilters.hasFilters).toBeTruthy();
     console.log('✅ PASS: Filters preserved with browser back navigation');
   });
 
-  // Note: Additional test scenarios (menu navigation, search results tab) 
+  // Note: Additional test scenarios (menu navigation, search results tab)
   // were identified but skipped due to technical limitations in automated testing.
   // Manual testing confirms the feature works correctly for these scenarios.
 });
