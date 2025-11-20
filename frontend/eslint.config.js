@@ -7,7 +7,7 @@ import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 
 export default [
   {
-    ignores: ['tests/**', 'assets']
+    ignores: ['tests/**', 'assets', 'dist/**', 'node_modules/**', 'build']
   },
 
   // TypeScript files (*.ts, *.tsx)
