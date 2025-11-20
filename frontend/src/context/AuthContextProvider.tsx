@@ -90,6 +90,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const handleError = useCallback(
     async (e: Error) => {
       if (e.message.includes('401')) {
+        // Unauthorized, log out user
         await logout();
       }
     },
@@ -160,6 +161,7 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       const cookieToken =
         cookies.get('token') || cookies.get('crossfeed-token');
       if (cookieToken) {
+        // Set token from cookie if we don't have one yet
         setToken(cookieToken);
       }
     }
