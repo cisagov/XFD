@@ -9,6 +9,7 @@ import logging
 import os
 import time
 from typing import Iterable, Optional
+import uuid
 
 # Third-Party Libraries
 from django.db import connections, transaction
@@ -194,6 +195,7 @@ PortScanRow = namedtuple(
 LatestPortScanRow = namedtuple(
     "LatestPortScanRow",
     [
+        "id",
         "port_scan_id",
         "ip_string",
         "ip_id",
@@ -288,6 +290,7 @@ def insert_port_scans_sql(
         # Build LatestPortScanRow safely
         # ---------------------------
         latest_row = LatestPortScanRow(
+            id=str(uuid.uuid4()),
             port_scan_id=ps_id,
             ip_string=ip_str,
             ip_id=ip_obj.id if ip_obj else None,
@@ -390,7 +393,7 @@ def insert_port_scans_sql(
                 try:
                     execute_values(
                         cursor,
-                        insert_portscan_sql.as_string(cursor),
+                        insert_portscan_sql.as_string(cursor.cursor),
                         subset,
                         page_size=PAGE_SIZE,
                     )
@@ -411,7 +414,7 @@ def insert_port_scans_sql(
                     try:
                         execute_values(
                             cursor,
-                            insert_latest_sql.as_string(cursor),
+                            insert_latest_sql.as_string(cursor.cursor),
                             latest_subset,
                             page_size=PAGE_SIZE,
                         )
