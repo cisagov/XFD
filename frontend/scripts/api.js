@@ -5,7 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
-import logger from '@/utils/logger.js';
+import { logger } from '../src/utils/logger.js';
 
 export const app = express();
 

@@ -1,5 +1,5 @@
 // Main entrypoint for dev server.
-import logger from '@/utils/logger.js';
+import { logger } from '../src/utils/logger.js';
 import { app } from './api.js';
 
 const port = 3000;
