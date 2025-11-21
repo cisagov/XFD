@@ -271,6 +271,11 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
     resp = RedirectResponse(target, status_code=303)
 
     is_https = BACKEND_DOMAIN.startswith("https://")
+    # TODO: CRASM-3443 Refactor token usage globally to reduce security risks for XSS.
+    # Avoid tokens in localStorage and set cookie flags appropriately for security.
+    # Determine need for "token" and "crossfeed-token" and adjust accordingly.
+
+    # Set auth cookies to match current design expectations.
     resp.set_cookie(
         "token",
         token,
