@@ -5,6 +5,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
+import logger from '@/utils/logger.js';
 
 export const app = express();
 
@@ -12,7 +13,7 @@ app.use((req, res, next) => {
   const sanitizedHeaders = { ...req.headers };
   // Remove or replace sensitive headers
   delete sanitizedHeaders['authorization'];
-  console.log(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
+  logger.info(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
   next();
 });
 

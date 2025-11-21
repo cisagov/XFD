@@ -1,6 +1,6 @@
 import React from 'react';
-import { Chip } from '@mui/material';
-import { Stack } from '@mui/system';
+import Chip from '@mui/material/Chip';
+import Stack from '@mui/system/Stack';
 
 interface GraphChipProps {
   data: {

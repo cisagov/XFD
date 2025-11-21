@@ -1,5 +1,7 @@
 import React from 'react';
-import { Link, Tooltip, Typography } from '@mui/material';
+import Link from '@mui/material/Link';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
 
 interface TruncatedLinkProps {
   text: string | null;
