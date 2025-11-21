@@ -62,7 +62,7 @@ export function useVulnScanData(orgId: string) {
       } catch (err: any) {
         logger.error(
           'useVulnScanData: Failed to load vulnerability scan data',
-          { error: err, organizationId }
+          { error: err, organizationId: orgId }
         );
         setError(
           err.message +
