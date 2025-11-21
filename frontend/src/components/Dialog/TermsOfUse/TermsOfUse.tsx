@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import {
-  Button,
-  Checkbox,
-  FormControlLabel,
-  Typography,
-  Box,
-  Stack
-} from '@mui/material';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Typography from '@mui/material/Typography';
+import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 
@@ -33,7 +31,7 @@ export const TermsOfUse: React.FC = () => {
         message: 'Your account has been successfully created.',
         showFirstLoginPopup: true
       });
-    } catch (e: any) {
+    } catch {
       // handle error
     }
   };

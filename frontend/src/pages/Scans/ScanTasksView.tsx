@@ -1,32 +1,31 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { OrgQuery } from 'types';
-import { Scan, ScanTask } from 'types';
-import { useAuthContext } from 'context';
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
-import classes from './Scans.module.scss';
 import { FaSyncAlt } from 'react-icons/fa';
 import { LazyLog } from 'react-lazylog';
 import { Button } from '@trussworks/react-uswds';
-import {
-  Alert,
-  Button as MuiButton,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Icon,
-  IconButton,
-  Menu,
-  MenuItem,
-  Paper,
-  Typography
-} from '@mui/material';
-import { Box, Stack } from '@mui/system';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import MuiButton from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Icon from '@mui/material/Icon';
+import IconButton from '@mui/material/IconButton';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { OrgQuery } from 'types';
+import { Scan, ScanTask } from 'types';
+import { useAuthContext } from 'context';
+import classes from './Scans.module.scss';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import { KeyboardArrowDown } from '@mui/icons-material';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface ApiResponse {
   result: ScanTask[];

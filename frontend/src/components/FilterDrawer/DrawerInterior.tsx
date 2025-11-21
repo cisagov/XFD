@@ -1,34 +1,29 @@
 import React, { useMemo } from 'react';
-import { logger } from '@/utils/logger';
-import {
-  AccordionDetails,
-  Accordion as MuiAccordion,
-  AccordionSummary as MuiAccordionSummary,
-  IconButton,
-  Stack,
-  Typography,
-  Box,
-  List,
-  FormControlLabel,
-  ListItem,
-  FormGroup,
-  Radio,
-  useTheme,
-  Checkbox
-} from '@mui/material';
-import {
-  DeleteOutline,
-  ExpandMore,
-  FiberManualRecordRounded
-} from '@mui/icons-material';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import Radio from '@mui/material/Radio';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
+import DeleteOutline from '@mui/icons-material/DeleteOutline';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import { FacetFilter, TaggedArrayInput } from 'components';
 import { ContextType } from 'context/SearchProvider';
 import { useAuthContext } from 'context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
-import { Facet } from '@elastic/react-search-ui';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -62,9 +57,6 @@ const FiltersApplied: React.FC = () => {
     />
   );
 };
-
-const Accordion = MuiAccordion;
-const AccordionSummary = MuiAccordionSummary;
 
 export const DrawerInterior: React.FC<Props> = (props) => {
   const {
@@ -345,7 +337,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <AccordionDetails>
             <Stack sx={{ overflowY: 'scroll', maxHeight: '300px' }}>
               {facets.no_services &&
-                facets.no_services[0].data.map((option: { count: any }) => (
+                facets.no_services[0].data.map(() => (
                   <FormControlLabel
                     key="no_services"
                     control={

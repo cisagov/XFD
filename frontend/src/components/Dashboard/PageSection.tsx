@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Grid } from '@mui/material';
+import { useLocation, useHistory } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Grid from '@mui/material/Grid';
 import { useAuthContext } from 'context';
 import useFirstLoginPopup from 'hooks/useFirstLoginPopup';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 import FirstLoginPopup from 'components/Dialog/FirstLoginPopup';
 import infoIconContent from 'pages/VulnerabilityScanDash/infoIconContent.json';
-import { useLocation, useHistory } from 'react-router-dom';
 
 const tooltipContentJson = infoIconContent.infoIconContent;
 

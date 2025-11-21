@@ -25,12 +25,12 @@ const MultiSelect = (
         IndicatorSeparator: () => null
       }}
       styles={{
-        container: (provided, state) => ({
+        container: (provided) => ({
           ...provided,
           maxWidth: '30rem',
           zIndex: props.zIndex
         }),
-        control: (provided, state) => ({
+        control: (provided) => ({
           ...provided,
           borderColor: '#565c65',
           borderWidth: 1,
