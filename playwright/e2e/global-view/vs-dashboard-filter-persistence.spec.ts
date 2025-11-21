@@ -1,3 +1,9 @@
+/*
+  /playwright/e2e/global-view/vs-dashboard-filter-persistence.spec.ts
+  Author: Jesse Salinas
+  Date: 11/20/2025
+  Note: Global View Users have read-only filter capabilities across all regions and organizations. These tests verify that filter persistence works correctly for users with full view access during drill-down navigation.
+*/
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
 import { ROUTES } from '../../../frontend/src/constants/routes';
@@ -6,7 +12,7 @@ import {
   selectAnyOrganization
 } from '../../utils/filters';
 
-test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284', () => {
+test.describe('VS Dashboard Filter Persistence - Global View User', () => {
   // Helper function to open VS Dashboard filters
   async function openVSFiltersDrawer(page: any) {
     await page.waitForLoadState('domcontentloaded');
@@ -56,7 +62,7 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     };
   }
 
-  // ✅ Drill-down via Key Metrics persists filters
+  // Drill-down via Key Metrics persists filters
   test('Drill-down via Key Metrics persists filters', async ({
     pageAsGlobalView
   }) => {
@@ -112,10 +118,10 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     const finalFilters = await checkFiltersHaveValues(page);
 
     expect(finalFilters.hasFilters).toBeTruthy();
-    console.log('✅ PASS: Filters correctly persisted after drill-down');
+    console.log('PASS: Filters correctly persisted after drill-down');
   });
 
-  // ✅ Drill-down to Domains tab persists filters
+  // Drill-down to Domains tab persists filters
   test('Drill-down to Domains tab persists filters', async ({
     pageAsGlobalView
   }) => {
@@ -176,11 +182,11 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
 
     expect(finalFilters.hasFilters).toBeTruthy();
     console.log(
-      '✅ PASS: Filters correctly persisted after drill-down + Domains tab'
+      'PASS: Filters correctly persisted after drill-down + Domains tab'
     );
   });
 
-  // ✅ Browser back navigation preserves filters
+  // Browser back navigation preserves filters
   test('Browser back navigation preserves filters', async ({
     pageAsGlobalView
   }) => {
@@ -226,10 +232,6 @@ test.describe('VS Dashboard Filter Persistence - Global View User - CRASM-3284',
     const finalFilters = await checkFiltersHaveValues(page);
 
     expect(finalFilters.hasFilters).toBeTruthy();
-    console.log('✅ PASS: Filters preserved with browser back navigation');
+    console.log('PASS: Filters preserved with browser back navigation');
   });
-
-  // Note: Additional test scenarios (menu navigation, search results tab)
-  // were identified but skipped due to technical limitations in automated testing.
-  // Manual testing confirms the feature works correctly for these scenarios.
 });
