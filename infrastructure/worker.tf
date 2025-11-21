@@ -101,6 +101,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         "${data.aws_ssm_parameter.sixgill_client_secret.arn}",
         "${data.aws_ssm_parameter.ssm_dmz_api_key.arn}",
         "${data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn}",
+        "${data.aws_ssm_parameter.ssm_latest_port_scan_cutoff.arn}",
         "${data.aws_ssm_parameter.ssm_mdl_name.arn}",
         "${data.aws_ssm_parameter.ssm_mdl_password.arn}",
         "${data.aws_ssm_parameter.ssm_mdl_username.arn}",
@@ -349,6 +350,10 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.intelx_api_key.arn}"
       },
       {
+        "name": "LATEST_PORT_SCAN_CUTOFF",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_latest_port_scan_cutoff.arn}"
+      },
+      {
         "name": "LG_API_KEY",
         "valueFrom": "${data.aws_ssm_parameter.lg_api_key.arn}"
       },
@@ -549,6 +554,8 @@ data "aws_ssm_parameter" "ssm_redshift_password" { name = var.ssm_redshift_passw
 data "aws_ssm_parameter" "ssm_dmz_api_key" { name = var.ssm_dmz_api_key }
 
 data "aws_ssm_parameter" "ssm_vs_pull_date_range" { name = var.ssm_vs_pull_date_range }
+
+data "aws_ssm_parameter" "ssm_latest_port_scan_cutoff" { name = var.ssm_latest_port_scan_cutoff }
 
 data "aws_ssm_parameter" "ssm_dmz_sync_endpoint" { name = var.ssm_dmz_sync_endpoint }
 

@@ -126,6 +126,7 @@ ssm_checksum_salt                            = "/crossfeed/staging/CHECKSUM_SALT
 create_elasticache_cluster                   = true
 ssm_dmz_api_key                              = "/crossfeed/staging/DMZ_API_KEY"
 ssm_vs_pull_date_range                       = "/crossfeed/staging/VS_PULL_DATE_RANGE"
+ssm_latest_port_scan_cutoff                  = "/crossfeed/staging/LATEST_PORT_SCAN_CUTOFF"
 ssm_dmz_sync_endpoint                        = "/crossfeed/staging/MDL_SYNC_ENDPOINT"
 create_email_sender_instance                 = false
 email_sender_instance_type                   = "t3.small"

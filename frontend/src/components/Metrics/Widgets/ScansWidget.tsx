@@ -5,7 +5,8 @@ import React, {
   useMemo,
   useRef
 } from 'react';
-import { Box, Paper } from '@mui/material';
+import Box from '@mui/material/Box';
+import Paper from '@mui/material/Paper';
 import {
   DataGrid,
   GridColDef,
