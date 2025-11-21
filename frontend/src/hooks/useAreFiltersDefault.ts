@@ -13,34 +13,25 @@ export const useAreFiltersDefault: UseAreFiltersDefault = (
   return useMemo(() => {
     return filters.every((filter) => {
       const initialFilter = initialFilters.find(
-        (f) => f.field === filter.field
+        (initFilter) => initFilter.field === filter.field
       );
-      // console.log(
-      //   'Comparing filter:',
-      //   filter,
-      //   'with initialFilter:',
-      //   initialFilter
-      // );
-      // if (!initialFilter || !initialFilter.values) return false;
+      if (!initialFilter) return false;
 
-      const initialValuesSet = new Set(initialFilter.values);
-      const currentValuesSet = new Set(filter.values);
+      const current = filter.values || [];
+      const initial = initialFilter.values || [];
 
-      // console.log(
-      //   `Filter Field: ${filter.field}, Initial Values: ${Array.from(
-      //     initialValuesSet
-      //   )}, Current Values: ${Array.from(currentValuesSet)}`
-      // );
-      // console.log(
-      //   `Initial Values Set Size: ${initialValuesSet.size}, Current Values Set Size: ${currentValuesSet.size}`
-      // );
+      if (current.length !== initial.length) return false;
 
-      // if (initialValuesSet.size !== currentValuesSet.size) return false;
+      const currentIds = current.map((val: any) =>
+        typeof val === 'object' && val !== null ? (val.id ?? val.name) : val
+      );
+      const initialIds = initial.map((val: any) =>
+        typeof val === 'object' && val !== null ? (val.id ?? val.name) : val
+      );
 
-      for (const value of initialValuesSet) {
-        if (!currentValuesSet.has(value)) return false;
-      }
-      return true;
+      return (
+        JSON.stringify(currentIds.sort()) === JSON.stringify(initialIds.sort())
+      );
     });
   }, [filters, initialFilters]);
 };

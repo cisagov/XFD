@@ -57,16 +57,6 @@ export const FilterDrawer: FC<
   };
 
   const defaultFilters = useAreFiltersDefault(filters, initialFilters);
-  // console.log('initialFilters:', initialFilters);
-  // console.log('filters:', filters);
-  // console.log('are filters default:', defaultFilters);
-  // console.log('=== Filter Debug ===');
-  // console.log('filters.length:', filters.length);
-  // console.log('initialFilters.length:', initialFilters.length);
-  // console.log('filters:', JSON.stringify(filters, null, 2));
-  // console.log('initialFilters:', JSON.stringify(initialFilters, null, 2));
-  // console.log('are filters default:', defaultFilters);
-  // console.log('===================');
 
   const clearFiltersAndSearch = () => {
     setSearchTerm('', {
