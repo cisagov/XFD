@@ -5,7 +5,7 @@ import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import helmet from 'helmet';
 import fs from 'fs';
-import logger from '@/utils/logger.js';
+import { logger } from '../src/utils/logger.js';
 
 export const app = express();
 
