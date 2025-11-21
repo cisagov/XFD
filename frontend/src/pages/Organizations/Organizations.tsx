@@ -78,6 +78,7 @@ export const Organizations: React.FC = () => {
         }
         if (i.field === 'state') filters.state = String(i.value).trim();
         if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+        if (i.field === 'acronym') filters.acronym = String(i.value).trim();
       });
       return filters;
     },
