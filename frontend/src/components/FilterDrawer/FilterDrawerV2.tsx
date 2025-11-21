@@ -1,4 +1,4 @@
-import React, { FC } from 'react';
+import React, { FC, useMemo } from 'react';
 import { ContextType } from 'context';
 import { withSearch } from '@elastic/react-search-ui';
 import { useTheme } from '@mui/material/styles';
@@ -7,9 +7,10 @@ import Drawer from '@mui/material/Drawer';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import { matchPath } from 'utils/matchPath';
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 import { useLocation } from 'react-router-dom';
 import { Stack } from '@mui/system';
-import { Button, IconButton, Toolbar, Typography } from '@mui/material';
+import { Button, IconButton, Typography } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
 import { ROUTES } from '@/constants/routes';
@@ -52,6 +53,18 @@ export const FilterDrawer: FC<
       });
     }
   };
+
+  const defaultFilters = useAreFiltersDefault(filters, initialFilters);
+  // console.log('initialFilters:', initialFilters);
+  // console.log('filters:', filters);
+  // console.log('are filters default:', defaultFilters);
+  // console.log('=== Filter Debug ===');
+  // console.log('filters.length:', filters.length);
+  // console.log('initialFilters.length:', initialFilters.length);
+  // console.log('filters:', JSON.stringify(filters, null, 2));
+  // console.log('initialFilters:', JSON.stringify(initialFilters, null, 2));
+  // console.log('are filters default:', defaultFilters);
+  // console.log('===================');
 
   const clearFiltersAndSearch = () => {
     setSearchTerm('', {
@@ -138,27 +151,28 @@ export const FilterDrawer: FC<
       </Box>
       {matchPath([ROUTES.INVENTORY], pathname) && (
         <Box>
-          {filters.length > 0 && (
-            <Box
-              paddingBottom={5}
-              display="flex"
-              width="100%"
-              justifyContent="center"
+          {/* {filters.length > 0 && ( */}
+          <Box
+            paddingBottom={5}
+            display="flex"
+            width="100%"
+            justifyContent="center"
+          >
+            <Button
+              onClick={clearFiltersAndSearch}
+              disabled={defaultFilters}
+              sx={{
+                color: 'primary.dark',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                lineHeight: '20px',
+                letterSpacing: '0.1em'
+              }}
             >
-              <Button
-                onClick={clearFiltersAndSearch}
-                sx={{
-                  color: 'primary.dark',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  lineHeight: '20px',
-                  letterSpacing: '0.1em'
-                }}
-              >
-                Reset
-              </Button>
-            </Box>
-          )}
+              Reset
+            </Button>
+          </Box>
+          {/* )} */}
         </Box>
       )}
     </Stack>
