@@ -222,22 +222,21 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
     last = identity["last"]
     groups = identity["groups"]
 
+    # Try to find the user by OktaId first
     user = User.objects.filter(okta_id=okta_id).first()
 
     if not user:
-        legacy = (
-            User.objects.filter(email=email, okta_id__isnull=True).first()
-            if email
-            else None
-        )
-        if legacy:
-            user = legacy
+        # If no user with OktaId exists, try to find a legacy user by email
+        user = User.objects.filter(email=email).first()
+        if user:
+            # Update the legacy user in place
             user.okta_id = okta_id
             user.first_name = user.first_name or (first or None)
             user.last_name = user.last_name or (last or None)
             if user.invite_pending:
                 user.invite_pending = False
         else:
+            # Create a new user if no legacy user exists
             user = User(
                 okta_id=okta_id,
                 email=email or None,
@@ -248,17 +247,20 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
                 can_select_own_state=True,
             )
     else:
+        # Update the existing user with OktaId
         user.first_name = user.first_name or (first or None)
         user.last_name = user.last_name or (last or None)
         if email and user.email != email:
             user.email = email
 
+    # Update additional fields
     user.cognito_username = None
     user.cognito_use_case_description = None
     user.cognito_email_verified = True
     user.cognito_groups = groups
     user.last_logged_in = datetime.now(timezone.utc)
 
+    # Update login block status and save the user
     update_login_block_status(user)
     user.save()
     return user
