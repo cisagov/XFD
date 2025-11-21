@@ -237,6 +237,9 @@ def insert_port_scans_sql(
     tuples = []
     latest_tuples = []
 
+    # --------------------------------------------------
+    # Build tuples
+    # --------------------------------------------------
     for item in port_scan_batch:
         ps = item["raw"]
         svc = item["service_obj"]
@@ -318,7 +321,7 @@ def insert_port_scans_sql(
         return
 
     # --------------------------------------------------
-    # Deduplicate latest_tuples using named attributes
+    # Deduplicate by (org, ip_id, port, protocol)
     # --------------------------------------------------
     deduped = {}
 
@@ -329,6 +332,7 @@ def insert_port_scans_sql(
         if not existing:
             deduped[key] = row
         else:
+            # Keep newest timestamp
             if row.time_scanned and (
                 not existing.time_scanned or row.time_scanned > existing.time_scanned
             ):
@@ -337,7 +341,7 @@ def insert_port_scans_sql(
     latest_tuples = list(deduped.values())
 
     # --------------------------------------------------
-    # Build SQL
+    # Build SQL strings (Redshift-safe via str())
     # --------------------------------------------------
     insert_portscan_sql = sql.SQL(
         "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT (id) DO NOTHING"
@@ -369,6 +373,10 @@ def insert_port_scans_sql(
         where_sql=where_sql,
     )
 
+    # Convert SQL safely to strings for Redshift
+    portscan_sql_str = str(insert_portscan_sql)
+    latest_sql_str = str(insert_latest_sql)
+
     PAGE_SIZE = 5000
     BATCH_COMMIT = 10000
 
@@ -385,11 +393,12 @@ def insert_port_scans_sql(
             with connections[db].cursor() as cursor:
                 cursor.execute("SET LOCAL synchronous_commit = OFF;")
 
+                # --- port_scan insert ---
                 try:
                     execute_values(
                         cursor,
-                        insert_portscan_sql.as_string(cursor),
-                        [row for row in subset],
+                        portscan_sql_str,
+                        subset,
                         page_size=PAGE_SIZE,
                     )
                 except Exception as exc:
@@ -404,12 +413,13 @@ def insert_port_scans_sql(
                     )
                     raise
 
+                # --- latest_port_scan upsert ---
                 if latest_subset:
                     try:
                         execute_values(
                             cursor,
-                            insert_latest_sql.as_string(cursor),
-                            [row for row in latest_subset],
+                            latest_sql_str,
+                            latest_subset,
                             page_size=PAGE_SIZE,
                         )
                     except Exception as exc:
