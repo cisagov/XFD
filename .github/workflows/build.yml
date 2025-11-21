@@ -44,6 +44,13 @@ jobs:
       - id: setup-env
         uses: cisagov/setup-env-github-action@develop
       - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - name: Install root npm dependencies
+        run: npm ci
       - id: setup-python
         uses: actions/setup-python@v4
         with:

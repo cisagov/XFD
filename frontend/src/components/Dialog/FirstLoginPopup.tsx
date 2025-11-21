@@ -1,5 +1,8 @@
 import React from 'react';
-import { Box, IconButton, Modal, Typography } from '@mui/material';
+import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import Modal from '@mui/material/Modal';
+import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
 
 type FirstLoginPopupProps = {

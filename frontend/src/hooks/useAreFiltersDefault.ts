@@ -26,14 +26,14 @@ export const useAreFiltersDefault: UseAreFiltersDefault = (
       const initialValuesSet = new Set(initialFilter.values);
       const currentValuesSet = new Set(filter.values);
 
-      console.log(
-        `Filter Field: ${filter.field}, Initial Values: ${Array.from(
-          initialValuesSet
-        )}, Current Values: ${Array.from(currentValuesSet)}`
-      );
-      console.log(
-        `Initial Values Set Size: ${initialValuesSet.size}, Current Values Set Size: ${currentValuesSet.size}`
-      );
+      // console.log(
+      //   `Filter Field: ${filter.field}, Initial Values: ${Array.from(
+      //     initialValuesSet
+      //   )}, Current Values: ${Array.from(currentValuesSet)}`
+      // );
+      // console.log(
+      //   `Initial Values Set Size: ${initialValuesSet.size}, Current Values Set Size: ${currentValuesSet.size}`
+      // );
 
       // if (initialValuesSet.size !== currentValuesSet.size) return false;
 

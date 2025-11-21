@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
-import {
-  Alert,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Select
-} from '@mui/material';
-import { Save } from '@mui/icons-material';
+import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import Save from '@mui/icons-material/Save';
 import { SelectChangeEvent } from '@mui/material/Select';
 import { STATE_OPTIONS } from '@/constants/constants';
 import { useAuthContext } from 'context';
@@ -73,7 +71,7 @@ export const UpdateStateForm: React.FC<{
 
       setIsLoading(false);
       onClose(); // Only close after handling
-    } catch (error) {
+    } catch {
       setErrorRequestMessage(
         'Something went wrong updating the state. Please try again.'
       );

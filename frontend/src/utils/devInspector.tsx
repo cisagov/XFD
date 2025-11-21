@@ -19,9 +19,6 @@ type Props = {
 };
 
 export function DevInspector({ onClickElement, children }: Props) {
-  // No inspector in production bundles
-  if (!import.meta.env.DEV) return <>{children}</>;
-
   // Lazy-load so the module is only pulled in during dev
   const Inspector = React.useMemo(
     () =>
@@ -40,6 +37,9 @@ export function DevInspector({ onClickElement, children }: Props) {
     },
     [onClickElement]
   );
+
+  // No inspector in production bundles
+  if (!import.meta.env.DEV) return <>{children}</>;
 
   return (
     <React.Suspense fallback={<>{children}</>}>

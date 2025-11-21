@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { Stack } from '@mui/system';
-import { Alert, Box, Button as MuiButton, Paper } from '@mui/material';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Queue {
@@ -98,9 +101,9 @@ const QueueMonitorView: React.FC = () => {
     <>
       {errors.global && <Alert severity="error">{errors.global}</Alert>}
       <Stack direction="row" justifyContent="flex-end" mb={2}>
-        <MuiButton variant="contained" onClick={fetchQueues}>
+        <Button variant="contained" onClick={fetchQueues}>
           Refresh
-        </MuiButton>
+        </Button>
       </Stack>
       <Paper elevation={2}>
         <DataGrid
