@@ -324,7 +324,6 @@ def insert_port_scans_sql(
     # Deduplicate by (org, ip_id, port, protocol)
     # --------------------------------------------------
     deduped = {}
-
     for row in latest_tuples:
         key = (row.organization_id, row.ip_id, row.port, row.protocol)
         existing = deduped.get(key)
@@ -332,7 +331,6 @@ def insert_port_scans_sql(
         if not existing:
             deduped[key] = row
         else:
-            # Keep newest timestamp
             if row.time_scanned and (
                 not existing.time_scanned or row.time_scanned > existing.time_scanned
             ):
@@ -341,7 +339,7 @@ def insert_port_scans_sql(
     latest_tuples = list(deduped.values())
 
     # --------------------------------------------------
-    # Build SQL strings (Redshift-safe via str())
+    # Build SQL using sql.SQL (Bandit safe)
     # --------------------------------------------------
     insert_portscan_sql = sql.SQL(
         "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT (id) DO NOTHING"
@@ -373,17 +371,12 @@ def insert_port_scans_sql(
         where_sql=where_sql,
     )
 
-    # Convert SQL safely to strings for Redshift
-    portscan_sql_str = str(insert_portscan_sql)
-    latest_sql_str = str(insert_latest_sql)
-
     PAGE_SIZE = 5000
     BATCH_COMMIT = 10000
-
     total = len(tuples)
 
     # --------------------------------------------------
-    # Insert batched with error logging
+    # Insert in batches using .as_string(cursor) for safety
     # --------------------------------------------------
     for i in range(0, total, BATCH_COMMIT):
         subset = tuples[i : i + BATCH_COMMIT]
@@ -397,7 +390,7 @@ def insert_port_scans_sql(
                 try:
                     execute_values(
                         cursor,
-                        portscan_sql_str,
+                        insert_portscan_sql.as_string(cursor),
                         subset,
                         page_size=PAGE_SIZE,
                     )
@@ -418,7 +411,7 @@ def insert_port_scans_sql(
                     try:
                         execute_values(
                             cursor,
-                            latest_sql_str,
+                            insert_latest_sql.as_string(cursor),
                             latest_subset,
                             page_size=PAGE_SIZE,
                         )
