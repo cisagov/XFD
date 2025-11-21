@@ -3,7 +3,6 @@ import { logger } from '@/utils/logger';
 // Apache License: https://github.com/trussworks/react-uswds/blob/main/LICENSE
 
 import React from 'react';
-
 import { Button } from '@trussworks/react-uswds';
 
 export const ModalToggleButton = ({

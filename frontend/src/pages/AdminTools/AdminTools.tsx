@@ -1,11 +1,15 @@
 import React from 'react';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Tab from '@mui/material/Tab';
+import TabContext from '@mui/lab/TabContext';
+import TabList from '@mui/lab/TabList';
+import TabPanel from '@mui/lab/TabPanel';
 import Notifications from 'pages/Notifications';
 import ScansView from 'pages/Scans/ScansView';
 import ScanTasksView from 'pages/Scans/ScanTasksView';
 import Metrics from '../../components/Metrics/MetricsDashboard';
 import QueueMonitorView from 'pages/Scans/QueueMonitorView';
-import { Box, Container, Tab } from '@mui/material';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Logs } from 'components/Logs/Logs';
 
 export const AdminTools: React.FC = () => {

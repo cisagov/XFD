@@ -1,12 +1,10 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import {
-  Button,
-  Dialog as MuiDialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  type PaperProps
-} from '@mui/material';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import type { PaperProps } from '@mui/material/Paper';
 
 type DialogComponentProps = {
   isOpen: boolean;
@@ -93,7 +91,7 @@ const AnimatedConfirmDialog: React.FC<DialogComponentProps> = ({
     : {};
 
   return (
-    <MuiDialog
+    <Dialog
       open={isOpen}
       onClose={onClose}
       fullWidth
@@ -123,7 +121,7 @@ const AnimatedConfirmDialog: React.FC<DialogComponentProps> = ({
           Confirm
         </Button>
       </DialogActions>
-    </MuiDialog>
+    </Dialog>
   );
 };
 

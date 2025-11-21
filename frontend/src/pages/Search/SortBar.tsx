@@ -1,14 +1,12 @@
 import React from 'react';
-import {
-  IconButton,
-  FormControl,
-  MenuItem,
-  Select,
-  SelectProps,
-  Stack,
-  Typography
-} from '@mui/material';
-import { ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import FormControl from '@mui/material/FormControl';
+import IconButton from '@mui/material/IconButton';
+import MenuItem from '@mui/material/MenuItem';
+import Select, { SelectProps } from '@mui/material/Select';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import ArrowUpward from '@mui/icons-material/ArrowUpward';
+import ArrowDownward from '@mui/icons-material/ArrowDownward';
 import { ContextType } from 'context/SearchProvider';
 
 interface Props {
