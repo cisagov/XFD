@@ -2,19 +2,20 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { styled } from '@mui/material/styles';
 import { useHistory } from 'react-router-dom';
-import {
-  Paper,
-  Accordion,
-  AccordionSummary,
-  Typography,
-  AccordionDetails,
-  List,
-  ListItem,
-  ListItemText,
-  Collapse,
-  Button
-} from '@mui/material';
-import { ExpandLess, ExpandMore, KeyboardBackspace } from '@mui/icons-material';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Collapse from '@mui/material/Collapse';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import KeyboardBackspace from '@mui/icons-material/KeyboardBackspace';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
 import { DefinitionList } from 'components/DefinitionList';
@@ -23,7 +24,6 @@ import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';
 import { useAuthContext } from 'context';
 import { getSeverityColor } from 'utils/getSeverityColor';
-import { Box } from '@mui/system';
 import { ROUTES } from '@/constants/routes';
 
 const PREFIX = 'DomainDetails';

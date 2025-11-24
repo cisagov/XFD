@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit';
 import cors from 'cors';
 import helmet from 'helmet';
 import fs from 'fs';
+import { logger } from '../src/utils/logger.js';
 
 export const app = express();
 
@@ -107,7 +108,7 @@ app.get('*', (req, res) => {
       res.sendFile(path.join(rootDir, 'index.html'));
     }
   } catch (error) {
-    console.error('Error while serving file:', error);
+    logger.error('Error while serving file:', error);
     res.status(500).send('Internal Server Error');
   }
 });

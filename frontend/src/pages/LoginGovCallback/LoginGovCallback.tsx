@@ -5,6 +5,7 @@ import { User } from 'types';
 import { useHistory } from 'react-router-dom';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { ROUTES } from '@/constants/routes';
+import { logger } from '@/utils/logger.js';
 
 type cbResponse = {
   token: string;
@@ -33,6 +34,7 @@ export const LoginGovCallback: React.FC = () => {
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
     } catch (e) {
+      logger.error('Login.gov callback error: ', e);
     } finally {
       // route guard on ROUTES.HOME will respond appropriately
       historyPush(ROUTES.HOME);

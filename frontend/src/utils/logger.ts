@@ -1,4 +1,4 @@
-const isDevelopment = import.meta.env.MODE === 'development';
+const isDevelopment = process.env.MODE === 'development';
 
 /**
  * Logger utility that only logs in development mode.

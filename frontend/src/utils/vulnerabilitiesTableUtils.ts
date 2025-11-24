@@ -101,8 +101,7 @@ export const extractInitialFilters = (state: LocationState) => {
 export const normalizeFilters = (
   filters: GridFilterItem[],
   currentOrganization?: UserOrganization | null | undefined,
-  userType?: string,
-  orgId?: string
+  userType?: string
 ) => {
   const result = filters
     .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
