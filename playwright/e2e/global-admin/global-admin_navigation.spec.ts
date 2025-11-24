@@ -314,7 +314,7 @@ test.describe('Home — Global Admin: Support nav', () => {
   });
 });
 
-test.describe('Home — Global Admin: My Account Naviation', () => {
+test.describe('Home — Global Admin: My Account Navigation', () => {
   test('Account Settings navigates to Account Settings', async ({
     pageAsGlobalAdmin
   }) => {
