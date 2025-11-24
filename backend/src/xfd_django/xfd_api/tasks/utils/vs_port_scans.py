@@ -387,7 +387,7 @@ def insert_port_scans_sql(
                 try:
                     execute_values(
                         cursor,
-                        insert_portscan_sql.as_string(cursor),
+                        insert_portscan_sql.as_string(cursor.cursor),
                         subset,
                         page_size=PAGE_SIZE,
                     )
@@ -408,7 +408,7 @@ def insert_port_scans_sql(
                     try:
                         execute_values(
                             cursor,
-                            insert_latest_sql.as_string(cursor),
+                            insert_latest_sql.as_string(cursor.cursor),
                             latest_subset,
                             page_size=PAGE_SIZE,
                         )
