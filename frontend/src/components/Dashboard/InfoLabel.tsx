@@ -1,13 +1,10 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Link as MuiLink,
-  SxProps,
-  TypographyProps
-} from '@mui/material';
-import InfoTooltipIcon from './InfoTooltipIcon';
 import { useHistory, useLocation } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import { SxProps } from '@mui/system';
+import Typography, { TypographyProps } from '@mui/material/Typography';
+import InfoTooltipIcon from './InfoTooltipIcon';
 import {
   useNavigationContext,
   isVSDashboard,
@@ -81,11 +78,11 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
         <InfoTooltipIcon label={label} tooltipContent={tooltipContent(label)} />
       </Box>
       {viewDetails && link && (
-        <MuiLink href="#" onClick={handleClick}>
+        <Link href="#" onClick={handleClick}>
           <Typography variant="link" component="span" fontWeight="bold">
             View Details
           </Typography>
-        </MuiLink>
+        </Link>
       )}
     </Box>
   );

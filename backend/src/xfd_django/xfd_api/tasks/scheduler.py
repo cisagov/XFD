@@ -14,7 +14,7 @@ from django.utils import timezone
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
-LOGGER = logging.getLogger(__name__)
+
 # Third-Party Libraries
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.helpers.getScanOrganizations import get_scan_organizations
@@ -25,7 +25,35 @@ from xfd_api.tasks.scanExecution import handler as scan_execution_handler
 from xfd_mini_dl.models import Organization, Scan, ScanTask
 
 IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("xfd_api.tasks.scheduler")
+
+
+def safe_parse_arguments(arg_str):
+    """
+    Safely parse scan arguments from a string to a Python dict.
+
+    Handles incorrectly formatted single-quote JSON strings.
+    """
+    if isinstance(arg_str, dict):
+        return arg_str
+
+    if not arg_str:
+        return {}
+
+    try:
+        return json.loads(arg_str)
+    except json.JSONDecodeError as e:
+        # Detect the specific single-quote format issue
+        if "Expecting property name enclosed in double quotes" in str(e):
+            try:
+                fixed = arg_str.replace("'", '"')
+                return json.loads(fixed)
+            except Exception as inner_e:
+                LOGGER.error(f"Failed to recover JSON after quote fix: {inner_e}")
+                return {}
+        else:
+            LOGGER.error(f"Failed to parse scan arguments: {e}")
+            return {}
 
 
 class Scheduler:
@@ -43,6 +71,7 @@ class Scheduler:
 
     def launch_scan_execution(self, scan):  # pylint: disable=R0915
         """Prepare and send scan execution request."""
+        LOGGER.info("Checking scan: %s", scan.name)
         # If global scan, ignore queue and start 1 concurrent task
         scan_schema = SCAN_SCHEMA.get(scan.name, {})
         global_scan = getattr(scan_schema, "global_scan", False)
@@ -146,7 +175,9 @@ class Scheduler:
         args = {}
         if scan.arguments:
             try:
-                args = json.loads(str(scan.arguments))  # convert JSON string -> dict
+                args = safe_parse_arguments(
+                    scan.arguments
+                )  # convert JSON string -> dict
             except Exception as e:
                 LOGGER.error("Failed to parse scan arguments: %s", e)
                 args = {}
@@ -221,7 +252,6 @@ class Scheduler:
             return False
 
         if scan.is_single_scan:
-            LOGGER.info("Single scan")
             return False
 
         return True

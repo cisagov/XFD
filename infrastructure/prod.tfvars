@@ -131,6 +131,7 @@ ssm_xpanse_api_key                  = "/crossfeed/prod/XPANSE_API_KEY"
 ssm_xpanse_auth_id                  = "/crossfeed/prod/XPANSE_AUTH_ID"
 ssm_dmz_api_key                     = "/crossfeed/prod/DMZ_API_KEY"
 ssm_vs_pull_date_range              = "/crossfeed/prod/VS_PULL_DATE_RANGE"
+ssm_latest_port_scan_cutoff         = "/crossfeed/prod/LATEST_PORT_SCAN_CUTOFF"
 ssm_dmz_sync_endpoint               = "/crossfeed/prod/DMZ_SYNC_ENDPOINT"
 create_elasticache_cluster          = true
 create_email_sender_instance        = false

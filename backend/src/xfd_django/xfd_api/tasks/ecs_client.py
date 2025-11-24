@@ -20,6 +20,13 @@ def to_snake_case(input_str):
     return input_str.replace(" ", "-")
 
 
+def default_json_serializer(obj):
+    """Serialize JSON for dates."""
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    raise TypeError("Type {} not serializable".format(type(obj)))
+
+
 class ECSClient:
     """ECS Client."""
 
@@ -65,7 +72,9 @@ class ECSClient:
                         network_mode="backend",
                         mem_limit="4g",
                         environment={
-                            "CROSSFEED_COMMAND_OPTIONS": json.dumps(command_options),
+                            "CROSSFEED_COMMAND_OPTIONS": json.dumps(
+                                command_options, default=default_json_serializer
+                            ),
                             "CF_API_KEY": os.getenv("CF_API_KEY"),
                             "CHECKSUM_SALT": os.getenv("CHECKSUM_SALT"),
                             "PE_API_KEY": os.getenv("PE_API_KEY"),
@@ -121,6 +130,9 @@ class ECSClient:
                             "XPANSE_API_KEY": os.getenv("XPANSE_API_KEY"),
                             "XPANSE_AUTH_ID": os.getenv("XPANSE_AUTH_ID"),
                             "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "90"),
+                            "LATEST_PORT_SCAN_CUTOFF": os.get(
+                                "LATEST_PORT_SCAN_CUTOFF", "14"
+                            ),
                         },
                         detach=True,
                     )
@@ -135,12 +147,12 @@ class ECSClient:
         container_env = [
             {
                 "name": "CROSSFEED_COMMAND_OPTIONS",
-                "value": json.dumps(command_options),
+                "value": json.dumps(command_options, default=default_json_serializer),
             },
             {"name": "SERVICE_TYPE", "value": scan_name},
             {
                 "name": "SERVICE_QUEUE_URL",
-                "value": command_options.get("SERVICE_QUEUE_URL"),
+                "value": command_options.get("SERVICE_QUEUE_URL", ""),
             },
             {
                 "name": "NODE_OPTIONS",
@@ -227,24 +239,53 @@ class ECSClient:
         return len(tasks.get("taskArns", []))
 
     def wait_for_tasks_completion(
-        self, task_arns, poll_interval=30, timeout=60 * 60 * 24  # 1 day
+        self,
+        task_arns,
+        startup_delay=30,
+        poll_interval=5,
+        timeout=60 * 60 * 24,  # 1 day
     ):
-        """Poll ECS tasks until all are stopped or timeout reached."""
+        """Wait for ECS tasks to complete with an initial startup delay."""
         start_time = time.time()
         remaining_tasks = set(task_arns)
+
+        if not remaining_tasks:
+            LOGGER.info("No tasks to monitor.")
+            return
+
+        # Allow ECS a short window to start tasks (30 seconds)
+        LOGGER.info("Sleeping %d seconds for ECS tasks to start...", startup_delay)
+        time.sleep(startup_delay)
 
         while remaining_tasks:
             if time.time() - start_time > timeout:
                 LOGGER.error("Timeout waiting for ECS tasks to complete.")
                 break
 
-            response = self.client.describe_tasks(
-                cluster=os.getenv("FARGATE_CLUSTER_NAME"),
-                tasks=list(remaining_tasks),
-            )
-            for task in response.get("tasks", []):
-                if task["lastStatus"] == "STOPPED":
-                    remaining_tasks.discard(task["taskArn"])
+            try:
+                response = self.ecs.describe_tasks(
+                    cluster=os.getenv("FARGATE_CLUSTER_NAME"),
+                    tasks=list(remaining_tasks),
+                )
+            except Exception as e:
+                LOGGER.error("Error describing ECS tasks: %s", e)
+                time.sleep(poll_interval)
+                continue
 
-            LOGGER.info("Waiting for %d tasks to finish...", len(remaining_tasks))
-            time.sleep(poll_interval)
+            for task in response.get("tasks", []):
+                last_status = task.get("lastStatus")
+                task_arn = task.get("taskArn")
+
+                if last_status == "STOPPED":
+                    exit_code = None
+                    containers = task.get("containers", [])
+                    if containers:
+                        exit_code = containers[0].get("exitCode")
+                    if exit_code != 0:
+                        LOGGER.error("Task %s failed (exit %s).", task_arn, exit_code)
+                    else:
+                        LOGGER.info("Task %s completed successfully.", task_arn)
+                    remaining_tasks.discard(task_arn)
+
+            if remaining_tasks:
+                time.sleep(poll_interval)

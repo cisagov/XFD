@@ -1,7 +1,9 @@
 import React from 'react';
+import AppBar from '@mui/material/AppBar';
+import Button from '@mui/material/Button';
+import Toolbar from '@mui/material/Toolbar';
+import FilterAlt from '@mui/icons-material/FilterAlt';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
-import { AppBar, Button, Toolbar } from '@mui/material';
-import { FilterAlt } from '@mui/icons-material';
 
 const FilterDrawerToggle: React.FC = () => {
   const { isFilterDrawerOpen, setIsFilterDrawerOpen } =

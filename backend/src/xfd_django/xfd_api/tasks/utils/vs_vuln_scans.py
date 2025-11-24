@@ -25,6 +25,7 @@ from django.db.models import (
 from django.db.models.functions import Cast, Coalesce, Power
 from django.utils import timezone
 from psycopg2 import sql
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.query_redshift import fetch_from_redshift_with_params
 from xfd_api.utils.hash import hash_ip
@@ -51,6 +52,7 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 CHUNK_SIZE = 10000  # tune as needed
 
 
+@cloudwatch_metric()
 def fetch_vuln_scan_chunks_frozen(ps_start_dt, ps_end_dt, org_id_dict):
     """
     Optimized and chunked vulnerability scan fetch from Redshift.
@@ -292,6 +294,7 @@ def truncate_charfields(model_cls, data_dict):
             data_dict[field.name] = val
 
 
+@cloudwatch_metric()
 def save_vuln_scan(vuln_scan: Dict) -> str:
     """Save a Vulnerability Scan record to the data lake.
 

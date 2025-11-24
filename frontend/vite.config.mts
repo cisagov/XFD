@@ -52,7 +52,21 @@ export default defineConfig(({ mode, command }) => {
     test: {
       globals: true,
       environment: 'jsdom',
-      setupFiles: './src/setupTests.ts'
+      setupFiles: './src/setupTests.ts',
+      deps: {
+        inline: ['@mui/x-data-grid']
+      },
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+        reportsDirectory: './coverage',
+        exclude: [
+          'node_modules/',
+          'src/setupTests.ts',
+          '**/*.{test,spec}.{js,ts,jsx,tsx}',
+          '**/test-utils/**'
+        ]
+      }
     }
   };
 });

@@ -20,6 +20,7 @@ import { DevInspector } from './utils/devInspector';
 import { openInVSCode } from './utils/openInVSCode';
 import AppGate from './components/Gates/AppGate';
 import TermsGate from './components/Gates/TermsGate';
+import { MuiGlobalStyles } from 'context/MuiGlobalStyles';
 
 API.configure({
   endpoints: [{ name: 'crossfeed', endpoint: import.meta.env.VITE_API_URL }]
@@ -53,6 +54,7 @@ const App: React.FC = () => (
     <MatomoTracker />
     <Router>
       <CFThemeProvider>
+        <MuiGlobalStyles />
         <AuthContextProvider>
           <TermsGate>
             <Authenticator.Provider>
