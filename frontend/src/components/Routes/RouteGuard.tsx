@@ -27,7 +27,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   component,
   ...rest
 }) => {
-  const { token, user, userMustSign, logout } = useAuthContext();
+  const { token, user, logout } = useAuthContext();
   const history = useHistory();
 
   if (token && !user) {

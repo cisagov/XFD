@@ -1,11 +1,9 @@
 import React from 'react';
-import {
-  Button,
-  Dialog as MuiDialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle
-} from '@mui/material';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
 
 type DialogComponentProps = {
   isOpen: boolean;
@@ -29,7 +27,7 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
   screenWidth = 'sm'
 }) => {
   return (
-    <MuiDialog open={isOpen} onClose={onClose} fullWidth maxWidth={screenWidth}>
+    <Dialog open={isOpen} onClose={onClose} fullWidth maxWidth={screenWidth}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent>{content}</DialogContent>
       <DialogActions sx={{ pb: 3, pr: 3 }}>
@@ -45,7 +43,7 @@ const ConfirmDialog: React.FC<DialogComponentProps> = ({
           Confirm
         </Button>
       </DialogActions>
-    </MuiDialog>
+    </Dialog>
   );
 };
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box } from '@mui/system';
+import Box from '@mui/material/Box';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 import { Subnav } from 'components';
 import { ROUTES } from '@/constants/routes';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Paper, Typography } from '@mui/material';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 
 interface NotificationTableProps {

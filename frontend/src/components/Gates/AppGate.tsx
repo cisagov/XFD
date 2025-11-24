@@ -1,5 +1,5 @@
 import React from 'react';
-import { BoxProps } from '@mui/material';
+import { BoxProps } from '@mui/material/Box';
 // Context & hooks
 import { useAuthContext } from 'context';
 import { useCheckUserState } from 'hooks/useCheckUserState';

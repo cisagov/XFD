@@ -1,15 +1,15 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Paper
-} from '@mui/material';
-import { logger } from '@/utils/logger';
+import React, { FC, useCallback, useEffect, useState } from 'react';
+import { toZonedTime } from 'date-fns-tz';
+import { format, parseISO } from 'date-fns';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { Box } from '@mui/system';
 import {
   DataGrid,
   GridColDef,
@@ -17,11 +17,9 @@ import {
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 import { useAuthContext } from 'context';
-import { format, parseISO } from 'date-fns';
-import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import { toZonedTime } from 'date-fns-tz';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface LogsProps {}
 
