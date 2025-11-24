@@ -280,7 +280,7 @@ test.describe('Home — Regional Admin: Support nav', () => {
   });
 });
 
-test.describe('Home — Regional Admin: My Account Naviation', () => {
+test.describe('Home — Regional Admin: My Account Navigation', () => {
   test('Account Settings navigates to Account Settings', async ({
     pageAsRegionalAdmin
   }) => {
