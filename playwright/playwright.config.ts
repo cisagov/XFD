@@ -48,7 +48,14 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'crossfeed',
+      name: 'ui-regression',
+      testMatch: ['**/*.spec.ts'],
+      testIgnore: ['**/*.axe.spec.ts'],
+      use: { ...devices['Desktop Chrome'] }
+    },
+    {
+      name: 'accessibility',
+      testMatch: ['**/*.axe.spec.ts'],
       use: { ...devices['Desktop Chrome'] }
     }
   ]

@@ -4,6 +4,10 @@ set -u
 # 📅 Timestamp for report
 DATETIME=$(date +%Y-%m-%dT%H:%M:%S)
 
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "datetime=$DATETIME" >> "$GITHUB_OUTPUT"
+fi
+
 # 🧾 Define S3 report paths
 S3_HTML_PATH="s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/$ENVIRONMENT/playwright-reports/$DATETIME/html/"
 S3_JSON_PATH="s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/$ENVIRONMENT/playwright-reports/$DATETIME/results.json"
