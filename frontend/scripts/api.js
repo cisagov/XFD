@@ -8,14 +8,6 @@ import path from 'path';
 
 export const app = express();
 
-app.use((req, res, next) => {
-  const sanitizedHeaders = { ...req.headers };
-  // Remove or replace sensitive headers
-  delete sanitizedHeaders['authorization'];
-  console.log(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
-  next();
-});
-
 // These CORS origins work in all Crossfeed environments
 app.use(
   cors({

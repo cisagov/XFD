@@ -107,7 +107,6 @@ app.get('*', (req, res) => {
       res.sendFile(path.join(rootDir, 'index.html'));
     }
   } catch (error) {
-    console.error('Error while serving file:', error);
     res.status(500).send('Internal Server Error');
   }
 });
