@@ -12,6 +12,7 @@ db_name                              = "crossfeed-integration-db2"
 db_port                              = 5432
 db_table_name                        = "cfintegrationdb"
 db_instance_class                    = "db.t3.2xlarge"
+django_env_bucket_name               = "cyhy-integration-django-env"
 log_metric_namespace                 = "LogMetrics"
 log_metric_api_error_rate            = "crossfeed-integration-APIErrorRate"
 log_metric_root_user                 = "crossfeed-integration-RootUserAccess"
