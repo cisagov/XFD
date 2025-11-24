@@ -9,6 +9,7 @@ import logging
 import os
 import time
 from typing import Iterable, Optional
+import uuid
 
 # Third-Party Libraries
 from django.db import connections, transaction
@@ -194,6 +195,7 @@ PortScanRow = namedtuple(
 LatestPortScanRow = namedtuple(
     "LatestPortScanRow",
     [
+        "id",
         "port_scan_id",
         "ip_string",
         "ip_id",
@@ -247,13 +249,11 @@ def insert_port_scans_sql(
 
         ip_str = ps.get("ip")
         ip_obj = ip_map.get((ip_str, org_id)) if ip_str else None
-        time_scanned = safe_fromisoformat(ps.get("time"))
 
+        time_scanned = safe_fromisoformat(ps.get("time"))
         ps_id = ps["_id"].replace("ObjectId('", "").replace("')", "")
 
-        # ---------------------------
-        # Build PortScanRow safely
-        # ---------------------------
+        # ---- PortScan row ----
         row = PortScanRow(
             id=ps_id,
             ip_string=ip_str,
@@ -281,13 +281,11 @@ def insert_port_scans_sql(
             risky_service_group=risky_service_groups.get(svc.get("name")),
             nmi_service_group=nmi_service_groups.get(svc.get("name")),
         )
-
         tuples.append(row)
 
-        # ---------------------------
-        # Build LatestPortScanRow safely
-        # ---------------------------
+        # ---- LatestPortScan row ----
         latest_row = LatestPortScanRow(
+            id=str(uuid.uuid4()),
             port_scan_id=ps_id,
             ip_string=ip_str,
             ip_id=ip_obj.id if ip_obj else None,
@@ -314,71 +312,70 @@ def insert_port_scans_sql(
             nmi_service_group=nmi_service_groups.get(svc.get("name")),
             current=True,
         )
-
         latest_tuples.append(latest_row)
 
     if not tuples:
         return
 
     # --------------------------------------------------
-    # Deduplicate by (org, ip_id, port, protocol)
+    # Dedup latest_port_scan by (org, ip_id, port, protocol)
     # --------------------------------------------------
-    deduped = {}
+    dedup = {}
     for row in latest_tuples:
         key = (row.organization_id, row.ip_id, row.port, row.protocol)
-        existing = deduped.get(key)
+        existing = dedup.get(key)
+        if existing is None or (
+            row.time_scanned
+            and existing.time_scanned
+            and row.time_scanned > existing.time_scanned
+        ):
+            dedup[key] = row
 
-        if not existing:
-            deduped[key] = row
-        else:
-            if row.time_scanned and (
-                not existing.time_scanned or row.time_scanned > existing.time_scanned
-            ):
-                deduped[key] = row
-
-    latest_tuples = list(deduped.values())
+    latest_tuples = list(dedup.values())
 
     # --------------------------------------------------
-    # Build SQL using sql.SQL (Bandit safe)
+    # SQL (Bandit-safe) with ID excluded from updates
     # --------------------------------------------------
     insert_portscan_sql = sql.SQL(
-        "INSERT INTO {table} ({cols}) VALUES %s ON CONFLICT (id) DO NOTHING"
+        "INSERT INTO {table} ({cols}) VALUES %s " "ON CONFLICT (id) DO NOTHING"
     ).format(
         table=sql.Identifier("port_scan"),
-        cols=sql.SQL(", ").join(map(sql.Identifier, base_columns)),
+        cols=sql.SQL(", ").join(sql.Identifier(c) for c in base_columns),
     )
 
     conflict_cols = ["organization_id", "ip_id", "port", "protocol"]
-    update_cols = [c for c in latest_columns if c not in conflict_cols]
+
+    # ❗ EXCLUDE "id" from updates
+    update_cols = [c for c in latest_columns if c not in conflict_cols and c != "id"]
 
     set_sql = sql.SQL(", ").join(
-        sql.SQL("{col} = EXCLUDED.{col}").format(col=sql.Identifier(c))
+        sql.SQL("{col}=EXCLUDED.{col}").format(col=sql.Identifier(c))
         for c in update_cols
     )
 
     where_sql = sql.SQL(
-        "WHERE {tbl}.time_scanned IS NULL OR EXCLUDED.time_scanned > {tbl}.time_scanned"
+        "WHERE {tbl}.time_scanned IS NULL "
+        "OR EXCLUDED.time_scanned > {tbl}.time_scanned"
     ).format(tbl=sql.Identifier("latest_port_scan"))
 
     insert_latest_sql = sql.SQL(
         "INSERT INTO {table} ({cols}) VALUES %s "
-        "ON CONFLICT ({conflict_cols}) DO UPDATE SET {set_sql} {where_sql}"
+        "ON CONFLICT ({conf_cols}) DO UPDATE SET {set_sql} {where_sql}"
     ).format(
         table=sql.Identifier("latest_port_scan"),
-        cols=sql.SQL(", ").join(map(sql.Identifier, latest_columns)),
-        conflict_cols=sql.SQL(", ").join(map(sql.Identifier, conflict_cols)),
+        cols=sql.SQL(", ").join(sql.Identifier(c) for c in latest_columns),
+        conf_cols=sql.SQL(", ").join(sql.Identifier(c) for c in conflict_cols),
         set_sql=set_sql,
         where_sql=where_sql,
     )
 
     PAGE_SIZE = 5000
     BATCH_COMMIT = 10000
-    total = len(tuples)
 
     # --------------------------------------------------
-    # Insert in batches using .as_string(cursor) for safety
+    # Batching with logging (restored)
     # --------------------------------------------------
-    for i in range(0, total, BATCH_COMMIT):
+    for i in range(0, len(tuples), BATCH_COMMIT):
         subset = tuples[i : i + BATCH_COMMIT]
         latest_subset = latest_tuples[i : i + BATCH_COMMIT]
 
@@ -386,11 +383,11 @@ def insert_port_scans_sql(
             with connections[db].cursor() as cursor:
                 cursor.execute("SET LOCAL synchronous_commit = OFF;")
 
-                # --- port_scan insert ---
+                # ---- port_scan insert ----
                 try:
                     execute_values(
                         cursor,
-                        insert_portscan_sql.as_string(cursor),
+                        insert_portscan_sql.as_string(cursor.cursor),
                         subset,
                         page_size=PAGE_SIZE,
                     )
@@ -406,12 +403,12 @@ def insert_port_scans_sql(
                     )
                     raise
 
-                # --- latest_port_scan upsert ---
+                # ---- latest_port_scan upsert ----
                 if latest_subset:
                     try:
                         execute_values(
                             cursor,
-                            insert_latest_sql.as_string(cursor),
+                            insert_latest_sql.as_string(cursor.cursor),
                             latest_subset,
                             page_size=PAGE_SIZE,
                         )
