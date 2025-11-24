@@ -218,7 +218,7 @@ export const Header: React.FC = () => {
   const learningCenterMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'CISA Resources',
-      path: 'https://www.cisa.gov',
+      path: 'https://www.cisa.gov/resources-tools',
       users: STANDARD_USER
     },
     {
