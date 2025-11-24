@@ -252,6 +252,10 @@ def apply_organization_filters(base_q, filters: dict):
     name = filters.get("name")
     state = filters.get("state")
     region_id = filters.get("region_id")
+    acronym = filters.get("acronym")
+
+    if acronym:
+        q &= Q(acronym__icontains=str(acronym).strip())
 
     if name:
         q &= Q(name__icontains=str(name).strip())

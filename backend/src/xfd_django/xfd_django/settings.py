@@ -22,12 +22,16 @@ from typing import Any, Dict
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.load_env_variables import load_django_env_config
 from .helpers.log_helpers import install_xfd_prefix
 
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
 
 install_xfd_prefix()  # Install custom logger prefix
+
+# Load environment variables from S3
+load_django_env_config()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

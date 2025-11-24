@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogActions,
-  Button,
-  Typography
-} from '@mui/material';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import Typography from '@mui/material/Typography';
 
 interface InactiveUserModalProps {
   isOpen: boolean;

@@ -46,6 +46,13 @@ repos:
       - id: yamllint
         args:
           - --strict
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: bash -c 'cd frontend && npx eslint . --cache'
+        language: system
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
 
   # GitHub Actions hooks
   - repo: https://github.com/python-jsonschema/check-jsonschema

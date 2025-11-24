@@ -861,6 +861,12 @@ variable "ssm_vs_pull_date_range" {
   default     = "/crossfeed/staging/VS_PULL_DATE_RANGE"
 }
 
+variable "ssm_latest_port_scan_cutoff" {
+  description = "ssm_latest_port_scan_cutoff"
+  type        = string
+  default     = "/crossfeed/staging/LATEST_PORT_SCAN_CUTOFF"
+}
+
 variable "ssm_dmz_sync_endpoint" {
   description = "ssm_dmz_sync_endpoint"
   type        = string
@@ -929,4 +935,10 @@ variable "backend_api_requests_log_group_name" {
   description = "backend_api_requests_log_group_name"
   type        = string
   default     = "cyhy-staging-backend-api-requests"
+}
+
+variable "django_env_bucket_name" {
+  description = "django_env_bucket_name"
+  type        = string
+  default     = "cyhy-staging-django-env"
 }

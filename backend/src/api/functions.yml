@@ -121,3 +121,9 @@ api:
         - xray:PutTraceSegments
         - xray:PutTelemetryRecords
       Resource: "*"
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
