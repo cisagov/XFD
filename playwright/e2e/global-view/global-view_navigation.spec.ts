@@ -280,7 +280,7 @@ test.describe('Home — Global View: Support nav', () => {
   });
 });
 
-test.describe('Home — Global View: My Account Naviation', () => {
+test.describe('Home — Global View: My Account Navigation', () => {
   test('Account Settings navigates to Account Settings', async ({
     pageAsGlobalView
   }) => {
