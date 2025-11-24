@@ -178,7 +178,7 @@ test.describe('Home — Standard User: Support nav', () => {
   });
 });
 
-test.describe('Home — Standard User: My Account Naviation', () => {
+test.describe('Home — Standard User: My Account Navigation', () => {
   test('Account Settings navigates to Account Settings', async ({
     pageAsStandardUser
   }) => {
