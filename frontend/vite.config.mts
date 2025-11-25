@@ -58,14 +58,32 @@ export default defineConfig(({ mode, command }) => {
       },
       coverage: {
         provider: 'v8',
-        reporter: ['text', 'json', 'html'],
+        reporter: ['text', 'json', 'html', 'lcov'],
         reportsDirectory: './coverage',
+        include: [
+          'src/components/**/*.{js,ts,jsx,tsx}',
+          'src/context/**/*.{js,ts,jsx,tsx}',
+          'src/hooks/**/*.{js,ts,jsx,tsx}',
+          'src/pages/**/*.{js,ts,jsx,tsx}',
+          'src/utils/**/*.{js,ts,jsx,tsx}'
+        ],
         exclude: [
-          'node_modules/',
           'src/setupTests.ts',
-          '**/*.{test,spec}.{js,ts,jsx,tsx}',
-          '**/test-utils/**'
-        ]
+          'src/utils/openInVSCode.ts',
+          'src/utils/devInspector.ts',
+          'src/**/types.*',
+          'src/**/index.{js,ts,ts,tsx}',
+          'src/**/*[Ss]tyle*'
+        ],
+        thresholds: {
+          global: {
+            statements: 30,
+            branches: 60,
+            functions: 30,
+            lines: 30,
+            autoUpdate: true
+          }
+        }
       }
     }
   };
