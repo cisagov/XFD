@@ -138,7 +138,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          logger.error(e);
+          logger.error('VSDashRegionAndOrgFilters.fetchOrgs failed:', {
+            error: e
+          });
         }
       }
     },

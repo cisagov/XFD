@@ -56,7 +56,10 @@ export const Organization: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      logger.error(e);
+      logger.error('Organization.fetchOrganization failed:', {
+        error: e,
+        organizationId
+      });
     }
   }, [apiGet, setOrganization, organizationId]);
 

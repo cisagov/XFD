@@ -156,7 +156,9 @@ export const RegionAndOrganizationFilters: React.FC<
 
         setOrgResults(sortedOrgs);
       } catch (e) {
-        logger.error(e);
+        logger.error('RegionAndOrganizationFilters.fetchOrgs failed:', {
+          error: e
+        });
       }
     },
     [apiPost, setOrgResults, filters]
