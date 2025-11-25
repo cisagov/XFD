@@ -158,7 +158,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
       const result = await getDomain(domainId);
       setDomain(result);
     } catch (e) {
-      logger.error(e);
+      logger.error('DomainDetails.fetchDomain failed:', { error: e, domainId });
     }
   }, [domainId, getDomain]);
 

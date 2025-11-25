@@ -145,7 +145,10 @@ export const Domains: React.FC = () => {
           pageSize: q.pageSize ?? PAGE_SIZE
         }));
       } catch (e) {
-        logger.error(e);
+        logger.error('Domains.fetchDomains failed:', {
+          error: e,
+          page: q.page
+        });
         setLoadingError(true);
       } finally {
         setIsLoading(false);
