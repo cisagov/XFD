@@ -14,7 +14,7 @@ export const ModalToggleButton = ({
 }: any) => {
   const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     if (!modalRef || !modalRef.current) {
-      logger.error('ModalRef is required');
+      logger.error('ModalToggleButton: ModalRef is required but not provided');
       return false;
     }
 

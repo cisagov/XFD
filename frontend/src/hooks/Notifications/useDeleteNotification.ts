@@ -34,7 +34,11 @@ export function useDeleteNotification({
         );
       }
     } catch (error) {
-      logger.error('Error occurred during delete request:', error);
+      logger.error('useDeleteNotification: Delete failed', {
+        error,
+        notificationId: rowToDelete.id,
+        status: rowToDelete.status
+      });
     }
   };
 }
