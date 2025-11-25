@@ -143,7 +143,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         tabIndex={0}
         variant="text"
         onClick={handleUpdate}
-        // disabled={!advancedFiltersReq}
         disabled={useAreFiltersDefault(filters, initialFilters)}
         aria-label={activeSearch ? 'Update Saved Filter' : 'Save New'}
         startIcon={<Add />}

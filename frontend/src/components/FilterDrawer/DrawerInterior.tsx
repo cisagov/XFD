@@ -81,7 +81,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     setActiveSearchId
   } = useSavedSearchContext();
 
-  // const advanceFiltersReq = filters.length > 1 || searchTerm !== '';
   const theme = useTheme();
 
   const deleteSearch = async (id: string) => {
@@ -450,7 +449,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             totalResults={totalResults}
             sortField={''}
             sortDirection={''}
-            // advancedFiltersReq={advanceFiltersReq}
             initialFilters={initialFilters}
           />
           {ascendingSavedSearches.length > 0 ? (
