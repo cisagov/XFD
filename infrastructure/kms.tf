@@ -186,3 +186,39 @@ resource "aws_kms_alias" "key" {
   name          = "alias/${var.stage}-key"
 
 }
+
+########################################
+# KMS Key for Django env.json
+########################################
+resource "aws_kms_key" "django_env" {
+  description             = "KMS key for Django env.json configuration"
+  enable_key_rotation     = true
+  deletion_window_in_days = 10
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # 1) Account root – full admin on the key
+      {
+        Sid    = "AllowRootAccountAdmin"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+resource "aws_kms_alias" "django_env" {
+  name          = "alias/django-env-config"
+  target_key_id = aws_kms_key.django_env.key_id
+}
