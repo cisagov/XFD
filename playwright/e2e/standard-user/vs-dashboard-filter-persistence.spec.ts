@@ -10,7 +10,6 @@ import { ROUTES } from '../../../frontend/src/constants/routes';
 import { checkFiltersDisabled } from '../../utils/filters';
 
 test.describe('VS Dashboard Filter Persistence - Standard User', () => {
-
   // Verify filters are disabled for Standard User
   test('Standard User filters are disabled', async ({ pageAsStandardUser }) => {
     const page = pageAsStandardUser;

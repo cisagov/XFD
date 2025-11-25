@@ -16,7 +16,6 @@ import {
 } from '../../utils/filters';
 
 test.describe('VS Dashboard Filter Persistence - Global Admin User', () => {
-
   // Drill-down via Key Metrics persists filters
   test('Drill-down via Key Metrics persists filters', async ({
     pageAsGlobalAdmin

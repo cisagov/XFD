@@ -393,8 +393,8 @@ export interface FilterCheckResult {
  * @param checkDisabled - Whether to check disabled status instead of values
  */
 export async function checkFilterState(
-  page: Page, 
-  cfg: DrawerConfig = VS, 
+  page: Page,
+  cfg: DrawerConfig = VS,
   checkDisabled: boolean = false
 ): Promise<FilterCheckResult> {
   await page.waitForLoadState('domcontentloaded');
@@ -405,8 +405,12 @@ export async function checkFilterState(
     try {
       await openFiltersDrawer(page, cfg);
 
-      const regionInput = page.getByRole('combobox', { name: /^region$/i }).first();
-      const orgInput = page.getByRole('combobox', { name: /^organization$/i }).first();
+      const regionInput = page
+        .getByRole('combobox', { name: /^region$/i })
+        .first();
+      const orgInput = page
+        .getByRole('combobox', { name: /^organization$/i })
+        .first();
 
       if (checkDisabled) {
         // Check disabled status
@@ -472,10 +476,14 @@ export async function checkFilterState(
 }
 
 // Convenience wrapper functions for backwards compatibility
-export async function checkFiltersHaveValues(page: Page): Promise<FilterCheckResult> {
+export async function checkFiltersHaveValues(
+  page: Page
+): Promise<FilterCheckResult> {
   return checkFilterState(page, VS, false);
 }
 
-export async function checkFiltersDisabled(page: Page): Promise<FilterCheckResult> {
+export async function checkFiltersDisabled(
+  page: Page
+): Promise<FilterCheckResult> {
   return checkFilterState(page, VS, true);
 }
