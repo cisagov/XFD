@@ -239,3 +239,9 @@ resource "aws_kms_alias" "django_env" {
   name          = "alias/django-env-config"
   target_key_id = aws_kms_key.django_env.key_id
 }
+
+resource "aws_ssm_parameter" "django_env_kms_key_arn" {
+  name  = var.ssm_django_env_kms_arn
+  type  = "String"
+  value = aws_kms_key.django_env.arn
+}
