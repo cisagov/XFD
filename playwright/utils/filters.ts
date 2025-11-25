@@ -368,8 +368,7 @@ export async function urlHasBothFilters(
 }
 
 // VS Dashboard specific filter helper functions
-// These functions leverage the existing robust infrastructure while providing
-// convenient VS-specific wrappers for backwards compatibility
+// These functions use the robust generic infrastructure while maintaining backward compatibility
 export async function openVSFiltersDrawer(page: Page): Promise<void> {
   await openFiltersDrawer(page, VS);
 }
