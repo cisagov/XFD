@@ -367,8 +367,14 @@ SECURE_CSP_POLICY = {
         os.getenv("BACKEND_DOMAIN"),
         os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
-        "https://www.ssa.gov/accessibility/andi/fandi.js",
-        "https://www.ssa.gov/accessibility/andi/andi.js",
+        *(
+            [
+                "https://www.ssa.gov/accessibility/andi/fandi.js",
+                "https://www.ssa.gov/accessibility/andi/andi.js",
+            ]
+            if DEBUG
+            else []
+        ),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
         "'sha256-QOOQu4W1oxGqd2nbXbxiA1Di6OHQOLQD+o+G9oWL8YY='",
         "https://www.dhs.gov",

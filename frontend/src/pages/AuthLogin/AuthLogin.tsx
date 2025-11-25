@@ -63,7 +63,7 @@ export const AuthLogin: React.FC<{ showSignUp?: boolean }> = () => {
       });
       setNotification(activeRow);
     } catch (e: any) {
-      logger.error(e);
+      logger.error('AuthLogin.fetchNotifications failed:', { error: e });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [apiGet]);

@@ -147,7 +147,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           }
         );
       } catch (e) {
-        logger.error(e);
+        logger.error('Vulnerabilities search/export failed:', {
+          error: e,
+          page,
+          pageSize,
+          filters,
+          showAll
+        });
         setLoadingError(true);
         return;
       }
@@ -191,7 +197,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }));
         setLoadingError(false);
       } catch (e) {
-        logger.error(e);
+        logger.error('Vulnerabilities.fetchVulnerabilities failed:', {
+          error: e,
+          page: query.page,
+          pageSize: query.pageSize,
+          group_by
+        });
         setLoadingError(true);
       } finally {
         setIsLoading(false);

@@ -5,17 +5,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
-import { logger } from '../src/utils/logger.js';
 
 export const app = express();
-
-app.use((req, res, next) => {
-  const sanitizedHeaders = { ...req.headers };
-  // Remove or replace sensitive headers
-  delete sanitizedHeaders['authorization'];
-  logger.info(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
-  next();
-});
 
 // These CORS origins work in all Crossfeed environments
 app.use(
@@ -52,8 +43,12 @@ app.use(
           "'self'",
           ...[process.env.BACKEND_DOMAIN].filter(Boolean),
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
-          'https://www.ssa.gov/accessibility/andi/fandi.js',
-          'https://www.ssa.gov/accessibility/andi/andi.js',
+          ...(process.env.DOMAIN === 'crossfeed.cyber.dhs.gov'
+            ? []
+            : [
+                'https://www.ssa.gov/accessibility/andi/fandi.js',
+                'https://www.ssa.gov/accessibility/andi/andi.js'
+              ]),
           'https://www.dhs.gov',
           'https://static.cloudflareinsights.com'
         ],
