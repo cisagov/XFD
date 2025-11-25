@@ -207,6 +207,23 @@ resource "aws_kms_key" "django_env" {
         }
         Action   = "kms:*"
         Resource = "*"
+      },
+      {
+        Sid    = "AllowLambdaDecrypt"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action = [
+          "kms:Decrypt",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+        Condition = {
+          "StringEquals" = {
+            "aws:PrincipalServiceName" = "lambda.amazonaws.com"
+          }
+        }
       }
     ]
   })
