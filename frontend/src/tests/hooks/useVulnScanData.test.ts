@@ -115,8 +115,8 @@ describe('useVulnScanData', () => {
     });
 
     expect(result.current.data).toEqual(InitialVSData);
-    expect(result.current.error).toContain(
-      'Network failure. Failed to load vulnerability scan data.'
+    expect(result.current.error).toBe(
+      'Network failure. Failed to load vulnerability scan data. See the console log for more details.'
     );
     expect(result.current.loading).toBe(false);
   });

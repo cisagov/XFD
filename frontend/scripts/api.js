@@ -5,17 +5,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
-import { logger } from '../src/utils/logger.js';
 
 export const app = express();
-
-app.use((req, res, next) => {
-  const sanitizedHeaders = { ...req.headers };
-  // Remove or replace sensitive headers
-  delete sanitizedHeaders['authorization'];
-  logger.info(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
-  next();
-});
 
 // These CORS origins work in all Crossfeed environments
 app.use(
