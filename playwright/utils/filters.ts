@@ -366,3 +366,117 @@ export async function urlHasBothFilters(
     return false;
   }
 }
+
+// VS Dashboard specific filter helper functions
+// These functions leverage the existing robust infrastructure while providing
+// convenient VS-specific wrappers for backwards compatibility
+export async function openVSFiltersDrawer(page: Page): Promise<void> {
+  await openFiltersDrawer(page, VS);
+}
+
+export async function closeVSFiltersDrawer(page: Page): Promise<void> {
+  await closeFilterDrawer(page, VS);
+}
+
+export interface FilterCheckResult {
+  region: string;
+  org: string;
+  hasFilters: boolean;
+  regionDisabled?: boolean;
+  orgDisabled?: boolean;
+  filtersDisabled?: boolean;
+}
+
+/**
+ * Generic function to check filter states (values and disabled status)
+ * @param page - Playwright page object
+ * @param cfg - DrawerConfig (defaults to VS)
+ * @param checkDisabled - Whether to check disabled status instead of values
+ */
+export async function checkFilterState(
+  page: Page, 
+  cfg: DrawerConfig = VS, 
+  checkDisabled: boolean = false
+): Promise<FilterCheckResult> {
+  await page.waitForLoadState('domcontentloaded');
+
+  const filterBtn = getFiltersButton(page, cfg);
+
+  if (await isVisible(filterBtn, 5000)) {
+    try {
+      await openFiltersDrawer(page, cfg);
+
+      const regionInput = page.getByRole('combobox', { name: /^region$/i }).first();
+      const orgInput = page.getByRole('combobox', { name: /^organization$/i }).first();
+
+      if (checkDisabled) {
+        // Check disabled status
+        const regionDisabled = await regionInput.isDisabled();
+        const orgDisabled = await orgInput.isDisabled();
+
+        console.log(
+          `Filter status - Region disabled: ${regionDisabled}, Org disabled: ${orgDisabled}`
+        );
+
+        await closeFilterDrawer(page, cfg);
+
+        return {
+          region: '',
+          org: '',
+          hasFilters: false,
+          regionDisabled,
+          orgDisabled,
+          filtersDisabled: regionDisabled && orgDisabled
+        };
+      } else {
+        // Check values
+        const currentRegionValue = await regionInput.inputValue();
+        const currentOrgValue = await orgInput.inputValue();
+
+        console.log(
+          `Filter check - Region: "${currentRegionValue}", Org: "${currentOrgValue}"`
+        );
+
+        await closeFilterDrawer(page, cfg);
+
+        return {
+          region: currentRegionValue,
+          org: currentOrgValue,
+          hasFilters:
+            currentRegionValue !== '' &&
+            !currentRegionValue.includes('All Regions') &&
+            currentOrgValue !== ''
+        };
+      }
+    } catch (error) {
+      console.log('Error checking filters - assuming filters not available');
+      return {
+        region: '',
+        org: '',
+        hasFilters: false,
+        regionDisabled: true,
+        orgDisabled: true,
+        filtersDisabled: true
+      };
+    }
+  } else {
+    console.log('Filter button not found - assuming filters not available');
+    return {
+      region: '',
+      org: '',
+      hasFilters: false,
+      regionDisabled: true,
+      orgDisabled: true,
+      filtersDisabled: true
+    };
+  }
+}
+
+// Convenience wrapper functions for backwards compatibility
+export async function checkFiltersHaveValues(page: Page): Promise<FilterCheckResult> {
+  return checkFilterState(page, VS, false);
+}
+
+export async function checkFiltersDisabled(page: Page): Promise<FilterCheckResult> {
+  return checkFilterState(page, VS, true);
+}

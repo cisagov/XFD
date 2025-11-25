@@ -9,58 +9,13 @@ import { expect } from '@playwright/test';
 import { ROUTES } from '../../../frontend/src/constants/routes';
 import {
   selectFromAutocomplete,
-  selectAnyOrganization
+  selectAnyOrganization,
+  openVSFiltersDrawer,
+  closeVSFiltersDrawer,
+  checkFiltersHaveValues
 } from '../../utils/filters';
 
 test.describe('VS Dashboard Filter Persistence - Global Admin User', () => {
-  // Helper function to open VS Dashboard filters
-  async function openVSFiltersDrawer(page: any) {
-    await page.waitForLoadState('domcontentloaded');
-    const filterBtn = page.getByRole('button', { name: /^filter$/i });
-    await expect(filterBtn).toBeVisible({ timeout: 10000 });
-    await expect(filterBtn).toBeEnabled();
-    await filterBtn.scrollIntoViewIfNeeded();
-    await page.waitForTimeout(500);
-    await filterBtn.click();
-    const drawerHeading = page.getByRole('heading', { name: /^filter$/i });
-    await expect(drawerHeading).toBeVisible({ timeout: 5000 });
-  }
-
-  // Helper function to close VS Dashboard filters
-  async function closeVSFiltersDrawer(page: any) {
-    await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
-  }
-
-  // Helper to check if filters have values
-  async function checkFiltersHaveValues(page: any) {
-    await openVSFiltersDrawer(page);
-
-    const regionInput = page
-      .getByRole('combobox', { name: /^region$/i })
-      .first();
-    const currentRegionValue = await regionInput.inputValue();
-
-    const orgInput = page
-      .getByRole('combobox', { name: /^organization$/i })
-      .first();
-    const currentOrgValue = await orgInput.inputValue();
-
-    console.log(
-      `Filter check - Region: "${currentRegionValue}", Org: "${currentOrgValue}"`
-    );
-
-    await closeVSFiltersDrawer(page);
-
-    return {
-      region: currentRegionValue,
-      org: currentOrgValue,
-      hasFilters:
-        currentRegionValue !== '' &&
-        !currentRegionValue.includes('All Regions') &&
-        currentOrgValue !== ''
-    };
-  }
 
   // Drill-down via Key Metrics persists filters
   test('Drill-down via Key Metrics persists filters', async ({

@@ -7,53 +7,9 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
 import { ROUTES } from '../../../frontend/src/constants/routes';
+import { checkFiltersDisabled } from '../../utils/filters';
 
 test.describe('VS Dashboard Filter Persistence - Standard User', () => {
-  // Helper function to check if filters are disabled
-  async function checkFiltersDisabled(page: any) {
-    await page.waitForLoadState('domcontentloaded');
-
-    // Try to find the filter button
-    const filterBtn = page.getByRole('button', { name: /^filter$/i });
-
-    if (await filterBtn.isVisible({ timeout: 5000 })) {
-      await filterBtn.click();
-      await page.waitForTimeout(500);
-
-      // Check if region filter is disabled
-      const regionInput = page
-        .getByRole('combobox', { name: /^region$/i })
-        .first();
-      const regionDisabled = await regionInput.isDisabled();
-
-      // Check if organization filter is disabled
-      const orgInput = page
-        .getByRole('combobox', { name: /^organization$/i })
-        .first();
-      const orgDisabled = await orgInput.isDisabled();
-
-      console.log(
-        `Filter status - Region disabled: ${regionDisabled}, Org disabled: ${orgDisabled}`
-      );
-
-      // Close the filter drawer
-      await page.keyboard.press('Escape');
-      await page.waitForTimeout(500);
-
-      return {
-        regionDisabled,
-        orgDisabled,
-        filtersDisabled: regionDisabled && orgDisabled
-      };
-    } else {
-      console.log('Filter button not found - assuming filters not available');
-      return {
-        regionDisabled: true,
-        orgDisabled: true,
-        filtersDisabled: true
-      };
-    }
-  }
 
   // Verify filters are disabled for Standard User
   test('Standard User filters are disabled', async ({ pageAsStandardUser }) => {
