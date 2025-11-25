@@ -4,7 +4,7 @@ import { useAreFiltersDefault } from '../../hooks/useAreFiltersDefault';
 
 // -------------------- Test Suite --------------------
 
-describe('useAreFiltersDefault hook', () => {
+describe('useAreFiltersDefault hook determines if current filters match initial filters', () => {
   it('should return true when filters match initial filters', () => {
     const { result } = renderHook(() =>
       useAreFiltersDefault(
