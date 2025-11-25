@@ -13,6 +13,7 @@ import { ContextType } from 'context';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import { matchPath } from 'utils/matchPath';
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
 import { ROUTES } from '@/constants/routes';
 
@@ -54,6 +55,8 @@ export const FilterDrawer: FC<
       });
     }
   };
+
+  const defaultFilters = useAreFiltersDefault(filters, initialFilters);
 
   const clearFiltersAndSearch = () => {
     setSearchTerm('', {
@@ -140,27 +143,28 @@ export const FilterDrawer: FC<
       </Box>
       {matchPath([ROUTES.INVENTORY], pathname) && (
         <Box>
-          {filters.length > 0 && (
-            <Box
-              paddingBottom={5}
-              display="flex"
-              width="100%"
-              justifyContent="center"
+          {/* {filters.length > 0 && ( */}
+          <Box
+            paddingBottom={5}
+            display="flex"
+            width="100%"
+            justifyContent="center"
+          >
+            <Button
+              onClick={clearFiltersAndSearch}
+              disabled={defaultFilters}
+              sx={{
+                color: 'primary.dark',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                lineHeight: '20px',
+                letterSpacing: '0.1em'
+              }}
             >
-              <Button
-                onClick={clearFiltersAndSearch}
-                sx={{
-                  color: 'primary.dark',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  lineHeight: '20px',
-                  letterSpacing: '0.1em'
-                }}
-              >
-                Reset
-              </Button>
-            </Box>
-          )}
+              Reset
+            </Button>
+          </Box>
+          {/* )} */}
         </Box>
       )}
     </Stack>
