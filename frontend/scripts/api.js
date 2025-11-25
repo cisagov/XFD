@@ -48,8 +48,12 @@ app.use(
           "'self'",
           `${process.env.BACKEND_DOMAIN}`,
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
-          'https://www.ssa.gov/accessibility/andi/fandi.js',
-          'https://www.ssa.gov/accessibility/andi/andi.js',
+          ...(process.env.DOMAIN === 'crossfeed.cyber.dhs.gov'
+            ? []
+            : [
+                'https://www.ssa.gov/accessibility/andi/fandi.js',
+                'https://www.ssa.gov/accessibility/andi/andi.js'
+              ]),
           'https://www.dhs.gov',
           'https://static.cloudflareinsights.com'
         ],
