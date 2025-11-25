@@ -11,8 +11,9 @@ import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import Add from '@mui/icons-material/Add';
 import { SavedSearch } from 'types/saved-search';
-import { useAuthContext } from 'context';
+import { ContextType, useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 
 interface SaveSearchModalProps {
   searchTerm: string;
@@ -20,7 +21,7 @@ interface SaveSearchModalProps {
   totalResults: number;
   sortField: string;
   sortDirection: string;
-  advancedFiltersReq?: boolean;
+  initialFilters: ContextType['filters'];
 }
 
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
@@ -30,7 +31,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     totalResults,
     sortField,
     sortDirection,
-    advancedFiltersReq
+    initialFilters
   } = props;
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -142,7 +143,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         tabIndex={0}
         variant="text"
         onClick={handleUpdate}
-        disabled={!advancedFiltersReq}
+        // disabled={!advancedFiltersReq}
+        disabled={useAreFiltersDefault(filters, initialFilters)}
         aria-label={activeSearch ? 'Update Saved Filter' : 'Save New'}
         startIcon={<Add />}
         sx={{
@@ -187,7 +189,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                 }
               }}
@@ -284,14 +286,16 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               fullWidth
               variant="outlined"
               value={savedSearchValues.name}
-              onChange={(e) => handleChange(e.target.name, e.target.value)}
+              onChange={(e) => {
+                handleChange(e.target.name, e.target.value);
+              }}
               slotProps={{
                 htmlInput: {
                   'aria-label': 'Enter a name for your saved search'
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                 }
               }}
