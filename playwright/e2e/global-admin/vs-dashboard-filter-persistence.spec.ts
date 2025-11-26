@@ -49,12 +49,12 @@ test.describe('VS Dashboard Filter Persistence - Global Admin User', () => {
 
     if (await kevButton.isVisible({ timeout: 5000 })) {
       await kevButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**', {
+      await page.waitForURL(`**${ROUTES.VULNERABILITIES}**`, {
         timeout: 10000
       });
     } else if (await vulnButton.isVisible({ timeout: 5000 })) {
       await vulnButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**', {
+      await page.waitForURL(`**${ROUTES.VULNERABILITIES}**`, {
         timeout: 10000
       });
     } else {
@@ -104,7 +104,7 @@ test.describe('VS Dashboard Filter Persistence - Global Admin User', () => {
       .first();
     if (await kevButton.isVisible({ timeout: 5000 })) {
       await kevButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**', {
+      await page.waitForURL(`**${ROUTES.VULNERABILITIES}**`, {
         timeout: 10000
       });
     } else {
@@ -167,7 +167,7 @@ test.describe('VS Dashboard Filter Persistence - Global Admin User', () => {
       .first();
     if (await kevButton.isVisible({ timeout: 5000 })) {
       await kevButton.click();
-      await page.waitForURL('**/inventory/vulnerabilities**');
+      await page.waitForURL(`**${ROUTES.VULNERABILITIES}**`);
     } else {
       test.skip(true, 'No drill-down elements available');
     }
@@ -175,7 +175,7 @@ test.describe('VS Dashboard Filter Persistence - Global Admin User', () => {
     // Step 3: Browser back navigation
     console.log('Step 3: Using browser back button');
     await page.goBack();
-    await page.waitForURL('**/VSDashboard**');
+    await page.waitForURL(`**${ROUTES.VSDASHBOARD}**`);
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
 
