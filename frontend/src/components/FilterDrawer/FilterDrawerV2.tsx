@@ -143,7 +143,6 @@ export const FilterDrawer: FC<
       </Box>
       {matchPath([ROUTES.INVENTORY], pathname) && (
         <Box>
-          {/* {filters.length > 0 && ( */}
           <Box
             paddingBottom={5}
             display="flex"
@@ -160,11 +159,11 @@ export const FilterDrawer: FC<
                 lineHeight: '20px',
                 letterSpacing: '0.1em'
               }}
+              aria-label="Reset Filters"
             >
               Reset
             </Button>
           </Box>
-          {/* )} */}
         </Box>
       )}
     </Stack>
