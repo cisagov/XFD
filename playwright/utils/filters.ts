@@ -1,5 +1,9 @@
 import { expect, type Page, type Locator } from '@playwright/test';
 
+// Following the same pattern as VSDashRegionAndOrgFilters.tsx component
+// This constant matches the allRegionsOption defined there
+const allRegionsOption = 'All Regions';
+
 export type DrawerConfig = {
   headingRx: RegExp;
   closeBtnName: RegExp;
@@ -447,7 +451,7 @@ export async function checkFilterState(
           org: currentOrgValue,
           hasFilters:
             currentRegionValue !== '' &&
-            !currentRegionValue.includes('All Regions') &&
+            !currentRegionValue.includes(allRegionsOption) &&
             currentOrgValue !== ''
         };
       }
