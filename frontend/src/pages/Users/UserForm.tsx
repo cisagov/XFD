@@ -99,7 +99,10 @@ const getAllowedDomains = (): string[] => {
       }
       return [];
     } catch (err) {
-      logger.warn('Invalid JSON for VITE_ALLOWED_ADMIN_EMAIL_DOMAINS:', err);
+      logger.warn(
+        'UserForm: Invalid JSON for VITE_ALLOWED_ADMIN_EMAIL_DOMAINS',
+        { error: err, raw }
+      );
     }
   }
 
@@ -256,7 +259,10 @@ export const UserForm: React.FC<UserFormProps> = ({
         ...prev,
         getOrgsError: e.message + ('. ' + e.response?.data?.detail || '')
       }));
-      logger.error(e);
+      logger.error('UserForm.fetchOrganizations failed:', {
+        error: e,
+        regionId: values.region_id
+      });
     } finally {
       setIsLoading(false);
     }
@@ -321,7 +327,10 @@ export const UserForm: React.FC<UserFormProps> = ({
     const oldRoleLevel = USER_TYPE_MAP[user?.user_type || 'standard'] || 0;
     const newRoleLevel = USER_TYPE_MAP[values?.user_type] || 0;
     if (newRoleLevel > oldRoleLevel) {
-      logger.info('User role elevation detected, confirming with user');
+      logger.info(
+        'UserForm: User role elevation detected, confirming with user',
+        { oldRole: user?.user_type, newRole: values?.user_type }
+      );
     }
 
     const body: ApiBody = {
@@ -384,7 +393,10 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
-      logger.error(e);
+      logger.error('UserForm.handleEditUserSubmit failed:', {
+        error: e,
+        userId: user?.id
+      });
     }
   };
 

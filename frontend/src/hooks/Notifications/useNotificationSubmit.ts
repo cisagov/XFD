@@ -117,7 +117,10 @@ export function useSubmitForm({
             }
           }
         } catch (error) {
-          logger.error('Error occurred during update request:', error);
+          logger.error('useNotificationSubmit: Update request failed', {
+            error,
+            notificationId: body.id
+          });
         }
       }
       if (apiType === 'post') {
@@ -143,7 +146,10 @@ export function useSubmitForm({
             setInactiveNotifications([...inactiveNotifications, notification]);
           }
         } catch (error) {
-          logger.error('Error occurred during post request:', error);
+          logger.error('useNotificationSubmit: Post request failed', {
+            error,
+            status: body.status
+          });
         }
       }
     },
