@@ -2,7 +2,7 @@
   /playwright/e2e/regional-admin/vs-dashboard-filter-persistence.spec.ts
   Author: Jesse Salinas
   Date: 11/20/2025
-  Note: Regional Admin Users have filter capabilities within their assigned region and organizations. These tests verify that filter persistence works correctly for users with scoped filter access during drill-down navigation.
+  Note: Regional Admin Users now have the same filter capabilities as Global Admin users. These tests verify that filter persistence works correctly for regional admin users during drill-down navigation.
 */
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
@@ -31,27 +31,10 @@ test.describe('VS Dashboard Filter Persistence - Regional Admin User', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(1000);
 
-    // Step 1: Set filters (Regional Admin can filter within their assigned region)
+    // Step 1: Set filters (Regional Admin now has same filter capabilities as Global Admin)
     console.log('Step 1: Setting filters');
     await openVSFiltersDrawer(page);
-
-    // For Regional Admin, they may have limited region options
-    // Try to select any available region
-    const regionSelect = page
-      .getByRole('combobox', { name: /^region$/i })
-      .first();
-    await expect(regionSelect).toBeEnabled();
-
-    // Try to select from available regions
-    try {
-      await selectFromAutocomplete(page, /^region$/i, /Region\s*[1-4]/i);
-    } catch (error) {
-      console.log('Using default region for Regional Admin');
-      // Assert that Regional Admin still has proper permissions even with default region
-      await expect(regionSelect).toBeEnabled();
-      await expect(regionSelect).toHaveAttribute('placeholder', 'Select Region');
-    }
-
+    await selectFromAutocomplete(page, /^region$/i, /Region\s*3/i);
     await page.waitForTimeout(500);
     await selectAnyOrganization(page, /^organization$/i);
     await page.waitForTimeout(500);
@@ -112,14 +95,7 @@ test.describe('VS Dashboard Filter Persistence - Regional Admin User', () => {
     // Step 1: Set filters
     console.log('Step 1: Setting filters');
     await openVSFiltersDrawer(page);
-
-    // For Regional Admin, use available regions
-    try {
-      await selectFromAutocomplete(page, /^region$/i, /Region\s*[1-4]/i);
-    } catch (error) {
-      console.log('Using default region for Regional Admin');
-    }
-
+    await selectFromAutocomplete(page, /^region$/i, /Region\s*4/i);
     await page.waitForTimeout(500);
     await selectAnyOrganization(page, /^organization$/i);
     await page.waitForTimeout(500);
@@ -182,14 +158,7 @@ test.describe('VS Dashboard Filter Persistence - Regional Admin User', () => {
     // Step 1: Set filters
     console.log('Step 1: Setting filters');
     await openVSFiltersDrawer(page);
-
-    // For Regional Admin, use available regions
-    try {
-      await selectFromAutocomplete(page, /^region$/i, /Region\s*[1-4]/i);
-    } catch (error) {
-      console.log('Using default region for Regional Admin');
-    }
-
+    await selectFromAutocomplete(page, /^region$/i, /Region\s*2/i);
     await page.waitForTimeout(500);
     await selectAnyOrganization(page, /^organization$/i);
     await page.waitForTimeout(500);
