@@ -3177,7 +3177,11 @@ class LatestPortScan(AutoLengthCheckModel):
         on_delete=models.CASCADE,
         help_text="Organization that owns the scanned IP.",
     )
-
+    reason = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Why this port is determined to be open, as reported by the port scanner.",
+    )
     # --- Service metadata fields (copied from PortScan) ---
     service = models.JSONField(
         default=dict, help_text="Details about this port, as reported by the scanner."
