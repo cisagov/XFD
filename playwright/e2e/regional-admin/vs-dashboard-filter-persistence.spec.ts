@@ -47,6 +47,9 @@ test.describe('VS Dashboard Filter Persistence - Regional Admin User', () => {
       await selectFromAutocomplete(page, /^region$/i, /Region\s*[1-4]/i);
     } catch (error) {
       console.log('Using default region for Regional Admin');
+      // Assert that Regional Admin still has proper permissions even with default region
+      await expect(regionSelect).toBeEnabled();
+      await expect(regionSelect).toHaveAttribute('placeholder', 'Select Region');
     }
 
     await page.waitForTimeout(500);
