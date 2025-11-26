@@ -23,7 +23,9 @@ export const SavedSearchContextProvider: React.FC<
       setSavedSearches(response.result);
       setSavedSearchCount(response.result.length);
     } catch (e) {
-      logger.error(e);
+      logger.error('SavedSearchContextProvider.fetchSearches failed:', {
+        error: e
+      });
     }
   }, [apiGet, setSavedSearches, setSavedSearchCount]);
 

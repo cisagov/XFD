@@ -74,7 +74,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
-      logger.error(e);
+      logger.error('SaveSearchModal.handleSave failed:', {
+        error: e,
+        searchName: savedSearchValues.name
+      });
     }
   };
 
@@ -213,7 +216,9 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 try {
                   handleDialogClose();
                 } catch (e) {
-                  logger.error(e);
+                  logger.error('SaveSearchModal.handleDialogClose failed:', {
+                    error: e
+                  });
                 }
               }
             }}
@@ -230,7 +235,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 setUpdateDialogOpen(false);
                 savedSearchValues.name = '';
               } catch (e) {
-                logger.error(e);
+                logger.error('SaveSearchModal.handleSave (update) failed:', {
+                  error: e,
+                  searchName: savedSearchValues.name
+                });
               }
             }}
             disabled={
@@ -246,7 +254,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                   setUpdateDialogOpen(false);
                   savedSearchValues.name = '';
                 } catch (e) {
-                  logger.error(e);
+                  logger.error(
+                    'SaveSearchModal.handleSave (update onKeyDown) failed:',
+                    { error: e, searchName: savedSearchValues.name }
+                  );
                 }
               }
             }}

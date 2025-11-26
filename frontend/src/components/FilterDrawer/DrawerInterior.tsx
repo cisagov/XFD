@@ -94,7 +94,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       setSavedSearchCount(updatedSearches.result.length); // Update the count
       localStorage.removeItem('savedSearch');
     } catch (e) {
-      logger.error(e);
+      logger.error('DrawerInterior.deleteSearch failed:', {
+        error: e,
+        searchId: id
+      });
     }
   };
   const displaySavedSearch = (id: string) => {

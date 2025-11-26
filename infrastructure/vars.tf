@@ -942,3 +942,9 @@ variable "django_env_bucket_name" {
   type        = string
   default     = "cyhy-staging-django-env"
 }
+
+variable "ssm_django_env_kms_arn" {
+  description = "django_env_kms_key_arn"
+  type        = string
+  default     = "/crossfeed/prod/DJANGO_ENV_KMS_ARN"
+}

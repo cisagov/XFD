@@ -126,4 +126,4 @@ api:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
