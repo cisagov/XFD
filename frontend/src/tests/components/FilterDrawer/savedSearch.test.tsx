@@ -72,7 +72,7 @@ describe('SaveSearchModal - button disabled state', () => {
     expect(saveButton).not.toBeDisabled();
   });
 
-  it('disables Update button when filters match initial state with active search', () => {
+  it('renders Update button when active search is present', () => {
     vi.mocked(useAreFiltersDefault).mockReturnValue(true);
     vi.mocked(useSavedSearchContext).mockReturnValue({
       savedSearches: [
@@ -94,13 +94,16 @@ describe('SaveSearchModal - button disabled state', () => {
 
     render(<SaveSearchModal {...defaultProps} />);
 
+    const saveNewButton = screen.queryByRole('button', { name: /save new/i });
     const updateButton = screen.getByRole('button', {
       name: /update saved filter/i
     });
-    expect(updateButton).toBeDisabled();
+
+    expect(saveNewButton).not.toBeInTheDocument();
+    expect(updateButton).toBeInTheDocument();
   });
 
-  it('enables Update button when filters have changed with active search', () => {
+  it('does not render Update button when activeSearch is undefined or not present', () => {
     vi.mocked(useAreFiltersDefault).mockReturnValue(false);
     vi.mocked(useSavedSearchContext).mockReturnValue({
       savedSearches: [
@@ -111,20 +114,20 @@ describe('SaveSearchModal - button disabled state', () => {
       ],
       setSavedSearches: vi.fn(),
       setSavedSearchCount: vi.fn(),
-      activeSearch: {
-        id: '1',
-        name: 'My Search'
-      } as SavedSearch,
+      activeSearch: undefined,
       savedSearchCount: 1,
-      activeSearchId: '1',
+      activeSearchId: '2',
       setActiveSearchId: vi.fn()
     });
 
     render(<SaveSearchModal {...defaultProps} />);
 
-    const updateButton = screen.getByRole('button', {
+    const saveNewButton = screen.getByRole('button', { name: /save new/i });
+    const updateButton = screen.queryByRole('button', {
       name: /update saved filter/i
     });
-    expect(updateButton).not.toBeDisabled();
+
+    expect(saveNewButton).toBeInTheDocument();
+    expect(updateButton).not.toBeInTheDocument();
   });
 });
