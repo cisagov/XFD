@@ -456,7 +456,10 @@ export async function checkFilterState(
         };
       }
     } catch (error) {
-      console.log('Error checking filters - assuming filters not available', error);
+      console.log(
+        'Error checking filters - assuming filters not available',
+        error
+      );
       return {
         region: '',
         org: '',
