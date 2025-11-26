@@ -49,7 +49,7 @@ test.describe('VS Dashboard Filter Persistence - Standard User', () => {
 
     // Step 1: Verify page loads successfully
     console.log('Step 1: Verifying VS Dashboard loads for Standard User');
-    await expect(page).toHaveURL(/.*VSDashboard.*/);
+    await expect(page).toHaveURL(new RegExp(`.*${ROUTES.VSDASHBOARD}.*`));
 
     // Step 2: Verify filters are disabled
     console.log('Step 2: Verifying filter restrictions');
