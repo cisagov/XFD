@@ -246,4 +246,4 @@ ecsRemediator:
   handler: src/xfd_django/xfd_api/tasks/ecs_remediator.lambda_handler
   timeout: 60
   memorySize: 512
-  iamRoleStatements:  []
+  iamRoleStatements: []
