@@ -21,7 +21,7 @@ from xfd_api.tasks.utils.datetime_utils import (
 )
 from xfd_api.tasks.utils.query_redshift import query_redshift
 from xfd_api.utils.hash import hash_ip
-from xfd_mini_dl.models import Cve, Ip, PortScan, Ticket, TicketEvent, VulnScan
+from xfd_mini_dl.models import Cve, Ip, PortScan, LatestPortScan, Ticket, TicketEvent, VulnScan
 
 logging.basicConfig(
     level=logging.INFO,
@@ -165,7 +165,7 @@ def fetch_ticket_chunks_frozen_multi_org(
 def preload_os_type_map(ip_keys) -> dict:
     """Return mapping ip_str -> service_os_type."""
     scans = (
-        PortScan.objects.filter(ip_string__in=ip_keys, service_os_type__isnull=False)
+        LatestPortScan.objects.filter(ip_string__in=ip_keys, service_os_type__isnull=False)
         .order_by("ip_string", "-time_scanned")
         .distinct("ip_string")
     )
