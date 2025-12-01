@@ -271,6 +271,10 @@ def apply_organization_filters(base_q, filters: dict):
     if region_id:
         if not isinstance(region_id, list):
             region_id = [region_id]
-        q &= Q(region_id__in=[int(r) for r in region_id if r is not None and r != ""])
-
+            try:
+                region_list = [int(r) for r in region_id if r is not None and r != ""]
+                q &= Q(region_id__in=region_list)
+            except ValueError:
+                # Region Ids must be integers, forcing no results query
+                q &= Q(region_id__in=[-1])
     return q
