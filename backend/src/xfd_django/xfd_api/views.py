@@ -981,7 +981,7 @@ async def call_create_saved_search(
         "created_by_id": current_user,
     }
 
-    return create_saved_search(request)
+    return create_saved_search(request, current_user)
 
 
 # Get all existing saved searches

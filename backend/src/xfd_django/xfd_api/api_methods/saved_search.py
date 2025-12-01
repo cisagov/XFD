@@ -9,12 +9,18 @@ import uuid
 # Third-Party Libraries
 from django.http import JsonResponse
 from fastapi import HTTPException, status
-
-# from xfd_api.auth import (
-#     get_organization_region,
-#     is_global_view_admin,
-#     is_regional_admin,
-# )
+from xfd_api.api_methods.search import (
+    extract_org_ids_from_filters,
+    extract_region_ids_from_filters,
+    get_org_memberships,
+    is_valid_org,
+    is_valid_region,
+)
+from xfd_api.auth import (
+    get_organization_region,
+    is_global_view_admin,
+    is_regional_admin,
+)
 from xfd_mini_dl.models import SavedSearch, User
 
 LOGGER = logging.getLogger(__name__)
@@ -32,57 +38,83 @@ def validate_name(value: str):
             raise HTTPException(status_code=400, detail="Name already exists")
 
 
-# def validate_filter_access(filters, current_user):
-#     """
-#     Validate that a standard user can only save search/filters for organizations/regions they have access to.
+def validate_filter_access(filters, current_user):
+    """
+    Validate that a standard user can only save search/filters for organizations/regions they have access to.
 
-#     Raise 404 if they try to save a filter they don't have access to.
-#     """
-#     filters = filters or []
+    Raise 403 if they try to save a filter they don't have access to.
+    """
+    filters = filters or []
+    # global users have access to all filters":
+    if is_global_view_admin(current_user) or is_regional_admin(current_user):
+        return filters
 
-#     non_org_filters = [
-#         f
-#         for f in filters
-#         if f["field"] not in ["organization_id", "organization.region_id"]
-#     ]
+    requested_region_ids = set(extract_region_ids_from_filters(filters or []))
+    requested_org_ids = set(extract_org_ids_from_filters(filters or []))
 
-#     new_filters = list(non_org_filters)
+    unauthorized_regions = {
+        region_id
+        for region_id in requested_region_ids
+        if not is_valid_region(region_id, current_user)
+    }
+    unauthorized_orgs = {
+        org_id for org_id in requested_org_ids if not is_valid_org(org_id, current_user)
+    }
 
-#     # global users have access to all filters":
-#     if is_global_view_admin(current_user) or is_regional_admin(current_user):
-#         return
+    if unauthorized_orgs:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot save filters for organizations you do not have access to.",
+        )
+    if unauthorized_regions:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot save filters for regions you do not have access to.",
+        )
 
-#     else:
-#         requested_org_ids = set(extract_org_ids_from_filters(filters))
-#         allowed_orgs = set(get_org_memberships(current_user))
-
-#         if requested_org_ids:
-#             valid_org_ids = requested_org_ids & allowed_orgs
-#         else:
-#             valid_org_ids = allowed_orgs
-
-#         allowed_regions = {get_organization_region(org_id) for org_id in allowed_orgs}
-
-#         new_filters.append(
-#             {
-#                 "field": "organization_id",
-#                 "values": [{"id": org_id} for org_id in valid_org_ids],
-#                 "type": "any",
-#             }
-#         )
-
-#         new_filters.append(
-#             {
-#                 "field": "organization.region_id",
-#                 "values": list(allowed_regions),
-#                 "type": "any",
-#             }
-#         )
-
-#         filters = new_filters
+    return filters
 
 
-def create_saved_search(request):
+def enforce_standard_filters(filters, current_user):
+    """
+    Enforce that a standard user can only save search/filters for organizations/regions they have access to.
+
+    This function will modify the filters to only include those the user has access to.
+    """
+    filters = filters or []
+    # global users have access to all filters":
+    if is_global_view_admin(current_user) or is_regional_admin(current_user):
+        return filters
+
+    non_org_filters = [
+        f
+        for f in filters
+        if f["field"] not in ["organization_id", "organization.region_id"]
+    ]
+
+    allowed_orgs = set(get_org_memberships(current_user))
+    allowed_regions = {get_organization_region(org_id) for org_id in allowed_orgs}
+
+    new_filters = list(non_org_filters)
+
+    new_filters.append(
+        {
+            "field": "organization_id",
+            "values": [{"id": org_id} for org_id in allowed_orgs],
+            "type": "any",
+        }
+    )
+    new_filters.append(
+        {
+            "field": "organization.region_id",
+            "values": list(allowed_regions),
+            "type": "any",
+        }
+    )
+    return new_filters
+
+
+def create_saved_search(request, current_user):
     """Create saved search."""
     # 1) Validate the provided name
     validate_name(request.get("name"))
@@ -114,9 +146,8 @@ def create_saved_search(request):
             for f in request.get("filters", [])
         ]
 
-        # validate_filter_access(
-        #     filters, User.objects.get(id=request.get("created_by_id"))
-        # )
+        filters = validate_filter_access(filters, current_user)
+        # filters = enforce_standard_filters(filters, current_user)
 
         # 3) Create the SavedSearch record
         search = SavedSearch.objects.create(
@@ -127,7 +158,8 @@ def create_saved_search(request):
             search_term=request.get("search_term", ""),
             search_path=request.get("search_path", ""),
             filters=filters,
-            created_by=request.get("created_by_id"),
+            # created_by=request.get("created_by_id"),
+            created_by=current_user,
         )
 
         # 4) Build the response
@@ -149,6 +181,9 @@ def create_saved_search(request):
 
     except User.DoesNotExist:
         raise HTTPException(status_code=404, detail="User not found")
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         LOGGER.exception("Error creating saved search: %s", e)
