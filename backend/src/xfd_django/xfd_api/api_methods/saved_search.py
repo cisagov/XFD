@@ -9,6 +9,12 @@ import uuid
 # Third-Party Libraries
 from django.http import JsonResponse
 from fastapi import HTTPException, status
+
+# from xfd_api.auth import (
+#     get_organization_region,
+#     is_global_view_admin,
+#     is_regional_admin,
+# )
 from xfd_mini_dl.models import SavedSearch, User
 
 LOGGER = logging.getLogger(__name__)
@@ -24,6 +30,56 @@ def validate_name(value: str):
     for search in all_saved_searches:
         if search.name.strip() == name:
             raise HTTPException(status_code=400, detail="Name already exists")
+
+
+# def validate_filter_access(filters, current_user):
+#     """
+#     Validate that a standard user can only save search/filters for organizations/regions they have access to.
+
+#     Raise 404 if they try to save a filter they don't have access to.
+#     """
+#     filters = filters or []
+
+#     non_org_filters = [
+#         f
+#         for f in filters
+#         if f["field"] not in ["organization_id", "organization.region_id"]
+#     ]
+
+#     new_filters = list(non_org_filters)
+
+#     # global users have access to all filters":
+#     if is_global_view_admin(current_user) or is_regional_admin(current_user):
+#         return
+
+#     else:
+#         requested_org_ids = set(extract_org_ids_from_filters(filters))
+#         allowed_orgs = set(get_org_memberships(current_user))
+
+#         if requested_org_ids:
+#             valid_org_ids = requested_org_ids & allowed_orgs
+#         else:
+#             valid_org_ids = allowed_orgs
+
+#         allowed_regions = {get_organization_region(org_id) for org_id in allowed_orgs}
+
+#         new_filters.append(
+#             {
+#                 "field": "organization_id",
+#                 "values": [{"id": org_id} for org_id in valid_org_ids],
+#                 "type": "any",
+#             }
+#         )
+
+#         new_filters.append(
+#             {
+#                 "field": "organization.region_id",
+#                 "values": list(allowed_regions),
+#                 "type": "any",
+#             }
+#         )
+
+#         filters = new_filters
 
 
 def create_saved_search(request):
@@ -57,6 +113,10 @@ def create_saved_search(request):
             }
             for f in request.get("filters", [])
         ]
+
+        # validate_filter_access(
+        #     filters, User.objects.get(id=request.get("created_by_id"))
+        # )
 
         # 3) Create the SavedSearch record
         search = SavedSearch.objects.create(
