@@ -81,7 +81,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      logger.error(e);
+      logger.error('OrgSettings.initiateDomainVerification failed:', {
+        error: e,
+        domain,
+        organizationId: organization.id
+      });
     }
   };
 
@@ -113,7 +117,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      logger.error(e);
+      logger.error('OrgSettings.checkDomainVerification failed:', {
+        error: e,
+        domain,
+        organizationId: organization.id
+      });
     }
   };
 

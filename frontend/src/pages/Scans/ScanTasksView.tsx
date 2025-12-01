@@ -113,7 +113,10 @@ export const ScanTasksView: React.FC = () => {
         global:
           e.status === 422 ? 'Unable to kill scan' : (e.message ?? e.toString())
       });
-      logger.error(e);
+      logger.error('ScanTasksView.killScanTask failed:', {
+        error: e,
+        scanTaskId: id
+      });
     }
   };
 
@@ -162,7 +165,11 @@ export const ScanTasksView: React.FC = () => {
           pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE))
         }));
       } catch (e) {
-        logger.error(e);
+        logger.error('ScanTasksView.fetchScanTasks failed:', {
+          error: e,
+          page: query.page,
+          filters: query.filters
+        });
       }
     },
     [apiPost, currentOrganization, showAllOrganizations]
@@ -584,7 +591,9 @@ export const ScanTasksView: React.FC = () => {
                 </>
               );
             } catch (e) {
-              logger.error(e);
+              logger.error('ScanTasksView.renderInput JSON parse failed:', {
+                error: e
+              });
               return (
                 <>
                   <Typography variant="h6" component="div" pt={2}>

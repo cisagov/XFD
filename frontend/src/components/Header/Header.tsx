@@ -283,7 +283,9 @@ export const Header: React.FC = () => {
         if (response.url) {
           window.open(response.url, '_blank');
         } else {
-          logger.error('Presigned URL missing');
+          logger.error('Header.handleMenuClick: Presigned URL missing', {
+            item: item.objectStoreParams
+          });
         }
       } catch (err) {
         logger.error('Failed to fetch presigned url:', err);
