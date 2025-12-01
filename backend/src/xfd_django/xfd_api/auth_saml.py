@@ -23,8 +23,7 @@ from .auth import (
     validate_json_serialization,
 )
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -126,7 +125,7 @@ def _build_sp_settings() -> Dict[str, Any]:
     }
 
     if IS_LOCAL:
-        logger.info("SAML encryption DISABLED (local).")
+        LOGGER.info("SAML encryption DISABLED (local).")
     else:
         if SAML_SP_CERT_PATH:
             try:
@@ -137,13 +136,13 @@ def _build_sp_settings() -> Dict[str, Any]:
                     sp_settings["sp"]["privateKey"] = sp_key
                 sp_settings["security"]["wantAssertionsEncrypted"] = True
                 sp_settings["security"]["wantNameIdEncrypted"] = WANT_NAMEID_ENCRYPTED
-                logger.info("SAML encryption ENABLED (cert present).")
+                LOGGER.info("SAML encryption ENABLED (cert present).")
             except FileNotFoundError:
-                logger.warning(
+                LOGGER.warning(
                     "SAML_SP_CERT_PATH set but file not found; continuing without encryption.",
                 )
         else:
-            logger.info("No SP cert configured; encryption NOT advertised.")
+            LOGGER.info("No SP cert configured; encryption NOT advertised.")
 
     # Merge with IdP metadata
     return _SamlConfig.idp_parser.merge_settings(sp_settings, idp_data)
