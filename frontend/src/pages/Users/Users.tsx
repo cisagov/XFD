@@ -1,21 +1,17 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Alert,
-  Box,
-  IconButton,
-  Paper,
-  Typography,
-  Stack,
-  Button,
-  Tooltip
-} from '@mui/material';
+import { format } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Tooltip from '@mui/material/Tooltip';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import Delete from '@mui/icons-material/Delete';
+import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import {
-  Add,
-  CheckCircleOutline,
-  EditNoteOutlined,
-  Delete
-} from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
@@ -26,9 +22,9 @@ import {
   UserFormValues
 } from 'types';
 import { useAuthContext } from 'context';
-import { format } from 'date-fns';
 import UserForm from './UserForm';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -65,7 +61,7 @@ interface UserType extends User {
 }
 
 export const Users: React.FC = () => {
-  const { user, apiDelete, apiGet, apiPost } = useAuthContext();
+  const { user, apiDelete, apiGet } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
@@ -434,7 +430,7 @@ export const Users: React.FC = () => {
       setInfoDialogContent(
         'This user has been not been removed. Check the console log for more details.'
       );
-      console.log(e);
+      logger.error('Users.deleteRow failed:', { error: e, userId: row.id });
     }
   };
 

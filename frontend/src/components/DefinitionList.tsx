@@ -34,7 +34,7 @@ const classes = {
   item: `${PREFIX}-item`
 };
 
-const Root = styled('div')(({ theme }) => ({
+const Root = styled('div')(() => ({
   [`&.${classes.root}`]: {
     width: '100%',
     margin: '0 0 1.5rem 0'

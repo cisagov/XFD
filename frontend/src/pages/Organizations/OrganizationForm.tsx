@@ -1,21 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import * as orgFormStyles from './orgFormStyle';
 import { Organization, OrganizationTag } from 'types';
-import {
-  Autocomplete,
-  Button,
-  Chip,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControlLabel,
-  MenuItem,
-  Select,
-  Switch,
-  TextField,
-  Typography
-} from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
+import Autocomplete from '@mui/material/Autocomplete';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import {
   STATE_ABBREVIATED_OPTIONS,
   STATE_OPTIONS
@@ -64,7 +62,6 @@ export const OrganizationForm: React.FC<{
 }> = ({
   organization,
   onSubmit,
-  type,
   open,
   setOpen,
   parent,
@@ -98,7 +95,7 @@ export const OrganizationForm: React.FC<{
       );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error('OrganizationForm.fetchTags failed:', { error: e });
     }
   }, [apiGet]);
 

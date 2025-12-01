@@ -1,14 +1,15 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  IconButton,
-  Paper
-} from '@mui/material';
+import React, { FC, useCallback, useEffect, useState } from 'react';
+import { toZonedTime } from 'date-fns-tz';
+import { format, parseISO } from 'date-fns';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import CancelIcon from '@mui/icons-material/Cancel';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import { Box } from '@mui/system';
 import {
   DataGrid,
   GridColDef,
@@ -16,11 +17,9 @@ import {
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
 import { useAuthContext } from 'context';
-import { format, parseISO } from 'date-fns';
-import React, { FC, useCallback, useEffect, useState } from 'react';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import { toZonedTime } from 'date-fns-tz';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface LogsProps {}
 
@@ -93,7 +92,10 @@ export const Logs: FC<LogsProps> = () => {
       const results = await apiPost(endpoint, { body });
 
       if (!results || !Array.isArray(results.result)) {
-        console.error('Invalid response format:', results);
+        logger.error('Logs.fetchLogs: Invalid response format', {
+          endpoint,
+          results
+        });
         setLogs({ count: 0, result: [] });
         return;
       }
@@ -107,7 +109,7 @@ export const Logs: FC<LogsProps> = () => {
 
       setLogs({ count: results.count, result: rowsWithId });
     } catch (e) {
-      console.error(`Fetch logs error from ${endpoint}:`, e);
+      logger.error('Logs.fetchLogs: Fetch failed', { error: e, endpoint });
       setLogs({ count: 0, result: [] });
     }
   }, [apiPost, filters]);
@@ -124,7 +126,10 @@ export const Logs: FC<LogsProps> = () => {
       const zonedDate = toZonedTime(utcDate, timeZone);
       return format(zonedDate, 'MM/dd/yyyy hh:mm a');
     } catch (error) {
-      console.error('Error parsing date:', error);
+      logger.error('Logs.formatTimestamp: Date parse failed', {
+        error,
+        timestamp
+      });
       return null;
     }
   };

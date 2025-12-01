@@ -1,6 +1,7 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import Button from '@mui/material/Button';
-import { FileDownload } from '@mui/icons-material';
+import FileDownload from '@mui/icons-material/FileDownload';
 import Tooltip from '@mui/material/Tooltip';
 import { useAuthContext } from 'context';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -40,8 +41,8 @@ export const ExportCustomerMetricsButton: React.FC = () => {
         filename === 'customer-metrics.csv' &&
         process.env.NODE_ENV !== 'production'
       ) {
-        console.warn(
-          '[ExportCustomerMetrics] Unable to parse filename from Content-Disposition header, using default filename'
+        logger.warn(
+          'ExportCustomerMetricsButton: Unable to parse filename from Content-Disposition header, using default'
         );
       }
 
@@ -59,7 +60,9 @@ export const ExportCustomerMetricsButton: React.FC = () => {
       URL.revokeObjectURL(url);
       a.remove();
     } catch (err) {
-      console.error('Failed to download Customer Metrics CSV:', err);
+      logger.error('ExportCustomerMetricsButton: CSV download failed', {
+        error: err
+      });
     } finally {
       setLoading(false);
     }

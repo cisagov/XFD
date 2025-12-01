@@ -3177,7 +3177,11 @@ class LatestPortScan(AutoLengthCheckModel):
         on_delete=models.CASCADE,
         help_text="Organization that owns the scanned IP.",
     )
-
+    reason = models.TextField(
+        null=True,
+        blank=True,
+        help_text="Why this port is determined to be open, as reported by the port scanner.",
+    )
     # --- Service metadata fields (copied from PortScan) ---
     service = models.JSONField(
         default=dict, help_text="Details about this port, as reported by the scanner."
@@ -3204,6 +3208,11 @@ class LatestPortScan(AutoLengthCheckModel):
     nmi_service_group = models.CharField(max_length=255, null=True, blank=True)
     risky_service_group = models.CharField(max_length=255, null=True, blank=True)
 
+    current = models.BooleanField(
+        default=True,
+        help_text="Whether this port scan is considered current (scanned within 14 days).",
+    )
+
     class Meta:
         """Meta class for the LatestPortScan model."""
 
@@ -3212,12 +3221,12 @@ class LatestPortScan(AutoLengthCheckModel):
         db_table = "latest_port_scan"
         constraints = [
             models.UniqueConstraint(
-                fields=["organization", "ip_string", "port", "protocol"],
+                fields=["organization", "ip", "port", "protocol"],
                 name="unique_latest_port_scan_per_combo",
-            ),
+            )
         ]
         indexes = [
-            models.Index(fields=["organization", "ip_string", "port", "protocol"]),
+            models.Index(fields=["organization", "ip", "port", "protocol"]),
             models.Index(fields=["time_scanned"]),
             models.Index(fields=["state"]),
         ]

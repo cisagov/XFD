@@ -1,4 +1,5 @@
 import { MaintenanceNotification } from 'types';
+import { logger } from '@/utils/logger';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 interface UseNotificationActionProps {
@@ -52,7 +53,11 @@ export function useNotificationAction({
         );
       }
     } catch (error) {
-      console.error('Error occurred during handleNotificationAction:', error);
+      logger.error('useNotificationAction: handleNotificationAction failed', {
+        error,
+        action,
+        notificationId: body.id
+      });
       throw error;
     }
     return notification;

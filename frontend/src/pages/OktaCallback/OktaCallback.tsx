@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { parse } from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
@@ -19,7 +20,10 @@ export const OktaCallback: React.FC = () => {
     const { code, state } = parse(window.location.search);
 
     if (!code || !state) {
-      console.error('Missing OAuth parameters');
+      logger.error('OktaCallback: Missing OAuth parameters', {
+        hasCode: !!code,
+        hasState: !!state
+      });
       history.replace(ROUTES.HOME);
       return;
     }
@@ -27,7 +31,9 @@ export const OktaCallback: React.FC = () => {
     const signedToken = localStorage.getItem('oauthMeta');
 
     if (!signedToken) {
-      console.error('Missing signed OAuth metadata');
+      logger.error(
+        'OktaCallback: Missing signed OAuth metadata in localStorage'
+      );
       history.replace(ROUTES.HOME);
       return;
     }
@@ -56,7 +62,7 @@ export const OktaCallback: React.FC = () => {
 
       history.replace(ROUTES.HOME);
     } catch (e) {
-      console.error(e);
+      logger.error('OktaCallback: OAuth callback failed', { error: e });
       history.replace(ROUTES.HOME);
     }
   }, [history, login]);

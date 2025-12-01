@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { toUTC } from 'utils/dateUtils';
 import { MaintenanceNotification } from 'types';
 
@@ -116,7 +117,10 @@ export function useSubmitForm({
             }
           }
         } catch (error) {
-          console.error('Error occurred during update request:', error);
+          logger.error('useNotificationSubmit: Update request failed', {
+            error,
+            notificationId: body.id
+          });
         }
       }
       if (apiType === 'post') {
@@ -142,7 +146,10 @@ export function useSubmitForm({
             setInactiveNotifications([...inactiveNotifications, notification]);
           }
         } catch (error) {
-          console.error('Error occurred during post request:', error);
+          logger.error('useNotificationSubmit: Post request failed', {
+            error,
+            status: body.status
+          });
         }
       }
     },

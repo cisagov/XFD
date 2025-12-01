@@ -1,14 +1,12 @@
 import React from 'react';
-import {
-  Grid,
-  Typography,
-  Select,
-  MenuItem,
-  TextField,
-  Switch,
-  Button,
-  CardActions
-} from '@mui/material';
+import Button from '@mui/material/Button';
+import CardActions from '@mui/material/CardActions';
+import Grid from '@mui/material/Grid';
+import MenuItem from '@mui/material/MenuItem';
+import Select from '@mui/material/Select';
+import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 
 interface NotificationFormProps {
   formValues: {

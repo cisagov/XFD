@@ -1,4 +1,5 @@
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 import { useCallback } from 'react';
 import { MaintenanceNotification } from 'types';
 
@@ -31,7 +32,9 @@ export function useFetchNotification(
         setInactiveNotifications(inactiveRows);
       }
     } catch (e: any) {
-      console.log(e);
+      logger.error('useFetchNotification: Failed to fetch notifications', {
+        error: e
+      });
     }
   }, [
     apiGet,

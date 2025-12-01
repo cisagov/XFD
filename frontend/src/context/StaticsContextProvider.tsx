@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 
 import { usePersistentState } from 'hooks';
 import { StaticsContext } from './StaticsContext';
@@ -32,7 +33,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
           })
       );
     } catch (e) {
-      console.log(e);
+      logger.error('StaticsContextProvider.fetchRegions failed:', { error: e });
     }
   }, [apiGet, setRegions]);
 

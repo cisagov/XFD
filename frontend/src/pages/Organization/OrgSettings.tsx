@@ -1,31 +1,30 @@
 import React, { useState } from 'react';
+import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import Place from '@mui/icons-material/Place';
+import Public from '@mui/icons-material/Public';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import {
   PendingDomain,
   Organization as OrganizationType,
   OrganizationTag
 } from 'types';
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Grid,
-  Stack,
-  Switch,
-  TextField,
-  Typography
-} from '@mui/material';
-import { CheckCircleOutline, Place, Public } from '@mui/icons-material';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ListInput from './ListInput';
-import { ENDPOINTS } from '@/constants/endpoints';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -60,39 +59,12 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     stage?: number;
     domainVerificationStatusMessage?: string;
   }>({ open: false });
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [, setIsSaveDisabled] = useState(true);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [chosenTags, setChosenTags] = useState(
     () => organization.tags?.map((t) => t.name) || []
   );
   const [localTags, setLocalTags] = useState(chosenTags);
-
-  const updateOrganization = async () => {
-    try {
-      const org = await apiPost(
-        ENDPOINTS.ORGANIZATION_UPDATE.replace(
-          '{organization_id}',
-          organization.id
-        ),
-        { body: organization }
-      );
-      setOrganization(org);
-      setFeedbackMessage({
-        message: 'Organization successfully updated',
-        type: 'success'
-      });
-      setInfoDialogOpen(true);
-    } catch (e: any) {
-      setFeedbackMessage({
-        message:
-          e.status === 422
-            ? 'Error updating organization'
-            : e.message || e.toString(),
-        type: 'error'
-      });
-      console.error(e);
-    }
-  };
 
   const initiateDomainVerification = async (domain: string) => {
     try {
@@ -109,7 +81,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error('OrgSettings.initiateDomainVerification failed:', {
+        error: e,
+        domain,
+        organizationId: organization.id
+      });
     }
   };
 
@@ -141,7 +117,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error('OrgSettings.checkDomainVerification failed:', {
+        error: e,
+        domain,
+        organizationId: organization.id
+      });
     }
   };
 
@@ -245,7 +225,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               Enter a domain to begin verification.
             </DialogContentText>
             <TextField
-              autoFocus
               fullWidth
               label="Domain"
               onChange={(e) => setInputValue(e.target.value)}
@@ -255,7 +234,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
       default:
         return (
           <TextField
-            autoFocus
             fullWidth
             placeholder={`Enter ${dialog.label?.slice(0, -1)}(s)`}
             onChange={(e) => setInputValue(e.target.value)}

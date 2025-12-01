@@ -7,7 +7,7 @@ export const warningClasses = {
   warningContainer: `${PREFIX}-footerContainer`,
   warning_logo: `${PREFIX}-warning_logo`
 };
-export const WarningRoot = styled('div')(({ theme }) => ({
+export const WarningRoot = styled('div')(() => ({
   [`& .${warningClasses.warningBox}`]: {
     position: 'relative',
     top: '20px',

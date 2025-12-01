@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import applyDisjunctiveFaceting from './applyDisjunctiveFaceting';
 import buildState from './buildState';
 import { useAuthContext } from 'context';
@@ -56,9 +57,12 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       /* Not implemented */
     },
     onAutocompleteResultClick: (e: any, f: any) => {
-      console.error(e, f);
+      logger.error(
+        'SearchProvider.onAutocompleteResultClick: Not implemented',
+        { e, f }
+      );
     },
-    onAutocomplete: async ({ search_term }: { search_term: string }) => {
+    onAutocomplete: async () => {
       // const requestBody = buildAutocompleteRequest({ search_term });
       // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
       //   body: {

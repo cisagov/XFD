@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { VulnScanDataTransformed } from 'types/vuln-scan-stats';
 import { transformVulnScanData } from 'utils/transformVulnScanData';
 import { useAuthContext } from 'context';
@@ -59,7 +60,10 @@ export function useVulnScanData(orgId: string) {
 
         setData(transformed);
       } catch (err: any) {
-        console.error(err);
+        logger.error(
+          'useVulnScanData: Failed to load vulnerability scan data',
+          { error: err, organizationId: orgId }
+        );
         setError(
           err.message +
             '. Failed to load vulnerability scan data. See the console log for more details.'

@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { ResultCard } from './ResultCard';
-import {
-  Button,
-  Paper,
-  FormControl,
-  Select,
-  MenuItem,
-  Typography,
-  Box,
-  Stack,
-  useTheme
-} from '@mui/material';
-import { Pagination } from '@mui/material';
 import { withSearch } from '@elastic/react-search-ui';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import FormControl from '@mui/material/FormControl';
+import MenuItem from '@mui/material/MenuItem';
+import Pagination from '@mui/material/Pagination';
+import Paper from '@mui/material/Paper';
+import Select from '@mui/material/Select';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
+import { ResultCard } from './ResultCard';
 import { ContextType } from 'context/SearchProvider';
 import { SortBar } from './SortBar';
 import { useAuthContext } from 'context';
@@ -21,9 +20,9 @@ import { exportCSV } from 'utils/exportCSV';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
-import { FiberManualRecordRounded } from '@mui/icons-material';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -83,7 +82,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       });
       return url!;
     } catch (e) {
-      console.error(e);
+      logger.error('Inventory.exportCSV failed:', { error: e });
       return null;
     }
   };

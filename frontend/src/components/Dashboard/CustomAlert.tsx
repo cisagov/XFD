@@ -1,5 +1,7 @@
 import React from 'react';
-import { Alert, AlertTitle, Typography, Link } from '@mui/material';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Typography from '@mui/material/Typography';
 
 interface CustomAlertProps {
   headerMsg?: string;

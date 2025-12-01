@@ -1,4 +1,5 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
 import {
@@ -7,14 +8,12 @@ import {
   REGIONAL_ADMIN,
   STANDARD_USER
 } from 'hooks/useUserLevel';
-import {
-  AppBar,
-  Box,
-  Button,
-  IconButton,
-  Toolbar,
-  Typography
-} from '@mui/material';
+import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
 import MenuIcon from '@mui/icons-material/Menu';
 import cisaLogo from 'assets/cisaSeal.svg';
 import { NavMenuButton } from './NavMenuButton';
@@ -219,7 +218,7 @@ export const Header: React.FC = () => {
   const learningCenterMenuItems: MenuItemType[] = [
     {
       menuItemTitle: 'CISA Resources',
-      path: 'https://www.cisa.gov',
+      path: 'https://www.cisa.gov/resources-tools',
       users: STANDARD_USER
     },
     {
@@ -284,10 +283,12 @@ export const Header: React.FC = () => {
         if (response.url) {
           window.open(response.url, '_blank');
         } else {
-          console.error('Presigned URL missing');
+          logger.error('Header.handleMenuClick: Presigned URL missing', {
+            item: item.objectStoreParams
+          });
         }
       } catch (err) {
-        console.error('Failed to fetch presigned url:', err);
+        logger.error('Failed to fetch presigned url:', err);
       }
     }
   };
