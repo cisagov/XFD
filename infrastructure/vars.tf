@@ -931,8 +931,7 @@ variable "backend_api_requests_log_group_name" {
   default     = "cyhy-staging-backend-api-requests"
 }
 
-variable "remediation_lambda_role_arn" {
-  description = "IAM role ARN for remediation Lambdas (ECS restart, Lambda concurrency scaling, etc.)."
+variable "worker_ecs_task_execution_role_arn" {
+  description = "ARN of the ECS task execution role for the worker service"
   type        = string
-  default     = ""
 }
