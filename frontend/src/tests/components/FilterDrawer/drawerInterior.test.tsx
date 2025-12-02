@@ -194,6 +194,34 @@ describe('DrawerInterior', () => {
       expect(blueDot).toBeNull();
     });
 
+    it('does not show blue dot for IP filter when no IP filters are applied', () => {
+      renderWithProviders({
+        filters: []
+      });
+
+      const ipAccordion = screen.getByText('IP').closest('button');
+      expect(ipAccordion).toBeTruthy();
+
+      const blueDot = within(ipAccordion!).queryByTestId(
+        'FiberManualRecordRoundedIcon'
+      );
+      expect(blueDot).toBeNull();
+    });
+
+    it('does not show blue dot for Domain filter when no Domain filters are applied', () => {
+      renderWithProviders({
+        filters: []
+      });
+
+      const domainAccordion = screen.getByText('Domain').closest('button');
+      expect(domainAccordion).toBeTruthy();
+
+      const blueDot = within(domainAccordion!).queryByTestId(
+        'FiberManualRecordRoundedIcon'
+      );
+      expect(blueDot).toBeNull();
+    });
+
     it('shows blue dot for Root Domains filter when applied', () => {
       const { container } = renderWithProviders({
         filters: [
@@ -240,6 +268,44 @@ describe('DrawerInterior', () => {
       expect(blueDot).toBeTruthy();
     });
 
+    it('does not show blue dot for Root Domains filter when no filters are applied', () => {
+      renderWithProviders({
+        filters: [],
+        facets: {
+          from_root_domain: [{ data: [{ value: 'example.com', count: 10 }] }]
+        }
+      });
+
+      const rootDomainsAccordion = screen
+        .getByText('Root Domains')
+        .closest('button');
+      expect(rootDomainsAccordion).toBeTruthy();
+
+      const blueDot = within(rootDomainsAccordion!).queryByTestId(
+        'FiberManualRecordRoundedIcon'
+      );
+      expect(blueDot).toBeNull();
+    });
+
+    it('does not show blue dot for CVEs filter when no filters are applied', () => {
+      renderWithProviders({
+        filters: [],
+        facets: {
+          'vulnerabilities.cve': [
+            { data: [{ value: 'CVE-2021-1234', count: 5 }] }
+          ]
+        }
+      });
+
+      const cvesAccordion = screen.getByText('CVEs').closest('button');
+      expect(cvesAccordion).toBeTruthy();
+
+      const blueDot = within(cvesAccordion!).queryByTestId(
+        'FiberManualRecordRoundedIcon'
+      );
+      expect(blueDot).toBeNull();
+    });
+
     it('shows blue dot for Severity filter when applied', () => {
       const { container } = renderWithProviders({
         filters: [
@@ -257,6 +323,23 @@ describe('DrawerInterior', () => {
         'FiberManualRecordRoundedIcon'
       );
       expect(blueDot).toBeTruthy();
+    });
+
+    it('does not show blue dot for Severity filter when no filters are applied', () => {
+      renderWithProviders({
+        filters: [],
+        facets: {
+          'vulnerabilities.severity': [{ data: [{ value: 'high', count: 15 }] }]
+        }
+      });
+
+      const severityAccordion = screen.getByText('Severity').closest('button');
+      expect(severityAccordion).toBeTruthy();
+
+      const blueDot = within(severityAccordion!).queryByTestId(
+        'FiberManualRecordRoundedIcon'
+      );
+      expect(blueDot).toBeNull();
     });
   });
 
