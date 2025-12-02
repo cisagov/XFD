@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
@@ -23,8 +23,7 @@ import {
 } from 'types';
 import { useAuthContext } from 'context';
 import UserForm from './UserForm';
-import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
+import { useUserApi, UserType } from '@/hooks/useUserApi';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -39,37 +38,23 @@ export interface ApiResponse {
   count: number;
   url?: string;
 }
-interface ApprovedBy {
-  id: string;
-  full_name: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  user_type: string;
-  region_id: string;
-  state: string;
-}
-
-interface UserType extends User {
-  lastLoggedInString?: string | null | undefined;
-  dateToUSigned?: string | null | undefined;
-  orgs?: string | null | undefined;
-  org_acronym?: string | null | undefined;
-  full_name: string;
-  approved_by?: ApprovedBy | null;
-  date_approved?: string | null;
-}
 
 export const Users: React.FC = () => {
-  const { user, apiDelete, apiGet } = useAuthContext();
+  const { user } = useAuthContext();
+  const {
+    users,
+    isLoading,
+    error: getUsersError,
+    setUsers,
+    fetchUsers,
+    deleteUser
+  } = useUserApi();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
-  const [users, setUsers] = useState<UserType[]>([]);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
   const [deleteUserDialogOpen, setDeleteUserDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [infoDialogContent, setInfoDialogContent] = useState<string>('');
   const [loadingError, setLoadingError] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [apiErrorStates, setApiErrorStates] = useState<ApiErrorStates>({
     getUsersError: '',
     getAddUserError: '',
@@ -81,39 +66,15 @@ export const Users: React.FC = () => {
     initialUserFormValues
   );
 
-  // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
-  const fetchUsers = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
-      rows.forEach((row) => {
-        row.lastLoggedInString = row.last_logged_in
-          ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
-          : 'None';
-        row.dateToUSigned = row.date_accepted_terms
-          ? format(new Date(row.date_accepted_terms), 'MM-dd-yyyy hh:mm a')
-          : 'None';
-        row.orgs = row.roles
-          ? row.roles
-              .filter((role) => role.approved)
-              .map((role) => role.organization.name)
-              .join(', ')
-          : 'None';
-        row.full_name = `${row.first_name} ${row.last_name}`;
-        row.org_acronym = row.roles[0]?.organization.acronym || '';
-      });
-
-      const filteredRows = rows;
-
-      setUsers(filteredRows);
-      setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
-    } catch (e: any) {
+  useEffect(() => {
+    if (getUsersError) {
       setLoadingError(true);
-      setApiErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
-    } finally {
-      setIsLoading(false);
+      setApiErrorStates((prev) => ({ ...prev, getUsersError }));
+    } else {
+      setLoadingError(false);
+      setApiErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     }
-  }, [apiGet, user?.user_type, user?.region_id]);
+  }, [getUsersError]);
 
   useEffect(() => {
     fetchUsers();
@@ -417,20 +378,16 @@ export const Users: React.FC = () => {
   }
 
   const deleteRow = async (row: UserType) => {
-    try {
-      await apiDelete(ENDPOINTS.USER.replace('{user_id}', String(row.id)), {
-        body: {}
-      });
-      setUsers(users.filter((user) => user.id !== row.id));
+    const { success, errorMessage } = await deleteUser(row);
+    if (success) {
       setApiErrorStates({ ...apiErrorStates, getDeleteError: '' });
       setInfoDialogContent('This user has been successfully removed.');
       setInfoDialogOpen(true);
-    } catch (e: any) {
-      setApiErrorStates({ ...apiErrorStates, getDeleteError: e.message });
+    } else {
+      setApiErrorStates({ ...apiErrorStates, getDeleteError: errorMessage });
       setInfoDialogContent(
         'This user has been not been removed. Check the console log for more details.'
       );
-      logger.error('Users.deleteRow failed:', { error: e, userId: row.id });
     }
   };
 
