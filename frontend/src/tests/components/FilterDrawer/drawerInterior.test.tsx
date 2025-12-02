@@ -4,6 +4,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { DrawerInterior } from '../../../components/FilterDrawer/DrawerInterior';
 import { AuthContext } from '../../../context';
 import { SavedSearchContext } from '../../../context/SavedSearchContext';
+import { CFThemeProvider } from '../../../context/Theme';
 
 vi.mock('@elastic/react-search-ui', () => ({
   withSearch: (component: any) => component
@@ -17,19 +18,6 @@ vi.mock('../../../utils/logger', () => ({
     debug: vi.fn()
   }
 }));
-
-vi.mock('@mui/material/styles', async () => {
-  const actual = await vi.importActual('@mui/material/styles');
-  return {
-    ...actual,
-    useTheme: () => ({
-      palette: {
-        primary: { main: '#1976d2', dark: '#1565c0' },
-        neutrals: { light: '#e0e0e0', main: '#616161' }
-      }
-    })
-  };
-});
 
 describe('DrawerInterior', () => {
   const mockAddFilter = vi.fn();
@@ -91,11 +79,13 @@ describe('DrawerInterior', () => {
 
   const renderWithProviders = (props = {}) => {
     return render(
-      <AuthContext.Provider value={mockAuthContextValue}>
-        <SavedSearchContext.Provider value={mockSavedSearchContextValue}>
-          <DrawerInterior {...defaultProps} {...props} />
-        </SavedSearchContext.Provider>
-      </AuthContext.Provider>
+      <CFThemeProvider>
+        <AuthContext.Provider value={mockAuthContextValue}>
+          <SavedSearchContext.Provider value={mockSavedSearchContextValue}>
+            <DrawerInterior {...defaultProps} {...props} />
+          </SavedSearchContext.Provider>
+        </AuthContext.Provider>
+      </CFThemeProvider>
     );
   };
 
@@ -408,11 +398,13 @@ describe('DrawerInterior', () => {
       };
 
       render(
-        <AuthContext.Provider value={mockAuthContextValue}>
-          <SavedSearchContext.Provider value={savedSearchContext}>
-            <DrawerInterior {...defaultProps} />
-          </SavedSearchContext.Provider>
-        </AuthContext.Provider>
+        <CFThemeProvider>
+          <AuthContext.Provider value={mockAuthContextValue}>
+            <SavedSearchContext.Provider value={savedSearchContext}>
+              <DrawerInterior {...defaultProps} />
+            </SavedSearchContext.Provider>
+          </AuthContext.Provider>
+        </CFThemeProvider>
       );
 
       expect(screen.getByText('Test Search 1')).toBeTruthy();
