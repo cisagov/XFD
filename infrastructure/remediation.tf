@@ -11,6 +11,7 @@ resource "aws_lambda_function" "ecs_remediator" {
 
   environment {
     variables = {
+      CUSTOM_METRIC_NAMESPACE = "Crossfeed/Remediation"
       ECS_CLUSTER_NAME = var.worker_ecs_cluster_name
       ECS_SERVICE_NAME = var.worker_ecs_task_definition_family
       STAGE            = var.stage

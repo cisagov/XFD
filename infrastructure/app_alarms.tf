@@ -1,13 +1,13 @@
-resource "aws_cloudwatch_metric_alarm" "api_error_rate" {
+resource "aws_cloudwatch_metric_alarm" "api_error_count" {
   alarm_name          = "${var.log_metric_api_error_rate}-alarm"
-  alarm_description   = "API error rate for Crossfeed / CyHy backend exceeded threshold"
+  alarm_description   = "Backend API error count for ${var.stage} exceeded threshold"
   namespace           = var.log_metric_namespace
   metric_name         = var.log_metric_api_error_rate
-  statistic           = "Average"
+  statistic           = "Sum"
   period              = 60
-  evaluation_periods  = 1
+  evaluation_periods  = 2
   threshold           = 1
-  comparison_operator = "GreaterThanThreshold"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
 
   dimensions = {
@@ -16,7 +16,6 @@ resource "aws_cloudwatch_metric_alarm" "api_error_rate" {
 
   alarm_actions = [
     aws_sns_topic.alarms.arn
-    # , aws_lambda_function.ecs_remediator.arn   # Uncomment if you desire automated remediation for API errors
   ]
   ok_actions = [
     aws_sns_topic.alarms.arn
