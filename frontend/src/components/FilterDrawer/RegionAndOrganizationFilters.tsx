@@ -1,27 +1,27 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import Autocomplete from '@mui/material/Autocomplete';
+import Button from '@mui/material/Button';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import Stack from '@mui/system/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
-import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Autocomplete,
-  Button,
-  Checkbox,
-  FormControlLabel,
-  FormGroup,
-  List,
-  ListItem,
-  TextField,
-  Typography,
-  useTheme
-} from '@mui/material';
 import { useStaticsContext } from 'context/StaticsContext';
 import {
   ORGANIZATION_EXCLUSIONS
   // REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS
 } from 'hooks/useUserTypeFilters';
-import { ExpandMore, FiberManualRecordRounded } from '@mui/icons-material';
 import {
   useUserLevel,
   GLOBAL_ADMIN,
@@ -29,7 +29,6 @@ import {
   REGIONAL_ADMIN,
   STANDARD_USER
 } from 'hooks/useUserLevel';
-import { Stack } from '@mui/system';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
@@ -157,7 +156,9 @@ export const RegionAndOrganizationFilters: React.FC<
 
         setOrgResults(sortedOrgs);
       } catch (e) {
-        logger.error(e);
+        logger.error('RegionAndOrganizationFilters.fetchOrgs failed:', {
+          error: e
+        });
       }
     },
     [apiPost, setOrgResults, filters]

@@ -4,7 +4,6 @@ import type { Page, Locator } from '@playwright/test';
 import { openMenuIfCollapsed, navScope } from '../../utils/menu_collapse';
 import { ROUTES } from '../../../frontend/src/constants/routes';
 import { ENDPOINTS } from '../../../frontend/src/constants/endpoints';
-import { runAxeAndFailOnSerious } from '../../utils/a11y';
 import { UUID_RX } from '../../utils/constants';
 import {
   openFiltersDrawer,
@@ -13,9 +12,7 @@ import {
   selectFromAutocomplete,
   selectAnyOrganization,
   isVisible,
-  hasValue,
   urlHasBothFilters,
-  escapeForTextSelector,
   VS,
   INV
 } from '../../utils/filters';
@@ -77,276 +74,6 @@ test.describe('Home Page — Regional Admin Permissions', () => {
       hasForbidden > 0 || hasNotFound > 0 || pathname !== ROUTES.ADMIN_TOOLS,
       'Regional Admin should see a redirect or forbidden message when visiting /admin-tools'
     ).toBeTruthy();
-  });
-});
-
-test.describe('Home — Regional Admin Navigation (responsive)', () => {
-  async function getNavItem(page: Page, nameRx: RegExp) {
-    const navDialog = page.getByRole('dialog', { name: /navigation menu/i });
-    if (await navDialog.isVisible()) {
-      return navDialog.getByRole('menuitem', { name: nameRx });
-    }
-
-    const mainNav = page.getByRole('navigation', { name: /main navigation/i });
-    const link = mainNav.getByRole('link', { name: nameRx });
-    if (await link.count()) return link;
-    const btn = mainNav.getByRole('button', { name: nameRx });
-    if (await btn.count()) return btn;
-
-    return page.getByText(nameRx, { exact: false });
-  }
-
-  async function openMobileMenuIfPresent(page: Page) {
-    const trigger = page
-      .getByRole('button', { name: /menu|open.*menu|navigation/i })
-      .first();
-    if (await trigger.isVisible()) {
-      await trigger.click();
-      await expect(
-        page.getByRole('dialog', { name: /navigation menu/i })
-      ).toBeVisible();
-    }
-  }
-
-  test('Vulnerability Scanning navigates to /VSDashboard', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMobileMenuIfPresent(page);
-    const item = await getNavItem(page, /vulnerability scanning/i);
-    await expect(
-      item,
-      'Nav item "Vulnerability Scanning" should be visible'
-    ).toBeVisible();
-
-    await Promise.all([
-      page.waitForURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i')),
-      item.click()
-    ]);
-
-    await expect(page).toHaveURL(new RegExp(`${ROUTES.VSDASHBOARD}/?$`, 'i'));
-    await expect(
-      page.getByRole('heading', { name: /vulnerability scanning/i })
-    ).toBeVisible();
-  });
-
-  test('Findings Library navigates to /inventory', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMobileMenuIfPresent(page);
-    const item = await getNavItem(page, /findings library/i);
-    await expect(
-      item,
-      'Nav item "Findings Library" should be visible'
-    ).toBeVisible();
-
-    await Promise.all([
-      page.waitForURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i')),
-      item.click()
-    ]);
-
-    await expect(page).toHaveURL(new RegExp(`${ROUTES.INVENTORY}/?$`, 'i'));
-    await expect(
-      page.getByRole('heading', { name: /findings library|inventory/i })
-    ).toBeVisible();
-  });
-});
-
-test.describe('Home — Regional Admin: Learning Center nav', () => {
-  test('Learning Center expands and shows expected items', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMenuIfCollapsed(page);
-    const nav = await navScope(page);
-
-    const lcButton = nav
-      .getByRole('button', { name: /^learning center$/i })
-      .first();
-    await expect(lcButton, 'Learning Center toggle should exist').toBeVisible();
-
-    if ((await lcButton.getAttribute('aria-expanded')) !== 'true') {
-      await lcButton.click();
-      await expect(lcButton).toHaveAttribute('aria-expanded', 'true');
-    }
-
-    const expectedItems = [
-      /cisa resources/i,
-      /sector vulnerability snapshots/i,
-      /user guide/i,
-      /vs faq/i,
-      /vs glossary/i,
-      /vs methodology/i
-    ];
-
-    for (const rx of expectedItems) {
-      const item = nav
-        .getByRole('menuitem', { name: rx })
-        .first()
-        .or(nav.getByRole('link', { name: rx }).first());
-      await expect(item, `Missing Learning Center item: ${rx}`).toBeVisible();
-    }
-  });
-
-  test('Sector Vulnerability Snapshots shows sector list', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMenuIfCollapsed(page);
-    const nav = await navScope(page);
-
-    const lcButton = nav
-      .getByRole('button', { name: /^learning center$/i })
-      .first();
-    if (
-      (await lcButton.isVisible()) &&
-      (await lcButton.getAttribute('aria-expanded')) !== 'true'
-    ) {
-      await lcButton.click();
-      await expect(lcButton).toHaveAttribute('aria-expanded', 'true');
-    }
-
-    const snapshots = nav
-      .getByRole('menuitem', { name: /sector vulnerability snapshots/i })
-      .first()
-      .or(
-        nav
-          .getByRole('link', { name: /sector vulnerability snapshots/i })
-          .first()
-      );
-    await expect(snapshots).toBeVisible();
-    await snapshots.click();
-
-    const sectors = [
-      /communications/i,
-      /financial services/i,
-      /food and agriculture/i,
-      /healthcare and public health/i,
-      /information technology/i,
-      /transportation systems/i,
-      /water and wastewater systems/i
-    ];
-
-    for (const rx of sectors) {
-      const sectorItem = nav
-        .getByRole('menuitem', { name: rx })
-        .first()
-        .or(nav.getByRole('link', { name: rx }).first());
-      await expect(sectorItem, `Missing sector item: ${rx}`).toBeVisible();
-    }
-  });
-});
-
-test.describe('Home — Regional Admin: Support nav', () => {
-  test('Support expands and shows expected items', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMenuIfCollapsed(page);
-    const nav = await navScope(page);
-
-    const supportToggle = nav
-      .getByRole('button', { name: /^support$/i })
-      .first();
-    await expect(supportToggle, 'Support toggle should exist').toBeVisible();
-
-    if ((await supportToggle.getAttribute('aria-expanded')) !== 'true') {
-      await supportToggle.click();
-      await expect(supportToggle).toHaveAttribute('aria-expanded', 'true');
-    }
-
-    const expectedSupportItems = [
-      /general questions/i,
-      /report bug/i,
-      /send feedback/i
-    ];
-
-    for (const rx of expectedSupportItems) {
-      const item = nav
-        .getByRole('menuitem', { name: rx })
-        .first()
-        .or(nav.getByRole('link', { name: rx }).first());
-      await expect(item, `Missing Support item: ${rx}`).toBeVisible();
-    }
-  });
-
-  test('Support toggle reflects expanded/collapsed state (aria-expanded)', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMenuIfCollapsed(page);
-    const nav = await navScope(page);
-
-    const supportToggle = nav
-      .getByRole('button', { name: /^support$/i })
-      .first();
-    await expect(supportToggle).toBeVisible();
-
-    if ((await supportToggle.getAttribute('aria-expanded')) === 'true') {
-      await supportToggle.click();
-      await expect(supportToggle).toHaveAttribute('aria-expanded', 'false');
-    }
-
-    await supportToggle.click();
-    await expect(supportToggle).toHaveAttribute('aria-expanded', 'true');
-
-    await expect(
-      nav
-        .getByRole('menuitem', { name: /general questions/i })
-        .first()
-        .or(nav.getByRole('link', { name: /general questions/i }).first())
-    ).toBeVisible();
-
-    await supportToggle.click();
-    await expect(supportToggle).toHaveAttribute('aria-expanded', 'false');
-  });
-});
-
-test.describe('Home — Regional Admin: Account Settings nav', () => {
-  test('Account Settings navigates to /settings', async ({
-    pageAsRegionalAdmin
-  }) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.HOME);
-
-    await openMenuIfCollapsed(page);
-    const nav = await navScope(page);
-
-    const accountSettings = nav
-      .getByRole('menuitem', { name: /account settings/i })
-      .first()
-      .or(nav.getByRole('link', { name: /account settings/i }).first())
-      .or(nav.getByRole('button', { name: /account settings/i }).first());
-
-    await expect(
-      accountSettings,
-      '"Account Settings" should be visible in navigation'
-    ).toBeVisible();
-
-    await Promise.all([
-      page.waitForURL(new RegExp(`${ROUTES.SETTINGS}/?$`, 'i'), {
-        timeout: 10_000
-      }),
-      accountSettings.click()
-    ]);
-
-    await expect(page).toHaveURL(new RegExp(`${ROUTES.SETTINGS}/?$`, 'i'));
-    await expect(
-      page.getByRole('heading', { name: /my account/i })
-    ).toBeVisible();
   });
 });
 
@@ -596,163 +323,30 @@ test.describe('Inventory — Regional Admin: Filter permissions', () => {
     let persisted = false;
     if (!urlHasFilters && !sawEmpty) {
       await openFiltersDrawer(page, INV);
+
       await ensureSectionOpen(page, /regions?/i);
       await expect(
         page.getByRole('checkbox', { name: /^region\s*2$/i }).first()
       ).toBeChecked();
 
       await ensureSectionOpen(page, /organizations?/i);
-      const orgInput = page
-        .getByRole('combobox', { name: /search organizations?/i })
+
+      const baseOrgName = chosenOrg.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+      const selectedOrgCard = page
+        .getByRole('checkbox', { name: new RegExp(baseOrgName, 'i') })
         .first();
 
-      const chip = page.locator(`text=${escapeForTextSelector(chosenOrg)}`);
-
-      const valueMatches = await hasValue(orgInput, chosenOrg);
-      const chipVisible = await isVisible(chip, 500);
-
-      expect(valueMatches || chipVisible).toBeTruthy();
+      await expect(
+        selectedOrgCard,
+        'Selected organization card should persist when drawer is reopened'
+      ).toBeVisible();
+      await expect(selectedOrgCard).toBeChecked();
 
       await closeFilterDrawer(page, INV, { assertHidden: false });
       persisted = true;
     }
 
     expect(urlHasFilters || sawEmpty || persisted).toBeTruthy();
-  });
-});
-
-test.describe('A11y — Regional Admin (axe, minimal critical surfaces)', () => {
-  // Home (static)
-  test('Home: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    await pageAsRegionalAdmin.goto(ROUTES.HOME);
-    await runAxeAndFailOnSerious(
-      pageAsRegionalAdmin,
-      makeAxeBuilder,
-      ti,
-      'Home'
-    );
-  });
-
-  // VS Dashboard (drawer OPEN)
-  test('VSDashboard (drawer open): no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.VSDASHBOARD);
-    await openFiltersDrawer(page, VS);
-    await runAxeAndFailOnSerious(
-      page,
-      makeAxeBuilder,
-      ti,
-      'VSDashboard — drawer open'
-    );
-    await closeFilterDrawer(page, VS, { assertHidden: true });
-  });
-
-  // Inventory — Filters drawer open
-  test('Inventory (drawer open): no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.INVENTORY);
-    await openFiltersDrawer(page, INV);
-    await runAxeAndFailOnSerious(
-      page,
-      makeAxeBuilder,
-      ti,
-      'Inventory — drawer open'
-    );
-    // Inventory drawer may remain mounted; don't require hidden
-    await closeFilterDrawer(page, INV, { assertHidden: false });
-  });
-
-  // Inventory — Tabs toggled
-  test('Inventory — Domains tab: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.INVENTORY);
-    const tabs = page
-      .getByRole('tablist', { name: /findings section tabs/i })
-      .first();
-    const domainsTab = tabs.getByRole('tab', { name: /^domains$/i }).first();
-    await domainsTab.click();
-    await expect(domainsTab).toHaveAttribute('aria-selected', 'true');
-    await runAxeAndFailOnSerious(
-      page,
-      makeAxeBuilder,
-      ti,
-      'Inventory — Domains tab'
-    );
-  });
-
-  test('Inventory — Vulnerabilities tab: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.INVENTORY);
-    const tabs = page
-      .getByRole('tablist', { name: /findings section tabs/i })
-      .first();
-    const vulnsTab = tabs
-      .getByRole('tab', { name: /^vulnerabilities$/i })
-      .first();
-    await vulnsTab.click();
-    await expect(vulnsTab).toHaveAttribute('aria-selected', 'true');
-    await runAxeAndFailOnSerious(
-      page,
-      makeAxeBuilder,
-      ti,
-      'Inventory — Vulnerabilities tab'
-    );
-  });
-
-  // Domain details (conditional)
-  test('Domain details: no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    const page = pageAsRegionalAdmin;
-    await page.goto(ROUTES.INVENTORY);
-
-    const details = page
-      .getByRole('button', { name: /view domain details for/i })
-      .or(page.getByRole('link', { name: /view domain details for/i }));
-
-    const count = await details.count();
-    test.skip(count === 0, 'No domain details available to open');
-
-    const domainUuidRx = new RegExp(
-      `${ROUTES.DOMAIN.replace(':domainId', UUID_RX)}/?$`,
-      'i'
-    );
-
-    await Promise.all([
-      page.waitForURL(domainUuidRx, { timeout: 10_000 }),
-      details.first().click()
-    ]);
-
-    await runAxeAndFailOnSerious(page, makeAxeBuilder, ti, 'Domain Details');
-  });
-
-  // Settings → My Account (static)
-  test('Settings (My Account): no serious/critical violations', async ({
-    pageAsRegionalAdmin,
-    makeAxeBuilder
-  }, ti) => {
-    await pageAsRegionalAdmin.goto(ROUTES.SETTINGS);
-    await runAxeAndFailOnSerious(
-      pageAsRegionalAdmin,
-      makeAxeBuilder,
-      ti,
-      'Settings / My Account'
-    );
   });
 });

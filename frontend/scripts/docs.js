@@ -49,8 +49,12 @@ app.use(
           "'self'",
           `${process.env.BACKEND_DOMAIN}`,
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
-          'https://www.ssa.gov/accessibility/andi/fandi.js',
-          'https://www.ssa.gov/accessibility/andi/andi.js',
+          ...(process.env.DOMAIN === 'crossfeed.cyber.dhs.gov'
+            ? []
+            : [
+                'https://www.ssa.gov/accessibility/andi/fandi.js',
+                'https://www.ssa.gov/accessibility/andi/andi.js'
+              ]),
           'https://www.dhs.gov'
         ],
         frameAncestors: ["'none'"]
@@ -107,7 +111,6 @@ app.get('*', (req, res) => {
       res.sendFile(path.join(rootDir, 'index.html'));
     }
   } catch (error) {
-    console.error('Error while serving file:', error);
     res.status(500).send('Internal Server Error');
   }
 });

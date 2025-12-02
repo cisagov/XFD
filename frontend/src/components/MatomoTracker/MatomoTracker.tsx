@@ -8,7 +8,10 @@ export const MatomoTracker = () => {
     const siteId = import.meta.env.VITE_MATOMO_SITEID;
 
     if (!apiUrl || !matomoPath) {
-      logger.error('Matomo configuration missing.');
+      logger.error('MatomoTracker: Configuration missing', {
+        hasApiUrl: !!apiUrl,
+        hasMatomoPath: !!matomoPath
+      });
       return;
     }
 

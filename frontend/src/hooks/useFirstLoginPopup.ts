@@ -29,7 +29,10 @@ export default function useFirstLoginPopup(
       const refreshed = await apiGet(ENDPOINTS.USERS_ME);
       setUser?.(refreshed);
     } catch (err) {
-      logger.error('Failed to update first_login:', err);
+      logger.error('useFirstLoginPopup: Failed to update first_login status', {
+        error: err,
+        userId
+      });
     }
   };
 

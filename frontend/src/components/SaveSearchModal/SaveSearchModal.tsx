@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { logger } from '@/utils/logger';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  TextField,
-  Button,
-  Box
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import TextField from '@mui/material/TextField';
+import Add from '@mui/icons-material/Add';
 import { SavedSearch } from 'types/saved-search';
 import { useAuthContext } from 'context';
-import { Add } from '@mui/icons-material';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 interface SaveSearchModalProps {
@@ -76,7 +74,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
-      logger.error(e);
+      logger.error('SaveSearchModal.handleSave failed:', {
+        error: e,
+        searchName: savedSearchValues.name
+      });
     }
   };
 
@@ -173,7 +174,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogContent>
           <DialogContentText id="update-saved-search-description">
             <TextField
-              autoFocus
               required
               margin="dense"
               id="name"
@@ -216,7 +216,9 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 try {
                   handleDialogClose();
                 } catch (e) {
-                  logger.error(e);
+                  logger.error('SaveSearchModal.handleDialogClose failed:', {
+                    error: e
+                  });
                 }
               }
             }}
@@ -233,7 +235,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 setUpdateDialogOpen(false);
                 savedSearchValues.name = '';
               } catch (e) {
-                logger.error(e);
+                logger.error('SaveSearchModal.handleSave (update) failed:', {
+                  error: e,
+                  searchName: savedSearchValues.name
+                });
               }
             }}
             disabled={
@@ -249,12 +254,14 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                   setUpdateDialogOpen(false);
                   savedSearchValues.name = '';
                 } catch (e) {
-                  logger.error(e);
+                  logger.error(
+                    'SaveSearchModal.handleSave (update onKeyDown) failed:',
+                    { error: e, searchName: savedSearchValues.name }
+                  );
                 }
               }
             }}
             color="primary"
-            autoFocus
             aria-label="Save the search"
           >
             Save
@@ -279,7 +286,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogContent>
           <Box paddingBottom={'1em'}>
             <TextField
-              autoFocus
               required
               margin="dense"
               id="name"

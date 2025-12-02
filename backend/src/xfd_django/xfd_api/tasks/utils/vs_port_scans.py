@@ -1,17 +1,21 @@
 """VS Port Scan Helper."""
 
 # Standard Python Libraries
+from collections import namedtuple
+from datetime import timedelta
 from itertools import islice
 import json
 import logging
 import os
 import time
 from typing import Iterable, Optional
+import uuid
 
 # Third-Party Libraries
 from django.db import connections, transaction
 from django.db.models import Count, Max, Min
 from django.utils import timezone
+from psycopg2 import sql
 from psycopg2.extras import execute_values
 from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
@@ -29,6 +33,7 @@ LOGGER = logging.getLogger(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")
 SCAN_NAME = "VulnScanningSync"
 VS_PULL_DATE_RANGE = os.getenv("VS_PULL_DATE_RANGE", "2")
+LATEST_PORT_SCAN_CUTOFF = int(os.getenv("LATEST_PORT_SCAN_CUTOFF", "14"))
 
 CHUNK_SIZE = 500_000
 
@@ -83,6 +88,8 @@ def fetch_port_scans_from_redshift(
             chunk_number - 1,
             len(org_id_dict),
         )
+
+    mark_stale_latest_port_scans()
 
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
@@ -149,22 +156,14 @@ def bulk_insert_ips_and_link_to_port_scans(
     )
 
     # Update latest flag
+    # TODO Determine if we want to even do this anymore, possibly wait until the new table fills a bit before removing this functionality
     if affected_keys:
         update_latest_flag_for_keys_batched(affected_keys, 5000)
 
 
-# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
-@cloudwatch_metric()
-def insert_port_scans_sql(
-    port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
-):
-    """
-    Fast, low-WAL SQL insert for port_scan using psycopg2.execute_values.
-
-    Each batch runs inside its own transaction and commits automatically.
-    """
-    db = "mini_data_lake"
-    columns = [
+PortScanRow = namedtuple(
+    "PortScanRow",
+    [
         "id",
         "ip_string",
         "ip_id",
@@ -190,10 +189,59 @@ def insert_port_scans_sql(
         "organization_id",
         "risky_service_group",
         "nmi_service_group",
-    ]
+    ],
+)
 
-    # Prepare tuples
+LatestPortScanRow = namedtuple(
+    "LatestPortScanRow",
+    [
+        "id",
+        "port_scan_id",
+        "ip_string",
+        "ip_id",
+        "port",
+        "protocol",
+        "reason",
+        "service",
+        "service_name",
+        "service_confidence",
+        "service_method",
+        "service_cpe",
+        "service_hostname",
+        "service_extra_info",
+        "service_os_type",
+        "service_product",
+        "service_version",
+        "service_tunnel",
+        "service_device_type",
+        "source",
+        "state",
+        "time_scanned",
+        "organization_id",
+        "risky_service_group",
+        "nmi_service_group",
+        "current",
+    ],
+)
+
+
+# TODO: CRASM-3386: Review batch inserts for missing/duplicate data
+@cloudwatch_metric()
+def insert_port_scans_sql(
+    port_scan_batch, ip_map, risky_service_groups, nmi_service_groups
+):
+    """Insert rows into port_scan + upsert into latest_port_scan."""
+    db = "mini_data_lake"
+
+    base_columns = PortScanRow._fields
+    latest_columns = LatestPortScanRow._fields
+
     tuples = []
+    latest_tuples = []
+
+    # --------------------------------------------------
+    # Build tuples
+    # --------------------------------------------------
     for item in port_scan_batch:
         ps = item["raw"]
         svc = item["service_obj"]
@@ -202,57 +250,179 @@ def insert_port_scans_sql(
         ip_str = ps.get("ip")
         ip_obj = ip_map.get((ip_str, org_id)) if ip_str else None
 
-        tuples.append(
-            (
-                ps["_id"].replace("ObjectId('", "").replace("')", ""),
-                ip_str,
-                ip_obj.id if ip_obj else None,
-                False,  # latest flag always False initially
-                ps.get("port"),
-                ps.get("protocol"),
-                ps.get("reason"),
-                json.dumps(ps.get("service") or {}),  # convert dict to JSON string
-                svc.get("name"),
-                svc.get("conf"),
-                svc.get("method"),
-                (svc.get("cpe") or [None])[0],
-                svc.get("hostname"),
-                svc.get("extrainfo"),
-                svc.get("ostype"),
-                svc.get("product"),
-                svc.get("version"),
-                svc.get("tunnel"),
-                svc.get("devicetype"),
-                ps.get("source"),
-                ps.get("state"),
-                safe_fromisoformat(ps.get("time")),
-                org_id,
-                risky_service_groups.get(svc.get("name")),
-                nmi_service_groups.get(svc.get("name")),
-            )
+        time_scanned = safe_fromisoformat(ps.get("time"))
+        ps_id = ps["_id"].replace("ObjectId('", "").replace("')", "")
+
+        # ---- PortScan row ----
+        row = PortScanRow(
+            id=ps_id,
+            ip_string=ip_str,
+            ip_id=ip_obj.id if ip_obj else None,
+            latest=False,
+            port=ps.get("port"),
+            protocol=ps.get("protocol"),
+            reason=ps.get("reason"),
+            service=json.dumps(ps.get("service") or {}),
+            service_name=svc.get("name"),
+            service_confidence=svc.get("conf"),
+            service_method=svc.get("method"),
+            service_cpe=(svc.get("cpe") or [None])[0],
+            service_hostname=svc.get("hostname"),
+            service_extra_info=svc.get("extrainfo"),
+            service_os_type=svc.get("ostype"),
+            service_product=svc.get("product"),
+            service_version=svc.get("version"),
+            service_tunnel=svc.get("tunnel"),
+            service_device_type=svc.get("devicetype"),
+            source=ps.get("source"),
+            state=ps.get("state"),
+            time_scanned=time_scanned,
+            organization_id=org_id,
+            risky_service_group=risky_service_groups.get(svc.get("name")),
+            nmi_service_group=nmi_service_groups.get(svc.get("name")),
         )
+        tuples.append(row)
+
+        # ---- LatestPortScan row ----
+        latest_row = LatestPortScanRow(
+            id=str(uuid.uuid4()),
+            port_scan_id=ps_id,
+            ip_string=ip_str,
+            ip_id=ip_obj.id if ip_obj else None,
+            port=ps.get("port"),
+            protocol=ps.get("protocol"),
+            reason=ps.get("reason"),
+            service=json.dumps(ps.get("service") or {}),
+            service_name=svc.get("name"),
+            service_confidence=svc.get("conf"),
+            service_method=svc.get("method"),
+            service_cpe=(svc.get("cpe") or [None])[0],
+            service_hostname=svc.get("hostname"),
+            service_extra_info=svc.get("extrainfo"),
+            service_os_type=svc.get("ostype"),
+            service_product=svc.get("product"),
+            service_version=svc.get("version"),
+            service_tunnel=svc.get("tunnel"),
+            service_device_type=svc.get("devicetype"),
+            source=ps.get("source"),
+            state=ps.get("state"),
+            time_scanned=time_scanned,
+            organization_id=org_id,
+            risky_service_group=risky_service_groups.get(svc.get("name")),
+            nmi_service_group=nmi_service_groups.get(svc.get("name")),
+            current=True,
+        )
+        latest_tuples.append(latest_row)
 
     if not tuples:
         return
 
-    sql = f"""
-        INSERT INTO port_scan ({', '.join(columns)})
-        VALUES %s
-        ON CONFLICT (id) DO NOTHING
-    """  # nosec B608
+    # --------------------------------------------------
+    # Dedup latest_port_scan by (org, ip_id, port, protocol)
+    # --------------------------------------------------
+    dedup = {}
+    for row in latest_tuples:
+        key = (row.organization_id, row.ip_id, row.port, row.protocol)
+        existing = dedup.get(key)
+        if existing is None or (
+            row.time_scanned
+            and existing.time_scanned
+            and row.time_scanned > existing.time_scanned
+        ):
+            dedup[key] = row
 
-    PAGE_SIZE = 5000  # number of rows per VALUES chunk
-    BATCH_COMMIT = 10000  # number of rows per transaction
+    latest_tuples = list(dedup.values())
 
-    total = len(tuples)
+    # --------------------------------------------------
+    # SQL (Bandit-safe) with ID excluded from updates
+    # --------------------------------------------------
+    insert_portscan_sql = sql.SQL(
+        "INSERT INTO {table} ({cols}) VALUES %s " "ON CONFLICT (id) DO NOTHING"
+    ).format(
+        table=sql.Identifier("port_scan"),
+        cols=sql.SQL(", ").join(sql.Identifier(c) for c in base_columns),
+    )
 
-    for i in range(0, total, BATCH_COMMIT):
+    conflict_cols = ["organization_id", "ip_id", "port", "protocol"]
+
+    # ❗ EXCLUDE "id" from updates
+    update_cols = [c for c in latest_columns if c not in conflict_cols and c != "id"]
+
+    set_sql = sql.SQL(", ").join(
+        sql.SQL("{col}=EXCLUDED.{col}").format(col=sql.Identifier(c))
+        for c in update_cols
+    )
+
+    where_sql = sql.SQL(
+        "WHERE {tbl}.time_scanned IS NULL "
+        "OR EXCLUDED.time_scanned > {tbl}.time_scanned"
+    ).format(tbl=sql.Identifier("latest_port_scan"))
+
+    insert_latest_sql = sql.SQL(
+        "INSERT INTO {table} ({cols}) VALUES %s "
+        "ON CONFLICT ({conf_cols}) DO UPDATE SET {set_sql} {where_sql}"
+    ).format(
+        table=sql.Identifier("latest_port_scan"),
+        cols=sql.SQL(", ").join(sql.Identifier(c) for c in latest_columns),
+        conf_cols=sql.SQL(", ").join(sql.Identifier(c) for c in conflict_cols),
+        set_sql=set_sql,
+        where_sql=where_sql,
+    )
+
+    PAGE_SIZE = 5000
+    BATCH_COMMIT = 10000
+
+    # --------------------------------------------------
+    # Batching with logging (restored)
+    # --------------------------------------------------
+    for i in range(0, len(tuples), BATCH_COMMIT):
         subset = tuples[i : i + BATCH_COMMIT]
+        latest_subset = latest_tuples[i : i + BATCH_COMMIT]
+
         with transaction.atomic(using=db):
             with connections[db].cursor() as cursor:
-                # Safe with ON CONFLICT DO NOTHING
                 cursor.execute("SET LOCAL synchronous_commit = OFF;")
-                execute_values(cursor, sql, subset, page_size=PAGE_SIZE)
+
+                # ---- port_scan insert ----
+                try:
+                    execute_values(
+                        cursor,
+                        insert_portscan_sql.as_string(cursor.cursor),
+                        subset,
+                        page_size=PAGE_SIZE,
+                    )
+                except Exception as exc:
+                    LOGGER.exception(
+                        "Failed inserting into port_scan",
+                        extra={
+                            "batch_start": i,
+                            "batch_end": i + len(subset),
+                            "batch_size": len(subset),
+                            "error": str(exc),
+                        },
+                    )
+                    raise
+
+                # ---- latest_port_scan upsert ----
+                if latest_subset:
+                    try:
+                        execute_values(
+                            cursor,
+                            insert_latest_sql.as_string(cursor.cursor),
+                            latest_subset,
+                            page_size=PAGE_SIZE,
+                        )
+                    except Exception as exc:
+                        LOGGER.exception(
+                            "Failed upserting into latest_port_scan",
+                            extra={
+                                "batch_start": i,
+                                "batch_end": i + len(latest_subset),
+                                "batch_size": len(latest_subset),
+                                "error": str(exc),
+                            },
+                        )
+                        raise
 
 
 # TODO: CRASM-3386: Review batch inserts for missing/duplicate data
@@ -264,80 +434,97 @@ def update_latest_flag_for_keys_batched(affected_keys, batch_size=20000):
     Only flips rows that actually need changing.
     """
     db = "mini_data_lake"
+
     if not affected_keys:
+        LOGGER.info("No affected keys provided for updating latest flags.")
         return
 
     keys = sorted(set(affected_keys))
+    start_time = time.time()
 
-    with connections[db].cursor() as cur, transaction.atomic(using=db):
-        cur.execute("SET LOCAL synchronous_commit = OFF;")
+    try:
+        with connections[db].cursor() as cur, transaction.atomic(using=db):
+            cur.execute("SET LOCAL synchronous_commit = OFF;")
 
-        # 1) Temp table for keys
-        cur.execute(
-            """
-            CREATE TEMP TABLE _ps_keys(
-              organization_id uuid,
-              ip_string text,
-              port int,
-              PRIMARY KEY (organization_id, ip_string, port)
-            ) ON COMMIT DROP;
-        """
+            # 1) Temp table for keys
+            cur.execute(
+                """
+                CREATE TEMP TABLE _ps_keys(
+                  organization_id uuid,
+                  ip_string text,
+                  port int,
+                  PRIMARY KEY (organization_id, ip_string, port)
+                ) ON COMMIT DROP;
+                """
+            )
+            execute_values(
+                cur,
+                "INSERT INTO _ps_keys (organization_id, ip_string, port) VALUES %s",
+                keys,
+                page_size=batch_size,
+            )
+            cur.execute("ANALYZE _ps_keys;")
+
+            # 2) Latest row per key, only look back 90 days
+            cur.execute(
+                """
+                CREATE TEMP TABLE _ps_latest_ids (id text PRIMARY KEY) ON COMMIT DROP;
+
+                INSERT INTO _ps_latest_ids (id)
+                SELECT DISTINCT ON (ps.organization_id, ps.ip_string, ps.port) ps.id
+                FROM port_scan ps
+                JOIN _ps_keys k
+                  ON ps.organization_id = k.organization_id
+                 AND ps.ip_string      = k.ip_string
+                 AND ps.port           = k.port
+                WHERE ps.time_scanned IS NOT NULL
+                  AND ps.time_scanned > NOW() - INTERVAL '90 days'
+                ORDER BY ps.organization_id, ps.ip_string, ps.port, ps.time_scanned DESC;
+                """
+            )
+            cur.execute("ANALYZE _ps_latest_ids;")
+
+            # 3a) Turn off stale 'latest=true'
+            cur.execute(
+                """
+                UPDATE port_scan p
+                   SET latest = FALSE
+                FROM _ps_keys k
+                WHERE p.latest = TRUE
+                  AND p.organization_id = k.organization_id
+                  AND p.ip_string       = k.ip_string
+                  AND p.port            = k.port
+                  AND NOT EXISTS (
+                        SELECT 1 FROM _ps_latest_ids l WHERE l.id = p.id
+                  );
+                """
+            )
+
+            # 3b) Turn on the true latest
+            cur.execute(
+                """
+                UPDATE port_scan p
+                   SET latest = TRUE
+                FROM _ps_latest_ids l
+                WHERE p.id = l.id
+                  AND p.latest IS DISTINCT FROM TRUE;
+                """
+            )
+
+        duration = time.time() - start_time
+        LOGGER.info(
+            "Updated latest flags for %d distinct keys via DISTINCT ON in %.2fs.",
+            len(keys),
+            duration,
         )
-        execute_values(
-            cur,
-            "INSERT INTO _ps_keys (organization_id, ip_string, port) VALUES %s",
-            keys,
-            page_size=batch_size,
+
+    except Exception as e:
+        LOGGER.exception(
+            "Failed updating latest flags for %d keys in update_latest_flag_for_keys_batched: %s",
+            len(keys),
+            e,
         )
-        cur.execute("ANALYZE _ps_keys;")
-
-        # 2) Latest row per key, but ONLY look back 90 days
-        cur.execute(
-            """
-            CREATE TEMP TABLE _ps_latest_ids (id text PRIMARY KEY) ON COMMIT DROP;
-
-            INSERT INTO _ps_latest_ids (id)
-            SELECT DISTINCT ON (ps.organization_id, ps.ip_string, ps.port) ps.id
-            FROM port_scan ps
-            JOIN _ps_keys k
-              ON ps.organization_id = k.organization_id
-             AND ps.ip_string      = k.ip_string
-             AND ps.port           = k.port
-            WHERE ps.time_scanned IS NOT NULL
-              AND ps.time_scanned > NOW() - INTERVAL '90 days'
-            ORDER BY ps.organization_id, ps.ip_string, ps.port, ps.time_scanned DESC;
-        """
-        )
-        cur.execute("ANALYZE _ps_latest_ids;")
-
-        # 3a) Turn off stale 'latest=true'
-        cur.execute(
-            """
-            UPDATE port_scan p
-               SET latest = FALSE
-            FROM _ps_keys k
-            WHERE p.latest = TRUE
-              AND p.organization_id = k.organization_id
-              AND p.ip_string       = k.ip_string
-              AND p.port            = k.port
-              AND NOT EXISTS (
-                    SELECT 1 FROM _ps_latest_ids l WHERE l.id = p.id
-              );
-        """
-        )
-
-        # 3b) Turn on the true latest
-        cur.execute(
-            """
-            UPDATE port_scan p
-               SET latest = TRUE
-            FROM _ps_latest_ids l
-            WHERE p.id = l.id
-              AND p.latest IS DISTINCT FROM TRUE;
-        """
-        )
-
-    LOGGER.info("Updated latest flags for %d distinct keys via DISTINCT ON.", len(keys))
+        raise
 
 
 def chunked(iterable, n):
@@ -368,7 +555,7 @@ def create_port_scan_summaries_bulk(
     # summary_date is passed as date (or defaults to CURRENT_DATE in SQL).
     with transaction.atomic(using="mini_data_lake"):
         with connections["mini_data_lake"].cursor() as cur:
-            sql = """
+            sql_insert = """
             WITH base AS (
                 SELECT
                     ps.organization_id,
@@ -448,14 +635,36 @@ def create_port_scan_summaries_bulk(
             """
             # Convert to list so it’s a concrete array param
             org_id_list = list(org_ids)
-            i = 1
+            chunk_number = 1
+
             for org_chunk in chunked(org_id_list, 10):
-                cur.execute(sql, [org_chunk, summary_date])
-                LOGGER.info("Finished %d/15 chunks", i)
-                i += 1
+                try:
+                    with transaction.atomic(using="mini_data_lake"):
+                        with connections["mini_data_lake"].cursor() as cur:
+                            cur.execute(sql_insert, [org_chunk, summary_date])
+
+                    LOGGER.info(
+                        "Successfully finished chunk %d (%d org_ids)",
+                        chunk_number,
+                        len(org_chunk),
+                    )
+
+                except Exception as e:
+                    LOGGER.error(
+                        "FAILED chunk %d for org_ids=%s — error: %s",
+                        chunk_number,
+                        org_chunk,
+                        str(e),
+                        exc_info=True,
+                    )
+                    # Continue to next chunk
+                    # (Do NOT raise unless you want abort-on-first-error behavior)
+
+                chunk_number += 1
 
             LOGGER.info(
-                "Bulk port scan summaries upserted for %d orgs", len(org_id_list)
+                "Bulk port scan summaries upserted for %d orgs",
+                len(org_id_list),
             )
 
 
@@ -527,7 +736,7 @@ def enforce_latest_flag_port_scan():
     start = time.time()
     db = "mini_data_lake"
 
-    sql = """
+    sql_insert = """
         WITH ranked_scans AS (
             SELECT
                 id,
@@ -546,8 +755,37 @@ def enforce_latest_flag_port_scan():
           AND port_scan.latest IS DISTINCT FROM (ranked_scans.scan_rank = 1);
     """
 
-    with connections[db].cursor() as cursor:
-        cursor.execute(sql)
+    try:
+        with connections[db].cursor() as cursor:
+            cursor.execute(sql_insert)
 
-    duration = time.time() - start
-    LOGGER.info("Completed enforce_latest_flag in %.2fs", duration)
+        duration = time.time() - start
+        LOGGER.info("Completed enforce_latest_flag in %.2fs", duration)
+
+    except Exception as e:
+        LOGGER.exception("Failed to enforce latest flag on port scans: %s", e)
+        # Do not raise — just log the failure and let the job continue
+
+
+@cloudwatch_metric()
+def mark_stale_latest_port_scans():
+    """Mark any LatestPortScan rows where time_scanned is older than cut off as current = FALSE."""
+    try:
+        cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
+
+        with connections["mini_data_lake"].cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE latest_port_scan
+                SET current = FALSE
+                WHERE time_scanned < %s
+                """,
+                [cutoff_date],
+            )
+
+        LOGGER.info("Marked stale LatestPortScan rows as current=FALSE.")
+
+    except Exception as e:
+        LOGGER.exception(
+            "Failed to mark stale LatestPortScan rows as current=FALSE: %s", e
+        )

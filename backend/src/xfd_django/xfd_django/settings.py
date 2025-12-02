@@ -22,12 +22,16 @@ from typing import Any, Dict
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.load_env_variables import load_django_env_config
 from .helpers.log_helpers import install_xfd_prefix
 
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
 
 install_xfd_prefix()  # Install custom logger prefix
+
+# Load environment variables from S3
+load_django_env_config()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -330,8 +334,14 @@ SECURE_CSP_POLICY = {
         os.getenv("BACKEND_DOMAIN"),
         os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
-        "https://www.ssa.gov/accessibility/andi/fandi.js",
-        "https://www.ssa.gov/accessibility/andi/andi.js",
+        *(
+            [
+                "https://www.ssa.gov/accessibility/andi/fandi.js",
+                "https://www.ssa.gov/accessibility/andi/andi.js",
+            ]
+            if DEBUG
+            else []
+        ),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
         "'sha256-QOOQu4W1oxGqd2nbXbxiA1Di6OHQOLQD+o+G9oWL8YY='",
         "https://www.dhs.gov",

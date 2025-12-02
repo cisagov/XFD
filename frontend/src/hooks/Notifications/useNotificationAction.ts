@@ -53,7 +53,11 @@ export function useNotificationAction({
         );
       }
     } catch (error) {
-      logger.error('Error occurred during handleNotificationAction:', error);
+      logger.error('useNotificationAction: handleNotificationAction failed', {
+        error,
+        action,
+        notificationId: body.id
+      });
       throw error;
     }
     return notification;

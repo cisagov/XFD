@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { logger } from '@/utils/logger';
-import { initializeUser, User, Organization as OrganizationType } from 'types';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
-import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
-import InfoDialog from 'components/Dialog/InfoDialog';
-import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
-import { useAuthContext } from 'context';
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { formatDate, parseISO } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import CloseIcon from '@mui/icons-material/Close';
+import DoneIcon from '@mui/icons-material/Done';
+import InfoOutline from '@mui/icons-material/InfoOutline';
 import {
   DataGrid,
   GridColDef,
@@ -15,15 +18,15 @@ import {
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import DoneIcon from '@mui/icons-material/Done';
-import {
-  CheckCircleOutline as CheckIcon,
-  InfoOutline
-} from '@mui/icons-material';
-import CloseIcon from '@mui/icons-material/Close';
+import { initializeUser, User, Organization as OrganizationType } from 'types';
+import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
+import InfoDialog from 'components/Dialog/InfoDialog';
+import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
+import { useAuthContext } from 'context';
 import { useUserLevel } from 'hooks/useUserLevel';
-import { formatDate, parseISO } from 'date-fns';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -60,7 +63,6 @@ export const RegionUsers: React.FC = () => {
   const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
-  const regionalAdminId = user?.region_id;
   const { formattedUserType } = useUserLevel();
   const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
 
@@ -156,10 +158,11 @@ export const RegionUsers: React.FC = () => {
             <Button
               variant="contained"
               endIcon={<DoneIcon />}
-              color="success"
               onClick={() => handleApproveClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
               aria-label={`Approve User: ${cellValues.row.full_name}`}
+              sx={{ backgroundColor: '#2e7d32' }}
+              // TODO need to use success color after contrast issue resolved CRASM-3445
             >
               Approve
             </Button>
@@ -597,7 +600,11 @@ export const RegionUsers: React.FC = () => {
         }
       ).then(
         (res) => {
-          logger.info(res);
+          logger.info('RegionUsers: Organization role removed successfully', {
+            response: res,
+            organizationId: org_id,
+            roleId
+          });
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });
@@ -838,7 +845,7 @@ export const RegionUsers: React.FC = () => {
             isInfoDialogOpen: false
           }));
         }}
-        icon={<CheckIcon color="success" sx={{ fontSize: '80px' }} />}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
       />

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { Box, Button, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import { useAuthContext } from 'context';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useNavigationContext } from 'context/NavigationContext';
@@ -16,6 +17,7 @@ import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 import { OrganizationShallow } from './RegionAndOrganizationFilters';
 import { Organization } from 'types';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
 export const toggleRegionalUserType = false;
@@ -136,7 +138,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          logger.error(e);
+          logger.error('VSDashRegionAndOrgFilters.fetchOrgs failed:', {
+            error: e
+          });
         }
       }
     },

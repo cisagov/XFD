@@ -1,6 +1,8 @@
 import React from 'react';
 import { withSearch } from '@elastic/react-search-ui';
-import { BoxProps, CircularProgress, Link } from '@mui/material';
+import { BoxProps } from '@mui/material/Box';
+import CircularProgress from '@mui/material/CircularProgress';
+import Link from '@mui/material/Link';
 // Context & hooks
 import { ContextType, useAuthContext } from 'context';
 import { useVulnScanData } from 'hooks/useVulnScanData';

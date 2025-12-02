@@ -1,6 +1,9 @@
 import classes from './Scans.module.scss';
 import { logger } from '@/utils/logger';
 import React, { useCallback, useRef, useState } from 'react';
+import { FaPlayCircle } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 // TODO: Refactor to use Material-UI components
 import {
   Button,
@@ -10,29 +13,22 @@ import {
   ModalHeading,
   ModalRef
 } from '@trussworks/react-uswds';
+import Alert from '@mui/material/Alert';
+import MuiButton from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { ModalToggleButton } from 'components';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-import { FaTimes } from 'react-icons/fa';
-import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
-import { formatDistanceToNow, parseISO } from 'date-fns';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-
-import {
-  Alert,
-  Button as MuiButton,
-  Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  IconButton,
-  Paper,
-  DialogTitle,
-  Snackbar,
-  SnackbarCloseReason
-} from '@mui/material';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Errors extends Partial<Scan> {
@@ -82,7 +78,8 @@ const ScansView: React.FC = () => {
     is_user_modifiable: false,
     is_single_scan: false,
     tags: [],
-    concurrent_tasks: 1
+    concurrent_tasks: 1,
+    useDateRange: false
   });
 
   const fetchScans = useCallback(async () => {
@@ -102,7 +99,7 @@ const ScansView: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      logger.error(e);
+      logger.error('ScansView.fetchScans failed:', { error: e });
     }
   }, [apiGet]);
 
@@ -117,7 +114,7 @@ const ScansView: React.FC = () => {
             ? 'Unable to delete scan'
             : (e.message ?? e.toString())
       });
-      logger.error(e);
+      logger.error('ScansView.deleteRow failed:', { error: e, scanId: id });
     }
   };
 
@@ -152,7 +149,7 @@ const ScansView: React.FC = () => {
       });
       setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
       setSnackbarOpen(true);
-      logger.error(e);
+      logger.error('ScansView.createScan failed:', { error: e });
     }
   };
 
@@ -161,7 +158,7 @@ const ScansView: React.FC = () => {
     try {
       await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
-      logger.error(e);
+      logger.error('ScansView.invokeScheduler failed:', { error: e });
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
     }
   };
@@ -191,7 +188,7 @@ const ScansView: React.FC = () => {
     try {
       await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
-      logger.error(e);
+      logger.error('ScansView.runScan failed:', { error: e, scanId: id });
       setErrors({ ...errors, scheduler: 'Run failed.' });
     }
     await invokeScheduler();
@@ -527,7 +524,7 @@ const ScansView: React.FC = () => {
           severity={snackbarMsg.includes('failed') ? 'error' : 'success'}
           sx={{ width: '100%' }}
         >
-          <span tabIndex={0}>{snackbarMsg}</span>
+          <span>{snackbarMsg}</span>
         </Alert>
       </Snackbar>
     </>

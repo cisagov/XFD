@@ -7,19 +7,15 @@ import React, {
 } from 'react';
 import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Query } from 'types';
-import { DomainSearchApiResponse } from 'types';
-import { useAuthContext } from 'context';
-import { useDomainApi } from 'hooks';
-import { Box, Stack } from '@mui/system';
-import {
-  Alert,
-  Button,
-  Divider,
-  IconButton,
-  Paper,
-  Typography
-} from '@mui/material';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import {
@@ -32,9 +28,12 @@ import {
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
+import { Query } from 'types';
+import { DomainSearchApiResponse } from 'types';
+import { useAuthContext } from 'context';
+import { useDomainApi } from 'hooks';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
@@ -146,7 +145,10 @@ export const Domains: React.FC = () => {
           pageSize: q.pageSize ?? PAGE_SIZE
         }));
       } catch (e) {
-        logger.error(e);
+        logger.error('Domains.fetchDomains failed:', {
+          error: e,
+          page: q.page
+        });
         setLoadingError(true);
       } finally {
         setIsLoading(false);
@@ -236,7 +238,7 @@ export const Domains: React.FC = () => {
       return operators.filter((op) =>
         allowedOperators.includes(op.value as string)
       );
-    } catch (e) {
+    } catch {
       return [
         { label: 'Contains', value: 'contains' } as any,
         { label: 'Equals', value: 'equals' } as any

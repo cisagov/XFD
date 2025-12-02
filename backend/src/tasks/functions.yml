@@ -56,18 +56,54 @@ scheduler:
       Action:
         - iam:PassRole
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 syncdb:
   <<: *adot
   timeout: 900
   handler: src.xfd_django.xfd_api.tasks.run_syncdb.handler
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 syncmdl:
   <<: *adot
   timeout: 900
   handler: src.xfd_django.xfd_api.tasks.run_syncmdl.handler
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 bastion:
   <<: *adot
@@ -83,6 +119,12 @@ bastion:
         - s3:PutBucketAcl
         - s3:GetBucketAcl
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 checkUserExpiration:
   <<: *adot
@@ -102,6 +144,21 @@ checkUserExpiration:
         - cognito-idp:ListUsers
         - cognito-idp:AdminSetUserPassword
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 queryDailyCustomerMetrics:
   <<: *adot
@@ -109,7 +166,22 @@ queryDailyCustomerMetrics:
   handler: src.xfd_django.xfd_api.tasks.metrics.collect_and_upsert_customer_metrics
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 scanExecution:
   <<: *adot
@@ -154,6 +226,12 @@ scanExecution:
       Action:
         - iam:PassRole
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 updateScanTaskStatus:
   <<: *adot
@@ -169,13 +247,43 @@ updateScanTaskStatus:
           detail:
             clusterArn:
               - ${file(env.yml):${self:provider.stage}-ecs-cluster, ''}
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 infraOps:
   <<: *adot
   timeout: 900
   handler: src.xfd_django.xfd_api.tasks.infra_ops.handler
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 pruneScanResults:
   <<: *adot
@@ -183,7 +291,22 @@ pruneScanResults:
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
 
 serviceStatsCache:
   <<: *adot

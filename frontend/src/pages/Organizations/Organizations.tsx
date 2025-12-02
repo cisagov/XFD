@@ -5,19 +5,16 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { logger } from '@/utils/logger';
+import { useHistory } from 'react-router-dom';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
-import { Organization } from 'types';
-import { useAuthContext } from 'context';
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Stack,
-  Typography
-} from '@mui/material';
 import {
   DataGrid,
   GridColDef,
@@ -25,13 +22,14 @@ import {
   GridFilterModel,
   GridSortModel
 } from '@mui/x-data-grid';
-import { useHistory } from 'react-router-dom';
-import { CheckCircleOutline } from '@mui/icons-material';
+import { Organization } from 'types';
+import { useAuthContext } from 'context';
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -112,7 +110,7 @@ export const Organizations: React.FC = () => {
       setRowCount(data.count);
     } catch (e) {
       if (myId === reqIdRef.current) {
-        logger.error(e);
+        logger.error('Organizations.fetchOrganizations failed:', { error: e });
         setLoadingError(true);
       }
     } finally {
@@ -243,7 +241,7 @@ export const Organizations: React.FC = () => {
         type: 'error'
       });
       setChosenTags([]);
-      logger.error(e);
+      logger.error('Organizations.handleSubmit failed:', { error: e });
     }
   };
 

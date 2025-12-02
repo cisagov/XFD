@@ -1,6 +1,8 @@
 import React from 'react';
-import { FormGroup, FormControlLabel, Checkbox, useTheme } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import { styled, useTheme } from '@mui/material/styles';
 
 interface Props {
   options: { value: string; count: number }[];

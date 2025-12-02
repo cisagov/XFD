@@ -187,7 +187,7 @@ The project is configured to generate comprehensive test coverage reports:
 
 **Coverage Configuration:**
 
-- **Provider**: v8 (fast, accurate)
+- **Provider**: istanbul (detailed, accurate)
 - **Reports**: Terminal output + HTML + JSON
 - **Output**: `frontend/coverage/` (excluded from git)
 

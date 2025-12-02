@@ -27,7 +27,7 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   component,
   ...rest
 }) => {
-  const { token, user, userMustSign, logout } = useAuthContext();
+  const { token, user, logout } = useAuthContext();
   const history = useHistory();
 
   if (token && !user) {
@@ -48,7 +48,9 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     window.location.pathname !== ROUTES.HOME &&
     window.location.pathname !== ROUTES.LOGOUT
   ) {
-    logger.info('User is not approved.');
+    logger.info('RouteGuard: User is not approved, redirecting to home', {
+      pathname: window.location.pathname
+    });
     history.push(ROUTES.HOME);
     return null;
   }
@@ -70,7 +72,10 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
       user.user_type !== 'globalAdmin' &&
       !permissions.includes(user.user_type)
     ) {
-      logger.info('User access denied. Logging out!');
+      logger.info('RouteGuard: User access denied, logging out', {
+        userType: user.user_type,
+        requiredPermissions: permissions
+      });
       logout();
       history.push(ROUTES.HOME);
       return null;

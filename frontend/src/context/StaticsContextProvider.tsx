@@ -33,7 +33,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
           })
       );
     } catch (e) {
-      logger.error(e);
+      logger.error('StaticsContextProvider.fetchRegions failed:', { error: e });
     }
   }, [apiGet, setRegions]);
 
