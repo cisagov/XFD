@@ -158,10 +158,11 @@ export const RegionUsers: React.FC = () => {
             <Button
               variant="contained"
               endIcon={<DoneIcon />}
-              color="success"
               onClick={() => handleApproveClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
               aria-label={`Approve User: ${cellValues.row.full_name}`}
+              sx={{ backgroundColor: '#2e7d32' }}
+              // TODO need to use success color after contrast issue resolved CRASM-3445
             >
               Approve
             </Button>
