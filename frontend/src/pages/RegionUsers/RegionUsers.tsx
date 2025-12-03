@@ -29,6 +29,7 @@ import { useUserLevel } from 'hooks/useUserLevel';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { useUpdateUser } from '@/hooks/useUpdateUser';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -439,18 +440,15 @@ export const RegionUsers: React.FC = () => {
     [apiDelete]
   );
 
+  const { updateUser: updateUserApi } = useUpdateUser();
+
   const updateUser = useCallback(
     async (
       user_id: string,
       org_name: string
     ): Promise<{ success: boolean; body: string }> => {
       try {
-        const res = await apiPost(
-          ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', user_id),
-          {
-            body: { invite_pending: false }
-          }
-        );
+        const res = await updateUserApi(user_id, { invite_pending: false });
         apiRefPendingUsers.current?.updateRows([
           { id: user_id, _action: 'delete' }
         ]);

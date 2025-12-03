@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { User } from 'types/user';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { useUpdateUser } from './useUpdateUser';
 
 export default function useFirstLoginPopup(
   user: User | null,
-  apiPost: any,
   apiGet: any,
   setUser: any
 ) {
   const [show, setShow] = useState(!!user?.first_login);
   const dismissedRef = useRef(false);
+  const { updateUser } = useUpdateUser();
 
   useEffect(() => {
     if (!user || dismissedRef.current) return;
@@ -23,9 +24,7 @@ export default function useFirstLoginPopup(
     const userId = user?.id;
     if (!userId) return;
     try {
-      await apiPost(ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', userId), {
-        body: { first_login: false }
-      });
+      await updateUser(userId, { first_login: false });
       const refreshed = await apiGet(ENDPOINTS.USERS_ME);
       setUser?.(refreshed);
     } catch (err) {

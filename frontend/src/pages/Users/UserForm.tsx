@@ -17,6 +17,7 @@ import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { useOrganizations } from '@/hooks/useOrganizations';
+import { useUpdateUser } from '@/hooks/useUpdateUser';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -292,6 +293,8 @@ export const UserForm: React.FC<UserFormProps> = ({
     });
   };
 
+  const { updateUser } = useUpdateUser();
+
   const handleEditUserSubmit = async () => {
     if (!validateForm(values) || values.org_id === '') {
       return;
@@ -317,12 +320,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       body.user_type = values.user_type;
     }
     try {
-      await apiPost(
-        ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', String(values.id)),
-        {
-          body
-        }
-      );
+      await updateUser(String(values.id), body);
       if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId) {
           await apiPost(
