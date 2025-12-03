@@ -1,9 +1,10 @@
 """WAS Sync API Methods."""
+
 # Standard Python Libraries
 from datetime import date
 import logging
 import math
-from typing import Iterable, Tuple
+from typing import Iterable, List, Optional, Tuple
 
 # Third-Party Libraries
 from django.db.models import QuerySet
@@ -45,18 +46,18 @@ READ_ONLY_FIELDS = (
 
 async def get_all_was_scan_summaries(
     page: int, per_page: int
-) -> tuple[int, list[WasScanSummary]]:
+) -> Tuple[int, List[WasScanSummary]]:
     """Retrieve paginated WAS scan summaries."""
     qs = WasScanSummary.objects.all().order_by("-start_date")
     total_count = qs.count()
-    total_pages = max(1, math.ceil(total_count / per_page))  # <- proper ceil
+    total_pages = max(1, math.ceil(total_count / per_page))
 
     offset = (page - 1) * per_page
     records = list(qs[offset : offset + per_page])
     return total_pages, records
 
 
-def get_was_findings_queryset(since_date: date | None) -> QuerySet:
+def get_was_findings_queryset(since_date: Optional[date]) -> QuerySet:
     """
     Build the base queryset for WAS findings with optional since_date filter.
 
