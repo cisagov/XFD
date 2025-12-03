@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { isEqual } from 'lodash';
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -11,16 +11,12 @@ import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
-import {
-  initialUserFormValues,
-  Organization,
-  User,
-  UserFormValues
-} from 'types';
+import { initialUserFormValues, User, UserFormValues } from 'types';
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { useOrganizations } from '@/hooks/useOrganizations';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -224,7 +220,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user, apiGet, apiPost } = useAuthContext();
+  const { user, apiPost } = useAuthContext();
   const [formErrors, setFormErrors] = useState({
     first_name: false,
     last_name: false,
@@ -232,48 +228,18 @@ export const UserForm: React.FC<UserFormProps> = ({
     user_type: false,
     state: false
   });
-  const [organizationsInRegion, setOrganizationsInRegion] = useState<
-    Organization[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [initialOrgIdChange, setInitialOrgIdChange] = useState(false);
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-  const fetchOrganizations = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let rows: Organization[] = [];
-      if (values.region_id) {
-        rows = await apiGet<Organization[]>(
-          ENDPOINTS.ORGANIZATIONS_REGION.replace(
-            '{region_id}',
-            values.region_id
-          )
-        );
-      }
-      setOrganizationsInRegion(rows);
-      setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: '' }));
-    } catch (e: any) {
-      setApiErrorStates((prev: any) => ({
-        ...prev,
-        getOrgsError: e.message + ('. ' + e.response?.data?.detail || '')
-      }));
-      logger.error('UserForm.fetchOrganizations failed:', {
-        error: e,
-        regionId: values.region_id
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiGet, values.region_id, setApiErrorStates]);
-
-  useEffect(() => {
-    fetchOrganizations();
-  }, [fetchOrganizations]);
+  const {
+    organizations: organizationsInRegion,
+    error: getOrgsError,
+    isLoading
+  } = useOrganizations(values.region_id);
 
   const getOrgNameById = (id: string) => {
-    const organization = organizationsInRegion.find((org) => org.id === id);
+    const organization = organizationsInRegion?.find((org) => org.id === id);
     return organization ? organization.name : null;
   };
 
@@ -317,6 +283,12 @@ export const UserForm: React.FC<UserFormProps> = ({
       email: false,
       user_type: false,
       state: false
+    });
+    setApiErrorStates({
+      getUsersError: '',
+      getAddUserError: '',
+      getDeleteError: '',
+      getUpdateUserError: ''
     });
   };
 
@@ -441,9 +413,9 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
   };
 
-  const sortedOrgs = organizationsInRegion
-    .slice()
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const sortedOrgs =
+    organizationsInRegion &&
+    organizationsInRegion.slice().sort((a, b) => a.name.localeCompare(b.name));
 
   const editedUser = users.find((u) => u.id === values.id);
   const editedUserOrganization =
@@ -568,14 +540,13 @@ export const UserForm: React.FC<UserFormProps> = ({
           <Typography mb={1}>Organization</Typography>
           {isLoading ? (
             <Alert severity="info">Loading organization selections..</Alert>
-          ) : apiErrorStates.getOrgsError ? (
+          ) : getOrgsError ? (
             <Alert severity="info">
-              {apiErrorStates.getOrgsError}. See the network tab for more
-              details.
+              {getOrgsError}. See the network tab for more details.
             </Alert>
           ) : values.state === '' ? (
             <Alert severity="info">Select a state to make a selection.</Alert>
-          ) : organizationsInRegion.length === 0 ? (
+          ) : organizationsInRegion?.length === 0 ? (
             <Alert severity="info">
               No organizations found. Add orgs to Region {values.region_id} to
               make a selection.
@@ -585,14 +556,16 @@ export const UserForm: React.FC<UserFormProps> = ({
               size="small"
               id="org_id"
               fullWidth
-              options={sortedOrgs}
+              options={sortedOrgs || []}
               getOptionLabel={(option) => {
                 if (option.name && option.acronym) {
                   return `${option.name} (${option.acronym})`;
                 }
                 return option.name;
               }}
-              value={sortedOrgs.find((org) => org.id === values.org_id) || null}
+              value={
+                sortedOrgs?.find((org) => org.id === values.org_id) || null
+              }
               onChange={(_, newValue) => {
                 handleOrgChange(newValue ? newValue.id : '');
               }}

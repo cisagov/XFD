@@ -3,6 +3,7 @@ import { formatDate, parseISO } from 'date-fns';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
@@ -18,7 +19,7 @@ import {
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import { initializeUser, User, Organization as OrganizationType } from 'types';
+import { initializeUser, User } from 'types';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
 import InfoDialog from 'components/Dialog/InfoDialog';
@@ -27,6 +28,7 @@ import { useAuthContext } from 'context';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { useOrganizations } from '@/hooks/useOrganizations';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -37,7 +39,6 @@ type DialogStates = {
 };
 
 type ErrorStates = {
-  getOrgsError: string;
   getUsersError: string;
   getUpdateError: string;
   getDeleteError: string;
@@ -368,7 +369,6 @@ export const RegionUsers: React.FC = () => {
     isUserAlreadyApprovedDialogOpen: false
   });
   const [errorStates, setErrorStates] = useState<ErrorStates>({
-    getOrgsError: '',
     getUsersError: '',
     getUpdateError: '',
     getDeleteError: ''
@@ -378,36 +378,18 @@ export const RegionUsers: React.FC = () => {
     type: 'include',
     ids: new Set<string | number>()
   });
-  const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
 
-  const fetchOrganizations = async (row: User) => {
-    if (!row.region_id) {
-      setOrganizations([]);
-      setErrorStates((prev) => ({
-        ...prev,
-        getOrgsError: 'This user has no region assigned.'
-      }));
-      return;
-    }
-    try {
-      const rows = await apiGet<OrganizationType[]>(
-        ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', row.region_id)
-      );
-      setOrganizations(rows);
-      if (row.roles.length > 0) {
-        setSelectedOrg({
-          type: 'include',
-          ids: new Set([row.roles[0].organization.id])
-        });
-      }
-      setErrorStates({ ...errorStates, getOrgsError: '', getUpdateError: '' });
-    } catch (e: any) {
-      setErrorStates({ ...errorStates, getOrgsError: e.message });
-    }
-  };
+  const selectedUserRegionId = selectedUser?.region_id ?? null;
+
+  const {
+    organizations,
+    error: getOrgsError,
+    isLoading: isOrgsLoading
+  } = useOrganizations(selectedUserRegionId);
+
   const fetchPendingUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}true`);
@@ -561,7 +543,6 @@ export const RegionUsers: React.FC = () => {
       isOrgDialogOpen: true
     });
     selectUser(row);
-    fetchOrganizations(row);
   };
 
   const handleDenyClick = (row: typeof initializeUser) => {
@@ -771,33 +752,33 @@ export const RegionUsers: React.FC = () => {
               user to join.
             </Typography>
             <Paper sx={{ height: 600, margin: 'auto' }}>
-              <DataGrid
-                checkboxSelection
-                onRowSelectionModelChange={onRowSelectionModelChange}
-                rowSelectionModel={selectedOrg}
-                rows={organizations ?? []}
-                columns={orgCols}
-                slots={{ toolbar: GridToolbar }}
-                slotProps={{
-                  toolbar: {
-                    showQuickFilter: true
-                  }
-                }}
-                sx={{
-                  '& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer':
-                    {
-                      display: 'none'
+              {isOrgsLoading ? (
+                <CircularProgress />
+              ) : (
+                <DataGrid
+                  checkboxSelection
+                  onRowSelectionModelChange={onRowSelectionModelChange}
+                  rowSelectionModel={selectedOrg}
+                  rows={organizations ?? []}
+                  columns={orgCols}
+                  slots={{ toolbar: GridToolbar }}
+                  slotProps={{
+                    toolbar: {
+                      showQuickFilter: true
                     }
-                }}
-                disableRowSelectionOnClick
-                showToolbar
-              />
+                  }}
+                  sx={{
+                    '& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer':
+                      {
+                        display: 'none'
+                      }
+                  }}
+                  disableRowSelectionOnClick
+                  showToolbar
+                />
+              )}
             </Paper>
-            {errorStates.getOrgsError && (
-              <Alert severity="error">
-                Error retrieving organizations: {errorStates.getOrgsError}
-              </Alert>
-            )}
+            {getOrgsError && <Alert severity="error">{getOrgsError}</Alert>}
             {selectedOrg.ids.size !== 0 &&
               errorStates.getUpdateError.length === 0 && (
                 <Alert severity="info" sx={{ mt: 2 }}>
