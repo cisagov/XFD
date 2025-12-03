@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
 from xfd_django.asgi import app
-from xfd_mini_dl.models import SavedSearch, User, UserType
+from xfd_mini_dl.models import Organization, Role, SavedSearch, User, UserType
 
 client = TestClient(app)
 
@@ -583,3 +583,100 @@ def test_get_saved_search_by_different_user_fails(
 
     # Cleanup
     search.delete()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_create_saved_search_with_unauthorized_filters_fails():
+    """
+    Ensure that creating a saved search with unauthorized filters fails.
+
+    This test verifies that a user cannot create a saved search with filters they do not have access to.
+    Assertions:
+        The response status code should be 403.
+    """
+    # Setup users and organizations
+
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id=1,
+    )
+
+    user_in_diff_region = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id=2,
+    )
+
+    authorized_org = Organization.objects.create(
+        name="AuthorizedOrg-{}".format(secrets.token_hex(4)),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    unauthorized_org = Organization.objects.create(
+        name="UnauthorizedOrg-{}".format(secrets.token_hex(4)),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    # Assign organization to authorized user
+    Role.objects.create(
+        user=user,
+        organization=authorized_org,
+        role="user",
+    )
+
+    # Search creation with unauthorized filters
+    name = "test-{}".format(secrets.token_hex(4))
+    unauthorized_filters = [
+        {
+            "field": "organization.region_id",
+            "values": [user_in_diff_region.region_id],
+            "type": "any",
+        },
+        {
+            "field": "organization.id",
+            "values": [str(unauthorized_org.id)],
+            "type": "any",
+        },
+    ]
+
+    response = client.post(
+        "/saved-searches",
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        json={
+            "name": name,
+            "count": 3,
+            "sort_direction": "",
+            "sort_field": "",
+            "search_term": "",
+            "search_path": "",
+            "filters": unauthorized_filters,
+        },
+    )
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == "Cannot save filters for organizations you do not have access to."
+        or response.json()["detail"]
+        == "Cannot save filters for regions you do not have access to."
+    )
+
+    # Cleanup
+    user.delete()
+    user_in_diff_region.delete()
+    authorized_org.delete()
+    unauthorized_org.delete()
