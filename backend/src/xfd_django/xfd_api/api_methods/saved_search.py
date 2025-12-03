@@ -72,6 +72,29 @@ def validate_filter_access(filters, current_user):
     return filters
 
 
+def prevent_default_filters(filters, current_user):
+    """Prevent standard users from saving default filters."""
+    filters = filters or []
+    # 1) global users have access to all filters:
+    if is_global_view_admin(current_user) or is_regional_admin(current_user):
+        return filters
+
+    # 2) Check for default filters
+    for f in filters:
+        if f.get("field") == "organization.region_id":
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot save default region filter.",
+            )
+        if f.get("field") == "organization_id":
+            raise HTTPException(
+                status_code=403,
+                detail="Cannot save default organization filter.",
+            )
+
+    return filters
+
+
 def create_saved_search(request, current_user):
     """Create saved search."""
     # 1) Validate the provided name
@@ -107,7 +130,10 @@ def create_saved_search(request, current_user):
         # 3) Validate filter access: prevent filter injection attacks by standard users
         filters = validate_filter_access(filters, current_user)
 
-        # 4) Create the SavedSearch record
+        # 4) Prevent saving org and region filters for standard users
+        filters = prevent_default_filters(filters, current_user)
+
+        # 5) Create the SavedSearch record
         search = SavedSearch.objects.create(
             name=request.get("name"),
             count=request.get("count", 0),
@@ -119,7 +145,7 @@ def create_saved_search(request, current_user):
             created_by=current_user,
         )
 
-        # 5) Build the response
+        # 6) Build the response
         response = {
             "id": str(search.id),
             "created_at": search.created_at,
@@ -281,7 +307,10 @@ def update_saved_search(request, user):
     # 7) Validate filter access: prevent filter injection attacks by standard users
     filters = validate_filter_access(filters, user)
 
-    # 8) Apply updates and save
+    # 8) Prevent saving region and organization filters for standard users
+    filters = prevent_default_filters(filters, user)
+
+    # 9) Apply updates and save
     saved_search.name = request["name"]
     saved_search.updated_at = datetime.now(timezone.utc)
     saved_search.search_term = request["search_term"]
@@ -292,7 +321,7 @@ def update_saved_search(request, user):
     saved_search.filters = filters
     saved_search.save()
 
-    # 9) Build and return response
+    # 10) Build and return response
     response = {
         "name": saved_search.name,
         "search_term": saved_search.search_term,
