@@ -127,6 +127,7 @@ def _build_sp_settings() -> Dict[str, Any]:
                 sp_settings["sp"]["privateKey"] = SAML_SP_PRIVATE_KEY.strip()
             sp_settings["security"]["wantAssertionsEncrypted"] = True
             sp_settings["security"]["wantNameIdEncrypted"] = True
+            sp_settings["security"]["authnRequestsSigned"] = True
             LOGGER.info("SAML encryption ENABLED (inline cert/key configured).")
         else:
             LOGGER.info("No SP cert configured; encryption NOT advertised.")
