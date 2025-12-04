@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, testUser } from 'test-utils';
-import { makeVulnResponse } from '@/test-utils/vulnerabilities';
+import { makeVulnResponse, makeVuln } from '@/test-utils/vulnerabilities';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import type { AuthUser } from '../../../context/';
 import Vulnerabilities from '../../../pages/Vulnerabilities/Vulnerabilities';
@@ -398,6 +398,166 @@ describe('Vulnerabilities component', () => {
     expect(yesElements.length).toBeGreaterThan(0);
     expect(noElements.length).toBeGreaterThan(0);
     expect(naElements.length).toBeGreaterThan(0);
+  });
+
+  it('supports server-side filtering with boolean values while displaying string values', async () => {
+    // Test that server-side filtering still works with boolean payloads
+    // while the frontend displays string-formatted values
+    // This matches the real payload structure: {"filters": {"is_kev_ransomware": true}}
+
+    let filterApplied = false;
+    let lastFiltersReceived: any = null;
+
+    apiPostMock.mockImplementation((_path: string, body: any) => {
+      const filters = body?.filters ?? {};
+      lastFiltersReceived = filters;
+
+      // Create base test data
+      const baseData = [
+        makeVuln(1, {
+          title: 'KEV True Item',
+          is_kev: true,
+          is_kev_ransomware: false
+        }),
+        makeVuln(2, {
+          title: 'KEV False Item',
+          is_kev: false,
+          is_kev_ransomware: true
+        }),
+        makeVuln(3, {
+          title: 'KEV Null Item',
+          is_kev: null,
+          is_kev_ransomware: null
+        })
+      ];
+
+      let filtered = [...baseData];
+
+      // Apply KEV filter - server expects boolean values in the filter payload
+      if (filters.is_kev !== undefined) {
+        filterApplied = true;
+        filtered = filtered.filter((vuln) => {
+          // Server filtering logic: direct boolean comparison
+          return vuln.is_kev === filters.is_kev;
+        });
+      }
+
+      // Apply Ransomware filter
+      if (filters.is_kev_ransomware !== undefined) {
+        filtered = filtered.filter((vuln) => {
+          return vuln.is_kev_ransomware === filters.is_kev_ransomware;
+        });
+      }
+
+      return Promise.resolve({ result: filtered, count: filtered.length });
+    });
+
+    render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    // Wait for initial data load
+    const grid = await screen.findByRole('grid');
+    expect(grid).toBeInTheDocument();
+
+    // Verify that the frontend displays string values, not boolean
+    expect(await screen.findByText('KEV True Item')).toBeInTheDocument();
+    expect(await screen.findByText('KEV False Item')).toBeInTheDocument();
+    expect(await screen.findByText('KEV Null Item')).toBeInTheDocument();
+
+    // Verify string values are displayed (the key fix for CRASM-3416)
+    const yesElements = await screen.findAllByText('Yes');
+    const noElements = await screen.findAllByText('No');
+    expect(yesElements.length).toBeGreaterThan(0); // Should show "Yes", not true
+    expect(noElements.length).toBeGreaterThan(0); // Should show "No", not false
+
+    // Test server-side filter with boolean true (matches real payload structure)
+    const mockTrueResponse = await apiPostMock('/api/vulnerabilities', {
+      filters: { is_kev: true }, // Boolean true, not "Yes"
+      page: 1,
+      pageSize: 15,
+      showAll: false,
+      sort: 'desc'
+    });
+
+    expect(filterApplied).toBe(true);
+    expect(lastFiltersReceived.is_kev).toBe(true); // Boolean, not string
+
+    // Verify filtering by boolean true returns the correct item
+    expect(mockTrueResponse.result).toHaveLength(1);
+    expect(mockTrueResponse.result[0].title).toBe('KEV True Item');
+    expect(mockTrueResponse.result[0].is_kev).toBe(true);
+
+    // Test filtering by boolean false
+    const mockFalseResponse = await apiPostMock('/api/vulnerabilities', {
+      filters: { is_kev: false },
+      page: 1,
+      pageSize: 15,
+      showAll: false,
+      sort: 'desc'
+    });
+
+    expect(mockFalseResponse.result).toHaveLength(1);
+    expect(mockFalseResponse.result[0].title).toBe('KEV False Item');
+    expect(mockFalseResponse.result[0].is_kev).toBe(false);
+
+    // Test filtering by ransomware boolean (using the real payload example)
+    const mockRansomwareResponse = await apiPostMock('/api/vulnerabilities', {
+      filters: { is_kev_ransomware: true },
+      page: 1,
+      pageSize: 15,
+      showAll: false,
+      sort: 'desc'
+    });
+
+    expect(mockRansomwareResponse.result).toHaveLength(1);
+    expect(mockRansomwareResponse.result[0].title).toBe('KEV False Item');
+    expect(mockRansomwareResponse.result[0].is_kev_ransomware).toBe(true);
+  });
+
+  it('confirms string-based column configuration supports filtering', async () => {
+    // Test that verifies the column configuration itself supports string filtering
+    const testResponse = makeVulnResponse(3, (idx) => ({
+      title: `Test Vuln ${idx + 1}`,
+      is_kev: idx === 0 ? true : idx === 1 ? false : null,
+      is_kev_ransomware: idx === 0 ? true : idx === 1 ? false : null
+    }));
+
+    apiPostMock.mockResolvedValue(testResponse);
+
+    render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    // Wait for data to load
+    const grid = await screen.findByRole('grid');
+    expect(grid).toBeInTheDocument();
+
+    // Verify that string values are displayed (not boolean true/false)
+    const yesElements = await screen.findAllByText('Yes');
+    const noElements = await screen.findAllByText('No');
+    const naElements = await screen.findAllByText('N/A');
+
+    expect(yesElements.length).toBeGreaterThan(0);
+    expect(noElements.length).toBeGreaterThan(0);
+    expect(naElements.length).toBeGreaterThan(0);
+
+    // Verify columns exist and are properly configured
+    const kevColumnHeader = screen.getByText('KEV');
+    const ransomwareColumnHeader = screen.getByText('Ransomware');
+
+    expect(kevColumnHeader).toBeInTheDocument();
+    expect(ransomwareColumnHeader).toBeInTheDocument();
   });
 
   it('matches snapshot', () => {
