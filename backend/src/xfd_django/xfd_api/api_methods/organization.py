@@ -371,6 +371,28 @@ def get_all_regions(current_user):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def get_all_region_ids(current_user) -> list:
+    """Return a flat list of distinct region_id values (strings)."""
+    try:
+        # Authorization: allow global/regional admins or users with org memberships
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
+            raise HTTPException(status_code=403, detail="Unauthorized")
+
+        regions_qs = (
+            Organization.objects.exclude(region_id__isnull=True)
+            .values_list("region_id", flat=True)
+            .distinct()
+        )
+        return [str(r) for r in regions_qs]
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 def find_or_create_tags(
     tags: List[organization_schema.TagSchema],
 ) -> List[OrganizationTag]:

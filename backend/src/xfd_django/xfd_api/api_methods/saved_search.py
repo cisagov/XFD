@@ -9,6 +9,7 @@ import uuid
 # Third-Party Libraries
 from django.http import JsonResponse
 from fastapi import HTTPException, status
+from xfd_api.api_methods.organization import get_all_region_ids
 from xfd_api.api_methods.search import (
     extract_org_ids_from_filters,
     extract_region_ids_from_filters,
@@ -52,6 +53,7 @@ def validate_filter_access(filters, current_user):
         for region_id in requested_region_ids
         if not is_valid_region(region_id, current_user)
     }
+
     unauthorized_orgs = {
         org_id for org_id in requested_org_ids if not is_valid_org(org_id, current_user)
     }
@@ -72,26 +74,58 @@ def validate_filter_access(filters, current_user):
     return filters
 
 
-def prevent_default_filters(filters, current_user):
+def prevent_default_standard_filters(filters, current_user):
     """Prevent standard users from saving default filters."""
     filters = filters or []
     # 1) global users have access to all filters:
     if is_global_view_admin(current_user) or is_regional_admin(current_user):
         return filters
 
-    # 2) Check for default filters
-    for f in filters:
-        if f.get("field") == "organization.region_id":
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot save default region filter.",
-            )
-        if f.get("field") == "organization_id":
-            raise HTTPException(
-                status_code=403,
-                detail="Cannot save default organization filter.",
-            )
+    # 2) Get user's requested orgs and regions
+    requested_region_ids = set(extract_region_ids_from_filters(filters or []))
+    requested_org_ids = set(extract_org_ids_from_filters(filters or []))
 
+    # 3) Determine default orgs and regions
+    default_regions = {
+        region_id
+        for region_id in requested_region_ids
+        if is_valid_region(region_id, current_user)
+    }
+
+    default_orgs = {
+        org_id for org_id in requested_org_ids if is_valid_org(org_id, current_user)
+    }
+
+    # 4) Check for default filters
+    if default_regions:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot save default region filter.",
+        )
+    if default_orgs:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot save default organization filter.",
+        )
+
+    # 5) All good, return filters
+    return filters
+
+
+def prevent_default_admin_filters(filters, current_user):
+    """Prevent admin users from saving default filters."""
+    filters = filters or []
+
+    requested_region_ids = set(extract_region_ids_from_filters(filters or []))
+
+    admin_default_regions = set(get_all_region_ids(current_user))
+
+    # 2) Check for default filters
+    if requested_region_ids == admin_default_regions:
+        raise HTTPException(
+            status_code=403,
+            detail="Cannot save default region filter for admin users.",
+        )
     return filters
 
 
@@ -127,11 +161,15 @@ def create_saved_search(request, current_user):
             for f in request.get("filters", [])
         ]
 
-        # 3) Validate filter access: prevent filter injection attacks by standard users
-        filters = validate_filter_access(filters, current_user)
+        # 3) Prevent saving default filters for admin users
+        if is_global_view_admin(current_user) or is_regional_admin(current_user):
+            filters = prevent_default_admin_filters(filters, current_user)
 
         # 4) Prevent saving org and region filters for standard users
-        filters = prevent_default_filters(filters, current_user)
+        filters = prevent_default_standard_filters(filters, current_user)
+
+        # 3) Validate filter access: prevent filter injection attacks by standard users
+        filters = validate_filter_access(filters, current_user)
 
         # 5) Create the SavedSearch record
         search = SavedSearch.objects.create(
@@ -304,11 +342,16 @@ def update_saved_search(request, user):
         }
         for f in request.get("filters", [])
     ]
-    # 7) Validate filter access: prevent filter injection attacks by standard users
-    filters = validate_filter_access(filters, user)
+
+    # 7) Prevent saving default filters for admin users
+    if is_global_view_admin(user) or is_regional_admin(user):
+        filters = prevent_default_admin_filters(filters, user)
 
     # 8) Prevent saving region and organization filters for standard users
-    filters = prevent_default_filters(filters, user)
+    filters = prevent_default_standard_filters(filters, user)
+
+    # 7) Validate filter access: prevent filter injection attacks by standard users
+    filters = validate_filter_access(filters, user)
 
     # 9) Apply updates and save
     saved_search.name = request["name"]
