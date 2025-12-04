@@ -49,15 +49,8 @@ FRONTEND_DOMAIN = (
 OKTA_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
 
 IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
-SAML_SP_CERT_PATH = os.getenv("SAML_SP_CERT_PATH")
-SAML_SP_PRIVATE_KEY_PATH = os.getenv("SAML_SP_PRIVATE_KEY_PATH")
-WANT_NAMEID_ENCRYPTED = _env_truthy(os.getenv("WANT_NAMEID_ENCRYPTED"))  # optional
-
-
-def _read_text_file(path: str) -> str:
-    """Read and return the contents of a text file."""
-    with open(path, encoding="utf-8") as f:
-        return f.read().strip()
+SAML_SP_CERT = os.getenv("SAML_SP_CERT")
+SAML_SP_PRIVATE_KEY = os.getenv("SAML_SP_PRIVATE_KEY")
 
 
 # =============================================================================
@@ -127,20 +120,15 @@ def _build_sp_settings() -> Dict[str, Any]:
     if IS_LOCAL:
         LOGGER.info("SAML encryption DISABLED (local).")
     else:
-        if SAML_SP_CERT_PATH:
-            try:
-                sp_cert = _read_text_file(SAML_SP_CERT_PATH)
-                sp_settings["sp"]["x509cert"] = sp_cert
-                if SAML_SP_PRIVATE_KEY_PATH:
-                    sp_key = _read_text_file(SAML_SP_PRIVATE_KEY_PATH)
-                    sp_settings["sp"]["privateKey"] = sp_key
-                sp_settings["security"]["wantAssertionsEncrypted"] = True
-                sp_settings["security"]["wantNameIdEncrypted"] = WANT_NAMEID_ENCRYPTED
-                LOGGER.info("SAML encryption ENABLED (cert present).")
-            except FileNotFoundError:
-                LOGGER.warning(
-                    "SAML_SP_CERT_PATH set but file not found; continuing without encryption.",
-                )
+        if SAML_SP_CERT:
+            # Cert/key are provided directly via environment (PEM strings)
+            sp_settings["sp"]["x509cert"] = SAML_SP_CERT.strip()
+            if SAML_SP_PRIVATE_KEY:
+                sp_settings["sp"]["privateKey"] = SAML_SP_PRIVATE_KEY.strip()
+            sp_settings["security"]["wantAssertionsEncrypted"] = True
+            sp_settings["security"]["wantNameIdEncrypted"] = True
+            sp_settings["security"]["authnRequestsSigned"] = True
+            LOGGER.info("SAML encryption ENABLED (inline cert/key configured).")
         else:
             LOGGER.info("No SP cert configured; encryption NOT advertised.")
 
