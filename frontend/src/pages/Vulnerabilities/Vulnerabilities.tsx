@@ -319,17 +319,22 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const stateDisplay =
           vuln.state + (vuln.substate ? ` (${vuln.substate})` : '');
 
+        const kevStatus =
+          vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No';
+
+        const ransomwareStatus =
+          vuln?.is_kev_ransomware === null
+            ? 'N/A'
+            : vuln.is_kev_ransomware
+              ? 'Yes'
+              : 'No';
+
         return {
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No',
-          is_kev_ransomware:
-            vuln?.is_kev_ransomware === null
-              ? 'N/A'
-              : vuln.is_kev_ransomware
-                ? 'Yes'
-                : 'No',
+          is_kev: kevStatus,
+          is_kev_ransomware: ransomwareStatus,
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
