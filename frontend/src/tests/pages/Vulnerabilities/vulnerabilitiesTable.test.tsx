@@ -298,7 +298,7 @@ describe('Vulnerabilities component', () => {
     const yesElements = await screen.findAllByText('Yes');
     const noElements = await screen.findAllByText('No');
     const naElements = await screen.findAllByText('N/A');
-    
+
     expect(yesElements.length).toBeGreaterThan(0);
     expect(noElements.length).toBeGreaterThan(0);
     expect(naElements.length).toBeGreaterThan(0);
@@ -365,10 +365,10 @@ describe('Vulnerabilities component', () => {
   it('displays mixed KEV and ransomware statuses correctly', async () => {
     const testResponse = makeVulnResponse(4, (idx) => {
       const scenarios = [
-        { is_kev: true, is_kev_ransomware: true },   // Both true
-        { is_kev: true, is_kev_ransomware: false },  // KEV true, ransomware false
-        { is_kev: false, is_kev_ransomware: null },  // KEV false, ransomware null
-        { is_kev: null, is_kev_ransomware: false }   // KEV null, ransomware false
+        { is_kev: true, is_kev_ransomware: true }, // Both true
+        { is_kev: true, is_kev_ransomware: false }, // KEV true, ransomware false
+        { is_kev: false, is_kev_ransomware: null }, // KEV false, ransomware null
+        { is_kev: null, is_kev_ransomware: false } // KEV null, ransomware false
       ];
       return {
         title: `Mixed Status Vuln ${idx + 1}`,
