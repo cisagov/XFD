@@ -174,7 +174,7 @@ def preload_os_type_map(ip_keys) -> dict:
     """Return mapping ip_str -> service_os_type."""
     scans = (
         LatestPortScan.objects.filter(
-            ip_string__in=ip_keys, service_os_type__isnull=False
+            ip_string__in=ip_keys, service_os_type__isnull=False, current=True
         )
         .order_by("ip_string", "-time_scanned")
         .distinct("ip_string")
