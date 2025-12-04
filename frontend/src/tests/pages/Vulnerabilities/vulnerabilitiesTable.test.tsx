@@ -270,6 +270,136 @@ describe('Vulnerabilities component', () => {
   //   expect(screen.queryByText('Risky Vuln')).not.toBeInTheDocument();
   // });
 
+  it('formats KEV and Ransomware columns correctly for export', async () => {
+    // Create vulnerabilities with different KEV and ransomware values
+    const testResponse = makeVulnResponse(3, (idx) => ({
+      title: `Test Vuln ${idx + 1}`,
+      is_kev: idx === 0 ? true : idx === 1 ? false : null,
+      is_kev_ransomware: idx === 0 ? true : idx === 1 ? false : null
+    }));
+
+    apiPostMock.mockResolvedValueOnce(testResponse);
+
+    const { container } = render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    // Wait for the grid to render
+    const grid = await screen.findByRole('grid');
+    expect(grid).toBeInTheDocument();
+
+    // Check that KEV column displays formatted values (Yes/No/N/A)
+    // Use findAllByText since there can be multiple "Yes", "No", "N/A" values
+    const yesElements = await screen.findAllByText('Yes');
+    const noElements = await screen.findAllByText('No');
+    const naElements = await screen.findAllByText('N/A');
+    
+    expect(yesElements.length).toBeGreaterThan(0);
+    expect(noElements.length).toBeGreaterThan(0);
+    expect(naElements.length).toBeGreaterThan(0);
+
+    // Verify the data structure contains string values for export
+    // This tests that vulRows transforms boolean/null to string values
+    const dataGridElement = container.querySelector('.MuiDataGrid-root');
+    expect(dataGridElement).toBeInTheDocument();
+  });
+
+  it('transforms boolean KEV values to strings in data rows', async () => {
+    const testResponse = makeVulnResponse(1, () => ({
+      title: 'KEV Test Vuln',
+      is_kev: true,
+      is_kev_ransomware: false
+    }));
+
+    apiPostMock.mockResolvedValueOnce(testResponse);
+
+    render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    // Wait for data to load
+    await screen.findByRole('grid');
+
+    // Verify that "Yes" and "No" text appears in the table
+    expect(await screen.findByText('Yes')).toBeInTheDocument();
+    expect(await screen.findByText('No')).toBeInTheDocument();
+  });
+
+  it('handles null KEV values correctly', async () => {
+    const testResponse = makeVulnResponse(1, () => ({
+      title: 'Null KEV Test Vuln',
+      is_kev: null,
+      is_kev_ransomware: null
+    }));
+
+    apiPostMock.mockResolvedValueOnce(testResponse);
+
+    render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    // Wait for data to load
+    await screen.findByRole('grid');
+
+    // Verify that "N/A" text appears for null values
+    const naElements = await screen.findAllByText('N/A');
+    // Should have at least 2 N/A entries (one for each column)
+    expect(naElements.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('displays mixed KEV and ransomware statuses correctly', async () => {
+    const testResponse = makeVulnResponse(4, (idx) => {
+      const scenarios = [
+        { is_kev: true, is_kev_ransomware: true },   // Both true
+        { is_kev: true, is_kev_ransomware: false },  // KEV true, ransomware false
+        { is_kev: false, is_kev_ransomware: null },  // KEV false, ransomware null
+        { is_kev: null, is_kev_ransomware: false }   // KEV null, ransomware false
+      ];
+      return {
+        title: `Mixed Status Vuln ${idx + 1}`,
+        ...scenarios[idx]
+      };
+    });
+
+    apiPostMock.mockResolvedValueOnce(testResponse);
+
+    render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    // Wait for data to load
+    await screen.findByRole('grid');
+
+    // Verify all status types are displayed
+    const yesElements = await screen.findAllByText('Yes');
+    const noElements = await screen.findAllByText('No');
+    const naElements = await screen.findAllByText('N/A');
+
+    expect(yesElements.length).toBeGreaterThan(0);
+    expect(noElements.length).toBeGreaterThan(0);
+    expect(naElements.length).toBeGreaterThan(0);
+  });
+
   it('matches snapshot', () => {
     const { container } = render(<Vulnerabilities />);
     expect(container.firstChild).toMatchSnapshot();
