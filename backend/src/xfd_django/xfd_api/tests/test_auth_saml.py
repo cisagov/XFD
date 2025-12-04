@@ -458,8 +458,8 @@ def test_metadata_local_no_encryption_keydescriptor(
             "BACKEND_DOMAIN": "http://localhost:3000",
             "FRONTEND_DOMAIN": "http://localhost",
             "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
-            "SAML_SP_CERT_PATH": None,
-            "SAML_SP_PRIVATE_KEY_PATH": None,
+            "SAML_SP_CERT": None,
+            "SAML_SP_PRIVATE_KEY": None,
         },
     )
 
@@ -480,8 +480,6 @@ def test_metadata_prod_with_encryption_descriptor_using_cert_only(
         "MIIFakeCertPEMForTestOnly==\n"
         "-----END CERTIFICATE-----\n"
     )
-    cert_path = tmp_path / "sp.crt"
-    cert_path.write_text(sp_cert_pem)
 
     client, _, _ = _mount_client(
         monkeypatch,
@@ -490,8 +488,9 @@ def test_metadata_prod_with_encryption_descriptor_using_cert_only(
             "BACKEND_DOMAIN": "https://sp.example.gov",
             "FRONTEND_DOMAIN": "https://spa.example.gov",
             "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
-            "SAML_SP_CERT_PATH": str(cert_path),
-            "SAML_SP_PRIVATE_KEY_PATH": None,
+            # NEW: use inline cert/key env vars instead of *_PATH
+            "SAML_SP_CERT": sp_cert_pem,
+            "SAML_SP_PRIVATE_KEY": None,
         },
     )
 
@@ -515,8 +514,8 @@ def test_metadata_no_encryption_when_cert_missing(
             "BACKEND_DOMAIN": "https://sp.example.gov",
             "FRONTEND_DOMAIN": "https://spa.example.gov",
             "OKTA_SAML_METADATA_URL": "https://idp.example.com/metadata",
-            "SAML_SP_CERT_PATH": None,
-            "SAML_SP_PRIVATE_KEY_PATH": None,
+            "SAML_SP_CERT": None,
+            "SAML_SP_PRIVATE_KEY": None,
         },
     )
 
