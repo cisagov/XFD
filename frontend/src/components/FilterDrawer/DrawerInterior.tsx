@@ -331,10 +331,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Typography variant="largeBody">Ports</Typography>
-              {filtersByColumn['services.port']?.length > 0 ||
-                (filtersByColumn['no_services']?.length > 0 && (
-                  <FiltersApplied />
-                ))}
+              {(filtersByColumn['services.port']?.length > 0 ||
+                filtersByColumn['no_services']?.length > 0) && (
+                <FiltersApplied />
+              )}
             </Stack>
           </AccordionSummary>
           <AccordionDetails>

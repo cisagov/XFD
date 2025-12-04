@@ -21,11 +21,15 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: [
+        // Keep default-src tight; widen with specific directives below.
+        defaultSrc: ["'self'"],
+        // Where the SPA may open XHR/fetch/WebSocket connections:
+        connectSrc: [
           "'self'",
-          `${process.env.COGNITO_URL}`,
-          `${process.env.BACKEND_DOMAIN}`
+          ...[process.env.BACKEND_DOMAIN].filter(Boolean)
+          // add 'https://static.cloudflareinsights.com' here if their beacon runs
         ],
+
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
@@ -37,7 +41,7 @@ app.use(
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          `${process.env.BACKEND_DOMAIN}`,
+          ...[process.env.BACKEND_DOMAIN].filter(Boolean),
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
           ...(process.env.DOMAIN === 'crossfeed.cyber.dhs.gov'
             ? []
