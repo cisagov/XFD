@@ -3,8 +3,8 @@ import { expect } from '@playwright/test';
 import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Latest Scanning Summary - Page Resize', () => {
-  test.skip('Widget is responsive and reload-safe', async ({
-    page: pageAsGlobalAdmin
+  test('Widget is responsive and reload-safe', async ({
+    pageAsGlobalAdmin
   }) => {
     await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
     const widget = pageAsGlobalAdmin
@@ -36,8 +36,8 @@ test.describe('Latest Scanning Summary - Page Resize', () => {
 });
 
 test.describe('Latest Scanning Summary - ARIA labels', () => {
-  test.skip('ARIA: Info icon and metric buttons have correct labels', async ({
-    page: pageAsGlobalAdmin
+  test('ARIA: Info icon and metric buttons have correct labels', async ({
+    pageAsGlobalAdmin
   }) => {
     await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
@@ -63,7 +63,7 @@ test.describe('Latest Scanning Summary - ARIA labels', () => {
 });
 
 test.describe('Latest Scanning Summary - Scan Date Display', () => {
-  test.skip('should display valid scan date ranges in correct format', async ({
+  test('should display valid scan date ranges in correct format', async ({
     pageAsGlobalAdmin
   }) => {
     await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
@@ -90,8 +90,8 @@ test.describe('Latest Scanning Summary - Scan Date Display', () => {
 });
 
 test.describe('Latest Scanning Summary Button Tests', () => {
-  test.skip('Widget info icon shows correct tooltip', async ({
-    page: pageAsGlobalAdmin
+  test('Widget info icon shows correct tooltip', async ({
+    pageAsGlobalAdmin
   }) => {
     await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
@@ -123,8 +123,8 @@ test.describe('Latest Scanning Summary Button Tests', () => {
   ]);
 
   for (const label of Object.keys(metricTooltips)) {
-    test.skip(`Click 2 behavior for "${label}" metric card`, async ({
-      page: pageAsGlobalAdmin
+    test(`Click 2 behavior for "${label}" metric card`, async ({
+      pageAsGlobalAdmin
     }) => {
       const id = label.replace(/\s+/g, '-').toLowerCase();
       await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
@@ -163,8 +163,8 @@ test.describe('Latest Scanning Summary Button Tests', () => {
 });
 
 test.describe('Latest Scanning Summary - Keyboard Movement', () => {
-  test.skip('Keyboard navigation inside widget is tabbable', async ({
-    page: pageAsGlobalAdmin
+  test('Keyboard navigation inside widget is tabbable', async ({
+    pageAsGlobalAdmin
   }) => {
     await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
 
@@ -211,8 +211,8 @@ test.describe('Latest Scanning Summary - Keyboard Movement', () => {
 });
 
 test.describe('Latest Scanning Summary - Metric Boxes', () => {
-  test.skip('Checks that the metric boxes in the widget number + label + tooltip checks', async ({
-    page: pageAsGlobalAdmin
+  test('Checks that the metric boxes in the widget number + label + tooltip checks', async ({
+    pageAsGlobalAdmin
   }) => {
     const pause = (ms: number) => pageAsGlobalAdmin.waitForTimeout(ms);
 

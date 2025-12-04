@@ -51,26 +51,26 @@ function validateDomainSorting(domains: string[]): boolean {
 }
 
 test.describe('domains-table', () => {
-  test.skip('IP column sorts with server-side sorting', async ({
-    page,
+  test('IP column sorts with server-side sorting', async ({
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto(ROUTES.DOMAINS);
-    await page.waitForSelector('[aria-label="Domains Table"]');
+    await pageAsGlobalAdmin.goto(ROUTES.DOMAINS);
+    await pageAsGlobalAdmin.waitForSelector('[aria-label="Domains Table"]');
 
     // Click IP column header to sor
-    await page.getByRole('columnheader', { name: /IP/i }).click();
+    await pageAsGlobalAdmin.getByRole('columnheader', { name: /IP/i }).click();
 
     // Wait for the table to update after server-side sor
-    await page.waitForLoadState('networkidle');
+    await pageAsGlobalAdmin.waitForLoadState('networkidle');
 
     // Get sorted IP values using the correct selector
-    const sortedIpCells = await page
+    const sortedIpCells = await pageAsGlobalAdmin
       .getByRole('gridcell', { name: /IP Address for Domain/ })
       .allTextContents();
 
     // Accessibility scan scoped to the domains table only
-    const results = await makeAxeBuilder(page)
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .include('[aria-label="Domains Table"]')
       .analyze();
     await testInfo.attach('accessibility-scan-results-ip', {
@@ -92,26 +92,28 @@ test.describe('domains-table', () => {
     expect(results.violations).toHaveLength(0);
   });
 
-  test.skip('Domain column sorts with server-side sorting', async ({
-    page,
+  test('Domain column sorts with server-side sorting', async ({
+    pageAsGlobalAdmin,
     makeAxeBuilder
   }, testInfo: TestInfo) => {
-    await page.goto(ROUTES.DOMAINS);
-    await page.waitForSelector('[aria-label="Domains Table"]');
+    await pageAsGlobalAdmin.goto(ROUTES.DOMAINS);
+    await pageAsGlobalAdmin.waitForSelector('[aria-label="Domains Table"]');
 
     // Click Domain column header to sor
-    await page.getByRole('columnheader', { name: /Domain/i }).click();
+    await pageAsGlobalAdmin
+      .getByRole('columnheader', { name: /Domain/i })
+      .click();
 
     // Wait for the table to update after server-side sor
-    await page.waitForLoadState('networkidle');
+    await pageAsGlobalAdmin.waitForLoadState('networkidle');
 
     // Get sorted domain values using the correct selector
-    const sortedDomainCells = await page
+    const sortedDomainCells = await pageAsGlobalAdmin
       .getByRole('gridcell', { name: /Domain Name:/ })
       .allTextContents();
 
     // Accessibility scan scoped to the domains table only
-    const results = await makeAxeBuilder(page)
+    const results = await makeAxeBuilder(pageAsGlobalAdmin)
       .include('[aria-label="Domains Table"]')
       .analyze();
     await testInfo.attach('accessibility-scan-results-domain', {
