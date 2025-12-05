@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-// import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import Add from '@mui/icons-material/Add';
@@ -198,39 +196,37 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
           Update Saved Filter
         </DialogTitle>
         <DialogContent>
-          <DialogContent id="update-saved-search-description">
-            <TextField
-              required
-              margin="dense"
-              id="name"
-              name="name"
-              placeholder={activeSearch?.name}
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={savedSearchValues.name}
-              onChange={(e) => handleChange(e.target.name, e.target.value)}
-              slotProps={{
-                htmlInput: {
-                  'aria-label': 'Enter a name for your saved filter'
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                }
-              }}
-              error={formErrors.name}
-              helperText={
-                formErrors.name
-                  ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
-                  : formErrors.duplicate
-                    ? 'This name is already taken. Please choose a different name.'
-                    : ''
+          <TextField
+            required
+            margin="dense"
+            id="name"
+            name="name"
+            placeholder={activeSearch?.name}
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={savedSearchValues.name}
+            onChange={(e) => handleChange(e.target.name, e.target.value)}
+            slotProps={{
+              htmlInput: {
+                'aria-label': 'Enter a name for your saved filter'
               }
-              inputRef={updateInputRef}
-            />
-          </DialogContent>
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
+            error={formErrors.name}
+            helperText={
+              formErrors.name
+                ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
+                : formErrors.duplicate
+                  ? 'This name is already taken. Please choose a different name.'
+                  : ''
+            }
+            inputRef={updateInputRef}
+          />
         </DialogContent>
         <DialogActions>
           <Button
@@ -319,42 +315,39 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       >
         <DialogTitle id="dialog-title">Save Filter</DialogTitle>
         <DialogContent>
-          <Box paddingBottom={'1em'}>
-            <TextField
-              required
-              margin="dense"
-              id="name"
-              name="name"
-              placeholder="Add custom filter name"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={savedSearchValues.name}
-              onChange={(e) => {
-                handleChange(e.target.name, e.target.value);
-              }}
-              slotProps={{
-                htmlInput: {
-                  'aria-label': 'Enter a name for your saved search'
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                }
-              }}
-              error={formErrors.name}
-              helperText={
-                formErrors.name
-                  ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
-                  : formErrors.duplicate
-                    ? 'This name is already taken. Please choose a different name.'
-                    : ''
+          <TextField
+            required
+            margin="dense"
+            id="name"
+            name="name"
+            placeholder="Add custom filter name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={savedSearchValues.name}
+            onChange={(e) => {
+              handleChange(e.target.name, e.target.value);
+            }}
+            slotProps={{
+              htmlInput: {
+                'aria-label': 'Enter a name for your saved search'
               }
-              // autoFocus
-              inputRef={saveInputRef}
-            />
-          </Box>
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
+            error={formErrors.name}
+            helperText={
+              formErrors.name
+                ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
+                : formErrors.duplicate
+                  ? 'This name is already taken. Please choose a different name.'
+                  : ''
+            }
+            inputRef={saveInputRef}
+          />
         </DialogContent>
         <DialogActions>
           <Button
