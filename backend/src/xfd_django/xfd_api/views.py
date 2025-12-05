@@ -105,6 +105,7 @@ from .auth import (
     handle_okta_callback,
     sign_oauth_data,
 )
+from .auth_saml import router as saml_router
 from .login_gov import callback
 from .schema_models import organization_schema as OrganizationSchema
 from .schema_models import scan as scanSchema
@@ -202,6 +203,8 @@ async def get_redis_client(request: Request):
 #   Analytic Endpoints
 # ========================================
 MatomoResponse = Dict[str, Any]
+
+api_router.include_router(saml_router, tags=["Auth"])
 
 
 # Matomo Proxy
@@ -2170,8 +2173,7 @@ async def get_call_all_was_findings(  # noqa: D401
     per_page: int = Query(
         200, ge=1, le=1000, description="How many items per page (max 1000)."
     ),
-    since_date: date
-    | None = Query(
+    since_date: Optional[date] = Query(
         default=None,
         description="Optional date filter (records last_detected >= this).",
     ),
