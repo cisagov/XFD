@@ -38,6 +38,13 @@ def _env_truthy(in_var: Optional[str]) -> bool:
     return in_var.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
+def get_cookie_domain(frontend_url: str) -> str:
+    """Convert full URL to cookie domain starting with a dot."""
+    parsed = urllib.parse.urlparse(frontend_url)
+    hostname = parsed.hostname or frontend_url  # fallback
+    return ".{}".format(hostname)
+
+
 BACKEND_DOMAIN = (
     os.getenv("BACKEND_DOMAIN") or os.getenv("APP_BASE_URL") or ""
 ).rstrip("/")
@@ -51,6 +58,11 @@ OKTA_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
 IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
 SAML_SP_CERT = os.getenv("SAML_SP_CERT")
 SAML_SP_PRIVATE_KEY = os.getenv("SAML_SP_PRIVATE_KEY")
+
+if IS_LOCAL:
+    COOKIE_DOMAIN = None
+else:
+    COOKIE_DOMAIN = get_cookie_domain(FRONTEND_DOMAIN)
 
 
 # =============================================================================
@@ -271,6 +283,7 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
         secure=is_https,
         samesite="Lax",
         path="/",
+        domain=COOKIE_DOMAIN,
     )
     resp.set_cookie(
         "crossfeed-token",
@@ -278,6 +291,7 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
         secure=is_https,
         samesite="Lax",
         path="/",
+        domain=COOKIE_DOMAIN,
     )
     return resp
 
