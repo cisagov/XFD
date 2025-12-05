@@ -1,14 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { Stack } from '@mui/system';
-import { Alert, Box, Button as MuiButton, Paper } from '@mui/material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Queue {
   name: string;
-  messagesAvailable: number;
-  messagesInFlight: number;
-  messagesDelayed: number;
+  messages_available: number;
+  messages_in_flight: number;
+  messages_delayed: number;
 }
 
 const QueueMonitorView: React.FC = () => {
@@ -18,7 +23,7 @@ const QueueMonitorView: React.FC = () => {
 
   const fetchQueues = useCallback(async () => {
     try {
-      const { result } = await apiPost('/queues/search', { body: {} });
+      const { result } = await apiPost(ENDPOINTS.QUEUES_SEARCH, { body: {} });
 
       // Ensure each queue has a unique 'id' (using its name)
       const queuesWithId = result.map((queue: Queue) => ({
@@ -28,7 +33,7 @@ const QueueMonitorView: React.FC = () => {
 
       setQueues(queuesWithId);
     } catch (e) {
-      console.error(e);
+      logger.error(e);
       setErrors({ global: 'Failed to fetch queue data.' });
     }
   }, [apiPost]);
@@ -58,9 +63,9 @@ const QueueMonitorView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
-          aria-label={`Messages Available for ${cellValues.row.id}: ${cellValues.row.messagesAvailable}`}
+          aria-label={`Messages Available for ${cellValues.row.id}: ${cellValues.row.messages_available}`}
         >
-          {cellValues.row.messagesAvailable}
+          {cellValues.row.messages_available}
         </Box>
       )
     },
@@ -71,9 +76,9 @@ const QueueMonitorView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
-          aria-label={`Messages In-Flight for ${cellValues.row.id}: ${cellValues.row.messagesInFlight}`}
+          aria-label={`Messages In-Flight for ${cellValues.row.id}: ${cellValues.row.messages_in_flight}`}
         >
-          {cellValues.row.messagesInFlight}
+          {cellValues.row.messages_in_flight}
         </Box>
       )
     },
@@ -84,9 +89,9 @@ const QueueMonitorView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
-          aria-label={`Messages Delayed for ${cellValues.row.id}: ${cellValues.row.messagesDelayed}`}
+          aria-label={`Messages Delayed for ${cellValues.row.id}: ${cellValues.row.messages_delayed}`}
         >
-          {cellValues.row.messagesDelayed}
+          {cellValues.row.messages_delayed}
         </Box>
       )
     }
@@ -96,9 +101,9 @@ const QueueMonitorView: React.FC = () => {
     <>
       {errors.global && <Alert severity="error">{errors.global}</Alert>}
       <Stack direction="row" justifyContent="flex-end" mb={2}>
-        <MuiButton variant="contained" onClick={fetchQueues}>
+        <Button variant="contained" onClick={fetchQueues}>
           Refresh
-        </MuiButton>
+        </Button>
       </Stack>
       <Paper elevation={2}>
         <DataGrid

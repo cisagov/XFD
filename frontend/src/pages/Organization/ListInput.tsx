@@ -1,5 +1,7 @@
 import React from 'react';
-import { Grid, Chip, Typography } from '@mui/material';
+import Chip from '@mui/material/Chip';
+import Grid from '@mui/material/Grid';
+import Typography from '@mui/material/Typography';
 import { PendingDomain, OrganizationTag } from 'types';
 
 export interface ListInputProps {

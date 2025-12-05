@@ -1,8 +1,8 @@
 // From https://github.com/trussworks/react-uswds/pull/2239.
+import { logger } from '@/utils/logger';
 // Apache License: https://github.com/trussworks/react-uswds/blob/main/LICENSE
 
 import React from 'react';
-
 import { Button } from '@trussworks/react-uswds';
 
 export const ModalToggleButton = ({
@@ -14,7 +14,7 @@ export const ModalToggleButton = ({
 }: any) => {
   const handleClick: React.MouseEventHandler<HTMLButtonElement> = (e) => {
     if (!modalRef || !modalRef.current) {
-      console.error('ModalRef is required');
+      logger.error('ModalToggleButton: ModalRef is required but not provided');
       return false;
     }
 

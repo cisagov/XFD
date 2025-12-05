@@ -1,22 +1,11 @@
 import { useState, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { VulnScanDataTransformed } from 'types/vuln-scan-stats';
-import {
-  transformVulnScanData,
-  NO_DATA_FALLBACK_LABEL
-} from 'utils/transformVulnScanData';
+import { transformVulnScanData } from 'utils/transformVulnScanData';
 import { useAuthContext } from 'context';
-
-const InitialVSData: VulnScanDataTransformed = {
-  vulnScanSummary: [],
-  vulnScanKeyMetrics: [],
-  detectedServicesKeyMetrics: [],
-  detectedHostsKeyMetrics: [],
-  detectedHostsTop5VulnerableHosts: [],
-  topVulnerabilities: [],
-  topKevVulnerabilities: [],
-  riskyServices: [],
-  severityByProminence: []
-};
+import { ENDPOINTS } from '@/constants/endpoints';
+import { InitialVSData } from '@/constants/vsdashdata';
+import { NO_DATA_FALLBACK_LABEL } from '@/constants/vsdashdata';
 
 export function useVulnScanData(orgId: string) {
   const { apiPost } = useAuthContext();
@@ -36,7 +25,7 @@ export function useVulnScanData(orgId: string) {
       setLoading(true);
       setError(null);
       try {
-        const response = await apiPost('/stats/trends', {
+        const response = await apiPost(ENDPOINTS.STATS_TRENDS, {
           body: {
             filters: {
               organization_id: orgId,
@@ -62,7 +51,6 @@ export function useVulnScanData(orgId: string) {
 
         const transformed = transformVulnScanData(response);
 
-        // If transform hit the 4th fallback, show the big NoDataMessage panel
         const vsLabel = transformed.vulnScanSummary[0]?.vulnerabilityScan;
         if (vsLabel === NO_DATA_FALLBACK_LABEL) {
           setData(InitialVSData);
@@ -72,7 +60,10 @@ export function useVulnScanData(orgId: string) {
 
         setData(transformed);
       } catch (err: any) {
-        console.error(err);
+        logger.error(
+          'useVulnScanData: Failed to load vulnerability scan data',
+          { error: err, organizationId: orgId }
+        );
         setError(
           err.message +
             '. Failed to load vulnerability scan data. See the console log for more details.'

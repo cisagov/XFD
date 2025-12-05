@@ -1,18 +1,16 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Link as MuiLink,
-  SxProps,
-  TypographyProps
-} from '@mui/material';
-import InfoTooltipIcon from './InfoTooltipIcon';
 import { useHistory, useLocation } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import { SxProps } from '@mui/system';
+import Typography, { TypographyProps } from '@mui/material/Typography';
+import InfoTooltipIcon from './InfoTooltipIcon';
 import {
   useNavigationContext,
   isVSDashboard,
   isDrillDownDestination
 } from 'context/NavigationContext';
+import { ROUTES } from '@/constants/routes';
 
 type InfoLabelProps = {
   label: string;
@@ -51,7 +49,7 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
 
     // Only mark as drill-down if coming from VS Dashboard to a drill-down destination
     const isFromVSDashboard = isVSDashboard(location.pathname);
-    const targetUrl = link || '/inventory';
+    const targetUrl = link || ROUTES.INVENTORY;
     const isDrillDownTarget = isDrillDownDestination(targetUrl);
 
     if (isFromVSDashboard && isDrillDownTarget) {
@@ -80,11 +78,11 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
         <InfoTooltipIcon label={label} tooltipContent={tooltipContent(label)} />
       </Box>
       {viewDetails && link && (
-        <MuiLink href="#" onClick={handleClick}>
+        <Link href="#" onClick={handleClick}>
           <Typography variant="link" component="span" fontWeight="bold">
             View Details
           </Typography>
-        </MuiLink>
+        </Link>
       )}
     </Box>
   );

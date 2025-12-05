@@ -1,14 +1,15 @@
 import { test } from '../../tests/fixtures';
 import { expect } from '@playwright/test';
+import { ROUTES } from '../../../frontend/src/constants/routes';
 
 test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () => {
-  test.beforeEach(async ({ page: pageAsGlobalAdmin }) => {
+  test.beforeEach(async ({ pageAsGlobalAdmin }) => {
     // Navigate to the dashboard page before each test
-    await pageAsGlobalAdmin.goto('/VSDashboard');
+    await pageAsGlobalAdmin.goto(ROUTES.VSDASHBOARD);
   });
 
-  test.skip('should display main widget heading and tooltip', async ({
-    page: pageAsGlobalAdmin
+  test('should display main widget heading and tooltip', async ({
+    pageAsGlobalAdmin
   }) => {
     // Check that the main widget heading is visible
     const heading = pageAsGlobalAdmin.getByRole('heading', {
@@ -23,8 +24,8 @@ test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () =>
     await tooltipButton.click();
   });
 
-  test.skip('should navigate to details page when clicking "View Details"', async ({
-    page: pageAsGlobalAdmin
+  test('should navigate to details page when clicking "View Details"', async ({
+    pageAsGlobalAdmin
   }) => {
     // Verify "View Details" link is visible and navigates correctly
     const detailsLink = pageAsGlobalAdmin
@@ -37,8 +38,8 @@ test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () =>
 
   //========= Severity by Prominenece ==========
 
-  test.skip('should toggle severity by prominence graph data using KEV, Distinct, All buttons', async ({
-    page: pageAsGlobalAdmin
+  test('should toggle severity by prominence graph data using KEV, Distinct, All buttons', async ({
+    pageAsGlobalAdmin
   }) => {
     // Scope radios to the "Severity by Prominence" section
     const heading = pageAsGlobalAdmin.getByRole('heading', {
@@ -62,8 +63,8 @@ test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () =>
     await expect(allBtn).toHaveAttribute('aria-checked', 'true');
   });
 
-  test.skip('should render severity bars with correct labels', async ({
-    page: pageAsGlobalAdmin
+  test('should render severity bars with correct labels', async ({
+    pageAsGlobalAdmin
   }) => {
     // Locate all bars on the graph with aria-labels
     const bars = pageAsGlobalAdmin.locator(
@@ -78,8 +79,8 @@ test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () =>
     await expect(bars.nth(3)).toHaveAttribute('aria-label', /low/i);
   });
 
-  test.skip(' severity chart bar colors are correct for KEV, Distinct, and All', async ({
-    page: pageAsGlobalAdmin
+  test(' severity chart bar colors are correct for KEV, Distinct, and All', async ({
+    pageAsGlobalAdmin
   }) => {
     const bars = pageAsGlobalAdmin.locator('svg .MuiBarElement-root');
     //await expect(bars).toHaveCount(4);
@@ -105,29 +106,31 @@ test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () =>
 
   // ====== Top Vulnerability by Occurrence =======
 
-  test.skip('should toggle  occurrence table data using KEV and All buttons', async ({
-    page: pageAsGlobalAdmin
-  }) => {
-    // Scope radios to the "Top Vulnerabilities by Occurrence" section
-    const heading = pageAsGlobalAdmin.getByRole('heading', {
-      name: /top vulnerabilities by occurrence/i
-    });
-    const group = heading.locator(
-      'xpath=following::div[@role="radiogroup"][1]'
-    );
+  // TODO CRASM-3487 Update tests to match current UI behavior
 
-    const kevBtn = group.getByRole('radio', { name: 'KEV' });
-    const allBtn = group.getByRole('radio', { name: 'All' });
+  // test('should toggle  occurrence table data using KEV and All buttons', async ({
+  //   pageAsGlobalAdmin
+  // }) => {
+  //   // Scope radios to the "Top Vulnerabilities by Occurrence" section
+  //   const heading = pageAsGlobalAdmin.getByRole('heading', {
+  //     name: /top vulnerabilities by occurrence/i
+  //   });
+  //   const group = heading.locator(
+  //     'xpath=following::div[@role="radiogroup"][1]'
+  //   );
 
-    await kevBtn.isVisible();
-    await expect(kevBtn).toHaveAttribute('aria-checked', 'true');
+  //   const kevBtn = group.getByRole('radio', { name: 'KEV' });
+  //   const allBtn = group.getByRole('radio', { name: 'All' });
 
-    await allBtn.click();
-    await expect(allBtn).toHaveAttribute('aria-checked', 'true');
-  });
+  //   await kevBtn.isVisible();
+  //   await expect(kevBtn).toHaveAttribute('aria-checked', 'true');
 
-  test.skip('should display vulnerability occurrunce table with correct columns and data', async ({
-    page: pageAsGlobalAdmin
+  //   await allBtn.click();
+  //   await expect(allBtn).toHaveAttribute('aria-checked', 'true');
+  // });
+
+  test('should display vulnerability occurrunce table with correct columns and data', async ({
+    pageAsGlobalAdmin
   }) => {
     // Assert the table headers are visible
     const table = pageAsGlobalAdmin.locator('table');
@@ -152,49 +155,51 @@ test.describe('Known Exploited and Other Detected Vulnerabilities Widget', () =>
     await firstCell.click();
   });
 
-  test.skip('hover tooltips show text for all info icons', async ({
-    page: pageAsGlobalAdmin
-  }) => {
-    // Small helper to reduce flakiness with MUI’s show/leave delays
-    const resetHover = async () => {
-      await pageAsGlobalAdmin.mouse.move(0, 0);
-      await pageAsGlobalAdmin.waitForTimeout(80); // give Popper time to close the prior tooltip
-    };
+  // TODO CRASM-3487 Update tests to match current UI behavior
 
-    // 1) Main widget info icon
-    await resetHover();
-    const mainInfo = pageAsGlobalAdmin.getByRole('button', {
-      name: /more information about known exploited and other detected vulnerabilities/i
-    });
-    const mainTooltip = pageAsGlobalAdmin
-      .getByRole('tooltip')
-      .filter({ hasText: /known exploited and other/i }); // use a stable substring
-    await mainInfo.hover();
-    await expect(mainTooltip).toBeVisible();
-    await expect(mainTooltip).not.toHaveText('');
+  // test('hover tooltips show text for all info icons', async ({
+  //   pageAsGlobalAdmin
+  // }) => {
+  //   // Small helper to reduce flakiness with MUI’s show/leave delays
+  //   const resetHover = async () => {
+  //     await pageAsGlobalAdmin.mouse.move(0, 0);
+  //     await pageAsGlobalAdmin.waitForTimeout(80); // give Popper time to close the prior tooltip
+  //   };
 
-    // 2) Severity by Prominence info icon
-    await resetHover();
-    const sevInfo = pageAsGlobalAdmin.getByRole('button', {
-      name: /more information about severity by prominence/i
-    });
-    const sevTooltip = pageAsGlobalAdmin
-      .getByRole('tooltip')
-      .filter({ hasText: /severity by prominence/i });
-    await sevInfo.hover();
-    await expect(sevTooltip).toBeVisible();
-    await expect(sevTooltip).not.toHaveText('');
+  //   // 1) Main widget info icon
+  //   await resetHover();
+  //   const mainInfo = pageAsGlobalAdmin.getByRole('button', {
+  //     name: /more information about known exploited and other detected vulnerabilities/i
+  //   });
+  //   const mainTooltip = pageAsGlobalAdmin
+  //     .getByRole('tooltip')
+  //     .filter({ hasText: /known exploited and other/i }); // use a stable substring
+  //   await mainInfo.hover();
+  //   await expect(mainTooltip).toBeVisible();
+  //   await expect(mainTooltip).not.toHaveText('');
 
-    // 3) Top Vulnerabilities by Occurrence info icon
-    await resetHover();
-    const topInfo = pageAsGlobalAdmin.getByRole('button', {
-      name: /more information about top vulnerabilities by occurrence/i
-    });
-    const topTooltip = pageAsGlobalAdmin
-      .getByRole('tooltip')
-      .filter({ hasText: /top vulnerabilities by occurrence/i });
-    await topInfo.hover();
-    await expect(topTooltip).toBeVisible();
-    await expect(topTooltip).not.toHaveText('');
-  });
+  //   // 2) Severity by Prominence info icon
+  //   await resetHover();
+  //   const sevInfo = pageAsGlobalAdmin.getByRole('button', {
+  //     name: /more information about severity by prominence/i
+  //   });
+  //   const sevTooltip = pageAsGlobalAdmin
+  //     .getByRole('tooltip')
+  //     .filter({ hasText: /severity by prominence/i });
+  //   await sevInfo.hover();
+  //   await expect(sevTooltip).toBeVisible();
+  //   await expect(sevTooltip).not.toHaveText('');
+
+  //   // 3) Top Vulnerabilities by Occurrence info icon
+  //   await resetHover();
+  //   const topInfo = pageAsGlobalAdmin.getByRole('button', {
+  //     name: /more information about top vulnerabilities by occurrence/i
+  //   });
+  //   const topTooltip = pageAsGlobalAdmin
+  //     .getByRole('tooltip')
+  //     .filter({ hasText: /top vulnerabilities by occurrence/i });
+  //   await topInfo.hover();
+  //   await expect(topTooltip).toBeVisible();
+  //   await expect(topTooltip).not.toHaveText('');
+  // });
 });

@@ -101,11 +101,10 @@ export const extractInitialFilters = (state: LocationState) => {
 export const normalizeFilters = (
   filters: GridFilterItem[],
   currentOrganization?: UserOrganization | null | undefined,
-  userType?: string,
-  orgId?: string
+  userType?: string
 ) => {
   const result = filters
-    .filter((f) => Boolean(f.value))
+    .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
     .reduce<Record<string, string | boolean>>((acc, cur) => {
       acc[cur.field] = cur.value as string;
       return acc;

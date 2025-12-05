@@ -1,5 +1,8 @@
+// frontend/src/context/AuthContextProvider.tsx
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Auth } from 'aws-amplify';
+import { logger } from '@/utils/logger';
+import Alert, { AlertProps } from '@mui/material/Alert';
+import Snackbar from '@mui/material/Snackbar';
 import { AuthContext, AuthUser } from './AuthContext';
 import { User, Organization, OrganizationTag } from 'types';
 import { useApi } from 'hooks/useApi';
@@ -11,9 +14,7 @@ import {
   getUserMustSign
 } from './userStateUtils';
 import Cookies from 'universal-cookie';
-import { Snackbar } from '@mui/material';
-import { Alert } from '@mui/material';
-import { AlertProps } from '@mui/material/Alert';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const currentTermsVersion = '1';
 
@@ -36,49 +37,69 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     message: string;
     type: AlertProps['severity'];
   } | null>(null);
-  const cookies = useMemo(() => new Cookies(), []);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Single cookies instance for the lifetime of the provider
+  const cookies = useMemo(() => new Cookies(), []);
+
+  // Compute cookie options that work both locally and in prod
+  const cookieOpts = useMemo(() => {
+    const isLocalhost =
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1';
+    const domainEnv = import.meta.env.VITE_COOKIE_DOMAIN as string | undefined;
+    return {
+      path: '/',
+      // Only set a domain attribute if NOT on localhost (cookie APIs treat localhost specially)
+      domain: !isLocalhost && domainEnv ? domainEnv : undefined,
+      secure: window.location.protocol === 'https:'
+    } as const;
+  }, []);
 
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
+
+    // If the user has a token, reload at the end to reset app state
     const shouldReload = !!token;
 
-    // Clear local storage/cookies and sign out
-    localStorage.clear();
-    await Auth.signOut();
-    cookies.remove('crossfeed-token', {
-      domain: import.meta.env.VITE_COOKIE_DOMAIN
-    });
+    try {
+      // Clear local storage and Amplify session (if any)
+      localStorage.clear();
 
-    // Clear user state after successful sign out
-    setAuthUser(null);
-    setIsLoggingOut(false); // Reset logout state
+      // Remove both cookies the backend may have set
+      cookies.remove('token', cookieOpts);
+      cookies.remove('crossfeed-token', cookieOpts);
 
-    if (shouldReload) {
-      // Refresh the page only if the token was previously defined
-      // (i.e. it is now invalid / has expired now).
-      window.location.reload();
+      // Clear in-memory state
+      setAuthUser(null);
+      setToken(null);
+    } catch (error) {
+      logger.error(error);
+    } finally {
+      setIsLoggingOut(false);
+      if (shouldReload) {
+        window.location.reload();
+      }
     }
-
-    // Reset logout state even on error
-    setIsLoggingOut(false);
-  }, [cookies, token, setAuthUser]);
+  }, [cookies, cookieOpts, setToken, token]);
 
   const handleError = useCallback(
-    async (e: Error) => {
-      if (e.message.includes('401')) {
-        // Unauthorized, log out user
+    async (in_error: Error) => {
+      logger.error(in_error);
+      if (in_error.message.includes('401')) {
         await logout();
+        const next = encodeURIComponent(window.location.pathname || '/');
+        window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
       }
     },
     [logout]
   );
 
   const api = useApi(handleError);
-  const { apiGet, apiPost } = api;
+  const { apiGet } = api;
 
   const getProfile = useCallback(async () => {
-    const user: User = await apiGet<User>('/users/me');
+    const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
 
     // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
     // Currently commented to meet "waiting room" needs and allow login for state selection
@@ -111,46 +132,32 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     [setAuthUser]
   );
 
+  // New, SAML-only "refresh": just refetch the profile if we already have a token
   const refreshUser = useCallback(async () => {
-    try {
-      if (!token && import.meta.env.VITE_USE_COGNITO) {
-        const session = await Auth.currentSession();
-        const { token } = await apiPost<{ token: string; user: User }>(
-          '/auth/callback',
-          {
-            body: {
-              token: session.getIdToken().getJwtToken()
-            }
-          }
-        );
-        setToken(token);
+    if (!token) return;
+    await getProfile();
+  }, [token, getProfile]);
+
+  // SPA token update from cookies after SAML ACS redirect
+  useEffect(() => {
+    if (!token) {
+      const cookieToken =
+        cookies.get('token') || cookies.get('crossfeed-token');
+      if (cookieToken) {
+        // Set token from cookie if we don't have one yet
+        setToken(cookieToken);
       }
-    } catch (error) {
-      console.log(error);
     }
-  }, [apiPost, setToken, token]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, cookies]);
 
-  const extendedOrg = useMemo(() => {
-    return getExtendedOrg(org, authUser);
-  }, [org, authUser]);
-
-  const maximumRole = useMemo(() => {
-    return getMaximumRole(authUser);
-  }, [authUser]);
-
-  const touVersion = useMemo(() => {
-    return getTouVersion(maximumRole);
-  }, [maximumRole]);
-
-  const userMustSign = useMemo(() => {
-    return getUserMustSign(authUser, touVersion);
-  }, [authUser, touVersion]);
-
+  // On first mount, try Cognito refresh (if enabled)
   useEffect(() => {
     refreshUser();
     // eslint-disable-next-line
   }, []);
 
+  // When token changes, either clear user or fetch profile
   useEffect(() => {
     if (!token) {
       setAuthUser(null);
@@ -158,6 +165,17 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
       getProfile();
     }
   }, [token, getProfile]);
+
+  const extendedOrg = useMemo(
+    () => getExtendedOrg(org, authUser),
+    [org, authUser]
+  );
+  const maximumRole = useMemo(() => getMaximumRole(authUser), [authUser]);
+  const touVersion = useMemo(() => getTouVersion(maximumRole), [maximumRole]);
+  const userMustSign = useMemo(
+    () => getUserMustSign(authUser, touVersion),
+    [authUser, touVersion]
+  );
 
   return (
     <AuthContext.Provider

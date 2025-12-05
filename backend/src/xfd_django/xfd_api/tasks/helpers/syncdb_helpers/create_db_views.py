@@ -600,7 +600,7 @@ def create_service_mat_view(database):
                 ORDER BY ip_id, sub_domain_id
             )
             SELECT
-                ps.id AS id,
+                ps.port_scan_id AS id,
                 ps.time_scanned AS created_at,
                 ps.time_scanned AS updated_at,
                 'portscan' AS service_source,
@@ -631,9 +631,9 @@ def create_service_mat_view(database):
                 ps.ip_string AS ip_string,
                 COALESCE(sub_link.sub_domain_id, ps.ip_id) AS domain_id,
                 NULL::uuid AS discovered_by_id
-            FROM port_scan ps
+            FROM latest_port_scan ps
             LEFT JOIN latest_ip_sub sub_link ON sub_link.ip_id = ps.ip_id
-            WHERE ps.latest = TRUE
+            WHERE ps.current = TRUE
             AND ps.port IS NOT NULL
             AND ps.service_name IS NOT NULL;
         """

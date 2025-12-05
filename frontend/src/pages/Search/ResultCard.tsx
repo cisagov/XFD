@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import { Box, Typography, ButtonBase } from '@mui/material';
+import Box from '@mui/material/Box';
+import ButtonBase from '@mui/material/ButtonBase';
+import Typography from '@mui/material/Typography';
 import { styled } from '@mui/material/styles';
 import { Result } from 'context/SearchProvider';
 // @ts-ignore:next-line
 import { parseISO, formatDistanceToNow } from 'date-fns';
 import DOMPurify from 'dompurify';
+import { ROUTES } from '@/constants/routes';
 
 // Sync this with the backend client in es-client.ts.
 export interface WebpageRecord {
@@ -103,13 +106,13 @@ export const ResultCard: React.FC<Props> = (props) => {
   const history = useHistory();
   try {
     last_seen = formatDistanceToNow(parseISO(updated_at.raw));
-  } catch (e) {
+  } catch {
     last_seen = '';
   }
 
   const onClick = () => {
     onDomainSelected(id.raw);
-    history.push(`/inventory/domain/${id.raw}`);
+    history.push(ROUTES.DOMAIN.replace(':domainId', id.raw));
   };
 
   const ports = services.raw.reduce(
@@ -239,7 +242,7 @@ export const ResultCard: React.FC<Props> = (props) => {
           )}
         </Box>
       )}
-      {data.map(({ label, value, count, onExpand, expansionText }) => (
+      {data.map(({ label, value, count, expansionText }) => (
         <Box key={label} mt={2}>
           <Typography variant="caption" sx={{ color: '#4e4e4e' }}>
             {count !== undefined && (

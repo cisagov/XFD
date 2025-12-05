@@ -1,5 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { logger } from '@/utils/logger';
 import { useParams } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Breadcrumbs from '@mui/material/Breadcrumbs';
+import Grid from '@mui/material/Grid';
+import Link from '@mui/material/Link';
+import Paper from '@mui/material/Paper';
+import Tab from '@mui/material/Tab';
+import Typography from '@mui/material/Typography';
+import TabContext from '@mui/lab/TabContext';
+import TabList from '@mui/lab/TabList';
+import TabPanel from '@mui/lab/TabPanel';
+import ChevronRight from '@mui/icons-material/ChevronRight';
 import { useAuthContext } from 'context';
 import {
   Organization as OrganizationType,
@@ -7,21 +19,10 @@ import {
   ScanTask,
   OrganizationTag
 } from 'types';
-
-import {
-  Box,
-  Breadcrumbs,
-  Grid,
-  Link as MuiLink,
-  Paper,
-  Tab,
-  Typography
-} from '@mui/material';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import { ChevronRight } from '@mui/icons-material';
 import OrgMembers from './OrgMembers';
-import OrgScanHistory from './OrgScanHistory';
 import OrgSettings from './OrgSettings';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 interface AutocompleteType extends Partial<OrganizationTag> {
   title?: string;
@@ -32,7 +33,7 @@ export const Organization: React.FC = () => {
   const [organization, setOrganization] = useState<OrganizationType>();
   const [tags, setTags] = useState<AutocompleteType[]>([]);
   const [userRoles, setUserRoles] = useState<Role[]>([]);
-  const [scanTasks, setScanTasks] = useState<ScanTask[]>([]);
+  const [, setScanTasks] = useState<ScanTask[]>([]);
   const [tabValue, setTabValue] = React.useState('1');
   const handleTabChange = (event: React.SyntheticEvent, new_value: string) => {
     setTabValue(new_value);
@@ -41,7 +42,7 @@ export const Organization: React.FC = () => {
   const fetchOrganization = useCallback(async () => {
     try {
       const organization = await apiGet<OrganizationType>(
-        `/organizations/${organizationId}`
+        ENDPOINTS.ORGANIZATION.replace('{organization_id}', organizationId)
       );
       organization.scan_tasks.sort(
         (a, b) =>
@@ -50,10 +51,15 @@ export const Organization: React.FC = () => {
       setOrganization(organization);
       setUserRoles(organization.user_roles);
       setScanTasks(organization.scan_tasks);
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error('Organization.fetchOrganization failed:', {
+        error: e,
+        organizationId
+      });
     }
   }, [apiGet, setOrganization, organizationId]);
 
@@ -78,26 +84,25 @@ export const Organization: React.FC = () => {
         setUserRoles={setUserRoles}
       />
     </React.Fragment>,
-    <React.Fragment key={2}>
-      <OrgScanHistory
-        organization={organization}
-        setOrganization={setOrganization}
-        scanTasks={scanTasks}
-      />
-    </React.Fragment>
+    <React.Fragment key={2}></React.Fragment>
   ];
 
   return (
     <Grid container p={2}>
       <Grid size={{ xs: 12 }} mb={2}>
         <Breadcrumbs separator={<ChevronRight />}>
-          <MuiLink href="/organizations" variant="h5">
+          <Link href="/organizations" variant="h5">
             Organizations
-          </MuiLink>
+          </Link>
           {organization.parent && (
-            <MuiLink href={'/organizations/' + organization.parent.id}>
+            <Link
+              href={ROUTES.ORGANIZATION.replace(
+                ':organizationId',
+                organization.parent.id
+              )}
+            >
               {organization.parent.name}
-            </MuiLink>
+            </Link>
           )}
           <Typography variant="h5" color="primary">
             {organization.name}

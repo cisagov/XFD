@@ -2,15 +2,18 @@
 
 # Standard Python Libraries
 from datetime import timedelta
+from datetime import timezone as dt_timezone
 import json
 import logging
 import os
+from typing import Dict
 
 # Third-Party Libraries
 from django.db import connections, transaction
 from django.utils import timezone
 from psycopg2 import sql
 from psycopg2.extras import execute_values
+from xfd_api.tasks.utils.cloudwatch_metrics import cloudwatch_metric
 from xfd_api.tasks.utils.datetime_utils import (
     safe_fromisoformat,
     safe_parse_date,
@@ -18,7 +21,15 @@ from xfd_api.tasks.utils.datetime_utils import (
 )
 from xfd_api.tasks.utils.query_redshift import query_redshift
 from xfd_api.utils.hash import hash_ip
-from xfd_mini_dl.models import Cve, Ip, PortScan, Ticket, TicketEvent, VulnScan
+from xfd_mini_dl.models import (
+    Cve,
+    Ip,
+    LatestPortScan,
+    PortScan,
+    Ticket,
+    TicketEvent,
+    VulnScan,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -39,67 +50,77 @@ EVENTS_CREATE_BATCH = 10_000  # TicketEvent bulk_create batch
 DB_ALIAS = "mini_data_lake"
 
 
-def fetch_tickets_from_redshift_single_org(
-    org_id: str,
-    org_acronym: str,
+@cloudwatch_metric()
+def fetch_tickets_from_redshift(
+    org_id_dict: dict,
     risky_service_groups: dict,
     nmi_service_groups: dict,
     ps_start_dt,
     ps_end_dt,
 ):
-    """Fetch and process tickets from Redshift for a single org."""
-    LOGGER.info("Starting ticket processing for org: %s", org_acronym)
+    """Fetch and process tickets from Redshift for multiple orgs."""
+    if not org_id_dict:
+        LOGGER.warning("No organizations provided for ticket processing.")
+        return
+
+    LOGGER.info("Starting ticket processing for %d orgs.", len(org_id_dict))
 
     total_processed = 0
     chunk_number = 1
+    org_acronyms = list(org_id_dict.keys())
 
-    for chunk in fetch_ticket_chunks_frozen_single_org(
+    for chunk in fetch_ticket_chunks_frozen_multi_org(
         ps_start_dt,
         ps_end_dt,
-        org_acronym=org_acronym,
+        org_acronyms=org_acronyms,
     ):
         LOGGER.info(
-            "Processing ticket chunk #%d with %d rows for org %s",
+            "Processing ticket chunk #%d with %d rows across %d orgs",
             chunk_number,
             len(chunk),
-            org_acronym,
+            len(org_acronyms),
         )
 
-        process_tickets_single_org(
+        process_tickets_multi_org(
             chunk,
-            org_id,
-            org_acronym,
+            org_id_dict,
             risky_service_groups,
             nmi_service_groups,
+            ps_start_dt,
+            ps_end_dt,
         )
 
         total_processed += len(chunk)
         chunk_number += 1
 
     if total_processed == 0:
-        LOGGER.warning(
-            "No tickets found in Redshift for org %s in the last %d days.",
-            org_acronym,
-            VS_PULL_DATE_RANGE,
+        LOGGER.info(
+            "No tickets found in Redshift for the requested orgs in the last %d days.",
+            int(VS_PULL_DATE_RANGE),
         )
     else:
         LOGGER.info(
-            "Processed %d total tickets across %d chunks for org %s",
+            "Processed %d total tickets across %d chunks for %d orgs",
             total_processed,
             chunk_number - 1,
-            org_acronym,
+            len(org_acronyms),
         )
 
-    LOGGER.info("Finished ticket processing for org %s.", org_acronym)
+    LOGGER.info("Finished ticket processing for %d orgs.", len(org_acronyms))
 
 
-def fetch_ticket_chunks_frozen_single_org(
+@cloudwatch_metric()
+def fetch_ticket_chunks_frozen_multi_org(
     ps_start_dt,
     ps_end_dt,
+    org_acronyms: list[str],
     chunk_size: int = 5000,
-    org_acronym: str | None = None,
 ):
-    """Fetch ticket data in chunks for a single org, safely parameterized."""
+    """Fetch ticket data in chunks for multiple orgs, safely parameterized."""
+    if not org_acronyms:
+        LOGGER.warning("No orgs provided to fetch tickets.")
+        return
+
     last_time = None
     last_id = None
     start_param = to_utc_naive(ps_start_dt)
@@ -107,18 +128,22 @@ def fetch_ticket_chunks_frozen_single_org(
 
     while True:
         where_parts = [
-            sql.SQL('"time" >= %s'),
-            sql.SQL('"time" < %s'),
+            sql.SQL('"last_change" >= %s'),
+            sql.SQL('"last_change" < %s'),
         ]
         params = [start_param, end_param]
 
+        # Keyset pagination
         if last_time is not None and last_id is not None:
-            where_parts.append(sql.SQL('("time" > %s OR ("time" = %s AND "_id" > %s))'))
+            where_parts.append(
+                sql.SQL('("last_change" > %s OR ("last_change" = %s AND "_id" > %s))')
+            )
             params.extend([last_time, last_time, last_id])
 
-        if org_acronym:
-            where_parts.append(sql.SQL("owner = %s"))
-            params.append(org_acronym)
+        # Org filter using IN
+        owner_placeholders = sql.SQL(", ").join(sql.Placeholder() * len(org_acronyms))
+        where_parts.append(sql.SQL("owner IN ({})").format(owner_placeholders))
+        params.extend(org_acronyms)
 
         where_clause = sql.SQL(" AND ").join(where_parts)
 
@@ -127,19 +152,19 @@ def fetch_ticket_chunks_frozen_single_org(
             SELECT *
             FROM vmtableau.tickets
             WHERE {where_clause}
-            ORDER BY "time", "_id"
+            ORDER BY "last_change", "_id"
             LIMIT %s
-        """
+            """
         ).format(where_clause=where_clause)
 
         params.append(chunk_size)
 
-        chunk = query_redshift(query.as_string(conn=None), params=params)
+        chunk = query_redshift(query, params=params)
         if not chunk:
             break
 
         last_row = chunk[-1]
-        last_time = last_row["time"]
+        last_time = last_row["last_change"]
         last_id = str(last_row["_id"])
 
         yield chunk
@@ -148,30 +173,47 @@ def fetch_ticket_chunks_frozen_single_org(
 def preload_os_type_map(ip_keys) -> dict:
     """Return mapping ip_str -> service_os_type."""
     scans = (
-        PortScan.objects.filter(ip_string__in=ip_keys, service_os_type__isnull=False)
+        LatestPortScan.objects.filter(
+            ip_string__in=ip_keys, service_os_type__isnull=False, current=True
+        )
         .order_by("ip_string", "-time_scanned")
         .distinct("ip_string")
     )
     return {scan.ip_string: scan.service_os_type for scan in scans}
 
 
-def process_tickets_single_org(
-    tickets, org_id, org_acronym, risky_service_groups, nmi_service_groups
+@cloudwatch_metric()
+def process_tickets_multi_org(
+    tickets,
+    org_id_dict: dict[str, str],
+    risky_service_groups: dict,
+    nmi_service_groups: dict,
+    ps_start_dt,
+    ps_end_dt,
 ):
     """
-    Process tickets for a single org with.
+    Process tickets across multiple orgs.
 
-      - early dedup by most recent 'last_change'
-      - bulk insert IPs & CVEs (ignore conflicts)
-      - re-lookup IP/CVE ids
-      - bulk upsert Tickets via raw SQL (only if newer)
-      - stage TicketEvents for last 7 days and flush in large batches
-      - always flush tickets before events
+    - Early dedup by most recent 'last_change'
+    - Bulk insert IPs & CVEs
+    - Re-lookup IP/CVE ids
+    - Bulk upsert Tickets via raw SQL (only if newer)
+    - Stage TicketEvents and flush in large batches
     """
-    seven_days_ago = timezone.now() - timedelta(days=7)
+    if timezone.is_naive(ps_start_dt):
+        ps_start_dt = timezone.make_aware(ps_start_dt)
+    if timezone.is_naive(ps_end_dt):
+        ps_end_dt = timezone.make_aware(ps_end_dt)
 
-    # ---- Step 0: Early de-dup by id, keep most-recent last_change
-    deduped = {}
+    window_days = (ps_end_dt - ps_start_dt).days
+    if window_days == 2:
+        ps_start_dt = ps_start_dt - timedelta(days=3)
+
+    ps_start_dt = ps_start_dt.astimezone(dt_timezone.utc)
+    ps_end_dt = ps_end_dt.astimezone(dt_timezone.utc)
+
+    # ---- Step 0: Early dedup by id, keep most-recent last_change
+    deduped: Dict[str, dict] = {}
     for t in tickets:
         tid = t["_id"].replace("ObjectId('", "").replace("')", "")
         cur_updated = safe_fromisoformat(t.get("last_change"))
@@ -186,10 +228,9 @@ def process_tickets_single_org(
         [t.get("ip") for t in deduped.values() if t.get("ip")]
     )
 
-    # ---- Step 1: Stage unique IPs & CVEs (ignore conflicts on insert)
     ip_key_to_obj = {}
     cve_name_to_obj = {}
-    ticket_data_map = {}  # id -> {"raw":..., "details":..., "events":...}
+    ticket_data_map = {}
 
     for tid, t in deduped.items():
         details = json.loads(t.get("details", "{}"))
@@ -197,35 +238,30 @@ def process_tickets_single_org(
         ticket_data_map[tid] = {"raw": t, "details": details, "events": events}
 
         owner = t.get("owner")
-        if owner != org_acronym:
-            continue  # skip if ticket not owned by this org
+        org_id = org_id_dict.get(owner)
+        if not org_id:
+            continue  # skip tickets for unknown orgs
 
         ip_str = t.get("ip")
         if ip_str:
             key = (ip_str, org_id)
             if key not in ip_key_to_obj:
                 ip_key_to_obj[key] = Ip(
-                    ip=ip_str,
-                    organization_id=org_id,
-                    ip_hash=hash_ip(ip_str),
+                    ip=ip_str, organization_id=org_id, ip_hash=hash_ip(ip_str)
                 )
 
         cve_name = details.get("cve")
         if cve_name and cve_name not in cve_name_to_obj:
             cve_name_to_obj[cve_name] = Cve(name=cve_name)
 
-    # Insert staged IPs/CVEs to MDL
+    # Insert staged IPs/CVEs
     if ip_key_to_obj:
         Ip.objects.using(DB_ALIAS).bulk_create(
-            list(ip_key_to_obj.values()),
-            ignore_conflicts=True,
-            batch_size=1_000,
+            list(ip_key_to_obj.values()), ignore_conflicts=True, batch_size=1_000
         )
     if cve_name_to_obj:
         Cve.objects.using(DB_ALIAS).bulk_create(
-            list(cve_name_to_obj.values()),
-            ignore_conflicts=True,
-            batch_size=1_000,
+            list(cve_name_to_obj.values()), ignore_conflicts=True, batch_size=1_000
         )
 
     # ---- Step 2: Query back IP/CVE mapping from MDL
@@ -233,7 +269,7 @@ def process_tickets_single_org(
         (ip.ip, ip.organization_id): ip
         for ip in Ip.objects.using(DB_ALIAS).filter(
             ip__in=[i.ip for i in ip_key_to_obj.values()],
-            organization_id=org_id,
+            organization_id__in=list(org_id_dict.values()),
         )
     }
     cve_map = {
@@ -243,7 +279,6 @@ def process_tickets_single_org(
         )
     }
 
-    # ---- Step 3: Build ticket rows for SQL upsert & stage events (7-day cutoff)
     ticket_rows_batch = []
     staged_events = []
 
@@ -252,12 +287,13 @@ def process_tickets_single_org(
         details = tdata["details"]
         events = tdata["events"]
 
-        if raw.get("owner") != org_acronym:
-            continue  # Skip tickets belonging to another org
+        owner = raw.get("owner")
+        org_id = org_id_dict.get(owner)
+        if not org_id:
+            continue
 
         ip_str = raw.get("ip")
         cve_name = details.get("cve")
-
         ip_fk = ip_map.get((ip_str, org_id))
         cve_fk = cve_map.get(cve_name)
 
@@ -314,14 +350,20 @@ def process_tickets_single_org(
         }
         ticket_rows_batch.append(row)
 
-        # Stage last-7-days TicketEvents
-        for ev in reversed(events):  # newest first
+        # Stage TicketEvents
+        for ev in reversed(events):
             ev_time = safe_parse_date(ev.get("time"))
             if not ev_time:
                 continue
-            if ev_time and timezone.is_naive(ev_time):
-                ev_time = timezone.make_aware(ev_time)
-            if ev_time < seven_days_ago:
+            if timezone.is_naive(ev_time):
+                ev_time = timezone.make_aware(ev_time, dt_timezone.utc)
+            else:
+                ev_time = ev_time.astimezone(dt_timezone.utc)
+
+            if ev_time >= ps_end_dt:
+                continue
+
+            if ev_time < ps_start_dt:
                 break
 
             ref_id = ev.get("reference")
@@ -339,7 +381,7 @@ def process_tickets_single_org(
                 }
             )
 
-        # tickets flush
+        # Flush tickets/events in batches
         if len(ticket_rows_batch) >= TICKET_ROWS_FLUSH:
             with transaction.atomic(using=DB_ALIAS):
                 bulk_upsert_tickets_sql(
@@ -347,7 +389,6 @@ def process_tickets_single_org(
                 )
             ticket_rows_batch.clear()
 
-        # events flush (ensure tickets are persisted first)
         if len(staged_events) >= EVENTS_FLUSH_THRESHOLD:
             if ticket_rows_batch:
                 with transaction.atomic(using=DB_ALIAS):
@@ -372,12 +413,13 @@ def process_tickets_single_org(
         )
 
     LOGGER.info(
-        "Finished processing %d deduped tickets for org %s",
+        "Finished processing %d deduped tickets across %d orgs.",
         len(deduped),
-        org_acronym,
+        len(org_id_dict),
     )
 
 
+@cloudwatch_metric()
 def bulk_create_ticket_events(
     events_data, using=DB_ALIAS, batch_size=EVENTS_CREATE_BATCH
 ):
@@ -474,6 +516,7 @@ def bulk_create_ticket_events(
     )
 
 
+@cloudwatch_metric()
 def bulk_upsert_tickets_sql(rows, using=DB_ALIAS, page_size=BULK_CREATE_BATCH):
     """Insert or update Ticket rows, but only update when EXCLUDED.updated_timestamp is newer."""
     if not rows:

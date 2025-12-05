@@ -5,10 +5,9 @@ import {
   REGIONAL_ADMIN,
   STANDARD_USER
 } from './useUserLevel';
-// import { GLOBAL_VIEW } from 'context/userStateUtils';
 import { OrganizationShallow } from 'components/FilterDrawer/RegionAndOrganizationFilters';
 
-export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = false;
+export const REGIONAL_USER_CAN_SEARCH_OTHER_REGIONS = true;
 
 export const ORGANIZATION_EXCLUSIONS = ['dhs region'];
 
@@ -48,7 +47,8 @@ export const useUserTypeFilters: UseUserTypeFilters = (
               name: role?.organization?.name ?? '',
               id: role?.organization?.id ?? '',
               region_id: role?.organization?.region_id ?? '',
-              root_domains: role?.organization?.root_domains ?? []
+              root_domains: role?.organization?.root_domains ?? [],
+              acronym: role?.organization?.acronym ?? ''
             };
           })
       : [];

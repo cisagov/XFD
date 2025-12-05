@@ -17,17 +17,21 @@ import os
 
 # Python built-in
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.load_env_variables import load_django_env_config
 from .helpers.log_helpers import install_xfd_prefix
 
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
 
 install_xfd_prefix()  # Install custom logger prefix
+
+# Load environment variables from S3
+load_django_env_config()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -40,6 +44,7 @@ SECRET_KEY = os.getenv("DJANGO_KEY")
 CROSSFEED_SUPPORT_EMAIL_SENDER = os.getenv("CROSSFEED_SUPPORT_EMAIL_SENDER")
 CROSSFEED_SUPPORT_EMAIL_REPLYTO = os.getenv("CROSSFEED_SUPPORT_EMAIL_REPLYTO")
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
+BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN")
 IS_LOCAL = os.getenv("IS_LOCAL")
 NIST_API_KEY = os.getenv("NIST_API_KEY")
 IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
@@ -53,10 +58,42 @@ JWT_TIMEOUT_HOURS = os.getenv("JWT_TIMEOUT_HOURS")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = IS_LOCAL != "false"
 
+# Okta Metadata URL
+OKTA_SAML_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
+
+# SAML certificate configuration
+IS_LOCAL_TRUTHY: bool = str(IS_LOCAL or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+}
+
+SAML_SP_CERT_PATH: Optional[str]
+SAML_SP_PRIVATE_KEY_PATH: Optional[str]
+WANT_NAMEID_ENCRYPTED: bool
+
+if not IS_LOCAL_TRUTHY:
+    # Only load cert paths in non-local environments
+    SAML_SP_CERT_PATH = os.getenv(
+        "SAML_SP_CERT_PATH", "/app/certs/saml_public_cert.pem"
+    )
+    SAML_SP_PRIVATE_KEY_PATH = os.getenv(
+        "SAML_SP_PRIVATE_KEY_PATH", "/app/certs/saml_private_key.pem"
+    )
+    WANT_NAMEID_ENCRYPTED = str(
+        os.getenv("WANT_NAMEID_ENCRYPTED", "true")
+    ).strip().lower() in {"1", "true", "yes", "y", "on"}
+else:
+    # For local development: skip encryption and certs entirely
+    SAML_SP_CERT_PATH = None
+    SAML_SP_PRIVATE_KEY_PATH = None
+    WANT_NAMEID_ENCRYPTED = False
+
 ALLOWED_HOSTS = [
     ".execute-api.us-east-1.amazonaws.com",
     os.getenv("BACKEND_DOMAIN"),
-    os.getenv("VITE_API_URL"),
     os.getenv("FRONTEND_DOMAIN"),
     os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
     os.getenv("CROSSFEED_BACKEND_DOMAIN"),
@@ -236,7 +273,9 @@ LOGGING = {
         },
         # Request logs stay separate
         "fastapi.requests": {
-            "handlers": _env_handlers(),
+            "handlers": (
+                ["requests_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
+            ),
             "level": "INFO",
             "propagate": False,
         },
@@ -328,8 +367,14 @@ SECURE_CSP_POLICY = {
         os.getenv("BACKEND_DOMAIN"),
         os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
-        "https://www.ssa.gov/accessibility/andi/fandi.js",
-        "https://www.ssa.gov/accessibility/andi/andi.js",
+        *(
+            [
+                "https://www.ssa.gov/accessibility/andi/fandi.js",
+                "https://www.ssa.gov/accessibility/andi/andi.js",
+            ]
+            if DEBUG
+            else []
+        ),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
         "'sha256-QOOQu4W1oxGqd2nbXbxiA1Di6OHQOLQD+o+G9oWL8YY='",
         "https://www.dhs.gov",

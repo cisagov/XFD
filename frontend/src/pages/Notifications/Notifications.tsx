@@ -1,32 +1,23 @@
 import React from 'react';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  Grid,
-  IconButton,
-  Paper,
-  Typography
-} from '@mui/material';
-import {
-  CheckCircleOutline,
-  Delete,
-  Edit,
-  InfoOutlined
-} from '@mui/icons-material';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import Delete from '@mui/icons-material/Delete';
+import Edit from '@mui/icons-material/Edit';
+import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import {
   gridClasses,
   GridColDef,
   GridRenderCellParams
 } from '@mui/x-data-grid';
 import { isAfter, parseISO } from 'date-fns';
-import {
-  formReadableDate,
-  humanReadableDate,
-  toEST,
-  toUTC
-} from 'utils/dateUtils';
+import { formReadableDate, humanReadableDate, toEST } from 'utils/dateUtils';
 import { useAuthContext } from 'context';
 import { initialNotificationValues, MaintenanceNotification } from 'types';
 import InfoDialog from 'components/Dialog/InfoDialog';

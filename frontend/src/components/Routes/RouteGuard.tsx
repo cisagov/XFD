@@ -1,6 +1,8 @@
 import React from 'react';
 import { RouteProps, Route, useHistory } from 'react-router-dom';
 import { useAuthContext } from 'context';
+import { ROUTES } from '@/constants/routes';
+import { logger } from '@/utils/logger';
 
 interface AuthRedirectRouteProps extends RouteProps {
   unauth?: string | React.ComponentType;
@@ -20,12 +22,12 @@ possible states:
 */
 
 export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
-  unauth = '/',
+  unauth = ROUTES.HOME,
   permissions = [],
   component,
   ...rest
 }) => {
-  const { token, user, userMustSign, logout } = useAuthContext();
+  const { token, user, logout } = useAuthContext();
   const history = useHistory();
 
   if (token && !user) {
@@ -39,22 +41,17 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
     return null;
   }
 
-  // User must accept terms
-  if (user && userMustSign) {
-    history.push('/terms');
-    return null;
-  }
-
   // Redirect to landing with request sent message for unapproved users
   if (
     user &&
     user.invite_pending &&
-    window.location.pathname !== '/' &&
-    window.location.pathname !== '/terms' &&
-    window.location.pathname !== '/logout'
+    window.location.pathname !== ROUTES.HOME &&
+    window.location.pathname !== ROUTES.LOGOUT
   ) {
-    console.log('User is not approved.');
-    history.push('/');
+    logger.info('RouteGuard: User is not approved, redirecting to home', {
+      pathname: window.location.pathname
+    });
+    history.push(ROUTES.HOME);
     return null;
   }
 
@@ -75,9 +72,12 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
       user.user_type !== 'globalAdmin' &&
       !permissions.includes(user.user_type)
     ) {
-      console.log('User access denied. Logging out!');
+      logger.info('RouteGuard: User access denied, logging out', {
+        userType: user.user_type,
+        requiredPermissions: permissions
+      });
       logout();
-      history.push('/');
+      history.push(ROUTES.HOME);
       return null;
     }
   }

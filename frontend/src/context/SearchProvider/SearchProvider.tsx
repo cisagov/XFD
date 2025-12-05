@@ -1,8 +1,10 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import applyDisjunctiveFaceting from './applyDisjunctiveFaceting';
 import buildState from './buildState';
 import { useAuthContext } from 'context';
 import { SearchProvider as ESProvider } from '@elastic/react-search-ui';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface ApiResponse {
   suggest: any;
@@ -55,11 +57,14 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       /* Not implemented */
     },
     onAutocompleteResultClick: (e: any, f: any) => {
-      console.error(e, f);
+      logger.error(
+        'SearchProvider.onAutocompleteResultClick: Not implemented',
+        { e, f }
+      );
     },
-    onAutocomplete: async ({ search_term }: { search_term: string }) => {
+    onAutocomplete: async () => {
       // const requestBody = buildAutocompleteRequest({ search_term });
-      // const json = await apiPost<ApiResponse>('/search', {
+      // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
       //   body: {
       //     ...requestBody
       //   },
@@ -95,7 +100,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         sortField
       };
 
-      const responseJson = await apiPost<ApiResponse>('/search', {
+      const responseJson = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
         body
       });
       const responseJsonWithDisjunctiveFacetCounts =

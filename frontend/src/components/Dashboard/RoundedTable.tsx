@@ -1,16 +1,13 @@
 import React from 'react';
-import {
-  Alert,
-  Box,
-  Card,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Typography
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Divider from '@mui/material/Divider';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Typography from '@mui/material/Typography';
 import { SxProps } from '@mui/system';
 
 type ColumnConfig<T> = {
@@ -78,20 +75,11 @@ const cellBodySx = {
 export default function RoundedTable<T extends Record<string, any>>({
   columns,
   data,
-  noDataMessage = 'No data available.',
   tableStyles = tableSx,
   rowHeadStyles = rowHeadSx,
   rowBodyStyles = rowBodySx,
   cellBodyStyles = cellBodySx
 }: RoundedTableProps<T>) {
-  if (data.length === 0) {
-    return (
-      <Alert severity="info" sx={{ width: '100%', mt: 2 }}>
-        {noDataMessage}
-      </Alert>
-    );
-  }
-
   return (
     <>
       <Table sx={tableStyles} component="table">

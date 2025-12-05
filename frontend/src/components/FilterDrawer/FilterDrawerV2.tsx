@@ -1,17 +1,21 @@
 import React, { FC } from 'react';
-import { ContextType } from 'context';
+import { useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
 import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/system/Stack';
+import Typography from '@mui/material/Typography';
+import CloseIcon from '@mui/icons-material/Close';
+import { ContextType, useSavedSearchContext } from 'context';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import { matchPath } from 'utils/matchPath';
-import { useLocation } from 'react-router-dom';
-import { Stack } from '@mui/system';
-import { Button, IconButton, Toolbar, Typography } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
+import { ROUTES } from '@/constants/routes';
 
 export const drawerWidth = 278;
 
@@ -41,9 +45,10 @@ export const FilterDrawer: FC<
     topOffset
   } = props;
   const { pathname } = useLocation();
+  const { setActiveSearchId } = useSavedSearchContext();
 
   const restoreInitialFilters = () => {
-    if (matchPath(['/inventory'], pathname)) {
+    if (matchPath([ROUTES.INVENTORY], pathname)) {
       initialFilters.forEach((filter) => {
         filter.values.forEach((value: string) => {
           addFilter(filter.field, value, 'any');
@@ -52,12 +57,15 @@ export const FilterDrawer: FC<
     }
   };
 
+  const defaultFilters = useAreFiltersDefault(filters, initialFilters);
+
   const clearFiltersAndSearch = () => {
     setSearchTerm('', {
       shouldClearFilters: true,
       autocompleteResults: false
     });
     restoreInitialFilters();
+    setActiveSearchId('');
   };
 
   const [expanded, setExpanded] = React.useState<string | false>('panel1');
@@ -96,7 +104,7 @@ export const FilterDrawer: FC<
           </IconButton>
         </Stack>
 
-        {matchPath(['/overview', '/inventory'], pathname) && (
+        {matchPath([ROUTES.INVENTORY], pathname) && (
           <RegionAndOrganizationFilters
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -111,7 +119,7 @@ export const FilterDrawer: FC<
             handleExpanded={handleExpanded}
           />
         )}
-        {matchPath(['/', '/VSDashboard'], pathname) && (
+        {matchPath([ROUTES.HOME, ROUTES.VSDASHBOARD], pathname) && (
           <VSDashRegionAndOrgFilters
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -119,7 +127,7 @@ export const FilterDrawer: FC<
           />
         )}
         {matchPath(
-          ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
+          [ROUTES.INVENTORY, ROUTES.DOMAINS, ROUTES.VULNERABILITIES],
           pathname
         ) && (
           <DrawerInterior
@@ -135,29 +143,29 @@ export const FilterDrawer: FC<
           />
         )}
       </Box>
-      {matchPath(['/inventory'], pathname) && (
+      {matchPath([ROUTES.INVENTORY], pathname) && (
         <Box>
-          {filters.length > 0 && (
-            <Box
-              paddingBottom={5}
-              display="flex"
-              width="100%"
-              justifyContent="center"
+          <Box
+            paddingBottom={5}
+            display="flex"
+            width="100%"
+            justifyContent="center"
+          >
+            <Button
+              onClick={clearFiltersAndSearch}
+              disabled={defaultFilters}
+              sx={{
+                color: 'primary.dark',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                lineHeight: '20px',
+                letterSpacing: '0.1em'
+              }}
+              aria-label="Reset Filters"
             >
-              <Button
-                onClick={clearFiltersAndSearch}
-                sx={{
-                  color: 'primary.dark',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  lineHeight: '20px',
-                  letterSpacing: '0.1em'
-                }}
-              >
-                Reset
-              </Button>
-            </Box>
-          )}
+              Reset
+            </Button>
+          </Box>
         </Box>
       )}
     </Stack>

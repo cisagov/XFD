@@ -121,3 +121,9 @@ api:
         - xray:PutTraceSegments
         - xray:PutTelemetryRecords
       Resource: "*"
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}

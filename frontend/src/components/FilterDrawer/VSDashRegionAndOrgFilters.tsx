@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import { useAuthContext } from 'context';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useNavigationContext } from 'context/NavigationContext';
@@ -14,9 +16,11 @@ import {
 import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 import { OrganizationShallow } from './RegionAndOrganizationFilters';
 import { Organization } from 'types';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
-export const toggleRegionalUserType = true;
+export const toggleRegionalUserType = false;
 
 export const REGION_FILTER_KEY = 'organization.region_id';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
@@ -59,6 +63,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       id: currentOrganization.id,
       name: currentOrganization.name,
       root_domains: currentOrganization.root_domains,
+      acronym: currentOrganization.acronym,
       region_id: currentOrganization.region_id ?? '' // fallback to empty string if undefined
     };
   };
@@ -73,7 +78,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
         try {
           const results = await apiPost<{
             body: { hits: { hits: { _source: OrganizationShallow }[] } };
-          }>('/search/organizations', {
+          }>(ENDPOINTS.ORGANIZATIONS_SEARCH_ES, {
             body: {
               search_term,
               regions
@@ -133,7 +138,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          console.log(e);
+          logger.error('VSDashRegionAndOrgFilters.fetchOrgs failed:', {
+            error: e
+          });
         }
       }
     },
@@ -143,7 +150,11 @@ export const VSDashRegionAndOrgFilters: React.FC<
   const allRegionsOption = 'All Regions';
 
   const allRegions = useMemo(() => {
-    if (userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) {
+    if (
+      userLevel === GLOBAL_ADMIN ||
+      userLevel === GLOBAL_VIEW ||
+      userLevel === REGIONAL_ADMIN
+    ) {
       return [allRegionsOption, ...regions];
     }
     return regions;
@@ -349,11 +360,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
             }
           }}
           disableClearable
-          disabled={
-            !userLevel ||
-            userLevel === REGIONAL_ADMIN ||
-            userLevel === STANDARD_USER
-          }
+          disabled={!userLevel || userLevel === STANDARD_USER}
           options={allRegions}
           getOptionLabel={(option) =>
             allRegionsOption === option ? allRegionsOption : `Region ${option}`
@@ -407,7 +414,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
               {...params}
               label="Region"
               placeholder={
-                userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
+                userLevel === GLOBAL_ADMIN ||
+                userLevel === GLOBAL_VIEW ||
+                userLevel === REGIONAL_ADMIN
                   ? 'Select Region'
                   : ''
               }
@@ -435,7 +444,12 @@ export const VSDashRegionAndOrgFilters: React.FC<
           disableClearable
           disabled={userLevel === STANDARD_USER}
           options={orgResults}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={(option) => {
+            if (option.name && option.acronym) {
+              return `${option.name} (${option.acronym})`;
+            }
+            return option.name;
+          }}
           slotProps={{
             listbox: {
               sx: {
@@ -476,7 +490,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
                     }, 250)
                   }
                 >
-                  {option.name}
+                  {option.name && option.acronym ? (
+                    <>
+                      {option.name} ({option.acronym})
+                    </>
+                  ) : (
+                    option.name
+                  )}
                 </Button>
               </li>
             );

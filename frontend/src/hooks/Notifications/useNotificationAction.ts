@@ -1,4 +1,6 @@
 import { MaintenanceNotification } from 'types';
+import { logger } from '@/utils/logger';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface UseNotificationActionProps {
   apiPost: (url: string, options: any) => Promise<any>;
@@ -23,25 +25,39 @@ export function useNotificationAction({
     try {
       if (apiType === 'update') {
         notification = await handleApiCall(
-          () => apiPost('/update_notification/' + body.id, { body }),
+          () =>
+            apiPost(
+              ENDPOINTS.NOTIFICATION_UPDATE.replace(
+                '{notification_id}',
+                body.id
+              ),
+              { body }
+            ),
           'The notification was successfully updated.',
           'The notification was not able to be updated.'
         );
       } else if (apiType === 'post') {
         notification = await handleApiCall(
-          () => apiPost('/notifications', { body }),
+          () => apiPost(ENDPOINTS.NOTIFICATIONS, { body }),
           'The creation of the new notification was successful.',
           'The creation of the new notification was unsuccessful.'
         );
       } else {
         notification = await handleApiCall(
-          () => apiDelete('/notifications/' + body.id),
+          () =>
+            apiDelete(
+              ENDPOINTS.NOTIFICATION.replace('{notification_id}', body.id)
+            ),
           'The deletion of the notification was successful.',
           'The deletion of the notification was unsuccessful.'
         );
       }
     } catch (error) {
-      console.error('Error occurred during handleNotificationAction:', error);
+      logger.error('useNotificationAction: handleNotificationAction failed', {
+        error,
+        action,
+        notificationId: body.id
+      });
       throw error;
     }
     return notification;

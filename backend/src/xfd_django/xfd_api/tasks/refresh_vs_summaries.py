@@ -11,7 +11,7 @@ from django.utils import timezone
 LOGGER = logging.getLogger(__name__)
 # Third-Party Libraries
 from xfd_api.tasks.utils.vs_host_scans import create_daily_host_summary
-from xfd_api.tasks.utils.vs_port_scans import create_port_scan_summary
+from xfd_api.tasks.utils.vs_port_scans import create_port_scan_summaries_bulk
 from xfd_api.tasks.utils.vs_vuln_scans import create_vuln_scan_summary
 from xfd_mini_dl.models import HostSummary, Organization
 
@@ -54,6 +54,7 @@ def build_fake_host_summaries():
                 + host_ready_count
             )
             up_host_count = total_count - random.randint(0, 1500)
+            recent_up_count = abs(up_host_count - random.randint(0, 100))
             down_host_count = total_count - up_host_count
 
             HostSummary.objects.update_or_create(
@@ -69,6 +70,7 @@ def build_fake_host_summaries():
                     "up_host_count": up_host_count,
                     "down_host_count": down_host_count,
                     "scanned_asset_count": total_count,
+                    "recent_up_hosts_count": recent_up_count,
                     "port_scan_min_timestamp": random_past_datetime(25, 60),
                     "port_scan_max_timestamp": random_past_datetime(1, 5),
                     "vuln_scan_min_timestamp": random_past_datetime(25, 60),
@@ -99,6 +101,7 @@ def handler(event):
 
         # except Exception as e:
         #     LOGGER.error("error flagging latest port scans: %s", e)
+
         try:
             if not is_local:
                 LOGGER.info("Creating Host summaries.")
@@ -111,7 +114,17 @@ def handler(event):
 
         try:
             LOGGER.info("Creating Port summaries.")
-            create_port_scan_summary()
+            chunk_size = 500
+            org_qs = Organization.objects.order_by("id").iterator(chunk_size=chunk_size)
+            org_batch = []
+            for org in org_qs:
+                org_batch.append(org.id)
+                if len(org_batch) >= chunk_size:
+                    create_port_scan_summaries_bulk(org_ids=org_batch)
+                    org_batch.clear()
+            # Process the tail
+            if org_batch:
+                create_port_scan_summaries_bulk(org_ids=org_batch)
 
         except Exception as e:
             LOGGER.error("error saving Port summary: %s", e)
@@ -127,6 +140,11 @@ def handler(event):
         try:
             LOGGER.info("Creating VS summaries.")
             create_vuln_scan_summary()
+            if is_local:
+                orgs = Organization.objects.all()
+                for org in orgs:
+                    LOGGER.info("Creating Fake vuln host summary for org %s.", org.name)
+                    create_vuln_scan_summary(org_id=str(org.id))
 
         except Exception as e:
             LOGGER.error("error saving VS summary: %s", e)
