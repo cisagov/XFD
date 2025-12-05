@@ -319,15 +319,27 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const stateDisplay =
           vuln.state + (vuln.substate ? ` (${vuln.substate})` : '');
 
+        const kevStatus =
+          vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No';
+
+        const ransomwareStatus =
+          vuln?.is_kev_ransomware === null
+            ? 'N/A'
+            : vuln.is_kev_ransomware
+              ? 'Yes'
+              : 'No';
+
         return {
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: vuln.is_kev === null ? null : Boolean(vuln.is_kev),
+          is_kev: typeof vuln.is_kev === 'boolean' ? vuln.is_kev : null, // Keep original boolean data
+          is_kev_display: kevStatus, // Add display version
           is_kev_ransomware:
-            vuln?.is_kev_ransomware === null
-              ? null
-              : Boolean(vuln?.is_kev_ransomware),
+            typeof vuln.is_kev_ransomware === 'boolean'
+              ? vuln.is_kev_ransomware
+              : null, // Keep original boolean data
+          is_kev_ransomware_display: ransomwareStatus, // Add display version
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -416,45 +428,30 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'is_kev',
+        field: 'is_kev_display',
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
         type: 'singleSelect',
         valueOptions: [
-          { value: true, label: 'Yes' },
-          { value: false, label: 'No' }
+          { value: 'Yes', label: 'Yes' },
+          { value: 'No', label: 'No' },
+          { value: 'N/A', label: 'N/A' }
         ],
         filterOperators: getGridSingleSelectOperators().filter(
           (op) => op.value === 'is'
         ),
-        valueGetter: (params: any) =>
-          params?.row
-            ? params.row.is_kev == null
-              ? null
-              : Boolean(params.row.is_kev)
-            : null,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev;
-          if (v === null || v === undefined) {
-            return (
-              <Box component="span" aria-label={`KEV status unknown`}>
-                N/A
-              </Box>
-            );
-          }
+          const v = cellValues.row.is_kev_display;
           return (
-            <Box
-              component="span"
-              aria-label={`KEV status ${cellValues.row.is_kev}`}
-            >
-              {cellValues.row.is_kev ? 'Yes' : 'No'}
+            <Box component="span" aria-label={`KEV status ${v}`}>
+              {v}
             </Box>
           );
         }
       },
       {
-        field: 'is_kev_ransomware',
+        field: 'is_kev_ransomware_display',
         headerName: 'Ransomware',
         minWidth: 100,
         flex: 0.5,
@@ -464,30 +461,15 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         ),
         type: 'singleSelect',
         valueOptions: [
-          { value: true, label: 'Yes' },
-          { value: false, label: 'No' }
+          { value: 'Yes', label: 'Yes' },
+          { value: 'No', label: 'No' },
+          { value: 'N/A', label: 'N/A' }
         ],
-        valueGetter: (params: any) =>
-          params?.row
-            ? params.row.is_kev_ransomware == null
-              ? null
-              : Boolean(params.row.is_kev_ransomware)
-            : null,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev_ransomware;
-          if (v === null || v === undefined) {
-            return (
-              <Box component="span" aria-label={`Ransomware status unknown`}>
-                N/A
-              </Box>
-            );
-          }
+          const v = cellValues.row.is_kev_ransomware_display;
           return (
-            <Box
-              component="span"
-              aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
-            >
-              {cellValues.row.is_kev_ransomware ? 'Yes' : 'No'}
+            <Box component="span" aria-label={`Ransomware status ${v}`}>
+              {v}
             </Box>
           );
         }
@@ -750,6 +732,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                         const v = val.toLowerCase();
                         if (v === 'yes' || v === 'true') val = true;
                         else if (v === 'no' || v === 'false') val = false;
+                        else if (v === 'n/a') val = null;
                         else val = null;
                       } else {
                         val = val == null ? null : Boolean(val);
