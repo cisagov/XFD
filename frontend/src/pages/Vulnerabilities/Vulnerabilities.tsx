@@ -333,8 +333,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: kevStatus,
-          is_kev_ransomware: ransomwareStatus,
+          is_kev: typeof vuln.is_kev === 'boolean' ? vuln.is_kev : null, // Keep original boolean data
+          is_kev_display: kevStatus, // Add display version
+          is_kev_ransomware:
+            typeof vuln.is_kev_ransomware === 'boolean'
+              ? vuln.is_kev_ransomware
+              : null, // Keep original boolean data
+          is_kev_ransomware_display: ransomwareStatus, // Add display version
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -423,7 +428,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'is_kev',
+        field: 'is_kev_display',
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
@@ -437,7 +442,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           (op) => op.value === 'is'
         ),
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev;
+          const v = cellValues.row.is_kev_display;
           return (
             <Box component="span" aria-label={`KEV status ${v}`}>
               {v}
@@ -446,7 +451,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'is_kev_ransomware',
+        field: 'is_kev_ransomware_display',
         headerName: 'Ransomware',
         minWidth: 100,
         flex: 0.5,
@@ -461,7 +466,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           { value: 'N/A', label: 'N/A' }
         ],
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev_ransomware;
+          const v = cellValues.row.is_kev_ransomware_display;
           return (
             <Box component="span" aria-label={`Ransomware status ${v}`}>
               {v}
