@@ -118,10 +118,12 @@ def prevent_default_admin_filters(filters, current_user):
 
     requested_region_ids = set(extract_region_ids_from_filters(filters or []))
 
+    requested_org_ids = set(extract_org_ids_from_filters(filters or []))
+
     admin_default_regions = set(get_all_region_ids(current_user))
 
     # 2) Check for default filters
-    if requested_region_ids == admin_default_regions:
+    if requested_region_ids == admin_default_regions and not requested_org_ids:
         raise HTTPException(
             status_code=403,
             detail="Cannot save default region filter for admin users.",
