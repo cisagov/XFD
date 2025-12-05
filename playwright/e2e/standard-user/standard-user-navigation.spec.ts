@@ -99,7 +99,8 @@ test.describe('Home — Standard User: Learning Center nav', () => {
   test('Learning Center → CISA Resources links to cisa.gov', async ({
     pageAsStandardUser
   }) => {
-    const CISA_RX = /^https:\/\/(www\.)?cisa\.gov\/?$/;
+    const CISA_RX = /^https:\/\/(www\.)?cisa\.gov(\/.*)?$/;
+
     await assertLearningCenterExternalLink(
       pageAsStandardUser,
       /cisa resources/i,

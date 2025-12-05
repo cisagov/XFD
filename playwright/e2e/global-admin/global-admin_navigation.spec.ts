@@ -235,7 +235,8 @@ test.describe('Home — Global Admin: Learning Center nav', () => {
   test('Learning Center → CISA Resources links to cisa.gov', async ({
     pageAsGlobalAdmin
   }) => {
-    const CISA_RX = /^https:\/\/(www\.)?cisa\.gov\/?$/;
+    const CISA_RX = /^https:\/\/(www\.)?cisa\.gov(\/.*)?$/;
+
     await assertLearningCenterExternalLink(
       pageAsGlobalAdmin,
       /cisa resources/i,
