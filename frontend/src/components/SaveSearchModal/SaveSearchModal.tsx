@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import Box from '@mui/material/Box';
@@ -6,7 +6,7 @@ import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
+// import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import Add from '@mui/icons-material/Add';
@@ -35,6 +35,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   } = props;
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const saveInputRef = React.useRef<HTMLInputElement>(null);
+  const updateInputRef = React.useRef<HTMLInputElement>(null);
   const [formErrors, setFormErrors] = useState({
     name: false,
     duplicate: false
@@ -87,6 +89,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     savedSearchValues.name = '';
   };
   const handleOpenModal = () => {
+    (document.activeElement as HTMLElement)?.blur();
     setSaveDialogOpen(true);
   };
 
@@ -98,6 +101,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const handleUpdate = () => {
     if (activeSearch) {
       savedSearchValues.name = activeSearch.name;
+      (document.activeElement as HTMLElement)?.blur();
       setUpdateDialogOpen(true); // Open dialog to confirm update
     } else {
       handleOpenModal();
@@ -140,6 +144,18 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     }
   };
 
+  useEffect(() => {
+    if (saveDialogOpen && saveInputRef.current) {
+      saveInputRef.current.focus();
+    }
+  }, [saveDialogOpen]);
+
+  useEffect(() => {
+    if (updateDialogOpen && updateInputRef.current) {
+      updateInputRef.current.focus();
+    }
+  }, [updateDialogOpen]);
+
   return (
     <>
       <Button
@@ -148,6 +164,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         onClick={handleUpdate}
         disabled={useAreFiltersDefault(filters, initialFilters)}
         aria-label={activeSearch ? 'Update Saved Filter' : 'Save New'}
+        aria-haspopup="dialog"
         startIcon={<Add />}
         sx={{
           paddingLeft: '0.25em'
@@ -166,14 +183,22 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             component: 'form',
             onSubmit: handleSubmit,
             style: { width: '30%', minWidth: '300px' }
+          },
+          transition: {
+            onEntered: () => {
+              if (updateInputRef.current) {
+                updateInputRef.current.focus();
+              }
+            }
           }
         }}
+        role="dialog"
       >
         <DialogTitle id="update-saved-search-title">
           Update Saved Filter
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="update-saved-search-description">
+          <DialogContent id="update-saved-search-description">
             <TextField
               required
               margin="dense"
@@ -203,8 +228,9 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                     ? 'This name is already taken. Please choose a different name.'
                     : ''
               }
+              inputRef={updateInputRef}
             />
-          </DialogContentText>
+          </DialogContent>
         </DialogContent>
         <DialogActions>
           <Button
@@ -277,11 +303,19 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             component: 'form',
             onSubmit: handleSubmit,
             style: { width: '30%', minWidth: '300px' }
+          },
+          transition: {
+            onEntered: () => {
+              if (saveInputRef.current) {
+                saveInputRef.current.focus();
+              }
+            }
           }
         }}
         aria-label="Save Search"
         aria-labelledby="save-search-dialog-title"
         aria-describedby="dialog-description"
+        role="dialog"
       >
         <DialogTitle id="dialog-title">Save Filter</DialogTitle>
         <DialogContent>
@@ -317,6 +351,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                     ? 'This name is already taken. Please choose a different name.'
                     : ''
               }
+              // autoFocus
+              inputRef={saveInputRef}
             />
           </Box>
         </DialogContent>
