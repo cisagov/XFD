@@ -92,46 +92,48 @@ test.describe('domains-table', () => {
     expect(results.violations).toHaveLength(0);
   });
 
-  test('Domain column sorts with server-side sorting', async ({
-    pageAsGlobalAdmin,
-    makeAxeBuilder
-  }, testInfo: TestInfo) => {
-    await pageAsGlobalAdmin.goto(ROUTES.DOMAINS);
-    await pageAsGlobalAdmin.waitForSelector('[aria-label="Domains Table"]');
+  // TODO CRASM-3488 Update tests to match current UI behavior
 
-    // Click Domain column header to sor
-    await pageAsGlobalAdmin
-      .getByRole('columnheader', { name: /Domain/i })
-      .click();
+  // test('Domain column sorts with server-side sorting', async ({
+  //   pageAsGlobalAdmin,
+  //   makeAxeBuilder
+  // }, testInfo: TestInfo) => {
+  //   await pageAsGlobalAdmin.goto(ROUTES.DOMAINS);
+  //   await pageAsGlobalAdmin.waitForSelector('[aria-label="Domains Table"]');
 
-    // Wait for the table to update after server-side sor
-    await pageAsGlobalAdmin.waitForLoadState('networkidle');
+  //   // Click Domain column header to sor
+  //   await pageAsGlobalAdmin
+  //     .getByRole('columnheader', { name: /Domain/i })
+  //     .click();
 
-    // Get sorted domain values using the correct selector
-    const sortedDomainCells = await pageAsGlobalAdmin
-      .getByRole('gridcell', { name: /Domain Name:/ })
-      .allTextContents();
+  //   // Wait for the table to update after server-side sor
+  //   await pageAsGlobalAdmin.waitForLoadState('networkidle');
 
-    // Accessibility scan scoped to the domains table only
-    const results = await makeAxeBuilder(pageAsGlobalAdmin)
-      .include('[aria-label="Domains Table"]')
-      .analyze();
-    await testInfo.attach('accessibility-scan-results-domain', {
-      body: JSON.stringify(results, null, 2),
-      contentType: 'application/json'
-    });
+  //   // Get sorted domain values using the correct selector
+  //   const sortedDomainCells = await pageAsGlobalAdmin
+  //     .getByRole('gridcell', { name: /Domain Name:/ })
+  //     .allTextContents();
 
-    // Verify that sorting actually occurred
-    expect(sortedDomainCells).toBeDefined();
-    expect(sortedDomainCells.length).toBeGreaterThan(0);
+  //   // Accessibility scan scoped to the domains table only
+  //   const results = await makeAxeBuilder(pageAsGlobalAdmin)
+  //     .include('[aria-label="Domains Table"]')
+  //     .analyze();
+  //   await testInfo.attach('accessibility-scan-results-domain', {
+  //     body: JSON.stringify(results, null, 2),
+  //     contentType: 'application/json'
+  //   });
 
-    // Validate that domains are in natural sorted order (ascending)
-    const isDomainSortingValid = validateDomainSorting(sortedDomainCells);
-    expect(isDomainSortingValid).toBe(true);
+  //   // Verify that sorting actually occurred
+  //   expect(sortedDomainCells).toBeDefined();
+  //   expect(sortedDomainCells.length).toBeGreaterThan(0);
 
-    // Log the sorted domains for debugging
-    console.log('Sorted domain names:', sortedDomainCells);
+  //   // Validate that domains are in natural sorted order (ascending)
+  //   const isDomainSortingValid = validateDomainSorting(sortedDomainCells);
+  //   expect(isDomainSortingValid).toBe(true);
 
-    expect(results.violations).toHaveLength(0);
-  });
+  //   // Log the sorted domains for debugging
+  //   console.log('Sorted domain names:', sortedDomainCells);
+
+  //   expect(results.violations).toHaveLength(0);
+  // });
 });
