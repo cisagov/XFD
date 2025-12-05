@@ -452,21 +452,18 @@ async def saml_acs(request: Request):
 
     errors = auth.get_errors()
     is_auth = auth.is_authenticated()
-    last_error_reason = auth.get_last_error_reason()
 
     if errors or not is_auth:
         LOGGER.error(
-            "SAML auth failed at ACS: errors=%s, is_authenticated=%s, last_error_reason=%r",
+            "SAML auth failed at ACS: errors=%s, is_authenticated=%s",
             errors,
             is_auth,
-            last_error_reason,
         )
         raise HTTPException(status_code=401, detail=f"SAML auth failed: {errors}")
 
     LOGGER.info(
-        "SAML auth successful at ACS: is_authenticated=%s, last_error_reason=%r",
+        "SAML auth successful at ACS: is_authenticated=%s",
         is_auth,
-        last_error_reason,
     )
 
     identity = _extract_identity(auth)
