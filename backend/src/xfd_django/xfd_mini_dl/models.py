@@ -3227,6 +3227,7 @@ class LatestPortScan(AutoLengthCheckModel):
         ]
         indexes = [
             models.Index(fields=["organization", "ip", "port", "protocol"]),
+            models.Index(fields=["ip", "current", "time_scanned"]),
             models.Index(fields=["time_scanned"]),
             models.Index(fields=["state"]),
         ]

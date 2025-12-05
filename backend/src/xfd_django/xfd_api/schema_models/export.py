@@ -3,7 +3,7 @@
 # Standard Python Libraries
 from datetime import date, timedelta
 from enum import Enum
-from typing import Annotated, Any, Literal, Optional, Union
+from typing import Annotated, Any, List, Literal, Optional, Union
 
 # Third-Party Libraries
 from pydantic import BaseModel, Field
@@ -40,7 +40,7 @@ class SummaryFilters(BaseModel):
         extra = "forbid"
 
 
-DEFAULT_VULN_SEVERITY = [
+DEFAULT_VULN_SEVERITY: List[VulnerabilitySeverity] = [
     VulnerabilitySeverity.low,
     VulnerabilitySeverity.medium,
     VulnerabilitySeverity.high,
@@ -54,9 +54,10 @@ class VulnerabilityFilters(BaseModel):
     ticket_false_positive: Optional[bool] = True
     ticket_open: Optional[bool] = True
     org_id: Optional[str] = None
-    region_id: Optional[str] | Optional[list[str]] = None
+    # Accept either a single region_id (str) or a list of region_ids (List[str])
+    region_id: Optional[Union[str, List[str]]] = None
     source: Optional[str] = "vs"
-    severity: Optional[list[VulnerabilitySeverity]] = DEFAULT_VULN_SEVERITY
+    severity: Optional[List[VulnerabilitySeverity]] = DEFAULT_VULN_SEVERITY
     known_kev: Optional[str] = "all"  # all, known, unknown
 
     class Config:
@@ -89,7 +90,7 @@ class SummaryCol(str, Enum):
     critical_kev_count = "critical_kev_count"
 
 
-DEFAULT_SUMMARY_COLS: list[SummaryCol] = [
+DEFAULT_SUMMARY_COLS: List[SummaryCol] = [
     SummaryCol.summary_date,
     SummaryCol.assets_owned_count,  # Ticket wants scanned_asset_count
     SummaryCol.low_kev_count,
@@ -127,10 +128,10 @@ class VulnerabilityCol(str, Enum):
     false_positive = "false_positive"
     risky_service_group = "risky_service_group"
     is_open = "is_open"
-    # age = "age" # Is this computed on mat_vw_combined_vulns refresh
+    # age = "age"  # Is this computed on mat_vw_combined_vulns refresh
 
 
-DEFAULT_VULNERABILITY_COLS: list[VulnerabilityCol] = [
+DEFAULT_VULNERABILITY_COLS: List[VulnerabilityCol] = [
     VulnerabilityCol.ip_string,
     VulnerabilityCol.severity,
     VulnerabilityCol.vuln_name,
@@ -143,13 +144,15 @@ DEFAULT_VULNERABILITY_COLS: list[VulnerabilityCol] = [
 
 
 # Payload Schemas ---------------------------------------
+
+
 class SummaryPayload(BaseModel):
     """SummaryPayload schema."""
 
     mode: Union[Literal["csv"], Literal["json"]]
     collection: Literal["summary"]
     filters: SummaryFilters
-    columns: list[SummaryCol] | None = DEFAULT_SUMMARY_COLS
+    columns: Optional[List[SummaryCol]] = DEFAULT_SUMMARY_COLS
 
 
 class VulnerabilityPayload(BaseModel):
@@ -158,7 +161,7 @@ class VulnerabilityPayload(BaseModel):
     mode: Union[Literal["csv"], Literal["json"]]
     collection: Literal["vulnerability"]
     filters: VulnerabilityFilters
-    columns: list[VulnerabilityCol] | None = DEFAULT_VULNERABILITY_COLS
+    columns: Optional[List[VulnerabilityCol]] = DEFAULT_VULNERABILITY_COLS
     # Add extra filter that specifies we do tickets or scanning collection?
 
 
@@ -166,6 +169,8 @@ class VulnerabilityPayload(BaseModel):
 
 
 # Response Schemas  ---------------------------------------
+
+
 class SummaryResult(BaseModel):
     """Summary result."""
 
@@ -186,9 +191,11 @@ class VulnerabilityResult(BaseModel):
 
 
 ExportPayload = Annotated[
-    Union[SummaryPayload, VulnerabilityPayload], Field(discriminator="collection")
+    Union[SummaryPayload, VulnerabilityPayload],
+    Field(discriminator="collection"),
 ]
 
 ExportResponse = Annotated[
-    Union[SummaryResult, VulnerabilityResult], Field(discriminator="collection")
+    Union[SummaryResult, VulnerabilityResult],
+    Field(discriminator="collection"),
 ]

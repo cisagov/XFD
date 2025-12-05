@@ -8,10 +8,8 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Typography from '@mui/material/Typography';
 import { CrossfeedWarning } from 'components/WarningBanner';
-import { MaintenanceNotification } from 'types';
-import { v4 as uuidv4 } from 'uuid';
-import pkceChallenge from 'pkce-challenge';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { MaintenanceNotification } from 'types';
 
 const MaintenanceAlert: React.FC<any> = ({ notification }) => {
   if (!notification) return null;
@@ -32,47 +30,15 @@ const MaintenanceAlert: React.FC<any> = ({ notification }) => {
 };
 
 const LoginButton = () => {
-  // TODO: Capture default values here once determined
-  const domain = import.meta.env.VITE_COGNITO_DOMAIN || 'default_value';
-  const clientId = import.meta.env.VITE_COGNITO_CLIENT_ID || 'default_value';
-  const callbackUrl =
-    import.meta.env.VITE_COGNITO_CALLBACK_URL || 'default_value';
-
-  const redirectToAuth = async () => {
-    const { code_challenge, code_verifier } = await pkceChallenge();
-    const state = uuidv4();
-
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}${ENDPOINTS.GET_OAUTH_METADATA}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code_verifier, state })
-        }
-      );
-
-      const json = await res.json();
-      localStorage.setItem('oauthMeta', json.signedToken);
-
-      const authorizeUrl = `https://${domain}/oauth2/authorize?identity_provider=Okta&redirect_uri=${encodeURIComponent(
-        callbackUrl
-      )}&response_type=code&client_id=${clientId}&scope=email+openid+profile&state=${state}&code_challenge=${encodeURIComponent(
-        code_challenge
-      )}&code_challenge_method=S256`;
-
-      window.location.href = authorizeUrl;
-    } catch (err) {
-      logger.error('AuthLogin: OAuth metadata preparation failed', {
-        error: err
-      });
-    }
+  const redirectToAuth = () => {
+    const next = encodeURIComponent(window.location.pathname || '/');
+    window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
   };
 
   return (
     <Button
       onClick={redirectToAuth}
-      type={'button'}
+      type="button"
       size="big"
       style={{ width: 'fit-content' }}
     >
