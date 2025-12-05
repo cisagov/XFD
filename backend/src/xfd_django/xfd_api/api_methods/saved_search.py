@@ -96,13 +96,19 @@ def prevent_default_standard_filters(filters, current_user):
         org_id for org_id in requested_org_ids if is_valid_org(org_id, current_user)
     }
 
+    non_region_org_filters = [
+        f
+        for f in filters
+        if f.get("field") not in ["organization.region_id", "organization_id"]
+    ]
+
     # 4) Check for default filters
-    if default_regions:
+    if default_regions and not non_region_org_filters:
         raise HTTPException(
             status_code=403,
             detail="Cannot save default region filter.",
         )
-    if default_orgs:
+    if default_orgs and not non_region_org_filters:
         raise HTTPException(
             status_code=403,
             detail="Cannot save default organization filter.",
