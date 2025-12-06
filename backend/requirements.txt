@@ -96,7 +96,7 @@ types-setuptools==75.6.0.20241126
 typing_extensions==4.12.2
 tzdata==2025.2
 ujson==5.10.0
-urllib3==2.5.0
+urllib3==2.6.0
 uvicorn==0.30.1
 uvloop==0.21.0
 watchfiles==1.0.0
