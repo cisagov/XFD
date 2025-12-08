@@ -22,7 +22,7 @@ from xfd_api.tasks.utils.datetime_utils import safe_fromisoformat
 from xfd_api.tasks.utils.query_redshift import fetch_in_chunks_keyset_frozen_bulk
 from xfd_api.utils.hash import hash_ip
 from xfd_api.utils.scan_utils.alerting import IngestionError, QueryError
-from xfd_mini_dl.models import Ip, Organization, PortScan, PortScanServiceSummary
+from xfd_mini_dl.models import Ip, LatestPortScan, Organization, PortScanServiceSummary
 
 logging.basicConfig(
     level=logging.INFO,
@@ -676,9 +676,9 @@ def create_port_scan_service_summaries(summary_date=None):
             summary_date = timezone.now().date()
 
         for org in Organization.objects.all():
-            scans = PortScan.objects.filter(
+            scans = LatestPortScan.objects.filter(
                 organization=org,
-                latest=True,
+                current=True,
                 time_scanned__isnull=False,
                 service_name__isnull=False,
             )

@@ -9,7 +9,7 @@ import IconButton from '@mui/material/IconButton';
 import Stack from '@mui/system/Stack';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
-import { ContextType } from 'context';
+import { ContextType, useSavedSearchContext } from 'context';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
 import { matchPath } from 'utils/matchPath';
@@ -45,6 +45,7 @@ export const FilterDrawer: FC<
     topOffset
   } = props;
   const { pathname } = useLocation();
+  const { setActiveSearchId } = useSavedSearchContext();
 
   const restoreInitialFilters = () => {
     if (matchPath([ROUTES.INVENTORY], pathname)) {
@@ -64,6 +65,7 @@ export const FilterDrawer: FC<
       autocompleteResults: false
     });
     restoreInitialFilters();
+    setActiveSearchId('');
   };
 
   const [expanded, setExpanded] = React.useState<string | false>('panel1');

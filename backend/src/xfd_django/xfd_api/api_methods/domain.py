@@ -4,6 +4,7 @@
 import csv
 import io
 import logging
+from typing import Optional
 
 # Third-Party Libraries
 from django.core.paginator import Paginator
@@ -97,7 +98,7 @@ def get_domain_by_id(domain_id: str):
 IPV4_RE = r"^(25[0-5]|2[0-4]\d|1?\d{1,2})(\.(25[0-5]|2[0-4]\d|1?\d{1,2})){3}$"
 
 
-def apply_sort(qs, sort: str | None, order: str | None):
+def apply_sort(qs, sort: Optional[str], order: Optional[str]):
     """Apply sorting to a queryset based on sort field and order."""
     desc = str(order).lower() == "desc"
 
