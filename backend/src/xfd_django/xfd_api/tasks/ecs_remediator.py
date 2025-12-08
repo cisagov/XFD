@@ -1,10 +1,19 @@
-import json
-import os
-import uuid
+"""ECS remediation task."""
+# Standard Python Libraries
 import datetime
+import logging
+import os
+from typing import Any, Dict, cast
+import uuid
+
+# Third-Party Libraries
 import boto3
 from botocore.exceptions import BotoCoreError, ClientError
-from typing import Any, Dict
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
+
+# Logging
+LOGGER = logging.getLogger(__name__)
 
 ecs_client = boto3.client("ecs")
 cloudwatch_client = boto3.client("cloudwatch")
@@ -13,13 +22,16 @@ sns_client = boto3.client("sns")
 CUSTOM_METRIC_NAMESPACE = os.getenv("CUSTOM_METRIC_NAMESPACE", "Crossfeed/Remediation")
 SNS_TOPIC_ARN = os.getenv("SNS_ALARMS_TOPIC_ARN")
 
+
 def _get_environment_value(variable_name: str) -> str:
     value = os.getenv(variable_name)
     if not value:
         raise RuntimeError(f"Missing required environment variable: {variable_name}")
     return value
 
+
 def _extract_alarm_details(event: Dict[str, Any]) -> Dict[str, str]:
+    """Get alarm details from event."""
     detail = event.get("detail", {})
     alarm_name = detail.get("alarmName", "unknown-alarm")
     state_value = detail.get("state", {}).get("value", "UNKNOWN")
@@ -28,7 +40,9 @@ def _extract_alarm_details(event: Dict[str, Any]) -> Dict[str, str]:
         "state_value": state_value,
     }
 
+
 def _push_custom_metric(correlation_id: str, remediation_status: str) -> None:
+    """Push custom metric at AWS."""
     timestamp = datetime.datetime.utcnow()
     try:
         cloudwatch_client.put_metric_data(
@@ -45,28 +59,31 @@ def _push_custom_metric(correlation_id: str, remediation_status: str) -> None:
                     "Value": 1.0 if remediation_status in ("SUCCESS",) else 0.0,
                     "Unit": "Count",
                 }
-            ]
+            ],
         )
     except (BotoCoreError, ClientError) as err:
-        print(json.dumps({
-            "message": "Failed to publish custom metric",
-            "error": str(err),
-            "correlation_id": correlation_id
-        }))
+        LOGGER.error(
+            {
+                "message": "Failed to publish custom metric",
+                "error": str(err),
+                "correlation_id": correlation_id,
+            }
+        )
+
 
 def _send_sns_notification(topic_arn: str, subject: str, message: str) -> None:
+    """Send SNS notification."""
     try:
-        sns_client.publish(
-            TopicArn=topic_arn,
-            Subject=subject,
-            Message=message
-        )
+        sns_client.publish(TopicArn=topic_arn, Subject=subject, Message=message)
     except (BotoCoreError, ClientError) as err:
-        print(json.dumps({
-            "message": "Failed to send SNS notification",
-            "error": str(err),
-            "topic_arn": topic_arn
-        }))
+        LOGGER.error(
+            {
+                "message": "Failed to send SNS notification",
+                "error": str(err),
+                "topic_arn": topic_arn,
+            }
+        )
+
 
 def _restart_ecs_service(cluster: str, service: str) -> Dict[str, Any]:
     describe_resp = ecs_client.describe_services(cluster=cluster, services=[service])
@@ -76,9 +93,13 @@ def _restart_ecs_service(cluster: str, service: str) -> Dict[str, Any]:
     service_desc = services[0]
     status = service_desc.get("status", "UNKNOWN")
     if status != "ACTIVE":
-        raise RuntimeError(f"ECS service {service} in cluster {cluster} is not ACTIVE (status={status}).")
+        raise RuntimeError(
+            f"ECS service {service} in cluster {cluster} is not ACTIVE (status={status})."
+        )
 
-    update_resp = ecs_client.update_service(cluster=cluster, service=service, forceNewDeployment=True)
+    update_resp = ecs_client.update_service(
+        cluster=cluster, service=service, forceNewDeployment=True
+    )
     return {
         "cluster": cluster,
         "service": service,
@@ -87,21 +108,25 @@ def _restart_ecs_service(cluster: str, service: str) -> Dict[str, Any]:
         "status": update_resp["service"]["status"],
     }
 
+
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+    """Lambda handler function."""
     correlation_id = str(uuid.uuid4())
     start_time = datetime.datetime.utcnow().isoformat() + "Z"
     alarm_details = _extract_alarm_details(event)
     cluster = _get_environment_value("ECS_CLUSTER_NAME")
     service = _get_environment_value("ECS_SERVICE_NAME")
 
-    print(json.dumps({
-        "message": "Received alarm event",
-        "alarm_details": alarm_details,
-        "cluster": cluster,
-        "service": service,
-        "correlation_id": correlation_id,
-        "timestamp": start_time,
-    }))
+    LOGGER.info(
+        {
+            "message": "Received alarm event",
+            "alarm_details": alarm_details,
+            "cluster": cluster,
+            "service": service,
+            "correlation_id": correlation_id,
+            "timestamp": start_time,
+        }
+    )
 
     response_body: Dict[str, Any] = {
         "alarm_name": alarm_details["alarm_name"],
@@ -114,11 +139,14 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     }
 
     if alarm_details["state_value"] != "ALARM":
-        print(json.dumps({
-            "message": "Ignoring event because state is not ALARM",
-            "state_value": alarm_details["state_value"],
-            "correlation_id": correlation_id,
-        }))
+        LOGGER.info(
+            {
+                "message": "Alarm not in ALARM state — skipping remediation",
+                "state_value": alarm_details["state_value"],
+                "correlation_id": correlation_id,
+            }
+        )
+
         _push_custom_metric(correlation_id, "NO_ACTION")
         return response_body
 
@@ -126,19 +154,25 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         ecs_update_result = _restart_ecs_service(cluster, service)
         response_body["remediation_performed"] = True
         response_body["ecs_update"] = ecs_update_result
-        print(json.dumps({
-            "message": "Successfully triggered ECS service redeployment",
-            "ecs_update": ecs_update_result,
-            "correlation_id": correlation_id,
-        }))
+        LOGGER.info(
+            {
+                "message": "Successfully triggered ECS service redeployment",
+                "ecs_update": ecs_update_result,
+                "correlation_id": correlation_id,
+            }
+        )
+
         _push_custom_metric(correlation_id, "SUCCESS")
     except (BotoCoreError, ClientError, RuntimeError) as err:
         response_body["remediation_error"] = str(err)
-        print(json.dumps({
-            "message": "ECS remediation failed",
-            "error": str(err),
-            "correlation_id": correlation_id,
-        }))
+        LOGGER.error(
+            {
+                "message": "ECS remediation failed",
+                "error": str(err),
+                "correlation_id": correlation_id,
+            }
+        )
+
         _push_custom_metric(correlation_id, "FAILURE")
 
         # Send SNS notification for failure
@@ -149,14 +183,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             f"CorrelationId: {correlation_id}\n"
             f"Error: {err}"
         )
-        _send_sns_notification(SNS_TOPIC_ARN, subject, message)
+        _send_sns_notification(cast(str, SNS_TOPIC_ARN), subject, message)
 
     end_time = datetime.datetime.utcnow().isoformat() + "Z"
     response_body["end_time"] = end_time
-    print(json.dumps({
-        "message": "Remediation execution completed",
-        "correlation_id": correlation_id,
-        "end_time": end_time,
-    }))
+    LOGGER.info(
+        {
+            "message": "Remediation execution completed",
+            "correlation_id": correlation_id,
+            "end_time": end_time,
+        }
+    )
 
     return response_body

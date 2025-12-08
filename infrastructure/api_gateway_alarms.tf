@@ -17,8 +17,8 @@ resource "aws_cloudwatch_metric_alarm" "integration_crossfeed_5xx" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -46,8 +46,8 @@ resource "aws_cloudwatch_metric_alarm" "integration_crossfeed_frontend_5xx" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -75,8 +75,8 @@ resource "aws_cloudwatch_metric_alarm" "staging_cd_crossfeed_5xx" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -104,8 +104,8 @@ resource "aws_cloudwatch_metric_alarm" "staging_cd_crossfeed_frontend_5xx" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -135,8 +135,8 @@ resource "aws_cloudwatch_metric_alarm" "prod_crossfeed_5xx_error" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -164,8 +164,8 @@ resource "aws_cloudwatch_metric_alarm" "prod_crossfeed_frontend_5xx_error" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -193,8 +193,8 @@ resource "aws_cloudwatch_metric_alarm" "staging_crossfeed_5xx_error" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -222,8 +222,8 @@ resource "aws_cloudwatch_metric_alarm" "staging_crossfeed_frontend_5xx_error" {
     Stage   = var.stage
   }
 
-  alarm_actions = [ aws_sns_topic.alarms.arn ]
-  ok_actions    = [ aws_sns_topic.alarms.arn ]
+  alarm_actions = [aws_sns_topic.alarms.arn]
+  ok_actions    = [aws_sns_topic.alarms.arn]
 
   tags = {
     Project  = var.project
@@ -231,4 +231,3 @@ resource "aws_cloudwatch_metric_alarm" "staging_crossfeed_frontend_5xx_error" {
     Severity = var.severity_medium
   }
 }
-

@@ -369,4 +369,39 @@ ecsRemediator:
   handler: src/xfd_django/xfd_api/tasks/ecs_remediator.lambda_handler
   timeout: 60
   memorySize: 512
-  iamRoleStatements: []
+  environment:
+    # 1. Use existing SSM var for Cluster (ARN is valid for 'cluster' arg)
+    ECS_CLUSTER_NAME: ${ssm:/crossfeed/${self:provider.stage}/WORKER_CLUSTER_ARN}
+
+    # 2. Use NEW SSM var for Service (Must be a name, not a Cluster ARN)
+    ECS_SERVICE_NAME: ${ssm:/crossfeed/${self:provider.stage}/worker_ecs_service_name}
+
+    # 3. Use NEW SSM var for SNS
+    SNS_ALARMS_TOPIC_ARN: ${ssm:/crossfeed/${self:provider.stage}/alarms_topic_arn}
+
+    PROJECT: ${self:custom.project}
+    STAGE: ${self:provider.stage}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - ecs:DescribeServices
+        - ecs:UpdateService
+      Resource:
+        # Construct the Service ARN dynamically using the new SSM parameters
+        - Fn::Join:
+            - ':'
+            - - 'arn'
+              - '${self:custom.kmsPartition}'
+              - 'ecs'
+              - '${self:provider.region}'
+              - '${aws:accountId}'
+              - 'service/${ssm:/crossfeed/${self:provider.stage}/worker_ecs_cluster_name}/${ssm:/crossfeed/${self:provider.stage}/worker_ecs_service_name}'
+    - Effect: Allow
+      Action:
+        - cloudwatch:PutMetricData
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: ${ssm:/crossfeed/${self:provider.stage}/alarms_topic_arn}

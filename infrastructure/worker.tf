@@ -610,3 +610,18 @@ resource "aws_s3_bucket_lifecycle_configuration" "export_bucket" {
     }
   }
 }
+
+resource "aws_ssm_parameter" "worker_ecs_service_name" {
+  name        = "/crossfeed/${var.stage}/worker_ecs_service_name"
+  description = "Worker ECS Service Name for Serverless resolution"
+  type        = "String"
+  # Assuming your Service Name matches the Task Family (standard Crossfeed convention)
+  value     = var.worker_ecs_task_definition_family
+  overwrite = true
+
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Managed = "Terraform"
+  }
+}
