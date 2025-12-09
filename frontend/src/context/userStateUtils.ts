@@ -28,7 +28,6 @@ export const getTouVersion = (maxRole: string) => {
 export const getUserMustSign = (user: AuthUser | null, touVersion: string) => {
   return Boolean(
     !user?.date_accepted_terms ||
-      (user.accepted_terms_version &&
-        user.accepted_terms_version !== touVersion)
+    (user.accepted_terms_version && user.accepted_terms_version !== touVersion)
   );
 };
