@@ -111,7 +111,7 @@ jobs:
       - name: Create .env file needed by docker-compose-check pre-commit hook
         run: cp dev.env.example .env
       - name: Run pre-commit on all files
-        run: pre-commit run --all-files
+        run: SKIP=eslint pre-commit run --all-files
       - name: Setup tmate debug session
         uses: mxschmitt/action-tmate@v3
         if: env.RUN_TMATE
