@@ -937,11 +937,6 @@ variable "backend_api_requests_log_group_name" {
   default     = "cyhy-staging-backend-api-requests"
 }
 
-variable "worker_ecs_task_execution_role_arn" {
-  description = "ARN of the ECS task execution role for the worker service"
-  type        = string
-}
-
 variable "django_env_bucket_name" {
   description = "django_env_bucket_name"
   type        = string
