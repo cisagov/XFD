@@ -2,12 +2,18 @@ import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
-import prettierPlugin from 'eslint-plugin-prettier';
 import unusedImportsPlugin from 'eslint-plugin-unused-imports';
 
 export default [
   {
-    ignores: ['tests/**', 'assets', 'dist/**', 'node_modules/**', 'build']
+    ignores: [
+      'tests/**',
+      'assets',
+      'dist/**',
+      'node_modules/**',
+      'build',
+      '**/*.d.ts'
+    ]
   },
 
   // TypeScript files (*.ts, *.tsx)
@@ -26,11 +32,9 @@ export default [
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
       '@typescript-eslint': tsPlugin,
-      prettier: prettierPlugin,
       'unused-imports': unusedImportsPlugin
     },
     rules: {
-      'prettier/prettier': 'error',
       'unused-imports/no-unused-imports': 'error',
       'no-console': 'error',
       '@typescript-eslint/no-unused-vars': [
@@ -68,11 +72,9 @@ export default [
     plugins: {
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
-      prettier: prettierPlugin,
       'unused-imports': unusedImportsPlugin
     },
     rules: {
-      'prettier/prettier': 'error',
       'unused-imports/no-unused-imports': 'error',
       'no-console': 'error',
       'react-hooks/rules-of-hooks': 'error',
