@@ -128,7 +128,7 @@ resources:
     EcsRemediatorArnParameter:
       Type: AWS::SSM::Parameter
       Properties:
-        Name: /crossfeed/${self:provider.stage}/ECS_REMEDATIOR_ARN
+        Name: /crossfeed/${self:provider.stage}/ECS_REMEDIATOR_ARN
         Type: String
         Value:
           Fn::GetAtt: [EcsRemediatorLambdaFunction, Arn]

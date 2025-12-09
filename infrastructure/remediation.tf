@@ -3,7 +3,7 @@ data "aws_lambda_function" "ecs_remediator" {
 }
 
 data "aws_ssm_parameter" "ecs_remediator_arn" {
-  name = "/crossfeed/${var.stage}/ECS_REMEDATIOR_ARN"
+  name = "/crossfeed/${var.stage}/ECS_REMEDIATOR_ARN"
 }
 
 # --- EventBridge rules + targets for API-gateway 5xx alarms ---
