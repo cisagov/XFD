@@ -1,5 +1,9 @@
 data "aws_lambda_function" "ecs_remediator" {
-  function_name = "cyhy-${var.stage}-ecs-remediator"
+  function_name = "crossfeed-${var.stage}-ecsRemediator"
+}
+
+data "aws_ssm_parameter" "ecs_remediator_arn" {
+  name = "/crossfeed/${var.stage}/ECS_REMEDATIOR_ARN"
 }
 
 # --- EventBridge rules + targets for API-gateway 5xx alarms ---
@@ -9,7 +13,6 @@ data "aws_lambda_function" "ecs_remediator" {
 # ------------------------------------------------------------------------------
 
 resource "aws_cloudwatch_event_rule" "backend_api_crossfeed_5xx_alarm_rule" {
-  count       = var.is_dmz ? 0 : 1
   name        = "cyhy-${var.stage}-api-crossfeed-5xx-alarm-rule"
   description = "Triggers ECS remediation when ${var.stage}-crossfeed API 5XX alarm enters ALARM"
 
@@ -20,23 +23,22 @@ resource "aws_cloudwatch_event_rule" "backend_api_crossfeed_5xx_alarm_rule" {
     "resources" : [aws_cloudwatch_metric_alarm.backend_api_crossfeed_5xx_error.arn],
     "detail" : { "state" : { "value" : ["ALARM"] } }
   })
+
 }
 
 resource "aws_cloudwatch_event_target" "backend_api_crossfeed_5xx_alarm_target" {
-  count = var.is_dmz ? 0 : 1
-  rule  = aws_cloudwatch_event_rule.backend_api_crossfeed_5xx_alarm_rule[0].name
+  rule = aws_cloudwatch_event_rule.backend_api_crossfeed_5xx_alarm_rule.name
   # Dynamically names the target ID based on stage
   target_id = "ecs-remediator-${var.stage}-crossfeed"
-  arn       = data.aws_lambda_function.ecs_remediator.arn
+  arn       = data.aws_ssm_parameter.ecs_remediator_arn.name
 }
 
 resource "aws_lambda_permission" "allow_eventbridge_invoke_backend_api_crossfeed" {
-  count         = var.is_dmz ? 0 : 1
   statement_id  = "AllowInvokeEcsRemediatorBackendApiCrossfeed"
   action        = "lambda:InvokeFunction"
   function_name = data.aws_lambda_function.ecs_remediator.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.backend_api_crossfeed_5xx_alarm_rule[0].arn
+  source_arn    = aws_cloudwatch_event_rule.backend_api_crossfeed_5xx_alarm_rule.arn
 }
 
 # ------------------------------------------------------------------------------
@@ -45,7 +47,6 @@ resource "aws_lambda_permission" "allow_eventbridge_invoke_backend_api_crossfeed
 # ------------------------------------------------------------------------------
 
 resource "aws_cloudwatch_event_rule" "frontend_api_crossfeed_5xx_alarm_rule" {
-  count       = var.is_dmz ? 0 : 1
   name        = "cyhy-${var.stage}-api-crossfeed-frontend-5xx-alarm-rule"
   description = "Triggers ECS remediation when ${var.stage}-crossfeed-frontend API 5XX alarm enters ALARM"
 
@@ -59,20 +60,18 @@ resource "aws_cloudwatch_event_rule" "frontend_api_crossfeed_5xx_alarm_rule" {
 }
 
 resource "aws_cloudwatch_event_target" "frontend_api_crossfeed_5xx_alarm_target" {
-  count = var.is_dmz ? 0 : 1
-  rule  = aws_cloudwatch_event_rule.frontend_api_crossfeed_5xx_alarm_rule[0].name
+  rule = aws_cloudwatch_event_rule.frontend_api_crossfeed_5xx_alarm_rule.name
   # Dynamically names the target ID based on stage
   target_id = "ecs-remediator-${var.stage}-crossfeed-frontend"
-  arn       = data.aws_lambda_function.ecs_remediator.arn
+  arn       = data.aws_ssm_parameter.ecs_remediator_arn.name
 }
 
 resource "aws_lambda_permission" "allow_eventbridge_invoke_frontend_api_crossfeed" {
-  count         = var.is_dmz ? 0 : 1
   statement_id  = "AllowInvokeEcsRemediatorFrontendApiCrossfeed"
   action        = "lambda:InvokeFunction"
   function_name = data.aws_lambda_function.ecs_remediator.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.frontend_api_crossfeed_5xx_alarm_rule[0].arn
+  source_arn    = aws_cloudwatch_event_rule.frontend_api_crossfeed_5xx_alarm_rule.arn
 }
 
 # --- Existing ECS CPU alarm handling rule ---
@@ -94,7 +93,7 @@ resource "aws_cloudwatch_event_rule" "worker_ecs_cpu_high_alarm_rule" {
 resource "aws_cloudwatch_event_target" "worker_ecs_cpu_high_alarm_target" {
   rule      = aws_cloudwatch_event_rule.worker_ecs_cpu_high_alarm_rule.name
   target_id = "ecs-remediator-worker"
-  arn       = data.aws_lambda_function.ecs_remediator.arn
+  arn       = data.aws_ssm_parameter.ecs_remediator_arn.name
 }
 
 resource "aws_lambda_permission" "allow_eventbridge_invoke_ecs_remediator_worker" {
