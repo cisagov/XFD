@@ -124,8 +124,8 @@
     "analyze": "vite build --mode analyze",
     "build": "vite build",
     "dev": "vite",
-    "lint": "eslint 'src/**/*.{ts,tsx,js,jsx}'",
-    "lint:fix": "eslint 'src/**/*.{ts,tsx,js,jsx}' --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "postinstall": "patch-package",
     "preview": "vite preview",
     "test": "vitest",
@@ -133,5 +133,6 @@
     "test:watch": "vitest --watch",
     "type": "module",
     "typecheck": "tsc --noEmit"
-  }
+  },
+  "type": "module"
 }
