@@ -22,8 +22,8 @@ const PageSection = ({ children }: { children: React.ReactNode }) => {
     Boolean(showFirstLoginPopup) ||
       Boolean(
         location.state &&
-        (location.state as { showFirstLoginPopup?: boolean })
-          .showFirstLoginPopup === true
+          (location.state as { showFirstLoginPopup?: boolean })
+            .showFirstLoginPopup === true
       )
   );
   const clearedFlag = useRef(false);
