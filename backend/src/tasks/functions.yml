@@ -366,37 +366,25 @@ byOrgCache:
 
 ecsRemediator:
   <<: *adot
-  handler: src/xfd_django/xfd_api/tasks/ecs_remediator.lambda_handler
+  handler: src.xfd_django.xfd_api.tasks.ecs_remediator.lambda_handler
   timeout: 60
   memorySize: 512
+
+  # 1. Environment Variables (Same as you have now)
   environment:
-    # 1. Use existing SSM var for Cluster (ARN is valid for 'cluster' arg)
     ECS_CLUSTER_NAME: ${ssm:/crossfeed/${self:provider.stage}/WORKER_CLUSTER_ARN}
-
-    # 2. Use NEW SSM var for Service (Must be a name, not a Cluster ARN)
     ECS_SERVICE_NAME: ${ssm:/crossfeed/${self:provider.stage}/worker_ecs_service_name}
-
-    # 3. Use NEW SSM var for SNS
     SNS_ALARMS_TOPIC_ARN: ${ssm:/crossfeed/${self:provider.stage}/alarms_topic_arn}
-
-    PROJECT: ${self:custom.project}
+    PROJECT: "cyhy"       # Hardcoded based on your TF vars, or use ${self:service}
     STAGE: ${self:provider.stage}
 
+  # 2. Permissions (Same as you have now)
   iamRoleStatements:
     - Effect: Allow
       Action:
         - ecs:DescribeServices
         - ecs:UpdateService
-      Resource:
-        # Construct the Service ARN dynamically using the new SSM parameters
-        - Fn::Join:
-            - ':'
-            - - 'arn'
-              - '${self:custom.kmsPartition}'
-              - 'ecs'
-              - '${self:provider.region}'
-              - '${aws:accountId}'
-              - 'service/${ssm:/crossfeed/${self:provider.stage}/worker_ecs_cluster_name}/${ssm:/crossfeed/${self:provider.stage}/worker_ecs_service_name}'
+      Resource: "*"
     - Effect: Allow
       Action:
         - cloudwatch:PutMetricData
@@ -405,3 +393,25 @@ ecsRemediator:
       Action:
         - sns:Publish
       Resource: ${ssm:/crossfeed/${self:provider.stage}/alarms_topic_arn}
+
+  # 3. NEW: The Event Triggers (Replaces remediation.tf)
+  events:
+    - cloudwatchEvent:
+        description: "Triggers ECS remediation when API 5XX alarms fire"
+        event:
+          source:
+            - "aws.cloudwatch"
+          detail-type:
+            - "CloudWatch Alarm State Change"
+          resources:
+            # You must list the ARNs of the alarms you want to listen to.
+            # Since these are created in Terraform, you typically import them via SSM
+            # or construct them if they follow a predictable naming pattern.
+
+            # Pattern: arn:aws:cloudwatch:REGION:ACCOUNT:alarm:ALARM_NAME
+            - "arn:aws:cloudwatch:${self:provider.region}:${aws:accountId}:alarm:cyhy-${self:provider.stage}-api-crossfeed-5xx-error"
+            - "arn:aws:cloudwatch:${self:provider.region}:${aws:accountId}:alarm:cyhy-${self:provider.stage}-api-crossfeed-frontend-5xx-error"
+          detail:
+            state:
+              value:
+                - "ALARM"

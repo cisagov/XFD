@@ -46,8 +46,7 @@ resource "aws_cloudwatch_metric_alarm" "worker_ecs_cpu_high" {
   }
 
   alarm_actions = [
-    aws_sns_topic.alarms.arn,
-    data.aws_lambda_function.ecs_remediator.arn
+    aws_sns_topic.alarms.arn
   ]
   ok_actions = [
     aws_sns_topic.alarms.arn
