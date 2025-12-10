@@ -73,6 +73,7 @@
     "express": "^4.21.2",
     "helmet": "^7.0.0",
     "jsdom": "^26.1.0",
+    "nodemon": "^3.1.11",
     "patch-package": "^8.0.0",
     "prettier": "^3.4.2",
     "react-dev-inspector": "^2.0.1",
@@ -123,15 +124,15 @@
   "scripts": {
     "analyze": "vite build --mode analyze",
     "build": "vite build",
-    "dev": "vite",
+    "dev": "npm run lint:watch & vite",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
+    "lint:watch": "nodemon --ext js,jsx,ts,tsx --exec \"npm run lint\"",
     "postinstall": "patch-package",
     "preview": "vite preview",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest --watch",
-    "type": "module",
     "typecheck": "tsc --noEmit"
   },
   "type": "module"
