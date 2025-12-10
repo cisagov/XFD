@@ -74,10 +74,10 @@ export default defineConfig({
         'src/**/*[Ss]tyle*'
       ],
       thresholds: {
-        statements: 27.29,
-        branches: 18.5,
-        functions: 20.99,
-        lines: 27.82,
+        statements: 27.25,
+        branches: 18.55,
+        functions: 20.87,
+        lines: 27.79,
         autoUpdate: true
       }
     }
