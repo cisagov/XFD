@@ -98,6 +98,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       sort: 'desc'
     }
   ]);
+  const sortField = sortModel[0]?.field;
+  const sortFieldConversion =
+    sortField === 'is_kev_display'
+      ? 'is_kev'
+      : sortField === 'is_kev_ransomware_display'
+        ? 'is_kev_ransomware'
+        : sortField;
 
   useEffect(() => {
     if (state) {
@@ -229,17 +236,26 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       filters: [],
-      order: sortModel[0]?.field,
+      // order: sortModel[0]?.field,
+      order: sortFieldConversion,
       sort: sortModel[0]?.sort ?? 'desc',
       showAll: !onlyOpenVulns
     });
-  }, [fetchVulnerabilities, history, location, sortModel, onlyOpenVulns]);
+  }, [
+    fetchVulnerabilities,
+    history,
+    location,
+    sortFieldConversion,
+    sortModel,
+    onlyOpenVulns
+  ]);
 
   useEffect(() => {
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
-      order: sortModel[0]?.field,
+      // order: sortModel[0]?.field,
+      order: sortFieldConversion,
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
@@ -250,8 +266,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     paginationModel.page,
     paginationModel.pageSize,
     onlyOpenVulns,
-    sortModel[0]?.field,
-    sortModel[0]?.sort
+    sortFieldConversion,
+    sortModel
   ]);
 
   useEffect(() => {
