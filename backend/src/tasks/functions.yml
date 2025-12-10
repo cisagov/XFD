@@ -61,7 +61,7 @@ scheduler:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 syncdb:
   <<: *adot
@@ -82,7 +82,7 @@ syncdb:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 syncmdl:
   <<: *adot
@@ -103,7 +103,7 @@ syncmdl:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 bastion:
   <<: *adot
@@ -124,7 +124,7 @@ bastion:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 checkUserExpiration:
   <<: *adot
@@ -158,7 +158,7 @@ checkUserExpiration:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 queryDailyCustomerMetrics:
   <<: *adot
@@ -181,7 +181,7 @@ queryDailyCustomerMetrics:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 scanExecution:
   <<: *adot
@@ -231,7 +231,7 @@ scanExecution:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 updateScanTaskStatus:
   <<: *adot
@@ -262,7 +262,7 @@ updateScanTaskStatus:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 infraOps:
   <<: *adot
@@ -283,7 +283,7 @@ infraOps:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 pruneScanResults:
   <<: *adot
@@ -306,7 +306,7 @@ pruneScanResults:
         - kms:Decrypt
         - kms:DescribeKey
       Resource:
-        - arn:aws:kms:${self:provider.region}:${aws:accountId}:alias/django-env-config
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 serviceStatsCache:
   <<: *adot

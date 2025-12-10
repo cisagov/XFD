@@ -4,8 +4,10 @@
 from datetime import datetime, timezone
 import logging
 import os
+import ssl
 from typing import Any, Dict, Optional
 import urllib.parse
+import urllib.request
 
 # Third-Party Libraries
 from django.conf import settings as dj_settings
@@ -14,6 +16,7 @@ from fastapi.responses import RedirectResponse, Response
 from onelogin.saml2.auth import OneLogin_Saml2_Auth
 from onelogin.saml2.idp_metadata_parser import OneLogin_Saml2_IdPMetadataParser
 from onelogin.saml2.settings import OneLogin_Saml2_Settings
+from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_mini_dl.models import User
 
 from .auth import (
@@ -38,13 +41,23 @@ def _env_truthy(in_var: Optional[str]) -> bool:
     return in_var.strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
-def get_cookie_domain(frontend_url: str) -> Optional[str]:
-    """Get cookie domain."""
-    parsed = urllib.parse.urlparse(frontend_url)
-    hostname = parsed.hostname
-    if not hostname:
+def determine_cookie_domain(frontend_domain: str, is_local: bool) -> Optional[str]:
+    """Determine the correct cookie domain based on the environment's frontend domain."""
+    if is_local:
         return None
-    return f".{hostname}"
+
+    parsed = urllib.parse.urlparse(frontend_domain)
+    host = parsed.hostname or ""
+
+    # DMZ environments
+    if host.endswith("crossfeed.cyber.dhs.gov"):
+        return ".crossfeed.cyber.dhs.gov"
+    # LZ environments
+    if host.endswith("cisa.dhs.gov"):
+        return ".cisa.dhs.gov"
+
+    # Fallback — safest is None (no domain override)
+    return None
 
 
 BACKEND_DOMAIN = (
@@ -61,7 +74,7 @@ IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
 SAML_SP_CERT = os.getenv("SAML_SP_CERT")
 SAML_SP_PRIVATE_KEY = os.getenv("SAML_SP_PRIVATE_KEY")
 
-COOKIE_DOMAIN = None if IS_LOCAL else get_cookie_domain(FRONTEND_DOMAIN)
+COOKIE_DOMAIN = determine_cookie_domain(FRONTEND_DOMAIN, IS_LOCAL)
 
 
 # =============================================================================
@@ -86,13 +99,42 @@ def set_idp_metadata_parser_for_tests(parser_cls) -> None:
     _SamlConfig.idp_parser = parser_cls
 
 
+def _fetch_idp_metadata(url: str) -> bytes:
+    """
+    Fetch IdP metadata using Zscaler CA bundle.
+
+    Required in LZ environments because outbound HTTPS must use Zscaler CA.
+    """
+    parsed = urllib.parse.urlparse(url)
+
+    # Must be HTTPS
+    if parsed.scheme.lower() != "https":
+        raise HTTPException(status_code=400, detail="IdP metadata URL must use https")
+
+    # Must have a hostname (prevents file://, relative paths)
+    if not parsed.hostname:
+        raise HTTPException(status_code=400, detail="Invalid IdP metadata URL")
+
+    cert_path = ensure_zscaler_cert_downloaded()
+
+    # Create SSL context that trusts Zscaler root CA
+    ctx = ssl.create_default_context(cafile=cert_path)
+
+    # Explicit metadata fetch (instead of parse_remote)
+    with urllib.request.urlopen(url, context=ctx) as resp:  # nosec B310
+        return resp.read()
+
+
 def _build_sp_settings() -> Dict[str, Any]:
     """Build SAML settings dict by merging SP config with Okta IdP metadata."""
     if not OKTA_METADATA_URL:
         raise RuntimeError("OKTA_SAML_METADATA_URL is not set")
 
-    # Fetch & parse IdP metadata
-    idp_data = _SamlConfig.idp_parser.parse_remote(OKTA_METADATA_URL)
+    # Fetch metadata using Zscaler CA bundle
+    raw_xml = _fetch_idp_metadata(OKTA_METADATA_URL)
+
+    # Parse the XML
+    idp_data = _SamlConfig.idp_parser.parse(raw_xml)
 
     sp_settings: Dict[str, Any] = {
         "strict": False,  # consider True once IdP config is finalized
@@ -280,7 +322,7 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
         "token",
         token,
         secure=is_https,
-        samesite="Lax",
+        samesite="None",
         path="/",
         domain=COOKIE_DOMAIN,
     )
@@ -288,7 +330,7 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
         "crossfeed-token",
         token,
         secure=is_https,
-        samesite="Lax",
+        samesite="None",
         path="/",
         domain=COOKIE_DOMAIN,
     )
