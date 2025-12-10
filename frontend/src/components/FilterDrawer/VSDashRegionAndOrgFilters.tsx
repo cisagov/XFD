@@ -144,7 +144,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
         }
       }
     },
-    [apiPost, setOrgResults, filters]
+    [apiPost, setOrgResults, filters, userLevel]
   );
 
   const allRegionsOption = 'All Regions';
@@ -158,7 +158,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       return [allRegionsOption, ...regions];
     }
     return regions;
-  }, [allRegionsOption, regions]);
+  }, [allRegionsOption, regions, userLevel]);
 
   const regionFilterValues = useMemo(() => {
     const regionFilter = filters.find(
@@ -192,10 +192,10 @@ export const VSDashRegionAndOrgFilters: React.FC<
     if (isDrillDown) {
       return;
     }
-
+    const userRegion = user?.region_id;
     // Set user's default region if not already set
-    if (!selectedRegion && user?.region_id) {
-      setSelectedRegion(user.region_id);
+    if (!selectedRegion && userRegion) {
+      setSelectedRegion(userRegion);
 
       // Also add the user's default region as a filter to ensure correct drill-down behavior
       // This prevents other region filters from being stored during drill-down
@@ -204,7 +204,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       );
       if (
         !existingRegionFilter ||
-        existingRegionFilter.values[0] !== user.region_id
+        existingRegionFilter.values[0] !== userRegion
       ) {
         // Remove any existing region filters first
         if (existingRegionFilter && existingRegionFilter.values) {
@@ -212,7 +212,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
             removeFilter(REGION_FILTER_KEY, value, 'any');
           });
         }
-        addFilter(REGION_FILTER_KEY, user.region_id, 'any');
+        addFilter(REGION_FILTER_KEY, userRegion, 'any');
         setAllRegionsSelected(false); // User default is not "All Regions"
       }
     }
@@ -226,7 +226,17 @@ export const VSDashRegionAndOrgFilters: React.FC<
     }
     // Only run on mount and when user/currentOrganization become available
     // Don't run during drill-down scenarios to avoid interfering with restoration
-  }, [user?.region_id, currentOrganization?.id, isDrillDown]);
+  }, [
+    user?.region_id,
+    currentOrganization,
+    isDrillDown,
+    addFilter,
+    filters,
+    removeFilter,
+    selectedOrg,
+    selectedRegion,
+    setAllRegionsSelected
+  ]);
 
   // Handle drill-down filter restoration - only during drill-down scenarios
   useEffect(() => {
@@ -293,7 +303,16 @@ export const VSDashRegionAndOrgFilters: React.FC<
         }
       }
     }
-  }, [isDrillDown, filters, selectedRegion, selectedOrg, currentOrganization]);
+  }, [
+    isDrillDown,
+    filters,
+    selectedRegion,
+    selectedOrg,
+    currentOrganization,
+    regions,
+    user?.region_id,
+    wasAllRegionsSelected
+  ]);
 
   const handleTextChange = (v: string) => {
     setSearchTerm(v);

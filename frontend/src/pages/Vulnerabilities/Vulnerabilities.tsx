@@ -250,8 +250,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     paginationModel.page,
     paginationModel.pageSize,
     onlyOpenVulns,
-    sortModel[0]?.field,
-    sortModel[0]?.sort
+    sortModel
   ]);
 
   useEffect(() => {
@@ -573,7 +572,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       }
     ],
-    [history]
+    [history, stringFilterOperators]
   );
 
   return (
