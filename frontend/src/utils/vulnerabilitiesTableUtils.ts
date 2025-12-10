@@ -30,6 +30,13 @@ export const formatSeverity = (severity?: any) => {
   }
 };
 
+// Map display field names to server field names for sorting
+export const mapSortFieldToServerField = (field: string | undefined): string | undefined => {
+  if (field === 'is_kev_display') return 'is_kev';
+  if (field === 'is_kev_ransomware_display') return 'is_kev_ransomware';
+  return field;
+};
+
 export const extractInitialFilters = (state: LocationState) => {
   const hiddenFilters: GridFilterItem[] = [];
   if (state?.title) {

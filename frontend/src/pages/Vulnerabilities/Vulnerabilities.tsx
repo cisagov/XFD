@@ -45,20 +45,16 @@ import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/dataTransformUtils';
-import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
-import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
-import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { 
+  formatSeverity, 
+  normalizeFilters, 
+  extractInitialFilters,
+  mapSortFieldToServerField 
+} from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 const PAGE_SIZE = 15;
-
-// Map display field names to server field names for sorting
-const mapSortFieldToServerField = (field: string | undefined): string | undefined => {
-  if (field === 'is_kev_display') return 'is_kev';
-  if (field === 'is_kev_ransomware_display') return 'is_kev_ransomware';
-  return field;
-};
 
 interface VulnerabilitiesProps {
   group_by?: string;
@@ -729,6 +725,29 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 setFilterModel(normalizedModel);
 
                 const mappedFilters = normalizedModel.items
+                  .map((item) => {
+                    let val: any = item.value;
+                    if (
+                      item.field === 'is_kev' ||
+                      item.field === 'is_kev_ransomware'
+                    ) {
+                      if (typeof val === 'string') {
+                        const v = val.toLowerCase();
+                        if (v === 'yes' || v === 'true') val = true;
+                        else if (v === 'no' || v === 'false') val = false;
+                        else if (v === 'n/a') val = null;
+                        else val = null;
+                      } else {
+                        val = val == null ? null : Boolean(val);
+                      }
+                    }
+                    return {
+                      field: item.field,
+                      operator: item.operator,
+                      value: val
+                    };
+                  })
+
                   .filter(
                     (f) =>
                       f.value !== undefined &&
