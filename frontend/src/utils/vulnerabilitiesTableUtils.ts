@@ -105,36 +105,8 @@ export const normalizeFilters = (
 ) => {
   const result = filters
     .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
-    .reduce<Record<string, string | boolean | null>>((acc, cur) => {
-      let field = cur.field;
-      let value = cur.value;
-
-      // Handle display field filters - convert field names and values
-      if (field === 'is_kev_display') {
-        field = 'is_kev';
-        if (typeof value === 'string') {
-          const v = value.toLowerCase();
-          if (v === 'yes' || v === 'true') value = true;
-          else if (v === 'no' || v === 'false') value = false;
-          else if (v === 'n/a') value = null;
-          else value = null;
-        } else {
-          value = value == null ? null : Boolean(value);
-        }
-      } else if (field === 'is_kev_ransomware_display') {
-        field = 'is_kev_ransomware';
-        if (typeof value === 'string') {
-          const v = value.toLowerCase();
-          if (v === 'yes' || v === 'true') value = true;
-          else if (v === 'no' || v === 'false') value = false;
-          else if (v === 'n/a') value = null;
-          else value = null;
-        } else {
-          value = value == null ? null : Boolean(value);
-        }
-      }
-
-      acc[field] = value as string | boolean | null;
+    .reduce<Record<string, string | boolean>>((acc, cur) => {
+      acc[cur.field] = cur.value as string;
       return acc;
     }, {});
   if (
@@ -150,6 +122,10 @@ export const normalizeFilters = (
       result['substate'] = substate.toLowerCase().replace(' ', '-');
       delete result['state'];
     }
+  }
+
+  if (result['is_kev']) {
+    result['is_kev'] = 'true';
   }
 
   const isExcludedOrg = ORGANIZATION_EXCLUSIONS.some((exc) =>
