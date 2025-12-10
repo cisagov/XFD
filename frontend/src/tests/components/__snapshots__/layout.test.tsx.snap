@@ -85,6 +85,7 @@ exports[`Layout component > matches snapshot 1`] = `
         class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
       >
         <button
+          aria-label="Toggle Filter Drawer"
           class="MuiButtonBase-root MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary css-1vd37re-MuiButtonBase-root-MuiButton-root"
           tabindex="0"
           type="button"
