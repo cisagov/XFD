@@ -30,6 +30,13 @@ export const formatSeverity = (severity?: any) => {
   }
 };
 
+// Map display field names to server field names for both sorting and filtering
+export const mapDisplayFieldToServerField = (field: string | undefined): string | undefined => {
+  if (field === 'is_kev_display') return 'is_kev';
+  if (field === 'is_kev_ransomware_display') return 'is_kev_ransomware';
+  return field;
+};
+
 export const extractInitialFilters = (state: LocationState) => {
   const hiddenFilters: GridFilterItem[] = [];
   if (state?.title) {
@@ -105,8 +112,11 @@ export const normalizeFilters = (
 ) => {
   const result = filters
     .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
-    .reduce<Record<string, string | boolean>>((acc, cur) => {
-      acc[cur.field] = cur.value as string;
+    .reduce<Record<string, string | boolean | null>>((acc, cur) => {
+      // Map display field names to server field names
+      const serverField = mapDisplayFieldToServerField(cur.field) || cur.field;
+      
+      acc[serverField] = cur.value as string | boolean | null;
       return acc;
     }, {});
   if (
@@ -122,10 +132,6 @@ export const normalizeFilters = (
       result['substate'] = substate.toLowerCase().replace(' ', '-');
       delete result['state'];
     }
-  }
-
-  if (result['is_kev']) {
-    result['is_kev'] = 'true';
   }
 
   const isExcludedOrg = ORGANIZATION_EXCLUSIONS.some((exc) =>

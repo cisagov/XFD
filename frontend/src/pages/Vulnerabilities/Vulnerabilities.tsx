@@ -45,9 +45,12 @@ import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/dataTransformUtils';
-import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
-import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
-import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import {
+  formatSeverity,
+  normalizeFilters,
+  extractInitialFilters,
+  mapDisplayFieldToServerField
+} from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
 
@@ -236,8 +239,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       filters: [],
-      // order: sortModel[0]?.field,
-      order: sortFieldConversion,
+      order: mapDisplayFieldToServerField(sortModel[0]?.field),
       sort: sortModel[0]?.sort ?? 'desc',
       showAll: !onlyOpenVulns
     });
@@ -254,8 +256,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
-      // order: sortModel[0]?.field,
-      order: sortFieldConversion,
+      order: mapDisplayFieldToServerField(sortModel[0]?.field),
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
@@ -696,7 +697,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 fetchVulnerabilities({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
-                  order: sortModel[0]?.field,
+                  order: mapDisplayFieldToServerField(sortModel[0]?.field),
                   sort: sortModel[0]?.sort ?? 'desc',
                   filters: filters,
                   showAll: !onlyOpenVulns
