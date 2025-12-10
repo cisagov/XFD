@@ -46,11 +46,14 @@ def check_user_expiration():
         body = """
         Hello {firstName} {lastName},
 
-        Your account has been inactive for over 30 days. If your account reaches 45 days of inactivity,
-        your password will be reset, requiring action to reactivate your account.
+        Your Cyber Hygiene Dashboard account has been inactive for over 30 days. If your account reaches 45 days of inactivity,
+        you will need to submit a new account approval request.
 
         Thank you,
-        The CyHy Dashboard Team
+        The Cyber Hygiene (CyHy) Team
+        CISA Vulnerability Management
+        Cybersecurity and Infrastructure Security Agency (CISA)
+        Email: vulnerability@cisa.dhs.gov
         """.format(
             firstName=user.firstName, lastName=user.lastName
         )
@@ -72,7 +75,10 @@ def check_user_expiration():
         it will be removed, requiring action to recreate your account.
 
         Thank you,
-        The CyHy Dashboard Team
+        The Cyber Hygiene (CyHy) Team
+        CISA Vulnerability Management
+        Cybersecurity and Infrastructure Security Agency (CISA)
+        Email: vulnerability@cisa.dhs.gov
         """.format(
             firstName=user.firstName, lastName=user.lastName
         )
