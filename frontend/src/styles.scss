@@ -4,15 +4,15 @@ $theme-show-notifications: false;
 $project-font-type-tokens: ();
 
 // Import required global packages
-@use 'uswds/dist/scss/packages/required';
-@use 'uswds/dist/scss/packages/global';
-@use 'uswds/dist/scss/packages/uswds-utilities';
-@use 'uswds/dist/scss/packages/usa-banner';
-@use 'uswds/dist/scss/packages/usa-header';
-@use 'uswds/dist/scss/packages/usa-table';
-@use 'uswds/dist/scss/packages/usa-alert';
-@use 'uswds/dist/scss/packages/usa-modal';
-@use 'uswds/dist/scss/packages/form-controls';
+@import 'uswds/scss/packages/required';
+@import 'uswds/scss/packages/global';
+@import 'uswds/scss/packages/uswds-utilities';
+@import 'uswds/scss/packages/usa-banner';
+@import 'uswds/scss/packages/usa-header';
+@import 'uswds/scss/packages/usa-table';
+@import 'uswds/scss/packages/usa-alert';
+@import 'uswds/scss/packages/usa-modal';
+@import 'uswds/scss/packages/form-controls';
 
 @import '@trussworks/react-uswds/lib/index.css';
 
@@ -21,7 +21,7 @@ $project-font-type-tokens: ();
 html,
 body {
   box-sizing: border-box;
-  background-color: required.color('base-lightest');
+  background-color: color('base-lightest');
 }
 
 body > iframe {
@@ -47,7 +47,7 @@ body > iframe {
   opacity: 1;
   border-radius: 50%;
   animation: cisa-crossfeed-loading 1s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-  border: 4px solid required.color('base-dark');
+  border: 4px solid color('base-dark');
 }
 
 .cisa-crossfeed-loading div:nth-child(2) {
