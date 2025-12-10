@@ -53,6 +53,13 @@ import { ENDPOINTS } from '@/constants/endpoints';
 
 const PAGE_SIZE = 15;
 
+// Map display field names to server field names for sorting
+const mapSortFieldToServerField = (field: string | undefined): string | undefined => {
+  if (field === 'is_kev_display') return 'is_kev';
+  if (field === 'is_kev_ransomware_display') return 'is_kev_ransomware';
+  return field;
+};
+
 interface VulnerabilitiesProps {
   group_by?: string;
 }
@@ -229,7 +236,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       filters: [],
-      order: sortModel[0]?.field,
+      order: mapSortFieldToServerField(sortModel[0]?.field),
       sort: sortModel[0]?.sort ?? 'desc',
       showAll: !onlyOpenVulns
     });
@@ -239,7 +246,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
-      order: sortModel[0]?.field,
+      order: mapSortFieldToServerField(sortModel[0]?.field),
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
@@ -680,7 +687,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 fetchVulnerabilities({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
-                  order: sortModel[0]?.field,
+                  order: mapSortFieldToServerField(sortModel[0]?.field),
                   sort: sortModel[0]?.sort ?? 'desc',
                   filters: filters,
                   showAll: !onlyOpenVulns

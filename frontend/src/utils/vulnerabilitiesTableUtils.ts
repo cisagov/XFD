@@ -124,10 +124,6 @@ export const normalizeFilters = (
     }
   }
 
-  if (result['is_kev']) {
-    result['is_kev'] = 'true';
-  }
-
   const isExcludedOrg = ORGANIZATION_EXCLUSIONS.some((exc) =>
     currentOrganization?.name.toLowerCase().includes(exc)
   );
