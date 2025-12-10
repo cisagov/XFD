@@ -100,7 +100,7 @@ def set_idp_metadata_parser_for_tests(parser_cls) -> None:
     _SamlConfig.idp_parser = parser_cls
 
 
-def _fetch_idp_metadata(url: str) -> bytes:
+def _fetch_idp_metadata_lz(url: str) -> bytes:
     """
     Fetch IdP metadata using Zscaler CA bundle.
 
@@ -116,12 +116,9 @@ def _fetch_idp_metadata(url: str) -> bytes:
     if not parsed.hostname:
         raise HTTPException(status_code=400, detail="Invalid IdP metadata URL")
 
-    if not IS_DMZ:
-        cert_path = ensure_zscaler_cert_downloaded()
-        # Create SSL context that trusts Zscaler root CA
-        ctx = ssl.create_default_context(cafile=cert_path)
-    else:
-        ctx = ssl.create_default_context()
+    cert_path = ensure_zscaler_cert_downloaded()
+    # Create SSL context that trusts Zscaler root CA
+    ctx = ssl.create_default_context(cafile=cert_path)
 
     # Explicit metadata fetch (instead of parse_remote)
     with urllib.request.urlopen(url, context=ctx) as resp:  # nosec B310
@@ -133,11 +130,15 @@ def _build_sp_settings() -> Dict[str, Any]:
     if not OKTA_METADATA_URL:
         raise RuntimeError("OKTA_SAML_METADATA_URL is not set")
 
-    # Fetch metadata using Zscaler CA bundle
-    raw_xml = _fetch_idp_metadata(OKTA_METADATA_URL)
+    if not IS_DMZ:
+        # Fetch metadata using Zscaler CA bundle
+        raw_xml = _fetch_idp_metadata_lz(OKTA_METADATA_URL)
 
-    # Parse the XML
-    idp_data = _SamlConfig.idp_parser.parse(raw_xml)
+        # Parse the XML
+        idp_data = _SamlConfig.idp_parser.parse(raw_xml)
+    else:
+        # Fetch & parse IdP metadata
+        idp_data = _SamlConfig.idp_parser.parse_remote(OKTA_METADATA_URL)
 
     sp_settings: Dict[str, Any] = {
         "strict": False,  # consider True once IdP config is finalized
