@@ -49,7 +49,7 @@ import {
   formatSeverity, 
   normalizeFilters, 
   extractInitialFilters,
-  mapSortFieldToServerField 
+  mapDisplayFieldToServerField 
 } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -232,7 +232,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       filters: [],
-      order: mapSortFieldToServerField(sortModel[0]?.field),
+      order: mapDisplayFieldToServerField(sortModel[0]?.field),
       sort: sortModel[0]?.sort ?? 'desc',
       showAll: !onlyOpenVulns
     });
@@ -242,7 +242,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
-      order: mapSortFieldToServerField(sortModel[0]?.field),
+      order: mapDisplayFieldToServerField(sortModel[0]?.field),
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
@@ -683,7 +683,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 fetchVulnerabilities({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
-                  order: mapSortFieldToServerField(sortModel[0]?.field),
+                  order: mapDisplayFieldToServerField(sortModel[0]?.field),
                   sort: sortModel[0]?.sort ?? 'desc',
                   filters: filters,
                   showAll: !onlyOpenVulns
