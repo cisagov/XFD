@@ -71,6 +71,7 @@ FRONTEND_DOMAIN = (
 OKTA_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
 
 IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
+IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 SAML_SP_CERT = os.getenv("SAML_SP_CERT")
 SAML_SP_PRIVATE_KEY = os.getenv("SAML_SP_PRIVATE_KEY")
 
@@ -115,10 +116,12 @@ def _fetch_idp_metadata(url: str) -> bytes:
     if not parsed.hostname:
         raise HTTPException(status_code=400, detail="Invalid IdP metadata URL")
 
-    cert_path = ensure_zscaler_cert_downloaded()
-
-    # Create SSL context that trusts Zscaler root CA
-    ctx = ssl.create_default_context(cafile=cert_path)
+    if not IS_DMZ:
+        cert_path = ensure_zscaler_cert_downloaded()
+        # Create SSL context that trusts Zscaler root CA
+        ctx = ssl.create_default_context(cafile=cert_path)
+    else:
+        ctx = ssl.create_default_context()
 
     # Explicit metadata fetch (instead of parse_remote)
     with urllib.request.urlopen(url, context=ctx) as resp:  # nosec B310
