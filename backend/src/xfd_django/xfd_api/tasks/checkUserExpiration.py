@@ -47,7 +47,7 @@ def check_user_expiration():
         The Cyber Hygiene (CyHy) Team
         CISA Vulnerability Management
         Cybersecurity and Infrastructure Security Agency (CISA)
-        EMAIL: vulnerability@cisa.dhs.gov
+        Email: vulnerability@cisa.dhs.gov
         """.format(
             first_name=user.first_name, last_name=user.last_name
         )
@@ -71,7 +71,7 @@ def check_user_expiration():
         The Cyber Hygiene (CyHy) Team
         CISA Vulnerability Management
         Cybersecurity and Infrastructure Security Agency (CISA)
-        EMAIL: vulnerability@cisa.dhs.gov
+        Email: vulnerability@cisa.dhs.gov
         """.format(
             first_name=user.first_name, last_name=user.last_name
         )
@@ -93,7 +93,7 @@ def check_user_expiration():
         The Cyber Hygiene (CyHy) Team
         CISA Vulnerability Management
         Cybersecurity and Infrastructure Security Agency (CISA)
-        EMAIL: vulnerability@cisa.dhs.gov
+        Email: vulnerability@cisa.dhs.gov
         """.format(
             first_name=user.first_name, last_name=user.last_name
         )
