@@ -48,7 +48,8 @@ import { truncateString } from 'utils/dataTransformUtils';
 import {
   formatSeverity,
   normalizeFilters,
-  extractInitialFilters
+  extractInitialFilters,
+  shouldTriggerFilterUpdate
 } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -83,6 +84,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     items: []
   });
   const filterTimerRef = useRef<number | null>(null);
+  const lastFilterValuesRef = useRef<string>('[]');
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const lastFiltersKeyRef = useRef<string>(JSON.stringify(filters));
@@ -702,28 +704,25 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                const mappedItems = model.items.map((item) => ({
-                  ...item,
-                  value:
-                    typeof item.value === 'string'
-                      ? item.value.trim()
-                      : item.value
-                }));
-                const normalizedModel = { ...model, items: mappedItems };
-                setFilterModel(normalizedModel);
+                setFilterModel(model);
 
-                const mappedKey = JSON.stringify(normalizedModel.items);
+                const { shouldUpdate, newKey } = shouldTriggerFilterUpdate(
+                  model.items,
+                  lastFilterValuesRef.current
+                );
 
-                if (mappedKey === lastFiltersKeyRef.current) {
+                if (!shouldUpdate) {
                   return;
                 }
+
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
                 }
+
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
-                  setFilters(normalizedModel.items);
-                  lastFiltersKeyRef.current = mappedKey;
+                  setFilters(model.items);
+                  lastFilterValuesRef.current = newKey;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
                 }, 1000);

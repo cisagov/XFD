@@ -160,3 +160,39 @@ export const normalizeFilters = (
 
   return result;
 };
+
+export const shouldTriggerFilterUpdate = (
+  modelItems: GridFilterItem[],
+  lastFilterValuesKey: string
+): { shouldUpdate: boolean; newKey: string } => {
+  // Extract filters with actual values
+  const filtersWithValues = modelItems
+    .filter(
+      (item) =>
+        item.value !== undefined && item.value !== null && item.value !== ''
+    )
+    .map((f) => ({
+      field: f.field,
+      operator: f.operator,
+      value: f.value
+    }))
+    .sort((a, b) => a.field.localeCompare(b.field));
+
+  const valuesKey = JSON.stringify(filtersWithValues);
+  const hadFilters = lastFilterValuesKey !== '[]';
+  const hasFilters = filtersWithValues.length > 0;
+
+  // No change - skip update
+  if (valuesKey === lastFilterValuesKey) {
+    return { shouldUpdate: false, newKey: lastFilterValuesKey };
+  }
+
+  // Intermediate state: had filters, now have none, but items exist with undefined values
+  // This happens when changing filter fields - skip to avoid unnecessary API calls
+  if (hadFilters && !hasFilters && modelItems.length > 0) {
+    return { shouldUpdate: false, newKey: lastFilterValuesKey };
+  }
+
+  // Values actually changed - trigger update
+  return { shouldUpdate: true, newKey: valuesKey };
+};
