@@ -31,10 +31,24 @@ export const formatSeverity = (severity?: any) => {
 };
 
 // Map display field names to server field names for both sorting and filtering
-export const mapDisplayFieldToServerField = (field: string | undefined): string | undefined => {
+export const mapDisplayFieldToServerField = (
+  field: string | undefined
+): string | undefined => {
   if (field === 'is_kev_display') return 'is_kev';
   if (field === 'is_kev_ransomware_display') return 'is_kev_ransomware';
   return field;
+};
+
+export const convertStringToBooleanValue = (field: string, value: any): any => {
+  if (field === 'is_kev' || field === 'is_kev_ransomware') {
+    if (typeof value === 'string') {
+      const lowerCaseValue = value.toLowerCase();
+      if (lowerCaseValue === 'yes' || lowerCaseValue === 'true') return true;
+      if (lowerCaseValue === 'no' || lowerCaseValue === 'false') return false;
+      return null;
+    }
+  }
+  return value;
 };
 
 export const extractInitialFilters = (state: LocationState) => {
@@ -114,9 +128,23 @@ export const normalizeFilters = (
     .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
     .reduce<Record<string, string | boolean | null>>((acc, cur) => {
       // Map display field names to server field names
-      const serverField = mapDisplayFieldToServerField(cur.field) || cur.field;
-      
-      acc[serverField] = cur.value as string | boolean | null;
+      // const serverField = mapDisplayFieldToServerField(cur.field) || cur.field;
+
+      // // Convert string values to boolean values for is_kev_display and is_kev_ransomware_display fields
+      // if (serverField === 'is_kev' || serverField === 'is_kev_ransomware') {
+      //   acc[serverField] = convertStringToBooleanValue(serverField, cur.value);
+      // } else {
+      //   acc[serverField] = cur.value as string | boolean | null;
+      // }
+
+      if (cur.field === 'is_kev' || cur.field === 'is_kev_ransomware') {
+        acc[cur.field] = convertStringToBooleanValue(cur.field, cur.value);
+      } else {
+        acc[cur.field] = cur.value as string | boolean | null;
+      }
+
+      // acc[serverField] = cur.value as string | boolean | null;
+      // acc[cur.field] = cur.value as string | boolean | null;
       return acc;
     }, {});
   if (

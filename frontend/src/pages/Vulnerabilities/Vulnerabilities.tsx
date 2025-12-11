@@ -101,13 +101,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       sort: 'desc'
     }
   ]);
-  const sortField = sortModel[0]?.field;
-  const sortFieldConversion =
-    sortField === 'is_kev_display'
-      ? 'is_kev'
-      : sortField === 'is_kev_ransomware_display'
-        ? 'is_kev_ransomware'
-        : sortField;
+  // const sortField = sortModel[0]?.field;
+  // const sortFieldConversion =
+  //   sortField === 'is_kev_display'
+  //     ? 'is_kev'
+  //     : sortField === 'is_kev_ransomware_display'
+  //       ? 'is_kev_ransomware'
+  //       : sortField;
 
   useEffect(() => {
     if (state) {
@@ -137,8 +137,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 tags: currentOrganization.tags ?? []
               } as UserOrganization)
             : undefined,
-          user?.user_type,
-          state?.orgId
+          user?.user_type
         );
         return await apiPost<ApiResponse>(
           doExport
@@ -239,24 +238,19 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       filters: [],
-      order: mapDisplayFieldToServerField(sortModel[0]?.field),
+      // order: mapDisplayFieldToServerField(sortModel[0]?.field),
+      order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
       showAll: !onlyOpenVulns
     });
-  }, [
-    fetchVulnerabilities,
-    history,
-    location,
-    sortFieldConversion,
-    sortModel,
-    onlyOpenVulns
-  ]);
+  }, [fetchVulnerabilities, history, location, sortModel, onlyOpenVulns]);
 
   useEffect(() => {
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
-      order: mapDisplayFieldToServerField(sortModel[0]?.field),
+      // order: mapDisplayFieldToServerField(sortModel[0]?.field),
+      order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
       showAll: !onlyOpenVulns
@@ -267,7 +261,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     paginationModel.page,
     paginationModel.pageSize,
     onlyOpenVulns,
-    sortFieldConversion,
     sortModel
   ]);
 
@@ -336,27 +329,29 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const stateDisplay =
           vuln.state + (vuln.substate ? ` (${vuln.substate})` : '');
 
-        const kevStatus =
-          vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No';
+        // const kevStatus =
+        //   vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No';
 
-        const ransomwareStatus =
-          vuln?.is_kev_ransomware === null
-            ? 'N/A'
-            : vuln.is_kev_ransomware
-              ? 'Yes'
-              : 'No';
+        // const ransomwareStatus =
+        //   vuln?.is_kev_ransomware === null
+        //     ? 'N/A'
+        //     : vuln.is_kev_ransomware
+        //       ? 'Yes'
+        //       : 'No';
 
         return {
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: typeof vuln.is_kev === 'boolean' ? vuln.is_kev : null, // Keep original boolean data
-          is_kev_display: kevStatus, // Add display version
-          is_kev_ransomware:
-            typeof vuln.is_kev_ransomware === 'boolean'
-              ? vuln.is_kev_ransomware
-              : null, // Keep original boolean data
-          is_kev_ransomware_display: ransomwareStatus, // Add display version
+          is_kev: vuln.is_kev ? 'Yes' : 'No',
+          // is_kev: typeof vuln.is_kev === 'boolean' ? vuln.is_kev : null, // Keep original boolean data
+          // is_kev_display: kevStatus, // Add display version
+          is_kev_ransomware: vuln.is_kev_ransomware ? 'Yes' : 'No',
+          // is_kev_ransomware:
+          //   typeof vuln.is_kev_ransomware === 'boolean'
+          //     ? vuln.is_kev_ransomware
+          //     : null, // Keep original boolean data
+          // is_kev_ransomware_display: ransomwareStatus, // Add display version
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -445,7 +440,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'is_kev_display',
+        field: 'is_kev',
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
@@ -459,7 +454,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           (op) => op.value === 'is'
         ),
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev_display;
+          const v = cellValues.row.is_kev;
           return (
             <Box component="span" aria-label={`KEV status ${v}`}>
               {v}
@@ -468,7 +463,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'is_kev_ransomware_display',
+        field: 'is_kev_ransomware',
         headerName: 'Ransomware',
         minWidth: 100,
         flex: 0.5,
@@ -483,7 +478,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           { value: 'N/A', label: 'N/A' }
         ],
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev_ransomware_display;
+          const v = cellValues.row.is_kev_ransomware;
           return (
             <Box component="span" aria-label={`Ransomware status ${v}`}>
               {v}
@@ -590,7 +585,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       }
     ],
-    [history]
+    [history, stringFilterOperators]
   );
 
   return (
@@ -738,36 +733,36 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 const normalizedModel = { ...model, items: mappedItems };
                 setFilterModel(normalizedModel);
 
-                const mappedFilters = normalizedModel.items
-                  .map((item) => {
-                    let val: any = item.value;
-                    if (
-                      item.field === 'is_kev' ||
-                      item.field === 'is_kev_ransomware'
-                    ) {
-                      if (typeof val === 'string') {
-                        const v = val.toLowerCase();
-                        if (v === 'yes' || v === 'true') val = true;
-                        else if (v === 'no' || v === 'false') val = false;
-                        else if (v === 'n/a') val = null;
-                        else val = null;
-                      } else {
-                        val = val == null ? null : Boolean(val);
-                      }
-                    }
-                    return {
-                      field: item.field,
-                      operator: item.operator,
-                      value: val
-                    };
-                  })
+                // const mappedFilters = normalizedModel.items
+                //   .map((item) => {
+                //     let val: any = item.value;
+                //     if (
+                //       item.field === 'is_kev' ||
+                //       item.field === 'is_kev_ransomware'
+                //     ) {
+                //       if (typeof val === 'string') {
+                //         const v = val.toLowerCase();
+                //         if (v === 'yes' || v === 'true') val = true;
+                //         else if (v === 'no' || v === 'false') val = false;
+                //         else if (v === 'n/a') val = null;
+                //         else val = null;
+                //       } else {
+                //         val = val == null ? null : Boolean(val);
+                //       }
+                //     }
+                //     return {
+                //       field: item.field,
+                //       operator: item.operator,
+                //       value: val
+                //     };
+                //   })
 
-                  .filter(
-                    (f) =>
-                      f.value !== undefined &&
-                      f.value !== null &&
-                      !(typeof f.value === 'string' && f.value.trim() === '')
-                  );
+                const mappedFilters = normalizedModel.items.filter(
+                  (f) =>
+                    f.value !== undefined &&
+                    f.value !== null &&
+                    !(typeof f.value === 'string' && f.value.trim() === '')
+                );
 
                 const mappedKey = JSON.stringify(mappedFilters);
 
@@ -777,6 +772,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
                 }
+                // console.log('mappedFilters:', mappedFilters);
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(mappedFilters);
