@@ -24,6 +24,13 @@ export const toggleRegionalUserType = false;
 
 export const REGION_FILTER_KEY = 'organization.region_id';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
+const EMPTY_ORG = {
+  region_id: '',
+  name: '',
+  id: '',
+  acronym: '',
+  root_domains: []
+};
 
 interface VSRegionAndOrgFiltersProps {
   addFilter: (
@@ -56,7 +63,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
   const shallowCurrentOrg = (currentOrganization: Organization | null) => {
     if (!currentOrganization) {
-      return undefined;
+      return EMPTY_ORG;
     }
 
     return {
@@ -68,9 +75,9 @@ export const VSDashRegionAndOrgFilters: React.FC<
     };
   };
 
-  const [selectedOrg, setSelectedOrg] = useState<
-    OrganizationShallow | undefined
-  >(shallowCurrentOrg(currentOrganization as Organization));
+  const [selectedOrg, setSelectedOrg] = useState<OrganizationShallow | null>(
+    shallowCurrentOrg(currentOrganization as Organization) ?? null
+  );
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
@@ -343,7 +350,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       }
 
       setSelectedRegion(region_id);
-      setSelectedOrg(undefined);
+      setSelectedOrg(EMPTY_ORG);
       setSearchTerm('');
     }
   };
@@ -447,7 +454,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       <Box padding={2}>
         <Autocomplete
           key={selectedRegion ? selectedRegion : 'no-region'}
-          value={selectedOrg}
+          value={selectedOrg || EMPTY_ORG}
           onChange={(e, v) => {
             setTimeout(() => {
               handleChangeOrganization(v);
