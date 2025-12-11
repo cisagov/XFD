@@ -190,7 +190,7 @@ def test_handler_test_mode_existing_email_raises(monkeypatch):
     assert response["status_code"] == 500
     assert "already exists" in response["body"]
     # No test emails should have been sent
-    assert emails == []
+    assert not emails
 
 
 def test_handler_test_mode_forbidden_when_not_staging(monkeypatch):
@@ -219,4 +219,4 @@ def test_handler_test_mode_forbidden_when_not_staging(monkeypatch):
     assert response["status_code"] == 403
     assert "only allowed" in response["body"]
     assert called["count"] == 0
-    assert emails == []
+    assert not emails
