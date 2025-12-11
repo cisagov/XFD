@@ -30,15 +30,6 @@ export const formatSeverity = (severity?: any) => {
   }
 };
 
-// Map display field names to server field names for both sorting and filtering
-export const mapDisplayFieldToServerField = (
-  field: string | undefined
-): string | undefined => {
-  if (field === 'is_kev_display') return 'is_kev';
-  if (field === 'is_kev_ransomware_display') return 'is_kev_ransomware';
-  return field;
-};
-
 export const convertStringToBooleanValue = (field: string, value: any): any => {
   if (field === 'is_kev' || field === 'is_kev_ransomware') {
     if (typeof value === 'string') {
@@ -122,25 +113,18 @@ export const extractInitialFilters = (state: LocationState) => {
 export const normalizeFilters = (
   filters: GridFilterItem[],
   currentOrganization?: UserOrganization | null | undefined,
-  userType?: string
+  userType?: string,
+  orgId?: string
 ) => {
   const result = filters
-    .filter((f) => f.value !== undefined && f.value !== null && f.value !== '')
+    .filter((f) => {
+      if (f.value === undefined || f.value === null) return false;
+      if (typeof f.value === 'string' && f.value.trim() === '') return false;
+      return true;
+    })
     .reduce<Record<string, string | boolean | null>>((acc, cur) => {
-      // Map display field names to server field names
-      // const serverField = mapDisplayFieldToServerField(cur.field) || cur.field;
-
-      // // Convert string values to boolean values for is_kev_display and is_kev_ransomware_display fields
-      // if (serverField === 'is_kev' || serverField === 'is_kev_ransomware') {
-      //   acc[serverField] = convertStringToBooleanValue(serverField, cur.value);
-      // } else {
-      //   acc[serverField] = cur.value as string | boolean | null;
-      // }
-
       acc[cur.field] = convertStringToBooleanValue(cur.field, cur.value);
 
-      // acc[serverField] = cur.value as string | boolean | null;
-      // acc[cur.field] = cur.value as string | boolean | null;
       return acc;
     }, {});
   if (
@@ -168,6 +152,10 @@ export const normalizeFilters = (
 
   if (result['severity']) {
     result['severity'] = formatSeverity(result['severity']);
+  }
+
+  if (orgId) {
+    result['organization'] = orgId;
   }
 
   return result;

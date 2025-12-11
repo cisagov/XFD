@@ -48,8 +48,7 @@ import { truncateString } from 'utils/dataTransformUtils';
 import {
   formatSeverity,
   normalizeFilters,
-  extractInitialFilters,
-  mapDisplayFieldToServerField
+  extractInitialFilters
 } from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -101,13 +100,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       sort: 'desc'
     }
   ]);
-  // const sortField = sortModel[0]?.field;
-  // const sortFieldConversion =
-  //   sortField === 'is_kev_display'
-  //     ? 'is_kev'
-  //     : sortField === 'is_kev_ransomware_display'
-  //       ? 'is_kev_ransomware'
-  //       : sortField;
 
   useEffect(() => {
     if (state) {
@@ -137,7 +129,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 tags: currentOrganization.tags ?? []
               } as UserOrganization)
             : undefined,
-          user?.user_type
+          user?.user_type,
+          state?.orgId
         );
         return await apiPost<ApiResponse>(
           doExport
@@ -238,7 +231,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       page: 1,
       pageSize: PAGE_SIZE,
       filters: [],
-      // order: mapDisplayFieldToServerField(sortModel[0]?.field),
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
       showAll: !onlyOpenVulns
@@ -249,7 +241,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     fetchVulnerabilities({
       page: paginationModel.page + 1,
       pageSize: paginationModel.pageSize,
-      // order: mapDisplayFieldToServerField(sortModel[0]?.field),
       order: sortModel[0]?.field,
       sort: sortModel[0]?.sort ?? 'desc',
       filters: filters || [],
@@ -329,29 +320,17 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const stateDisplay =
           vuln.state + (vuln.substate ? ` (${vuln.substate})` : '');
 
-        // const kevStatus =
-        //   vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No';
-
-        // const ransomwareStatus =
-        //   vuln?.is_kev_ransomware === null
-        //     ? 'N/A'
-        //     : vuln.is_kev_ransomware
-        //       ? 'Yes'
-        //       : 'No';
-
         return {
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: vuln.is_kev ? 'Yes' : 'No',
-          // is_kev: typeof vuln.is_kev === 'boolean' ? vuln.is_kev : null, // Keep original boolean data
-          // is_kev_display: kevStatus, // Add display version
-          is_kev_ransomware: vuln.is_kev_ransomware ? 'Yes' : 'No',
-          // is_kev_ransomware:
-          //   typeof vuln.is_kev_ransomware === 'boolean'
-          //     ? vuln.is_kev_ransomware
-          //     : null, // Keep original boolean data
-          // is_kev_ransomware_display: ransomwareStatus, // Add display version
+          is_kev: vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No',
+          is_kev_ransomware:
+            vuln.is_kev_ransomware === null
+              ? 'N/A'
+              : vuln.is_kev_ransomware
+                ? 'Yes'
+                : 'No',
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -692,7 +671,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 fetchVulnerabilities({
                   page: paginationModel.page + 1,
                   pageSize: paginationModel.pageSize,
-                  order: mapDisplayFieldToServerField(sortModel[0]?.field),
+                  order: sortModel[0]?.field,
                   sort: sortModel[0]?.sort ?? 'desc',
                   filters: filters,
                   showAll: !onlyOpenVulns
@@ -733,38 +712,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 const normalizedModel = { ...model, items: mappedItems };
                 setFilterModel(normalizedModel);
 
-                // const mappedFilters = normalizedModel.items
-                //   .map((item) => {
-                //     let val: any = item.value;
-                //     if (
-                //       item.field === 'is_kev' ||
-                //       item.field === 'is_kev_ransomware'
-                //     ) {
-                //       if (typeof val === 'string') {
-                //         const v = val.toLowerCase();
-                //         if (v === 'yes' || v === 'true') val = true;
-                //         else if (v === 'no' || v === 'false') val = false;
-                //         else if (v === 'n/a') val = null;
-                //         else val = null;
-                //       } else {
-                //         val = val == null ? null : Boolean(val);
-                //       }
-                //     }
-                //     return {
-                //       field: item.field,
-                //       operator: item.operator,
-                //       value: val
-                //     };
-                //   })
-
-                const mappedFilters = normalizedModel.items.filter(
-                  (f) =>
-                    f.value !== undefined &&
-                    f.value !== null &&
-                    !(typeof f.value === 'string' && f.value.trim() === '')
-                );
-
-                const mappedKey = JSON.stringify(mappedFilters);
+                const mappedKey = JSON.stringify(normalizedModel.items);
 
                 if (mappedKey === lastFiltersKeyRef.current) {
                   return;
@@ -772,10 +720,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
                 }
-                // console.log('mappedFilters:', mappedFilters);
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
-                  setFilters(mappedFilters);
+                  setFilters(normalizedModel.items);
                   lastFiltersKeyRef.current = mappedKey;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
