@@ -54,7 +54,7 @@ repos:
           bash -c 'export NVM_DIR="$HOME/.nvm";
           [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" --no-use
           && nvm use || true;
-          cd frontend && npx eslint . --cache'
+          cd frontend && npx eslint . --cache --fix'
         language: system
         files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
 

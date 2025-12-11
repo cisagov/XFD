@@ -13,8 +13,8 @@ export type Vuln = {
   cvss?: number | null;
   severity?: string | null;
   state?: string | null;
-  is_kev?: boolean;
-  is_kev_ransomware?: boolean;
+  is_kev?: boolean | null;
+  is_kev_ransomware?: boolean | null;
   cpe?: string | null;
   substate?: string | null;
   [k: string]: any;

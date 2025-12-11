@@ -35,6 +35,7 @@ from xfd_mini_dl.models import (
     CveSsvc,
     Host,
     Ip,
+    LatestPortScan,
     Location,
     Organization,
     PortScan,
@@ -303,6 +304,30 @@ def build_fake_port_scan(org):
         ),
         nmi_service_group=nmi_group,
         risky_service_group=risky_service_group,
+    )
+
+
+def build_fake_latest_port_scan(org, portscan_obj):
+    """Build a LatestPortScan row corresponding to a PortScan entry."""
+    return LatestPortScan(
+        id=str(uuid.uuid4()),  # new UUID for LatestPortScan row
+        port_scan_id=portscan_obj.id,  # <-- IMPORTANT: reference back to PortScan
+        ip=portscan_obj.ip,
+        ip_string=portscan_obj.ip_string,
+        organization=org,
+        port=portscan_obj.port,
+        protocol=portscan_obj.protocol,
+        reason=portscan_obj.reason,
+        service=portscan_obj.service,
+        service_name=portscan_obj.service_name,
+        service_confidence=portscan_obj.service_confidence,
+        service_method=portscan_obj.service_method,
+        source=portscan_obj.source,
+        state=portscan_obj.state,
+        time_scanned=portscan_obj.time_scanned,
+        nmi_service_group=portscan_obj.nmi_service_group,
+        risky_service_group=portscan_obj.risky_service_group,
+        current=True,
     )
 
 
@@ -747,6 +772,22 @@ def populate_sample_data():
                 ]
                 PortScan.objects.bulk_create(portscans, batch_size=100)
 
+                # LatestPortScans
+                latest_map = {}  # key=(ip.id, port)
+
+                for ps in portscans:
+                    key = (ps.ip.id, ps.port)
+                    if key not in latest_map:
+                        latest_map[key] = ps
+                    else:
+                        if ps.time_scanned > latest_map[key].time_scanned:
+                            latest_map[key] = ps
+
+                latest_records = [
+                    build_fake_latest_port_scan(org, ps) for ps in latest_map.values()
+                ]
+
+                LatestPortScan.objects.bulk_create(latest_records, batch_size=100)
                 # Hosts
                 # hosts = [build_fake_host(org) for _ in range(FAKE_HOST_COUNT)]
                 # Host.objects.bulk_create(hosts, batch_size=100)

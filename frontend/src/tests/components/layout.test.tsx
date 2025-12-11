@@ -58,7 +58,9 @@ vi.mock('components/GovBanner', () => ({
 vi.mock('@mui/x-data-grid', () => ({
   DataGrid: () => <div>DATA_GRID</div>
 }));
-
+vi.mock('components/FilterDrawer/FilterDrawerV2', () => ({
+  FilterDrawerV2: () => <div>FILTER_DRAWER</div>
+}));
 afterAll(() => {
   vi.restoreAllMocks();
 });

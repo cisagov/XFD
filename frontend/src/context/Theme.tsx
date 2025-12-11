@@ -334,6 +334,7 @@ const theme = createTheme({
     error: {
       main: '#C41230'
     },
+    // TODO need to change success color for contrast issue CRASM-3445
     success: {
       main: '#5E9732'
     },

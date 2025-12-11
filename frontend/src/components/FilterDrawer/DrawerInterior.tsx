@@ -81,7 +81,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     setActiveSearchId
   } = useSavedSearchContext();
 
-  const advanceFiltersReq = filters.length > 1 || searchTerm !== '';
   const theme = useTheme();
 
   const deleteSearch = async (id: string) => {
@@ -331,10 +330,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Typography variant="largeBody">Ports</Typography>
-              {filtersByColumn['services.port']?.length > 0 ||
-                (filtersByColumn['no_services']?.length > 0 && (
-                  <FiltersApplied />
-                ))}
+              {(filtersByColumn['services.port']?.length > 0 ||
+                filtersByColumn['no_services']?.length > 0) && (
+                <FiltersApplied />
+              )}
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
@@ -453,7 +452,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             totalResults={totalResults}
             sortField={''}
             sortDirection={''}
-            advancedFiltersReq={advanceFiltersReq}
+            initialFilters={initialFilters}
           />
           {ascendingSavedSearches.length > 0 ? (
             <List sx={{ maxHeight: 5 * 42, overflowY: 'auto' }}>
