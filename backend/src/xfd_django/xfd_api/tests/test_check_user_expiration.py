@@ -3,11 +3,10 @@
 from datetime import timedelta
 
 # Third-Party Libraries
-import pytest
 from django.utils import timezone
-
-from xfd_mini_dl.models import User
+import pytest
 from xfd_api.tasks import checkUserExpiration
+from xfd_mini_dl.models import User
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -67,7 +66,9 @@ def test_check_user_expiration_sends_emails_and_deletes(monkeypatch):
     assert User.objects.filter(id=user_20.id).exists()  # recent user should remain
     assert User.objects.filter(id=user_35.id).exists()  # 30–45 day user should remain
     assert User.objects.filter(id=user_60.id).exists()  # 45–90 day user should remain
-    assert not User.objects.filter(id=user_120.id).exists()  # 90+ day user should be deleted
+    assert not User.objects.filter(
+        id=user_120.id
+    ).exists()  # 90+ day user should be deleted
 
     # Verify emails
     # We expect 3 emails: one for 35-day, one for 60-day, one for 120-day
@@ -92,9 +93,10 @@ def test_check_user_expiration_sends_emails_and_deletes(monkeypatch):
     # 90+ day user should get removal notice
     assert "120@example.com" in emails_by_to
     assert emails_by_to["120@example.com"]["subject"] == "Account Removal Notice"
-    assert "inactive for over 90 days and has been removed" in emails_by_to[
-        "120@example.com"
-    ]["body"]
+    assert (
+        "inactive for over 90 days and has been removed"
+        in emails_by_to["120@example.com"]["body"]
+    )
 
 
 def test_handler_success(monkeypatch):
@@ -115,6 +117,7 @@ def test_handler_success(monkeypatch):
 
 def test_handler_failure(monkeypatch):
     """Handler should return 500 when check_user_expiration raises."""
+
     def fake_check():
         raise RuntimeError("boom")
 
@@ -124,6 +127,7 @@ def test_handler_failure(monkeypatch):
 
     assert response["status_code"] == 500
     assert "boom" in response["body"]
+
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_handler_test_mode_staging_creates_and_deletes_user(monkeypatch):
