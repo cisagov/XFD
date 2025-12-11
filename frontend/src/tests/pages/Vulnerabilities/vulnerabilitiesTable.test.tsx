@@ -487,8 +487,25 @@ describe('Vulnerabilities component', () => {
     expect(ransomwareColumnHeader).toBeInTheDocument();
   });
 
-  it('matches snapshot', () => {
-    const { container } = render(<Vulnerabilities />);
+  // it('matches snapshot', () => {
+  //   const { container } = render(<Vulnerabilities />);
+  //   expect(container.firstChild).toMatchSnapshot();
+  // });
+
+  it('matches snapshot with vulnerabilities', async () => {
+    apiPostMock.mockResolvedValueOnce(sampleResponse);
+
+    const { container } = render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+
+    await screen.findByRole('grid');
+
     expect(container.firstChild).toMatchSnapshot();
   });
 });
