@@ -137,11 +137,7 @@ export const normalizeFilters = (
       //   acc[serverField] = cur.value as string | boolean | null;
       // }
 
-      if (cur.field === 'is_kev' || cur.field === 'is_kev_ransomware') {
-        acc[cur.field] = convertStringToBooleanValue(cur.field, cur.value);
-      } else {
-        acc[cur.field] = cur.value as string | boolean | null;
-      }
+      acc[cur.field] = convertStringToBooleanValue(cur.field, cur.value);
 
       // acc[serverField] = cur.value as string | boolean | null;
       // acc[cur.field] = cur.value as string | boolean | null;
