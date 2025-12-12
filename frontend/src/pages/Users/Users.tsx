@@ -548,6 +548,7 @@ export const Users: React.FC = () => {
                 }
               }
             }}
+            pageSizeOptions={[15, 30, 50, 100]}
             showToolbar
           />
         </Paper>
