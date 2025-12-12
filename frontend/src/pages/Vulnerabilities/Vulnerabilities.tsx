@@ -716,7 +716,11 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                     return { ...item, value: undefined };
                   }
 
-                  if (item.value.trim() === '' || item.value === null) {
+                  if (
+                    item.value === '' ||
+                    item.value === null ||
+                    (typeof item.value === 'string' && item.value.trim() === '')
+                  ) {
                     return { ...item, value: undefined };
                   }
 
