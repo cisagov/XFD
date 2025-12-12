@@ -496,4 +496,124 @@ describe('OrgMembers Component', () => {
       expect(dataGrid).toBeInTheDocument();
     });
   });
+
+  describe('Edge cases', () => {
+    it('should handle empty user roles array', () => {
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={[]}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      // Should still render the table
+      const dataGrid = screen.getByRole('grid');
+      expect(dataGrid).toBeInTheDocument();
+
+      // Should not have any remove buttons
+      const removeButtons = screen.queryAllByRole('button', { name: /Remove/ });
+      expect(removeButtons.length).toBe(0);
+    });
+
+    it('should update userRoles after successful removal', async () => {
+      mockApiPost.mockResolvedValueOnce({});
+
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />,
+        {
+          authContext: {
+            apiPost: mockApiPost
+          }
+        }
+      );
+
+      // Click remove button
+      const removeButtons = screen.getAllByLabelText(/Remove Jane Doe/);
+      fireEvent.click(removeButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click confirm button
+      const confirmButton = screen.getByTestId('confirm-button');
+      fireEvent.click(confirmButton);
+
+      // Wait for success dialog
+      await waitFor(() => {
+        expect(screen.getByTestId('info-dialog')).toBeInTheDocument();
+      });
+
+      // Click OK on info dialog
+      const okButton = screen.getByTestId('info-ok-button');
+      fireEvent.click(okButton);
+
+      // Verify setUserRoles was called to filter out the removed role
+      await waitFor(() => {
+        expect(mockSetUserRoles).toHaveBeenCalled();
+      });
+    });
+
+    it('should call correct API endpoint for role removal', async () => {
+      mockApiPost.mockResolvedValueOnce({});
+
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />,
+        {
+          authContext: {
+            apiPost: mockApiPost
+          }
+        }
+      );
+
+      const removeButtons = screen.getAllByLabelText(/Remove Jane Doe/);
+      fireEvent.click(removeButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      const confirmButton = screen.getByTestId('confirm-button');
+      fireEvent.click(confirmButton);
+
+      await waitFor(() => {
+        expect(mockApiPost).toHaveBeenCalledWith(
+          expect.stringMatching(/org-123.*role-1/),
+          { body: {} }
+        );
+      });
+    });
+
+    it('should handle undefined user gracefully', () => {
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />,
+        {
+          authContext: {
+            user: undefined,
+            apiPost: mockApiPost
+          }
+        }
+      );
+
+      // Component should still render
+      expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+
+      // Export should be enabled when user is undefined (default behavior)
+      const disableExportValue = screen.getByTestId('disable-export');
+      expect(disableExportValue.textContent).toBe('false');
+    });
+  });
 });
