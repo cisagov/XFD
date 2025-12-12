@@ -716,7 +716,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                     return { ...item, value: undefined };
                   }
 
-                  if (item.value === '' || item.value === null) {
+                  if (item.value.trim() === '' || item.value === null) {
                     return { ...item, value: undefined };
                   }
 
@@ -742,7 +742,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(cleanedModel.items);
-                  setHasActiveFilters(cleanedModel.items.length > 0);
+                  setHasActiveFilters(newKey !== '[]');
                   lastFilterValuesRef.current = newKey;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
