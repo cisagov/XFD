@@ -705,10 +705,29 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                setFilterModel(model);
+                const cleanedItems = model.items.map((item, index) => {
+                  const prevItem = filterModel.items[index];
+
+                  if (
+                    prevItem &&
+                    prevItem.field !== item.field &&
+                    prevItem.id === item.id
+                  ) {
+                    return { ...item, value: undefined };
+                  }
+
+                  if (item.value === '' || item.value === null) {
+                    return { ...item, value: undefined };
+                  }
+
+                  return item;
+                });
+
+                const cleanedModel = { ...model, items: cleanedItems };
+                setFilterModel(cleanedModel);
 
                 const { shouldUpdate, newKey } = shouldTriggerFilterUpdate(
-                  model.items,
+                  cleanedModel.items,
                   lastFilterValuesRef.current
                 );
 
@@ -722,8 +741,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
-                  setFilters(model.items);
-                  setHasActiveFilters(model.items.length > 0);
+                  setFilters(cleanedModel.items);
+                  setHasActiveFilters(cleanedModel.items.length > 0);
                   lastFilterValuesRef.current = newKey;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
