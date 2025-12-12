@@ -108,7 +108,7 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
         >
           <div
             aria-orientation="horizontal"
-            class="MuiDataGrid-toolbar MuiDataGrid-toolbarContainer css-1fg1mgt-MuiDataGrid-toolbar-MuiDataGrid-toolbarContainer"
+            class="MuiDataGrid-toolbar MuiDataGrid-toolbarContainer css-128ck7j-MuiDataGrid-toolbar-MuiDataGrid-toolbarContainer"
             role="toolbar"
           >
             <button
@@ -138,40 +138,47 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
               </span>
               Columns
             </button>
-            <button
-              aria-expanded="false"
-              aria-haspopup="true"
-              aria-label="Show filters"
-              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
-              data-mui-internal-clone-element="true"
-              id=":rka:"
-              tabindex="0"
-              type="button"
+            <span
+              class="MuiBadge-root css-1m1n7fi-MuiBadge-root"
             >
-              <span
-                class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+              <button
+                aria-expanded="false"
+                aria-haspopup="true"
+                aria-label="Show filters"
+                class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
+                data-mui-internal-clone-element="true"
+                id=":rka:"
+                tabindex="0"
+                type="button"
               >
                 <span
-                  class="MuiBadge-root css-63ezxx-MuiBadge-root"
+                  class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
                 >
-                  <svg
-                    aria-hidden="true"
-                    class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
-                    data-testid="FilterListIcon"
-                    focusable="false"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"
-                    />
-                  </svg>
                   <span
-                    class="MuiBadge-badge MuiBadge-standard MuiBadge-invisible MuiBadge-anchorOriginTopRight MuiBadge-anchorOriginTopRightRectangular MuiBadge-overlapRectangular MuiBadge-colorPrimary css-135b2n1-MuiBadge-badge"
-                  />
+                    class="MuiBadge-root css-63ezxx-MuiBadge-root"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                      data-testid="FilterListIcon"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"
+                      />
+                    </svg>
+                    <span
+                      class="MuiBadge-badge MuiBadge-standard MuiBadge-invisible MuiBadge-anchorOriginTopRight MuiBadge-anchorOriginTopRightRectangular MuiBadge-overlapRectangular MuiBadge-colorPrimary css-135b2n1-MuiBadge-badge"
+                    />
+                  </span>
                 </span>
-              </span>
-              Filters
-            </button>
+                Filters
+              </button>
+              <span
+                class="MuiBadge-badge MuiBadge-standard MuiBadge-invisible MuiBadge-anchorOriginTopRight MuiBadge-anchorOriginTopRightRectangular MuiBadge-overlapRectangular MuiBadge-colorPrimary css-135b2n1-MuiBadge-badge"
+              />
+            </span>
             <button
               aria-expanded="false"
               aria-haspopup="menu"
@@ -1294,10 +1301,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -1488,10 +1495,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -1682,10 +1689,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -1876,10 +1883,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -2070,10 +2077,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -2264,10 +2271,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -2458,10 +2465,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -2652,10 +2659,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -2846,10 +2853,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -3040,10 +3047,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -3234,10 +3241,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -3428,10 +3435,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -3622,10 +3629,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -3816,10 +3823,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -4010,10 +4017,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
@@ -4204,10 +4211,10 @@ exports[`Vulnerabilities component > matches snapshot with vulnerabilities 1`] =
                       tabindex="-1"
                     >
                       <span
-                        aria-label="45 days ago open"
+                        aria-label="46 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        45 days ago
+                        46 days ago
                       </span>
                     </div>
                     <div
