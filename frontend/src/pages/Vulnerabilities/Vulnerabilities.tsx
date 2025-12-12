@@ -102,6 +102,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       sort: 'desc'
     }
   ]);
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   useEffect(() => {
     if (state) {
@@ -722,6 +723,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(model.items);
+                  setHasActiveFilters(model.items.length > 0);
                   lastFilterValuesRef.current = newKey;
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
@@ -752,7 +754,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   children: onlyOpenVulns
                     ? showAllVulnsButton
                     : showOpenVulnsButton,
-                  exportTitle: 'Vulnerabilities'
+                  exportTitle: 'Vulnerabilities',
+                  hasActiveFilters: hasActiveFilters
                 } as any,
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {
