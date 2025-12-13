@@ -11,8 +11,9 @@ import dotenv from 'dotenv';
  */
 
 dotenv.config();
-
-const reporters: any[] = process.env.CI
+const IS_CI =
+  (process.env.CI ?? '').toLowerCase() === 'true' || process.env.CI === '1';
+const reporters: any[] = IS_CI
   ? [
       ['list', { printSteps: true }],
       ['github'] // only enabled in CI/CD
@@ -28,7 +29,7 @@ export default defineConfig({
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
-  forbidOnly: !!process.env.CI,
+  forbidOnly: IS_CI,
   /* Retry on CI only */
   retries: 3,
   /* Opt out of parallel tests on CI. */
@@ -39,7 +40,7 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PW_XFD_URL,
-    headless: !!process.env.CI || false,
+    headless: IS_CI,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry'
