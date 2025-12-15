@@ -203,7 +203,7 @@ resource "aws_kms_key" "django_env" {
         Sid    = "AllowRootAccountAdmin"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          AWS = "arn:${var.aws_partition}:iam::${data.aws_caller_identity.current.account_id}:root"
         }
         Action   = "kms:*"
         Resource = "*"
@@ -212,7 +212,7 @@ resource "aws_kms_key" "django_env" {
         Sid    = "AllowLambdaDecrypt"
         Effect = "Allow"
         Principal = {
-          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+          AWS = "arn:${var.aws_partition}:iam::${data.aws_caller_identity.current.account_id}:root"
         }
         Action = [
           "kms:Decrypt",
