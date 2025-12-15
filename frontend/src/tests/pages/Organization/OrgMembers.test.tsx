@@ -238,7 +238,7 @@ describe('OrgMembers Component', () => {
       expect(screen.queryByTestId('export-button')).not.toBeInTheDocument();
     });
 
-    it('should enable export for standard users', () => {
+    it('should disable export for standard users', () => {
       render(
         <OrgMembers
           organization={mockOrganization}
@@ -271,8 +271,8 @@ describe('OrgMembers Component', () => {
       );
 
       const disableExportValue = screen.getByTestId('disable-export');
-      expect(disableExportValue.textContent).toBe('false');
-      expect(screen.getByTestId('export-button')).toBeInTheDocument();
+      expect(disableExportValue.textContent).toBe('true');
+      expect(screen.queryByTestId('export-button')).not.toBeInTheDocument();
     });
   });
 
@@ -611,9 +611,9 @@ describe('OrgMembers Component', () => {
       // Component should still render
       expect(screen.getByText('Jane Doe')).toBeInTheDocument();
 
-      // Export should be enabled when user is undefined (default behavior)
+      // Export should be disabled for all users, including undefined
       const disableExportValue = screen.getByTestId('disable-export');
-      expect(disableExportValue.textContent).toBe('false');
+      expect(disableExportValue.textContent).toBe('true');
     });
   });
 });
