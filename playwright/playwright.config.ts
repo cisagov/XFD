@@ -11,17 +11,9 @@ import dotenv from 'dotenv';
  */
 
 dotenv.config();
+
 const IS_CI =
   (process.env.CI ?? '').toLowerCase() === 'true' || process.env.CI === '1';
-const reporters: any[] = IS_CI
-  ? [
-      ['list', { printSteps: true }],
-      ['github'] // only enabled in CI/CD
-    ]
-  : [
-      ['json', { outputFile: 'playwright-report/results.json' }],
-      ['html', { outputFolder: 'playwright-report/html', open: 'never' }]
-    ];
 
 export default defineConfig({
   globalSetup: './global-setup',
@@ -35,12 +27,22 @@ export default defineConfig({
   /* Opt out of parallel tests on CI. */
   workers: 2,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: reporters,
+  reporter: IS_CI
+    ? [
+        ['dot'],
+        ['json', { outputFile: 'playwright-report/results.json' }],
+        ['html', { outputFolder: 'playwright-report/html', open: 'never' }]
+      ]
+    : [
+        ['list', { printSteps: true }],
+        ['json', { outputFile: 'playwright-report/results.json' }],
+        ['html', { outputFolder: 'playwright-report/html', open: 'never' }]
+      ],
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PW_XFD_URL,
-    headless: IS_CI,
+    headless: !!process.env.CI || false,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry'
@@ -49,14 +51,7 @@ export default defineConfig({
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'ui-regression',
-      testMatch: ['**/*.spec.ts'],
-      testIgnore: ['**/*.axe.spec.ts'],
-      use: { ...devices['Desktop Chrome'] }
-    },
-    {
-      name: 'accessibility',
-      testMatch: ['**/*.axe.spec.ts'],
+      name: 'crossfeed',
       use: { ...devices['Desktop Chrome'] }
     }
   ]

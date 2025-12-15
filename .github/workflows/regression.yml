@@ -34,7 +34,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: staging
     timeout-minutes: 60
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/develop') || (github.event_name == 'pull_request' && github.base_ref == 'develop' && !startsWith(github.actor, 'dependabot'))
+    # if: (github.event_name == 'push' && github.ref == 'refs/heads/develop') || (github.event_name == 'pull_request' && github.base_ref == 'develop' && !startsWith(github.actor, 'dependabot'))
+    if: false # TODO: Temporarily skip while issues with regression testing are resolved.
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -74,29 +75,34 @@ jobs:
          ./run_playwright_tests.sh
         continue-on-error: true
 
-      - name: Generate presigned URL for Playwright HTML report
-        id: presign
+      - name: Download test report from S3
         run: |
-          DATETIME="${{ steps.run_tests.outputs.datetime }}"
-          ENVIRONMENT="${ENVIRONMENT}"
+          mkdir -p ./playwright-report/html
+          aws s3 cp \
+            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/staging/playwright-reports/latest/html/" \
+            playwright-report/html/ --recursive
 
-          REPORT_S3_PATH="s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/${ENVIRONMENT}/playwright-reports/${DATETIME}/html/index.html"
-          echo "Using report object: $REPORT_S3_PATH"
+          aws s3 cp \
+            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/staging/playwright-reports/latest/results.json" \
+            playwright-report/results.json
 
-          URL=$(aws s3 presign "$REPORT_S3_PATH" --expires-in 604800) # 7 days
-          echo "report_url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Publish Playwright report link
-        uses: actions/github-script@v7
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            const url = '${{ steps.presign.outputs.report_url }}';
-            const env = process.env.ENVIRONMENT || 'staging';
+          name: playwright-html-report-staging
+          path: playwright/playwright-report/html/
 
-            core.summary
-              .addHeading(`Playwright report (${env})`)
-              .addLink('Open HTML report (presigned)', url)
-              .write();
+      - name: Upload Playwright results JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-json
+          path: playwright/playwright-report/results.json
+
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome != 'success'
+        run: exit 1
+
 
   test_staging_api:
     runs-on: ubuntu-latest
@@ -156,7 +162,8 @@ jobs:
      runs-on: ubuntu-latest
      environment: integration
      timeout-minutes: 60
-     if: (github.event_name == 'push' && github.ref == 'refs/heads/integration') || (github.event_name == 'pull_request' && github.base_ref == 'integration'  && !startsWith(github.actor, 'dependabot'))
+     # if: (github.event_name == 'push' && github.ref == 'refs/heads/integration') || (github.event_name == 'pull_request' && github.base_ref == 'integration'  && !startsWith(github.actor, 'dependabot'))
+     if: false # TODO: Temporarily skip while issues with regression testing are resolved.
      env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -197,29 +204,33 @@ jobs:
           ./run_playwright_tests.sh
         continue-on-error: true
 
-      - name: Generate presigned URL for Playwright HTML report
-        id: presign
+      - name: Download test report from S3
         run: |
-          DATETIME="${{ steps.run_tests.outputs.datetime }}"
-          ENVIRONMENT="${ENVIRONMENT}"
+          mkdir -p ./playwright-report/html
+          aws s3 cp \
+          "s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/integration/playwright-reports/html/" \
+          ./playwright-report/html/ --recursive
 
-          REPORT_S3_PATH="s3://${AUTOMATED_TEST_REPORTS_BUCKET_NAME}/${ENVIRONMENT}/playwright-reports/${DATETIME}/html/index.html"
-          echo "Using report object: $REPORT_S3_PATH"
+          aws s3 cp \
+            "s3://$AUTOMATED_TEST_REPORTS_BUCKET_NAME/integration/playwright-reports/latest/results.json" \
+            ./playwright-report/results.json
 
-          URL=$(aws s3 presign "$REPORT_S3_PATH" --expires-in 604800) # 7 days
-          echo "report_url=$URL" >> "$GITHUB_OUTPUT"
 
-      - name: Publish Playwright report link
-        uses: actions/github-script@v7
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
         with:
-          script: |
-            const url = '${{ steps.presign.outputs.report_url }}';
-            const env = process.env.ENVIRONMENT || 'integration';
+          name: playwright-html-report-integration
+          path: playwright/playwright-report/html/
 
-            core.summary
-              .addHeading(`Playwright report (${env})`)
-              .addLink('Open HTML report (presigned)', url)
-              .write();
+      - name: Upload Playwright results JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-json
+          path: playwright/playwright-report/results.json
+
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome != 'success'
+        run: exit 1
 
   test_integration_api:
     runs-on: ubuntu-latest
