@@ -2,7 +2,7 @@
   "author": "",
   "description": "",
   "devDependencies": {
-    "serverless": "^3.30",
+    "serverless": "^4.28",
     "serverless-better-credentials": "^2.0.0",
     "serverless-domain-manager": "^7.0",
     "serverless-dotenv-plugin": "^6.0.0",
