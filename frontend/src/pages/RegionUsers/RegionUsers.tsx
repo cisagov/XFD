@@ -485,7 +485,7 @@ export const RegionUsers: React.FC = () => {
         return { success: false, body: e.message };
       }
     },
-    [apiPost]
+    [apiPost, apiRefCurrentUsers, apiRefPendingUsers, errorStates]
   );
 
   const addOrgToUser = useCallback(
