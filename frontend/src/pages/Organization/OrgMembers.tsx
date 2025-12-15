@@ -134,10 +134,7 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
             toolbar: {
-              disableExport:
-                user?.user_type === 'globalAdmin' ||
-                user?.user_type === 'regionalAdmin' ||
-                user?.user_type === 'globalView',
+              disableExport: true,
               exportTitle: organization?.name + ' Members'
             } as any,
             basePopper: {
