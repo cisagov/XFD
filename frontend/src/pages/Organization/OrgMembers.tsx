@@ -133,7 +133,10 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
-            toolbar: { exportTitle: organization?.name + ' Members' } as any,
+            toolbar: {
+              disableExport: true,
+              exportTitle: organization?.name + ' Members'
+            } as any,
             basePopper: {
               placement: 'bottom-start'
             }
