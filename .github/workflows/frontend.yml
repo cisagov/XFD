@@ -61,7 +61,7 @@ jobs:
         run: npm run build
         working-directory: ./frontend
       - name: Run tests with coverage
-        run: npx vitest --run --coverage -u
+        run: npx vitest --run --coverage
         working-directory: ./frontend
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
