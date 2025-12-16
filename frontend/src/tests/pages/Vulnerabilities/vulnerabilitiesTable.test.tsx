@@ -509,7 +509,6 @@ describe('Vulnerabilities component', () => {
         user: testUser as unknown as AuthUser
       }
     });
-
     await screen.findByRole('grid');
     expect(container.firstChild).toMatchSnapshot();
 
