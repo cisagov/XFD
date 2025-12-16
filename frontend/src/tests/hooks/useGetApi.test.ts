@@ -13,6 +13,10 @@ describe('useGetApi', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Verifies the hook calls apiGet with the provided path + init options
+   * and returns the resolved response.
+   */
   it('calls apiGet with the provided path and init and returns the result', async () => {
     const apiGet = vi.fn().mockResolvedValue({ ok: true });
     vi.mocked(useAuthContext).mockReturnValue({
@@ -34,6 +38,9 @@ describe('useGetApi', () => {
     expect(response).toEqual({ ok: true });
   });
 
+  /**
+   * Verifies the hook passes an empty init object to apiGet when init is omitted.
+   */
   it('uses an empty init object when none is provided', async () => {
     const apiGet = vi.fn().mockResolvedValue('value');
     vi.mocked(useAuthContext).mockReturnValue({
@@ -49,6 +56,9 @@ describe('useGetApi', () => {
     expect(response).toBe('value');
   });
 
+  /**
+   * Verifies errors from apiGet are not swallowed and bubble up to the caller.
+   */
   it('propagates errors from apiGet', async () => {
     const error = new Error('Request failed');
     const apiGet = vi.fn().mockRejectedValue(error);

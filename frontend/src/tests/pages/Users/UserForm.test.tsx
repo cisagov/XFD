@@ -177,6 +177,11 @@ describe('UserForm', () => {
     mockRemoveUserFromOrganization.mockResolvedValue(undefined);
   });
 
+  /**
+   * Verifies a successful submit calls updateUser with the correct payload,
+   * does not change org membership when org_id is unchanged, updates the users
+   * list, closes the dialog, and shows a success message.
+   */
   it('submits successfully and updates users list', async () => {
     const user = userEvent.setup();
 
@@ -223,6 +228,10 @@ describe('UserForm', () => {
     expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
   });
 
+  /**
+   * Verifies a failed update surfaces the error to UI state by calling
+   * setApiErrorStates and showing a failure message to the user.
+   */
   it('handles updateUser error and sets error state', async () => {
     const user = userEvent.setup();
 
@@ -261,6 +270,10 @@ describe('UserForm', () => {
     expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
   });
 
+  /**
+   * Verifies when org_id changes in edit mode, the form removes the user from
+   * the original organization/role and then adds them to the new organization.
+   */
   it('removes and re-adds user to organization when org_id changes', async () => {
     const user = userEvent.setup();
 
@@ -319,6 +332,10 @@ describe('UserForm', () => {
     expect(mockAddUserToOrganization).toHaveBeenCalledWith('org-2', 1, 'user');
   });
 
+  /**
+   * Verifies the email field is locked in edit mode to prevent changing
+   * an existing user’s email address.
+   */
   it('keeps email disabled in edit mode', () => {
     render(
       <UserForm
@@ -339,6 +356,10 @@ describe('UserForm', () => {
     expect(emailInput).toBeDisabled();
   });
 
+  /**
+   * Verifies first name validation rejects numeric input and shows the
+   * expected helper text.
+   */
   it('shows validation error for invalid first name', async () => {
     const user = userEvent.setup();
 
@@ -372,6 +393,10 @@ describe('UserForm', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Verifies the organization field is required and shows a helper error
+   * when org_id is empty.
+   */
   it('shows organization required error helper when org_id is empty', () => {
     const valuesWithoutOrg = {
       ...baseValues,
@@ -397,6 +422,10 @@ describe('UserForm', () => {
     expect(screen.getByText('Organization is required')).toBeInTheDocument();
   });
 
+  /**
+   * Verifies the update error alert renders when getUpdateUserError is present,
+   * so backend/update failures are visible to the user.
+   */
   it('renders update error alert when getUpdateUserError is present', () => {
     const apiErrorStatesWithUpdateError = {
       ...baseApiErrorStates,
@@ -426,6 +455,10 @@ describe('UserForm', () => {
     ).toBeInTheDocument();
   });
 
+  /**
+   * Verifies org fetch failures propagate into apiErrorStates.getOrgsError
+   * via setApiErrorStates so the UI can show org-loading errors.
+   */
   it('updates getOrgsError via setApiErrorStates when org fetch fails', async () => {
     const errorMessage = 'Failed to fetch orgs. Bad request';
 
@@ -465,6 +498,9 @@ describe('UserForm', () => {
     expect(updatedState.getOrgsError).toBe(errorMessage);
   });
 
+  /**
+   * Verifies create mode starts with empty inputs for new user creation.
+   */
   it('in create mode initializes fields as empty', () => {
     const createModeValues = {
       ...baseValues,
@@ -502,6 +538,10 @@ describe('UserForm', () => {
     expect(emailInput).toHaveValue('');
   });
 
+  /**
+   * Verifies edit mode pre-populates the form with the selected user’s
+   * existing data.
+   */
   it('in edit mode pre-populates all existing user data', () => {
     render(
       <UserForm
@@ -527,6 +567,10 @@ describe('UserForm', () => {
     expect(emailInput).toHaveValue('jane@example.com');
   });
 
+  /**
+   * Verifies create-mode email validation rejects an invalid email format,
+   * shows the helper text, and prevents submission.
+   */
   it('shows validation error for invalid email format in create mode', async () => {
     const user = userEvent.setup();
 
@@ -566,6 +610,10 @@ describe('UserForm', () => {
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 
+  /**
+   * Verifies the confirm dialog is disabled during an in-flight submission
+   * to prevent duplicate requests, and re-enables/closes when finished.
+   */
   it('disables the dialog while submission is in progress', async () => {
     const user = userEvent.setup();
 

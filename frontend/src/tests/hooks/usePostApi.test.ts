@@ -13,6 +13,10 @@ describe('usePostApi', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Verifies the hook calls apiPost with the provided path + init options
+   * and returns the resolved response.
+   */
   it('calls apiPost with the provided path and init and returns the result', async () => {
     const apiPost = vi.fn().mockResolvedValue({ id: '123' });
     vi.mocked(useAuthContext).mockReturnValue({
@@ -37,6 +41,9 @@ describe('usePostApi', () => {
     expect(response).toEqual({ id: '123' });
   });
 
+  /**
+   * Verifies the hook passes an empty init object to apiPost when init is omitted.
+   */
   it('uses an empty init object when none is provided', async () => {
     const apiPost = vi.fn().mockResolvedValue('ok');
     vi.mocked(useAuthContext).mockReturnValue({
@@ -52,6 +59,9 @@ describe('usePostApi', () => {
     expect(response).toBe('ok');
   });
 
+  /**
+   * Verifies errors from apiPost are not swallowed and bubble up to the caller.
+   */
   it('propagates errors from apiPost', async () => {
     const error = new Error('Post failed');
     const apiPost = vi.fn().mockRejectedValue(error);

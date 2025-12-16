@@ -13,6 +13,10 @@ describe('useRemoveUserFromOrganization', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Verifies the hook calls the expected endpoint (including org + role ids)
+   * and sends an empty body when removing a user from an organization.
+   */
   it('calls the correct endpoint with organization id and role id', async () => {
     const mockPostApi = vi.fn().mockResolvedValue(undefined);
     vi.mocked(postApiModule.usePostApi).mockReturnValue(mockPostApi);
@@ -34,6 +38,10 @@ describe('useRemoveUserFromOrganization', () => {
     expect(calledInit.body).toEqual({});
   });
 
+  /**
+   * Verifies errors from the underlying postApi call are not swallowed
+   * and are surfaced to the caller.
+   */
   it('propagates errors from postApi', async () => {
     const error = new Error('Remove user failed');
     const mockPostApi = vi.fn().mockRejectedValue(error);

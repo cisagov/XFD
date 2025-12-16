@@ -13,6 +13,10 @@ describe('useAddUserToOrganization', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Verifies the hook calls the expected endpoint and sends the correct body
+   * (user_id + role) when adding a user to an organization.
+   */
   it('calls the correct endpoint with organization id, user id, and role', async () => {
     const mockPostApi = vi.fn().mockResolvedValue(undefined);
     vi.mocked(postApiModule.usePostApi).mockReturnValue(mockPostApi);
@@ -37,6 +41,10 @@ describe('useAddUserToOrganization', () => {
     });
   });
 
+  /**
+   * Verifies errors from the underlying postApi call are not swallowed
+   * and are surfaced to the caller.
+   */
   it('propagates errors from postApi', async () => {
     const error = new Error('Add user failed');
     const mockPostApi = vi.fn().mockRejectedValue(error);

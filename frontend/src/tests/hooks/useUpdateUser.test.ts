@@ -13,6 +13,10 @@ describe('useUpdateUser', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Verifies the hook calls the update endpoint with the correct user id
+   * and passes the provided body as the request payload.
+   */
   it('calls the correct endpoint with the provided body', async () => {
     const mockPostApi = vi.fn().mockResolvedValue(undefined);
 
@@ -41,6 +45,10 @@ describe('useUpdateUser', () => {
     expect(calledInit.body).toEqual(body);
   });
 
+  /**
+   * Verifies the hook does not swallow errors and re-throws failures
+   * from the underlying post request.
+   */
   it('propagates errors from postApi', async () => {
     const error = new Error('Request failed');
     const mockPostApi = vi.fn().mockRejectedValue(error);

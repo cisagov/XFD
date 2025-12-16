@@ -13,6 +13,10 @@ describe('useOrganizationsByRegion', () => {
     vi.clearAllMocks();
   });
 
+  /**
+   * Verifies the hook fetches organizations for a given region id and
+   * exposes the returned list after loading completes.
+   */
   it('fetches organizations for the given region id and exposes them', async () => {
     const mockOrganizations: Organization[] = [
       { id: 'org-1', name: 'Org One', acronym: 'ONE' } as Organization
@@ -39,6 +43,10 @@ describe('useOrganizationsByRegion', () => {
     expect(String(calledPath)).toContain('region-1');
   });
 
+  /**
+   * Verifies the hook does not make a request when no region id is provided,
+   * and returns an empty list with no error.
+   */
   it('does not call API when region id is null', async () => {
     const apiGet = vi.fn();
     vi.mocked(useAuthContext).mockReturnValue({
@@ -58,6 +66,10 @@ describe('useOrganizationsByRegion', () => {
     expect(result.current.errorMessage).toBe('');
   });
 
+  /**
+   * Verifies the hook captures request failures and exposes a user-friendly
+   * error message while returning an empty organizations list.
+   */
   it('sets errorMessage when API call fails', async () => {
     const error = Object.assign(new Error('Request failed'), {
       response: { data: { detail: 'Something went wrong' } }
