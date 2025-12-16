@@ -6,6 +6,7 @@ import os
 
 # Third-Party Libraries
 import django
+from django.db.models.query import Q
 from django.utils.timezone import now
 
 # Django setup
@@ -23,15 +24,16 @@ LOGGER = logging.getLogger(__name__)
 
 
 def check_user_expiration():
-    """Check user inactivity and take actions: notify (30 days), deactivate (45 days), and delete (90 days)."""
+    """Check user inactivity and take actions: notify (30 days) and delete (45 days)."""
     today = now()
     cutoff_30_days = today - timedelta(days=30)
     cutoff_45_days = today - timedelta(days=45)
-    cutoff_90_days = today - timedelta(days=90)
 
     # Users to notify (30 days of inactivity)
     users_to_notify = User.objects.filter(
-        last_logged_in__lt=cutoff_30_days, last_logged_in__gte=cutoff_45_days
+        last_logged_in__lt=cutoff_30_days,
+        last_logged_in__gte=cutoff_45_days,
+        last_notified_30__isnull=True,
     )
 
     # Notify users of inactivity (30 days)
@@ -40,7 +42,7 @@ def check_user_expiration():
         body = """
         Hello {first_name} {last_name},
 
-        Your Cyber Hygiene Dashboard account has been inactive for over 30 days. If your account reaches 90 days of inactivity,
+        Your Cyber Hygiene Dashboard account has been inactive for over 30 days. If your account reaches 45 days of inactivity,
         you will need to submit a new account approval request.
 
         Thank you,
@@ -53,40 +55,21 @@ def check_user_expiration():
         )
         send_email(user.email, subject, body)
         LOGGER.info("30-day inactivity notice sent to %s.", user.email)
+        user.last_notified_30 = now()
+        user.save(update_fields=["last_notified_30"])
 
-    # Users to deactivate (45 days of inactivity)
-    users_to_deactivate = User.objects.filter(
-        last_logged_in__lt=cutoff_45_days, last_logged_in__gte=cutoff_90_days
+    # Users to remove (45 days of inactivity)
+    users_to_remove = User.objects.filter(
+        Q(last_logged_in__lt=cutoff_45_days)
+        | Q(last_logged_in__isnull=True, created_at__lt=cutoff_45_days)
     )
 
-    for user in users_to_deactivate:
+    for user in users_to_remove:
         subject = "Account Deactivation Notice"
         body = """
         Hello {first_name} {last_name},
 
-        Your Cyber Hygiene Dashboard account has been inactive for over 45 days. If your account reaches 90 days of inactivity,
-        you will need to submit a new account approval request.
-
-        Thank you,
-        The Cyber Hygiene (CyHy) Team
-        CISA Vulnerability Management
-        Cybersecurity and Infrastructure Security Agency (CISA)
-        Email: vulnerability@cisa.dhs.gov
-        """.format(
-            first_name=user.first_name, last_name=user.last_name
-        )
-        # Send inactivity notification
-        send_email(user.email, subject, body)
-
-    # Users to remove (90 days of inactivity)
-    users_to_remove = User.objects.filter(last_logged_in__lt=cutoff_90_days)
-
-    for user in users_to_remove:
-        subject = "Account Removal Notice"
-        body = """
-        Hello {first_name} {last_name},
-
-        Your Cyber Hygiene Dashboard account has been inactive for over 90 days and has been removed.
+        Your Cyber Hygiene Dashboard account has been inactive for over 45 days and has been removed.
         You will need to recreate your account if you wish to use our services again.
 
         Thank you,
@@ -104,7 +87,7 @@ def check_user_expiration():
         try:
             user.delete()
             LOGGER.info(
-                "Removed user %s from the database due to 90 days of inactivity.",
+                "Removed user %s from the database due to 45 days of inactivity.",
                 user.email,
             )
         except Exception as e:
@@ -117,8 +100,8 @@ def run_test_expiration_flow(email: str):
 
     - Only called when STAGE == 'staging'
     - Create a new user with the given email
-    - Simulate 30/45/90 day inactivity by updating last_logged_in and calling
-      check_user_expiration() three times
+    - Simulate 30/45 day inactivity by updating last_logged_in and calling
+      check_user_expiration() two times
     - Ensure the user gets deleted; if not, try once more and then raise an error
     """
     if not email:
@@ -136,7 +119,6 @@ def run_test_expiration_flow(email: str):
     # NOTE: We use +1 day to satisfy the strict `<` comparisons in check_user_expiration
     thirty_plus = baseline_now - timedelta(days=31)  # > 30 days inactive
     fortyfive_plus = baseline_now - timedelta(days=46)  # > 45 days inactive
-    ninety_plus = baseline_now - timedelta(days=91)  # > 90 days inactive
 
     # 1) Create user as ~30-day inactive and run
     user = User.objects.create(
@@ -152,13 +134,6 @@ def run_test_expiration_flow(email: str):
     if User.objects.filter(id=user.id).exists():
         user = User.objects.get(id=user.id)
         user.last_logged_in = fortyfive_plus
-        user.save(update_fields=["last_logged_in"])
-        check_user_expiration()
-
-    # 3) If still exists, move them to ~90+ days inactive and run again
-    if User.objects.filter(id=user.id).exists():
-        user = User.objects.get(id=user.id)
-        user.last_logged_in = ninety_plus
         user.save(update_fields=["last_logged_in"])
         check_user_expiration()
 

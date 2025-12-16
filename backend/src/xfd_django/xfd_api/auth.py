@@ -383,6 +383,7 @@ async def process_user(decoded_token):
 
     # Update common fields
     user.last_logged_in = datetime.now()
+    user.notified_30_at = None
     user.cognito_username = decoded_token.get("cognito:username")
     user.cognito_use_case_description = decoded_token.get("nickname")
     user.cognito_email_verified = decoded_token.get("email_verified")
