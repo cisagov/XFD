@@ -17,7 +17,11 @@ const IS_CI =
   process.env.CI === '1';
 
 const reporters: any[] = IS_CI
-  ? [['dot'], ['github']]
+  ? [
+      ['dot'],
+      ['json', { outputFile: 'playwright-report/results.json' }],
+      ['html', { outputFolder: 'playwright-report/html', open: 'never' }]
+    ]
   : [
       ['list', { printSteps: true }],
       ['json', { outputFile: 'playwright-report/results.json' }],
