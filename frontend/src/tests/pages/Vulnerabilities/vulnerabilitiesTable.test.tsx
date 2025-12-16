@@ -1,7 +1,6 @@
 import React from 'react';
-import { render, screen, testUser, waitFor } from 'test-utils';
-import userEvent from '@testing-library/user-event';
-import { makeVulnResponse, makeVuln } from '@/test-utils/vulnerabilities';
+import { render, screen, testUser } from 'test-utils';
+import { makeVulnResponse } from '@/test-utils/vulnerabilities';
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
 import type { AuthUser } from '../../../context/';
 import Vulnerabilities from '../../../pages/Vulnerabilities/Vulnerabilities';
@@ -487,6 +486,30 @@ describe('Vulnerabilities component', () => {
     expect(ransomwareColumnHeader).toBeInTheDocument();
   });
 
+  const snapshotResponse = makeVulnResponse(3, (idx) => ({
+    title: `Snapshot Vuln ${idx + 1}`,
+    is_kev: idx === 0 ? true : idx === 1 ? false : null,
+    is_kev_ransomware: idx === 0 ? true : idx === 1 ? false : null
+  }));
+
+  it('matches snapshot after loading data', async () => {
+    // Mock Date.now() to make snapshot deterministic
+    // Test data uses October 27, 2025, so we set "current" date to December 11, 2025
+    // This gives consistent "45 days ago" calculations
+    const mockNow = new Date('2025-12-11T00:00:00Z').getTime();
+    const originalDateNow = Date.now;
+    Date.now = vi.fn(() => mockNow);
+
+    apiPostMock.mockResolvedValueOnce(snapshotResponse);
+    const { container } = render(<Vulnerabilities />, {
+      initialHistory: ['/vulnerabilities'],
+      authContext: {
+        apiPost: apiPostMock,
+        currentOrganization: null,
+        user: testUser as unknown as AuthUser
+      }
+    });
+    await screen.findByRole('grid');
   it('matches snapshot', () => {
     // Mock the current date to make snapshot deterministic
     // Test data uses October 27, 2025, so we set "current" date to December 11, 2025
@@ -497,6 +520,8 @@ describe('Vulnerabilities component', () => {
 
     const { container } = render(<Vulnerabilities />);
     expect(container.firstChild).toMatchSnapshot();
+
+    Date.now = originalDateNow;
 
     vi.useRealTimers();
   });

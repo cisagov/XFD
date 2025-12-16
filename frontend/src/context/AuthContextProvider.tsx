@@ -47,7 +47,9 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     const isLocalhost =
       window.location.hostname === 'localhost' ||
       window.location.hostname === '127.0.0.1';
-    const domainEnv = import.meta.env.VITE_COOKIE_DOMAIN as string | undefined;
+    const domainEnv = import.meta.env.VITE_OKTA_COOKIE_DOMAIN as
+      | string
+      | undefined;
     return {
       path: '/',
       // Only set a domain attribute if NOT on localhost (cookie APIs treat localhost specially)
