@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
+exports[`Vulnerabilities component > matches snapshot after loading sample data 1`] = `
 <div
   class="MuiBox-root css-ktvys1"
 >
