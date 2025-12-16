@@ -441,10 +441,10 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           (op) => op.value === 'is'
         ),
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev;
+          const value = cellValues.row.is_kev;
           return (
-            <Box component="span" aria-label={`KEV status ${v}`}>
-              {v}
+            <Box component="span" aria-label={`KEV status ${value}`}>
+              {value}
             </Box>
           );
         }

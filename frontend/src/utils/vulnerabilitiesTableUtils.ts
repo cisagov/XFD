@@ -171,10 +171,10 @@ export const shouldTriggerFilterUpdate = (
       (item) =>
         item.value !== undefined && item.value !== null && item.value !== ''
     )
-    .map((f) => ({
-      field: f.field,
-      operator: f.operator,
-      value: f.value
+    .map((filter) => ({
+      field: filter.field,
+      operator: filter.operator,
+      value: filter.value
     }))
     .sort((a, b) => a.field.localeCompare(b.field));
 
