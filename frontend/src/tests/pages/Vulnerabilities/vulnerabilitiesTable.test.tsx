@@ -487,11 +487,6 @@ describe('Vulnerabilities component', () => {
     expect(ransomwareColumnHeader).toBeInTheDocument();
   });
 
-  // it('matches snapshot', () => {
-  //   const { container } = render(<Vulnerabilities />);
-  //   expect(container.firstChild).toMatchSnapshot();
-  // });
-
   it('matches snapshot with vulnerabilities', async () => {
     apiPostMock.mockResolvedValueOnce(sampleResponse);
 
