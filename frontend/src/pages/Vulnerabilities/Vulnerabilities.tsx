@@ -85,11 +85,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     items: []
   });
   const filterTimerRef = useRef<number | null>(null);
-  const lastFilterValuesRef = useRef<string>('[]');
-
-  const lastValidFilterModelRef = useRef<GridFilterModel>({ items: [] });
-  const filterPanelTimeoutRef = useRef<number | null>(null);
-
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const lastFiltersKeyRef = useRef<string>(JSON.stringify(filters));
@@ -713,9 +708,9 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 const cleanedModel = cleanFilterModelItems(model, filterModel);
                 setFilterModel(cleanedModel);
 
-                const { shouldUpdate, newKey } = shouldTriggerFilterUpdate(
+                const shouldUpdate = shouldTriggerFilterUpdate(
                   cleanedModel.items,
-                  lastFilterValuesRef.current
+                  filterModel.items
                 );
 
                 if (!shouldUpdate) {
@@ -729,8 +724,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(cleanedModel.items);
-                  setHasActiveFilters(newKey !== '[]');
-                  lastFilterValuesRef.current = newKey;
+                  setHasActiveFilters(cleanedModel.items.length > 0);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
                 }, 1000);
@@ -769,10 +763,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 },
                 panel: {
                   onClose: () => {
-                    if (filterPanelTimeoutRef.current) {
-                      clearTimeout(filterPanelTimeoutRef.current);
-                      filterPanelTimeoutRef.current = null;
-                    }
+                    // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                    // Prevents mismatch between filter model and applied filters.
 
                     const hasIncompleteFilters = filterModel.items.some(
                       (item) => item.value === undefined
@@ -782,8 +774,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                       setFilterModel({ items: [] });
                       setFilters([]);
                       setHasActiveFilters(false);
-                      lastFilterValuesRef.current = '[]';
-                      lastValidFilterModelRef.current = { items: [] };
                       setPaginationModel((prev) => ({ ...prev, page: 0 }));
                     }
                   }

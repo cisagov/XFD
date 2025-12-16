@@ -162,41 +162,43 @@ export const normalizeFilters = (
 };
 
 export const shouldTriggerFilterUpdate = (
-  modelItems: GridFilterItem[],
-  lastFilterValuesKey: string
-): { shouldUpdate: boolean; newKey: string } => {
-  // Extract filters with actual values
-  const filtersWithValues = modelItems
-    .filter(
-      (item) =>
-        item.value !== undefined && item.value !== null && item.value !== ''
-    )
-    .map((filter) => ({
-      field: filter.field,
-      operator: filter.operator,
-      value: filter.value
-    }))
-    .sort((a, b) => a.field.localeCompare(b.field));
+  newItems: GridFilterItem[],
+  previousItems: GridFilterItem[]
+): boolean => {
+  const newComplete = newItems.filter(
+    (item) =>
+      item.value !== undefined && item.value !== null && item.value !== ''
+  );
 
-  const valuesKey = JSON.stringify(filtersWithValues);
-  const hadFilters = lastFilterValuesKey !== '[]';
-  const hasFilters = filtersWithValues.length > 0;
+  const prevComplete = previousItems.filter(
+    (item) =>
+      item.value !== undefined && item.value !== null && item.value !== ''
+  );
 
-  // No change - skip update
-  if (valuesKey === lastFilterValuesKey) {
-    return { shouldUpdate: false, newKey: lastFilterValuesKey };
+  // Check intermediate state
+  if (
+    prevComplete.length > 0 &&
+    newComplete.length === 0 &&
+    newItems.length > 0
+  ) {
+    return false;
   }
 
-  // Intermediate state: had filters, now have none, but items exist with undefined values
-  // This happens when changing filter fields - skip to avoid unnecessary API calls
-  if (hadFilters && !hasFilters && modelItems.length > 0) {
-    return { shouldUpdate: false, newKey: lastFilterValuesKey };
+  // Different lengths = different filters
+  if (newComplete.length !== prevComplete.length) {
+    return true;
   }
 
-  // Values actually changed - trigger update
-  return { shouldUpdate: true, newKey: valuesKey };
+  // Compare each filter item
+  return newComplete.some((newItem, index) => {
+    const prevItem = prevComplete[index];
+    return (
+      newItem.field !== prevItem.field ||
+      newItem.operator !== prevItem.operator ||
+      newItem.value !== prevItem.value
+    );
+  });
 };
-
 export const cleanFilterModelItems = (
   newModel: GridFilterModel,
   previousModel: GridFilterModel
