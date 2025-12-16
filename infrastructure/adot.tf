@@ -60,44 +60,8 @@ resource "aws_security_group" "telemetry_endpoints_sg" {
   tags = { Project = var.project, Stage = var.stage, Owner = "Crossfeed managed resource" }
 }
 
-
-# ---- Interface VPC Endpoints (toggle via create_vpc_endpoints) ----
-# X-Ray endpoint service name: com.amazonaws.${region}.xray
-resource "aws_vpc_endpoint" "xray" {
-  count               = (local.vpc_id != null && length(local.subnets_ep) > 0) ? 1 : 0
-  vpc_id              = var.is_dmz ? aws_vpc.crossfeed_vpc[0].id : data.aws_ssm_parameter.vpc_id[0].value
-  service_name        = "com.amazonaws.${var.aws_region}.xray"
-  vpc_endpoint_type   = "Interface"
-  private_dns_enabled = true
-  subnet_ids          = local.subnets_ep
-  security_group_ids  = [aws_security_group.telemetry_endpoints_sg[0].id]
-  tags                = { Project = var.project, Stage = var.stage, Owner = "Crossfeed managed resource" }
-}
-
-# CloudWatch Logs endpoint service name: com.amazonaws.${region}.logs
-resource "aws_vpc_endpoint" "logs" {
-  count               = (local.vpc_id != null && length(local.subnets_ep) > 0) ? 1 : 0
-  vpc_id              = var.is_dmz ? aws_vpc.crossfeed_vpc[0].id : data.aws_ssm_parameter.vpc_id[0].value
-  service_name        = "com.amazonaws.${var.aws_region}.logs"
-  vpc_endpoint_type   = "Interface"
-  private_dns_enabled = true
-  subnet_ids          = local.subnets_ep
-  security_group_ids  = [aws_security_group.telemetry_endpoints_sg[0].id]
-  tags                = { Project = var.project, Stage = var.stage, Owner = "Crossfeed managed resource" }
-}
-
 # ---- Outputs ----
 output "adot_python_layer_arn" {
   value       = local.adot_python_layer_arn_resolved
   description = "Resolved ADOT Lambda layer ARN for this region/partition (empty in Commercial)"
-}
-
-output "xray_vpc_endpoint_id" {
-  value       = try(aws_vpc_endpoint.xray[0].id, null)
-  description = "ID of the X-Ray Interface VPC Endpoint (if created)"
-}
-
-output "logs_vpc_endpoint_id" {
-  value       = try(aws_vpc_endpoint.logs[0].id, null)
-  description = "ID of the CloudWatch Logs Interface VPC Endpoint (if created)"
 }
