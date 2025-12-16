@@ -494,9 +494,9 @@ describe('Vulnerabilities component', () => {
 
   it('matches snapshot after loading data', async () => {
     // Mock Date.now() to make snapshot deterministic
-    // Test data uses October 27, 2025, so we set "current" date to December 10, 2025
-    // This gives consistent "44 days ago" calculations
-    const mockNow = new Date('2025-12-10T00:00:00Z').getTime();
+    // Test data uses October 27, 2025, so we set "current" date to December 9, 2025
+    // This gives consistent "43 days ago" calculations
+    const mockNow = new Date('2025-12-09T00:00:00Z').getTime();
     const originalDateNow = Date.now;
     Date.now = vi.fn(() => mockNow);
 
