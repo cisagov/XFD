@@ -46,6 +46,7 @@ import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/dataTransformUtils';
 import {
+  cleanFilterModelItems,
   formatSeverity,
   normalizeFilters,
   extractInitialFilters,
@@ -85,6 +86,10 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   });
   const filterTimerRef = useRef<number | null>(null);
   const lastFilterValuesRef = useRef<string>('[]');
+
+  const lastValidFilterModelRef = useRef<GridFilterModel>({ items: [] });
+  const filterPanelTimeoutRef = useRef<number | null>(null);
+
   const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const lastFiltersKeyRef = useRef<string>(JSON.stringify(filters));
@@ -705,29 +710,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                const cleanedItems = model.items.map((item, index) => {
-                  const prevItem = filterModel.items[index];
-
-                  if (
-                    prevItem &&
-                    prevItem.field !== item.field &&
-                    prevItem.id === item.id
-                  ) {
-                    return { ...item, value: undefined };
-                  }
-
-                  if (
-                    item.value === '' ||
-                    item.value === null ||
-                    (typeof item.value === 'string' && item.value.trim() === '')
-                  ) {
-                    return { ...item, value: undefined };
-                  }
-
-                  return item;
-                });
-
-                const cleanedModel = { ...model, items: cleanedItems };
+                const cleanedModel = cleanFilterModelItems(model, filterModel);
                 setFilterModel(cleanedModel);
 
                 const { shouldUpdate, newKey } = shouldTriggerFilterUpdate(
@@ -783,6 +766,27 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {
                   placement: 'bottom-start'
+                },
+                panel: {
+                  onClose: () => {
+                    if (filterPanelTimeoutRef.current) {
+                      clearTimeout(filterPanelTimeoutRef.current);
+                      filterPanelTimeoutRef.current = null;
+                    }
+
+                    const hasIncompleteFilters = filterModel.items.some(
+                      (item) => item.value === undefined
+                    );
+
+                    if (hasIncompleteFilters) {
+                      setFilterModel({ items: [] });
+                      setFilters([]);
+                      setHasActiveFilters(false);
+                      lastFilterValuesRef.current = '[]';
+                      lastValidFilterModelRef.current = { items: [] };
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                    }
+                  }
                 },
                 columnsManagement: {
                   disableResetButton: true,

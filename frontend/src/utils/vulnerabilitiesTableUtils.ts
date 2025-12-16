@@ -1,4 +1,4 @@
-import { GridFilterItem } from '@mui/x-data-grid';
+import { GridFilterItem, GridFilterModel } from '@mui/x-data-grid';
 import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 import { UserOrganization } from 'types';
 import { LocationState } from 'types/vulnerabilities';
@@ -195,4 +195,31 @@ export const shouldTriggerFilterUpdate = (
 
   // Values actually changed - trigger update
   return { shouldUpdate: true, newKey: valuesKey };
+};
+
+export const cleanFilterModelItems = (
+  newModel: GridFilterModel,
+  previousModel: GridFilterModel
+): GridFilterModel => {
+  const cleanedItems = newModel.items.map((item, index) => {
+    const prevItem = previousModel.items[index];
+
+    // Clear value when field changes (prevents value carryover)
+    if (prevItem && prevItem.field !== item.field && prevItem.id === item.id) {
+      return { ...item, value: undefined };
+    }
+
+    // Normalize empty/null/whitespace values to undefined
+    if (
+      item.value === '' ||
+      item.value === null ||
+      (typeof item.value === 'string' && item.value.trim() === '')
+    ) {
+      return { ...item, value: undefined };
+    }
+
+    return item;
+  });
+
+  return { ...newModel, items: cleanedItems };
 };
