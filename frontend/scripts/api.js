@@ -1,5 +1,8 @@
 // Main entrypoint for serverless frontend code.
 
+// AWS Lambda expects console.log and this file is not shipped to the browser,
+// So we are disabling the es-lint no-console rule for just this file
+/* eslint-disable no-console */
 import serverless from 'serverless-http';
 import cors from 'cors';
 import helmet from 'helmet';
