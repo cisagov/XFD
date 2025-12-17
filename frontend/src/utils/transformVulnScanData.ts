@@ -410,3 +410,16 @@ export function isEmptyAfterScans(obj: AnyObject): boolean {
 
   return allMetricsEmpty;
 }
+
+export const sortByCvssThenCountDesc = <
+  T extends {
+    cvss_base_score?: number | null;
+    count?: number | null;
+  }
+>(
+  data: T[]
+) =>
+  [...data].sort((a, b) => {
+    const cvssDiff = (b.cvss_base_score ?? 0) - (a.cvss_base_score ?? 0);
+    return cvssDiff !== 0 ? cvssDiff : (b.count ?? 0) - (a.count ?? 0);
+  });
