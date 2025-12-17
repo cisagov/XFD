@@ -1,77 +1,101 @@
-import { it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useApi } from '../../hooks/useApi';
 
-// Mock aws-amplify
 vi.mock('aws-amplify', () => ({
   API: {
-    get: vi.fn()
+    get: vi.fn(),
+    post: vi.fn(),
+    del: vi.fn(),
+    patch: vi.fn()
   }
 }));
 
-it('sends client telemetry when backend error lacks API Gateway headers', async () => {
-  const sendBeaconSpy = vi.fn();
-  // @ts-ignore
-  global.navigator.sendBeacon = sendBeaconSpy;
+const getAmplifyAPI = async () => {
+  const mod = await import('aws-amplify');
+  return mod.API as any;
+};
 
-  const error = {
-    response: {
-      status: 403,
-      headers: {
-        server: 'cloudflare'
+describe('useApi telemetry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Ensure sendBeacon exists for tests
+    // @ts-ignore
+    global.navigator.sendBeacon = vi.fn();
+  });
+
+  it('sends client telemetry when backend error lacks API Gateway headers', async () => {
+    const API = await getAmplifyAPI();
+
+    API.get.mockRejectedValueOnce({
+      response: {
+        status: 403,
+        headers: {
+          server: 'cloudflare'
+        }
       }
-    }
-  };
+    });
 
-  const { API } = await import('aws-amplify');
-  (API.get as any).mockRejectedValueOnce(error);
+    const { useApi } = await import('../../hooks/useApi');
 
-  const { result } = renderHook(() => useApi());
+    const { result } = renderHook(() => useApi());
 
-  await expect(act(() => result.current.apiGet('/test'))).rejects.toBeDefined();
+    await expect(
+      act(async () => {
+        await result.current.apiGet('/test');
+      })
+    ).rejects.toBeDefined();
 
-  expect(sendBeaconSpy).toHaveBeenCalledTimes(1);
+    const sendBeaconSpy = global.navigator.sendBeacon as any;
+    expect(sendBeaconSpy).toHaveBeenCalledTimes(1);
 
-  const [, blob] = sendBeaconSpy.mock.calls[0];
-  const payload = JSON.parse(await blob.text());
+    const [, blob] = sendBeaconSpy.mock.calls[0];
+    const payload = JSON.parse(await blob.text());
 
-  expect(payload.type).toBe('backend_blocked_before_apigw');
-  expect(payload.status).toBe(403);
-});
+    expect(payload.type).toBe('backend_blocked_before_apigw');
+    expect(payload.path).toBe('/test');
+    expect(payload.status).toBe(403);
+  });
 
-it('does not send telemetry when API Gateway headers are present', async () => {
-  const sendBeaconSpy = vi.fn();
-  // @ts-ignore
-  global.navigator.sendBeacon = sendBeaconSpy;
+  it('does not send telemetry when API Gateway headers are present', async () => {
+    const API = await getAmplifyAPI();
 
-  const error = {
-    response: {
-      status: 500,
-      headers: {
-        'x-amzn-requestid': 'abc123'
+    API.get.mockRejectedValueOnce({
+      response: {
+        status: 500,
+        headers: {
+          'x-amzn-requestid': 'abc123'
+        }
       }
-    }
-  };
+    });
 
-  const { API } = await import('aws-amplify');
-  (API.get as any).mockRejectedValueOnce(error);
+    const { useApi } = await import('../../hooks/useApi');
 
-  const { result } = renderHook(() => useApi());
+    const { result } = renderHook(() => useApi());
 
-  await expect(act(() => result.current.apiGet('/test'))).rejects.toBeDefined();
+    await expect(
+      act(async () => {
+        await result.current.apiGet('/test');
+      })
+    ).rejects.toBeDefined();
 
-  expect(sendBeaconSpy).not.toHaveBeenCalled();
-});
+    const sendBeaconSpy = global.navigator.sendBeacon as any;
+    expect(sendBeaconSpy).not.toHaveBeenCalled();
+  });
 
-it('rethrows the original error after telemetry handling', async () => {
-  const error = new Error('boom');
+  it('rethrows the original error after telemetry handling', async () => {
+    const API = await getAmplifyAPI();
 
-  const { API } = await import('aws-amplify');
-  (API.get as any).mockRejectedValueOnce(error);
+    API.get.mockRejectedValueOnce(new Error('boom'));
 
-  const { result } = renderHook(() => useApi());
+    const { useApi } = await import('../../hooks/useApi');
 
-  await expect(act(() => result.current.apiGet('/test'))).rejects.toThrow(
-    'boom'
-  );
+    const { result } = renderHook(() => useApi());
+
+    await expect(
+      act(async () => {
+        await result.current.apiGet('/test');
+      })
+    ).rejects.toThrow('boom');
+  });
 });
