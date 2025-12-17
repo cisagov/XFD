@@ -1570,6 +1570,12 @@ class User(AutoLengthCheckModel):
         choices=UserType.choices,
         default=UserType.STANDARD,
     )
+    last_notified_30 = models.DateTimeField(
+        db_column="last_notified_30",
+        blank=True,
+        null=True,
+        help_text="Datetime a user was notified for 30 days not logged in.",
+    )
 
     def save(self, *args, **kwargs):
         """Save user with full_name."""
