@@ -71,7 +71,7 @@ def test_check_user_expiration_sends_30_once_and_deletes_at_45(monkeypatch):
 
     assert "60@example.com" in by_to
     assert len(by_to["60@example.com"]) == 1
-    assert by_to["60@example.com"][0]["subject"] == "Account Deactivation Notice"
+    assert by_to["60@example.com"][0]["subject"] == "Account Removal Notice"
     assert "inactive for over 45 days" in by_to["60@example.com"][0]["body"]
 
     # last_notified_30 should have been set for user_35
@@ -169,7 +169,7 @@ def test_handler_test_mode_staging_creates_and_deletes_user(monkeypatch):
     assert len(emails) == 2
     subjects = {e["subject"] for e in emails}
     assert "Account Inactivity Notice" in subjects
-    assert "Account Deactivation Notice" in subjects
+    assert "Account Removal Notice" in subjects
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
