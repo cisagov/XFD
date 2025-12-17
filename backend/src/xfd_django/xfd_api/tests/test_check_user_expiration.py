@@ -105,7 +105,7 @@ def test_check_user_expiration_does_not_repeat_30_day_email(monkeypatch):
     checkUserExpiration.check_user_expiration()
 
     assert User.objects.filter(id=user.id).exists()
-    assert emails_sent == []
+    assert not emails_sent
 
 
 def test_handler_success(monkeypatch):
