@@ -8,6 +8,9 @@ import path from 'path';
 
 export const app = express();
 
+// JSON body parsing needed for telemetry POST
+app.use(express.json({ limit: '10kb' }));
+
 // These CORS origins work in all Crossfeed environments
 app.use(
   cors({
@@ -72,6 +75,64 @@ app.use((req, res, next) => {
 app.use((req, res, next) => {
   res.setHeader('X-XSS-Protection', '0');
   next();
+});
+
+// Telemetry endpoint to log to CloudWatch (CORS preflight)
+app.options('/client-telemetry', (req, res) => {
+  const origin = req.headers.origin;
+  const allowedOrigin = process.env.DOMAIN
+    ? `https://${process.env.DOMAIN}`
+    : null;
+
+  if (origin && origin === allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'content-type');
+  res.setHeader('Access-Control-Max-Age', '86400'); // cache preflight 24h
+
+  return res.status(204).send();
+});
+
+// Endpoint to log to Cloudwatch
+app.post('/client-telemetry', (req, res) => {
+  // Prevent caching of telemetry
+  res.setHeader('Cache-Control', 'no-store');
+
+  const origin = req.headers.origin;
+  const allowedOrigin = process.env.DOMAIN
+    ? `https://${process.env.DOMAIN}`
+    : null;
+
+  if (origin && origin === allowedOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+
+  try {
+    const body = req.body || {};
+
+    const logInfo = {
+      type: body.type,
+      path: body.path,
+      status: body.status ?? null,
+      server: body.server ?? null,
+      via: body.via ?? null,
+      cfRay: body.cfRay ?? null,
+      cfCacheStatus: body.cfCacheStatus ?? null,
+      ts: body.ts ?? Date.now()
+    };
+
+    console.log(JSON.stringify({ clientTelemetry: logInfo }));
+  } catch {
+    console.log(
+      JSON.stringify({
+        clientTelemetry: { type: 'parse_error', ts: Date.now() }
+      })
+    );
+  }
+
+  return res.status(204).send();
 });
 
 app.use(

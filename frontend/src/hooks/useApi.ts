@@ -10,6 +10,67 @@ const baseHeaders: HeadersInit = {
 type ApiMethod = (apiName: string, path: string, init?: any) => Promise<any>;
 type OnError = (e: Error) => Promise<void>;
 
+/**
+ * Normalize header-ish shapes to a lower-cased plain object.
+ * Amplify error shapes vary across versions/adapters.
+ */
+const normalizeHeaders = (h: any): Record<string, string> => {
+  if (!h) return {};
+
+  // Plain object
+  if (typeof h === 'object' && !('forEach' in h) && !('entries' in h)) {
+    const out: Record<string, string> = {};
+    for (const [k, v] of Object.entries(h)) {
+      out[String(k).toLowerCase()] = String(v);
+    }
+    return out;
+  }
+
+  // Headers-like (forEach)
+  if (typeof h?.forEach === 'function') {
+    const out: Record<string, string> = {};
+    h.forEach((v: any, k: any) => {
+      out[String(k).toLowerCase()] = String(v);
+    });
+    return out;
+  }
+
+  // Iterable (entries)
+  if (typeof h?.entries === 'function') {
+    const out: Record<string, string> = {};
+    for (const [k, v] of h.entries()) {
+      out[String(k).toLowerCase()] = String(v);
+    }
+    return out;
+  }
+
+  return {};
+};
+
+const sendClientTelemetry = (payload: any) => {
+  try {
+    const body = JSON.stringify(payload);
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(
+        '/client-telemetry',
+        new Blob([body], { type: 'application/json' })
+      );
+      return;
+    }
+
+    fetch('/client-telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+      credentials: 'omit'
+    }).catch(() => undefined);
+  } catch {
+    // Never let telemetry break the original error behavior
+  }
+};
+
 export const useApi = (onError?: OnError) => {
   const [requestCount, setRequestCount] = useState(0);
 
@@ -46,6 +107,40 @@ export const useApi = (onError?: OnError) => {
           return result as T;
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
+
+          // Detection of blocks before API Gateway
+          try {
+            const status =
+              e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
+
+            const headersRaw =
+              e?.response?.headers ??
+              e?.headers ??
+              e?.response?.header ??
+              undefined;
+
+            const headers = normalizeHeaders(headersRaw);
+
+            const apigwId = headers['x-amz-apigw-id'] ?? '';
+            const amznReqId = headers['x-amzn-requestid'] ?? '';
+            const reachedApigw = !!(apigwId || amznReqId);
+
+            if (!reachedApigw) {
+              sendClientTelemetry({
+                type: 'backend_blocked_before_apigw',
+                path,
+                status: status ?? null,
+                server: headers['server'] ?? null,
+                via: headers['via'] ?? null,
+                cfRay: headers['cf-ray'] ?? null,
+                cfCacheStatus: headers['cf-cache-status'] ?? null,
+                ts: Date.now()
+              });
+            }
+          } catch {
+            // Never let logging break the original error behavior
+          }
+
           onError && onError(e);
           throw e;
         }
