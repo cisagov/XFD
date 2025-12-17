@@ -303,6 +303,7 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
     user.cognito_email_verified = True
     user.cognito_groups = groups
     user.last_logged_in = datetime.now(timezone.utc)
+    user.last_notified_30 = None
 
     # Update login block status and save the user
     update_login_block_status(user)
