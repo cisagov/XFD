@@ -492,7 +492,7 @@ describe('Vulnerabilities component', () => {
     is_kev_ransomware: idx === 0 ? true : idx === 1 ? false : null
   }));
 
-  it('matches snapshot after loading data', async () => {
+  it('matches snapshot after loading sample data', async () => {
     apiPostMock.mockResolvedValueOnce(snapshotResponse);
     const { container } = render(<Vulnerabilities />, {
       initialHistory: ['/vulnerabilities'],
