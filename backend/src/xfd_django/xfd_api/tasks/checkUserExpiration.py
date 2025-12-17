@@ -65,7 +65,7 @@ def check_user_expiration():
     )
 
     for user in users_to_remove:
-        subject = "Account Deactivation Notice"
+        subject = "Account Removal Notice"
         body = """
         Hello {first_name} {last_name},
 
