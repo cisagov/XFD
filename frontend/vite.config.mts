@@ -51,8 +51,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/setupTests.ts',
-    deps: {
-      inline: ['@mui/x-data-grid']
+    server: {
+      deps: {
+        inline: ['@mui/x-data-grid']
+      }
     },
     coverage: {
       provider: 'istanbul',
@@ -71,13 +73,15 @@ export default defineConfig({
         'src/utils/devInspector.tsx',
         'src/**/types.*',
         'src/**/index.{js,ts,ts,tsx}',
-        'src/**/*[Ss]tyle*'
+        'src/**/*[Ss]tyle*',
+        'src/components/MatomoTracker/*',
+        'src/components/Metrics/*'
       ],
       thresholds: {
-        statements: 27.25,
-        branches: 18.55,
-        functions: 20.87,
-        lines: 27.79,
+        statements: 31.25,
+        branches: 21.67,
+        functions: 25.85,
+        lines: 31.91,
         autoUpdate: true
       }
     }

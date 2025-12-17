@@ -171,8 +171,7 @@ export const Domains: React.FC = () => {
     filters,
     paginationModel.page,
     paginationModel.pageSize,
-    sortModel[0]?.field,
-    sortModel[0]?.sort
+    sortModel
   ]);
 
   useEffect(() => {
@@ -228,7 +227,7 @@ export const Domains: React.FC = () => {
         updated_at: formatDays(domain.updated_at),
         created_at: formatDays(domain.created_at)
       })),
-    [domains, formatDays, formatPreview]
+    [domains]
   );
 
   const stringFilterOperators = useMemo(() => {
@@ -411,7 +410,7 @@ export const Domains: React.FC = () => {
         }
       }
     ],
-    [history]
+    [history, stringFilterOperators]
   );
 
   const noRowsOverlay = (

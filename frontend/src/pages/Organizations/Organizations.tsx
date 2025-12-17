@@ -38,7 +38,7 @@ type OrgsApiResponse = {
 };
 
 export const Organizations: React.FC = () => {
-  const { apiPost, setFeedbackMessage, user } = useAuthContext();
+  const { apiPost, setFeedbackMessage } = useAuthContext();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [rowCount, setRowCount] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
@@ -57,7 +57,6 @@ export const Organizations: React.FC = () => {
     useState<GridFilterModel>(filterModel);
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const history = useHistory();
-  const region_id = user?.region_id;
   const reqIdRef = useRef(0);
 
   useEffect(() => {
@@ -65,23 +64,20 @@ export const Organizations: React.FC = () => {
     return () => clearTimeout(h);
   }, [filterModel]);
 
-  const buildFilters = useCallback(
-    (model: GridFilterModel) => {
-      const filters: Record<string, any> = {};
-      model.items.forEach((i) => {
-        if (!i.value) return;
-        if (i.field === 'name') {
-          const v = String(i.value).trim();
-          if (v.length >= 2) filters.name = v; // gate short inputs
-        }
-        if (i.field === 'state') filters.state = String(i.value).trim();
-        if (i.field === 'region_id') filters.region_id = String(i.value).trim();
-        if (i.field === 'acronym') filters.acronym = String(i.value).trim();
-      });
-      return filters;
-    },
-    [user?.user_type, region_id]
-  );
+  const buildFilters = useCallback((model: GridFilterModel) => {
+    const filters: Record<string, any> = {};
+    model.items.forEach((i) => {
+      if (!i.value) return;
+      if (i.field === 'name') {
+        const v = String(i.value).trim();
+        if (v.length >= 2) filters.name = v; // gate short inputs
+      }
+      if (i.field === 'state') filters.state = String(i.value).trim();
+      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
+    });
+    return filters;
+  }, []);
 
   const requestBody = useMemo(() => {
     const firstSort = sortModel[0];
