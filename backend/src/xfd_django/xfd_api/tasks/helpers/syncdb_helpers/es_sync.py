@@ -58,12 +58,7 @@ def sync_es_organizations():
                 # Fetch full organization data for the current chunk
                 organizations = list(
                     Organization.objects.filter(id__in=organization_chunk).values(
-                        "id",
-                        "name",
-                        "country",
-                        "state",
-                        "region_id",
-                        "tags",
+                        "id", "name", "country", "state", "region_id", "tags", "acronym"
                     )
                 )
                 LOGGER.info("Syncing %d organizations...", len(organizations))

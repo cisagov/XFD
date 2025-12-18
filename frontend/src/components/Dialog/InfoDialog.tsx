@@ -1,11 +1,9 @@
 import React from 'react';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogTitle,
-  Grid
-} from '@mui/material';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogContent from '@mui/material/DialogContent';
+import DialogTitle from '@mui/material/DialogTitle';
+import Grid from '@mui/material/Grid';
 
 type DialogComponentProps = {
   isOpen: boolean;

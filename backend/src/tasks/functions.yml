@@ -1,7 +1,18 @@
 ---
-
 scheduler:
-  handler: src/xfd_django/xfd_api/tasks/scheduler.handler
+  # ADOT: define common layer+env once and anchor it for reuse, see all
+  # functions below for usage of the anchor.
+  <<: &adot
+    layers: ${self:custom.adotLayers}
+    environment:
+      OTEL_RESOURCE_ATTRIBUTES: >
+        service.name=crossfeed-tasks,
+        service.namespace=crossfeed,
+        deployment.environment=${self:provider.stage}
+
+  handler: src.xfd_django.xfd_api.tasks.scheduler.handler
+  # TODO: Parameterize the timeout value,
+  # at a future date see CRASM-3270. See all timeouts below.
   timeout: 900
   events:
     - schedule: rate(5 minutes)
@@ -45,20 +56,17 @@ scheduler:
       Action:
         - iam:PassRole
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 syncdb:
+  <<: *adot
   timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/run_syncdb.handler
-  iamRoleStatements: []
-
-syncmdl:
-  timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/run_syncmdl.handler
-  iamRoleStatements: []
-
-bastion:
-  timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/bastion.handler
+  handler: src.xfd_django.xfd_api.tasks.run_syncdb.handler
   iamRoleStatements:
     - Effect: Allow
       Action:
@@ -69,10 +77,59 @@ bastion:
         - s3:PutBucketAcl
         - s3:GetBucketAcl
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
+
+syncmdl:
+  <<: *adot
+  timeout: 900
+  handler: src.xfd_django.xfd_api.tasks.run_syncmdl.handler
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
+
+bastion:
+  <<: *adot
+  timeout: 900
+  handler: src.xfd_django.xfd_api.tasks.bastion.handler
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 checkUserExpiration:
+  <<: *adot
   timeout: 300
-  handler: src/xfd_django/xfd_api/tasks/checkUserExpiration.handler
+  handler: src.xfd_django.xfd_api.tasks.checkUserExpiration.handler
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
   iamRoleStatements:
@@ -87,17 +144,49 @@ checkUserExpiration:
         - cognito-idp:ListUsers
         - cognito-idp:AdminSetUserPassword
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 queryDailyCustomerMetrics:
+  <<: *adot
   timeout: 300
-  handler: src/xfd_django/xfd_api/tasks/metrics.collect_and_upsert_customer_metrics
+  handler: src.xfd_django.xfd_api.tasks.metrics.collect_and_upsert_customer_metrics
   events:
     - schedule: cron(0 0 * * ? *)  # Runs every day at midnight
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 scanExecution:
+  <<: *adot
   timeout: 900  # 15 minutes
-  handler: src/xfd_django/xfd_api/tasks/scanExecution.handler
+  handler: src.xfd_django.xfd_api.tasks.scanExecution.handler
   memorySize: 4096
   iamRoleStatements:
     - Effect: Allow
@@ -137,9 +226,16 @@ scanExecution:
       Action:
         - iam:PassRole
       Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 updateScanTaskStatus:
-  handler: src/xfd_django/xfd_api/tasks/updateScanTaskStatus.handler
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.updateScanTaskStatus.handler
   events:
     - eventBridge:
         name: ${self:provider.stage}-updateScanTaskStatus
@@ -151,65 +247,171 @@ updateScanTaskStatus:
           detail:
             clusterArn:
               - ${file(env.yml):${self:provider.stage}-ecs-cluster, ''}
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 infraOps:
+  <<: *adot
   timeout: 900
-  handler: src/xfd_django/xfd_api/tasks/infra_ops.handler
-  iamRoleStatements: []
+  handler: src.xfd_django.xfd_api.tasks.infra_ops.handler
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 pruneScanResults:
-  handler: src/xfd_django/xfd_api/tasks/prune_scan_results.handler
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.prune_scan_results.handler
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
-  iamRoleStatements: []
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - s3:GetObject
+        - s3:GetObjectAcl
+        - s3:PutObject
+        - s3:PutObjectAcl
+        - s3:PutBucketAcl
+        - s3:GetBucketAcl
+      Resource: '*'
+    - Effect: Allow
+      Action:
+        - kms:Decrypt
+        - kms:DescribeKey
+      Resource:
+        - ${file(env.yml):${self:provider.stage}.DJANGO_ENV_KMS_ARN}
 
 serviceStatsCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_services_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_services_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
 
 portStatsCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_ports_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_ports_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
 
 numVulnsCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_num_vulns_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_num_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
 
 latestVulnsCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_latest_vulns_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_latest_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
 
 mostCommonVulnsCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_most_common_vulns_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_most_common_vulns_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
 
 severityCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_severity_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_severity_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
 
 byOrgCache:
-  handler: src/xfd_django/xfd_api/tasks/elasticache_tasks.populate_by_org_cache
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.elasticache_tasks.populate_by_org_cache
   events:
     - schedule:
         rate: cron(0 0 * * ? *)  # This triggers the function every day at midnight
   iamRoleStatements: []
+
+ecsRemediator:
+  <<: *adot
+  handler: src.xfd_django.xfd_api.tasks.ecs_remediator.lambda_handler
+  timeout: 60
+  memorySize: 512
+
+  # 1. Environment Variables (Same as you have now)
+  environment:
+    ECS_CLUSTER_NAME: ${ssm:/crossfeed/${self:provider.stage}/WORKER_CLUSTER_ARN}
+    ECS_SERVICE_NAME: ${ssm:/crossfeed/${self:provider.stage}/worker_ecs_service_name}
+    SNS_ALARMS_TOPIC_ARN: ${ssm:/crossfeed/${self:provider.stage}/alarms_topic_arn}
+    PROJECT: "cyhy"       # Hardcoded based on your TF vars, or use ${self:service}
+    STAGE: ${self:provider.stage}
+
+  # 2. Permissions (Same as you have now)
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - ecs:DescribeServices
+        - ecs:UpdateService
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - cloudwatch:PutMetricData
+      Resource: "*"
+    - Effect: Allow
+      Action:
+        - sns:Publish
+      Resource: ${ssm:/crossfeed/${self:provider.stage}/alarms_topic_arn}
+
+  # 3. NEW: The Event Triggers (Replaces remediation.tf)
+  events:
+    - cloudwatchEvent:
+        description: "Triggers ECS remediation when API 5XX alarms fire"
+        event:
+          source:
+            - "aws.cloudwatch"
+          detail-type:
+            - "CloudWatch Alarm State Change"
+          resources:
+            # You must list the ARNs of the alarms you want to listen to.
+            # Since these are created in Terraform, you typically import them via SSM
+            # or construct them if they follow a predictable naming pattern.
+
+            # Pattern: arn:aws:cloudwatch:REGION:ACCOUNT:alarm:ALARM_NAME
+            - "arn:aws:cloudwatch:${self:provider.region}:${aws:accountId}:alarm:cyhy-${self:provider.stage}-api-crossfeed-5xx-error"
+            - "arn:aws:cloudwatch:${self:provider.region}:${aws:accountId}:alarm:cyhy-${self:provider.stage}-api-crossfeed-frontend-5xx-error"
+          detail:
+            state:
+              value:
+                - "ALARM"

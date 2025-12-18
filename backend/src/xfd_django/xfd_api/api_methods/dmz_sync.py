@@ -5,7 +5,7 @@ import hashlib
 import json
 import logging
 import os
-from typing import Optional
+from typing import List, Optional, Tuple
 
 # Third-Party Libraries
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
@@ -60,7 +60,7 @@ class CybersixSyncParams(BaseModel):
 async def fetch_cybersix_data(
     params: CybersixSyncParams,
     current_user,
-) -> tuple[dict, str]:
+) -> Tuple[dict, str]:
     """
     Pull paginated slices of each Sixgill table (no date filtering).
 
@@ -100,15 +100,14 @@ async def fetch_cybersix_data(
     def _paginate(
         model_cls,
         ordering_field: str,
-        org: Organization | None,
-        since_date: datetime | None = None,
-    ):
+        org: Optional[Organization],
+        since_date: Optional[datetime] = None,
+    ) -> Tuple[int, List[dict]]:
         """
         Order by `ordering_field`, then paginate.
 
         Returns:
-            num_pages (int),
-            items (List[dict])
+            (num_pages, items)
         """
         qs = model_cls.objects.order_by(ordering_field).values()
 
@@ -414,7 +413,7 @@ def dmz_shodan_sync(shodan_data, current_user):
             for obj in objects
         ]
 
-    def get_paginated_queryset(
+    def get_paginated_queryset(  # pylint: disable=R0913
         model_cls,
         org_acronym,
         timestamp_field,
@@ -422,7 +421,7 @@ def dmz_shodan_sync(shodan_data, current_user):
         page_size,
         page_num,
         ordering_field,
-    ):  # pylint: disable=R0913
+    ):
         queryset = model_cls.objects.filter(organization__acronym=org_acronym)
 
         if since_date:
@@ -629,9 +628,7 @@ def dmz_cred_sync(cred_sync_data, current_user):
         exposure_list = []
         breach_set = set()
         if single_page_exposures:
-            # cred_exposures_page_data = single_page_exposures.object_list
             for exposure_dict in single_page_exposures:
-                # exposure_dict = exposure_dict.__dict__
                 exposure_list.append(
                     CredentialExposure(
                         credential_exposures_uid=str(

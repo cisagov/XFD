@@ -1,9 +1,13 @@
 import React from 'react';
 import { NavLink, useLocation, Link as RouterLink } from 'react-router-dom';
-import { Box, Button, ButtonProps, Menu, MenuItem } from '@mui/material';
+import Box from '@mui/material/Box';
+import Button, { ButtonProps } from '@mui/material/Button';
+import Menu from '@mui/material/Menu';
+import MenuItem from '@mui/material/MenuItem';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { ROUTES } from '@/constants/routes';
 
 interface MenuItemType {
   menuItemTitle: string;
@@ -37,9 +41,9 @@ export const NavMenuButton: React.FC<Props> = ({
     null
   );
   const findingsLibraryPaths = [
-    '/inventory',
-    '/inventory/domains',
-    '/inventory/vulnerabilities'
+    ROUTES.INVENTORY,
+    ROUTES.DOMAINS,
+    ROUTES.VULNERABILITIES
   ];
 
   const isActive = isLink

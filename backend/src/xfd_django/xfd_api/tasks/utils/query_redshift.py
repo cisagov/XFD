@@ -5,10 +5,17 @@ import datetime
 import json
 import logging
 import os
+import time
 from typing import Any, Tuple
 
 # Third-Party Libraries
 import psycopg2
+from psycopg2 import sql
+from psycopg2.pool import SimpleConnectionPool
+from xfd_api.tasks.utils.cloudwatch_metrics import (
+    cloudwatch_metric,
+    emit_redshift_metric,
+)
 from xfd_api.tasks.utils.datetime_utils import to_utc_naive
 from xfd_api.utils.scan_utils.alerting import QueryError
 
@@ -17,34 +24,98 @@ IS_LOCAL = os.getenv("IS_LOCAL")
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 
+# --- Connection pool (per process / worker) ---
+_POOL = None
 
+
+def _get_pool():
+    """Create or return a singleton connection pool per worker."""
+    global _POOL
+    if _POOL is None:
+        LOGGER.info("[Redshift] Initializing connection pool...")
+        _POOL = SimpleConnectionPool(
+            minconn=1,
+            maxconn=2,  # allow a couple concurrent cursors per process
+            dbname=os.environ.get("REDSHIFT_DATABASE"),
+            user=os.environ.get("REDSHIFT_USER"),
+            password=os.environ.get("REDSHIFT_PASSWORD"),
+            host=os.environ.get("REDSHIFT_HOST"),
+            port=5439,
+            connect_timeout=10,
+        )
+    return _POOL
+
+
+@cloudwatch_metric()
 def query_redshift(query, params=None):
-    """Execute a query on Redshift and return results as a list of dictionaries."""
-    conn = psycopg2.connect(
-        dbname=os.environ.get("REDSHIFT_DATABASE"),
-        user=os.environ.get("REDSHIFT_USER"),
-        password=os.environ.get("REDSHIFT_PASSWORD"),
-        host=os.environ.get("REDSHIFT_HOST"),
-        port=5439,
-    )
+    """Execute a query on Redshift and return results as list of dicts."""
+    pool = _get_pool()
+    query_name = str(query)[:120].replace("\n", " ")
+    rows_returned = 0
 
-    try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        if params:
-            cursor.execute(query, params)
-        else:
-            cursor.execute(query)
-        results = cursor.fetchall()
-        return [dict(row) for row in results]
-    except Exception as e:
-        raise QueryError(SCAN_NAME, str(e)) from e
-    finally:
-        cursor.close()
-        conn.close()
+    for attempt in range(5):  # retry up to 5 times
+        conn = None
+        cursor = None
+        start = time.perf_counter()
+        success = True
+        try:
+            conn = pool.getconn()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cursor.execute(query, params or ())
+            results = cursor.fetchall()
+            rows_returned = len(results)
+            return [dict(row) for row in results]  # ✅ success -> return immediately
+
+        except psycopg2.OperationalError as e:
+            success = False
+            if "Connection refused" in str(e) or "terminating connection" in str(e):
+                sleep = 2**attempt
+                LOGGER.warning(
+                    "[Redshift] Connection error (%s). Retrying in %ss (attempt %d/5)",
+                    e,
+                    sleep,
+                    attempt + 1,
+                )
+                time.sleep(sleep)
+                # drop the bad connection
+                if conn:
+                    pool.putconn(conn, close=True)
+                _reset_pool()
+                continue  # ✅ actually retry
+            raise QueryError(SCAN_NAME, str(e)) from e
+
+        except Exception as e:
+            success = False
+            raise QueryError(SCAN_NAME, str(e)) from e
+
+        finally:
+            duration = time.perf_counter() - start
+            emit_redshift_metric(query_name, duration, rows_returned, success)
+            LOGGER.info(
+                "[Redshift] [%0.3fs] [%d rows] success=%s",
+                duration,
+                rows_returned,
+                success,
+            )
+            if cursor:
+                cursor.close()
+            if conn:
+                pool.putconn(conn)
+    # if we exhausted retries
+    raise QueryError(SCAN_NAME, "Max Redshift retries exceeded")
+
+
+def _reset_pool():
+    """Safely reset the global connection pool."""
+    global _POOL
+    if _POOL:
+        _POOL.closeall()
+
+    _POOL = None
 
 
 def detect_data_set(query):
@@ -89,15 +160,8 @@ def fetch_from_redshift_with_params(query: str, params: Tuple[Any, ...]):
     if IS_LOCAL:
         data_set = detect_data_set(query)
         return load_test_data(data_set)
-
-    start_time = datetime.datetime.now()
     try:
         result = query_redshift(query, params=params)
-        duration_seconds = (datetime.datetime.now() - start_time).total_seconds()
-        # Do NOT log params to avoid leaking sensitive values
-        LOGGER.info(
-            "[Redshift] [%.3fs] [%s records] %s", duration_seconds, len(result), query
-        )
         return result
     except Exception as e:
         LOGGER.info("Error fetching data from Redshift: %s", e)
@@ -106,11 +170,17 @@ def fetch_from_redshift_with_params(query: str, params: Tuple[Any, ...]):
 
 
 def fetch_in_chunks_keyset_frozen(
-    table: str, time_col: str, start_dt, end_dt, chunk_size: int = 500_000
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    chunk_size: int = 500_000,
+    owners: list[str] | None = None,
 ):
     """
     Keyset pagination over a fixed window with ORDER BY ("time_col", "_id").
 
+    Uses = ANY(array) for owner filtering if owners are provided.
     Quotes identifiers so Redshift doesn't parse `time` as a type.
     """
     last_time = None
@@ -126,9 +196,17 @@ def fetch_in_chunks_keyset_frozen(
         where = f"WHERE {q_time} >= %s AND {q_time} < %s"
         params = [start_param, end_param]
 
+        # Add keyset pagination if needed
         if last_time is not None and last_id is not None:
             where += f" AND ({q_time} > %s OR ({q_time} = %s AND {q_id} > %s))"
             params.extend([last_time, last_time, last_id])
+
+        # Add org filtering if owners provided
+        if owners:
+            where += " AND owner = ANY(%s)"
+            params.append(
+                owners
+            )  # pass list directly, psycopg2/Redshift turns into array
 
         query = f"""
             SELECT *
@@ -143,7 +221,89 @@ def fetch_in_chunks_keyset_frozen(
             break
 
         last_row = chunk[-1]
-        last_time = last_row[time_col]  # keep dict access unquoted
+        last_time = last_row[time_col]  # dict access, not quoted
+        last_id = str(last_row["_id"])
+
+        yield chunk
+
+
+def fetch_in_chunks_keyset_frozen_bulk(
+    table: str,
+    time_col: str,
+    start_dt,
+    end_dt,
+    chunk_size: int = 500_000,
+    org_acronyms: list[str] | None = None,
+):
+    """
+    Keyset pagination over a fixed window with ORDER BY (time_col, _id).
+
+    Filters by multiple org acronyms using an IN clause.
+    Uses psycopg2.sql for safe identifier handling and parameterized values.
+    """
+    last_time = None
+    last_id = None
+    start_param = to_utc_naive(start_dt)
+    end_param = to_utc_naive(end_dt)
+
+    while True:
+        # Build WHERE clause dynamically but safely
+        where_clauses = []
+        params = [start_param, end_param]
+
+        # Base window
+        where_clauses.append(sql.SQL("{} >= %s").format(sql.Identifier(time_col)))
+        where_clauses.append(sql.SQL("{} < %s").format(sql.Identifier(time_col)))
+
+        # Keyset pagination
+        if last_time is not None and last_id is not None:
+            where_clauses.append(
+                sql.SQL("({} > %s OR ({} = %s AND {} > %s))").format(
+                    sql.Identifier(time_col),
+                    sql.Identifier(time_col),
+                    sql.Identifier("_id"),
+                )
+            )
+            params.extend([last_time, last_time, last_id])
+
+        # Org filter
+        if org_acronyms:
+            # Generate placeholders for each org acronym
+            placeholders = sql.SQL(", ").join(sql.Placeholder() * len(org_acronyms))
+            where_clauses.append(sql.SQL("owner IN ({})").format(placeholders))
+            params.extend(org_acronyms)
+
+        # Combine WHERE clauses
+        where_sql = sql.SQL(" AND ").join(where_clauses)
+
+        # Handle schema-qualified table names
+        if "." in table:
+            schema, table_name = table.split(".", 1)
+            table_ident = sql.SQL(".").join(
+                [sql.Identifier(schema), sql.Identifier(table_name)]
+            )
+        else:
+            table_ident = sql.Identifier(table)
+
+        # Build full query
+        query_sql = sql.SQL(
+            "SELECT * FROM {table} WHERE {where} ORDER BY {time_col}, {id_col} LIMIT %s"
+        ).format(
+            table=table_ident,
+            where=where_sql,
+            time_col=sql.Identifier(time_col),
+            id_col=sql.Identifier("_id"),
+        )
+        params.append(chunk_size)
+
+        # Execute query
+        chunk = query_redshift(query_sql, params=params)
+
+        if not chunk:
+            break
+
+        last_row = chunk[-1]
+        last_time = last_row[time_col]
         last_id = str(last_row["_id"])
 
         yield chunk

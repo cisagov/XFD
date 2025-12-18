@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { parse } from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 type OktaCallbackResponse = {
   token: string;
@@ -17,22 +20,27 @@ export const OktaCallback: React.FC = () => {
     const { code, state } = parse(window.location.search);
 
     if (!code || !state) {
-      console.error('Missing OAuth parameters');
-      history.replace('/');
+      logger.error('OktaCallback: Missing OAuth parameters', {
+        hasCode: !!code,
+        hasState: !!state
+      });
+      history.replace(ROUTES.HOME);
       return;
     }
 
     const signedToken = localStorage.getItem('oauthMeta');
 
     if (!signedToken) {
-      console.error('Missing signed OAuth metadata');
-      history.replace('/');
+      logger.error(
+        'OktaCallback: Missing signed OAuth metadata in localStorage'
+      );
+      history.replace(ROUTES.HOME);
       return;
     }
 
     try {
       const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/auth/okta-callback`,
+        `${import.meta.env.VITE_API_URL}${ENDPOINTS.OKTA_CALLBACK}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -52,10 +60,10 @@ export const OktaCallback: React.FC = () => {
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
 
-      history.replace('/');
+      history.replace(ROUTES.HOME);
     } catch (e) {
-      console.error(e);
-      history.replace('/');
+      logger.error('OktaCallback: OAuth callback failed', { error: e });
+      history.replace(ROUTES.HOME);
     }
   }, [history, login]);
 

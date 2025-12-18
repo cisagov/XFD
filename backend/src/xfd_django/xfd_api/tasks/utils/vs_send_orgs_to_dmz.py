@@ -17,7 +17,7 @@ from xfd_mini_dl.models import CidrOrgs, Organization
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")
@@ -26,6 +26,7 @@ SCAN_NAME = "VulnScanningSync"
 
 def send_organizations_to_dmz():
     """Fetch organizations and sync with the external API."""
+    LOGGER.info("Starting send_organizations_to_dmz")
     try:
         shaped_orgs = fetch_orgs_and_relations()
         if not shaped_orgs:
@@ -162,6 +163,7 @@ def organization_to_dict(org):
         "state_fips": org.state_fips,
         "country": org.country,
         "country_name": org.country_name,
+        "ip_blocks": org.ip_blocks,
         "region_id": org.region_id,
         "stakeholder": org.stakeholder,
         "enrolled_in_vs_timestamp": (

@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, Button, TextField } from '@mui/material';
 import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 import { useAuthContext } from 'context';
 import { useStaticsContext } from 'context/StaticsContext';
+import { useNavigationContext } from 'context/NavigationContext';
 import {
   useUserLevel,
   GLOBAL_ADMIN,
@@ -13,12 +16,21 @@ import {
 import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 import { OrganizationShallow } from './RegionAndOrganizationFilters';
 import { Organization } from 'types';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 // Swap this value to allow regional admin to filter on regions that aren't their own
-export const toggleRegionalUserType = true;
+export const toggleRegionalUserType = false;
 
 export const REGION_FILTER_KEY = 'organization.region_id';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
+const EMPTY_ORG = {
+  region_id: '',
+  name: '',
+  id: '',
+  acronym: '',
+  root_domains: []
+};
 
 interface VSRegionAndOrgFiltersProps {
   addFilter: (
@@ -39,10 +51,10 @@ export const VSDashRegionAndOrgFilters: React.FC<
 > = ({ addFilter, removeFilter, filters }) => {
   const { user, apiPost, currentOrganization } = useAuthContext();
   const { regions } = useStaticsContext();
+  const { isDrillDown, wasAllRegionsSelected, setAllRegionsSelected } =
+    useNavigationContext();
   const [search_term, setSearchTerm] = useState<string>('');
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
-  const [isRegOpen, setIsRegOpen] = useState(false);
-  const [isOrgOpen, setIsOrgOpen] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(
     undefined
   );
@@ -51,20 +63,21 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
   const shallowCurrentOrg = (currentOrganization: Organization | null) => {
     if (!currentOrganization) {
-      return undefined;
+      return EMPTY_ORG;
     }
 
     return {
       id: currentOrganization.id,
       name: currentOrganization.name,
       root_domains: currentOrganization.root_domains,
+      acronym: currentOrganization.acronym,
       region_id: currentOrganization.region_id ?? '' // fallback to empty string if undefined
     };
   };
 
-  const [selectedOrg, setSelectedOrg] = useState<
-    OrganizationShallow | undefined
-  >(shallowCurrentOrg(currentOrganization as Organization));
+  const [selectedOrg, setSelectedOrg] = useState<OrganizationShallow | null>(
+    shallowCurrentOrg(currentOrganization as Organization) ?? null
+  );
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
@@ -72,7 +85,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
         try {
           const results = await apiPost<{
             body: { hits: { hits: { _source: OrganizationShallow }[] } };
-          }>('/search/organizations', {
+          }>(ENDPOINTS.ORGANIZATIONS_SEARCH_ES, {
             body: {
               search_term,
               regions
@@ -132,21 +145,27 @@ export const VSDashRegionAndOrgFilters: React.FC<
 
           setOrgResults(sortedOrgs);
         } catch (e) {
-          console.log(e);
+          logger.error('VSDashRegionAndOrgFilters.fetchOrgs failed:', {
+            error: e
+          });
         }
       }
     },
-    [apiPost, setOrgResults, filters]
+    [apiPost, setOrgResults, filters, userLevel]
   );
 
   const allRegionsOption = 'All Regions';
 
   const allRegions = useMemo(() => {
-    if (userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW) {
+    if (
+      userLevel === GLOBAL_ADMIN ||
+      userLevel === GLOBAL_VIEW ||
+      userLevel === REGIONAL_ADMIN
+    ) {
       return [allRegionsOption, ...regions];
     }
     return regions;
-  }, [allRegionsOption, regions]);
+  }, [allRegionsOption, regions, userLevel]);
 
   const regionFilterValues = useMemo(() => {
     const regionFilter = filters.find(
@@ -174,6 +193,134 @@ export const VSDashRegionAndOrgFilters: React.FC<
     searchOrganizations(search_term, regionFilterValues ?? []);
   }, [searchOrganizations, search_term, regionFilterValues]);
 
+  // Initialize UI state with user defaults - only run once on mount
+  useEffect(() => {
+    // Don't run initialization during drill-down scenarios
+    if (isDrillDown) {
+      return;
+    }
+    const userRegion = user?.region_id;
+    // Set user's default region if not already set
+    if (!selectedRegion && userRegion) {
+      setSelectedRegion(userRegion);
+
+      // Also add the user's default region as a filter to ensure correct drill-down behavior
+      // This prevents other region filters from being stored during drill-down
+      const existingRegionFilter = filters.find(
+        (filter) => filter.field === REGION_FILTER_KEY
+      );
+      if (
+        !existingRegionFilter ||
+        existingRegionFilter.values[0] !== userRegion
+      ) {
+        // Remove any existing region filters first
+        if (existingRegionFilter && existingRegionFilter.values) {
+          existingRegionFilter.values.forEach((value: string) => {
+            removeFilter(REGION_FILTER_KEY, value, 'any');
+          });
+        }
+        addFilter(REGION_FILTER_KEY, userRegion, 'any');
+        setAllRegionsSelected(false); // User default is not "All Regions"
+      }
+    }
+
+    // Set user's default organization if not already set
+    if (!selectedOrg && currentOrganization) {
+      const defaultOrg = shallowCurrentOrg(currentOrganization as Organization);
+      if (defaultOrg) {
+        setSelectedOrg(defaultOrg);
+      }
+    }
+    // Only run on mount and when user/currentOrganization become available
+    // Don't run during drill-down scenarios to avoid interfering with restoration
+  }, [
+    user?.region_id,
+    currentOrganization,
+    isDrillDown,
+    addFilter,
+    filters,
+    removeFilter,
+    selectedOrg,
+    selectedRegion,
+    setAllRegionsSelected
+  ]);
+
+  // Handle drill-down filter restoration - only during drill-down scenarios
+  useEffect(() => {
+    // Only restore filters when returning from drill-down
+    if (!isDrillDown) {
+      return;
+    }
+
+    const regionFilter = filters.find(
+      (filter) => filter.field === REGION_FILTER_KEY
+    );
+    const orgFilter = filters.find(
+      (filter) => filter.field === ORGANIZATION_FILTER_KEY
+    );
+
+    // Restore region filter if it exists and differs from current selection
+    if (regionFilter && regionFilter.values && regionFilter.values.length > 0) {
+      const userRegion = user?.region_id;
+
+      // Determine what the UI state should be based on the stored filter
+      let targetRegionSelection: string | undefined;
+
+      if (regionFilter.values.length === 1) {
+        // Single region selection - restore that specific region
+        targetRegionSelection = regionFilter.values[0] as string;
+      } else if (
+        regionFilter.values.length === regions.length &&
+        regions.every((regionId) => regionFilter.values.includes(regionId))
+      ) {
+        // All regions are present, use context to determine if this was explicit "All Regions" selection
+        if (wasAllRegionsSelected) {
+          targetRegionSelection = allRegionsOption;
+        } else {
+          // This was likely user default region behavior, restore user's region
+          targetRegionSelection = userRegion || undefined;
+        }
+      } else {
+        // Multiple regions but not all - use first region as fallback
+        targetRegionSelection = regionFilter.values[0] as string;
+      }
+
+      if (targetRegionSelection && targetRegionSelection !== selectedRegion) {
+        setSelectedRegion(targetRegionSelection);
+      }
+    }
+
+    // Restore organization filter if it exists and differs from current selection
+    if (orgFilter && orgFilter.values && orgFilter.values.length > 0) {
+      const firstOrg = orgFilter.values[0];
+      if (typeof firstOrg === 'object' && firstOrg.id) {
+        if (!selectedOrg || selectedOrg.id !== firstOrg.id) {
+          setSelectedOrg(firstOrg as OrganizationShallow);
+        }
+      }
+    } else {
+      // If no explicit org filter exists, restore the default organization
+      // This handles the case where user was using default org before drill-down
+      if (!selectedOrg && currentOrganization) {
+        const defaultOrg = shallowCurrentOrg(
+          currentOrganization as Organization
+        );
+        if (defaultOrg) {
+          setSelectedOrg(defaultOrg);
+        }
+      }
+    }
+  }, [
+    isDrillDown,
+    filters,
+    selectedRegion,
+    selectedOrg,
+    currentOrganization,
+    regions,
+    user?.region_id,
+    wasAllRegionsSelected
+  ]);
+
   const handleTextChange = (v: string) => {
     setSearchTerm(v);
   };
@@ -196,14 +343,15 @@ export const VSDashRegionAndOrgFilters: React.FC<
         regions.forEach((region) => {
           addFilter(REGION_FILTER_KEY, region, 'any');
         });
+        setAllRegionsSelected(true);
       } else {
         addFilter(REGION_FILTER_KEY, region_id, 'any');
+        setAllRegionsSelected(false);
       }
 
       setSelectedRegion(region_id);
-      setSelectedOrg(undefined);
+      setSelectedOrg(EMPTY_ORG);
       setSearchTerm('');
-      setIsRegOpen(false);
     }
   };
 
@@ -219,14 +367,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
     addFilter(ORGANIZATION_FILTER_KEY, org, 'any');
     setSelectedOrg(org);
     setSearchTerm('');
-    setIsOrgOpen(false);
   };
 
   return (
     <>
       <Box padding={2}>
         <Autocomplete
-          value={selectedRegion ?? user?.region_id ?? ''}
+          value={selectedRegion ?? ''}
           onChange={(e, v) => {
             setTimeout(() => {
               handleChangeRegion(v);
@@ -239,15 +386,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
             }
           }}
           disableClearable
-          disabled={
-            !userLevel ||
-            userLevel === REGIONAL_ADMIN ||
-            userLevel === STANDARD_USER
-          }
-          open={isRegOpen}
-          onOpen={() => {
-            setIsRegOpen(true);
-          }}
+          disabled={!userLevel || userLevel === STANDARD_USER}
           options={allRegions}
           getOptionLabel={(option) =>
             allRegionsOption === option ? allRegionsOption : `Region ${option}`
@@ -301,11 +440,12 @@ export const VSDashRegionAndOrgFilters: React.FC<
               {...params}
               label="Region"
               placeholder={
-                userLevel === GLOBAL_ADMIN || userLevel === GLOBAL_VIEW
+                userLevel === GLOBAL_ADMIN ||
+                userLevel === GLOBAL_VIEW ||
+                userLevel === REGIONAL_ADMIN
                   ? 'Select Region'
                   : ''
               }
-              onBlur={() => setIsRegOpen(false)}
             />
           )}
         />
@@ -314,7 +454,7 @@ export const VSDashRegionAndOrgFilters: React.FC<
       <Box padding={2}>
         <Autocomplete
           key={selectedRegion ? selectedRegion : 'no-region'}
-          value={selectedOrg}
+          value={selectedOrg || EMPTY_ORG}
           onChange={(e, v) => {
             setTimeout(() => {
               handleChangeOrganization(v);
@@ -329,12 +469,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
           // freeSolo
           disableClearable
           disabled={userLevel === STANDARD_USER}
-          open={isOrgOpen}
-          onOpen={() => {
-            setIsOrgOpen(true);
-          }}
           options={orgResults}
-          getOptionLabel={(option) => option.name}
+          getOptionLabel={(option) => {
+            if (option.name && option.acronym) {
+              return `${option.name} (${option.acronym})`;
+            }
+            return option.name;
+          }}
           slotProps={{
             listbox: {
               sx: {
@@ -375,7 +516,13 @@ export const VSDashRegionAndOrgFilters: React.FC<
                     }, 250)
                   }
                 >
-                  {option.name}
+                  {option.name && option.acronym ? (
+                    <>
+                      {option.name} ({option.acronym})
+                    </>
+                  ) : (
+                    option.name
+                  )}
                 </Button>
               </li>
             );
@@ -386,7 +533,6 @@ export const VSDashRegionAndOrgFilters: React.FC<
               {...params}
               label="Organization"
               placeholder="Search Organizations"
-              onBlur={() => setIsOrgOpen(false)}
               helperText={
                 userLevel === REGIONAL_ADMIN ||
                 userLevel === GLOBAL_ADMIN ||

@@ -1,0 +1,1878 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Vulnerabilities component > matches snapshot after loading sample data 1`] = `
+<div
+  class="MuiBox-root css-ktvys1"
+>
+  <div
+    class="MuiBox-root css-i1j6bj"
+  >
+    <div
+      class="MuiBox-root css-rm9e7r"
+    >
+      <div
+        class="MuiBox-root css-5zdo5i"
+      >
+        <div
+          class="MuiBox-root css-70qvj9"
+        >
+          <h2
+            class="MuiTypography-root MuiTypography-h1 css-lug4v-MuiTypography-root"
+          >
+            Findings Library
+          </h2>
+          <button
+            aria-label="More information about Findings Library"
+            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-dgn0ka-MuiButtonBase-root-MuiIconButton-root"
+            data-mui-internal-clone-element="true"
+            tabindex="0"
+            type="button"
+          >
+            <svg
+              aria-hidden="true"
+              class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-7iuo17-MuiSvgIcon-root"
+              data-testid="InfoOutlinedIcon"
+              focusable="false"
+              viewBox="0 0 24 24"
+            >
+              <path
+                d="M11 7h2v2h-2zm0 4h2v6h-2zm1-9C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2m0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div
+      class="MuiTabs-root css-7h72q6-MuiTabs-root"
+    >
+      <div
+        class="MuiTabs-scroller MuiTabs-fixed css-1626ypp-MuiTabs-scroller"
+        style="overflow: hidden; margin-bottom: 0px;"
+      >
+        <div
+          aria-label="Findings section tabs"
+          class="MuiTabs-list MuiTabs-flexContainer css-m9849h-MuiTabs-list"
+          role="tablist"
+        >
+          <a
+            aria-selected="false"
+            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-okqs11-MuiButtonBase-root-MuiTab-root"
+            href="/inventory"
+            role="tab"
+            tabindex="0"
+          >
+            Search Results
+          </a>
+          <a
+            aria-selected="false"
+            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-okqs11-MuiButtonBase-root-MuiTab-root"
+            href="/inventory/domains"
+            role="tab"
+            tabindex="-1"
+          >
+            Domains
+          </a>
+          <a
+            aria-selected="false"
+            class="MuiButtonBase-root MuiTab-root MuiTab-textColorPrimary css-okqs11-MuiButtonBase-root-MuiTab-root"
+            href="/inventory/vulnerabilities"
+            role="tab"
+            tabindex="-1"
+          >
+            Vulnerabilities
+          </a>
+        </div>
+        <span
+          class="MuiTabs-indicator css-11pih04-MuiTabs-indicator"
+          style="left: 0px; width: 0px;"
+        />
+      </div>
+    </div>
+  </div>
+  <div
+    class="MuiBox-root css-1w2fuoe"
+  >
+    <div
+      aria-label="Vulnerabilities Table"
+      class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation2 css-picl5a-MuiPaper-root"
+      style="--Paper-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);"
+    >
+      <div
+        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-4146028548 css-jx4txk-MuiDataGrid-root"
+        style="--DataGrid-hasScrollX: 0; --DataGrid-hasScrollY: 1; --DataGrid-scrollbarSize: 0px; --DataGrid-rowWidth: 0px; --DataGrid-columnsTotalWidth: 0px; --DataGrid-leftPinnedWidth: 0px; --DataGrid-rightPinnedWidth: 0px; --DataGrid-headerHeight: 56px; --DataGrid-headersTotalHeight: 56px; --DataGrid-topContainerHeight: 56px; --DataGrid-bottomContainerHeight: 0px; --height: 52px;"
+      >
+        <div
+          class="MuiDataGrid-mainContent"
+          role="presentation"
+        >
+          <div
+            aria-orientation="horizontal"
+            class="MuiDataGrid-toolbar MuiDataGrid-toolbarContainer css-1skgyn0-MuiDataGrid-toolbar-MuiDataGrid-toolbarContainer"
+            role="toolbar"
+          >
+            <button
+              aria-expanded="false"
+              aria-haspopup="menu"
+              aria-label="Select columns"
+              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
+              data-mui-internal-clone-element="true"
+              id=":rk6:"
+              tabindex="0"
+              type="button"
+            >
+              <span
+                class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                  data-testid="ColumnIconIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M14.67 5v14H9.33V5zm1 14H21V5h-5.33zm-7.34 0V5H3v14z"
+                  />
+                </svg>
+              </span>
+              Columns
+            </button>
+            <button
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-label="Show filters"
+              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
+              data-mui-internal-clone-element="true"
+              id=":rka:"
+              tabindex="0"
+              type="button"
+            >
+              <span
+                class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+              >
+                <span
+                  class="MuiBadge-root css-63ezxx-MuiBadge-root"
+                >
+                  <svg
+                    aria-hidden="true"
+                    class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                    data-testid="FilterListIcon"
+                    focusable="false"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M10 18h4v-2h-4v2zM3 6v2h18V6H3zm3 7h12v-2H6v2z"
+                    />
+                  </svg>
+                  <span
+                    class="MuiBadge-badge MuiBadge-standard MuiBadge-invisible MuiBadge-anchorOriginTopRight MuiBadge-anchorOriginTopRightRectangular MuiBadge-overlapRectangular MuiBadge-colorPrimary css-135b2n1-MuiBadge-badge"
+                  >
+                    0
+                  </span>
+                </span>
+              </span>
+              Filters
+            </button>
+            <button
+              aria-expanded="false"
+              aria-haspopup="menu"
+              aria-label="Density"
+              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
+              data-mui-internal-clone-element="true"
+              id=":rke:"
+              tabindex="0"
+              type="button"
+            >
+              <span
+                class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                  data-testid="TableRowsIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M21,8H3V4h18V8z M21,10H3v4h18V10z M21,16H3v4h18V16z"
+                  />
+                </svg>
+              </span>
+              Density
+            </button>
+            <button
+              aria-expanded="false"
+              aria-haspopup="menu"
+              aria-label="Export"
+              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
+              data-mui-internal-clone-element="true"
+              id=":rki:"
+              tabindex="0"
+              type="button"
+            >
+              <span
+                class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                  data-testid="DownloadIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M5 20h14v-2H5zM19 9h-4V3H9v6H5l7 7z"
+                  />
+                </svg>
+              </span>
+              Export
+            </button>
+            <button
+              class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-8f6uri-MuiButtonBase-root-MuiButton-root"
+              tabindex="0"
+              type="button"
+            >
+              <span
+                class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeSmall css-d8i980-MuiButton-startIcon"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                  data-testid="DynamicFeedIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M8 8H6v7c0 1.1.9 2 2 2h9v-2H8z"
+                  />
+                  <path
+                    d="M20 3h-8c-1.1 0-2 .9-2 2v6c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2m0 8h-8V7h8zM4 12H2v7c0 1.1.9 2 2 2h9v-2H4z"
+                  />
+                </svg>
+              </span>
+              Include Closed Vulnerabilities
+            </button>
+          </div>
+          <div
+            aria-colcount="9"
+            aria-multiselectable="false"
+            aria-rowcount="4"
+            class="MuiDataGrid-main css-1bgckiu-MuiDataGrid-main"
+            role="grid"
+            tabindex="-1"
+          >
+            <div
+              class="css-18l11qw"
+              data-id="gridPanelAnchor"
+              role="presentation"
+            />
+            <div
+              class="MuiDataGrid-virtualScroller css-1vigakz-MuiDataGrid-virtualScroller"
+              role="presentation"
+              style="overflow-x: hidden;"
+            >
+              <div
+                class="MuiDataGrid-topContainer MuiDataGrid-container--top css-b1wygl"
+                role="presentation"
+              >
+                <div
+                  class="MuiDataGrid-columnHeaders css-1gtv474-MuiDataGrid-columnHeaders"
+                  role="presentation"
+                >
+                  <div
+                    aria-rowindex="1"
+                    class="MuiDataGrid-row--borderBottom css-yseucu-MuiDataGrid-columnHeaderRow"
+                    role="row"
+                    style="height: 56px;"
+                  >
+                    <div
+                      role="presentation"
+                      style="width: 0px;"
+                    />
+                    <div
+                      aria-colindex="1"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="title"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="0"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Vulnerability
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="title"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Vulnerability column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rkt:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="2"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="severity"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Severity
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="severity"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Severity column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rl3:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="3"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="is_kev"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              KEV
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="is_kev"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="KEV column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rl9:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="4"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="is_kev_ransomware"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Ransomware
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="is_kev_ransomware"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Ransomware column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rlf:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="5"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="domain"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Domain
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="domain"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Domain column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rll:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="6"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="product"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Product
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="product"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Product column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rlr:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="7"
+                      aria-sort="descending"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-columnHeader--sorted MuiDataGrid-withBorderColor"
+                      data-field="created_at"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Days Open
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="created_at"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowDownwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Days Open column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rm1:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="8"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-columnHeader--sortable MuiDataGrid-withBorderColor"
+                      data-field="state"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Status
+                            </div>
+                          </div>
+                          <div
+                            class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
+                          >
+                            <button
+                              aria-label="Sort"
+                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                              field="state"
+                              tabindex="-1"
+                              title="Sort"
+                              type="button"
+                            >
+                              <svg
+                                aria-hidden="true"
+                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                data-testid="ArrowUpwardIcon"
+                                focusable="false"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                        <div
+                          class="MuiDataGrid-menuIcon"
+                        >
+                          <button
+                            aria-expanded="false"
+                            aria-haspopup="menu"
+                            aria-label="Status column menu"
+                            class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
+                            data-mui-internal-clone-element="true"
+                            id=":rm7:"
+                            tabindex="-1"
+                            type="button"
+                          >
+                            <svg
+                              aria-hidden="true"
+                              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                              data-testid="TripleDotsVerticalIcon"
+                              focusable="false"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      aria-colindex="9"
+                      aria-sort="none"
+                      class="MuiDataGrid-columnHeader MuiDataGrid-withBorderColor MuiDataGrid-columnHeader--last"
+                      data-field="viewDetails"
+                      role="columnheader"
+                      style="width: 0px;"
+                      tabindex="-1"
+                    >
+                      <div
+                        class="MuiDataGrid-columnHeaderDraggableContainer"
+                        draggable="false"
+                        role="presentation"
+                      >
+                        <div
+                          class="MuiDataGrid-columnHeaderTitleContainer"
+                          role="presentation"
+                        >
+                          <div
+                            class="MuiDataGrid-columnHeaderTitleContainerContent"
+                          >
+                            <div
+                              class="MuiDataGrid-columnHeaderTitle css-1gqmilo-MuiDataGrid-columnHeaderTitle"
+                              data-mui-internal-clone-element="true"
+                            >
+                              Details
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div
+                        class="MuiDataGrid-columnSeparator MuiDataGrid-columnSeparator--resizable MuiDataGrid-columnSeparator--sideRight"
+                        style="min-height: 56px;"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiDataGrid-iconSeparator css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="SeparatorIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <rect
+                            height="24"
+                            rx="0.5"
+                            width="1"
+                            x="11.5"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div
+                      class="MuiDataGrid-filler"
+                      role="presentation"
+                    />
+                    <div
+                      class="MuiDataGrid-scrollbarFiller"
+                      role="presentation"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div
+                class="MuiDataGrid-virtualScrollerContent css-aymtem-MuiDataGrid-virtualScrollerContent"
+                role="presentation"
+                style="width: auto; flex-basis: 156px; flex-shrink: 0;"
+              >
+                <div
+                  class="MuiDataGrid-virtualScrollerRenderZone css-11dqcl8-MuiDataGrid-virtualScrollerRenderZone"
+                  role="rowgroup"
+                  style="transform: translate3d(0, 0px, 0);"
+                >
+                  <div
+                    aria-rowindex="2"
+                    aria-selected="false"
+                    class="MuiDataGrid-row MuiDataGrid-row--firstVisible"
+                    data-id="vuln-1"
+                    data-rowindex="0"
+                    role="row"
+                    style="max-height: 52px; min-height: 52px; --height: 52px;"
+                  >
+                    <div
+                      class="MuiDataGrid-cellOffsetLeft"
+                      role="presentation"
+                      style="width: 0px;"
+                    />
+                    <div
+                      aria-colindex="1"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="0"
+                      data-field="title"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Vulnerability Snapshot Vuln 1"
+                        class="MuiBox-root css-0"
+                      >
+                        Snapshot Vuln 1
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="2"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="1"
+                      data-field="severity"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Severity Medium"
+                        class="MuiBox-root css-vgt3q9"
+                      >
+                        Medium
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="3"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="2"
+                      data-field="is_kev"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="KEV status Yes"
+                        class="MuiBox-root css-0"
+                      >
+                        Yes
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="4"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="3"
+                      data-field="is_kev_ransomware"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Ransomware status Yes"
+                        class="MuiBox-root css-0"
+                      >
+                        Yes
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="5"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="4"
+                      data-field="domain"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Domain address 192.0.2.1"
+                        class="MuiBox-root css-0"
+                        tabindex="-1"
+                      >
+                        192.0.2.1
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="6"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="5"
+                      data-field="product"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Product cpe:/a:microsoft:iis"
+                        class="MuiBox-root css-0"
+                      >
+                        cpe:/a:microsoft:iis
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="7"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="6"
+                      data-field="created_at"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="44 days ago open"
+                        class="MuiBox-root css-0"
+                      >
+                        44 days ago
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="8"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="7"
+                      data-field="state"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Vulnerability status open (unconfirmed)"
+                        class="MuiBox-root css-0"
+                      >
+                        open (unconfirmed)
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="9"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="8"
+                      data-field="viewDetails"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <button
+                        aria-label="Vulnerability details for Snapshot Vuln 1"
+                        class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorPrimary MuiIconButton-sizeMedium css-5z44aa-MuiButtonBase-root-MuiIconButton-root"
+                        tabindex="-1"
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="OpenInNewIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div
+                      class="MuiDataGrid-cell MuiDataGrid-cellEmpty"
+                      role="presentation"
+                    />
+                  </div>
+                  <div
+                    aria-rowindex="3"
+                    aria-selected="false"
+                    class="MuiDataGrid-row"
+                    data-id="vuln-2"
+                    data-rowindex="1"
+                    role="row"
+                    style="max-height: 52px; min-height: 52px; --height: 52px;"
+                  >
+                    <div
+                      class="MuiDataGrid-cellOffsetLeft"
+                      role="presentation"
+                      style="width: 0px;"
+                    />
+                    <div
+                      aria-colindex="1"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="0"
+                      data-field="title"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Vulnerability Snapshot Vuln 2"
+                        class="MuiBox-root css-0"
+                      >
+                        Snapshot Vuln 2
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="2"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="1"
+                      data-field="severity"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Severity Medium"
+                        class="MuiBox-root css-vgt3q9"
+                      >
+                        Medium
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="3"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="2"
+                      data-field="is_kev"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="KEV status No"
+                        class="MuiBox-root css-0"
+                      >
+                        No
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="4"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="3"
+                      data-field="is_kev_ransomware"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Ransomware status No"
+                        class="MuiBox-root css-0"
+                      >
+                        No
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="5"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="4"
+                      data-field="domain"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Domain address 192.0.2.2"
+                        class="MuiBox-root css-0"
+                        tabindex="-1"
+                      >
+                        192.0.2.2
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="6"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="5"
+                      data-field="product"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Product cpe:/a:microsoft:iis"
+                        class="MuiBox-root css-0"
+                      >
+                        cpe:/a:microsoft:iis
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="7"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="6"
+                      data-field="created_at"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="44 days ago open"
+                        class="MuiBox-root css-0"
+                      >
+                        44 days ago
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="8"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="7"
+                      data-field="state"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Vulnerability status open (unconfirmed)"
+                        class="MuiBox-root css-0"
+                      >
+                        open (unconfirmed)
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="9"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="8"
+                      data-field="viewDetails"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <button
+                        aria-label="Vulnerability details for Snapshot Vuln 2"
+                        class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorPrimary MuiIconButton-sizeMedium css-5z44aa-MuiButtonBase-root-MuiIconButton-root"
+                        tabindex="-1"
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="OpenInNewIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div
+                      class="MuiDataGrid-cell MuiDataGrid-cellEmpty"
+                      role="presentation"
+                    />
+                  </div>
+                  <div
+                    aria-rowindex="4"
+                    aria-selected="false"
+                    class="MuiDataGrid-row MuiDataGrid-row--lastVisible"
+                    data-id="vuln-3"
+                    data-rowindex="2"
+                    role="row"
+                    style="max-height: 52px; min-height: 52px; --height: 52px;"
+                  >
+                    <div
+                      class="MuiDataGrid-cellOffsetLeft"
+                      role="presentation"
+                      style="width: 0px;"
+                    />
+                    <div
+                      aria-colindex="1"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="0"
+                      data-field="title"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Vulnerability Snapshot Vuln 3"
+                        class="MuiBox-root css-0"
+                      >
+                        Snapshot Vuln 3
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="2"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="1"
+                      data-field="severity"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Severity Medium"
+                        class="MuiBox-root css-vgt3q9"
+                      >
+                        Medium
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="3"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="2"
+                      data-field="is_kev"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="KEV status N/A"
+                        class="MuiBox-root css-0"
+                      >
+                        N/A
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="4"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="3"
+                      data-field="is_kev_ransomware"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Ransomware status N/A"
+                        class="MuiBox-root css-0"
+                      >
+                        N/A
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="5"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="4"
+                      data-field="domain"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Domain address 192.0.2.3"
+                        class="MuiBox-root css-0"
+                        tabindex="-1"
+                      >
+                        192.0.2.3
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="6"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="5"
+                      data-field="product"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Product cpe:/a:microsoft:iis"
+                        class="MuiBox-root css-0"
+                      >
+                        cpe:/a:microsoft:iis
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="7"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="6"
+                      data-field="created_at"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="44 days ago open"
+                        class="MuiBox-root css-0"
+                      >
+                        44 days ago
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="8"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="7"
+                      data-field="state"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <span
+                        aria-label="Vulnerability status open (unconfirmed)"
+                        class="MuiBox-root css-0"
+                      >
+                        open (unconfirmed)
+                      </span>
+                    </div>
+                    <div
+                      aria-colindex="9"
+                      aria-colspan="1"
+                      aria-rowspan="1"
+                      class="MuiDataGrid-cell MuiDataGrid-cell--textLeft"
+                      data-colindex="8"
+                      data-field="viewDetails"
+                      role="gridcell"
+                      style="--width: 0px;"
+                      tabindex="-1"
+                    >
+                      <button
+                        aria-label="Vulnerability details for Snapshot Vuln 3"
+                        class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorPrimary MuiIconButton-sizeMedium css-5z44aa-MuiButtonBase-root-MuiIconButton-root"
+                        tabindex="-1"
+                        type="button"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                          data-testid="OpenInNewIcon"
+                          focusable="false"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3z"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                    <div
+                      class="MuiDataGrid-cell MuiDataGrid-cellEmpty"
+                      role="presentation"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div
+                class="MuiDataGrid-bottomContainer MuiDataGrid-container--bottom css-gzxaox"
+                role="presentation"
+              />
+            </div>
+            <div
+              aria-hidden="true"
+              class="MuiDataGrid-scrollbar MuiDataGrid-scrollbar--vertical css-1ablnqd"
+              tabindex="-1"
+            >
+              <div
+                class="MuiDataGrid-scrollbarContent"
+                style="height: 156px;"
+              />
+            </div>
+          </div>
+          <div
+            class="MuiDataGrid-footerContainer MuiDataGrid-withBorderColor css-15lx25q-MuiDataGrid-footerContainer"
+          >
+            <div />
+            <div
+              class="MuiTablePagination-root css-gsbm2c-MuiTablePagination-root"
+            >
+              <div
+                class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular MuiTablePagination-toolbar css-7s4320-MuiToolbar-root-MuiTablePagination-toolbar"
+              >
+                <div
+                  class="MuiTablePagination-spacer css-1wtxofq-MuiTablePagination-spacer"
+                />
+                <p
+                  class="MuiTablePagination-selectLabel css-1ucagr7-MuiTablePagination-selectLabel"
+                  id=":rko:"
+                >
+                  Rows per page:
+                </p>
+                <div
+                  class="MuiInputBase-root MuiInputBase-colorPrimary MuiTablePagination-select MuiSelect-root MuiTablePagination-input css-1sy3y4e-MuiInputBase-root-MuiTablePagination-select"
+                >
+                  <div
+                    aria-expanded="false"
+                    aria-haspopup="listbox"
+                    aria-labelledby=":rko: :rkn:"
+                    class="MuiSelect-select MuiTablePagination-select MuiSelect-standard MuiInputBase-input css-18zjd9i-MuiNativeSelect-root-MuiSelect-select-MuiInputBase-input"
+                    id=":rkn:"
+                    role="combobox"
+                    tabindex="0"
+                  >
+                    15
+                  </div>
+                  <input
+                    aria-hidden="true"
+                    aria-invalid="false"
+                    class="MuiSelect-nativeInput css-j0riat-MuiSelect-nativeInput"
+                    tabindex="-1"
+                    value="15"
+                  />
+                  <svg
+                    aria-hidden="true"
+                    class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium MuiSelect-icon MuiTablePagination-selectIcon MuiSelect-iconStandard css-ug7h84-MuiSvgIcon-root-MuiNativeSelect-root-MuiSelect-icon"
+                    data-testid="ArrowDropDownIcon"
+                    focusable="false"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M7 10l5 5 5-5z"
+                    />
+                  </svg>
+                </div>
+                <p
+                  class="MuiTablePagination-displayedRows css-ops0gn-MuiTablePagination-displayedRows"
+                >
+                  1–3 of 3
+                </p>
+                <div
+                  class="MuiTablePaginationActions-root MuiTablePagination-actions css-sjsoon-MuiTablePaginationActions-root"
+                >
+                  <button
+                    aria-label="Go to previous page"
+                    class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-colorInherit MuiIconButton-sizeMedium css-buffoc-MuiButtonBase-root-MuiIconButton-root"
+                    disabled=""
+                    tabindex="-1"
+                    title="Go to previous page"
+                    type="button"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                      data-testid="KeyboardArrowLeftIcon"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M15.41 16.09l-4.58-4.59 4.58-4.59L14 5.5l-6 6 6 6z"
+                      />
+                    </svg>
+                  </button>
+                  <button
+                    aria-label="Go to next page"
+                    class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-colorInherit MuiIconButton-sizeMedium css-buffoc-MuiButtonBase-root-MuiIconButton-root"
+                    disabled=""
+                    tabindex="-1"
+                    title="Go to next page"
+                    type="button"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                      data-testid="KeyboardArrowRightIcon"
+                      focusable="false"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        d="M8.59 16.34l4.58-4.59-4.58-4.59L10 5.75l6 6-6 6z"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <style
+          href="/MuiDataGridVariables-4146028548"
+        >
+          .MuiDataGridVariables-4146028548{--DataGrid-t-spacing-unit:8px;--DataGrid-t-color-border-base:rgba(224, 224, 224, 1);--DataGrid-t-color-background-base:#fff;--DataGrid-t-color-background-overlay:#fff;--DataGrid-t-color-background-backdrop:rgba(255, 255, 255, 0.38);--DataGrid-t-color-foreground-base:rgba(0, 0, 0, 0.87);--DataGrid-t-color-foreground-muted:rgba(0, 0, 0, 0.6);--DataGrid-t-color-foreground-accent:#005288;--DataGrid-t-color-foreground-disabled:rgba(0, 0, 0, 0.38);--DataGrid-t-color-foreground-error:rgb(137, 12, 33);--DataGrid-t-color-interactive-hover:rgba(0, 0, 0, 0.04);--DataGrid-t-color-interactive-hover-opacity:0.04;--DataGrid-t-color-interactive-focus:rgba(from #0078AE r g b / 1);--DataGrid-t-color-interactive-focus-opacity:0.12;--DataGrid-t-color-interactive-disabled:rgba(from rgba(0, 0, 0, 0.26) r g b / 1);--DataGrid-t-color-interactive-disabled-opacity:0.38;--DataGrid-t-color-interactive-selected:#0078AE;--DataGrid-t-color-interactive-selected-opacity:0.08;--DataGrid-t-header-background-base:#fff;--DataGrid-t-cell-background-pinned:#fff;--DataGrid-t-radius-base:4px;--DataGrid-t-typography-font-family-base:source sans pro, sans-serif;--DataGrid-t-typography-font-weight-light:300;--DataGrid-t-typography-font-weight-regular:400;--DataGrid-t-typography-font-weight-medium:500;--DataGrid-t-typography-font-weight-bold:700;--DataGrid-t-typography-font-body:400 0.875rem / 1.43 source sans pro, sans-serif;--DataGrid-t-typography-font-small:400 0.75rem / 1.66 source sans pro, sans-serif;--DataGrid-t-typography-font-large:500 14px / 1.5 source sans pro, sans-serif;--DataGrid-t-transition-easing-ease-in:cubic-bezier(0.4, 0, 1, 1);--DataGrid-t-transition-easing-ease-out:cubic-bezier(0.0, 0, 0.2, 1);--DataGrid-t-transition-easing-ease-in-out:cubic-bezier(0.4, 0, 0.2, 1);--DataGrid-t-transition-duration-short:200ms;--DataGrid-t-transition-duration-base:250ms;--DataGrid-t-transition-duration-long:300ms;--DataGrid-t-shadow-base:0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);--DataGrid-t-shadow-overlay:0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12);--DataGrid-t-z-index-panel:1300;--DataGrid-t-z-index-menu:1300;}
+        </style>
+      </div>
+    </div>
+  </div>
+</div>
+`;

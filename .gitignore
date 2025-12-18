@@ -36,10 +36,12 @@ tmp/*
 .DS_STORE
 */.DS_STORE
 .idea
+.eslintcache
 
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+backend/src/xfd_django/vuln_scanning_sync.log
 
 .serverless
 .build

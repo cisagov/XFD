@@ -5,18 +5,16 @@ import React, {
   useRef,
   useState
 } from 'react';
+import { useHistory } from 'react-router-dom';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
-import { Organization } from 'types';
-import { useAuthContext } from 'context';
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Stack,
-  Typography
-} from '@mui/material';
 import {
   DataGrid,
   GridColDef,
@@ -24,11 +22,14 @@ import {
   GridFilterModel,
   GridSortModel
 } from '@mui/x-data-grid';
-import { useHistory } from 'react-router-dom';
-import { CheckCircleOutline } from '@mui/icons-material';
+import { Organization } from 'types';
+import { useAuthContext } from 'context';
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -37,7 +38,7 @@ type OrgsApiResponse = {
 };
 
 export const Organizations: React.FC = () => {
-  const { apiPost, setFeedbackMessage, user } = useAuthContext();
+  const { apiPost, setFeedbackMessage } = useAuthContext();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [rowCount, setRowCount] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
@@ -56,7 +57,6 @@ export const Organizations: React.FC = () => {
     useState<GridFilterModel>(filterModel);
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const history = useHistory();
-  const region_id = user?.region_id;
   const reqIdRef = useRef(0);
 
   useEffect(() => {
@@ -64,25 +64,20 @@ export const Organizations: React.FC = () => {
     return () => clearTimeout(h);
   }, [filterModel]);
 
-  const buildFilters = useCallback(
-    (model: GridFilterModel) => {
-      const filters: Record<string, any> = {};
-      model.items.forEach((i) => {
-        if (!i.value) return;
-        if (i.field === 'name') {
-          const v = String(i.value).trim();
-          if (v.length >= 2) filters.name = v; // gate short inputs
-        }
-        if (i.field === 'state') filters.state = String(i.value).trim();
-        if (i.field === 'region_id') filters.region_id = String(i.value).trim();
-      });
-      if (user?.user_type === 'regionalAdmin' && region_id) {
-        filters.region_id = region_id;
+  const buildFilters = useCallback((model: GridFilterModel) => {
+    const filters: Record<string, any> = {};
+    model.items.forEach((i) => {
+      if (!i.value) return;
+      if (i.field === 'name') {
+        const v = String(i.value).trim();
+        if (v.length >= 2) filters.name = v; // gate short inputs
       }
-      return filters;
-    },
-    [user?.user_type, region_id]
-  );
+      if (i.field === 'state') filters.state = String(i.value).trim();
+      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
+    });
+    return filters;
+  }, []);
 
   const requestBody = useMemo(() => {
     const firstSort = sortModel[0];
@@ -100,15 +95,18 @@ export const Organizations: React.FC = () => {
     setIsLoading(true);
     setLoadingError(false);
     try {
-      const data = await apiPost<OrgsApiResponse>('/v2/organizations/search', {
-        body: requestBody
-      });
+      const data = await apiPost<OrgsApiResponse>(
+        ENDPOINTS.ORGANIZATIONS_SEARCH,
+        {
+          body: requestBody
+        }
+      );
       if (myId !== reqIdRef.current) return; // ignore stale responses
       setOrganizations(data.result);
       setRowCount(data.count);
     } catch (e) {
       if (myId === reqIdRef.current) {
-        console.error(e);
+        logger.error('Organizations.fetchOrganizations failed:', { error: e });
         setLoadingError(true);
       }
     } finally {
@@ -133,6 +131,22 @@ export const Organizations: React.FC = () => {
             aria-label={`Organization Name: ${cellValues.row.name}`}
           >
             {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
           </Box>
         );
       }
@@ -191,7 +205,12 @@ export const Organizations: React.FC = () => {
               aria-label={ariaLabel}
               aria-describedby={descriptionId}
               onClick={() =>
-                history.push('/organizations/' + cellValues.row.id)
+                history.push(
+                  ROUTES.ORGANIZATION.replace(
+                    ':organizationId',
+                    cellValues.row.id
+                  )
+                )
               }
             >
               <EditNoteOutlinedIcon />
@@ -204,7 +223,9 @@ export const Organizations: React.FC = () => {
 
   const onSubmit = async (body: Object) => {
     try {
-      const org = await apiPost('/organizations', { body });
+      const org = await apiPost<Organization>(ENDPOINTS.ORGANIZATIONS, {
+        body
+      });
       setOrganizations((prev) => [...prev, org]);
       setInfoDialogOpen(true);
     } catch (e: any) {
@@ -216,7 +237,7 @@ export const Organizations: React.FC = () => {
         type: 'error'
       });
       setChosenTags([]);
-      console.error(e);
+      logger.error('Organizations.handleSubmit failed:', { error: e });
     }
   };
 

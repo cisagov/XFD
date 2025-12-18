@@ -46,6 +46,17 @@ repos:
       - id: yamllint
         args:
           - --strict
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: >
+          bash -c 'export NVM_DIR="$HOME/.nvm";
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" --no-use
+          && nvm use || true;
+          cd frontend && npx eslint . --cache --fix'
+        language: system
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
 
   # GitHub Actions hooks
   - repo: https://github.com/python-jsonschema/check-jsonschema
@@ -90,6 +101,7 @@ repos:
       - id: bandit
         args:
           - --config=.bandit.yml
+        additional_dependencies: ["pbr>=6"]
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 23.9.1
     hooks:

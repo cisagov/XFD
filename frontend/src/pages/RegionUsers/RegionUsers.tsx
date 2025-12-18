@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { initializeUser, User, Organization as OrganizationType } from 'types';
-import ConfirmDialog from 'components/Dialog/ConfirmDialog';
-import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
-import InfoDialog from 'components/Dialog/InfoDialog';
-import { useAuthContext } from 'context';
-import { Alert, Box, Button, Paper, Stack, Typography } from '@mui/material';
+import { formatDate, parseISO } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import CloseIcon from '@mui/icons-material/Close';
+import DoneIcon from '@mui/icons-material/Done';
+import InfoOutline from '@mui/icons-material/InfoOutline';
 import {
   DataGrid,
   GridColDef,
@@ -13,17 +18,22 @@ import {
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import DoneIcon from '@mui/icons-material/Done';
-import { CheckCircleOutline as CheckIcon } from '@mui/icons-material';
-import CloseIcon from '@mui/icons-material/Close';
+import { initializeUser, User, Organization as OrganizationType } from 'types';
+import ConfirmDialog from 'components/Dialog/ConfirmDialog';
+import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
+import InfoDialog from 'components/Dialog/InfoDialog';
+import AlreadyApprovedDialog from 'components/Dialog/AlreadyApprovedDialog';
+import { useAuthContext } from 'context';
 import { useUserLevel } from 'hooks/useUserLevel';
-import { formatDate, parseISO } from 'date-fns';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
   isDenyDialogOpen: boolean;
   isApproveDialogOpen: boolean;
   isInfoDialogOpen: boolean;
+  isUserAlreadyApprovedDialogOpen: boolean;
 };
 
 type ErrorStates = {
@@ -40,6 +50,7 @@ const transformData = (data: User[]): User[] => {
     ...user,
     roles,
     organizations: roles.map((role) => ' ' + role.organization.name),
+    org_acronym: roles[0]?.organization.acronym || '',
     organizations_display: roles
       .map((role) => role.organization.name)
       .join(', '),
@@ -52,10 +63,8 @@ export const RegionUsers: React.FC = () => {
   const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
-  const regionalAdminId = user?.region_id;
   const { formattedUserType } = useUserLevel();
-  const getOrgsURL = `/organizations/region_id/`;
-  const getUsersURL = `/v2/users?invite_pending=`;
+  const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
 
   const pendingCols: GridColDef[] = [
     {
@@ -149,10 +158,11 @@ export const RegionUsers: React.FC = () => {
             <Button
               variant="contained"
               endIcon={<DoneIcon />}
-              color="success"
               onClick={() => handleApproveClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
               aria-label={`Approve User: ${cellValues.row.full_name}`}
+              sx={{ backgroundColor: '#2e7d32' }}
+              // TODO need to use success color after contrast issue resolved CRASM-3445
             >
               Approve
             </Button>
@@ -249,6 +259,20 @@ export const RegionUsers: React.FC = () => {
           {cellValues.row.organizations_display}
         </Box>
       )
+    },
+    {
+      field: 'org_acronym',
+      headerName: 'Org Acronym',
+      minWidth: 250,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => (
+        <Box
+          component="span"
+          aria-label={`Organization acronym for User ${cellValues.row.full_name}: ${cellValues.row.org_acronym}`}
+        >
+          {cellValues.row.org_acronym}
+        </Box>
+      )
     }
   ];
   const regionIdColumn = {
@@ -284,6 +308,22 @@ export const RegionUsers: React.FC = () => {
             aria-label={`Organization Name: ${cellValues.row.name}`}
           >
             {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization Acronym: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
           </Box>
         );
       }
@@ -325,7 +365,8 @@ export const RegionUsers: React.FC = () => {
     isOrgDialogOpen: false,
     isDenyDialogOpen: false,
     isApproveDialogOpen: false,
-    isInfoDialogOpen: false
+    isInfoDialogOpen: false,
+    isUserAlreadyApprovedDialogOpen: false
   });
   const [errorStates, setErrorStates] = useState<ErrorStates>({
     getOrgsError: '',
@@ -353,7 +394,9 @@ export const RegionUsers: React.FC = () => {
       return;
     }
     try {
-      const rows = await apiGet<OrganizationType[]>(getOrgsURL + row.region_id);
+      const rows = await apiGet<OrganizationType[]>(
+        ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', row.region_id)
+      );
       setOrganizations(rows);
       if (row.roles.length > 0) {
         setSelectedOrg({
@@ -368,11 +411,7 @@ export const RegionUsers: React.FC = () => {
   };
   const fetchPendingUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(
-        user?.user_type === 'regionalAdmin'
-          ? `${getUsersURL}true&region_id=${regionalAdminId}`
-          : `${getUsersURL}true`
-      );
+      const rows = await apiGet<User[]>(`${getUsersURL}true`);
       setPendingUsers(rows);
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -382,11 +421,7 @@ export const RegionUsers: React.FC = () => {
   }, [apiGet]);
   const fetchCurrentUsers = useCallback(async () => {
     try {
-      const rows = await apiGet<User[]>(
-        user?.user_type === 'regionalAdmin'
-          ? `${getUsersURL}false&region_id=${regionalAdminId}`
-          : `${getUsersURL}false`
-      );
+      const rows = await apiGet<User[]>(`${getUsersURL}false`);
       setCurrentUsers(transformData(rows));
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
@@ -403,7 +438,7 @@ export const RegionUsers: React.FC = () => {
 
   const deleteUser = useCallback(
     (user_id: string): Promise<boolean> => {
-      return apiDelete(`/users/${user_id}`).then(
+      return apiDelete(ENDPOINTS.USER.replace('{user_id}', user_id)).then(
         () => {
           apiRefPendingUsers.current?.updateRows([
             { id: user_id, _action: 'delete' }
@@ -423,61 +458,74 @@ export const RegionUsers: React.FC = () => {
     [apiDelete]
   );
 
-  const addOrgToUser = useCallback(
-    (user_id: string, selectedOrgId: any): Promise<boolean> => {
-      return apiPost(`/v2/organizations/${selectedOrgId}/users`, {
-        body: { user_id, role: 'user' }
-      }).then(
-        (res) => {
-          return updateUser(user_id, res.organization.name);
-        },
-        (e) => {
-          setErrorStates({ ...errorStates, getUpdateError: e.message });
-          return false;
-        }
-      );
-    }, // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apiPost]
+  const updateUser = useCallback(
+    async (
+      user_id: string,
+      org_name: string
+    ): Promise<{ success: boolean; body: string }> => {
+      try {
+        const res = await apiPost(
+          ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', user_id),
+          {
+            body: { invite_pending: false }
+          }
+        );
+        apiRefPendingUsers.current?.updateRows([
+          { id: user_id, _action: 'delete' }
+        ]);
+        setPendingUsers((prevPendingUsers) =>
+          prevPendingUsers.filter((user) => user.id !== user_id)
+        );
+        res['organizations'] = org_name;
+        apiRefCurrentUsers.current?.updateRows([res]);
+        setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
+        return { success: true, body: 'User registration approved' };
+      } catch (e: any) {
+        setErrorStates({ ...errorStates, getUpdateError: e.message });
+        return { success: false, body: e.message };
+      }
+    },
+    [apiPost, apiRefCurrentUsers, apiRefPendingUsers, errorStates]
   );
 
-  const updateUser = useCallback(
-    (user_id: string, org_name: string): Promise<boolean> => {
-      return apiPost(`/v2/update_user/${user_id}`, {
-        body: { invite_pending: false }
-      }).then(
-        (res) => {
-          apiRefPendingUsers.current?.updateRows([
-            { id: user_id, _action: 'delete' }
-          ]);
-          setPendingUsers((prevPendingUsers) =>
-            prevPendingUsers.filter((user) => user.id !== user_id)
-          );
-          res['organizations'] = org_name;
-          apiRefCurrentUsers.current?.updateRows([res]);
-          setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
-          return sendApprovalEmail(user_id);
-        },
-        (e) => {
-          setErrorStates({ ...errorStates, getUpdateError: e.message });
-          return false;
-        }
-      );
-    }, // eslint-disable-next-line react-hooks/exhaustive-deps
-    [apiPost]
+  const addOrgToUser = useCallback(
+    async (
+      user_id: string,
+      selectedOrgId: any
+    ): Promise<{ success: boolean; body: string }> => {
+      try {
+        const res = await apiPost(
+          ENDPOINTS.ORGANIZATION_ADD_USER.replace(
+            '{organization_id}',
+            selectedOrgId
+          ),
+          {
+            body: { user_id, role: 'user' }
+          }
+        );
+        return updateUser(user_id, res.organization.name);
+      } catch (e: any) {
+        setErrorStates({ ...errorStates, getUpdateError: e.message });
+        return { success: false, body: e.message };
+      }
+    },
+    [apiPost, updateUser, errorStates]
   );
 
   const sendApprovalEmail = useCallback(
-    (user_id: string): Promise<boolean> => {
-      return apiPost(`/users/${user_id}/register/approve`).then(
-        (res) => {
-          console.log(res);
-          return true;
-        },
-        (e) => {
-          console.log(e);
-          return false;
-        }
-      );
+    async (user_id: string): Promise<{ status_code: number; body: string }> => {
+      try {
+        const res = await apiPost(
+          ENDPOINTS.USERS_REGISTER_APPROVE.replace('{user_id}', user_id),
+          {}
+        );
+        return { status_code: res.status_code, body: res.body };
+      } catch (e: any) {
+        return {
+          status_code: e.status_code || 500,
+          body: e.message || 'Unknown error'
+        };
+      }
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiPost]
   );
@@ -542,11 +590,21 @@ export const RegionUsers: React.FC = () => {
 
   const removeOrgFromUser = useCallback(
     (org_id: String, roleId: String) => {
-      apiPost(`/organizations/${org_id}/roles/${roleId}/remove`, {
-        body: {}
-      }).then(
+      apiPost(
+        ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+          '{organization_id}',
+          org_id.toString()
+        ).replace('{role_id}', roleId.toString()),
+        {
+          body: {}
+        }
+      ).then(
         (res) => {
-          console.log(res);
+          logger.info('RegionUsers: Organization role removed successfully', {
+            response: res,
+            organizationId: org_id,
+            roleId
+          });
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });
@@ -558,6 +616,8 @@ export const RegionUsers: React.FC = () => {
 
   const handleApproveConfirmClick = async () => {
     try {
+      const emailResult = await sendApprovalEmail(selectedUser.id);
+      const user_id = selectedUser.id;
       const userHadOrg = selectedUser.roles.length > 0;
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
@@ -567,21 +627,47 @@ export const RegionUsers: React.FC = () => {
           ? Array.from(selectedOrg.ids)[0].toString()
           : null;
       let success = false;
+
+      // This call is to determine if the user was already approved by another admin since opening the dialog.
+      // If so, show the already approved dialog and remove the user from the pending list.
+      if (
+        emailResult.status_code === 200 &&
+        emailResult.body === 'User registration already approved.'
+      ) {
+        setDialogStates((prevState) => ({
+          ...prevState,
+          isOrgDialogOpen: false,
+          isUserAlreadyApprovedDialogOpen: true
+        }));
+        apiRefPendingUsers.current?.updateRows([
+          { id: user_id, _action: 'delete' }
+        ]);
+        setPendingUsers((prevPendingUsers) =>
+          prevPendingUsers.filter((user) => user.id !== user_id)
+        );
+        return;
+      }
+
       // If the user's org was already added and not modified, only update the user.
       if (userHadOrg && originalOrgId === selectedOrgId) {
-        success = await updateUser(
+        const updateUserResult = await updateUser(
           selectedUser.id,
           selectedUser.roles[0].organization.name
         );
+        success = updateUserResult.success;
         // If the user now has a different org than before, remove the previous org.
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
         // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
         removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
-        success = await addOrgToUser(selectedUser.id, selectedOrgId);
+        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        success = addOrgResult.success;
+        // If the user had no previous org, add the user to the selected org which then also updates the user.
+
         // If the previous operation was successful or if the user had no previous org,
         // add the user to the selected org which then also updates the user.
       } else {
-        success = await addOrgToUser(selectedUser.id, selectedOrgId);
+        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        success = addOrgResult.success;
       }
       if (success) {
         handleCloseDialog('closeButtonClick');
@@ -659,10 +745,7 @@ export const RegionUsers: React.FC = () => {
           </Alert>
         )}
         <Typography variant="h2" style={{ fontSize: '1.25rem' }} pb={2} pt={5}>
-          Members of
-          {user?.user_type === 'regionalAdmin'
-            ? ` Region ${regionalAdminId}`
-            : ' all regions'}
+          Members of all regions
         </Typography>
         <Paper sx={{ height: '667px' }}>
           <DataGrid
@@ -762,9 +845,28 @@ export const RegionUsers: React.FC = () => {
             isInfoDialogOpen: false
           }));
         }}
-        icon={<CheckIcon color="success" sx={{ fontSize: '80px' }} />}
+        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
+      />
+      <AlreadyApprovedDialog
+        isOpen={dialogStates.isUserAlreadyApprovedDialogOpen}
+        handleClick={() =>
+          setDialogStates((prevState) => ({
+            ...prevState,
+            isUserAlreadyApprovedDialogOpen: false
+          }))
+        }
+        icon={<InfoOutline color="info" sx={{ fontSize: '80px' }} />}
+        title={<Typography variant="h4">User already approved</Typography>}
+        content={
+          <Typography variant="body1">
+            This user was previously approved by another administrator.
+            <br />
+            Check the approval history in Admin Tools → User Logs for more
+            details.
+          </Typography>
+        }
       />
     </Box>
   );

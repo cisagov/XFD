@@ -1,35 +1,38 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, {
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef
+} from 'react';
+import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Query } from 'types';
-import { useAuthContext } from 'context';
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  IconButton,
-  Paper,
-  Stack,
-  Typography
-} from '@mui/material';
+import { differenceInCalendarDays, parseISO } from 'date-fns';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import Checklist from '@mui/icons-material/Checklist';
+import DynamicFeed from '@mui/icons-material/DynamicFeed';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
+import OpenInNew from '@mui/icons-material/OpenInNew';
 import {
   DataGrid,
+  getGridSingleSelectOperators,
+  getGridStringOperators,
   GridColDef,
+  GridColumnVisibilityModel,
+  GridFilterModel,
   GridPaginationModel,
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
-import {
-  Checklist,
-  DynamicFeed,
-  FiberManualRecordRounded,
-  OpenInNew
-} from '@mui/icons-material';
-import CustomToolbar from 'components/DataGrid/CustomToolbar';
-import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
-import { getSeverityColor } from 'pages/Risk/utils';
-import { differenceInCalendarDays, parseISO } from 'date-fns';
-import { truncateString } from 'utils/dataTransformUtils';
+import { useAuthContext } from 'context';
+import { Query, UserOrganization } from 'types';
 import { Vulnerability } from 'types/domain';
 import {
   ApiResponse,
@@ -37,16 +40,35 @@ import {
   SearchParams,
   VulnerabilityRow
 } from 'types/vulnerabilities';
-import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
-import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
+import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
-import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { getSeverityColor } from 'utils/getSeverityColor';
+import { truncateString } from 'utils/dataTransformUtils';
+import {
+  cleanFilterModelItems,
+  formatSeverity,
+  normalizeFilters,
+  extractInitialFilters,
+  shouldTriggerFilterUpdate
+} from 'utils/vulnerabilitiesTableUtils';
+import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const PAGE_SIZE = 15;
 
 interface VulnerabilitiesProps {
   group_by?: string;
 }
+
+const formatDays = (dateString: string) => {
+  const date = parseISO(dateString);
+  const days = differenceInCalendarDays(Date.now(), date);
+  if (days <= 1) {
+    return `${days} day ago`;
+  }
+  return `${days} days ago`;
+};
 
 export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   group_by
@@ -55,20 +77,32 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
   const history = useHistory();
   const location = useLocation();
   const state = location.state as LocationState;
+
+  const [columnVisibilityModel, setColumnVisibilityModel] =
+    useState<GridColumnVisibilityModel>({});
+  const [filters, setFilters] = useState(() => extractInitialFilters(state));
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const filterTimerRef = useRef<number | null>(null);
+  const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const lastFiltersKeyRef = useRef<string>(JSON.stringify(filters));
+  const [loadingError, setLoadingError] = useState(false);
+  const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: PAGE_SIZE
+  });
   const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [totalResults, setTotalResults] = useState(0);
-  const [loadingError, setLoadingError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [onlyOpenVulns, setOnlyOpenVulns] = useState(true);
   const [sortModel, setSortModel] = useState<GridSortModel>([
     {
       field: 'created_at',
       sort: 'desc'
     }
   ]);
-  const [filters, setFilters] = useState(() => extractInitialFilters(state));
-  const [hasPreloadedFilters, setPreloadedFiltersActive] = useState(false);
-  const [columnVisibilityModel, setColumnVisibilityModel] = useState({});
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   useEffect(() => {
     if (state) {
@@ -77,13 +111,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       setPreloadedFiltersActive(extracted.length > 0);
     }
   }, [state]);
-
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: PAGE_SIZE,
-    pageCount: 0,
-    filters: filters
-  });
 
   const vulnerabilitiesSearch = useCallback(
     async ({
@@ -99,12 +126,19 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       try {
         const tableFilters = normalizeFilters(
           filters,
-          currentOrganization,
+          currentOrganization
+            ? ({
+                ...currentOrganization,
+                tags: currentOrganization.tags ?? []
+              } as UserOrganization)
+            : undefined,
           user?.user_type,
           state?.orgId
         );
         return await apiPost<ApiResponse>(
-          doExport ? '/vulnerabilities/export' : '/vulnerabilities/search',
+          doExport
+            ? ENDPOINTS.VULNERABILITIES_EXPORT
+            : ENDPOINTS.VULNERABILITIES_SEARCH,
           {
             body: {
               page,
@@ -118,7 +152,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           }
         );
       } catch (e) {
-        console.error(e);
+        logger.error('Vulnerabilities search/export failed:', {
+          error: e,
+          page,
+          pageSize,
+          filters,
+          showAll
+        });
         setLoadingError(true);
         return;
       }
@@ -148,9 +188,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           setPaginationModel((prevState) => ({
             ...prevState,
             page: 0,
-            pageSize: PAGE_SIZE,
-            pageCount: 0,
-            filters: []
+            pageSize: PAGE_SIZE
           }));
           setLoadingError(false);
           return;
@@ -160,13 +198,16 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         setPaginationModel((prevState) => ({
           ...prevState,
           page: query.page - 1,
-          pageSize: query.pageSize ?? PAGE_SIZE,
-          pageCount: Math.ceil(count / (query.pageSize ?? PAGE_SIZE)),
-          filters: query.filters
+          pageSize: query.pageSize ?? PAGE_SIZE
         }));
         setLoadingError(false);
       } catch (e) {
-        console.error(e);
+        logger.error('Vulnerabilities.fetchVulnerabilities failed:', {
+          error: e,
+          page: query.page,
+          pageSize: query.pageSize,
+          group_by
+        });
         setLoadingError(true);
       } finally {
         setIsLoading(false);
@@ -179,17 +220,25 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     history.replace({ ...location, state: null });
     setPreloadedFiltersActive(false);
     setFilters([]);
+    setFilterModel({ items: [] });
+    if (filterTimerRef.current) {
+      clearTimeout(filterTimerRef.current);
+      filterTimerRef.current = null;
+    }
     setPaginationModel((prev) => ({
       ...prev,
       page: 0,
-      filters: []
+      pageSize: PAGE_SIZE
     }));
     fetchVulnerabilities({
       page: 1,
       pageSize: PAGE_SIZE,
-      filters: []
+      filters: [],
+      order: sortModel[0]?.field,
+      sort: sortModel[0]?.sort ?? 'desc',
+      showAll: !onlyOpenVulns
     });
-  }, [fetchVulnerabilities, history, location]);
+  }, [fetchVulnerabilities, history, location, sortModel, onlyOpenVulns]);
 
   useEffect(() => {
     fetchVulnerabilities({
@@ -202,23 +251,26 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     });
   }, [
     fetchVulnerabilities,
+    filters,
     paginationModel.page,
     paginationModel.pageSize,
-    sortModel,
-    filters,
-    onlyOpenVulns
+    onlyOpenVulns,
+    sortModel
   ]);
 
-  const handlePaginationModelChange = useCallback(
-    (model: GridPaginationModel) => {
-      setPaginationModel((prev) => ({
-        ...prev,
-        page: model.page,
-        pageSize: model.pageSize
-      }));
-    },
-    []
-  );
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    lastFiltersKeyRef.current = JSON.stringify(filters);
+  }, [filters]);
+
   const showAllVulnsButton = (
     <Button
       size="small"
@@ -257,14 +309,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     </Box>
   );
 
-  const formatDays = (dateString: string) => {
-    const date = parseISO(dateString);
-    const days = differenceInCalendarDays(Date.now(), date);
-    if (days <= 1) {
-      return `${days} day ago`;
-    }
-    return `${days} days ago`;
-  };
   const vulRows: VulnerabilityRow[] = useMemo(
     () =>
       vulnerabilities.map((vuln) => {
@@ -283,8 +327,13 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: vuln.is_kev ? 'Yes' : 'No',
-          is_kev_ransomware: vuln.is_kev_ransomware ? 'Yes' : 'No',
+          is_kev: vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No',
+          is_kev_ransomware:
+            vuln.is_kev_ransomware === null
+              ? 'N/A'
+              : vuln.is_kev_ransomware
+                ? 'Yes'
+                : 'No',
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -295,6 +344,21 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     [vulnerabilities]
   );
 
+  const stringFilterOperators = useMemo(() => {
+    try {
+      const operators = getGridStringOperators();
+      const allowedOperators = ['contains', 'equals'];
+      return operators.filter((op) =>
+        allowedOperators.includes(op.value as string)
+      );
+    } catch {
+      return [
+        { label: 'Contains', value: 'contains' } as any,
+        { label: 'Equals', value: 'equals' } as any
+      ];
+    }
+  }, []);
+
   const vulCols: GridColDef<VulnerabilityRow>[] = useMemo(
     () => [
       {
@@ -302,6 +366,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Vulnerability',
         minWidth: 100,
         flex: 2,
+        filterOperators: stringFilterOperators,
         sortComparator: (v1: any, v2: any) => {
           const collator = new Intl.Collator(undefined, {
             numeric: true,
@@ -325,6 +390,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Severity',
         minWidth: 100,
         flex: 0.5,
+        filterOperators: stringFilterOperators,
         sortComparator: (v1: any, v2: any) => {
           const severityLevels: Record<string, number> = {
             'N/A': 1,
@@ -360,13 +426,20 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
+        type: 'singleSelect',
+        valueOptions: [
+          { value: 'Yes', label: 'Yes' },
+          { value: 'No', label: 'No' },
+          { value: 'N/A', label: 'N/A' }
+        ],
+        filterOperators: getGridSingleSelectOperators().filter(
+          (op) => op.value === 'is'
+        ),
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          const value = cellValues.row.is_kev;
           return (
-            <Box
-              component="span"
-              aria-label={`KEV status ${cellValues.row.is_kev}`}
-            >
-              {cellValues.row.is_kev}
+            <Box component="span" aria-label={`KEV status ${value}`}>
+              {value}
             </Box>
           );
         }
@@ -377,20 +450,30 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         minWidth: 100,
         flex: 0.5,
         filterable: true,
-        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => (
-          <Box
-            component="span"
-            aria-label={`Ransomware status ${cellValues.row.is_kev_ransomware}`}
-          >
-            {cellValues.row.is_kev_ransomware}
-          </Box>
-        )
+        filterOperators: getGridSingleSelectOperators().filter(
+          (op) => op.value === 'is'
+        ),
+        type: 'singleSelect',
+        valueOptions: [
+          { value: 'Yes', label: 'Yes' },
+          { value: 'No', label: 'No' },
+          { value: 'N/A', label: 'N/A' }
+        ],
+        renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
+          const v = cellValues.row.is_kev_ransomware;
+          return (
+            <Box component="span" aria-label={`Ransomware status ${v}`}>
+              {v}
+            </Box>
+          );
+        }
       },
       {
         field: 'domain',
         headerName: 'Domain',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -408,6 +491,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Product',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -424,6 +508,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Days Open',
         minWidth: 100,
         flex: 0.5,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -440,6 +525,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         headerName: 'Status',
         minWidth: 100,
         flex: 1,
+        filterOperators: stringFilterOperators,
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
           return (
             <Box
@@ -467,7 +553,12 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               tabIndex={cellValues.tabIndex}
               color="primary"
               onClick={() =>
-                history.push(`/inventory/vulnerability/${cellValues.row.id}`)
+                history.push(
+                  ROUTES.VULNERABILITY.replace(
+                    ':vulnerabilityId',
+                    String(cellValues.row.id)
+                  )
+                )
               }
             >
               <OpenInNew />
@@ -476,7 +567,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       }
     ],
-    [history]
+    [history, stringFilterOperators]
   );
 
   return (
@@ -579,7 +670,16 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               <Alert severity="warning">Error Loading Vulnerabilities!</Alert>
             </Paper>
             <Button
-              onClick={resetVulnerabilities}
+              onClick={() => {
+                fetchVulnerabilities({
+                  page: paginationModel.page + 1,
+                  pageSize: paginationModel.pageSize,
+                  order: sortModel[0]?.field,
+                  sort: sortModel[0]?.sort ?? 'desc',
+                  filters: filters,
+                  showAll: !onlyOpenVulns
+                });
+              }}
               variant="contained"
               color="primary"
               sx={{ width: 'fit-content' }}
@@ -593,18 +693,58 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
             sx={{ width: '100%', minHeight: 500 }}
             aria-label="Vulnerabilities Table"
           >
-            <DataGrid
+            <DataGrid<VulnerabilityRow>
               rows={vulRows}
               rowCount={totalResults}
               columns={vulCols}
               loading={isLoading}
+              columnVisibilityModel={columnVisibilityModel}
+              onColumnVisibilityModelChange={(model) =>
+                setColumnVisibilityModel(model)
+              }
+              filterMode="server"
+              filterModel={filterModel}
+              onFilterModelChange={(model) => {
+                const cleanedModel = cleanFilterModelItems(model, filterModel);
+                setFilterModel(cleanedModel);
+
+                const shouldUpdate = shouldTriggerFilterUpdate(
+                  cleanedModel.items,
+                  filterModel.items
+                );
+
+                if (!shouldUpdate) {
+                  return;
+                }
+
+                if (filterTimerRef.current) {
+                  clearTimeout(filterTimerRef.current);
+                }
+
+                filterTimerRef.current = window.setTimeout(() => {
+                  setIsLoading(true);
+                  setFilters(cleanedModel.items);
+                  setHasActiveFilters(cleanedModel.items.length > 0);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                  filterTimerRef.current = null;
+                }, 1000);
+              }}
+              paginationMode="server"
+              paginationModel={paginationModel}
+              onPaginationModelChange={(model) => {
+                setPaginationModel((prev) => ({
+                  ...prev,
+                  page: model.page,
+                  pageSize: model.pageSize
+                }));
+              }}
+              pageSizeOptions={[15, 30, 50, 100]}
               sortModel={sortModel}
               sortingMode="server"
               onSortModelChange={(model) => {
                 setSortModel(model);
+                setPaginationModel((prev) => ({ ...prev, page: 0 }));
               }}
-              columnVisibilityModel={columnVisibilityModel}
-              onColumnVisibilityModelChange={setColumnVisibilityModel}
               slots={{
                 toolbar: CustomToolbar,
                 noRowsOverlay: CustomNoRowsOverlay
@@ -614,17 +754,42 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   children: onlyOpenVulns
                     ? showAllVulnsButton
                     : showOpenVulnsButton,
-                  exportTitle: 'Vulnerabilities'
+                  exportTitle: 'Vulnerabilities',
+                  hasActiveFilters: hasActiveFilters
                 } as any,
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {
                   placement: 'bottom-start'
+                },
+                panel: {
+                  onClose: () => {
+                    // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                    // Prevents mismatch between filter model and applied filters.
+
+                    const hasIncompleteFilters = filterModel.items.some(
+                      (item) => item.value === undefined
+                    );
+
+                    if (hasIncompleteFilters) {
+                      setFilterModel({ items: [] });
+                      setFilters([]);
+                      setHasActiveFilters(false);
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                    }
+                  }
+                },
+                columnsManagement: {
+                  disableResetButton: true,
+                  getTogglableColumns: (columns) => {
+                    const alwaysVisible = ['title'];
+                    return columns
+                      .filter(
+                        (col) => col.field && !alwaysVisible.includes(col.field)
+                      )
+                      .map((col) => col.field as string);
+                  }
                 }
               }}
-              paginationMode="server"
-              paginationModel={paginationModel}
-              onPaginationModelChange={handlePaginationModelChange}
-              pageSizeOptions={[15, 30, 50, 100]}
               disableRowSelectionOnClick
               showToolbar
             />

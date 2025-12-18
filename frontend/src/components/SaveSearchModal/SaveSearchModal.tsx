@@ -1,18 +1,19 @@
 import React, { useState } from 'react';
+import { logger } from '@/utils/logger';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
-import {
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  TextField,
-  Button,
-  Box
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import TextField from '@mui/material/TextField';
+import Add from '@mui/icons-material/Add';
 import { SavedSearch } from 'types/saved-search';
-import { useAuthContext } from 'context';
-import { Add } from '@mui/icons-material';
+import { ContextType, useAuthContext } from 'context';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 
 interface SaveSearchModalProps {
   searchTerm: string;
@@ -20,7 +21,7 @@ interface SaveSearchModalProps {
   totalResults: number;
   sortField: string;
   sortDirection: string;
-  advancedFiltersReq?: boolean;
+  initialFilters: ContextType['filters'];
 }
 
 export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
@@ -30,7 +31,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     totalResults,
     sortField,
     sortDirection,
-    advancedFiltersReq
+    initialFilters
   } = props;
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -60,15 +61,24 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
 
     try {
       if (activeSearch) {
-        await apiPost('/update_saved-searches/' + activeSearch.id, body);
+        await apiPost(
+          ENDPOINTS.SAVED_SEARCH_UPDATE.replace(
+            '{saved_search_id}',
+            activeSearch.id
+          ),
+          body
+        );
       } else {
-        await apiPost('/saved-searches', body);
+        await apiPost(ENDPOINTS.SAVED_SEARCHES, body);
       }
-      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
     } catch (e) {
-      console.error(e);
+      logger.error('SaveSearchModal.handleSave failed:', {
+        error: e,
+        searchName: savedSearchValues.name
+      });
     }
   };
 
@@ -136,7 +146,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         tabIndex={0}
         variant="text"
         onClick={handleUpdate}
-        disabled={!advancedFiltersReq}
+        disabled={useAreFiltersDefault(filters, initialFilters)}
         aria-label={activeSearch ? 'Update Saved Filter' : 'Save New'}
         startIcon={<Add />}
         sx={{
@@ -165,7 +175,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogContent>
           <DialogContentText id="update-saved-search-description">
             <TextField
-              autoFocus
               required
               margin="dense"
               id="name"
@@ -182,7 +191,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                 }
               }}
@@ -208,7 +217,9 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 try {
                   handleDialogClose();
                 } catch (e) {
-                  console.error(e);
+                  logger.error('SaveSearchModal.handleDialogClose failed:', {
+                    error: e
+                  });
                 }
               }
             }}
@@ -225,7 +236,10 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 setUpdateDialogOpen(false);
                 savedSearchValues.name = '';
               } catch (e) {
-                console.error(e);
+                logger.error('SaveSearchModal.handleSave (update) failed:', {
+                  error: e,
+                  searchName: savedSearchValues.name
+                });
               }
             }}
             disabled={
@@ -241,12 +255,14 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                   setUpdateDialogOpen(false);
                   savedSearchValues.name = '';
                 } catch (e) {
-                  console.error(e);
+                  logger.error(
+                    'SaveSearchModal.handleSave (update onKeyDown) failed:',
+                    { error: e, searchName: savedSearchValues.name }
+                  );
                 }
               }
             }}
             color="primary"
-            autoFocus
             aria-label="Save the search"
           >
             Save
@@ -271,7 +287,6 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         <DialogContent>
           <Box paddingBottom={'1em'}>
             <TextField
-              autoFocus
               required
               margin="dense"
               id="name"
@@ -281,14 +296,16 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
               fullWidth
               variant="outlined"
               value={savedSearchValues.name}
-              onChange={(e) => handleChange(e.target.name, e.target.value)}
+              onChange={(e) => {
+                handleChange(e.target.name, e.target.value);
+              }}
               slotProps={{
                 htmlInput: {
                   'aria-label': 'Enter a name for your saved search'
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
+                if (e.key === 'Enter') {
                   e.preventDefault();
                 }
               }}
@@ -313,7 +330,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                 try {
                   handleCloseModal();
                 } catch (e) {
-                  console.error(e);
+                  logger.error(e);
                 }
               }
             }}
@@ -340,7 +357,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
                   handleSave(savedSearchValues);
                   handleCloseModal();
                 } catch (e) {
-                  console.error(e);
+                  logger.error(e);
                 }
               }
             }}

@@ -14,15 +14,34 @@ from django.utils import timezone
 logging.basicConfig(
     level=logging.INFO,
     format="%(levelname)s: %(message)s",
-    filename="vuln_scanning_sync.log",
+    filename="/tmp/vuln_scanning_sync.log",  # nosec B108
 )
 LOGGER = logging.getLogger(__name__)
 IS_LOCAL = os.getenv("IS_LOCAL")
 
 
 def to_utc_naive(dt):
-    """Convert aware -> UTC naive for Redshift TIMESTAMP parameters."""
+    """Convert aware -> UTC naive for Redshift TIMESTAMP parameters or safely parse strings."""
+    if dt is None:
+        return None
+
+    # If it's a string, try to parse
+    if isinstance(dt, str):
+        try:
+            dt = parser.isoparse(dt)
+        except Exception as e:
+            LOGGER.warning(
+                "Invalid datetime string passed to to_utc_naive: %s (%s)", dt, e
+            )
+            return None
+
+    # Now we know dt is a datetime
+    if not isinstance(dt, datetime.datetime):
+        LOGGER.warning("Unsupported type for to_utc_naive: %s", type(dt))
+        return None
+
     if dt.tzinfo is None:
+        # Return as-is if already naive
         return dt
     return dt.astimezone(dt_timezone.utc).replace(tzinfo=None)
 

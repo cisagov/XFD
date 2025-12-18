@@ -25,6 +25,10 @@ PUBLIC_ENDPOINTS = {
     ("PUT", "/matomo/{path:path}"),  # Matomo public endpoints
     ("POST", "/matomo/{path:path}"),  # Matomo public endpoints
     ("DELETE", "/matomo/{path:path}"),  # Matomo public endpoints
+    ("GET", "/saml/metadata"),
+    ("GET", "/saml/login"),
+    ("POST", "/saml/acs"),
+    ("GET", "/saml/logout"),
 }
 
 # HTTP methods to test
@@ -82,6 +86,11 @@ EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("POST", "/search/export"),
     ("GET", "/healthcheck"),
     ("GET", "/users/me"),
+    # Auth SAML metadata / redirect endpoints
+    ("GET", "/saml/metadata"),
+    ("GET", "/saml/login"),
+    ("POST", "/saml/acs"),
+    ("GET", "/saml/logout"),
 }
 
 # Collect all route-method pairs

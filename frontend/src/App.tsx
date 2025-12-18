@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
 import { API, Auth } from 'aws-amplify';
 import { AuthContextProvider, CFThemeProvider, SearchProvider } from 'context';
+import { ROUTES } from '@/constants/routes';
 import {
   MatomoProvider,
   createInstance,
@@ -14,9 +15,12 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import { StaticsContextProvider } from 'context/StaticsContextProvider';
 import { SavedSearchContextProvider } from 'context/SavedSearchContextProvider';
 import { FilterDrawerContextProvider } from 'context/FilterDrawerContextProvider';
+import { NavigationProvider } from 'context/NavigationContextProvider';
 import { DevInspector } from './utils/devInspector';
 import { openInVSCode } from './utils/openInVSCode';
 import AppGate from './components/Gates/AppGate';
+import TermsGate from './components/Gates/TermsGate';
+import { MuiGlobalStyles } from 'context/MuiGlobalStyles';
 
 API.configure({
   endpoints: [{ name: 'crossfeed', endpoint: import.meta.env.VITE_API_URL }]
@@ -31,7 +35,7 @@ if (import.meta.env.VITE_USE_COGNITO) {
 }
 
 const instance = createInstance({
-  urlBase: `${import.meta.env.VITE_API_URL}/matomo`,
+  urlBase: `${import.meta.env.VITE_API_URL}${ROUTES.MATOMO}`,
   siteId: 1,
   disabled: false,
   heartBeat: { active: true, seconds: 15 },
@@ -50,26 +54,31 @@ const App: React.FC = () => (
     <MatomoTracker />
     <Router>
       <CFThemeProvider>
+        <MuiGlobalStyles />
         <AuthContextProvider>
-          <Authenticator.Provider>
-            <StaticsContextProvider>
-              <SavedSearchContextProvider>
-                <SearchProvider>
-                  <FilterDrawerContextProvider>
-                    <LayoutWithSearch>
-                      <AppGate>
-                        <LinkTracker />
-                        <DevInspector
-                          onClickElement={openInVSCode}
-                        ></DevInspector>
-                        <Routes />
-                      </AppGate>
-                    </LayoutWithSearch>
-                  </FilterDrawerContextProvider>
-                </SearchProvider>
-              </SavedSearchContextProvider>
-            </StaticsContextProvider>
-          </Authenticator.Provider>
+          <TermsGate>
+            <Authenticator.Provider>
+              <StaticsContextProvider>
+                <SavedSearchContextProvider>
+                  <SearchProvider>
+                    <FilterDrawerContextProvider>
+                      <NavigationProvider>
+                        <LayoutWithSearch>
+                          <AppGate>
+                            <LinkTracker />
+                            <DevInspector
+                              onClickElement={openInVSCode}
+                            ></DevInspector>
+                            <Routes />
+                          </AppGate>
+                        </LayoutWithSearch>
+                      </NavigationProvider>
+                    </FilterDrawerContextProvider>
+                  </SearchProvider>
+                </SavedSearchContextProvider>
+              </StaticsContextProvider>
+            </Authenticator.Provider>
+          </TermsGate>
         </AuthContextProvider>
       </CFThemeProvider>
     </Router>

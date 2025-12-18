@@ -1,5 +1,9 @@
 import classes from './Scans.module.scss';
+import { logger } from '@/utils/logger';
 import React, { useCallback, useRef, useState } from 'react';
+import { FaPlayCircle } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 // TODO: Refactor to use Material-UI components
 import {
   Button,
@@ -9,30 +13,23 @@ import {
   ModalHeading,
   ModalRef
 } from '@trussworks/react-uswds';
+import Alert from '@mui/material/Alert';
+import MuiButton from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { ModalToggleButton } from 'components';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-import { FaTimes } from 'react-icons/fa';
-import { FaPlayCircle } from 'react-icons/fa';
 import { useAuthContext } from 'context';
-import { formatDistanceToNow, parseISO } from 'date-fns';
-import { setFrequency } from 'pages/Scan/Scan';
 import { ScanForm, ScanFormValues } from 'components/ScanForm';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-
-import {
-  Alert,
-  Button as MuiButton,
-  Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  IconButton,
-  Paper,
-  DialogTitle,
-  Snackbar,
-  SnackbarCloseReason
-} from '@mui/material';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -81,7 +78,8 @@ const ScansView: React.FC = () => {
     is_user_modifiable: false,
     is_single_scan: false,
     tags: [],
-    concurrent_tasks: 1
+    concurrent_tasks: 1,
+    useDateRange: false
   });
 
   const fetchScans = useCallback(async () => {
@@ -90,8 +88,10 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans');
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      }>(ENDPOINTS.SCANS);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
@@ -99,13 +99,13 @@ const ScansView: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error('ScansView.fetchScans failed:', { error: e });
     }
   }, [apiGet]);
 
   const deleteRow = async (id: string) => {
     try {
-      await apiDelete(`/scans/${id}`, { body: {} });
+      await apiDelete(ENDPOINTS.SCAN.replace('{scan_id}', id));
       setScans(scans.filter((scan) => scan.id !== id));
     } catch (e: any) {
       setErrors({
@@ -114,8 +114,15 @@ const ScansView: React.FC = () => {
             ? 'Unable to delete scan'
             : (e.message ?? e.toString())
       });
-      console.log(e);
+      logger.error('ScansView.deleteRow failed:', { error: e, scanId: id });
     }
+  };
+
+  const setFrequency = async (body: ScanFormValues) => {
+    if (body.is_single_scan) body.frequency = 1;
+    if (body.frequencyUnit === 'minute') body.frequency *= 60;
+    else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
+    else body.frequency *= 60 * 60 * 24;
   };
 
   const onSubmit = async (body: ScanFormValues) => {
@@ -124,7 +131,7 @@ const ScansView: React.FC = () => {
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      const scan = await apiPost('/scans', {
+      const scan = await apiPost(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
@@ -142,16 +149,16 @@ const ScansView: React.FC = () => {
       });
       setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
       setSnackbarOpen(true);
-      console.log(e);
+      logger.error('ScansView.createScan failed:', { error: e });
     }
   };
 
   const invokeScheduler = async () => {
     setErrors({ ...errors, scheduler: '' });
     try {
-      await apiPost('/scheduler/invoke', { body: {} });
+      await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
-      console.error(e);
+      logger.error('ScansView.invokeScheduler failed:', { error: e });
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
     }
   };
@@ -179,9 +186,9 @@ const ScansView: React.FC = () => {
 
   const runScan = async (id: string) => {
     try {
-      await apiPost(`/scans/${id}/run`, { body: {} });
+      await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
-      console.error(e);
+      logger.error('ScansView.runScan failed:', { error: e, scanId: id });
       setErrors({ ...errors, scheduler: 'Run failed.' });
     }
     await invokeScheduler();
@@ -517,7 +524,7 @@ const ScansView: React.FC = () => {
           severity={snackbarMsg.includes('failed') ? 'error' : 'success'}
           sx={{ width: '100%' }}
         >
-          <span tabIndex={0}>{snackbarMsg}</span>
+          <span>{snackbarMsg}</span>
         </Alert>
       </Snackbar>
     </>

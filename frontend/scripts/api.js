@@ -8,14 +8,6 @@ import path from 'path';
 
 export const app = express();
 
-app.use((req, res, next) => {
-  const sanitizedHeaders = { ...req.headers };
-  // Remove or replace sensitive headers
-  delete sanitizedHeaders['authorization'];
-  console.log(`Request Headers: ${JSON.stringify(sanitizedHeaders)}`);
-  next();
-});
-
 // These CORS origins work in all Crossfeed environments
 app.use(
   cors({
@@ -29,11 +21,15 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        defaultSrc: [
+        // Keep default-src tight; widen with specific directives below.
+        defaultSrc: ["'self'"],
+        // Where the SPA may open XHR/fetch/WebSocket connections:
+        connectSrc: [
           "'self'",
-          `${process.env.COGNITO_URL}`,
-          `${process.env.BACKEND_DOMAIN}`
+          ...[process.env.BACKEND_DOMAIN].filter(Boolean)
+          // add 'https://static.cloudflareinsights.com' here if their beacon runs
         ],
+
         frameSrc: ["'self'", 'https://www.dhs.gov/ntas/'],
         imgSrc: [
           "'self'",
@@ -45,10 +41,14 @@ app.use(
         objectSrc: ["'none'"],
         scriptSrc: [
           "'self'",
-          `${process.env.BACKEND_DOMAIN}`,
+          ...[process.env.BACKEND_DOMAIN].filter(Boolean),
           'https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js',
-          'https://www.ssa.gov/accessibility/andi/fandi.js',
-          'https://www.ssa.gov/accessibility/andi/andi.js',
+          ...(process.env.DOMAIN === 'crossfeed.cyber.dhs.gov'
+            ? []
+            : [
+                'https://www.ssa.gov/accessibility/andi/fandi.js',
+                'https://www.ssa.gov/accessibility/andi/andi.js'
+              ]),
           'https://www.dhs.gov',
           'https://static.cloudflareinsights.com'
         ],

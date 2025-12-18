@@ -7,7 +7,10 @@ import React, {
 } from 'react';
 import { useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
-import { Alert, AlertTitle, Box, Typography } from '@mui/material';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
 import { styled, useTheme } from '@mui/material/styles';
 import { useMediaQuery } from '@mui/system';
 import { GovBanner, Header } from 'components';
@@ -22,6 +25,8 @@ import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
+import { FILTER_ENABLED_PATHS } from '@/constants/filterPaths';
+import { ROUTES } from '@/constants/routes';
 
 const Main = styled('main', {
   shouldForwardProp: (prop) =>
@@ -48,12 +53,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const topRef = useRef<HTMLDivElement>(null);
   const [topOffset, setTopOffset] = useState(0);
 
-  const noAlertPaths = [
-    '/login-gov-callback',
-    '/okta-callback',
-    '/create-account',
-    '/terms'
-  ];
+  const noAlertPaths = ['/create-account', ROUTES.LOGIN, ROUTES.OKTA_CALLBACK];
 
   useEffect(() => {
     localStorage.setItem('es-search-filters', JSON.stringify(filters));
@@ -103,8 +103,7 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   );
 
   useEffect(() => {
-    const pathsAllowed = ['/', '/inventory'];
-    if (!matchPath(pathsAllowed, pathname)) {
+    if (!matchPath(FILTER_ENABLED_PATHS, pathname)) {
       setIsFilterDrawerOpen(false);
     }
   }, [pathname, setIsFilterDrawerOpen]);
@@ -182,22 +181,20 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
           </Box>
         )}
         <Header />
-        {userLevel > 0 &&
-          matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
-            <FilterDrawerToggle />
-          )}
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerToggle />
+        )}
       </Box>
       <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
-        {userLevel > 0 &&
-          matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
-            <FilterDrawerV2
-              setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-              isFilterDrawerOpen={isFilterDrawerOpen}
-              isMobile={isMobile}
-              initialFilters={initialFilters}
-              topOffset={topOffset}
-            />
-          )}
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerV2
+            setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+            isFilterDrawerOpen={isFilterDrawerOpen}
+            isMobile={isMobile}
+            initialFilters={initialFilters}
+            topOffset={topOffset}
+          />
+        )}
         {children}
       </Main>
     </>

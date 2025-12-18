@@ -17,16 +17,21 @@ import os
 
 # Python built-in
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 # Third-Party Libraries
 from django.contrib.messages import constants as messages
 
+from .helpers.load_env_variables import load_django_env_config
 from .helpers.log_helpers import install_xfd_prefix
 
 mimetypes.add_type("text/css", ".css", True)
 mimetypes.add_type("text/html", ".html", True)
 
 install_xfd_prefix()  # Install custom logger prefix
+
+# Load environment variables from S3
+load_django_env_config()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,6 +44,7 @@ SECRET_KEY = os.getenv("DJANGO_KEY")
 CROSSFEED_SUPPORT_EMAIL_SENDER = os.getenv("CROSSFEED_SUPPORT_EMAIL_SENDER")
 CROSSFEED_SUPPORT_EMAIL_REPLYTO = os.getenv("CROSSFEED_SUPPORT_EMAIL_REPLYTO")
 FRONTEND_DOMAIN = os.getenv("FRONTEND_DOMAIN")
+BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN")
 IS_LOCAL = os.getenv("IS_LOCAL")
 NIST_API_KEY = os.getenv("NIST_API_KEY")
 IS_LAMBDA = os.getenv("AWS_LAMBDA_FUNCTION_NAME") is not None
@@ -52,10 +58,42 @@ JWT_TIMEOUT_HOURS = os.getenv("JWT_TIMEOUT_HOURS")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = IS_LOCAL != "false"
 
+# Okta Metadata URL
+OKTA_SAML_METADATA_URL = os.getenv("OKTA_SAML_METADATA_URL")
+
+# SAML certificate configuration
+IS_LOCAL_TRUTHY: bool = str(IS_LOCAL or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "y",
+    "on",
+}
+
+SAML_SP_CERT_PATH: Optional[str]
+SAML_SP_PRIVATE_KEY_PATH: Optional[str]
+WANT_NAMEID_ENCRYPTED: bool
+
+if not IS_LOCAL_TRUTHY:
+    # Only load cert paths in non-local environments
+    SAML_SP_CERT_PATH = os.getenv(
+        "SAML_SP_CERT_PATH", "/app/certs/saml_public_cert.pem"
+    )
+    SAML_SP_PRIVATE_KEY_PATH = os.getenv(
+        "SAML_SP_PRIVATE_KEY_PATH", "/app/certs/saml_private_key.pem"
+    )
+    WANT_NAMEID_ENCRYPTED = str(
+        os.getenv("WANT_NAMEID_ENCRYPTED", "true")
+    ).strip().lower() in {"1", "true", "yes", "y", "on"}
+else:
+    # For local development: skip encryption and certs entirely
+    SAML_SP_CERT_PATH = None
+    SAML_SP_PRIVATE_KEY_PATH = None
+    WANT_NAMEID_ENCRYPTED = False
+
 ALLOWED_HOSTS = [
     ".execute-api.us-east-1.amazonaws.com",
     os.getenv("BACKEND_DOMAIN"),
-    os.getenv("VITE_API_URL"),
     os.getenv("FRONTEND_DOMAIN"),
     os.getenv("CROSSFEED_FRONTEND_DOMAIN"),
     os.getenv("CROSSFEED_BACKEND_DOMAIN"),
@@ -85,6 +123,8 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
 ]
+
+ALLOWED_ADMIN_ROLES = ["globalView", "globalAdmin", "regionalAdmin"]
 
 
 # Database
@@ -143,13 +183,27 @@ LANGUAGE_CODE = "en-us"
 LOGGING_LEVEL = "DEBUG" if DEBUG else "INFO"
 ROOT_LEVEL = "INFO"
 # Logging configuration
-handlers = {
+handlers: Dict[str, Any] = {
     "console": {
         "level": LOGGING_LEVEL,
         "class": "logging.StreamHandler",
         "formatter": "standard",
     }
 }
+
+
+def _env_handlers(requests: bool = False) -> list[str]:
+    """
+    Return appropriate logging handlers based on environment.
+
+    - Uses CloudWatch if running in Lambda and not local.
+    - Otherwise falls back to console logging.
+    - `requests=True` will select the requests-specific CloudWatch handler.
+    """
+    if IS_LAMBDA and not IS_LOCAL:
+        return ["requests_cloudwatch"] if requests else ["app_cloudwatch"]
+    return ["console"]
+
 
 # Add CloudWatch handlers if in Lambda
 if IS_LAMBDA and not IS_LOCAL:
@@ -167,21 +221,27 @@ if IS_LAMBDA and not IS_LOCAL:
                 "class": "watchtower.CloudWatchLogHandler",
                 "formatter": "standard",
                 "boto3_client": logs_client,
-                "log_group_name": "crossfeed-{}-backend-api".format(STAGE),
+                "log_group_name": "cyhy-{}-backend-api".format(STAGE),
+                "stream_name": "{machine_name}/{logger_name}/{process_id}",
+                "use_queues": False,
             },
             "requests_cloudwatch": {
                 "level": "INFO",
                 "class": "watchtower.CloudWatchLogHandler",
                 "formatter": "standard",
                 "boto3_client": logs_client,
-                "log_group_name": "crossfeed-{}-backend-api-requests".format(STAGE),
+                "log_group_name": "cyhy-{}-backend-api-requests".format(STAGE),
+                "stream_name": "{machine_name}/{logger_name}/{process_id}",
+                "use_queues": False,
             },
         }
     )
 
+# TODO: CRASM-3282
+# Consider using JSON formatter instead
 LOGGING = {
     "version": 1,
-    "disable_existing_loggers": True,
+    "disable_existing_loggers": False,
     "formatters": {
         "standard": {
             "format": "%(levelname)s [%(name)s:%(funcName)s:line %(lineno)d] - %(message)s",
@@ -190,18 +250,28 @@ LOGGING = {
     },
     "handlers": handlers,
     "root": {
-        # Root always logs to console so Fargate/ECS and Lambda prints still go somewhere
-        "handlers": ["console"],
-        "level": ROOT_LEVEL,
+        "handlers": ["console"] if not IS_LAMBDA else [],
+        "level": "WARNING" if IS_LAMBDA else ROOT_LEVEL,
     },
     "loggers": {
+        # Catch-all for your project namespace
         "xfd": {
-            "handlers": (
-                ["app_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
-            ),
+            "handlers": _env_handlers(),
             "level": LOGGING_LEVEL,
             "propagate": False,
         },
+        # Explicitly route sibling loggers (your modules) into CloudWatch
+        "xfd_api": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        "xfd_mini_dl": {
+            "handlers": _env_handlers(),
+            "level": LOGGING_LEVEL,
+            "propagate": False,
+        },
+        # Request logs stay separate
         "fastapi.requests": {
             "handlers": (
                 ["requests_cloudwatch"] if IS_LAMBDA and not IS_LOCAL else ["console"]
@@ -213,6 +283,7 @@ LOGGING = {
 }
 
 # Apply the logging configuration
+LOGGING_CONFIG = None
 logging.config.dictConfig(LOGGING)
 
 TIME_ZONE = "UTC"
@@ -296,8 +367,14 @@ SECURE_CSP_POLICY = {
         os.getenv("BACKEND_DOMAIN"),
         os.getenv("CROSSFEED_BACKEND_DOMAIN"),
         "https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js",
-        "https://www.ssa.gov/accessibility/andi/fandi.js",
-        "https://www.ssa.gov/accessibility/andi/andi.js",
+        *(
+            [
+                "https://www.ssa.gov/accessibility/andi/fandi.js",
+                "https://www.ssa.gov/accessibility/andi/andi.js",
+            ]
+            if DEBUG
+            else []
+        ),
         "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.9.0/swagger-ui-bundle.js",
         "'sha256-QOOQu4W1oxGqd2nbXbxiA1Di6OHQOLQD+o+G9oWL8YY='",
         "https://www.dhs.gov",
