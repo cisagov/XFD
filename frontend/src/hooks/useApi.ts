@@ -10,6 +10,8 @@ const baseHeaders: HeadersInit = {
 type ApiMethod = (apiName: string, path: string, init?: any) => Promise<any>;
 type OnError = (e: Error) => Promise<void>;
 
+const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
+
 /**
  * Normalize header-ish shapes to a lower-cased plain object.
  * Amplify error shapes vary across versions/adapters.
@@ -108,37 +110,39 @@ export const useApi = (onError?: OnError) => {
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
 
-          // Detection of blocks before API Gateway
-          try {
-            const status =
-              e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
+          if (!isLocal) {
+            // Detection of blocks before API Gateway
+            try {
+              const status =
+                e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
 
-            const headersRaw =
-              e?.response?.headers ??
-              e?.headers ??
-              e?.response?.header ??
-              undefined;
+              const headersRaw =
+                e?.response?.headers ??
+                e?.headers ??
+                e?.response?.header ??
+                undefined;
 
-            const headers = normalizeHeaders(headersRaw);
+              const headers = normalizeHeaders(headersRaw);
 
-            const apigwId = headers['x-amz-apigw-id'] ?? '';
-            const amznReqId = headers['x-amzn-requestid'] ?? '';
-            const reachedApigw = !!(apigwId || amznReqId);
+              const apigwId = headers['x-amz-apigw-id'] ?? '';
+              const amznReqId = headers['x-amzn-requestid'] ?? '';
+              const reachedApigw = !!(apigwId || amznReqId);
 
-            if (!reachedApigw) {
-              sendClientTelemetry({
-                type: 'backend_blocked_before_apigw',
-                path,
-                status: status ?? null,
-                server: headers['server'] ?? null,
-                via: headers['via'] ?? null,
-                cfRay: headers['cf-ray'] ?? null,
-                cfCacheStatus: headers['cf-cache-status'] ?? null,
-                ts: Date.now()
-              });
+              if (!reachedApigw) {
+                sendClientTelemetry({
+                  type: 'backend_blocked_before_apigw',
+                  path,
+                  status: status ?? null,
+                  server: headers['server'] ?? null,
+                  via: headers['via'] ?? null,
+                  cfRay: headers['cf-ray'] ?? null,
+                  cfCacheStatus: headers['cf-cache-status'] ?? null,
+                  ts: Date.now()
+                });
+              }
+            } catch {
+              // Never let logging break the original error behavior
             }
-          } catch {
-            // Never let logging break the original error behavior
           }
 
           onError && onError(e);
