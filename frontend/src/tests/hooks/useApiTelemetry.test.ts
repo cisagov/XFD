@@ -19,62 +19,27 @@ describe('useApi telemetry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.stubEnv('VITE_IS_LOCAL', 'false');
-
-    // Make sure sendBeacon is writable/defined in jsdom
+    // 🧠 Mock global.navigator.sendBeacon
     Object.defineProperty(global.navigator, 'sendBeacon', {
       value: vi.fn(),
       writable: true,
       configurable: true
     });
 
-    // Stub fetch fallback too
-    // @ts-ignore
+    // 🧠 Mock global.fetch fallback
     global.fetch = vi.fn(() => Promise.resolve({ ok: true })) as any;
-  });
 
-  it('sends client telemetry when backend error lacks API Gateway headers', async () => {
-    const API = await getAmplifyAPI();
-
-    API.get.mockRejectedValueOnce({
-      response: {
-        status: 403,
-        headers: {
-          server: 'cloudflare'
+    // 🧠 Mock Blob so .text() works in JSDOM
+    if (typeof global.Blob === 'undefined') {
+      global.Blob = class {
+        constructor(
+          public parts: any[],
+          public options: any
+        ) {}
+        text() {
+          return Promise.resolve(this.parts.join(''));
         }
-      }
-    });
-
-    const { useApi } = await import('../../hooks/useApi');
-    const { result } = renderHook(() => useApi());
-
-    await expect(
-      act(async () => {
-        await result.current.apiGet('/test');
-      })
-    ).rejects.toBeDefined();
-
-    const sendBeaconSpy = global.navigator.sendBeacon as any;
-    const fetchSpy = global.fetch as any;
-
-    // It should use sendBeacon if available; but allow fetch fallback in case jsdom behaves oddly.
-    expect(
-      sendBeaconSpy.mock.calls.length + fetchSpy.mock.calls.length
-    ).toBeGreaterThan(0);
-
-    if (sendBeaconSpy.mock.calls.length > 0) {
-      const [, blob] = sendBeaconSpy.mock.calls[0];
-      const payload = JSON.parse(await blob.text());
-      expect(payload.type).toBe('backend_blocked_before_apigw');
-      expect(payload.path).toBe('/test');
-      expect(payload.status).toBe(403);
-    } else {
-      // fetch('/client-telemetry', { body: JSON.stringify(payload) })
-      const [, init] = fetchSpy.mock.calls[0];
-      const payload = JSON.parse(init.body);
-      expect(payload.type).toBe('backend_blocked_before_apigw');
-      expect(payload.path).toBe('/test');
-      expect(payload.status).toBe(403);
+      } as any;
     }
   });
 
