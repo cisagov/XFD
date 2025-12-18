@@ -19,6 +19,8 @@ describe('useApi telemetry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
+    vi.stubEnv('VITE_IS_LOCAL', 'false');
+
     // Make sure sendBeacon is writable/defined in jsdom
     Object.defineProperty(global.navigator, 'sendBeacon', {
       value: vi.fn(),
