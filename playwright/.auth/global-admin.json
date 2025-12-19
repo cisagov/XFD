@@ -1,0 +1,219 @@
+{
+  "cookies": [
+    {
+      "domain": "cisa-partner-dev.cisa.dhs.gov",
+      "expires": 1800643681.530485,
+      "httpOnly": true,
+      "name": "DT",
+      "path": "/",
+      "sameSite": "None",
+      "secure": true,
+      "value": "DI1cW0KLIreSNCQrYrOg5xcJw"
+    },
+    {
+      "domain": "cisa-partner-dev.cisa.dhs.gov",
+      "expires": 1797619683,
+      "httpOnly": false,
+      "name": "ln",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "xfd.pw.globaladm@gmail.com"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": 1800643684.64546,
+      "httpOnly": true,
+      "name": "ahoy_visitor",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "cd3304e7-6d54-4c5f-affb-9cf744ee8951"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": 1766084586.915158,
+      "httpOnly": true,
+      "name": "ahoy_visit",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "791fe33f-c10e-4a13-b401-006393943d4e"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": -1,
+      "httpOnly": true,
+      "name": "ahoy_track",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "true"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": 1766084586.915252,
+      "httpOnly": true,
+      "name": "sp_issuer",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "cisa-partner-dev.okta.com"
+    },
+    {
+      "domain": ".identitysandbox.gov",
+      "expires": 1800643685.4798,
+      "httpOnly": false,
+      "name": "_ga_CSLL4ZEK4L",
+      "path": "/",
+      "sameSite": "Strict",
+      "secure": true,
+      "value": "GS2.1.s1766083685$o1$g0$t1766083685$j60$l0$h0"
+    },
+    {
+      "domain": ".identitysandbox.gov",
+      "expires": 1800643685.479962,
+      "httpOnly": false,
+      "name": "_ga",
+      "path": "/",
+      "sameSite": "Strict",
+      "secure": true,
+      "value": "GA1.1.1929911169.1766083685"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": 1800643686.749049,
+      "httpOnly": true,
+      "name": "device",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "ab5ced9ce8ae5d0a739d08f3d4b79fc5d0dea0a86f6f438725bbcd7e7078421bb9555096d894ecb8fa52d31b3967c61d1b7f50d500a2490b1efb55cfb540d30f"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": 1800643686.042227,
+      "httpOnly": true,
+      "name": "browser_id",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "4c722a647f2067189e1a9bc3843a1d4d4f01cd24bebc64b8152291e54a67c614c1a581bea1ef43d19ccf4805167ccf950e6b9d5240cca8bffab6ba3b3875a0c5"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": -1,
+      "httpOnly": true,
+      "name": "_identity_idp_session",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "f878aa3904adef46632623c166f73b4f"
+    },
+    {
+      "domain": "idp.int.identitysandbox.gov",
+      "expires": -1,
+      "httpOnly": true,
+      "name": "user_opted_remember_device_preference",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "7cQRlXodx6ZeF2jdNFtDZu3uE9%2BucCfse53Gy5q69EfjFsTGDxD45R9jX%2BtbRboOOMNLsSvsLxGHotycuBmw0BxcxK6KDxjGnoBsLNeaCc6fyLtutgdQ%2F4Nj2xZn--bHhDhBPd0KNGustd--xZ%2Ftlj18OgOKoYmkxhum%2BA%3D%3D"
+    },
+    {
+      "domain": "cisa-partner-dev.cisa.dhs.gov",
+      "expires": -1,
+      "httpOnly": true,
+      "name": "JSESSIONID",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": true,
+      "value": "E31015A0C7935F9A1C5486C5471CAAC5"
+    },
+    {
+      "domain": "cisa-partner-dev.cisa.dhs.gov",
+      "expires": -1,
+      "httpOnly": true,
+      "name": "idx",
+      "path": "/",
+      "sameSite": "None",
+      "secure": true,
+      "value": "eyJ6aXAiOiJERUYiLCJ2ZXIiOiIxIiwiYWxpYXMiOiJlbmNyeXB0aW9ua2V5Iiwib2lkIjoiMDBvNW9jc2UxMnJaU2x4NVI0aDciLCJlbmMiOiJBMjU2R0NNIiwiYWxnIjoiZGlyIiwieHNpZCI6ImlkeFlxU2pqSno3U0tPRE4xbHNoMnllTkEifQ..MU8A4jX0Q_MWbf_m.9_vVNtCYqqoGI6LCTWkxkLT3iSeQNo2ZFnUybjvAFuIhub0hP4nzAHSxCZqqY4Gz7ffqzcKe4BFsh2HyRsjpBNLcVsghGe4XdfqLh_Idaoowu6p4rUSCR7O8V5gDyVbTPdbCGaU3LZZU9Xo5ABWu7uL9FE8jHLCbMrvgQm0CiHeZR2Iy_XiZ6YI_zje1-N0ZPaLD8wBeM-KYrXbTVQRJZqxK-GFL7yRQj1oo-uZU4xLQkjhv8O8hyiidSMMLv5GAQvJn-DQGAzgK30GhubtD_ljv6p3XkLAHeN_bSQWrsXn4qnP4_gJqoXFLTZP06pn7dqvkjS29PqXfD4e_mVj1P7CErYYe9goHxBnqtjFbq4h0G_0ArV3iRqfwFkkOX3bcjLwzJWQ7J8Sv9M-a4fUWo8f0yVwcJMpQX3JPHVHsQ6t-G8qupJLburvwSgDLJHo6pR6JdkQXruSdZ824xBkOBle446TcuXhaFP_Kk6PO8yGkG0MM1aYsHqpWhSilCqCKJPyAPQhjQadd0uKugd2AcpZaWvZhtVvzD0NgtDK0fz3yeKMeY9VzugnhDXVJ_PJacyjH76NNHNfn6F61_l7QOwKwEiP8bA.HPtSrZQwhGqsEqE82V1h1g"
+    },
+    {
+      "domain": "localhost",
+      "expires": -1,
+      "httpOnly": false,
+      "name": "token",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": false,
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjdlYTIwZjFiLWFmYzQtNDdkOC1hODE1LTAyM2QwMDhjY2Y4OCIsImVtYWlsIjoieGZkLnB3Lmdsb2JhbGFkbUBnbWFpbC5jb20iLCJleHAiOjE3NjYwOTgwODl9.Us6in96ZYpc7z_Va8QgxgDzZwYqfM3oNxPKYX2cOR7Y"
+    },
+    {
+      "domain": "localhost",
+      "expires": -1,
+      "httpOnly": false,
+      "name": "crossfeed-token",
+      "path": "/",
+      "sameSite": "Strict",
+      "secure": true,
+      "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjdlYTIwZjFiLWFmYzQtNDdkOC1hODE1LTAyM2QwMDhjY2Y4OCIsImVtYWlsIjoieGZkLnB3Lmdsb2JhbGFkbUBnbWFpbC5jb20iLCJleHAiOjE3NjYwOTgwODl9.Us6in96ZYpc7z_Va8QgxgDzZwYqfM3oNxPKYX2cOR7Y"
+    },
+    {
+      "domain": "localhost",
+      "expires": 1800038890,
+      "httpOnly": false,
+      "name": "_pk_id.1.1fff",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": false,
+      "value": "fb3555fe9607049d.1766083690.1.1766083690.1766083690."
+    },
+    {
+      "domain": "localhost",
+      "expires": 1766085489,
+      "httpOnly": false,
+      "name": "_pk_ses.1.1fff",
+      "path": "/",
+      "sameSite": "Lax",
+      "secure": false,
+      "value": "1"
+    }
+  ],
+  "origins": [
+    {
+      "localStorage": [
+        {
+          "name": "showAllOrganizations",
+          "value": "false"
+        },
+        {
+          "name": "token",
+          "value": "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjdlYTIwZjFiLWFmYzQtNDdkOC1hODE1LTAyM2QwMDhjY2Y4OCIsImVtYWlsIjoieGZkLnB3Lmdsb2JhbGFkbUBnbWFpbC5jb20iLCJleHAiOjE3NjYwOTgwODl9.Us6in96ZYpc7z_Va8QgxgDzZwYqfM3oNxPKYX2cOR7Y\""
+        },
+        {
+          "name": "showMap",
+          "value": "false"
+        },
+        {
+          "name": "organization",
+          "value": "null"
+        },
+        {
+          "name": "es-search-filters",
+          "value": "[{\"field\":\"organization.region_id\",\"values\":[\"3\",\"1\",\"2\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\"],\"type\":\"any\"}]"
+        },
+        {
+          "name": "filterDrawerOpen",
+          "value": "false"
+        },
+        {
+          "name": "filter-regions",
+          "value": "[\"1\",\"2\",\"3\",\"4\",\"5\",\"6\",\"7\",\"8\",\"9\",\"10\"]"
+        }
+      ],
+      "origin": "http://localhost"
+    }
+  ]
+}
