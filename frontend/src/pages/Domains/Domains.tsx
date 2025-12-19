@@ -245,9 +245,8 @@ export const Domains: React.FC = () => {
     }
   }, []);
 
-  const domCols = useMemo<GridColDef[]>(
-    () => {
-      const allColumns = [
+  const domCols = useMemo<GridColDef[]>(() => {
+    const allColumns = [
       {
         field: 'name',
         headerName: 'IP Addresses',
@@ -396,12 +395,10 @@ export const Domains: React.FC = () => {
     ];
 
     // Filter out organization column for standard users
-    return user?.user_type === 'standard' 
-      ? allColumns.filter(col => col.field !== 'organization_name')
+    return user?.user_type === 'standard'
+      ? allColumns.filter((col) => col.field !== 'organization_name')
       : allColumns;
-    },
-    [history, stringFilterOperators, user]
-  );
+  }, [history, stringFilterOperators, user]);
 
   const noRowsOverlay = (
     <Paper>
