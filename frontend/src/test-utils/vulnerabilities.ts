@@ -22,11 +22,14 @@ export type Vuln = {
 
 export const makeVuln = (i = 1, overrides: Partial<Vuln> = {}): Vuln => {
   const idx = i;
+  // Generate dates dynamically: 43 days ago + idx seconds for uniqueness
+  // This ensures tests remain stable regardless of when they run
+  const baseDate = new Date(Date.now() - 43 * 24 * 60 * 60 * 1000 + idx * 1000);
   return {
     id: `vuln-${idx}`,
     scan_source: 'vuln_scanning_tickets',
-    created_at: new Date(2025, 9, 27, 15, 59, idx).toISOString(),
-    updated_at: new Date(2025, 9, 27, 15, 59, idx).toISOString(),
+    created_at: baseDate.toISOString(),
+    updated_at: baseDate.toISOString(),
     cve: `CVE-2025-0${idx}`,
     title: overrides.title ?? `CVE-2013-4041 Sample Vuln ${idx}`,
     product: 'cpe:/a:microsoft:iis',
