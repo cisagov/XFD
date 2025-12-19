@@ -160,11 +160,7 @@ export const useApi = (onError?: OnError) => {
   const api = {
     apiGet: useMemo(() => apiMethod(API.get.bind(API), 'get'), [apiMethod]),
     apiPost: useMemo(() => apiMethod(API.post.bind(API), 'post'), [apiMethod]),
-    apiDelete: useMemo(() => apiMethod(API.del.bind(API), 'del'), [apiMethod]),
-    apiPatch: useMemo(
-      () => apiMethod(API.patch.bind(API), 'patch'),
-      [apiMethod]
-    )
+    apiDelete: useMemo(() => apiMethod(API.del.bind(API), 'del'), [apiMethod])
   };
 
   return {
