@@ -80,7 +80,7 @@ const formatDays = (dateString: string) => {
 };
 
 export const Domains: React.FC = () => {
-  const { showAllOrganizations } = useAuthContext();
+  const { showAllOrganizations, user } = useAuthContext();
   const history = useHistory();
   const location = useLocation();
   const state = location.state as
@@ -246,10 +246,11 @@ export const Domains: React.FC = () => {
   }, []);
 
   const domCols = useMemo<GridColDef[]>(
-    () => [
+    () => {
+      const allColumns = [
       {
         field: 'name',
-        headerName: 'Domain',
+        headerName: 'IP Addresses',
         minWidth: 100,
         flex: 1,
         filterOperators: stringFilterOperators,
@@ -257,9 +258,9 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Domain Name: ${cellValues.row.name}`}
+              aria-label={`IP Address: ${cellValues.row.ip}`}
             >
-              {cellValues.row.name}
+              {cellValues.row.ip}
             </Box>
           );
         }
@@ -274,26 +275,9 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Organization using Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
+              aria-label={`Organization for IP ${cellValues.row.ip}: ${cellValues.row.organization_name}`}
             >
               {cellValues.row.organization_name}
-            </Box>
-          );
-        }
-      },
-      {
-        field: 'ip',
-        headerName: 'IP',
-        minWidth: 50,
-        flex: 1,
-        filterOperators: stringFilterOperators,
-        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-          return (
-            <Box
-              component="span"
-              aria-label={`IP Address for Domain ${cellValues.row.name}: ${cellValues.row.ip}`}
-            >
-              {cellValues.row.ip}
             </Box>
           );
         }
@@ -308,7 +292,7 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Ports for Domain ${cellValues.row.name}: ${cellValues.row.ports_preview}`}
+              aria-label={`Ports for IP ${cellValues.row.ip}: ${cellValues.row.ports_preview}`}
             >
               {cellValues.row.ports_preview}
             </Box>
@@ -325,7 +309,7 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Services for Domain ${cellValues.row.name}: ${cellValues.row.services_preview}`}
+              aria-label={`Services for IP ${cellValues.row.ip}: ${cellValues.row.services_preview}`}
             >
               {cellValues.row.services_preview}
             </Box>
@@ -395,7 +379,7 @@ export const Domains: React.FC = () => {
         renderCell: (cellValues: GridRenderCellParams) => {
           return (
             <IconButton
-              aria-label={`View Details for Domain ${cellValues.row.name}`}
+              aria-label={`View Details for IP ${cellValues.row.ip}`}
               tabIndex={cellValues.tabIndex}
               color="primary"
               onClick={() =>
@@ -409,8 +393,14 @@ export const Domains: React.FC = () => {
           );
         }
       }
-    ],
-    [history, stringFilterOperators]
+    ];
+
+    // Filter out organization column for standard users
+    return user?.user_type === 'standard' 
+      ? allColumns.filter(col => col.field !== 'organization_name')
+      : allColumns;
+    },
+    [history, stringFilterOperators, user]
   );
 
   const noRowsOverlay = (
