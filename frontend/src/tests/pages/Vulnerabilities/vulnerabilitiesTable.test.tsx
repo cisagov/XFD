@@ -505,18 +505,4 @@ describe('Vulnerabilities component', () => {
     await screen.findByRole('grid');
     expect(container.firstChild).toMatchSnapshot();
   });
-
-  it('matches snapshot', () => {
-    // Mock the current date to make snapshot deterministic
-    // Test data uses October 27, 2025, so we set "current" date to December 11, 2025
-    // This gives consistent "45 days ago" calculations
-    const mockDate = new Date('2025-12-11T00:00:00Z');
-    vi.useFakeTimers();
-    vi.setSystemTime(mockDate);
-
-    const { container } = render(<Vulnerabilities />);
-    expect(container.firstChild).toMatchSnapshot();
-
-    vi.useRealTimers();
-  });
 });
