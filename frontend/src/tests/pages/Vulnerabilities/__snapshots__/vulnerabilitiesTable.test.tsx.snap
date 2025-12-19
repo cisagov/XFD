@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
+exports[`Vulnerabilities component > matches snapshot after loading sample data 1`] = `
 <div
   class="MuiBox-root css-ktvys1"
 >
@@ -117,7 +117,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
               aria-label="Select columns"
               class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
               data-mui-internal-clone-element="true"
-              id=":rk6:"
+              id=":r3:"
               tabindex="0"
               type="button"
             >
@@ -147,7 +147,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                 aria-label="Show filters"
                 class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
                 data-mui-internal-clone-element="true"
-                id=":rka:"
+                id=":r7:"
                 tabindex="0"
                 type="button"
               >
@@ -185,7 +185,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
               aria-label="Density"
               class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
               data-mui-internal-clone-element="true"
-              id=":rke:"
+              id=":rb:"
               tabindex="0"
               type="button"
             >
@@ -212,7 +212,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
               aria-label="Export"
               class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
               data-mui-internal-clone-element="true"
-              id=":rki:"
+              id=":rf:"
               tabindex="0"
               type="button"
             >
@@ -357,7 +357,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Vulnerability column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rkt:"
+                            id=":rq:"
                             tabindex="-1"
                             type="button"
                           >
@@ -457,7 +457,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Severity column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rl3:"
+                            id=":r10:"
                             tabindex="-1"
                             type="button"
                           >
@@ -557,7 +557,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="KEV column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rl9:"
+                            id=":r16:"
                             tabindex="-1"
                             type="button"
                           >
@@ -657,7 +657,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Ransomware column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rlf:"
+                            id=":r1c:"
                             tabindex="-1"
                             type="button"
                           >
@@ -757,7 +757,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Domain column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rll:"
+                            id=":r1i:"
                             tabindex="-1"
                             type="button"
                           >
@@ -857,7 +857,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Product column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rlr:"
+                            id=":r1o:"
                             tabindex="-1"
                             type="button"
                           >
@@ -957,7 +957,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Days Open column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rm1:"
+                            id=":r1u:"
                             tabindex="-1"
                             type="button"
                           >
@@ -1057,7 +1057,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                             aria-label="Status column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rm7:"
+                            id=":r24:"
                             tabindex="-1"
                             type="button"
                           >
@@ -1781,7 +1781,7 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                 />
                 <p
                   class="MuiTablePagination-selectLabel css-1ucagr7-MuiTablePagination-selectLabel"
-                  id=":rko:"
+                  id=":rl:"
                 >
                   Rows per page:
                 </p>
@@ -1791,9 +1791,9 @@ exports[`Vulnerabilities component > matches snapshot after loading data 1`] = `
                   <div
                     aria-expanded="false"
                     aria-haspopup="listbox"
-                    aria-labelledby=":rko: :rkn:"
+                    aria-labelledby=":rl: :rk:"
                     class="MuiSelect-select MuiTablePagination-select MuiSelect-standard MuiInputBase-input css-18zjd9i-MuiNativeSelect-root-MuiSelect-select-MuiInputBase-input"
-                    id=":rkn:"
+                    id=":rk:"
                     role="combobox"
                     tabindex="0"
                   >
