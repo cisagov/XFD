@@ -1090,8 +1090,8 @@ def create_sample_domain(organization, data_source):
     return SubDomains.objects.create(
         sub_domain=domain_name,
         ip_address=ip,
-        fromRootDomain="crossfeed.local",
-        subdomainSource="findomain",
+        from_root_domain="crossfeed.local",
+        subdomain_source="findomain",
         organization=organization,
         data_source=data_source,
         current=True,
