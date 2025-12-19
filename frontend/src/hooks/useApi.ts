@@ -10,13 +10,80 @@ const baseHeaders: HeadersInit = {
 type ApiMethod = (apiName: string, path: string, init?: any) => Promise<any>;
 type OnError = (e: Error) => Promise<void>;
 
+const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
+
+/**
+ * Normalize header-ish shapes to a lower-cased plain object.
+ * Amplify error shapes vary across versions/adapters.
+ */
+const normalizeHeaders = (header: any): Record<string, string> => {
+  if (!header) return {};
+
+  // Plain object
+  if (
+    typeof header === 'object' &&
+    !('forEach' in header) &&
+    !('entries' in header)
+  ) {
+    const out: Record<string, string> = {};
+    for (const [name, value] of Object.entries(header)) {
+      out[String(name).toLowerCase()] = String(value);
+    }
+    return out;
+  }
+
+  // Headers-like (forEach)
+  if (typeof header?.forEach === 'function') {
+    const out: Record<string, string> = {};
+    header.forEach((v: any, k: any) => {
+      out[String(k).toLowerCase()] = String(v);
+    });
+    return out;
+  }
+
+  // Iterable (entries)
+  if (typeof header?.entries === 'function') {
+    const out: Record<string, string> = {};
+    for (const [name, value] of header.entries()) {
+      out[String(name).toLowerCase()] = String(value);
+    }
+    return out;
+  }
+
+  return {};
+};
+
+const sendClientTelemetry = (payload: any) => {
+  try {
+    const body = JSON.stringify(payload);
+
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon(
+        '/client-telemetry',
+        new Blob([body], { type: 'application/json' })
+      );
+      return;
+    }
+
+    fetch('/client-telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      keepalive: true,
+      credentials: 'omit'
+    }).catch(() => undefined);
+  } catch {
+    // Never let telemetry break the original error behavior
+  }
+};
+
 export const useApi = (onError?: OnError) => {
   const [requestCount, setRequestCount] = useState(0);
 
   const getToken = () => {
-    const t = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     try {
-      return t ? JSON.parse(t) : '';
+      return token ? JSON.parse(token) : '';
     } catch {
       return '';
     }
@@ -46,6 +113,42 @@ export const useApi = (onError?: OnError) => {
           return result as T;
         } catch (e: any) {
           showLoading && setRequestCount((cnt) => cnt - 1);
+
+          if (!isLocal) {
+            // Detection of blocks before API Gateway
+            try {
+              const status =
+                e?.response?.status ?? e?.status ?? e?.statusCode ?? undefined;
+
+              const headersRaw =
+                e?.response?.headers ??
+                e?.headers ??
+                e?.response?.header ??
+                undefined;
+
+              const headers = normalizeHeaders(headersRaw);
+
+              const apigwId = headers['x-amz-apigw-id'] ?? '';
+              const amznReqId = headers['x-amzn-requestid'] ?? '';
+              const reachedApigw = !!(apigwId || amznReqId);
+
+              if (!reachedApigw) {
+                sendClientTelemetry({
+                  type: 'backend_blocked_before_apigw',
+                  path,
+                  status: status ?? null,
+                  server: headers['server'] ?? null,
+                  via: headers['via'] ?? null,
+                  cfRay: headers['cf-ray'] ?? null,
+                  cfCacheStatus: headers['cf-cache-status'] ?? null,
+                  ts: Date.now()
+                });
+              }
+            } catch {
+              // Never let logging break the original error behavior
+            }
+          }
+
           onError && onError(e);
           throw e;
         }
@@ -57,11 +160,7 @@ export const useApi = (onError?: OnError) => {
   const api = {
     apiGet: useMemo(() => apiMethod(API.get.bind(API), 'get'), [apiMethod]),
     apiPost: useMemo(() => apiMethod(API.post.bind(API), 'post'), [apiMethod]),
-    apiDelete: useMemo(() => apiMethod(API.del.bind(API), 'del'), [apiMethod]),
-    apiPatch: useMemo(
-      () => apiMethod(API.patch.bind(API), 'patch'),
-      [apiMethod]
-    )
+    apiDelete: useMemo(() => apiMethod(API.del.bind(API), 'del'), [apiMethod])
   };
 
   return {
