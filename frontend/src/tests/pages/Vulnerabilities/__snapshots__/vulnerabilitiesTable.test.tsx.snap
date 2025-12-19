@@ -1301,10 +1301,10 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                       tabindex="-1"
                     >
                       <span
-                        aria-label="52 days ago open"
+                        aria-label="53 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        52 days ago
+                        53 days ago
                       </span>
                     </div>
                     <div
@@ -1495,10 +1495,10 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                       tabindex="-1"
                     >
                       <span
-                        aria-label="52 days ago open"
+                        aria-label="53 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        52 days ago
+                        53 days ago
                       </span>
                     </div>
                     <div
@@ -1689,10 +1689,10 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                       tabindex="-1"
                     >
                       <span
-                        aria-label="52 days ago open"
+                        aria-label="53 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        52 days ago
+                        53 days ago
                       </span>
                     </div>
                     <div
