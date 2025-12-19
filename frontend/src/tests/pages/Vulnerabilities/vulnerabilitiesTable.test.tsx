@@ -492,14 +492,7 @@ describe('Vulnerabilities component', () => {
     is_kev_ransomware: idx === 0 ? true : idx === 1 ? false : null
   }));
 
-  it('matches snapshot after loading data', async () => {
-    // Mock Date.now() to make snapshot deterministic
-    // Test data uses October 27, 2025, so we set "current" date to December 11, 2025
-    // This gives consistent "45 days ago" calculations
-    const mockNow = new Date('2025-12-11T00:00:00Z').getTime();
-    const originalDateNow = Date.now;
-    Date.now = vi.fn(() => mockNow);
-
+  it('matches snapshot after loading sample data', async () => {
     apiPostMock.mockResolvedValueOnce(snapshotResponse);
     const { container } = render(<Vulnerabilities />, {
       initialHistory: ['/vulnerabilities'],
@@ -511,7 +504,5 @@ describe('Vulnerabilities component', () => {
     });
     await screen.findByRole('grid');
     expect(container.firstChild).toMatchSnapshot();
-
-    Date.now = originalDateNow;
   });
 });
