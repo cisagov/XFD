@@ -48,7 +48,8 @@
     "react-select": "^5.5.9",
     "react-table": "^7.8.0",
     "serverless-http": "^3.2.0",
-    "universal-cookie": "^7.2.2"
+    "universal-cookie": "^7.2.2",
+    "zod": "^4.2.1"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
