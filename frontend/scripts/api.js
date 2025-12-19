@@ -37,6 +37,16 @@ const telemetryLimiter = rateLimit({
   }
 });
 
+function getErrorMessage(err) {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  try {
+    return JSON.stringify(err);
+  } catch (e) {
+    return 'Unknown error';
+  }
+}
+
 // These CORS origins work in all Crossfeed environments
 app.use(
   cors({
