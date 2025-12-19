@@ -113,7 +113,7 @@ export const Users: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [apiGet, user?.user_type, user?.region_id]);
+  }, [apiGet]);
 
   useEffect(() => {
     fetchUsers();
@@ -548,6 +548,7 @@ export const Users: React.FC = () => {
                 }
               }
             }}
+            pageSizeOptions={[15, 30, 50, 100]}
             showToolbar
           />
         </Paper>

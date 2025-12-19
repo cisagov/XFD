@@ -111,7 +111,7 @@ def create_daily_host_summary(org_id_dict, summary_date=None):
                         ) >= DATE_TRUNC('day', GETDATE() - INTERVAL '11 days')
                 THEN 1 ELSE 0
             END
-        ) AS recent_up_hosts_count,
+        ) AS recent_up_hosts_count
     FROM (
         SELECT
             owner,
