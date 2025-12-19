@@ -122,6 +122,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
             );
             return !isFiltered;
           });
+
           const sortedIps = filteredIps.sort((a, b) =>
             compareIp(a._source.ip ?? '', b._source.ip ?? '')
           );

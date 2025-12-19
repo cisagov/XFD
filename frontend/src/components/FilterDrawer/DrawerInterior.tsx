@@ -16,7 +16,7 @@ import { useTheme } from '@mui/material/styles';
 import DeleteOutline from '@mui/icons-material/DeleteOutline';
 import ExpandMore from '@mui/icons-material/ExpandMore';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
-import { FacetFilter, TaggedArrayInput } from 'components';
+import { FacetFilter } from 'components';
 import { ContextType } from 'context/SearchProvider';
 import { useAuthContext } from 'context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
@@ -290,11 +290,17 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </Stack>
         </AccordionSummary>
         <AccordionDetails>
-          <TaggedArrayInput
+          {/* <TaggedArrayInput
             placeholder="Domain Name"
             values={filtersByColumn.name ?? []}
             onAddTag={(value) => addFilter('name', value, 'any')}
             onRemoveTag={(value) => removeFilter('name', value, 'any')}
+          /> */}
+          <DomainAndIPFilter
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            filters={filters}
+            search_field="name"
           />
         </AccordionDetails>
       </Accordion>

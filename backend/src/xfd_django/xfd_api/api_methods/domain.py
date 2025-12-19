@@ -4,7 +4,7 @@
 import csv
 import io
 import logging
-from typing import Optional
+from typing import Any, Dict, Optional
 
 # Third-Party Libraries
 from django.core.paginator import Paginator
@@ -15,10 +15,13 @@ from django.db.models.functions import Cast
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import Domain, DomainSearchView, Organization, Service
 
+from ..api_methods.organization import escape_special_characters
+from ..api_methods.search import is_valid_org, is_valid_region
 from ..auth import get_org_memberships, is_global_view_admin
 from ..helpers.filter_helpers import apply_domain_filters
 from ..helpers.s3_client import S3Client
-from ..schema_models.domain import DomainSearch
+from ..schema_models.domain import DomainNameSearch, DomainSearch
+from ..tasks.es_client import ESClient
 
 LOGGER = logging.getLogger(__name__)
 
@@ -302,4 +305,77 @@ def export_domains(domain_search: DomainSearch, current_user):
     except Exception as e:
         # Log the exception for debugging (optional)
         LOGGER.error("Error exporting domains: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def search_domains_name(search_body: DomainNameSearch, current_user):
+    """Handle the logic for searching organizations in Elasticsearch."""
+    try:
+        # if current_user.user_type == UserType.STANDARD:
+        #     raise HTTPException(status_code=403, detail="Unauthorized.")
+        if search_body.regions is not None and len(search_body.regions) > 0:
+            # Validate regions
+            for region in search_body.regions:
+                if not is_valid_region(region, current_user):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Unauthorized",
+                    )
+        if search_body.organizations is not None and len(search_body.organizations) > 0:
+            # Validate organizations
+            for org in search_body.organizations:
+                if not is_valid_org(org, current_user):
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Unauthorized",
+                    )
+        # Check if user is GlobalViewAdmin or has memberships
+        if not is_global_view_admin(current_user) and not get_org_memberships(
+            current_user
+        ):
+            return []
+
+        # Initialize Elasticsearch client
+        client = ESClient()
+
+        # Construct the Elasticsearch query
+
+        query_body: Dict[str, Any] = {
+            # "_source": ["id", "name"],
+            "query": {"bool": {"must": [], "filter": []}},
+        }
+
+        validated_search_field = (
+            search_body.search_field
+            if search_body.search_field in ["name", "ip"]
+            else "name"
+        )
+
+        # Use match_all if searchTerm is empty
+        if search_body.search_term.strip():
+            sanitized_search_term = escape_special_characters(search_body.search_term)
+            query_body["query"]["bool"]["must"].append(
+                {
+                    "query_string": {
+                        "query": "*{}*".format(sanitized_search_term),
+                        "fields": [validated_search_field],
+                        "fuzziness": "AUTO",
+                        "analyze_wildcard": True,
+                    }
+                }
+            )
+        else:
+            query_body["query"]["bool"]["must"].append({"match_all": {}})
+
+        # Log the query for debugging
+        LOGGER.debug("Query body: %s", query_body)
+
+        # Execute the search
+        search_results = client.search_domains(query_body)
+
+        return {"body": search_results}
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        LOGGER.exception("Error occurred while searching organizations: %s", e)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
