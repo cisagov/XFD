@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { formatDate, parseISO } from 'date-fns';
+import { useTheme } from '@mui/material/styles';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -7,8 +8,6 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import CloseIcon from '@mui/icons-material/Close';
-import DoneIcon from '@mui/icons-material/Done';
 import InfoOutline from '@mui/icons-material/InfoOutline';
 import {
   DataGrid,
@@ -65,6 +64,7 @@ export const RegionUsers: React.FC = () => {
   const apiRefCurrentUsers = useGridApiRef();
   const { formattedUserType } = useUserLevel();
   const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
+  const theme = useTheme();
 
   const pendingCols: GridColDef[] = [
     {
@@ -154,22 +154,17 @@ export const RegionUsers: React.FC = () => {
       flex: 2,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
-          <Stack direction="row" spacing={1} mt={1}>
+          <Stack direction="row" spacing={2} p={1}>
             <Button
-              variant="contained"
-              endIcon={<DoneIcon />}
+              variant="approve"
               onClick={() => handleApproveClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
               aria-label={`Approve User: ${cellValues.row.full_name}`}
-              sx={{ backgroundColor: '#2e7d32' }}
-              // TODO need to use success color after contrast issue resolved CRASM-3445
             >
               Approve
             </Button>
             <Button
-              variant="contained"
-              endIcon={<CloseIcon />}
-              color="error"
+              variant="deny"
               onClick={() => handleDenyClick(cellValues.row)}
               disabled={user?.user_type === 'globalView'}
               aria-label={`Deny User: ${cellValues.row.full_name}`}
@@ -845,7 +840,11 @@ export const RegionUsers: React.FC = () => {
             isInfoDialogOpen: false
           }));
         }}
-        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        icon={
+          <CheckCircleOutline
+            sx={{ fontSize: '80px', color: theme.palette.primary.dark }}
+          />
+        }
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
       />

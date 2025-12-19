@@ -75,6 +75,8 @@ declare module '@mui/material/Button' {
     globalNav: true;
     primaryContained: true;
     primaryText: true;
+    approve: true;
+    deny: true;
   }
 }
 
@@ -162,6 +164,37 @@ const theme = createTheme({
             },
             fontSize: theme.typography.button.fontSize,
             fontWeight: theme.typography.button.fontWeight
+          })
+        },
+        {
+          props: { variant: 'approve' },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.primary.dark,
+            color: theme.palette.neutrals.white,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.darker
+            },
+            height: '40px',
+            padding: '10px 16px 10px 16px',
+            borderRadius: '4px',
+            ...theme.typography.button
+          })
+        },
+        {
+          props: { variant: 'deny' },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.neutrals.white,
+            color: theme.palette.primary.dark,
+            border: `2pt solid ${theme.palette.primary.dark}`,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.light,
+              color: theme.palette.primary.dark,
+              border: `2pt solid ${theme.palette.primary.dark}`
+            },
+            height: '40px',
+            padding: '10px 16px 10px 16px',
+            borderRadius: '4px',
+            ...theme.typography.button
           })
         }
       ]
@@ -336,7 +369,7 @@ const theme = createTheme({
     },
     // TODO need to change success color for contrast issue CRASM-3445
     success: {
-      main: '#5E9732'
+      main: '#52832B'
     },
     background: {
       default: '#FFFFFF'
