@@ -503,6 +503,9 @@ describe('Vulnerabilities component', () => {
       }
     });
     await screen.findByRole('grid');
+    expect(container.firstChild).toMatchSnapshot();
+  });
+
   it('matches snapshot', () => {
     // Mock the current date to make snapshot deterministic
     // Test data uses October 27, 2025, so we set "current" date to December 11, 2025
