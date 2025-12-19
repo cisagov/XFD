@@ -24,6 +24,7 @@ import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { DomainAndIPFilter } from './DomainAndIPFilter';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -261,11 +262,17 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </Stack>
         </AccordionSummary>
         <AccordionDetails>
-          <TaggedArrayInput
+          {/* <TaggedArrayInput
             placeholder="IP address"
             values={filtersByColumn.ip ?? []}
             onAddTag={(value) => addFilter('ip', value, 'any')}
             onRemoveTag={(value) => removeFilter('ip', value, 'any')}
+          /> */}
+          <DomainAndIPFilter
+            addFilter={addFilter}
+            removeFilter={removeFilter}
+            filters={filters}
+            search_field="ip"
           />
         </AccordionDetails>
       </Accordion>
