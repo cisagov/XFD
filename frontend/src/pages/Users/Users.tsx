@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { useTheme } from '@mui/material/styles';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -80,6 +81,7 @@ export const Users: React.FC = () => {
   const [formValues, setFormValues] = useState<UserFormValues>(
     initialUserFormValues
   );
+  const theme = useTheme();
 
   // TODO: Create playwright tests to cover updated Regional Admin access across the application. https://maestro.dhs.gov/jira/browse/CRASM-3183
   const fetchUsers = useCallback(async () => {
@@ -560,7 +562,11 @@ export const Users: React.FC = () => {
         handleClick={() => {
           window.location.reload();
         }}
-        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        icon={
+          <CheckCircleOutline
+            sx={{ fontSize: '80px', color: theme.palette.primary.dark }}
+          />
+        }
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
       />
