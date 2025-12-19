@@ -16,32 +16,36 @@ const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
  * Normalize header-ish shapes to a lower-cased plain object.
  * Amplify error shapes vary across versions/adapters.
  */
-const normalizeHeaders = (h: any): Record<string, string> => {
-  if (!h) return {};
+const normalizeHeaders = (header: any): Record<string, string> => {
+  if (!header) return {};
 
   // Plain object
-  if (typeof h === 'object' && !('forEach' in h) && !('entries' in h)) {
+  if (
+    typeof header === 'object' &&
+    !('forEach' in header) &&
+    !('entries' in header)
+  ) {
     const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(h)) {
-      out[String(k).toLowerCase()] = String(v);
+    for (const [name, value] of Object.entries(header)) {
+      out[String(name).toLowerCase()] = String(value);
     }
     return out;
   }
 
   // Headers-like (forEach)
-  if (typeof h?.forEach === 'function') {
+  if (typeof header?.forEach === 'function') {
     const out: Record<string, string> = {};
-    h.forEach((v: any, k: any) => {
+    header.forEach((v: any, k: any) => {
       out[String(k).toLowerCase()] = String(v);
     });
     return out;
   }
 
   // Iterable (entries)
-  if (typeof h?.entries === 'function') {
+  if (typeof header?.entries === 'function') {
     const out: Record<string, string> = {};
-    for (const [k, v] of h.entries()) {
-      out[String(k).toLowerCase()] = String(v);
+    for (const [name, value] of header.entries()) {
+      out[String(name).toLowerCase()] = String(value);
     }
     return out;
   }
@@ -77,9 +81,9 @@ export const useApi = (onError?: OnError) => {
   const [requestCount, setRequestCount] = useState(0);
 
   const getToken = () => {
-    const t = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     try {
-      return t ? JSON.parse(t) : '';
+      return token ? JSON.parse(token) : '';
     } catch {
       return '';
     }
