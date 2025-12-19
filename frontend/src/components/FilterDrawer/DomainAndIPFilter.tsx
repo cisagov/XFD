@@ -333,8 +333,8 @@ export const DomainAndIPFilter: React.FC<Props> = ({
             placeholder="Search"
             helperText={
               search_field === 'name'
-                ? 'This search shows up to 15 domains to start. Begin typing to search across all of your available domains and select one.'
-                : 'This search shows up to 15 IP addresses to start. Begin typing to search across all of your available IPs and select one.'
+                ? 'This search shows up to 10 domains to start. Begin typing to search across all of your available domains and select one.'
+                : 'This search shows up to 10 IP addresses to start. Begin typing to search across all of your available IPs and select one.'
             }
           />
         )}
