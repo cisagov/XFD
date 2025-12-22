@@ -99,7 +99,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
       style="--Paper-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);"
     >
       <div
-        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-4146028548 css-j2rwcw-MuiDataGrid-root"
+        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-214018530 css-j2rwcw-MuiDataGrid-root"
         style="--DataGrid-hasScrollX: 0; --DataGrid-hasScrollY: 1; --DataGrid-scrollbarSize: 0px; --DataGrid-rowWidth: 0px; --DataGrid-columnsTotalWidth: 0px; --DataGrid-leftPinnedWidth: 0px; --DataGrid-rightPinnedWidth: 0px; --DataGrid-headerHeight: 56px; --DataGrid-headersTotalHeight: 56px; --DataGrid-topContainerHeight: 56px; --DataGrid-bottomContainerHeight: 0px; --height: 52px;"
       >
         <div
@@ -1301,10 +1301,10 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                       tabindex="-1"
                     >
                       <span
-                        aria-label="51 days ago open"
+                        aria-label="43 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        51 days ago
+                        43 days ago
                       </span>
                     </div>
                     <div
@@ -1495,10 +1495,10 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                       tabindex="-1"
                     >
                       <span
-                        aria-label="51 days ago open"
+                        aria-label="43 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        51 days ago
+                        43 days ago
                       </span>
                     </div>
                     <div
@@ -1689,10 +1689,10 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                       tabindex="-1"
                     >
                       <span
-                        aria-label="51 days ago open"
+                        aria-label="43 days ago open"
                         class="MuiBox-root css-0"
                       >
-                        51 days ago
+                        43 days ago
                       </span>
                     </div>
                     <div
@@ -1872,9 +1872,9 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
           </div>
         </div>
         <style
-          href="/MuiDataGridVariables-4146028548"
+          href="/MuiDataGridVariables-214018530"
         >
-          .MuiDataGridVariables-4146028548{--DataGrid-t-spacing-unit:8px;--DataGrid-t-color-border-base:rgba(224, 224, 224, 1);--DataGrid-t-color-background-base:#fff;--DataGrid-t-color-background-overlay:#fff;--DataGrid-t-color-background-backdrop:rgba(255, 255, 255, 0.38);--DataGrid-t-color-foreground-base:rgba(0, 0, 0, 0.87);--DataGrid-t-color-foreground-muted:rgba(0, 0, 0, 0.6);--DataGrid-t-color-foreground-accent:#005288;--DataGrid-t-color-foreground-disabled:rgba(0, 0, 0, 0.38);--DataGrid-t-color-foreground-error:rgb(137, 12, 33);--DataGrid-t-color-interactive-hover:rgba(0, 0, 0, 0.04);--DataGrid-t-color-interactive-hover-opacity:0.04;--DataGrid-t-color-interactive-focus:rgba(from #0078AE r g b / 1);--DataGrid-t-color-interactive-focus-opacity:0.12;--DataGrid-t-color-interactive-disabled:rgba(from rgba(0, 0, 0, 0.26) r g b / 1);--DataGrid-t-color-interactive-disabled-opacity:0.38;--DataGrid-t-color-interactive-selected:#0078AE;--DataGrid-t-color-interactive-selected-opacity:0.08;--DataGrid-t-header-background-base:#fff;--DataGrid-t-cell-background-pinned:#fff;--DataGrid-t-radius-base:4px;--DataGrid-t-typography-font-family-base:source sans pro, sans-serif;--DataGrid-t-typography-font-weight-light:300;--DataGrid-t-typography-font-weight-regular:400;--DataGrid-t-typography-font-weight-medium:500;--DataGrid-t-typography-font-weight-bold:700;--DataGrid-t-typography-font-body:400 0.875rem / 1.43 source sans pro, sans-serif;--DataGrid-t-typography-font-small:400 0.75rem / 1.66 source sans pro, sans-serif;--DataGrid-t-typography-font-large:500 14px / 1.5 source sans pro, sans-serif;--DataGrid-t-transition-easing-ease-in:cubic-bezier(0.4, 0, 1, 1);--DataGrid-t-transition-easing-ease-out:cubic-bezier(0.0, 0, 0.2, 1);--DataGrid-t-transition-easing-ease-in-out:cubic-bezier(0.4, 0, 0.2, 1);--DataGrid-t-transition-duration-short:200ms;--DataGrid-t-transition-duration-base:250ms;--DataGrid-t-transition-duration-long:300ms;--DataGrid-t-shadow-base:0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);--DataGrid-t-shadow-overlay:0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12);--DataGrid-t-z-index-panel:1300;--DataGrid-t-z-index-menu:1300;}
+          .MuiDataGridVariables-214018530{--DataGrid-t-spacing-unit:8px;--DataGrid-t-color-border-base:rgba(224, 224, 224, 1);--DataGrid-t-color-background-base:#fff;--DataGrid-t-color-background-overlay:#fff;--DataGrid-t-color-background-backdrop:rgba(255, 255, 255, 0.38);--DataGrid-t-color-foreground-base:rgba(0, 0, 0, 0.87);--DataGrid-t-color-foreground-muted:rgba(0, 0, 0, 0.6);--DataGrid-t-color-foreground-accent:#005288;--DataGrid-t-color-foreground-disabled:rgba(0, 0, 0, 0.38);--DataGrid-t-color-foreground-error:rgb(137, 12, 33);--DataGrid-t-color-interactive-hover:rgba(0, 0, 0, 0.04);--DataGrid-t-color-interactive-hover-opacity:0.04;--DataGrid-t-color-interactive-focus:rgba(from #0078AE r g b / 1);--DataGrid-t-color-interactive-focus-opacity:0.12;--DataGrid-t-color-interactive-disabled:rgba(from rgba(0, 0, 0, 0.26) r g b / 1);--DataGrid-t-color-interactive-disabled-opacity:0.38;--DataGrid-t-color-interactive-selected:#0078AE;--DataGrid-t-color-interactive-selected-opacity:0.08;--DataGrid-t-header-background-base:#fff;--DataGrid-t-cell-background-pinned:#fff;--DataGrid-t-radius-base:4px;--DataGrid-t-typography-font-family-base:source sans pro, sans-serif;--DataGrid-t-typography-font-weight-light:300;--DataGrid-t-typography-font-weight-regular:400;--DataGrid-t-typography-font-weight-medium:500;--DataGrid-t-typography-font-weight-bold:700;--DataGrid-t-typography-font-body:400 0.875rem / 1.43 source sans pro, sans-serif;--DataGrid-t-typography-font-small:400 0.75rem / 1.66 source sans pro, sans-serif;--DataGrid-t-typography-font-large:500 14px / 1.5 source sans pro, sans-serif;--DataGrid-t-transition-easing-ease-in:cubic-bezier(0.4, 0, 1, 1);--DataGrid-t-transition-easing-ease-out:cubic-bezier(0.0, 0, 0.2, 1);--DataGrid-t-transition-easing-ease-in-out:cubic-bezier(0.4, 0, 0.2, 1);--DataGrid-t-transition-duration-short:200ms;--DataGrid-t-transition-duration-base:250ms;--DataGrid-t-transition-duration-long:300ms;--DataGrid-t-shadow-base:0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);--DataGrid-t-shadow-overlay:0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12);--DataGrid-t-z-index-panel:1300;--DataGrid-t-z-index-menu:1300;}
         </style>
       </div>
     </div>
