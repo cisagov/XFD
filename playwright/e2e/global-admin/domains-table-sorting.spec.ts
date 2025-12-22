@@ -10,6 +10,8 @@ import { expect } from '@playwright/test';
 import type { TestInfo } from '@playwright/test';
 import { ROUTES } from '../../../frontend/src/constants/routes';
 
+const IS_CI =
+  (process.env.CI ?? '').toLowerCase() === 'true' || process.env.CI === '1';
 // Helper function to validate IP address natural sorting order
 function validateIpSorting(ipAddresses: string[]): boolean {
   if (ipAddresses.length <= 1) return true;
@@ -51,6 +53,7 @@ function validateDomainSorting(domains: string[]): boolean {
 }
 
 test.describe('domains-table', () => {
+  test.fixme(IS_CI, 'TODO: CI environment missing required data');
   test('IP column sorts with server-side sorting', async ({
     pageAsGlobalAdmin,
     makeAxeBuilder

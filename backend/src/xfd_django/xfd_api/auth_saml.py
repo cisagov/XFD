@@ -327,7 +327,7 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
         "token",
         token,
         secure=is_https,
-        samesite="None",
+        samesite="None" if not IS_LOCAL else "Lax",
         path="/",
         domain=COOKIE_DOMAIN,
     )
@@ -335,7 +335,7 @@ def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse
         "crossfeed-token",
         token,
         secure=is_https,
-        samesite="None",
+        samesite="None" if not IS_LOCAL else "Lax",
         path="/",
         domain=COOKIE_DOMAIN,
     )

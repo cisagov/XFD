@@ -119,6 +119,16 @@ def get_application() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=[
+            "x-amzn-requestid",
+            "x-amzn-apigw-id",
+            "cf-ray",
+            "cf-cache-status",
+            "content-type",
+            "content-length",
+            "date",
+            "server",
+        ],
     )
 
     # Add security headers middleware
