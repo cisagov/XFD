@@ -83,7 +83,7 @@
     "rollup": "^4.22.4",
     "rollup-plugin-visualizer": "^6.0.3",
     "sass": "^1.96.0",
-    "serverless": "^3.40.0",
+    "serverless": "^4.29.0",
     "serverless-better-credentials": "^1.2.0",
     "serverless-domain-manager": "^7.0",
     "serverless-esbuild": "^1.55.1",
