@@ -119,6 +119,14 @@ resource "aws_security_group" "allow_internal_lz" {
     cidr_blocks = ["10.234.0.0/15", "10.232.0.0/15", "52.61.0.0/17", "10.236.0.0/24", "96.127.0.0/17"]
   }
 
+  ingress {
+    description = "AE Coginiti1"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "TCP"
+    cidr_blocks = ["10.5.0.0/16"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

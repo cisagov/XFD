@@ -67,6 +67,7 @@ resource "aws_cloudwatch_metric_alarm" "worker_ecs_cpu_high" {
   }
 }
 
+<<<<<<< HEAD
 
 # ------------------------------------------------------------------------------
 # Database Performance Alarms
@@ -143,8 +144,45 @@ resource "aws_cloudwatch_metric_alarm" "rds_slow_query_spike" {
   period              = "300"
   statistic           = "Sum"
   threshold           = 50
+=======
+resource "aws_cloudwatch_log_metric_filter" "backend_blocked_before_apigw" {
+  name           = "cyhy-${var.stage}-backend-blocked-before-apigw"
+  log_group_name = "/aws/lambda/crossfeed-frontend-${var.stage}-api"
+
+  pattern = "{ $.clientTelemetry.type = \"backend_blocked_before_apigw\" }"
+
+  metric_transformation {
+    name      = "BackendBlockedBeforeApigw"
+    namespace = "${var.project}/${var.stage}/ClientTelemetry"
+    value     = "1"
+    unit      = "Count"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "backend_blocked_before_apigw_alarm" {
+  alarm_name        = "cyhy-${var.stage}-backend-blocked-before-apigw-alarm"
+  alarm_description = "Clients observed backend calls blocked before API Gateway (${var.stage})"
+
+  namespace   = aws_cloudwatch_log_metric_filter.backend_blocked_before_apigw.metric_transformation[0].namespace
+  metric_name = aws_cloudwatch_log_metric_filter.backend_blocked_before_apigw.metric_transformation[0].name
+
+  statistic           = "Sum"
+  period              = 60
+  evaluation_periods  = 2
+  threshold           = 1
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+>>>>>>> origin/develop
   treat_missing_data  = "notBreaching"
 
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
+<<<<<<< HEAD
+=======
+
+  tags = {
+    Project  = var.project
+    Stage    = var.stage
+    Severity = var.severity_high
+  }
+>>>>>>> origin/develop
 }

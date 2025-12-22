@@ -19,10 +19,10 @@ interface LooseVulnerabilityRow {
   id: string;
   title: string;
   severity: string;
-  is_kev: boolean | null; // Keep original boolean data
-  is_kev_display: string; // Display version for UI/export
-  is_kev_ransomware: boolean | null; // Keep original boolean data
-  is_kev_ransomware_display: string; // Display version for UI/export
+  is_kev: string | boolean | null; // Keep original boolean data
+  // is_kev_display: string; // Display version for UI/export
+  is_kev_ransomware: string | boolean | null; // Keep original boolean data
+  // is_kev_ransomware_display: string; // Display version for UI/export
   domain: string | undefined;
   domainId: string | undefined;
   product: string;

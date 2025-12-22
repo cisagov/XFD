@@ -162,7 +162,7 @@ export const ScanForm: React.FC<{
     if (values.useDateRange && dateRangeError) {
       setDateRangeError('');
     }
-  }, [values.startDate, values.endDate]);
+  }, [values.startDate, values.endDate, dateRangeError, values.useDateRange]);
 
   return (
     <Form
