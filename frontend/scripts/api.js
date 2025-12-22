@@ -9,11 +9,20 @@ import cors from 'cors';
 import helmet from 'helmet';
 import express from 'express';
 import path from 'path';
+import { z } from 'zod';
 
 export const app = express();
 
-// JSON body parsing needed for telemetry POST
-app.use(express.json({ limit: '10kb' }));
+const telemetrySchema = z.object({
+  type: z.string(),
+  path: z.string().optional(),
+  status: z.number().nullable().optional(),
+  server: z.string().nullable().optional(),
+  via: z.string().nullable().optional(),
+  cfRay: z.string().nullable().optional(),
+  cfCacheStatus: z.string().nullable().optional(),
+  ts: z.number().optional()
+});
 
 // Rate limiting middleware (per IP, ~1 req/sec over 5 min)
 const telemetryLimiter = rateLimit({
@@ -46,6 +55,9 @@ function getErrorMessage(err) {
     return 'Unknown error';
   }
 }
+
+// JSON body parsing needed for telemetry POST
+app.use(express.json({ limit: '10kb' }));
 
 // These CORS origins work in all Crossfeed environments
 app.use(
