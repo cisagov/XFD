@@ -79,7 +79,7 @@
     "patch-package": "^8.0.0",
     "prettier": "^3.4.2",
     "react-dev-inspector": "^2.0.1",
-    "react-markdown": "^8.0.3",
+    "react-markdown": "^10.1.0",
     "rollup": "^4.22.4",
     "rollup-plugin-visualizer": "^6.0.3",
     "sass": "^1.96.0",
