@@ -53,12 +53,12 @@ resource "aws_db_instance" "db" {
     ? data.aws_availability_zones.available.names[0]
     : data.aws_availability_zones.available.names[0]
   )
-  multi_az                            = true
-  backup_retention_period             = 35
-  storage_encrypted                   = true
-  iam_database_authentication_enabled = true
-  enabled_cloudwatch_logs_exports     = ["postgresql", "upgrade"]
-  deletion_protection                 = true
+  multi_az                              = true
+  backup_retention_period               = 35
+  storage_encrypted                     = true
+  iam_database_authentication_enabled   = true
+  enabled_cloudwatch_logs_exports       = ["postgresql", "upgrade"]
+  deletion_protection                   = true
   performance_insights_enabled          = true
   performance_insights_retention_period = 7
 

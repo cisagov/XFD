@@ -30,5 +30,5 @@ resource "aws_sns_topic_subscription" "alert_email" {
   protocol  = "email"
 
   # CHANGE THIS to your team's distribution list
-  endpoint  = "vulnerability@cisa.dhs.gov"
+  endpoint = "vulnerability@cisa.dhs.gov"
 }
