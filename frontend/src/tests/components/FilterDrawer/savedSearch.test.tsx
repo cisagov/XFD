@@ -63,7 +63,6 @@ describe('SaveSearchModal functionality', () => {
     });
 
     it('enables Save New button when filters differ from initial filters', () => {
-      // Mock the useAreFiltersDefault hook to return false. This should enable the Save New button.
       vi.mocked(useAreFiltersDefault).mockReturnValue(false);
       vi.mocked(useSavedSearchContext).mockReturnValue({
         savedSearches: [],
