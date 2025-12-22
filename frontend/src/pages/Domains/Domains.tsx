@@ -87,8 +87,24 @@ export const Domains: React.FC = () => {
     | { orgName?: string; orgId?: string }
     | undefined;
 
-  const [columnVisibilityModel, setColumnVisibilityModel] =
-    useState<GridColumnVisibilityModel>({});
+  const [userColumnVisibility, setUserColumnVisibility] =
+    useState<GridColumnVisibilityModel>({
+      // TODO: Show Domain Name column once WAS data is available
+      // Currently hidden as we only have IP addresses, not actual domain names
+      name: false
+    });
+
+  // Compute final column visibility based on user type and business rules
+  const columnVisibilityModel = useMemo<GridColumnVisibilityModel>(() => {
+    const visibility = { ...userColumnVisibility };
+    
+    // Hide organization column for standard users
+    if (user?.user_type === 'standard') {
+      visibility.organization_name = false;
+    }
+    
+    return visibility;
+  }, [userColumnVisibility, user?.user_type]);
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
@@ -411,11 +427,8 @@ export const Domains: React.FC = () => {
       }
     ];
 
-    // Filter out organization column for standard users
-    return user?.user_type === 'standard'
-      ? allColumns.filter((col) => col.field !== 'organization_name')
-      : allColumns;
-  }, [history, stringFilterOperators, user]);
+    return allColumns;
+  }, [history, stringFilterOperators]);
 
   const noRowsOverlay = (
     <Paper>
@@ -516,7 +529,7 @@ export const Domains: React.FC = () => {
               columns={domCols}
               columnVisibilityModel={columnVisibilityModel}
               onColumnVisibilityModelChange={(model) =>
-                setColumnVisibilityModel(model)
+                setUserColumnVisibility(model)
               }
               loading={isLoading}
               filterMode="server"
