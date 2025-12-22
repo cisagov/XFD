@@ -249,7 +249,24 @@ export const Domains: React.FC = () => {
     const allColumns = [
       {
         field: 'name',
-        headerName: 'IP Addresses',
+        headerName: 'Domain Name',
+        minWidth: 100,
+        flex: 1,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`Domain Name: ${cellValues.row.name}`}
+            >
+              {cellValues.row.name}
+            </Box>
+          );
+        }
+      },
+      {
+        field: 'ip',
+        headerName: 'IP Address',
         minWidth: 100,
         flex: 1,
         filterOperators: stringFilterOperators,
@@ -274,7 +291,7 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Organization for IP ${cellValues.row.ip}: ${cellValues.row.organization_name}`}
+              aria-label={`Organization for Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
             >
               {cellValues.row.organization_name}
             </Box>
@@ -291,7 +308,7 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Ports for IP ${cellValues.row.ip}: ${cellValues.row.ports_preview}`}
+              aria-label={`Ports for Domain ${cellValues.row.name}: ${cellValues.row.ports_preview}`}
             >
               {cellValues.row.ports_preview}
             </Box>
@@ -308,7 +325,7 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Services for IP ${cellValues.row.ip}: ${cellValues.row.services_preview}`}
+              aria-label={`Services for Domain ${cellValues.row.name}: ${cellValues.row.services_preview}`}
             >
               {cellValues.row.services_preview}
             </Box>
@@ -378,7 +395,7 @@ export const Domains: React.FC = () => {
         renderCell: (cellValues: GridRenderCellParams) => {
           return (
             <IconButton
-              aria-label={`View Details for IP ${cellValues.row.ip}`}
+              aria-label={`View Details for Domain ${cellValues.row.name}`}
               tabIndex={cellValues.tabIndex}
               color="primary"
               onClick={() =>

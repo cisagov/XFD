@@ -57,11 +57,11 @@ describe('Domains component', () => {
     const grid = await screen.findByRole('grid');
     expect(grid).toBeInTheDocument();
 
-    const firstDomainIP = await screen.findByText(/^192\.0\.2\.1$/i);
-    expect(firstDomainIP).toBeInTheDocument();
+    const firstDomainName = await screen.findByText(/^example\.com$/i);
+    expect(firstDomainName).toBeInTheDocument();
 
-    const ipMatches = await screen.findAllByText(/^192\.0\.2\./);
-    expect(ipMatches.length).toBeGreaterThan(0);
+    const websiteMatches = await screen.findAllByText(/^website\.io$/i);
+    expect(websiteMatches.length).toBeGreaterThan(0);
 
     const rows = await screen.findAllByRole('row');
     expect(rows.length).toBe(sampleResponse.result.length + 1);
