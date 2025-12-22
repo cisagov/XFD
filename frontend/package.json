@@ -47,7 +47,7 @@
     "react-router-dom": "^5.3.4",
     "react-select": "^5.5.9",
     "react-table": "^7.8.0",
-    "serverless-http": "^3.2.0",
+    "serverless-http": "^4.0.0",
     "universal-cookie": "^7.2.2",
     "zod": "^4.2.1"
   },
