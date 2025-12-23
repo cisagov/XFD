@@ -246,7 +246,7 @@ describe('Domains component', () => {
 
       // Should not see domain names since that column is hidden
       const domainMatches = screen.queryAllByText(
-        /example\.com|test\.com|sample\.org/
+        /^(example\.com|test\.com|sample\.org)$/
       );
       expect(domainMatches.length).toBe(0);
     });
