@@ -117,11 +117,15 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Domain Name column should be hidden for all users
-      const domainNameHeader = screen.queryByRole('columnheader', { name: /domain name/i });
+      const domainNameHeader = screen.queryByRole('columnheader', {
+        name: /domain name/i
+      });
       expect(domainNameHeader).not.toBeInTheDocument();
 
       // IP Address column should be visible
-      const ipAddressHeader = await screen.findByRole('columnheader', { name: /ip address/i });
+      const ipAddressHeader = await screen.findByRole('columnheader', {
+        name: /ip address/i
+      });
       expect(ipAddressHeader).toBeInTheDocument();
     });
 
@@ -143,7 +147,9 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Organization column should be hidden for standard users
-      const orgHeader = screen.queryByRole('columnheader', { name: /organization/i });
+      const orgHeader = screen.queryByRole('columnheader', {
+        name: /organization/i
+      });
       expect(orgHeader).not.toBeInTheDocument();
     });
 
@@ -165,7 +171,9 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Organization column should be visible for admin users
-      const orgHeader = await screen.findByRole('columnheader', { name: /organization/i });
+      const orgHeader = await screen.findByRole('columnheader', {
+        name: /organization/i
+      });
       expect(orgHeader).toBeInTheDocument();
     });
 
@@ -187,7 +195,9 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Organization column should be visible for globalView users
-      const orgHeader = await screen.findByRole('columnheader', { name: /organization/i });
+      const orgHeader = await screen.findByRole('columnheader', {
+        name: /organization/i
+      });
       expect(orgHeader).toBeInTheDocument();
     });
 
@@ -209,7 +219,9 @@ describe('Domains component', () => {
       expect(grid).toBeInTheDocument();
 
       // Organization column should be visible for regionalAdmin users
-      const orgHeader = await screen.findByRole('columnheader', { name: /organization/i });
+      const orgHeader = await screen.findByRole('columnheader', {
+        name: /organization/i
+      });
       expect(orgHeader).toBeInTheDocument();
     });
 
@@ -233,7 +245,9 @@ describe('Domains component', () => {
       expect(ipMatches.length).toBeGreaterThan(0);
 
       // Should not see domain names since that column is hidden
-      const domainMatches = screen.queryAllByText(/example\.com|test\.com|sample\.org/);
+      const domainMatches = screen.queryAllByText(
+        /example\.com|test\.com|sample\.org/
+      );
       expect(domainMatches.length).toBe(0);
     });
   });

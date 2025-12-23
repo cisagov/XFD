@@ -97,12 +97,12 @@ export const Domains: React.FC = () => {
   // Compute final column visibility based on user type and business rules
   const columnVisibilityModel = useMemo<GridColumnVisibilityModel>(() => {
     const visibility = { ...userColumnVisibility };
-    
+
     // Hide organization column for standard users
     if (user?.user_type === 'standard') {
       visibility.organization_name = false;
     }
-    
+
     return visibility;
   }, [userColumnVisibility, user?.user_type]);
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
