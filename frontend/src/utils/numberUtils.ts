@@ -1,11 +1,12 @@
 /**
- * Formats a number with comma separators for readability.
+ * Path: frontend/src/utils/numberUtils.ts
+ * Author: Jesse Salinas
+ * Date: 2025-12-23
+ * Description: Formats a number with comma separators for readability.
  * 
- * Per CRASM-3568 requirements:
- * - Numbers >= 1,000 will have comma separators (e.g., 1,000; 1,000,000; 1,000,000,000)
- * - Numbers < 1,000 remain unchanged (e.g., 999 stays 999)
- * - Formatting affects only display, not calculations, sorting, or data storage
- * 
+ */
+
+/**
  * @param value - The numeric value to format
  * @returns The formatted string with comma separators if >= 1,000, otherwise the original number as string
  * 

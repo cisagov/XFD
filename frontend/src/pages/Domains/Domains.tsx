@@ -36,6 +36,8 @@ import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { formatCount } from 'utils/numberUtils';
+import { useDataGridPaginationFormatter } from 'hooks/useDataGridPaginationFormatter';
 import { ROUTES } from '@/constants/routes';
 
 const PAGE_SIZE = 15;
@@ -66,7 +68,7 @@ const formatPreview = (
     // Show first N preview, add (X total)
     const previewItems = preview.split(',').map((item) => item.trim());
     const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
-    return `${limitedPreview} (${totalCount} total)`;
+    return `${limitedPreview} (${formatCount(totalCount)} total)`;
   }
 };
 
@@ -111,6 +113,9 @@ export const Domains: React.FC = () => {
     pageSize: PAGE_SIZE
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
+
+  // Format pagination numbers with commas
+  useDataGridPaginationFormatter(isLoading);
 
   useEffect(() => {
     if (state) {
@@ -344,7 +349,7 @@ export const Domains: React.FC = () => {
               component="span"
               aria-label={`Vulnerability Count for Domain ${cellValues.row.name}: ${cellValues.row.vulnerabilities_count}`}
             >
-              {cellValues.row.vulnerabilities_count}
+              {formatCount(cellValues.row.vulnerabilities_count)}
             </Box>
           );
         }
