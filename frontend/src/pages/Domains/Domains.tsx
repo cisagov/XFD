@@ -89,17 +89,16 @@ export const Domains: React.FC = () => {
 
   const [userColumnVisibility, setUserColumnVisibility] =
     useState<GridColumnVisibilityModel>({
-      // TODO: Show Domain Name column once WAS data is available
-      // Currently hidden as we only have IP addresses, not actual domain names
-      name: false
+      // TODO: Once WAS data is available, remove Domain Name column filtering
+      // from domCols and restore it here as: name: true (or remove this state entirely)
     });
 
   // Compute final column visibility based on user type and business rules
   const columnVisibilityModel = useMemo<GridColumnVisibilityModel>(() => {
     const visibility = { ...userColumnVisibility };
 
-    // Note: Organization column is completely filtered out for standard users
-    // in the domCols useMemo, so no need to hide it here via visibility model
+    // Note: Both Domain Name and Organization columns are now filtered out completely
+    // in the domCols useMemo rather than hidden via visibility model for cleaner UX
 
     return visibility;
   }, [userColumnVisibility]);
@@ -425,11 +424,19 @@ export const Domains: React.FC = () => {
       }
     ];
 
-    // Filter out Organization column for standard users to completely hide it from column chooser
-    const filteredColumns =
-      user?.user_type === 'standard'
-        ? allColumns.filter((col) => col.field !== 'organization_name')
-        : allColumns;
+    // Filter out columns that should be hidden from column chooser
+    let filteredColumns = allColumns;
+
+    // TODO: Remove this filter once WAS data is available - Domain Name column should be user-controllable
+    // Remove Domain Name column from column chooser for all users (pending WAS data integration)
+    filteredColumns = filteredColumns.filter((col) => col.field !== 'name');
+
+    // Remove Organization column for standard users to completely hide it from column chooser
+    if (user?.user_type === 'standard') {
+      filteredColumns = filteredColumns.filter(
+        (col) => col.field !== 'organization_name'
+      );
+    }
 
     return filteredColumns;
   }, [history, stringFilterOperators, user?.user_type]);

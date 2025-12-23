@@ -101,7 +101,7 @@ describe('Domains component', () => {
 
   // Column visibility tests for CRASM-3585
   describe('column visibility', () => {
-    it('hides Domain Name column for all users (pending WAS data)', async () => {
+    it('completely removes Domain Name column for all users (pending WAS data)', async () => {
       apiPostMock.mockResolvedValueOnce(sampleResponse);
 
       render(<Domains />, {
@@ -116,7 +116,8 @@ describe('Domains component', () => {
       const grid = await screen.findByRole('grid');
       expect(grid).toBeInTheDocument();
 
-      // Domain Name column should be hidden for all users
+      // Domain Name column should be completely removed (not just hidden) for all users
+      // This means it won't appear in the column chooser menu until WAS data is available
       const domainNameHeader = screen.queryByRole('columnheader', {
         name: /domain name/i
       });
