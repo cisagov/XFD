@@ -129,7 +129,7 @@ describe('Domains component', () => {
       expect(ipAddressHeader).toBeInTheDocument();
     });
 
-    it('hides Organization column for standard users', async () => {
+    it('completely removes Organization column for standard users', async () => {
       apiPostMock.mockResolvedValueOnce(sampleResponse);
 
       const standardUser = { ...testUser, user_type: 'standard' };
@@ -146,7 +146,8 @@ describe('Domains component', () => {
       const grid = await screen.findByRole('grid');
       expect(grid).toBeInTheDocument();
 
-      // Organization column should be hidden for standard users
+      // Organization column should be completely removed (not just hidden) for standard users
+      // This means it won't appear in the column chooser menu at all
       const orgHeader = screen.queryByRole('columnheader', {
         name: /organization/i
       });

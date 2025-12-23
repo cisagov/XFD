@@ -98,13 +98,11 @@ export const Domains: React.FC = () => {
   const columnVisibilityModel = useMemo<GridColumnVisibilityModel>(() => {
     const visibility = { ...userColumnVisibility };
 
-    // Hide organization column for standard users
-    if (user?.user_type === 'standard') {
-      visibility.organization_name = false;
-    }
+    // Note: Organization column is completely filtered out for standard users
+    // in the domCols useMemo, so no need to hide it here via visibility model
 
     return visibility;
-  }, [userColumnVisibility, user?.user_type]);
+  }, [userColumnVisibility]);
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
@@ -427,8 +425,14 @@ export const Domains: React.FC = () => {
       }
     ];
 
-    return allColumns;
-  }, [history, stringFilterOperators]);
+    // Filter out Organization column for standard users to completely hide it from column chooser
+    const filteredColumns =
+      user?.user_type === 'standard'
+        ? allColumns.filter((col) => col.field !== 'organization_name')
+        : allColumns;
+
+    return filteredColumns;
+  }, [history, stringFilterOperators, user?.user_type]);
 
   const noRowsOverlay = (
     <Paper>
