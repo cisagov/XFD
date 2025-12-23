@@ -17,7 +17,7 @@ import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
-import { matchPath } from 'utils/matchPath';
+import { matchPath } from 'utils/stringUtils';
 import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';

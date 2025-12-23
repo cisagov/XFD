@@ -12,7 +12,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import { ContextType, useSavedSearchContext } from 'context';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
-import { matchPath } from 'utils/matchPath';
+import { matchPath } from 'utils/stringUtils';
 import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
 import { ROUTES } from '@/constants/routes';
