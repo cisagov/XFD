@@ -87,21 +87,8 @@ export const Domains: React.FC = () => {
     | { orgName?: string; orgId?: string }
     | undefined;
 
-  const [userColumnVisibility, setUserColumnVisibility] =
-    useState<GridColumnVisibilityModel>({
-      // TODO: Once WAS data is available, remove Domain Name column filtering
-      // from domCols and restore it here as: name: true (or remove this state entirely)
-    });
-
-  // Compute final column visibility based on user type and business rules
-  const columnVisibilityModel = useMemo<GridColumnVisibilityModel>(() => {
-    const visibility = { ...userColumnVisibility };
-
-    // Note: Both Domain Name and Organization columns are now filtered out completely
-    // in the domCols useMemo rather than hidden via visibility model for cleaner UX
-
-    return visibility;
-  }, [userColumnVisibility]);
+  const [columnVisibilityModel, setColumnVisibilityModel] =
+    useState<GridColumnVisibilityModel>({});
   const [domains, setDomains] = useState<DomainSearchApiResponse[]>([]);
   const [totalResults, setTotalResults] = useState(0);
   const { listDomains } = useDomainApi(
@@ -540,7 +527,7 @@ export const Domains: React.FC = () => {
               columns={domCols}
               columnVisibilityModel={columnVisibilityModel}
               onColumnVisibilityModelChange={(model) =>
-                setUserColumnVisibility(model)
+                setColumnVisibilityModel(model)
               }
               loading={isLoading}
               filterMode="server"
