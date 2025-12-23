@@ -24,3 +24,12 @@ export function truncateString(inputString: string) {
   }
   return inputString.substring(0, cutOffIndex);
 }
+
+export const formatNumber = (
+  value: number | null | undefined
+): string | null | undefined => {
+  if (value == null) return null;
+  if (value == undefined) return undefined;
+
+  return new Intl.NumberFormat('en-US').format(value);
+};
