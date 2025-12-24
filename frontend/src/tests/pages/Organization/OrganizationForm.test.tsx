@@ -2,7 +2,6 @@ import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from 'test-utils';
 import userEvent from '@testing-library/user-event';
-
 import { OrganizationForm } from '@/pages/Organizations/OrganizationForm';
 
 // ----- mocks -----
@@ -71,7 +70,7 @@ const getStateSelectCombobox = () => {
 const getPassiveModeSwitch = () =>
   screen.getByRole('switch', { name: 'Passive Mode' });
 
-const renderOrganizationForm = (
+const renderOrganizationForm = async (
   overrides?: Partial<React.ComponentProps<typeof OrganizationForm>>
 ) => {
   const setOpen = overrides?.setOpen ?? vi.fn();
@@ -96,7 +95,13 @@ const renderOrganizationForm = (
     );
   };
 
-  return { setOpen, onSubmit, ...render(<Wrapper />) };
+  const utils = render(<Wrapper />);
+
+  await waitFor(() => {
+    expect(mockApiGet).toHaveBeenCalled();
+  });
+
+  return { setOpen, onSubmit, ...utils };
 };
 
 const fillRequiredFields = async () => {

@@ -3,6 +3,13 @@ export function capitalize(str: string | null): string | null {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
+export const formatDisplayValue = (value: any): any => {
+  if (typeof value === 'number') {
+    return new Intl.NumberFormat('en-US').format(value);
+  }
+  return value;
+};
+
 export const matchPath = (paths: string[], path: string) => {
   if (paths.includes(path)) return true;
   return false;
@@ -24,12 +31,3 @@ export function truncateString(inputString: string) {
   }
   return inputString.substring(0, cutOffIndex);
 }
-
-export const formatNumber = (
-  value: number | null | undefined
-): string | null | undefined => {
-  if (value == null) return null;
-  if (value == undefined) return undefined;
-
-  return new Intl.NumberFormat('en-US').format(value);
-};
