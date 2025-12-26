@@ -42,6 +42,7 @@ import {
 } from 'types/vulnerabilities';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/dataTransformUtils';
@@ -747,7 +748,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               }}
               slots={{
                 toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay
+                noRowsOverlay: CustomNoRowsOverlay,
+                pagination: CustomPagination
               }}
               slotProps={{
                 toolbar: {
