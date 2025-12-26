@@ -231,10 +231,6 @@ function renderWithHistory() {
   return history;
 }
 
-async function sleep(milliseconds: number) {
-  await new Promise((resolve) => setTimeout(resolve, milliseconds));
-}
-
 // -----------------------
 // Tests
 // -----------------------
@@ -472,7 +468,6 @@ describe('Organizations page', () => {
     await waitFor(() => expect(mockApiPost).toHaveBeenCalledTimes(1));
 
     await user.click(screen.getByRole('button', { name: 'Filter Name "A"' }));
-    await sleep(350);
 
     await waitFor(() =>
       expect(mockApiPost).toHaveBeenLastCalledWith(
@@ -490,7 +485,6 @@ describe('Organizations page', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'Filter Name "Ac"' }));
-    await sleep(350);
 
     await waitFor(() =>
       expect(mockApiPost).toHaveBeenLastCalledWith(
