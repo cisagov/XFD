@@ -1,5 +1,5 @@
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from 'test-utils';
 import userEvent from '@testing-library/user-event';
 
@@ -36,12 +36,15 @@ vi.mock('@/constants/constants', () => ({
   STATE_ABBREVIATED_OPTIONS: ['VA', 'MD']
 }));
 
-vi.mock('@/pages/Organizations/orgFormStyle', async () => {
-  const Dialog = (await import('@mui/material/Dialog')).default;
-  return {
-    StyledDialog: Dialog
-  };
-});
+vi.mock('@/pages/Organizations/orgFormStyle', () => ({
+  StyledDialog: ({
+    open,
+    children
+  }: {
+    open: boolean;
+    children: React.ReactNode;
+  }) => (open ? <div data-testid="mock-dialog">{children}</div> : null)
+}));
 
 type OrganizationLike = {
   id: string;
@@ -71,7 +74,13 @@ const getStateSelectCombobox = () => {
 const getPassiveModeSwitch = () =>
   screen.getByRole('switch', { name: 'Passive Mode' });
 
-const renderOrganizationForm = (
+const waitForTagFetch = async () => {
+  await waitFor(() => {
+    expect(mockApiGet).toHaveBeenCalledWith('/api/organizations/tags');
+  });
+};
+
+const renderOrganizationForm = async (
   overrides?: Partial<React.ComponentProps<typeof OrganizationForm>>
 ) => {
   const setOpen = overrides?.setOpen ?? vi.fn();
@@ -96,7 +105,11 @@ const renderOrganizationForm = (
     );
   };
 
-  return { setOpen, onSubmit, ...render(<Wrapper />) };
+  const renderResult = render(<Wrapper />);
+
+  await waitForTagFetch();
+
+  return { setOpen, onSubmit, ...renderResult };
 };
 
 const fillRequiredFields = async () => {
@@ -124,15 +137,16 @@ const fillRequiredFields = async () => {
 };
 
 describe('OrganizationForm', () => {
-  // Create mode shows blank fields by default.
+  beforeEach(() => {
+    mockApiGet.mockReset();
+    mockLoggerError.mockReset();
+  });
+
+  // Create mode should start with blank inputs and default toggles.
   it('loads empty fields in create mode', async () => {
     mockApiGet.mockResolvedValueOnce([]);
 
-    renderOrganizationForm({ organization: undefined });
-
-    await waitFor(() => {
-      expect(mockApiGet).toHaveBeenCalledWith('/api/organizations/tags');
-    });
+    await renderOrganizationForm({ organization: undefined });
 
     expect(screen.getByText('Create New Organization')).toBeInTheDocument();
 
@@ -153,7 +167,7 @@ describe('OrganizationForm', () => {
     expect(passiveSwitch).not.toBeChecked();
   });
 
-  // Providing an organization pre-fills the form (edit-like mode).
+  // Providing an organization should pre-fill the form fields.
   it('loads existing organization values when an organization is provided', async () => {
     mockApiGet.mockResolvedValueOnce([]);
 
@@ -167,7 +181,7 @@ describe('OrganizationForm', () => {
       state_name: 'Virginia'
     };
 
-    renderOrganizationForm({ organization: existingOrganization as any });
+    await renderOrganizationForm({ organization: existingOrganization as any });
 
     expect(screen.getByText('Create New Organization')).toBeInTheDocument();
 
@@ -188,14 +202,14 @@ describe('OrganizationForm', () => {
     expect(passiveSwitch).toBeChecked();
   });
 
-  // Empty required fields show errors and prevent submission.
+  // Missing required fields should show validation errors and block submit.
   it('validates required fields and blocks submit', async () => {
     mockApiGet.mockResolvedValueOnce([]);
 
     const user = userEvent.setup();
     const onSubmit = vi.fn().mockResolvedValue(undefined);
 
-    renderOrganizationForm({ onSubmit });
+    await renderOrganizationForm({ onSubmit });
 
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
@@ -215,7 +229,7 @@ describe('OrganizationForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  // Submitting valid values sends the expected normalized payload.
+  // Valid submit should send the cleaned/normalized payload (domains/ip split+trim, state abbrev, tags, passive, parent).
   it('submits correct payload on success (split/trim, state abbreviation, tags, passive, parent)', async () => {
     mockApiGet.mockResolvedValueOnce([{ name: 'ExistingTag' }]);
 
@@ -223,7 +237,11 @@ describe('OrganizationForm', () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const parentOrganization = { id: 'parent-999' } as any;
 
-    renderOrganizationForm({ setOpen, onSubmit, parent: parentOrganization });
+    await renderOrganizationForm({
+      setOpen,
+      onSubmit,
+      parent: parentOrganization
+    });
 
     const user = userEvent.setup();
 
@@ -278,12 +296,12 @@ describe('OrganizationForm', () => {
     expect(setOpen).toHaveBeenCalledWith(false);
   });
 
-  // In create mode, the form resets values after a successful submit.
+  // After a successful create, the form should reset back to empty fields.
   it('resets fields after successful submit in create mode (original behavior)', async () => {
     mockApiGet.mockResolvedValueOnce([]);
 
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    renderOrganizationForm({ onSubmit, organization: undefined });
+    await renderOrganizationForm({ onSubmit, organization: undefined });
 
     const user = await fillRequiredFields();
 
@@ -304,7 +322,7 @@ describe('OrganizationForm', () => {
     ).toHaveValue('');
   });
 
-  // In edit-like mode, the form does not reset values after submit.
+  // After a successful edit-like submit, the form should keep the updated values.
   it('does not reset fields after submit when organization is provided (edit-like behavior)', async () => {
     mockApiGet.mockResolvedValueOnce([]);
 
@@ -319,7 +337,7 @@ describe('OrganizationForm', () => {
     };
 
     const onSubmit = vi.fn().mockResolvedValue(undefined);
-    renderOrganizationForm({
+    await renderOrganizationForm({
       onSubmit,
       organization: existingOrganization as any
     });
@@ -345,24 +363,25 @@ describe('OrganizationForm', () => {
     ).toHaveValue('Updated Org');
   });
 
-  // Cancel closes the dialog without submitting.
+  // Cancel should close the dialog without submitting.
   it('clicking Cancel calls setOpen(false)', async () => {
     mockApiGet.mockResolvedValueOnce([]);
 
     const user = userEvent.setup();
     const setOpen = vi.fn();
 
-    renderOrganizationForm({ setOpen });
+    await renderOrganizationForm({ setOpen });
 
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
 
     expect(setOpen).toHaveBeenCalledWith(false);
   });
 
+  // Tag fetch failures should be handled by logging an error.
   it('fetches tags on mount and logs error if tag fetch fails', async () => {
     mockApiGet.mockRejectedValueOnce(new Error('tag fetch failed'));
 
-    renderOrganizationForm();
+    renderOrganizationForm().catch(() => {});
 
     await waitFor(() => {
       expect(mockLoggerError).toHaveBeenCalled();
