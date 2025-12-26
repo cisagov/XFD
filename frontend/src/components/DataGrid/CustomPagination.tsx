@@ -3,10 +3,10 @@
  * Author: Jesse Salinas
  * Date: 2025-12-26
  * Description: Custom pagination component for MUI DataGrid with comma-formatted numbers.
- * 
- * This component replaces the default DataGrid pagination to format numbers >= 1,000 
+ *
+ * This component replaces the default DataGrid pagination to format numbers >= 1,000
  * with comma separators for improved readability while preserving numbers < 1,000 unchanged.
- * 
+ *
  * Usage: Add to DataGrid slots prop: slots={{ pagination: CustomPagination }}
  */
 
@@ -35,13 +35,13 @@ const CustomPagination: React.FC = () => {
 
   const handlePageChange = (
     event: React.MouseEvent<HTMLButtonElement> | null,
-    newPage: number,
+    newPage: number
   ) => {
     apiRef.current.setPage(newPage);
   };
 
   const handlePageSizeChange = (
-    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const newPageSize = parseInt(event.target.value, 10);
     apiRef.current.setPageSize(newPageSize);
@@ -51,8 +51,15 @@ const CustomPagination: React.FC = () => {
    * Format the pagination display range with comma separators
    * Example: "1–15 of 5,565" instead of "1–15 of 5565"
    */
-  const formatDisplayedRows = ({ from, to, count }: { from: number; to: number; count: number }) =>
-    `${formatCount(from)}–${formatCount(to)} of ${formatCount(count)}`;
+  const formatDisplayedRows = ({
+    from,
+    to,
+    count
+  }: {
+    from: number;
+    to: number;
+    count: number;
+  }) => `${formatCount(from)}–${formatCount(to)} of ${formatCount(count)}`;
 
   return (
     <TablePagination
