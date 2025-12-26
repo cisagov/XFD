@@ -1,3 +1,10 @@
+/**
+ * Path: frontend/src/tests/utils/numberUtils.test.ts
+ * Author: Jesse Salinas
+ * Date: 2025-12-26
+ * Description: Tests for the formatCount utility function.
+ *
+ */
 import { describe, it, expect } from 'vitest';
 import { formatCount } from '../../utils/numberUtils';
 

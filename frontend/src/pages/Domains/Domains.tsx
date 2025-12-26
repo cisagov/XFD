@@ -84,7 +84,7 @@ const formatPreview = (
     // Show first N preview, add (X total)
     const previewItems = preview.split(',').map((item) => item.trim());
     const limitedPreview = previewItems.slice(0, maxPreviewCount).join(', ');
-    return `${limitedPreview} (${formatCount(totalCount)} total)`;
+    return `${limitedPreview} (${totalCount} total)`;
   }
 };
 
