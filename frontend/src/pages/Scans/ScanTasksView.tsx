@@ -24,6 +24,7 @@ import { Scan, ScanTask } from 'types';
 import { useAuthContext } from 'context';
 import classes from './Scans.module.scss';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 
@@ -485,7 +486,7 @@ export const ScanTasksView: React.FC = () => {
               rows={scansTasksRows}
               rowCount={totalResults}
               columns={scansTasksCols}
-              slots={{ toolbar: CustomToolbar }}
+              slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
               slotProps={{
                 toolbar: {
                   children: [scanNameDropdown, scanStatusDropdown].map(
