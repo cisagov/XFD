@@ -5,9 +5,10 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -18,6 +19,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
+
+// DataGrid Components
 import {
   DataGrid,
   getGridStringOperators,
@@ -28,16 +31,29 @@ import {
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
+
+// Types
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
+
+// Context
 import { useAuthContext } from 'context';
+
+// Hooks
 import { useDomainApi } from 'hooks';
+import { useDataGridPaginationFormatter } from 'hooks/useDataGridPaginationFormatter';
+
+// Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+
+// Utils
+import { logger } from '@/utils/logger';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
 import { formatCount } from 'utils/numberUtils';
-import { useDataGridPaginationFormatter } from 'hooks/useDataGridPaginationFormatter';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 
 const PAGE_SIZE = 15;

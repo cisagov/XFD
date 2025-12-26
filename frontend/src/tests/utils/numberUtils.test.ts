@@ -84,7 +84,7 @@ describe('formatCount', () => {
       // Decimals < 1000 remain unformatted
       expect(formatCount(999.99)).toBe('999.99');
       expect(formatCount(500.5)).toBe('500.5');
-      
+
       // Decimals >= 1000 get comma formatting
       expect(formatCount(1000.5)).toBe('1,000.5');
       expect(formatCount(1234.567)).toBe('1,234.567');
@@ -111,7 +111,7 @@ describe('formatCount', () => {
 
     it('satisfies requirement: numbers < 1,000 remain unformatted', () => {
       const testCases = [0, 1, 50, 999];
-      
+
       testCases.forEach((input) => {
         expect(formatCount(input)).toBe(input.toString());
       });
@@ -121,10 +121,10 @@ describe('formatCount', () => {
       // The utility returns strings for display but doesn't modify original data
       const originalValue = 1500;
       const formatted = formatCount(originalValue);
-      
+
       expect(typeof originalValue).toBe('number'); // Original remains a number
-      expect(typeof formatted).toBe('string');     // Formatted is a string
-      expect(originalValue).toBe(1500);            // Original value unchanged
+      expect(typeof formatted).toBe('string'); // Formatted is a string
+      expect(originalValue).toBe(1500); // Original value unchanged
     });
   });
 });

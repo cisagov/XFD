@@ -3,7 +3,7 @@
  * Author: Jesse Salinas
  * Date: 2025-12-23
  * Description: Custom hook for formatting MUI DataGrid pagination display with comma separators.
- * 
+ *
  */
 
 /**
@@ -24,7 +24,9 @@ export const useDataGridPaginationFormatter = (isLoading: boolean) => {
 
     // Small delay to ensure DataGrid has rendered
     const timer = setTimeout(() => {
-      const paginationLabels = document.querySelectorAll('.MuiTablePagination-displayedRows');
+      const paginationLabels = document.querySelectorAll(
+        '.MuiTablePagination-displayedRows'
+      );
       paginationLabels.forEach((label) => {
         const text = label.textContent;
         if (text && /\d+–\d+ of \d+/.test(text)) {
