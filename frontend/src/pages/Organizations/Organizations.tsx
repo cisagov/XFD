@@ -26,6 +26,7 @@ import { Organization } from 'types';
 import { useAuthContext } from 'context';
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -283,7 +284,7 @@ export const Organizations: React.FC = () => {
         <DataGrid
           rows={organizations}
           columns={orgCols}
-          slots={{ toolbar: CustomToolbar }}
+          slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
             toolbar: { disableExport: true } as any
