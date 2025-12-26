@@ -41,11 +41,11 @@ import { useAuthContext } from 'context';
 
 // Hooks
 import { useDomainApi } from 'hooks';
-import { useDataGridPaginationFormatter } from 'hooks/useDataGridPaginationFormatter';
 
 // Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 
 // Utils
@@ -129,9 +129,6 @@ export const Domains: React.FC = () => {
     pageSize: PAGE_SIZE
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
-
-  // Format pagination numbers with commas
-  useDataGridPaginationFormatter(isLoading);
 
   useEffect(() => {
     if (state) {
@@ -596,7 +593,8 @@ export const Domains: React.FC = () => {
               }}
               slots={{
                 toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay
+                noRowsOverlay: CustomNoRowsOverlay,
+                pagination: CustomPagination
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },
