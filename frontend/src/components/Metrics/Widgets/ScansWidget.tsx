@@ -5,27 +5,46 @@ import React, {
   useMemo,
   useRef
 } from 'react';
+import dayjs from 'dayjs';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
+import { visuallyHidden } from '@mui/utils';
+
+// DataGrid Components
 import {
   DataGrid,
   GridColDef,
   GridRenderCellParams,
   GridCellParams
 } from '@mui/x-data-grid';
+
+// Charts
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart';
-import dayjs from 'dayjs';
-import { visuallyHidden } from '@mui/utils';
-import { useAuthContext } from 'context';
-import * as MetricsStyles from '../style';
-import InfoLabel from 'components/Dashboard/InfoLabel';
+
+// Types
 import {
   ScanDetails,
   ScanSummaries,
   OrgCountByStatus,
   ScanSummary
 } from '../../../types/metrics';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Components
+import InfoLabel from 'components/Dashboard/InfoLabel';
+
+// Utils
+import { formatCount } from 'utils/numberUtils';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Styles
+import * as MetricsStyles from '../style';
 
 const scanMetricsTooltip = [
   {
@@ -186,7 +205,7 @@ const ScansWidget: React.FC = () => {
               params.row.name
             }
           >
-            {params.row.total_orgs}
+            {formatCount(params.row.total_orgs)}
           </Box>
         )
       }
@@ -211,7 +230,7 @@ const ScansWidget: React.FC = () => {
             params.row.name
           }
         >
-          {params.value}
+          {formatCount(params.value || 0)}
         </Box>
       )
     }));
@@ -331,7 +350,7 @@ const ScansWidget: React.FC = () => {
               ' days'
             }
           >
-            {params.row.total}
+            {formatCount(params.row.total)}
           </Box>
         )
       }

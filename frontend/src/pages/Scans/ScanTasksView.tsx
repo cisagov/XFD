@@ -4,6 +4,8 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { FaSyncAlt } from 'react-icons/fa';
 import { LazyLog } from 'react-lazylog';
 import { Button } from '@trussworks/react-uswds';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import MuiButton from '@mui/material/Button';
@@ -18,15 +20,29 @@ import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
+
+// DataGrid Components
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Types
 import { OrgQuery } from 'types';
 import { Scan, ScanTask } from 'types';
+
+// Context
 import { useAuthContext } from 'context';
-import classes from './Scans.module.scss';
+
+// Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
-import { ENDPOINTS } from '@/constants/endpoints';
+
+// Utils
 import { logger } from '@/utils/logger';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
+
+// Styles
+import classes from './Scans.module.scss';
 
 interface ApiResponse {
   result: ScanTask[];
