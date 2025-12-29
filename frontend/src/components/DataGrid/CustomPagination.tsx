@@ -59,7 +59,8 @@ const CustomPagination: React.FC = () => {
     from: number;
     to: number;
     count: number;
-  }) => `${formatDisplayValue(from)}–${formatDisplayValue(to)} of ${formatDisplayValue(count)}`;
+  }) =>
+    `${formatDisplayValue(from)}–${formatDisplayValue(to)} of ${formatDisplayValue(count)}`;
 
   return (
     <TablePagination
