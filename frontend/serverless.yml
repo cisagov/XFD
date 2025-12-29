@@ -94,6 +94,9 @@ functions:
           # this matches any path, the token 'any' doesn't mean anything special
           path: /{any+}
           method: GET
+      - http:
+          path: /client-telemetry
+          method: POST
     iamRoleStatements: []
     # provisionedConcurrency: 1
   # TODO: Reenable docs site CRASM-1070, CRASM-2124

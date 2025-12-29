@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { isEqual } from 'lodash';
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -19,8 +19,12 @@ import {
 } from 'types';
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
-import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+
+import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
+import { useUpdateUser } from '@/hooks/useUpdateUser';
+import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
+import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -95,7 +99,7 @@ const getAllowedDomains = (): string[] => {
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed.map((d) => d.trim()).filter(Boolean);
+        return parsed.map((domain) => domain.trim()).filter(Boolean);
       }
       return [];
     } catch (err) {
@@ -108,7 +112,7 @@ const getAllowedDomains = (): string[] => {
 
   return raw
     .split(',')
-    .map((d: string) => d.trim())
+    .map((domain: string) => domain.trim())
     .filter(Boolean);
 };
 
@@ -126,8 +130,8 @@ const isPermittedEmail = (email: string): boolean => {
 
   const domain = email.slice(atIndex + 1).toLowerCase();
 
-  return allowedDomains.some((d: any) => {
-    const candidate = d.toLowerCase();
+  return allowedDomains.some((allowedDomain: string) => {
+    const candidate = allowedDomain.toLowerCase();
     return domain === candidate;
   });
 };
@@ -175,7 +179,7 @@ const ElevationControl: React.FC<ElevationControlProps> = ({
           type="text"
           fullWidth
           value={confirmGlobalAdminChange}
-          onChange={(e) => setConfirmGlobalAdminChange(e.target.value)}
+          onChange={(event) => setConfirmGlobalAdminChange(event.target.value)}
         />
       </>
     );
@@ -224,7 +228,8 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user, apiGet, apiPost } = useAuthContext();
+  const { user } = useAuthContext();
+
   const [formErrors, setFormErrors] = useState({
     first_name: false,
     last_name: false,
@@ -232,62 +237,48 @@ export const UserForm: React.FC<UserFormProps> = ({
     user_type: false,
     state: false
   });
-  const [organizationsInRegion, setOrganizationsInRegion] = useState<
-    Organization[]
-  >([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [initialOrgIdChange, setInitialOrgIdChange] = useState(false);
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-  const fetchOrganizations = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      let rows: Organization[] = [];
-      if (values.region_id) {
-        rows = await apiGet<Organization[]>(
-          ENDPOINTS.ORGANIZATIONS_REGION.replace(
-            '{region_id}',
-            values.region_id
-          )
-        );
-      }
-      setOrganizationsInRegion(rows);
-      setApiErrorStates((prev: any) => ({ ...prev, getOrgsError: '' }));
-    } catch (e: any) {
-      setApiErrorStates((prev: any) => ({
-        ...prev,
-        getOrgsError: e.message + ('. ' + e.response?.data?.detail || '')
-      }));
-      logger.error('UserForm.fetchOrganizations failed:', {
-        error: e,
-        regionId: values.region_id
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [apiGet, values.region_id, setApiErrorStates]);
+
+  const {
+    organizations: organizationsInRegion,
+    isLoading,
+    errorMessage: getOrgsErrorMessage
+  } = useOrganizationsByRegion(values.region_id);
 
   useEffect(() => {
-    fetchOrganizations();
-  }, [fetchOrganizations]);
+    setApiErrorStates((previousState: ApiErrorStates) => ({
+      ...previousState,
+      getOrgsError: getOrgsErrorMessage
+    }));
+  }, [getOrgsErrorMessage, setApiErrorStates]);
+
+  const { updateUser } = useUpdateUser();
+  const { addUserToOrganization } = useAddUserToOrganization();
+  const { removeUserFromOrganization } = useRemoveUserFromOrganization();
 
   const getOrgNameById = (id: string) => {
-    const organization = organizationsInRegion.find((org) => org.id === id);
+    const organization = organizationsInRegion.find(
+      (org: Organization) => org.id === id
+    );
     return organization ? organization.name : null;
   };
 
-  const validateForm = (values: UserFormValues) => {
+  const validateForm = (currentValues: UserFormValues) => {
     const nameRegex = /^[A-Za-z\s-']+$/;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const newFormErrors = {
       first_name:
-        values.first_name.trim() === '' || !nameRegex.test(values.first_name),
+        currentValues.first_name.trim() === '' ||
+        !nameRegex.test(currentValues.first_name),
       last_name:
-        values.last_name.trim() === '' || !nameRegex.test(values.last_name),
-      email: !emailRegex.test(values.email),
-      user_type: values.user_type.trim() === '',
-      state: values.state.trim() === ''
+        currentValues.last_name.trim() === '' ||
+        !nameRegex.test(currentValues.last_name),
+      email: !emailRegex.test(currentValues.email),
+      user_type: currentValues.user_type.trim() === '',
+      state: currentValues.state.trim() === ''
     };
     setFormErrors(newFormErrors);
     return !Object.values(newFormErrors).some((error) => error);
@@ -324,8 +315,20 @@ export const UserForm: React.FC<UserFormProps> = ({
     if (!validateForm(values) || values.org_id === '') {
       return;
     }
-    const oldRoleLevel = USER_TYPE_MAP[user?.user_type || 'standard'] || 0;
-    const newRoleLevel = USER_TYPE_MAP[values?.user_type] || 0;
+
+    const userId = values.id;
+    if (!userId) {
+      logger.error('UserForm.handleEditUserSubmit: missing user id', {
+        values
+      });
+      return;
+    }
+
+    const oldRoleLevel =
+      USER_TYPE_MAP[user?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
+    const newRoleLevel =
+      USER_TYPE_MAP[values?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
+
     if (newRoleLevel > oldRoleLevel) {
       logger.info(
         'UserForm: User role elevation detected, confirming with user',
@@ -339,62 +342,62 @@ export const UserForm: React.FC<UserFormProps> = ({
       state: values.state,
       region_id: values.region_id
     };
+
     if (user?.user_type === 'globalAdmin') {
-      body.first_name = values.first_name;
-      body.last_name = values.last_name;
       body.user_type = values.user_type;
     }
+
     try {
-      await apiPost(
-        ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', String(values.id)),
-        {
-          body
-        }
-      );
+      await updateUser(userId, body);
+
       if (values.originalOrgId !== values.org_id) {
-        if (values.originalOrgId) {
-          await apiPost(
-            ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
-              '{organization_id}',
-              String(values.originalOrgId)
-            ).replace('{role_id}', String(values.originalRoleId)),
-            { body: {} }
+        if (values.originalOrgId && values.originalRoleId) {
+          await removeUserFromOrganization(
+            values.originalOrgId,
+            values.originalRoleId
           );
         }
-        await apiPost(
-          ENDPOINTS.ORGANIZATION_ADD_USER.replace(
-            '{organization_id}',
-            String(values.org_id)
-          ),
-          {
-            body: { user_id: values.id, role: 'user' }
-          }
-        );
+
+        if (values.org_id) {
+          await addUserToOrganization(values.org_id, userId, 'user');
+        } else {
+          logger.error(
+            'UserForm.handleEditUserSubmit: org_id missing when attempting to add user to organization',
+            { values }
+          );
+        }
       }
-      const updatedUsers = users.map((user) =>
-        user.id === values.id
+
+      const updatedUsers = users.map((existingUser: UserType) =>
+        existingUser.id === userId
           ? {
-              ...user,
+              ...existingUser,
               ...values,
               full_name: `${values.first_name} ${values.last_name}`
             }
-          : user
+          : existingUser
       ) as UserType[];
+
       setUsers(updatedUsers);
-      setApiErrorStates({ ...apiErrorStates, getUpdateUserError: '' });
+      setApiErrorStates({
+        ...apiErrorStates,
+        getUpdateUserError: ''
+      });
       setEditUserDialogOpen(false);
       setInfoDialogContent('This user has been successfully updated.');
       setInfoDialogOpen(true);
-    } catch (e: any) {
+    } catch (error: any) {
+      const detail = error?.response?.data?.detail;
       setApiErrorStates({
         ...apiErrorStates,
-        getUpdateUserError: e.message + ('. ' + e.response?.data?.detail || '')
+        getUpdateUserError: error.message + (detail ? `. ${detail}` : '')
       });
       setInfoDialogContent(
         'This user has not been updated. Check the console log for more details.'
       );
+      setInfoDialogOpen(true);
       logger.error('UserForm.handleEditUserSubmit failed:', {
-        error: e,
+        error,
         userId: user?.id
       });
     }
@@ -402,19 +405,19 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const onTextChange: React.ChangeEventHandler<
     HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-  > = (e) => {
-    const { name, value } = e.target;
+  > = (event) => {
+    const { name, value } = event.target;
     onChange(name, value);
     const fieldError = validateField(name, value);
-    setFormErrors((prevErrors) => ({
-      ...prevErrors,
+    setFormErrors((previousErrors) => ({
+      ...previousErrors,
       [name]: fieldError
     }));
   };
 
-  const onChange = (name: string, value: any) => {
-    setValues((values: any) => ({
-      ...values,
+  const onChange = (name: string, value: unknown) => {
+    setValues((previousValues: any) => ({
+      ...previousValues,
       [name]: value
     }));
   };
@@ -426,8 +429,8 @@ export const UserForm: React.FC<UserFormProps> = ({
     } else {
       setInitialOrgIdChange(false);
     }
-    setValues((values: any) => ({
-      ...values,
+    setValues((previousValues: any) => ({
+      ...previousValues,
       org_id: orgId,
       org_name: getOrgNameById(orgId)
     }));
@@ -443,9 +446,11 @@ export const UserForm: React.FC<UserFormProps> = ({
 
   const sortedOrgs = organizationsInRegion
     .slice()
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .sort((a: Organization, b: Organization) => a.name.localeCompare(b.name));
 
-  const editedUser = users.find((u) => u.id === values.id);
+  const editedUser = users.find(
+    (userItem: UserType) => userItem.id === values.id
+  );
   const editedUserOrganization =
     editedUser?.roles[0]?.organization?.name || null;
   const userRoleChanged = editedUser?.user_type !== values.user_type;
@@ -534,8 +539,8 @@ export const UserForm: React.FC<UserFormProps> = ({
             disabled={!['globalAdmin'].includes(user?.user_type || '')}
             value={values.state || null}
             onChange={(_, newValue) => {
-              setValues((prev: any) => ({
-                ...prev,
+              setValues((previousValues: any) => ({
+                ...previousValues,
                 state: newValue || '',
                 region_id: newValue ? REGION_STATE_MAP[String(newValue)] : '',
                 org_id: '',
@@ -586,13 +591,18 @@ export const UserForm: React.FC<UserFormProps> = ({
               id="org_id"
               fullWidth
               options={sortedOrgs}
-              getOptionLabel={(option) => {
+              getOptionLabel={(option: Organization) => {
                 if (option.name && option.acronym) {
                   return `${option.name} (${option.acronym})`;
                 }
                 return option.name;
               }}
-              value={sortedOrgs.find((org) => org.id === values.org_id) || null}
+              value={
+                sortedOrgs.find(
+                  (organization: Organization) =>
+                    organization.id === values.org_id
+                ) || null
+              }
               onChange={(_, newValue) => {
                 handleOrgChange(newValue ? newValue.id : '');
               }}
@@ -625,9 +635,9 @@ export const UserForm: React.FC<UserFormProps> = ({
             aria-label="User Type"
             name="user_type"
             value={values.user_type}
-            onChange={(e) => {
+            onChange={(event) => {
               setIsRoleElevationConfirmed(false);
-              onTextChange(e);
+              onTextChange(event);
             }}
           >
             <FormControlLabel
@@ -695,11 +705,12 @@ export const UserForm: React.FC<UserFormProps> = ({
   );
 
   const isNewGlobalAdmin =
-    users?.find((u) => u.id === values.id)?.user_type !== values.user_type &&
-    values.user_type === 'globalAdmin';
+    users?.find((userItem: UserType) => userItem.id === values.id)
+      ?.user_type !== values.user_type && values.user_type === 'globalAdmin';
 
   const isNewRegionalOrGlobalView =
-    users?.find((u) => u.id === values.id)?.user_type !== values.user_type &&
+    users?.find((userItem: UserType) => userItem.id === values.id)
+      ?.user_type !== values.user_type &&
     (values.user_type === 'regionalAdmin' || values.user_type === 'globalView');
 
   const editUserFormDialog = (

@@ -45,9 +45,13 @@ import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/dataTransformUtils';
-import { formatSeverity } from 'utils/vulnerabilitiesTableUtils';
-import { normalizeFilters } from 'utils/vulnerabilitiesTableUtils';
-import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import {
+  cleanFilterModelItems,
+  formatSeverity,
+  normalizeFilters,
+  extractInitialFilters,
+  shouldTriggerFilterUpdate
+} from 'utils/vulnerabilitiesTableUtils';
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
 
@@ -98,6 +102,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       sort: 'desc'
     }
   ]);
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
 
   useEffect(() => {
     if (state) {
@@ -250,8 +255,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
     paginationModel.page,
     paginationModel.pageSize,
     onlyOpenVulns,
-    sortModel[0]?.field,
-    sortModel[0]?.sort
+    sortModel
   ]);
 
   useEffect(() => {
@@ -319,27 +323,17 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         const stateDisplay =
           vuln.state + (vuln.substate ? ` (${vuln.substate})` : '');
 
-        const kevStatus =
-          vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No';
-
-        const ransomwareStatus =
-          vuln?.is_kev_ransomware === null
-            ? 'N/A'
-            : vuln.is_kev_ransomware
-              ? 'Yes'
-              : 'No';
-
         return {
           id: vuln.id,
           title: vuln.title,
           severity: severity,
-          is_kev: typeof vuln.is_kev === 'boolean' ? vuln.is_kev : null, // Keep original boolean data
-          is_kev_display: kevStatus, // Add display version
+          is_kev: vuln.is_kev === null ? 'N/A' : vuln.is_kev ? 'Yes' : 'No',
           is_kev_ransomware:
-            typeof vuln.is_kev_ransomware === 'boolean'
-              ? vuln.is_kev_ransomware
-              : null, // Keep original boolean data
-          is_kev_ransomware_display: ransomwareStatus, // Add display version
+            vuln.is_kev_ransomware === null
+              ? 'N/A'
+              : vuln.is_kev_ransomware
+                ? 'Yes'
+                : 'No',
           domain: vuln.domain?.name,
           domainId: vuln.domain?.id,
           product: product,
@@ -428,7 +422,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       },
       {
-        field: 'is_kev_display',
+        field: 'is_kev',
         headerName: 'KEV',
         minWidth: 50,
         flex: 0.3,
@@ -442,16 +436,16 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           (op) => op.value === 'is'
         ),
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev_display;
+          const value = cellValues.row.is_kev;
           return (
-            <Box component="span" aria-label={`KEV status ${v}`}>
-              {v}
+            <Box component="span" aria-label={`KEV status ${value}`}>
+              {value}
             </Box>
           );
         }
       },
       {
-        field: 'is_kev_ransomware_display',
+        field: 'is_kev_ransomware',
         headerName: 'Ransomware',
         minWidth: 100,
         flex: 0.5,
@@ -466,7 +460,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
           { value: 'N/A', label: 'N/A' }
         ],
         renderCell: (cellValues: GridRenderCellParams<VulnerabilityRow>) => {
-          const v = cellValues.row.is_kev_ransomware_display;
+          const v = cellValues.row.is_kev_ransomware;
           return (
             <Box component="span" aria-label={`Ransomware status ${v}`}>
               {v}
@@ -573,7 +567,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
         }
       }
     ],
-    [history]
+    [history, stringFilterOperators]
   );
 
   return (
@@ -711,59 +705,26 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterMode="server"
               filterModel={filterModel}
               onFilterModelChange={(model) => {
-                const mappedItems = model.items.map((item) => ({
-                  ...item,
-                  value:
-                    typeof item.value === 'string'
-                      ? item.value.trim()
-                      : item.value
-                }));
-                const normalizedModel = { ...model, items: mappedItems };
-                setFilterModel(normalizedModel);
+                const cleanedModel = cleanFilterModelItems(model, filterModel);
+                setFilterModel(cleanedModel);
 
-                const mappedFilters = normalizedModel.items
-                  .map((item) => {
-                    let val: any = item.value;
-                    if (
-                      item.field === 'is_kev' ||
-                      item.field === 'is_kev_ransomware'
-                    ) {
-                      if (typeof val === 'string') {
-                        const v = val.toLowerCase();
-                        if (v === 'yes' || v === 'true') val = true;
-                        else if (v === 'no' || v === 'false') val = false;
-                        else if (v === 'n/a') val = null;
-                        else val = null;
-                      } else {
-                        val = val == null ? null : Boolean(val);
-                      }
-                    }
-                    return {
-                      field: item.field,
-                      operator: item.operator,
-                      value: val
-                    };
-                  })
+                const shouldUpdate = shouldTriggerFilterUpdate(
+                  cleanedModel.items,
+                  filterModel.items
+                );
 
-                  .filter(
-                    (f) =>
-                      f.value !== undefined &&
-                      f.value !== null &&
-                      !(typeof f.value === 'string' && f.value.trim() === '')
-                  );
-
-                const mappedKey = JSON.stringify(mappedFilters);
-
-                if (mappedKey === lastFiltersKeyRef.current) {
+                if (!shouldUpdate) {
                   return;
                 }
+
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
                 }
+
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
-                  setFilters(mappedFilters);
-                  lastFiltersKeyRef.current = mappedKey;
+                  setFilters(cleanedModel.items);
+                  setHasActiveFilters(cleanedModel.items.length > 0);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
                 }, 1000);
@@ -793,11 +754,29 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   children: onlyOpenVulns
                     ? showAllVulnsButton
                     : showOpenVulnsButton,
-                  exportTitle: 'Vulnerabilities'
+                  exportTitle: 'Vulnerabilities',
+                  hasActiveFilters: hasActiveFilters
                 } as any,
                 noRowsOverlay: { children: noRowsOverlay },
                 basePopper: {
                   placement: 'bottom-start'
+                },
+                panel: {
+                  onClose: () => {
+                    // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                    // Prevents mismatch between filter model and applied filters.
+
+                    const hasIncompleteFilters = filterModel.items.some(
+                      (item) => item.value === undefined
+                    );
+
+                    if (hasIncompleteFilters) {
+                      setFilterModel({ items: [] });
+                      setFilters([]);
+                      setHasActiveFilters(false);
+                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                    }
+                  }
                 },
                 columnsManagement: {
                   disableResetButton: true,

@@ -200,7 +200,7 @@ export const transformVulnScanData = (
         ),
         vulnerabilityScan: vulLabel.label,
         assetsOwned: latestVulnSummary?.assets_owned_count ?? 0,
-        hostsScanned: latestHostSummary?.up_host_count ?? 0,
+        hostsScanned: latestHostSummary?.recent_up_hosts_count ?? 0,
         startDate: vulLabel.usedStart ?? '',
         endDate: vulLabel.usedEnd ?? '',
         enrolledDate: latestVulnSummary?.enrolled_in_vs_timestamp ?? '',
@@ -410,3 +410,16 @@ export function isEmptyAfterScans(obj: AnyObject): boolean {
 
   return allMetricsEmpty;
 }
+
+export const sortByCvssThenCountDesc = <
+  T extends {
+    cvss_base_score?: number | null;
+    count?: number | null;
+  }
+>(
+  data: T[]
+) =>
+  [...data].sort((a, b) => {
+    const cvssDiff = (b.cvss_base_score ?? 0) - (a.cvss_base_score ?? 0);
+    return cvssDiff !== 0 ? cvssDiff : (b.count ?? 0) - (a.count ?? 0);
+  });
