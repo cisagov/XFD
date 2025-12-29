@@ -2,7 +2,6 @@ import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from 'test-utils';
 import userEvent from '@testing-library/user-event';
-
 import { OrganizationForm } from '@/pages/Organizations/OrganizationForm';
 
 // ----- mocks -----

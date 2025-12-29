@@ -44,7 +44,7 @@ import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { getSeverityColor } from 'utils/getSeverityColor';
-import { truncateString } from 'utils/dataTransformUtils';
+import { truncateString } from 'utils/stringUtils';
 import {
   cleanFilterModelItems,
   formatSeverity,
