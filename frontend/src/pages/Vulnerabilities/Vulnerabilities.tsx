@@ -57,7 +57,7 @@ import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 // Utils
 import { logger } from '@/utils/logger';
 import { getSeverityColor } from 'utils/getSeverityColor';
-import { truncateString } from 'utils/dataTransformUtils';
+import { truncateString } from 'utils/stringUtils';
 import {
   cleanFilterModelItems,
   formatSeverity,

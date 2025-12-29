@@ -98,7 +98,7 @@ const formatDays = (dateString: string) => {
 };
 
 export const Domains: React.FC = () => {
-  const { showAllOrganizations } = useAuthContext();
+  const { showAllOrganizations, user } = useAuthContext();
   const history = useHistory();
   const location = useLocation();
   const state = location.state as
@@ -263,11 +263,11 @@ export const Domains: React.FC = () => {
     }
   }, []);
 
-  const domCols = useMemo<GridColDef[]>(
-    () => [
+  const domCols = useMemo<GridColDef[]>(() => {
+    const allColumns = [
       {
         field: 'name',
-        headerName: 'Domain',
+        headerName: 'Domain Name',
         minWidth: 100,
         flex: 1,
         filterOperators: stringFilterOperators,
@@ -283,6 +283,23 @@ export const Domains: React.FC = () => {
         }
       },
       {
+        field: 'ip',
+        headerName: 'IP Address',
+        minWidth: 100,
+        flex: 1,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`IP Address: ${cellValues.row.ip}`}
+            >
+              {cellValues.row.ip}
+            </Box>
+          );
+        }
+      },
+      {
         field: 'organization_name',
         headerName: 'Organization',
         minWidth: 100,
@@ -292,26 +309,9 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Organization using Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
+              aria-label={`Organization for Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
             >
               {cellValues.row.organization_name}
-            </Box>
-          );
-        }
-      },
-      {
-        field: 'ip',
-        headerName: 'IP',
-        minWidth: 50,
-        flex: 1,
-        filterOperators: stringFilterOperators,
-        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-          return (
-            <Box
-              component="span"
-              aria-label={`IP Address for Domain ${cellValues.row.name}: ${cellValues.row.ip}`}
-            >
-              {cellValues.row.ip}
             </Box>
           );
         }
@@ -427,9 +427,24 @@ export const Domains: React.FC = () => {
           );
         }
       }
-    ],
-    [history, stringFilterOperators]
-  );
+    ];
+
+    // Filter out columns that should be hidden from column chooser
+    let filteredColumns = allColumns;
+
+    // TODO: Remove this filter once WAS data is available - Domain Name column should be user-controllable
+    // Remove Domain Name column from column chooser for all users (pending WAS data integration)
+    filteredColumns = filteredColumns.filter((col) => col.field !== 'name');
+
+    // Remove Organization column for standard users to completely hide it from column chooser
+    if (user?.user_type === 'standard') {
+      filteredColumns = filteredColumns.filter(
+        (col) => col.field !== 'organization_name'
+      );
+    }
+
+    return filteredColumns;
+  }, [history, stringFilterOperators, user?.user_type]);
 
   const noRowsOverlay = (
     <Paper>

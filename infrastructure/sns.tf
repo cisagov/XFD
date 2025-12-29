@@ -21,3 +21,14 @@ resource "aws_ssm_parameter" "alarms_topic_arn" {
     Managed = "Terraform"
   }
 }
+
+# ------------------------------------------------------------------------------
+# SNS Subscription (The Bridge to Email)
+# ------------------------------------------------------------------------------
+resource "aws_sns_topic_subscription" "alert_email" {
+  topic_arn = aws_sns_topic.alarms.arn
+  protocol  = "email"
+
+  # CHANGE THIS to your team's distribution list
+  endpoint = "vulnerability@cisa.dhs.gov"
+}
