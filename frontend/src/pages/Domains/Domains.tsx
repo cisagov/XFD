@@ -51,7 +51,7 @@ import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 // Utils
 import { logger } from '@/utils/logger';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
-import { formatCount } from 'utils/numberUtils';
+import { formatDisplayValue } from 'utils/stringUtils';
 
 // Constants
 import { ROUTES } from '@/constants/routes';
@@ -362,7 +362,7 @@ export const Domains: React.FC = () => {
               component="span"
               aria-label={`Vulnerability Count for Domain ${cellValues.row.name}: ${cellValues.row.vulnerabilities_count}`}
             >
-              {formatCount(cellValues.row.vulnerabilities_count)}
+              {formatDisplayValue(cellValues.row.vulnerabilities_count)}
             </Box>
           );
         }

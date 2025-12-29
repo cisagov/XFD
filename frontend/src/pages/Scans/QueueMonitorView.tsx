@@ -15,7 +15,7 @@ import { useAuthContext } from 'context';
 
 // Utils
 import { logger } from '@/utils/logger';
-import { formatCount } from 'utils/numberUtils';
+import { formatDisplayValue } from 'utils/stringUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -76,7 +76,7 @@ const QueueMonitorView: React.FC = () => {
           component={'span'}
           aria-label={`Messages Available for ${cellValues.row.id}: ${cellValues.row.messages_available}`}
         >
-          {formatCount(cellValues.row.messages_available)}
+          {formatDisplayValue(cellValues.row.messages_available)}
         </Box>
       )
     },
@@ -89,7 +89,7 @@ const QueueMonitorView: React.FC = () => {
           component={'span'}
           aria-label={`Messages In-Flight for ${cellValues.row.id}: ${cellValues.row.messages_in_flight}`}
         >
-          {formatCount(cellValues.row.messages_in_flight)}
+          {formatDisplayValue(cellValues.row.messages_in_flight)}
         </Box>
       )
     },
@@ -102,7 +102,7 @@ const QueueMonitorView: React.FC = () => {
           component={'span'}
           aria-label={`Messages Delayed for ${cellValues.row.id}: ${cellValues.row.messages_delayed}`}
         >
-          {formatCount(cellValues.row.messages_delayed)}
+          {formatDisplayValue(cellValues.row.messages_delayed)}
         </Box>
       )
     }

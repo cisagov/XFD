@@ -21,7 +21,7 @@ import {
 } from '@mui/x-data-grid';
 
 // Utils
-import { formatCount } from 'utils/numberUtils';
+import { formatDisplayValue } from 'utils/stringUtils';
 
 /**
  * Custom pagination component for DataGrid with comma-formatted numbers
@@ -59,7 +59,7 @@ const CustomPagination: React.FC = () => {
     from: number;
     to: number;
     count: number;
-  }) => `${formatCount(from)}–${formatCount(to)} of ${formatCount(count)}`;
+  }) => `${formatDisplayValue(from)}–${formatDisplayValue(to)} of ${formatDisplayValue(count)}`;
 
   return (
     <TablePagination

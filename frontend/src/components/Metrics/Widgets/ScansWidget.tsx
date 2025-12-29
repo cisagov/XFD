@@ -38,7 +38,7 @@ import { useAuthContext } from 'context';
 import InfoLabel from 'components/Dashboard/InfoLabel';
 
 // Utils
-import { formatCount } from 'utils/numberUtils';
+import { formatDisplayValue } from 'utils/stringUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -205,7 +205,7 @@ const ScansWidget: React.FC = () => {
               params.row.name
             }
           >
-            {formatCount(params.row.total_orgs)}
+            {formatDisplayValue(params.row.total_orgs)}
           </Box>
         )
       }
@@ -230,7 +230,7 @@ const ScansWidget: React.FC = () => {
             params.row.name
           }
         >
-          {formatCount(params.value || 0)}
+          {formatDisplayValue(params.value || 0)}
         </Box>
       )
     }));
@@ -350,7 +350,7 @@ const ScansWidget: React.FC = () => {
               ' days'
             }
           >
-            {formatCount(params.row.total)}
+            {formatDisplayValue(params.row.total)}
           </Box>
         )
       }
