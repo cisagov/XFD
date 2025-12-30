@@ -1,4 +1,4 @@
--e external/pshtt
+# -e external/pshtt
 aiohappyeyeballs==2.5.0
 cryptography==44.0.1
 h11==0.16.0
@@ -7,6 +7,8 @@ nested_lookup==0.2.25
 pandas==2.2.3
 pydantic==2.3.0
 python-dotenv
+requests==2.32.4
 requests-http-signature==0.2.0
 shodan==1.27.0
 sslyze==6.2.0
+zipp==3.19.1
