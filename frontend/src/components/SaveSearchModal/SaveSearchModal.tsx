@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
-import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
 import DialogTitle from '@mui/material/DialogTitle';
 import TextField from '@mui/material/TextField';
 import Add from '@mui/icons-material/Add';
@@ -35,6 +33,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   } = props;
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const saveInputRef = React.useRef<HTMLInputElement>(null);
+  const updateInputRef = React.useRef<HTMLInputElement>(null);
   const [formErrors, setFormErrors] = useState({
     name: false,
     duplicate: false
@@ -87,6 +87,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     savedSearchValues.name = '';
   };
   const handleOpenModal = () => {
+    (document.activeElement as HTMLElement)?.blur();
     setSaveDialogOpen(true);
   };
 
@@ -98,6 +99,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
   const handleUpdate = () => {
     if (activeSearch) {
       savedSearchValues.name = activeSearch.name;
+      (document.activeElement as HTMLElement)?.blur();
       setUpdateDialogOpen(true); // Open dialog to confirm update
     } else {
       handleOpenModal();
@@ -140,6 +142,18 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
     }
   };
 
+  useEffect(() => {
+    if (saveDialogOpen && saveInputRef.current) {
+      saveInputRef.current.focus();
+    }
+  }, [saveDialogOpen]);
+
+  useEffect(() => {
+    if (updateDialogOpen && updateInputRef.current) {
+      updateInputRef.current.focus();
+    }
+  }, [updateDialogOpen]);
+
   return (
     <>
       <Button
@@ -148,6 +162,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         onClick={handleUpdate}
         disabled={useAreFiltersDefault(filters, initialFilters)}
         aria-label={activeSearch ? 'Update Saved Filter' : 'Save New'}
+        aria-haspopup="dialog"
         startIcon={<Add />}
         sx={{
           paddingLeft: '0.25em'
@@ -158,53 +173,60 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       <Dialog
         open={updateDialogOpen}
         onClose={() => setUpdateDialogOpen(false)}
-        aria-label="Save Search form"
-        aria-labelledby="save-search-form-title"
-        aria-describedby="save-search-form-description"
+        aria-label="update search"
+        aria-labelledby="update-search-form-title"
+        aria-describedby="update-search-form-description"
         slotProps={{
           paper: {
             component: 'form',
             onSubmit: handleSubmit,
             style: { width: '30%', minWidth: '300px' }
+          },
+          transition: {
+            onEntered: () => {
+              if (updateInputRef.current) {
+                updateInputRef.current.focus();
+              }
+            }
           }
         }}
+        role="dialog"
       >
         <DialogTitle id="update-saved-search-title">
           Update Saved Filter
         </DialogTitle>
         <DialogContent>
-          <DialogContentText id="update-saved-search-description">
-            <TextField
-              required
-              margin="dense"
-              id="name"
-              name="name"
-              placeholder={activeSearch?.name}
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={savedSearchValues.name}
-              onChange={(e) => handleChange(e.target.name, e.target.value)}
-              slotProps={{
-                htmlInput: {
-                  'aria-label': 'Enter a name for your saved filter'
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                }
-              }}
-              error={formErrors.name}
-              helperText={
-                formErrors.name
-                  ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
-                  : formErrors.duplicate
-                    ? 'This name is already taken. Please choose a different name.'
-                    : ''
+          <TextField
+            required
+            margin="dense"
+            id="name"
+            name="name"
+            placeholder={activeSearch?.name}
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={savedSearchValues.name}
+            onChange={(e) => handleChange(e.target.name, e.target.value)}
+            slotProps={{
+              htmlInput: {
+                'aria-label': 'Enter a name for your saved filter'
               }
-            />
-          </DialogContentText>
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
+            error={formErrors.name}
+            helperText={
+              formErrors.name
+                ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
+                : formErrors.duplicate
+                  ? 'This name is already taken. Please choose a different name.'
+                  : ''
+            }
+            inputRef={updateInputRef}
+          />
         </DialogContent>
         <DialogActions>
           <Button
@@ -277,48 +299,55 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             component: 'form',
             onSubmit: handleSubmit,
             style: { width: '30%', minWidth: '300px' }
+          },
+          transition: {
+            onEntered: () => {
+              if (saveInputRef.current) {
+                saveInputRef.current.focus();
+              }
+            }
           }
         }}
         aria-label="Save Search"
         aria-labelledby="save-search-dialog-title"
         aria-describedby="dialog-description"
+        role="dialog"
       >
         <DialogTitle id="dialog-title">Save Filter</DialogTitle>
         <DialogContent>
-          <Box paddingBottom={'1em'}>
-            <TextField
-              required
-              margin="dense"
-              id="name"
-              name="name"
-              placeholder="Add custom filter name"
-              type="text"
-              fullWidth
-              variant="outlined"
-              value={savedSearchValues.name}
-              onChange={(e) => {
-                handleChange(e.target.name, e.target.value);
-              }}
-              slotProps={{
-                htmlInput: {
-                  'aria-label': 'Enter a name for your saved search'
-                }
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                }
-              }}
-              error={formErrors.name}
-              helperText={
-                formErrors.name
-                  ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
-                  : formErrors.duplicate
-                    ? 'This name is already taken. Please choose a different name.'
-                    : ''
+          <TextField
+            required
+            margin="dense"
+            id="name"
+            name="name"
+            placeholder="Add custom filter name"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={savedSearchValues.name}
+            onChange={(e) => {
+              handleChange(e.target.name, e.target.value);
+            }}
+            slotProps={{
+              htmlInput: {
+                'aria-label': 'Enter a name for your saved search'
               }
-            />
-          </Box>
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
+            error={formErrors.name}
+            helperText={
+              formErrors.name
+                ? 'Name is required and must contain only alphanumeric characters, spaces, hyphens, or apostrophes.'
+                : formErrors.duplicate
+                  ? 'This name is already taken. Please choose a different name.'
+                  : ''
+            }
+            inputRef={saveInputRef}
+          />
         </DialogContent>
         <DialogActions>
           <Button

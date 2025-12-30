@@ -99,7 +99,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
       style="--Paper-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);"
     >
       <div
-        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-214018530 css-j2rwcw-MuiDataGrid-root"
+        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-214018530 css-1vefv4w-MuiDataGrid-root"
         style="--DataGrid-hasScrollX: 0; --DataGrid-hasScrollY: 1; --DataGrid-scrollbarSize: 0px; --DataGrid-rowWidth: 0px; --DataGrid-columnsTotalWidth: 0px; --DataGrid-leftPinnedWidth: 0px; --DataGrid-rightPinnedWidth: 0px; --DataGrid-headerHeight: 56px; --DataGrid-headersTotalHeight: 56px; --DataGrid-topContainerHeight: 56px; --DataGrid-bottomContainerHeight: 0px; --height: 52px;"
       >
         <div
@@ -117,7 +117,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
               aria-label="Select columns"
               class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
               data-mui-internal-clone-element="true"
-              id=":rk6:"
+              id=":rm6:"
               tabindex="0"
               type="button"
             >
@@ -147,7 +147,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                 aria-label="Show filters"
                 class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
                 data-mui-internal-clone-element="true"
-                id=":rka:"
+                id=":rma:"
                 tabindex="0"
                 type="button"
               >
@@ -185,7 +185,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
               aria-label="Density"
               class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
               data-mui-internal-clone-element="true"
-              id=":rke:"
+              id=":rme:"
               tabindex="0"
               type="button"
             >
@@ -212,7 +212,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
               aria-label="Export"
               class="MuiButtonBase-root MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary MuiButton-root MuiButton-text MuiButton-textPrimary MuiButton-sizeSmall MuiButton-textSizeSmall MuiButton-colorPrimary css-9hp8id-MuiButtonBase-root-MuiButton-root"
               data-mui-internal-clone-element="true"
-              id=":rki:"
+              id=":rmi:"
               tabindex="0"
               type="button"
             >
@@ -326,26 +326,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="title"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="title"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -357,7 +362,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Vulnerability column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rkt:"
+                            id=":rmt:"
                             tabindex="-1"
                             type="button"
                           >
@@ -426,26 +431,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="severity"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="severity"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -457,7 +467,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Severity column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rl3:"
+                            id=":rn4:"
                             tabindex="-1"
                             type="button"
                           >
@@ -526,26 +536,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="is_kev"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="is_kev"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -557,7 +572,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="KEV column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rl9:"
+                            id=":rnb:"
                             tabindex="-1"
                             type="button"
                           >
@@ -626,26 +641,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="is_kev_ransomware"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="is_kev_ransomware"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -657,7 +677,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Ransomware column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rlf:"
+                            id=":rni:"
                             tabindex="-1"
                             type="button"
                           >
@@ -726,26 +746,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="domain"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="domain"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -757,7 +782,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Domain column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rll:"
+                            id=":rnp:"
                             tabindex="-1"
                             type="button"
                           >
@@ -826,26 +851,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="product"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="product"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -857,7 +887,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Product column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rlr:"
+                            id=":ro0:"
                             tabindex="-1"
                             type="button"
                           >
@@ -926,26 +956,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="created_at"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowDownwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="created_at"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowDownwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -957,7 +992,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Days Open column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rm1:"
+                            id=":ro7:"
                             tabindex="-1"
                             type="button"
                           >
@@ -1026,26 +1061,31 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                           <div
                             class="MuiDataGrid-iconButtonContainer css-ltf0zy-MuiDataGrid-iconButtonContainer"
                           >
-                            <button
+                            <span
                               aria-label="Sort"
-                              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
-                              field="state"
-                              tabindex="-1"
-                              title="Sort"
-                              type="button"
+                              class=""
+                              data-mui-internal-clone-element="true"
                             >
-                              <svg
-                                aria-hidden="true"
-                                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
-                                data-testid="ArrowUpwardIcon"
-                                focusable="false"
-                                viewBox="0 0 24 24"
+                              <button
+                                aria-label="Sort"
+                                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-sortButton css-u9bwx8-MuiButtonBase-root-MuiIconButton-root-MuiDataGrid-sortButton"
+                                field="state"
+                                tabindex="-1"
+                                type="button"
                               >
-                                <path
-                                  d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
-                                />
-                              </svg>
-                            </button>
+                                <svg
+                                  aria-hidden="true"
+                                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall MuiDataGrid-sortIcon css-120dh41-MuiSvgIcon-root"
+                                  data-testid="ArrowUpwardIcon"
+                                  focusable="false"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z"
+                                  />
+                                </svg>
+                              </button>
+                            </span>
                           </div>
                         </div>
                         <div
@@ -1057,7 +1097,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                             aria-label="Status column menu"
                             class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeSmall MuiDataGrid-menuIconButton css-92de2d-MuiButtonBase-root-MuiIconButton-root"
                             data-mui-internal-clone-element="true"
-                            id=":rm7:"
+                            id=":roe:"
                             tabindex="-1"
                             type="button"
                           >
@@ -1781,7 +1821,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                 />
                 <p
                   class="MuiTablePagination-selectLabel css-1ucagr7-MuiTablePagination-selectLabel"
-                  id=":rko:"
+                  id=":rmo:"
                 >
                   Rows per page:
                 </p>
@@ -1791,9 +1831,9 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
                   <div
                     aria-expanded="false"
                     aria-haspopup="listbox"
-                    aria-labelledby=":rko: :rkn:"
+                    aria-labelledby=":rmo: :rmn:"
                     class="MuiSelect-select MuiTablePagination-select MuiSelect-standard MuiInputBase-input css-18zjd9i-MuiNativeSelect-root-MuiSelect-select-MuiInputBase-input"
-                    id=":rkn:"
+                    id=":rmn:"
                     role="combobox"
                     tabindex="0"
                   >
@@ -1874,7 +1914,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
         <style
           href="/MuiDataGridVariables-214018530"
         >
-          .MuiDataGridVariables-214018530{--DataGrid-t-spacing-unit:8px;--DataGrid-t-color-border-base:rgba(224, 224, 224, 1);--DataGrid-t-color-background-base:#fff;--DataGrid-t-color-background-overlay:#fff;--DataGrid-t-color-background-backdrop:rgba(255, 255, 255, 0.38);--DataGrid-t-color-foreground-base:rgba(0, 0, 0, 0.87);--DataGrid-t-color-foreground-muted:rgba(0, 0, 0, 0.6);--DataGrid-t-color-foreground-accent:#005288;--DataGrid-t-color-foreground-disabled:rgba(0, 0, 0, 0.38);--DataGrid-t-color-foreground-error:rgb(137, 12, 33);--DataGrid-t-color-interactive-hover:rgba(0, 0, 0, 0.04);--DataGrid-t-color-interactive-hover-opacity:0.04;--DataGrid-t-color-interactive-focus:rgba(from #0078AE r g b / 1);--DataGrid-t-color-interactive-focus-opacity:0.12;--DataGrid-t-color-interactive-disabled:rgba(from rgba(0, 0, 0, 0.26) r g b / 1);--DataGrid-t-color-interactive-disabled-opacity:0.38;--DataGrid-t-color-interactive-selected:#0078AE;--DataGrid-t-color-interactive-selected-opacity:0.08;--DataGrid-t-header-background-base:#fff;--DataGrid-t-cell-background-pinned:#fff;--DataGrid-t-radius-base:4px;--DataGrid-t-typography-font-family-base:source sans pro, sans-serif;--DataGrid-t-typography-font-weight-light:300;--DataGrid-t-typography-font-weight-regular:400;--DataGrid-t-typography-font-weight-medium:500;--DataGrid-t-typography-font-weight-bold:700;--DataGrid-t-typography-font-body:400 0.875rem / 1.43 source sans pro, sans-serif;--DataGrid-t-typography-font-small:400 0.75rem / 1.66 source sans pro, sans-serif;--DataGrid-t-typography-font-large:500 14px / 1.5 source sans pro, sans-serif;--DataGrid-t-transition-easing-ease-in:cubic-bezier(0.4, 0, 1, 1);--DataGrid-t-transition-easing-ease-out:cubic-bezier(0.0, 0, 0.2, 1);--DataGrid-t-transition-easing-ease-in-out:cubic-bezier(0.4, 0, 0.2, 1);--DataGrid-t-transition-duration-short:200ms;--DataGrid-t-transition-duration-base:250ms;--DataGrid-t-transition-duration-long:300ms;--DataGrid-t-shadow-base:0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);--DataGrid-t-shadow-overlay:0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12);--DataGrid-t-z-index-panel:1300;--DataGrid-t-z-index-menu:1300;}
+          .MuiDataGridVariables-214018530{--DataGrid-t-spacing-unit:8px;--DataGrid-t-color-border-base:rgba(224, 224, 224, 1);--DataGrid-t-color-background-base:#fff;--DataGrid-t-color-background-overlay:#fff;--DataGrid-t-color-background-backdrop:rgba(255, 255, 255, 0.38);--DataGrid-t-color-foreground-base:rgba(0, 0, 0, 0.87);--DataGrid-t-color-foreground-muted:rgba(0, 0, 0, 0.6);--DataGrid-t-color-foreground-accent:#005288;--DataGrid-t-color-foreground-disabled:rgba(0, 0, 0, 0.38);--DataGrid-t-color-foreground-error:rgb(137, 12, 33);--DataGrid-t-color-interactive-hover:#f5f5f5;--DataGrid-t-color-interactive-hover-opacity:0.04;--DataGrid-t-color-interactive-focus:rgba(from #0078AE r g b / 1);--DataGrid-t-color-interactive-focus-opacity:0.12;--DataGrid-t-color-interactive-disabled:rgba(from rgba(0, 0, 0, 0.26) r g b / 1);--DataGrid-t-color-interactive-disabled-opacity:0.38;--DataGrid-t-color-interactive-selected:#eeeeee;--DataGrid-t-color-interactive-selected-opacity:0.08;--DataGrid-t-header-background-base:#fff;--DataGrid-t-cell-background-pinned:#fff;--DataGrid-t-radius-base:4px;--DataGrid-t-typography-font-family-base:source sans pro, sans-serif;--DataGrid-t-typography-font-weight-light:300;--DataGrid-t-typography-font-weight-regular:400;--DataGrid-t-typography-font-weight-medium:500;--DataGrid-t-typography-font-weight-bold:700;--DataGrid-t-typography-font-body:400 0.875rem / 1.43 source sans pro, sans-serif;--DataGrid-t-typography-font-small:400 0.75rem / 1.66 source sans pro, sans-serif;--DataGrid-t-typography-font-large:500 14px / 1.5 source sans pro, sans-serif;--DataGrid-t-transition-easing-ease-in:cubic-bezier(0.4, 0, 1, 1);--DataGrid-t-transition-easing-ease-out:cubic-bezier(0.0, 0, 0.2, 1);--DataGrid-t-transition-easing-ease-in-out:cubic-bezier(0.4, 0, 0.2, 1);--DataGrid-t-transition-duration-short:200ms;--DataGrid-t-transition-duration-base:250ms;--DataGrid-t-transition-duration-long:300ms;--DataGrid-t-shadow-base:0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);--DataGrid-t-shadow-overlay:0px 5px 5px -3px rgba(0,0,0,0.2),0px 8px 10px 1px rgba(0,0,0,0.14),0px 3px 14px 2px rgba(0,0,0,0.12);--DataGrid-t-z-index-panel:1300;--DataGrid-t-z-index-menu:1300;}
         </style>
       </div>
     </div>

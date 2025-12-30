@@ -9,6 +9,7 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Typography from '@mui/material/Typography';
 import { SxProps } from '@mui/system';
+import { formatDisplayValue } from '@/utils/stringUtils';
 
 type ColumnConfig<T> = {
   key: keyof T;
@@ -114,7 +115,9 @@ export default function RoundedTable<T extends Record<string, any>>({
                   aria-label={col.header + ' ' + row[col.key]}
                   component="td"
                 >
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
+                  {col.render
+                    ? col.render(row[col.key], row)
+                    : formatDisplayValue(row[col.key])}
                 </TableCell>
               ))}
             </TableRow>
@@ -150,7 +153,9 @@ export default function RoundedTable<T extends Record<string, any>>({
                   align="center"
                   sx={{ py: 2 }}
                 >
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
+                  {col.render
+                    ? col.render(row[col.key], row)
+                    : formatDisplayValue(row[col.key])}
                 </Typography>
                 {colIndex < columns.length - 1 && (
                   <Divider sx={{ my: 1, borderColor: 'neutrals.light' }} />
