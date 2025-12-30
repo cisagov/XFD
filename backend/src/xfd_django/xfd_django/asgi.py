@@ -181,7 +181,9 @@ def get_application() -> FastAPI:
 
             return JSONResponse(
                 status_code=403,
-                content={"detail": "You do not have permission to perform this action."}
+                content={
+                    "detail": "You do not have permission to perform this action."
+                },
             )
 
         # Handle all other HTTP errors (404, 401, etc.) normally
