@@ -1,4 +1,4 @@
-# -e external/pshtt
+-e external/pshtt
 aiohappyeyeballs==2.5.0
 cryptography==44.0.1
 h11==0.16.0
