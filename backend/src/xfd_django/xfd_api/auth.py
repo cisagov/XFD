@@ -192,7 +192,8 @@ def get_current_active_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Unauthorized",
         )
-
+    #Attach the user info
+    request.state.user = user
     # Attach email to request state for logging
     request.state.user_email = user.email
     return user

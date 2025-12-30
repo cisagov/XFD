@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 import httpx
 from mangum import Mangum
 from redis import asyncio as aioredis
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from xfd_api.tasks.scheduler import handler as scheduler_handler
 from xfd_django.docker_events import listen_for_docker_events
 from xfd_django.middleware.middleware import LoggingMiddleware
@@ -145,7 +146,7 @@ def get_application() -> FastAPI:
     # ── Generic exception handler ────────────────────────────────
     @app.exception_handler(Exception)
     async def _handle_uncaught_exceptions(request: Request, exc: Exception):
-        # TODO: log exc via your logger here, e.g. logger.exception(exc)
+        LOGGER.exception("Unhandled Server Error")
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error"},
@@ -153,9 +154,40 @@ def get_application() -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def _handle_validation_errors(request: Request, exc: RequestValidationError):
+        LOGGER.error(f"Validation error: {exc}")
+
         return JSONResponse(
             status_code=422,
-            content={"detail": exc.errors()},
+            content={"detail": "Invalid request parameters."},
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _handle_http_exceptions(request: Request, exc: StarletteHTTPException):
+        # Specific logic for 403 Forbidden
+        if exc.status_code == 403:
+            # 1. Try to get user from request.state (Where auth.py puts it)
+            user = getattr(request.state, "user", None)
+
+            # 2. Fallback to request.user (Standard location)
+            if not user and hasattr(request, "user"):
+                user = request.user
+
+            # 3. Extract the ID safely
+            user_id = getattr(user, "id", "Unknown")
+
+            LOGGER.warning(
+                f"UserID: {user_id} attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
+            )
+
+            return JSONResponse(
+                status_code=403,
+                content={"detail": "You do not have permission to perform this action."}
+            )
+
+        # Handle all other HTTP errors (404, 401, etc.) normally
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
         )
 
     @app.on_event("startup")
