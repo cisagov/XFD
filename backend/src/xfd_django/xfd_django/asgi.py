@@ -163,16 +163,16 @@ def get_application() -> FastAPI:
 
     @app.exception_handler(StarletteHTTPException)
     async def _handle_http_exceptions(request: Request, exc: StarletteHTTPException):
-        # Specific logic for 403 Forbidden
         if exc.status_code == 403:
-            # 1. Try to get user from request.state (Where auth.py puts it)
+            # 1. Try to get user from request.state (where we put it in auth.py)
             user = getattr(request.state, "user", None)
 
-            # 2. Fallback to request.user (Standard location)
-            if not user and hasattr(request, "user"):
-                user = request.user
+            # 2. Fallback: Check request.scope directly to avoid AssertionError
+            if not user:
+                # SAFE: request.scope.get("user") returns None instead of crashing
+                user = request.scope.get("user")
 
-            # 3. Extract the ID safely
+            # 3. Get the ID safely
             user_id = getattr(user, "id", "Unknown")
 
             LOGGER.warning(
@@ -186,7 +186,6 @@ def get_application() -> FastAPI:
                 },
             )
 
-        # Handle all other HTTP errors (404, 401, etc.) normally
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail},
