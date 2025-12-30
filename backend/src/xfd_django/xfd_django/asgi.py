@@ -146,7 +146,7 @@ def get_application() -> FastAPI:
     # ── Generic exception handler ────────────────────────────────
     @app.exception_handler(Exception)
     async def _handle_uncaught_exceptions(request: Request, exc: Exception):
-        LOGGER.exception("Unhandled Server Error")
+        LOGGER.exception(f"Unhandled Server Error {exc}")
         return JSONResponse(
             status_code=500,
             content={"detail": "Internal server error"},
