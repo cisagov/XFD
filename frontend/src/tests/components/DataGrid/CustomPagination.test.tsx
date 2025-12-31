@@ -59,16 +59,25 @@ describe('CustomPagination Component', () => {
     typeof useGridSelector
   >;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    // Set up default mock values
+  /**
+   * Helper function to set up mock grid selector values
+   * @param page - Current page (0-indexed)
+   * @param pageSize - Number of rows per page
+   * @param rowCount - Total number of rows
+   */
+  const setupMockGridSelector = (page = 0, pageSize = 15, rowCount = 100) => {
     mockUseGridSelector.mockImplementation((apiRef, selector) => {
-      if (selector === gridPageSelector) return 0;
-      if (selector === gridPageSizeSelector) return 15;
-      if (selector === gridRowCountSelector) return 100;
+      if (selector === gridPageSelector) return page;
+      if (selector === gridPageSizeSelector) return pageSize;
+      if (selector === gridRowCountSelector) return rowCount;
       return 0;
     });
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    // Set up default mock values
+    setupMockGridSelector();
   });
 
   describe('Component Rendering', () => {
@@ -105,12 +114,7 @@ describe('CustomPagination Component', () => {
   describe('Number Formatting', () => {
     it('formats large numbers with comma separators', () => {
       // Mock large row count
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 0;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 5565;
-        return 0;
-      });
+      setupMockGridSelector(0, 15, 5565);
 
       render(<CustomPagination />);
 
@@ -120,12 +124,7 @@ describe('CustomPagination Component', () => {
 
     it('does not format small numbers', () => {
       // Mock small row count
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 0;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 50;
-        return 0;
-      });
+      setupMockGridSelector(0, 15, 50);
 
       render(<CustomPagination />);
 
@@ -135,12 +134,7 @@ describe('CustomPagination Component', () => {
 
     it('handles different page scenarios correctly', () => {
       // Mock second page with 30 page size
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 1;
-        if (selector === gridPageSizeSelector) return 30;
-        if (selector === gridRowCountSelector) return 1250;
-        return 0;
-      });
+      setupMockGridSelector(1, 30, 1250);
 
       render(<CustomPagination />);
 
@@ -150,12 +144,7 @@ describe('CustomPagination Component', () => {
 
     it('handles last page correctly when not full', () => {
       // Mock last page scenario
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 6; // 7th page (0-indexed)
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 97; // 97 total items
-        return 0;
-      });
+      setupMockGridSelector(6, 15, 97); // 7th page (0-indexed), 97 total items
 
       render(<CustomPagination />);
 
@@ -188,12 +177,7 @@ describe('CustomPagination Component', () => {
 
     it('calls setPage when previous page is clicked', () => {
       // Set current page to 1 so previous button is enabled
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 1;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 100;
-        return 0;
-      });
+      setupMockGridSelector(1, 15, 100);
 
       render(<CustomPagination />);
 
@@ -276,12 +260,7 @@ describe('CustomPagination Component', () => {
 
   describe('Edge Cases', () => {
     it('handles zero row count', () => {
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 0;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 0;
-        return 0;
-      });
+      setupMockGridSelector(0, 15, 0);
 
       render(<CustomPagination />);
 
@@ -290,12 +269,7 @@ describe('CustomPagination Component', () => {
     });
 
     it('handles single row count', () => {
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 0;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 1;
-        return 0;
-      });
+      setupMockGridSelector(0, 15, 1);
 
       render(<CustomPagination />);
 
@@ -304,12 +278,7 @@ describe('CustomPagination Component', () => {
     });
 
     it('handles exactly 1000 rows (boundary case)', () => {
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 0;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 1000;
-        return 0;
-      });
+      setupMockGridSelector(0, 15, 1000);
 
       render(<CustomPagination />);
 
@@ -318,12 +287,7 @@ describe('CustomPagination Component', () => {
     });
 
     it('handles 999 rows (just under boundary)', () => {
-      mockUseGridSelector.mockImplementation((apiRef, selector) => {
-        if (selector === gridPageSelector) return 0;
-        if (selector === gridPageSizeSelector) return 15;
-        if (selector === gridRowCountSelector) return 999;
-        return 0;
-      });
+      setupMockGridSelector(0, 15, 999);
 
       render(<CustomPagination />);
 
