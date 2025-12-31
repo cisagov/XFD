@@ -128,7 +128,7 @@ def test_list_scan_tasks_by_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access. View logs for details."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 # Test: kill by globalAdmin should kill the scan task
@@ -233,7 +233,7 @@ def test_kill_scan_task_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access. View logs for details."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 # Test: logs by globalView user should get logs
@@ -315,5 +315,5 @@ def test_get_logs_by_regular_user_fails(mock_get_logs):
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access. View logs for details."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
     mock_get_logs.assert_not_called()

@@ -1570,7 +1570,7 @@ def test_upsert_organization_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access. View logs for details."
+    assert response.json()["detail"] == "You do not have permission to perform this action."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
