@@ -138,7 +138,9 @@ def test_create_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "You do not have permission to perform this action."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Update organization by global admin
@@ -237,7 +239,9 @@ def test_update_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "You do not have permission to perform this action."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Deleting an organization by global admin should succeed
@@ -305,7 +309,9 @@ def test_delete_org_by_org_admin_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "You do not have permission to perform this action."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Deleting an organization by global view should fail
@@ -337,7 +343,9 @@ def test_delete_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "You do not have permission to perform this action."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: List organizations by global view should succeed
@@ -1113,7 +1121,9 @@ def test_remove_role_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "You do not have permission to perform this action."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: removeRole by org admin should succeed
@@ -1211,7 +1221,9 @@ def test_remove_role_by_org_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "You do not have permission to perform this action."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: getTags by globalAdmin should work

@@ -337,7 +337,7 @@ def test_asm_sync_invalid_date_format(admin_user):
     LOGGER.info(response.json())
     # Check response
     assert response.status_code == 422  # Assuming it returns a 422 for invalid input
-    ssert response.json() == {"detail": "Invalid request parameters."}
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 #######################################################
