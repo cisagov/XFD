@@ -1,11 +1,11 @@
 /**
  * Path: frontend/src/tests/components/DataGrid/DataGridExport.test.tsx
- * Author: Jesse Salinas  
+ * Author: Jesse Salinas
  * Date: 2025-12-31
  * Description: Test to verify DataGrid export works correctly with formatDisplayValue in renderCell.
- * 
+ *
  * This test ensures that:
- * - Numbers displayed with comma formatting (via formatDisplayValue) 
+ * - Numbers displayed with comma formatting (via formatDisplayValue)
  * - Export as actual numbers, not formatted strings
  * - The renderCell formatting doesn't affect the exported data
  */
@@ -34,7 +34,7 @@ const mockQueueData = [
   },
   {
     id: 2,
-    name: 'test-queue-2', 
+    name: 'test-queue-2',
     messages_available: 999,
     messages_in_flight: 1000,
     messages_delayed: 12345
@@ -53,19 +53,15 @@ const testColumns: GridColDef[] = [
     headerName: 'Available',
     width: 150,
     renderCell: (cellValues: GridRenderCellParams) => (
-      <span>
-        {formatDisplayValue(cellValues.row.messages_available)}
-      </span>
+      <span>{formatDisplayValue(cellValues.row.messages_available)}</span>
     )
   },
   {
     field: 'messages_in_flight',
-    headerName: 'In-Flight', 
+    headerName: 'In-Flight',
     width: 150,
     renderCell: (cellValues: GridRenderCellParams) => (
-      <span>
-        {formatDisplayValue(cellValues.row.messages_in_flight)}
-      </span>
+      <span>{formatDisplayValue(cellValues.row.messages_in_flight)}</span>
     )
   },
   {
@@ -73,9 +69,7 @@ const testColumns: GridColDef[] = [
     headerName: 'Delayed',
     width: 150,
     renderCell: (cellValues: GridRenderCellParams) => (
-      <span>
-        {formatDisplayValue(cellValues.row.messages_delayed)}
-      </span>
+      <span>{formatDisplayValue(cellValues.row.messages_delayed)}</span>
     )
   }
 ];
@@ -94,11 +88,11 @@ describe('DataGrid Export with formatDisplayValue', () => {
 
     // Check that numbers >= 1000 are displayed with commas
     expect(screen.getByText('1,234')).toBeInTheDocument();
-    expect(screen.getByText('5,678')).toBeInTheDocument(); 
+    expect(screen.getByText('5,678')).toBeInTheDocument();
     expect(screen.getByText('9,999')).toBeInTheDocument();
     expect(screen.getByText('1,000')).toBeInTheDocument();
     expect(screen.getByText('12,345')).toBeInTheDocument();
-    
+
     // Check that numbers < 1000 are displayed without commas
     expect(screen.getByText('999')).toBeInTheDocument();
   });
@@ -114,21 +108,23 @@ describe('DataGrid Export with formatDisplayValue', () => {
         />
       </div>
     );
-    
+
     // DISPLAY: Users see formatted numbers with commas
     expect(screen.getByText('1,234')).toBeInTheDocument();
     expect(screen.getByText('5,678')).toBeInTheDocument();
-    
+
     // EXPORT: Original data remains numeric (what would be exported)
     expect(mockQueueData[0].messages_available).toBe(1234);
     expect(mockQueueData[0].messages_in_flight).toBe(5678);
     expect(typeof mockQueueData[0].messages_available).toBe('number');
     expect(typeof mockQueueData[0].messages_in_flight).toBe('number');
-    
+
     // SEPARATION: Display formatting doesn't affect export data
-    expect(formatDisplayValue(mockQueueData[0].messages_available)).toBe('1,234');
+    expect(formatDisplayValue(mockQueueData[0].messages_available)).toBe(
+      '1,234'
+    );
     expect(mockQueueData[0].messages_available).not.toBe('1,234'); // Original remains numeric
-    
+
     // PRINCIPLE: renderCell affects display, DataGrid export uses original rows data
     // This ensures CSV exports contain numbers for spreadsheet calculations,
     // while users see readable formatted numbers in the UI
@@ -141,7 +137,7 @@ describe('DataGrid Export with formatDisplayValue', () => {
     expect(formatDisplayValue(1234)).toBe('1,234');
     expect(formatDisplayValue(12345)).toBe('12,345');
     expect(formatDisplayValue(1234567)).toBe('1,234,567');
-    
+
     // Test non-numbers are returned as-is
     expect(formatDisplayValue('test')).toBe('test');
     expect(formatDisplayValue(null)).toBe(null);
