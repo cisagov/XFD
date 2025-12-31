@@ -9,9 +9,11 @@ import { authCtx } from '@/test-utils/authCtx';
 import {
   regionalAdminUser,
   globalViewUser,
-  globalAdminUser
+  globalAdminUser,
+  testUser
 } from '@/test-utils';
 import { mockOrganizations } from '@/test-utils/searchOrg';
+import { testRole } from '@/test-utils/role';
 import userEvent from '@testing-library/user-event';
 
 //Mock hooks
@@ -135,11 +137,11 @@ describe('RegionAndOrganizationFilters Component', () => {
       // Test User in authCtx has access to region "3" only
       vi.mocked(useAuthContext).mockReturnValue(authCtx);
       render(<RegionAndOrganizationFilters {...defaultProps} />);
-      const regionAccordion = screen.getByText('Regions');
+      const regionAccordion = await screen.findByText('Regions');
       expect(regionAccordion).toBeInTheDocument();
 
       const disabledAutoCompleteWithUserRegion =
-        screen.getByLabelText('Region 3');
+        await screen.findByLabelText('Region 3');
       expect(disabledAutoCompleteWithUserRegion).toBeDisabled();
       expect(disabledAutoCompleteWithUserRegion).toBeInTheDocument();
     });
@@ -161,17 +163,18 @@ describe('RegionAndOrganizationFilters Component', () => {
       vi.mocked(useAuthContext).mockReturnValue(globalAdminAuthCtx);
       render(<RegionAndOrganizationFilters {...defaultProps} />);
 
-      const organizationAccordion = screen.getByText('Organizations');
+      const organizationAccordion = await screen.findByText('Organizations');
       expect(organizationAccordion).toBeInTheDocument();
 
       const user = userEvent.setup();
       await user.click(organizationAccordion);
 
-      const orgAutoComplete = screen.getByLabelText('Search Organizations');
+      const orgAutoComplete = await screen.findByLabelText(
+        'Search Organizations'
+      );
       expect(orgAutoComplete).toBeInTheDocument();
 
       await user.click(orgAutoComplete);
-      screen.debug();
       // Check if organization filter options are rendered
 
       expect(
@@ -186,6 +189,75 @@ describe('RegionAndOrganizationFilters Component', () => {
       expect(
         await screen.findByText('Organization 4 (ORG4)')
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('Organization Filters Regional Admin User', () => {
+    it('renders organization filters correctly', async () => {
+      const regionalAdminAuthCtx = {
+        ...authCtx,
+        user: regionalAdminUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockOrganizations.map((org) => ({ _source: org }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(regionalAdminAuthCtx);
+      render(<RegionAndOrganizationFilters {...defaultProps} />);
+
+      const organizationAccordion = await screen.findByText('Organizations');
+      expect(organizationAccordion).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.click(organizationAccordion);
+
+      const orgAutoComplete = await screen.findByLabelText(
+        'Search Organizations'
+      );
+      expect(orgAutoComplete).toBeInTheDocument();
+
+      await user.click(orgAutoComplete);
+
+      // Check if organization filter options are rendered
+      expect(
+        await screen.findByText('Organization 1 (ORG1)')
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Organization 2 (ORG2)')
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Organization 3 (ORG3)')
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByText('Organization 4 (ORG4)')
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('Organization Filters Standard User', () => {
+    it('renders organization filters correctly', async () => {
+      const standardUserAuthCtx = {
+        ...authCtx,
+        user: { ...testUser, roles: [testRole] }
+      };
+      vi.mocked(useAuthContext).mockReturnValue(standardUserAuthCtx);
+      render(<RegionAndOrganizationFilters {...defaultProps} />);
+
+      const organizationAccordion = await screen.findByText('Organizations');
+      expect(organizationAccordion).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await user.click(organizationAccordion);
+
+      // Wait for the disabled Autocomplete to appear
+      const orgAutoComplete = await screen.findByLabelText(
+        testRole.organization.name
+      );
+      expect(orgAutoComplete).toBeDisabled();
+      expect(orgAutoComplete).toBeInTheDocument();
     });
   });
 });
