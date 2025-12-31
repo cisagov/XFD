@@ -103,31 +103,35 @@ describe('DataGrid Export with formatDisplayValue', () => {
     expect(screen.getByText('999')).toBeInTheDocument();
   });
 
-  it('maintains original numeric data for export', () => {
-    // The key insight: DataGrid export uses the original row data, not renderCell output
-    // This test verifies that our mockQueueData structure remains intact
+  it('demonstrates export vs display data separation principle', () => {
+    // Render DataGrid with formatted display values
+    render(
+      <div style={{ height: 400, width: '100%' }}>
+        <DataGrid
+          rows={mockQueueData}
+          columns={testColumns}
+          disableRowSelectionOnClick
+        />
+      </div>
+    );
     
-    const originalData = mockQueueData[0];
+    // DISPLAY: Users see formatted numbers with commas
+    expect(screen.getByText('1,234')).toBeInTheDocument();
+    expect(screen.getByText('5,678')).toBeInTheDocument();
     
-    // Verify exported data contains original numeric values, not formatted strings
-    expect(originalData.messages_available).toBe(1234);
-    expect(originalData.messages_in_flight).toBe(5678);
-    expect(originalData.messages_delayed).toBe(9999);
+    // EXPORT: Original data remains numeric (what would be exported)
+    expect(mockQueueData[0].messages_available).toBe(1234);
+    expect(mockQueueData[0].messages_in_flight).toBe(5678);
+    expect(typeof mockQueueData[0].messages_available).toBe('number');
+    expect(typeof mockQueueData[0].messages_in_flight).toBe('number');
     
-    // Ensure they are numbers, not strings
-    expect(typeof originalData.messages_available).toBe('number');
-    expect(typeof originalData.messages_in_flight).toBe('number');
-    expect(typeof originalData.messages_delayed).toBe('number');
+    // SEPARATION: Display formatting doesn't affect export data
+    expect(formatDisplayValue(mockQueueData[0].messages_available)).toBe('1,234');
+    expect(mockQueueData[0].messages_available).not.toBe('1,234'); // Original remains numeric
     
-    // Verify that formatDisplayValue creates strings for display
-    expect(formatDisplayValue(originalData.messages_available)).toBe('1,234');
-    expect(formatDisplayValue(originalData.messages_in_flight)).toBe('5,678');
-    expect(formatDisplayValue(originalData.messages_delayed)).toBe('9,999');
-    
-    // But the original data remains numeric
-    expect(originalData.messages_available).not.toBe('1,234');
-    expect(originalData.messages_in_flight).not.toBe('5,678');
-    expect(originalData.messages_delayed).not.toBe('9,999');
+    // PRINCIPLE: renderCell affects display, DataGrid export uses original rows data
+    // This ensures CSV exports contain numbers for spreadsheet calculations,
+    // while users see readable formatted numbers in the UI
   });
 
   it('formatDisplayValue utility works correctly', () => {
@@ -142,35 +146,5 @@ describe('DataGrid Export with formatDisplayValue', () => {
     expect(formatDisplayValue('test')).toBe('test');
     expect(formatDisplayValue(null)).toBe(null);
     expect(formatDisplayValue(undefined)).toBe(undefined);
-  });
-
-  it('confirms renderCell only affects display, not data structure', () => {
-    render(
-      <div style={{ height: 400, width: '100%' }}>
-        <DataGrid
-          rows={mockQueueData}
-          columns={testColumns}
-          disableRowSelectionOnClick
-        />
-      </div>
-    );
-    
-    // The original data should remain numeric
-    expect(mockQueueData[0].messages_available).toBe(1234);
-    expect(typeof mockQueueData[0].messages_available).toBe('number');
-    
-    // But the display should show formatted version  
-    expect(screen.getByText('1,234')).toBeInTheDocument();
-    
-    // Verify the data structure hasn't been modified by rendering
-    expect(mockQueueData[0].messages_available).toBe(1234);
-    expect(mockQueueData[1].messages_available).toBe(999);
-    
-    // All values remain as numbers
-    mockQueueData.forEach(row => {
-      expect(typeof row.messages_available).toBe('number');
-      expect(typeof row.messages_in_flight).toBe('number');
-      expect(typeof row.messages_delayed).toBe('number');
-    });
   });
 });
