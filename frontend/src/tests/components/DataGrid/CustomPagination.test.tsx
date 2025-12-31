@@ -1,9 +1,5 @@
 /**
- * Path: frontend/src/tests/components/DataGrid/CustomPagination.test.tsx
- * Author: Jesse Salinas
- * Date: 2025-12-31
- * Description: Unit tests for CustomPagination component.
- *
+ * Unit tests for CustomPagination component.
  */
 
 // React

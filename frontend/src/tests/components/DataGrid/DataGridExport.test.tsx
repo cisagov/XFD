@@ -1,8 +1,5 @@
 /**
- * Path: frontend/src/tests/components/DataGrid/DataGridExport.test.tsx
- * Author: Jesse Salinas
- * Date: 2025-12-31
- * Description: Test to verify DataGrid export works correctly with formatDisplayValue in renderCell.
+ * Test to verify DataGrid export works correctly with formatDisplayValue in renderCell.
  *
  * This test ensures that:
  * - Numbers displayed with comma formatting (via formatDisplayValue)

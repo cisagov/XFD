@@ -1,8 +1,5 @@
 /**
- * Path: frontend/src/components/DataGrid/CustomPagination.tsx
- * Author: Jesse Salinas
- * Date: 2025-12-26
- * Description: Custom pagination component for MUI DataGrid with comma-formatted numbers.
+ * Custom pagination component for MUI DataGrid with comma-formatted numbers.
  *
  * This component replaces the default DataGrid pagination to format numbers >= 1,000
  * with comma separators for improved readability while preserving numbers < 1,000 unchanged.
