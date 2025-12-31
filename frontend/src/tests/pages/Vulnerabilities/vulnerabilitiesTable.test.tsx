@@ -503,6 +503,7 @@ describe('Vulnerabilities component', () => {
       }
     });
     await screen.findByRole('grid');
-    expect(container.firstChild).toMatchSnapshot();
+    const grid = await screen.findByRole('grid');
+    expect(grid).toMatchSnapshot();
   });
 });
