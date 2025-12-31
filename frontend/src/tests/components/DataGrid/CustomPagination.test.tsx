@@ -34,7 +34,7 @@ const mockSetPageSize = vi.fn();
 const mockApiRef = {
   current: {
     setPage: mockSetPage,
-    setPageSize: mockSetPageSize,
+    setPageSize: mockSetPageSize
   } as Partial<GridApi>
 };
 
@@ -46,24 +46,26 @@ vi.mock('@mui/x-data-grid', async (importOriginal) => {
     useGridSelector: vi.fn(),
     gridPageSelector: vi.fn(),
     gridPageSizeSelector: vi.fn(),
-    gridRowCountSelector: vi.fn(),
+    gridRowCountSelector: vi.fn()
   };
 });
 
 // Import the mocked functions to set up test data
-import { 
+import {
   useGridSelector,
   gridPageSelector,
   gridPageSizeSelector,
-  gridRowCountSelector 
+  gridRowCountSelector
 } from '@mui/x-data-grid';
 
 describe('CustomPagination Component', () => {
-  const mockUseGridSelector = useGridSelector as MockedFunction<typeof useGridSelector>;
+  const mockUseGridSelector = useGridSelector as MockedFunction<
+    typeof useGridSelector
+  >;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    
+
     // Set up default mock values
     mockUseGridSelector.mockImplementation((apiRef, selector) => {
       if (selector === gridPageSelector) return 0;
@@ -76,7 +78,7 @@ describe('CustomPagination Component', () => {
   describe('Component Rendering', () => {
     it('renders without crashing', () => {
       render(<CustomPagination />);
-      
+
       // Check that TablePagination component is rendered with navigation role
       expect(screen.getByRole('navigation')).toBeInTheDocument();
     });
@@ -88,16 +90,19 @@ describe('CustomPagination Component', () => {
 
     it('displays correct page information', () => {
       render(<CustomPagination />);
-      
+
       // Should show "1–15 of 100" based on mock values
       expect(screen.getByText('1–15 of 100')).toBeInTheDocument();
     });
 
     it('has proper accessibility attributes', () => {
       render(<CustomPagination />);
-      
+
       const navigation = screen.getByRole('navigation');
-      expect(navigation).toHaveAttribute('aria-label', 'Table pagination navigation');
+      expect(navigation).toHaveAttribute(
+        'aria-label',
+        'Table pagination navigation'
+      );
     });
   });
 
@@ -112,7 +117,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show formatted numbers with commas
       expect(screen.getByText('1–15 of 5,565')).toBeInTheDocument();
     });
@@ -127,7 +132,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show unformatted small numbers
       expect(screen.getByText('1–15 of 50')).toBeInTheDocument();
     });
@@ -142,7 +147,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show "31–60 of 1,250"
       expect(screen.getByText('31–60 of 1,250')).toBeInTheDocument();
     });
@@ -157,7 +162,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show "91–97 of 97"
       expect(screen.getByText('91–97 of 97')).toBeInTheDocument();
     });
@@ -166,15 +171,16 @@ describe('CustomPagination Component', () => {
   describe('Pagination Interactions', () => {
     it('calls setPage when page is changed', () => {
       render(<CustomPagination />);
-      
+
       // Find and click next page button (look for button with arrow or similar)
       const buttons = screen.getAllByRole('button');
-      const nextButton = buttons.find(button => 
-        button.getAttribute('aria-label')?.includes('next') ||
-        button.getAttribute('title')?.includes('next') ||
-        button.textContent?.includes('>')
+      const nextButton = buttons.find(
+        (button) =>
+          button.getAttribute('aria-label')?.includes('next') ||
+          button.getAttribute('title')?.includes('next') ||
+          button.textContent?.includes('>')
       );
-      
+
       if (nextButton) {
         fireEvent.click(nextButton);
         expect(mockSetPage).toHaveBeenCalledWith(1);
@@ -194,15 +200,16 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Find and click previous page button
       const buttons = screen.getAllByRole('button');
-      const prevButton = buttons.find(button => 
-        button.getAttribute('aria-label')?.includes('previous') ||
-        button.getAttribute('title')?.includes('previous') ||
-        button.textContent?.includes('<')
+      const prevButton = buttons.find(
+        (button) =>
+          button.getAttribute('aria-label')?.includes('previous') ||
+          button.getAttribute('title')?.includes('previous') ||
+          button.textContent?.includes('<')
       );
-      
+
       if (prevButton) {
         fireEvent.click(prevButton);
         expect(mockSetPage).toHaveBeenCalledWith(0);
@@ -214,16 +221,16 @@ describe('CustomPagination Component', () => {
 
     it('calls setPageSize when page size is changed', () => {
       render(<CustomPagination />);
-      
+
       // Find the rows per page select (could be a select or button)
       const selects = screen.queryAllByRole('combobox');
       const buttons = screen.queryAllByRole('button');
-      
+
       // Try to find a select first
       if (selects.length > 0) {
         const select = selects[0];
         fireEvent.mouseDown(select);
-        
+
         // Look for option 30
         const option30 = screen.queryByRole('option', { name: '30' });
         if (option30) {
@@ -241,19 +248,19 @@ describe('CustomPagination Component', () => {
 
     it('provides correct rows per page options', () => {
       render(<CustomPagination />);
-      
+
       // Try to find and open the dropdown
       const selects = screen.queryAllByRole('combobox');
       if (selects.length > 0) {
         const select = selects[0];
         fireEvent.mouseDown(select);
-        
+
         // Check if options are available
         const option15 = screen.queryByRole('option', { name: '15' });
         const option30 = screen.queryByRole('option', { name: '30' });
         const option50 = screen.queryByRole('option', { name: '50' });
         const option100 = screen.queryByRole('option', { name: '100' });
-        
+
         // If we can find options, verify they exist
         if (option15 || option30 || option50 || option100) {
           if (option15) expect(option15).toBeInTheDocument();
@@ -281,7 +288,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show "0–0 of 0"
       expect(screen.getByText('0–0 of 0')).toBeInTheDocument();
     });
@@ -295,7 +302,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show "1–1 of 1"
       expect(screen.getByText('1–1 of 1')).toBeInTheDocument();
     });
@@ -309,7 +316,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show "1–15 of 1,000" (formatted)
       expect(screen.getByText('1–15 of 1,000')).toBeInTheDocument();
     });
@@ -323,7 +330,7 @@ describe('CustomPagination Component', () => {
       });
 
       render(<CustomPagination />);
-      
+
       // Should show "1–15 of 999" (not formatted)
       expect(screen.getByText('1–15 of 999')).toBeInTheDocument();
     });
@@ -332,16 +339,25 @@ describe('CustomPagination Component', () => {
   describe('Integration with DataGrid API', () => {
     it('uses correct grid selectors', () => {
       render(<CustomPagination />);
-      
+
       // Verify that all required selectors are called
-      expect(mockUseGridSelector).toHaveBeenCalledWith(mockApiRef, gridPageSelector);
-      expect(mockUseGridSelector).toHaveBeenCalledWith(mockApiRef, gridPageSizeSelector);
-      expect(mockUseGridSelector).toHaveBeenCalledWith(mockApiRef, gridRowCountSelector);
+      expect(mockUseGridSelector).toHaveBeenCalledWith(
+        mockApiRef,
+        gridPageSelector
+      );
+      expect(mockUseGridSelector).toHaveBeenCalledWith(
+        mockApiRef,
+        gridPageSizeSelector
+      );
+      expect(mockUseGridSelector).toHaveBeenCalledWith(
+        mockApiRef,
+        gridRowCountSelector
+      );
     });
 
     it('integrates with grid API for state management', () => {
       render(<CustomPagination />);
-      
+
       // Verify that the component is using the mocked API ref
       expect(mockUseGridSelector).toHaveBeenCalled();
     });
