@@ -58,7 +58,7 @@ def test_invite_by_regular_user_should_not_work():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -145,7 +145,7 @@ def test_invite_by_global_view_should_not_work():
 
     LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -241,7 +241,7 @@ def test_invite_by_organization_admin_should_not_work_if_setting_user_type():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -523,7 +523,7 @@ def test_invite_existing_user_by_global_view_should_not_work():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

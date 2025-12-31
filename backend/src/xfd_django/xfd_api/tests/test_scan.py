@@ -189,7 +189,7 @@ def test_create_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 # Test: update by globalAdmin should succeed
@@ -310,7 +310,7 @@ def test_update_by_global_view_fails():
 
     LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 # Test: delete by globalAdmin should succeed
@@ -357,7 +357,7 @@ def test_delete_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 # Test: get by globalView should succeed
@@ -406,7 +406,7 @@ def test_get_by_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 # Test: scheduler invoke by globalAdmin should succeed
@@ -454,7 +454,7 @@ def test_scheduler_invoke_by_global_view_fails(mock_scheduler):
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
     mock_scheduler.assert_not_called()
 
 
@@ -512,7 +512,7 @@ def test_run_scan_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {"detail": "You do not have permission to perform this action."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

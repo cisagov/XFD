@@ -184,7 +184,7 @@ def test_dmz_asm_sync_invalid_date_format(admin_user):
     )
 
     assert response.status_code == 422
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
@@ -337,7 +337,7 @@ def test_asm_sync_invalid_date_format(admin_user):
     LOGGER.info(response.json())
     # Check response
     assert response.status_code == 422  # Assuming it returns a 422 for invalid input
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    ssert response.json() == {"detail": "Invalid request parameters."}
 
 
 #######################################################
@@ -697,7 +697,7 @@ def test_cred_sync_invalid_date_format(admin_user):
     )
     LOGGER.info(response.json())
     assert response.status_code == 422
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
