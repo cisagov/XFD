@@ -507,7 +507,9 @@ def test_get_org_by_org_admin_of_different_org_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Get organization by org regular user should fail
@@ -545,7 +547,9 @@ def test_get_org_by_org_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Get organization by org admin should return associated scantasks
