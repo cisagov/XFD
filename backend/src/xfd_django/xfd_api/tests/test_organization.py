@@ -1335,7 +1335,7 @@ def test_get_organizations_by_state_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized"
+    assert response.json()["detail"] == "You do not have permission to perform this action."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1420,7 +1420,7 @@ def test_get_organizations_by_region_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized"
+    assert response.json()["detail"] == "You do not have permission to perform this action."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1697,7 +1697,7 @@ def test_add_user_to_org_v2_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert response.json()["detail"] == "You do not have permission to perform this action."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2273,7 +2273,7 @@ def test_search_organizations_no_auth():
 def test_search_organizations_no_access():
     """Test that a user without the necessary permissions gets an empty result."""
     user = User.objects.create(
-        first_name="Unauthorized",
+        first_name="You do not have permission to perform this action.",
         last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
         user_type=UserType.STANDARD,
@@ -2351,7 +2351,7 @@ def test_get_all_regions_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized"
+    assert response.json()["detail"] == "You do not have permission to perform this action."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2436,7 +2436,7 @@ def test_get_organizations_by_region_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized"
+    assert response.json()["detail"] == "You do not have permission to perform this action."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

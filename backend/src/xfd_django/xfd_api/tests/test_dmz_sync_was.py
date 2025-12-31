@@ -130,7 +130,7 @@ def test_get_call_all_was_findings_forbidden_no_user_type():
     # Optional: confirm it's the role gate, not auth
     body = response.json()
     assert body.get("detail") in {
-        "Unauthorized access.",
-        "Unauthorized",
+        "You do not have permission to perform this action.",
+        "You do not have permission to perform this action.",
         "Insufficient permissions.",
     }
