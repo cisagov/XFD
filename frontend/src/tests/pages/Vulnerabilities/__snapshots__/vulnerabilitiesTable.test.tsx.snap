@@ -1811,7 +1811,9 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
           >
             <div />
             <div
+              aria-label="Table pagination navigation"
               class="MuiTablePagination-root css-7mt0f-MuiTablePagination-root"
+              role="navigation"
             >
               <div
                 class="MuiToolbar-root MuiToolbar-gutters MuiToolbar-regular MuiTablePagination-toolbar css-7s4320-MuiToolbar-root-MuiTablePagination-toolbar"
