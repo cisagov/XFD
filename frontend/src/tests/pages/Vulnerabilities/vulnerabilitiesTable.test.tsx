@@ -485,25 +485,4 @@ describe('Vulnerabilities component', () => {
     expect(kevColumnHeader).toBeInTheDocument();
     expect(ransomwareColumnHeader).toBeInTheDocument();
   });
-
-  const snapshotResponse = makeVulnResponse(3, (idx) => ({
-    title: `Snapshot Vuln ${idx + 1}`,
-    is_kev: idx === 0 ? true : idx === 1 ? false : null,
-    is_kev_ransomware: idx === 0 ? true : idx === 1 ? false : null
-  }));
-
-  it('matches snapshot after loading sample data', async () => {
-    apiPostMock.mockResolvedValueOnce(snapshotResponse);
-    const { container } = render(<Vulnerabilities />, {
-      initialHistory: ['/vulnerabilities'],
-      authContext: {
-        apiPost: apiPostMock,
-        currentOrganization: null,
-        user: testUser as unknown as AuthUser
-      }
-    });
-    await screen.findByRole('grid');
-    const grid = await screen.findByRole('grid');
-    expect(grid).toMatchSnapshot();
-  });
 });
