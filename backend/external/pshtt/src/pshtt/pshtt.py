@@ -669,7 +669,7 @@ def https_check(endpoint):
         scanner.queue_scans([scan_request])
         scan_result = next(scanner.get_results())
 
-        # Access the result correctly for SSLyze 5.2.0
+        # Access the result correctly for SSLyze 5.2.0+ / 6.0.0+
         cert_plugin_attempt = scan_result.scan_result.certificate_info
         if cert_plugin_attempt.result is None:
             raise ValueError("No result for CERTIFICATE_INFO")
@@ -717,6 +717,7 @@ def https_check(endpoint):
 
         for deployment in cert_plugin_result.certificate_deployments:
             for result in deployment.path_validation_results:
+                # Track which trust stores succeed/fail
                 if not result.was_validation_successful:
                     if "Custom" in result.trust_store.name:
                         custom_trust = False
@@ -724,24 +725,36 @@ def https_check(endpoint):
                         public_trust = False
                         public_not_trusted_names.append(result.trust_store.name)
 
+                # Only use the "primary" store (Mozilla or Custom) for
+                # hostname / chain / expiry judgments.
                 if STORE in result.trust_store.name:
                     chain = result.verified_certificate_chain
-                    leaf = chain[0]
 
-                    if leaf.not_valid_after < datetime.datetime.now():
-                        endpoint.https_expired_cert = True
+                    if chain:
+                        leaf = chain[0]
 
-                    if leaf.issuer == leaf.subject:
-                        endpoint.https_self_signed_cert = True
+                        if leaf.not_valid_after < datetime.datetime.now():
+                            endpoint.https_expired_cert = True
 
-                    for cert in chain[:-1]:
-                        if cert.not_valid_after < datetime.datetime.now():
-                            endpoint.https_bad_chain = True
-                        if cert.issuer == cert.subject or not cert.issuer:
-                            endpoint.https_bad_chain = True
+                        if leaf.issuer == leaf.subject:
+                            endpoint.https_self_signed_cert = True
 
-                    if not deployment.leaf_certificate_subject_matches_hostname:
-                        endpoint.https_bad_hostname = True
+                        for cert in chain[:-1]:
+                            if cert.not_valid_after < datetime.datetime.now():
+                                endpoint.https_bad_chain = True
+                            if cert.issuer == cert.subject or not cert.issuer:
+                                endpoint.https_bad_chain = True
+                    else:
+                        # No verified chain from this trust store
+                        endpoint.https_bad_chain = True
+
+                    # In SSLyze 6.x, hostname issues surface via validation_error.
+                    if not result.was_validation_successful and getattr(
+                        result, "validation_error", None
+                    ):
+                        ve_lower = result.validation_error.lower()
+                        if "hostname" in ve_lower:
+                            endpoint.https_bad_hostname = True
 
         if public_trust:
             LOGGER.warning("%s: Publicly trusted by common trust stores.", endpoint.url)
@@ -801,7 +814,7 @@ def https_check(endpoint):
                             )
                         },
                     )
-                    scanner.queue_scan(scan_request)
+                    scanner.queue_scans(scan_request)
                     scan_result = next(scanner.get_results())
                     cert_plugin_attempt = scan_result.scan_result.certificate_info
                     if cert_plugin_attempt.result is not None:

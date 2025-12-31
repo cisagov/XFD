@@ -93,7 +93,7 @@ setup(
         "pytz>=2018.5",
         "requests>=2.18.4",
         "setuptools",
-        "sslyze==5.2.0",
+        "sslyze==6.2.0",
         "wget>=3.2",
     ],
     extras_require={
