@@ -72,6 +72,8 @@ const CustomPagination: React.FC = () => {
       onRowsPerPageChange={handlePageSizeChange}
       labelDisplayedRows={formatDisplayedRows}
       rowsPerPageOptions={[15, 30, 50, 100]}
+      role="navigation"
+      aria-label="Table pagination navigation"
     />
   );
 };
