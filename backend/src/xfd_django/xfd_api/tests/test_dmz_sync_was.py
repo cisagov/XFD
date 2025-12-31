@@ -131,6 +131,5 @@ def test_get_call_all_was_findings_forbidden_no_user_type():
     body = response.json()
     assert body.get("detail") in {
         "You do not have permission to perform this action.",
-        "You do not have permission to perform this action.",
         "Insufficient permissions.",
     }
