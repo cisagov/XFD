@@ -1,5 +1,20 @@
+/**
+ * This test file provides comprehensive coverage for the SearchProvider component,
+ * which wraps the Elastic Search UI provider and manages search state for the application.
+ *
+ * Test Categories:
+ * - Provider Integration: Tests component rendering and config passing
+ * - Configuration Properties: Validates initial state and settings
+ * - Event Handlers: Tests onResultClick, onAutocompleteResultClick, onAutocomplete
+ * - Core Search Functionality: Tests the critical onSearch method including:
+ *   - API calls with correct parameters
+ *   - Disjunctive faceting application
+ *   - Search state building and return values
+ *   - Error handling and edge cases
+ */
+
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { SearchProvider } from '../../context/SearchProvider/SearchProvider';
 import { AuthContext } from '../../context/AuthContext';
