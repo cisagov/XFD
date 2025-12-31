@@ -1335,7 +1335,10 @@ def test_get_organizations_by_state_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1420,7 +1423,10 @@ def test_get_organizations_by_region_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1697,7 +1703,10 @@ def test_add_user_to_org_v2_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2351,7 +2360,10 @@ def test_get_all_regions_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2436,7 +2448,10 @@ def test_get_organizations_by_region_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
