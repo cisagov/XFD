@@ -605,7 +605,10 @@ def test_register_approve_unauthorized_region():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -678,7 +681,10 @@ def test_register_deny_unauthorized_region():
 
     LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1484,7 +1490,10 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1567,7 +1576,10 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
     )
 
     assert response.status_code == 403
-    assert "You do not have permission to perform this action." in response.json()["detail"]
+    assert (
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1796,7 +1808,10 @@ def test_standard_user_updates_self_user_type_unauthenticated():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "You do not have permission to perform this action."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
