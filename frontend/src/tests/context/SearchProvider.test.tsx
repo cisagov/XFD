@@ -71,14 +71,14 @@ describe('SearchProvider', () => {
   describe('Provider Integration', () => {
     it('renders children within Elastic SearchProvider', () => {
       renderWithProvider(<div data-testid="test-child">Test Child</div>);
-      
+
       expect(screen.getByTestId('elastic-search-provider')).toBeInTheDocument();
       expect(screen.getByTestId('test-child')).toBeInTheDocument();
     });
 
     it('passes correct config to Elastic SearchProvider', () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       expect(config).toEqual({
         debug: false,
@@ -100,7 +100,7 @@ describe('SearchProvider', () => {
   describe('Configuration Properties', () => {
     it('has correct initial state configuration', () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       expect(config.initialState).toEqual({
         resultsPerPage: 15,
@@ -111,21 +111,21 @@ describe('SearchProvider', () => {
 
     it('has debug disabled', () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       expect(config.debug).toBe(false);
     });
 
     it('has trackUrlState disabled', () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       expect(config.trackUrlState).toBe(false);
     });
 
     it('has alwaysSearchOnInitialLoad disabled', () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       expect(config.alwaysSearchOnInitialLoad).toBe(false);
     });
@@ -135,11 +135,11 @@ describe('SearchProvider', () => {
     describe('onResultClick', () => {
       it('is defined but not implemented', () => {
         renderWithProvider(<div>Test</div>);
-        
+
         const config = (global as any).lastSearchConfig;
         expect(config.onResultClick).toBeDefined();
         expect(typeof config.onResultClick).toBe('function');
-        
+
         // Should not throw when called
         expect(() => config.onResultClick()).not.toThrow();
       });
@@ -149,13 +149,13 @@ describe('SearchProvider', () => {
       it('logs error when called', async () => {
         const { logger } = await import('../../utils/logger');
         renderWithProvider(<div>Test</div>);
-        
+
         const config = (global as any).lastSearchConfig;
         const mockEvent = { preventDefault: vi.fn() };
         const mockResult = { id: 'test' };
-        
+
         config.onAutocompleteResultClick(mockEvent, mockResult);
-        
+
         expect(logger.error).toHaveBeenCalledWith(
           'SearchProvider.onAutocompleteResultClick: Not implemented',
           { e: mockEvent, f: mockResult }
@@ -166,10 +166,10 @@ describe('SearchProvider', () => {
     describe('onAutocomplete', () => {
       it('returns undefined (not implemented)', async () => {
         renderWithProvider(<div>Test</div>);
-        
+
         const config = (global as any).lastSearchConfig;
         const result = await config.onAutocomplete('test search');
-        
+
         expect(result).toBeUndefined();
       });
     });
@@ -187,23 +187,25 @@ describe('SearchProvider', () => {
 
     it('calls apiPost with correct endpoint and body', async () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       await config.onSearch(mockSearchState);
-      
+
       expect(mockApiPost).toHaveBeenCalledWith(ENDPOINTS.SEARCH_ES, {
         body: mockSearchState
       });
     });
 
     it('applies disjunctive faceting to search results', async () => {
-      const applyDisjunctiveFaceting = (await import('../../context/SearchProvider/applyDisjunctiveFaceting')).default;
-      
+      const applyDisjunctiveFaceting = (
+        await import('../../context/SearchProvider/applyDisjunctiveFaceting')
+      ).default;
+
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       await config.onSearch(mockSearchState);
-      
+
       expect(applyDisjunctiveFaceting).toHaveBeenCalledWith(
         expect.any(Object), // responseJson
         mockSearchState,
@@ -212,18 +214,20 @@ describe('SearchProvider', () => {
     });
 
     it('builds and returns search state', async () => {
-      const buildState = (await import('../../context/SearchProvider/buildState')).default;
-      
+      const buildState = (
+        await import('../../context/SearchProvider/buildState')
+      ).default;
+
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       const result = await config.onSearch(mockSearchState);
-      
+
       expect(buildState).toHaveBeenCalledWith(
         expect.objectContaining({ facetsWithDisjunctive: true }),
         mockSearchState.resultsPerPage
       );
-      
+
       expect(result).toEqual({
         results: [
           { id: { raw: '1' }, name: { raw: 'Test Domain 1' } },
@@ -240,12 +244,12 @@ describe('SearchProvider', () => {
         ...mockSearchState,
         filters: []
       };
-      
+
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       await config.onSearch(stateWithoutFilters);
-      
+
       expect(mockApiPost).toHaveBeenCalledWith(ENDPOINTS.SEARCH_ES, {
         body: stateWithoutFilters
       });
@@ -256,12 +260,12 @@ describe('SearchProvider', () => {
         ...mockSearchState,
         searchTerm: ''
       };
-      
+
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       await config.onSearch(stateWithoutSearchTerm);
-      
+
       expect(mockApiPost).toHaveBeenCalledWith(ENDPOINTS.SEARCH_ES, {
         body: stateWithoutSearchTerm
       });
@@ -270,12 +274,14 @@ describe('SearchProvider', () => {
     it('handles API errors gracefully', async () => {
       const apiError = new Error('API Error');
       mockApiPost.mockRejectedValueOnce(apiError);
-      
+
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
-      
-      await expect(config.onSearch(mockSearchState)).rejects.toThrow('API Error');
+
+      await expect(config.onSearch(mockSearchState)).rejects.toThrow(
+        'API Error'
+      );
     });
   });
 
@@ -292,12 +298,12 @@ describe('SearchProvider', () => {
         sortDirection: 'asc',
         sortField: 'severity'
       };
-      
+
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       await config.onSearch(complexSearchState);
-      
+
       expect(mockApiPost).toHaveBeenCalledWith(ENDPOINTS.SEARCH_ES, {
         body: complexSearchState
       });
@@ -307,20 +313,20 @@ describe('SearchProvider', () => {
   describe('Error Handling', () => {
     it('handles undefined search state gracefully', async () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
-      
+
       await expect(config.onSearch(undefined)).rejects.toThrow();
     });
 
     it('handles malformed search state', async () => {
       renderWithProvider(<div>Test</div>);
-      
+
       const config = (global as any).lastSearchConfig;
       const malformedState = { invalidField: 'invalid' };
-      
+
       await config.onSearch(malformedState);
-      
+
       expect(mockApiPost).toHaveBeenCalledWith(ENDPOINTS.SEARCH_ES, {
         body: {
           current: undefined,
