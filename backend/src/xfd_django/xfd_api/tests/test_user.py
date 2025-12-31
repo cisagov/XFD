@@ -922,10 +922,7 @@ def test_get_users_as_standard_user_fails():
     )
 
     assert response.status_code == 401
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1053,10 +1050,7 @@ def test_get_users_by_region_id_as_standard_user_fails():
     )
 
     assert response.status_code == 401
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1154,10 +1148,7 @@ def test_get_users_by_state_as_standard_user_fails():
     )
 
     assert response.status_code == 401
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1261,10 +1252,7 @@ def test_get_users_v2_as_standard_user_fails():
     )
 
     assert response.status_code == 401
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
