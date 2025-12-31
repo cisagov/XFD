@@ -15,6 +15,7 @@ import {
 import { mockOrganizations } from '@/test-utils/searchOrg';
 import { testRole } from '@/test-utils/role';
 import userEvent from '@testing-library/user-event';
+import { act } from 'react';
 
 //Mock hooks
 vi.mock('context/AuthContext');
@@ -129,7 +130,7 @@ describe('RegionAndOrganizationFilters Component', () => {
   });
 
   describe('Region Filter Standard User', () => {
-    it('renders authroized region filters only', async () => {
+    it('renders authorized region filters only', async () => {
       vi.mocked(useStaticsContext).mockReturnValue({
         regions: ['3'],
         setRegions: vi.fn()
@@ -167,14 +168,18 @@ describe('RegionAndOrganizationFilters Component', () => {
       expect(organizationAccordion).toBeInTheDocument();
 
       const user = userEvent.setup();
-      await user.click(organizationAccordion);
+      await act(async () => {
+        await user.click(organizationAccordion);
+      });
 
       const orgAutoComplete = await screen.findByLabelText(
         'Search Organizations'
       );
       expect(orgAutoComplete).toBeInTheDocument();
 
-      await user.click(orgAutoComplete);
+      await act(async () => {
+        await user.click(orgAutoComplete);
+      });
       // Check if organization filter options are rendered
 
       expect(
@@ -208,18 +213,23 @@ describe('RegionAndOrganizationFilters Component', () => {
       vi.mocked(useAuthContext).mockReturnValue(regionalAdminAuthCtx);
       render(<RegionAndOrganizationFilters {...defaultProps} />);
 
-      const organizationAccordion = await screen.findByText('Organizations');
+      await screen.findByText('Organizations');
+      const organizationAccordion = screen.getByText('Organizations');
       expect(organizationAccordion).toBeInTheDocument();
 
       const user = userEvent.setup();
-      await user.click(organizationAccordion);
+      await act(async () => {
+        await user.click(organizationAccordion);
+      });
 
       const orgAutoComplete = await screen.findByLabelText(
         'Search Organizations'
       );
       expect(orgAutoComplete).toBeInTheDocument();
 
-      await user.click(orgAutoComplete);
+      await act(async () => {
+        await user.click(orgAutoComplete);
+      });
 
       // Check if organization filter options are rendered
       expect(
@@ -246,11 +256,15 @@ describe('RegionAndOrganizationFilters Component', () => {
       vi.mocked(useAuthContext).mockReturnValue(standardUserAuthCtx);
       render(<RegionAndOrganizationFilters {...defaultProps} />);
 
-      const organizationAccordion = await screen.findByText('Organizations');
+      await screen.findByText('Organizations');
+
+      const organizationAccordion = screen.getByText('Organizations');
       expect(organizationAccordion).toBeInTheDocument();
 
       const user = userEvent.setup();
-      await user.click(organizationAccordion);
+      await act(async () => {
+        await user.click(organizationAccordion);
+      });
 
       // Wait for the disabled Autocomplete to appear
       const orgAutoComplete = await screen.findByLabelText(
