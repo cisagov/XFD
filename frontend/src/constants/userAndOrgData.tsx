@@ -1,6 +1,83 @@
 import { User } from 'types';
+import { UserFormValues } from 'types';
+
+export const initializeUser: User = {
+  id: '',
+  created_at: '',
+  updated_at: '',
+  first_name: '',
+  last_name: '',
+  full_name: '',
+  invite_pending: true,
+  first_login: true,
+  user_type: 'standard',
+  email: '',
+  roles: [],
+  date_accepted_terms: null,
+  accepted_terms_version: null,
+  last_logged_in: null,
+  apiKeys: [],
+  region_id: null,
+  state: null,
+  organizations: [],
+  isRegistered: null
+};
 
 export const testUsers: User[] = [
+  {
+    id: '1',
+    email: 'jane@example.com',
+    last_logged_in: '2025-03-21T18:15:00Z',
+    roles: [
+      {
+        id: 'role-1',
+        organization: {
+          id: 'org-1',
+          name: 'Acme Corp',
+          acronym: 'ACME',
+          root_domains: [],
+          ip_blocks: [],
+          is_passive: false,
+          pending_domains: null,
+          type: ''
+        },
+        created_at: '',
+        updated_at: '',
+        role: 'user',
+        user: initializeUser,
+        approved: false
+      },
+      {
+        id: 'role-2',
+        organization: {
+          id: 'org-2',
+          name: 'Globex',
+          acronym: 'GLOB',
+          root_domains: [],
+          ip_blocks: [],
+          is_passive: false,
+          pending_domains: null,
+          type: ''
+        },
+        created_at: '',
+        updated_at: '',
+        role: 'user',
+        user: initializeUser,
+        approved: false
+      }
+    ],
+    created_at: '',
+    updated_at: '',
+    first_name: '',
+    last_name: '',
+    full_name: '',
+    invite_pending: false,
+    first_login: false,
+    user_type: 'standard',
+    date_accepted_terms: null,
+    accepted_terms_version: null,
+    apiKeys: []
+  },
   {
     id: 'abc-123',
     created_at: '2023-10-18T16:51:30.906Z',
@@ -122,6 +199,7 @@ type organizations = {
   members?: number;
   tags: Array<Object>;
 };
+
 export const testOrganizations: organizations[] = [
   {
     id: 'xyz-123',
@@ -343,3 +421,16 @@ export const testOrganizations: organizations[] = [
     ]
   }
 ];
+
+export const initialUserFormValues: UserFormValues = {
+  first_name: '',
+  last_name: '',
+  email: '',
+  user_type: 'standard',
+  state: '',
+  region_id: '',
+  org_name: '',
+  org_id: '',
+  originalOrgId: '',
+  originalRoleId: ''
+};
