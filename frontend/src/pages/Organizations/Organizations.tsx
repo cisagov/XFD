@@ -6,6 +6,8 @@ import React, {
   useState
 } from 'react';
 import { useHistory } from 'react-router-dom';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -15,6 +17,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
+
+// DataGrid Components
 import {
   DataGrid,
   GridColDef,
@@ -22,14 +26,25 @@ import {
   GridFilterModel,
   GridSortModel
 } from '@mui/x-data-grid';
+
+// Types
 import { Organization } from 'types';
+
+// Context
 import { useAuthContext } from 'context';
+
+// Components
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
+
+// Utils
+import { logger } from '@/utils/logger';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
-import { logger } from '@/utils/logger';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -283,7 +298,7 @@ export const Organizations: React.FC = () => {
         <DataGrid
           rows={organizations}
           columns={orgCols}
-          slots={{ toolbar: CustomToolbar }}
+          slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
             toolbar: { disableExport: true } as any

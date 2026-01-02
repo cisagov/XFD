@@ -5,9 +5,10 @@ import React, {
   useMemo,
   useRef
 } from 'react';
-import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -20,6 +21,8 @@ import Checklist from '@mui/icons-material/Checklist';
 import DynamicFeed from '@mui/icons-material/DynamicFeed';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import OpenInNew from '@mui/icons-material/OpenInNew';
+
+// DataGrid Components
 import {
   DataGrid,
   getGridSingleSelectOperators,
@@ -31,7 +34,8 @@ import {
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
-import { useAuthContext } from 'context';
+
+// Types
 import { Query, UserOrganization } from 'types';
 import { Vulnerability } from 'types/domain';
 import {
@@ -40,9 +44,18 @@ import {
   SearchParams,
   VulnerabilityRow
 } from 'types/vulnerabilities';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+
+// Utils
+import { logger } from '@/utils/logger';
 import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/stringUtils';
 import {
@@ -52,6 +65,8 @@ import {
   extractInitialFilters,
   shouldTriggerFilterUpdate
 } from 'utils/vulnerabilitiesTableUtils';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
 
@@ -747,7 +762,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               }}
               slots={{
                 toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay
+                noRowsOverlay: CustomNoRowsOverlay,
+                pagination: CustomPagination
               }}
               slotProps={{
                 toolbar: {
