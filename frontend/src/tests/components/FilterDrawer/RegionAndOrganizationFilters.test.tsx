@@ -32,7 +32,7 @@ describe('RegionAndOrganizationFilters Component', () => {
     autocompletedSuggestions: [],
     results: [],
     initialFilters: [],
-    expanded: false as string | false | undefined
+    expanded: undefined
   };
 
   beforeEach(() => {
@@ -130,7 +130,7 @@ describe('RegionAndOrganizationFilters Component', () => {
   });
 
   describe('Region Filter Standard User', () => {
-    it('renders authorized region filters only', async () => {
+    it('renders disabled region autocomplete with user region only', async () => {
       vi.mocked(useStaticsContext).mockReturnValue({
         regions: ['3'],
         setRegions: vi.fn()
@@ -141,15 +141,16 @@ describe('RegionAndOrganizationFilters Component', () => {
       const regionAccordion = await screen.findByText('Regions');
       expect(regionAccordion).toBeInTheDocument();
 
-      const disabledAutoCompleteWithUserRegion =
-        await screen.findByLabelText('Region 3');
+      const disabledAutoCompleteWithUserRegion = await screen.findByLabelText(
+        'Region ' + authCtx?.user?.region_id!
+      );
       expect(disabledAutoCompleteWithUserRegion).toBeDisabled();
       expect(disabledAutoCompleteWithUserRegion).toBeInTheDocument();
     });
   });
 
   describe('Organization Filters Global Admin User', () => {
-    it('renders organization filters correctly', async () => {
+    it('renders enabled organization autocomplete correctly', async () => {
       const globalAdminAuthCtx = {
         ...authCtx,
         user: globalAdminUser,
@@ -198,7 +199,7 @@ describe('RegionAndOrganizationFilters Component', () => {
   });
 
   describe('Organization Filters Regional Admin User', () => {
-    it('renders organization filters correctly', async () => {
+    it('renders enabled organization autocomplete correctly', async () => {
       const regionalAdminAuthCtx = {
         ...authCtx,
         user: regionalAdminUser,
@@ -245,33 +246,33 @@ describe('RegionAndOrganizationFilters Component', () => {
         await screen.findByText('Organization 4 (ORG4)')
       ).toBeInTheDocument();
     });
-  });
 
-  describe('Organization Filters Standard User', () => {
-    it('renders organization filters correctly', async () => {
-      const standardUserAuthCtx = {
-        ...authCtx,
-        user: { ...testUser, roles: [testRole] }
-      };
-      vi.mocked(useAuthContext).mockReturnValue(standardUserAuthCtx);
-      render(<RegionAndOrganizationFilters {...defaultProps} />);
+    describe('Organization Filters Standard User', () => {
+      it('renders disabled organization autocomplete with user organization correctly', async () => {
+        const standardUserAuthCtx = {
+          ...authCtx,
+          user: { ...testUser, roles: [testRole] }
+        };
+        vi.mocked(useAuthContext).mockReturnValue(standardUserAuthCtx);
+        render(<RegionAndOrganizationFilters {...defaultProps} />);
 
-      await screen.findByText('Organizations');
+        await screen.findByText('Organizations');
 
-      const organizationAccordion = screen.getByText('Organizations');
-      expect(organizationAccordion).toBeInTheDocument();
+        const organizationAccordion = screen.getByText('Organizations');
+        expect(organizationAccordion).toBeInTheDocument();
 
-      const user = userEvent.setup();
-      await act(async () => {
-        await user.click(organizationAccordion);
+        const user = userEvent.setup();
+        await act(async () => {
+          await user.click(organizationAccordion);
+        });
+
+        // Wait for the disabled Autocomplete to appear
+        const orgAutoComplete = await screen.findByLabelText(
+          testRole.organization.name
+        );
+        expect(orgAutoComplete).toBeDisabled();
+        expect(orgAutoComplete).toBeInTheDocument();
       });
-
-      // Wait for the disabled Autocomplete to appear
-      const orgAutoComplete = await screen.findByLabelText(
-        testRole.organization.name
-      );
-      expect(orgAutoComplete).toBeDisabled();
-      expect(orgAutoComplete).toBeInTheDocument();
     });
   });
 });
