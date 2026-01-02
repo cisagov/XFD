@@ -1,12 +1,23 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { useAuthContext } from 'context';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
+
+// DataGrid Components
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Utils
+import { logger } from '@/utils/logger';
+import { formatDisplayValue } from 'utils/stringUtils';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Queue {
@@ -65,7 +76,7 @@ const QueueMonitorView: React.FC = () => {
           component={'span'}
           aria-label={`Messages Available for ${cellValues.row.id}: ${cellValues.row.messages_available}`}
         >
-          {cellValues.row.messages_available}
+          {formatDisplayValue(cellValues.row.messages_available)}
         </Box>
       )
     },
@@ -78,7 +89,7 @@ const QueueMonitorView: React.FC = () => {
           component={'span'}
           aria-label={`Messages In-Flight for ${cellValues.row.id}: ${cellValues.row.messages_in_flight}`}
         >
-          {cellValues.row.messages_in_flight}
+          {formatDisplayValue(cellValues.row.messages_in_flight)}
         </Box>
       )
     },
@@ -91,7 +102,7 @@ const QueueMonitorView: React.FC = () => {
           component={'span'}
           aria-label={`Messages Delayed for ${cellValues.row.id}: ${cellValues.row.messages_delayed}`}
         >
-          {cellValues.row.messages_delayed}
+          {formatDisplayValue(cellValues.row.messages_delayed)}
         </Box>
       )
     }

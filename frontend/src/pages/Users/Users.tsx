@@ -16,12 +16,11 @@ import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { User, UserFormValues } from 'types';
 import {
-  initialUserFormValues,
   initializeUser,
-  User,
-  UserFormValues
-} from 'types';
+  initialUserFormValues
+} from '@/constants/userAndOrgData';
 import { useAuthContext } from 'context';
 import UserForm from './UserForm';
 import { ENDPOINTS } from '@/constants/endpoints';
