@@ -67,7 +67,9 @@ def test_create_api_key_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     # Ensure no API key was created
     assert not ApiKey.objects.filter(user=user).exists()
@@ -138,7 +140,9 @@ def test_delete_api_key_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     # Ensure the API key was not removed from the database
     assert ApiKey.objects.filter(id=api_key.id).exists()
@@ -163,7 +167,9 @@ def test_get_all_api_keys_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Getting all API keys as a GlobalViewAdmin user should succeed
@@ -226,7 +232,9 @@ def test_get_api_key_by_id_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Getting an API key by ID as a GlobalViewAdmin user should succeed

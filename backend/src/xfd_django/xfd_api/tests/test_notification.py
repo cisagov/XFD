@@ -78,7 +78,9 @@ def test_create_notification_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: Deleting a notification as a GlobalViewAdmin user should succeed
@@ -150,7 +152,9 @@ def test_delete_notification_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     # Ensure the notification was not removed from the database
     assert Notification.objects.filter(id=notification.id).exists()
@@ -252,7 +256,9 @@ def test_get_notification_by_id_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -339,7 +345,9 @@ def test_update_notification_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     # Ensure the notification was NOT updated in the database
     notification.refresh_from_db()

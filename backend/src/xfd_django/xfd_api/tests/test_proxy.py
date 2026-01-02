@@ -38,7 +38,9 @@ def test_standard_user_not_authorized_to_access_pe_proxy():
 
     # Assert that the user receives a 403 Unauthorized response
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -109,7 +111,9 @@ def test_standard_user_not_authorized_to_access_matomo_proxy():
 
     # Assert that the user receives a 403 Unauthorized response
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
     def test_global_admin_user_authorized_to_access_matomo_proxy():
