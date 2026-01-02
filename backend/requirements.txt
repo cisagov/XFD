@@ -23,7 +23,7 @@ dnspython==2.7.0
 dnstwist==20230918
 docker==7.1.0
 dshield==0.2.1
-elasticsearch==7.13.4
+elasticsearch==7.9.0
 email_validator==2.2.0
 Faker==37.1.0
 fastapi==0.116.2
