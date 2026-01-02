@@ -103,4 +103,3 @@ watchfiles==1.0.0
 watchtower==3.4.0
 websockets==14.1
 yarl==1.18.3
-zipp==3.19.1
