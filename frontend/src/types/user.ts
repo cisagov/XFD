@@ -24,28 +24,6 @@ export interface User {
   login_blocked_by_maintenance?: boolean | false;
 }
 
-export const initializeUser: User = {
-  id: '',
-  created_at: '',
-  updated_at: '',
-  first_name: '',
-  last_name: '',
-  full_name: '',
-  invite_pending: true,
-  first_login: true,
-  user_type: 'standard',
-  email: '',
-  roles: [],
-  date_accepted_terms: null,
-  accepted_terms_version: null,
-  last_logged_in: null,
-  apiKeys: [],
-  region_id: null,
-  state: null,
-  organizations: [],
-  isRegistered: null
-};
-
 export type UserFormValues = {
   id?: string;
   first_name: string;
@@ -58,17 +36,4 @@ export type UserFormValues = {
   org_id: string;
   originalOrgId: string;
   originalRoleId: string;
-};
-
-export const initialUserFormValues: UserFormValues = {
-  first_name: '',
-  last_name: '',
-  email: '',
-  user_type: 'standard',
-  state: '',
-  region_id: '',
-  org_name: '',
-  org_id: '',
-  originalOrgId: '',
-  originalRoleId: ''
 };
