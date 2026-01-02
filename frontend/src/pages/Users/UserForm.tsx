@@ -11,12 +11,8 @@ import RadioGroup from '@mui/material/RadioGroup';
 import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import AnimatedConfirmDialog from 'components/Dialog/AnimatedConfirmDialog';
-import {
-  initialUserFormValues,
-  Organization,
-  User,
-  UserFormValues
-} from 'types';
+import { Organization, User, UserFormValues } from 'types';
+import { initialUserFormValues } from '@/constants/userAndOrgData';
 import { useAuthContext } from 'context';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { logger } from '@/utils/logger';

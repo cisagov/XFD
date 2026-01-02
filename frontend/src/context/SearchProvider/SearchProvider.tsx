@@ -24,34 +24,6 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       sortField: 'name',
       sortDirection: 'asc'
     },
-    //TODO: Implement or delete these queries CRASM-2819
-    // debug: false,
-    // alwaysSearchOnInitialLoad: false,
-    // trackUrlState: false,
-    // initialState: {
-    //   resultsPerPage: 15,
-    //   sortField: 'name',
-    //   sortDirection: 'asc'
-    // },
-    // searchQuery: {
-    //   search_fields: {
-    //     name: {}
-    //   },
-    //   result_fields: {
-    //     name: {
-    //       raw: {}
-    //     }
-    //   }
-    // },
-    // autocompleteQuery: {
-    //   suggestions: {
-    //     types: {
-    //       documents: {
-    //         fields: ['name']
-    //       }
-    //     }
-    //   }
-    // },
 
     onResultClick: () => {
       /* Not implemented */
@@ -63,24 +35,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       );
     },
     onAutocomplete: async () => {
-      // const requestBody = buildAutocompleteRequest({ search_term });
-      // const json = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
-      //   body: {
-      //     ...requestBody
-      //   },
-      //   showLoading: false
-      // });
-      // // const state = buildState(json);
-      // const state = {
-      //   results: json.suggest['main-suggest'][0].options.map((e: any) => ({
-      //     text: { raw: e.text },
-      //     id: { raw: e._source.id }
-      //   }))
-      // };
-      // // console.error(state.results);
-      // return {
-      //   autocompletedResults: state.results
-      // };
+      // Not implemented - using custom organization search in FilterDrawer components
     },
     onSearch: async (state: any) => {
       const {
