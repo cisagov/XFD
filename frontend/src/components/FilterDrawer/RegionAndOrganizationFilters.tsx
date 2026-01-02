@@ -113,13 +113,13 @@ export const RegionAndOrganizationFilters: React.FC<
           const orgs = results.body.hits.hits.map((hit) => hit._source);
           // Filter out organizations that match the exclusions
           const refinedOrgs = orgs.filter((org) => {
-            let exlude = false;
+            let exclude = false;
             ORGANIZATION_EXCLUSIONS.forEach((exc) => {
               if (org.name.toLowerCase().includes(exc)) {
-                exlude = true;
+                exclude = true;
               }
             });
-            return !exlude;
+            return !exclude;
           });
           // Filter out organizations that are already in the filters
           const filteredOrgs = refinedOrgs.filter(
