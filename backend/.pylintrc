@@ -49,4 +49,5 @@ disable=C0103,  # Conforms to snake_case
         W1203,  # Use lazy % formatting in logging functions
         W1514,  # Unspecified encoding
 
+[TYPECHECK]
 ignored-modules=pandas,numpy,shodan,pshtt,nested_lookup
