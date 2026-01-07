@@ -141,7 +141,9 @@ def test_summary_user_filters():
         },
     )
     assert response_three.status_code == 403
-    assert response_three.json() == {"detail": "Unauthorized"}
+    assert response_three.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -207,4 +209,6 @@ def test_vulnerability_user_filters():
         },
     )
     assert response_three.status_code == 403
-    assert response_three.json() == {"detail": "Unauthorized"}
+    assert response_three.json() == {
+        "detail": "You do not have permission to perform this action."
+    }

@@ -5,9 +5,10 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { logger } from '@/utils/logger';
 import { useHistory, useLocation } from 'react-router-dom';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -18,6 +19,8 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
+
+// DataGrid Components
 import {
   DataGrid,
   getGridStringOperators,
@@ -28,14 +31,29 @@ import {
   GridRenderCellParams,
   GridSortModel
 } from '@mui/x-data-grid';
+
+// Types
 import { Query } from 'types';
 import { DomainSearchApiResponse } from 'types';
+
+// Context
 import { useAuthContext } from 'context';
+
+// Hooks
 import { useDomainApi } from 'hooks';
+
+// Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomNoRowsOverlay from 'components/DataGrid/CustomNoRowsOverlay';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
+
+// Utils
+import { logger } from '@/utils/logger';
 import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { formatDisplayValue } from 'utils/stringUtils';
+
+// Constants
 import { ROUTES } from '@/constants/routes';
 
 const PAGE_SIZE = 15;
@@ -80,7 +98,7 @@ const formatDays = (dateString: string) => {
 };
 
 export const Domains: React.FC = () => {
-  const { showAllOrganizations } = useAuthContext();
+  const { showAllOrganizations, user } = useAuthContext();
   const history = useHistory();
   const location = useLocation();
   const state = location.state as
@@ -245,11 +263,11 @@ export const Domains: React.FC = () => {
     }
   }, []);
 
-  const domCols = useMemo<GridColDef[]>(
-    () => [
+  const domCols = useMemo<GridColDef[]>(() => {
+    const allColumns = [
       {
         field: 'name',
-        headerName: 'Domain',
+        headerName: 'Domain Name',
         minWidth: 100,
         flex: 1,
         filterOperators: stringFilterOperators,
@@ -265,6 +283,23 @@ export const Domains: React.FC = () => {
         }
       },
       {
+        field: 'ip',
+        headerName: 'IP Address',
+        minWidth: 100,
+        flex: 1,
+        filterOperators: stringFilterOperators,
+        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
+          return (
+            <Box
+              component="span"
+              aria-label={`IP Address: ${cellValues.row.ip}`}
+            >
+              {cellValues.row.ip}
+            </Box>
+          );
+        }
+      },
+      {
         field: 'organization_name',
         headerName: 'Organization',
         minWidth: 100,
@@ -274,26 +309,9 @@ export const Domains: React.FC = () => {
           return (
             <Box
               component="span"
-              aria-label={`Organization using Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
+              aria-label={`Organization for Domain ${cellValues.row.name}: ${cellValues.row.organization_name}`}
             >
               {cellValues.row.organization_name}
-            </Box>
-          );
-        }
-      },
-      {
-        field: 'ip',
-        headerName: 'IP',
-        minWidth: 50,
-        flex: 1,
-        filterOperators: stringFilterOperators,
-        renderCell: (cellValues: GridRenderCellParams<DomainRow>) => {
-          return (
-            <Box
-              component="span"
-              aria-label={`IP Address for Domain ${cellValues.row.name}: ${cellValues.row.ip}`}
-            >
-              {cellValues.row.ip}
             </Box>
           );
         }
@@ -344,7 +362,7 @@ export const Domains: React.FC = () => {
               component="span"
               aria-label={`Vulnerability Count for Domain ${cellValues.row.name}: ${cellValues.row.vulnerabilities_count}`}
             >
-              {cellValues.row.vulnerabilities_count}
+              {formatDisplayValue(cellValues.row.vulnerabilities_count)}
             </Box>
           );
         }
@@ -409,9 +427,24 @@ export const Domains: React.FC = () => {
           );
         }
       }
-    ],
-    [history, stringFilterOperators]
-  );
+    ];
+
+    // Filter out columns that should be hidden from column chooser
+    let filteredColumns = allColumns;
+
+    // TODO: Remove this filter once WAS data is available - Domain Name column should be user-controllable
+    // Remove Domain Name column from column chooser for all users (pending WAS data integration)
+    filteredColumns = filteredColumns.filter((col) => col.field !== 'name');
+
+    // Remove Organization column for standard users to completely hide it from column chooser
+    if (user?.user_type === 'standard') {
+      filteredColumns = filteredColumns.filter(
+        (col) => col.field !== 'organization_name'
+      );
+    }
+
+    return filteredColumns;
+  }, [history, stringFilterOperators, user?.user_type]);
 
   const noRowsOverlay = (
     <Paper>
@@ -575,7 +608,8 @@ export const Domains: React.FC = () => {
               }}
               slots={{
                 toolbar: CustomToolbar,
-                noRowsOverlay: CustomNoRowsOverlay
+                noRowsOverlay: CustomNoRowsOverlay,
+                pagination: CustomPagination
               }}
               slotProps={{
                 noRowsOverlay: { children: noRowsOverlay },

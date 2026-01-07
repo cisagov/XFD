@@ -41,6 +41,7 @@ const FilterDrawerToggle: React.FC = () => {
           variant="primaryContained"
           onClick={handleToggle}
           startIcon={<FilterAlt />}
+          aria-label="Toggle Filter Drawer"
         >
           Filter
         </Button>

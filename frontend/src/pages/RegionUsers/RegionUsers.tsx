@@ -1,24 +1,19 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { formatDate, parseISO } from 'date-fns';
+import { useTheme } from '@mui/material/styles';
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import CloseIcon from '@mui/icons-material/Close';
-import DoneIcon from '@mui/icons-material/Done';
 import InfoOutline from '@mui/icons-material/InfoOutline';
 import {
   DataGrid,
-  GridColDef,
-  GridRenderCellParams,
   GridRowSelectionModel,
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import { initializeUser, User, Organization as OrganizationType } from 'types';
+import { User, Organization as OrganizationType } from 'types';
+import { initializeUser } from '@/constants/userAndOrgData';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
 import InfoDialog from 'components/Dialog/InfoDialog';
@@ -27,6 +22,12 @@ import { useAuthContext } from 'context';
 import { useUserLevel } from 'hooks/useUserLevel';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { transformUserData } from '@/utils/transformTableData';
+import {
+  getPendingUserColumns,
+  getMemberUserColumns,
+  organizationCols as orgCols
+} from './UserRegistrationColumns';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -45,322 +46,14 @@ type ErrorStates = {
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
-const transformData = (data: User[]): User[] => {
-  return data.map(({ roles, ...user }) => ({
-    ...user,
-    roles,
-    organizations: roles.map((role) => ' ' + role.organization.name),
-    org_acronym: roles[0]?.organization.acronym || '',
-    organizations_display: roles
-      .map((role) => role.organization.name)
-      .join(', '),
-    last_logged_in: user.last_logged_in
-      ? formatDate(parseISO(user.last_logged_in), 'MM/dd/yyyy hh:mm a')
-      : 'None'
-  }));
-};
 export const RegionUsers: React.FC = () => {
   const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
   const { formattedUserType } = useUserLevel();
   const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
+  const theme = useTheme();
 
-  const pendingCols: GridColDef[] = [
-    {
-      field: 'full_name',
-      headerName: 'Name',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
-          >
-            {cellValues.row.full_name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
-          >
-            {cellValues.row.email}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'state',
-      headerName: 'State',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`State for User ${cellValues.row.full_name}: ${cellValues.row.state}`}
-          >
-            {cellValues.row.state}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'created_at',
-      headerName: 'Created At',
-      minWidth: 100,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Created At Date for User ${cellValues.row.full_name}: ${cellValues.row.created_at}`}
-          >
-            {cellValues.row.created_at}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'cognito_use_case_description',
-      headerName: 'Use Case',
-      minWidth: 255,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Use Case for ${cellValues.row.full_name}: ${cellValues.row.cognito_use_case_description}`}
-          >
-            {cellValues.row.cognito_use_case_description}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'status',
-      headerName: 'Registration Status',
-      minWidth: 250,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Stack direction="row" spacing={1} mt={1}>
-            <Button
-              variant="contained"
-              endIcon={<DoneIcon />}
-              onClick={() => handleApproveClick(cellValues.row)}
-              disabled={user?.user_type === 'globalView'}
-              aria-label={`Approve User: ${cellValues.row.full_name}`}
-              sx={{ backgroundColor: '#2e7d32' }}
-              // TODO need to use success color after contrast issue resolved CRASM-3445
-            >
-              Approve
-            </Button>
-            <Button
-              variant="contained"
-              endIcon={<CloseIcon />}
-              color="error"
-              onClick={() => handleDenyClick(cellValues.row)}
-              disabled={user?.user_type === 'globalView'}
-              aria-label={`Deny User: ${cellValues.row.full_name}`}
-            >
-              Deny
-            </Button>
-          </Stack>
-        );
-      }
-    }
-  ];
-  const memberCols: GridColDef[] = [
-    {
-      field: 'full_name',
-      headerName: 'Name',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Full Name for User: ${cellValues.row.full_name}`}
-          >
-            {cellValues.row.full_name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Email for User ${cellValues.row.full_name}: ${cellValues.row.email}`}
-          >
-            {cellValues.row.email}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'state',
-      headerName: 'State',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`State for User ${cellValues.row.full_name}: ${cellValues.row.state}`}
-          >
-            {cellValues.row.state}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'last_logged_in',
-      headerName: 'Last Logged In',
-      minWidth: 100,
-      flex: 1.5,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Last Logged In Date for User ${cellValues.row.full_name}: ${cellValues.row.last_logged_in}`}
-          >
-            {cellValues.row.last_logged_in}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'organizations_display',
-      headerName: 'Organizations',
-      minWidth: 250,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => (
-        <Box
-          component="span"
-          aria-label={`Organizations for User ${cellValues.row.full_name}: ${cellValues.row.organizations_display}`}
-        >
-          {cellValues.row.organizations_display}
-        </Box>
-      )
-    },
-    {
-      field: 'org_acronym',
-      headerName: 'Org Acronym',
-      minWidth: 250,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => (
-        <Box
-          component="span"
-          aria-label={`Organization acronym for User ${cellValues.row.full_name}: ${cellValues.row.org_acronym}`}
-        >
-          {cellValues.row.org_acronym}
-        </Box>
-      )
-    }
-  ];
-  const regionIdColumn = {
-    field: 'region_id',
-    headerName: 'Region',
-    minWidth: 100,
-    flex: 0.5,
-    renderCell: (cellValues: GridRenderCellParams) => {
-      return (
-        <Box
-          component="span"
-          aria-label={`Region ID for User ${cellValues.row.full_name}: ${cellValues.row.region_id}`}
-        >
-          {cellValues.row.region_id}
-        </Box>
-      );
-    }
-  };
-  if (user?.user_type !== 'regionalAdmin') {
-    pendingCols.unshift(regionIdColumn);
-    memberCols.unshift(regionIdColumn);
-  }
-  const orgCols: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Name',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organization Name: ${cellValues.row.name}`}
-          >
-            {cellValues.row.name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'acronym',
-      headerName: 'Acronym',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organization Acronym: ${cellValues.row.acronym}`}
-          >
-            {cellValues.row.acronym}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'updated_at',
-      headerName: 'Updated At',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Date Updated At for Organization ${cellValues.row.name}: ${cellValues.row.updated_at}`}
-          >
-            {cellValues.row.updated_at}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'state_name',
-      headerName: 'State',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`State Name for Organization ${cellValues.row.name}: ${cellValues.row.state_name}`}
-          >
-            {cellValues.row.state_name}
-          </Box>
-        );
-      }
-    }
-  ];
   const [dialogStates, setDialogStates] = useState<DialogStates>({
     isOrgDialogOpen: false,
     isDenyDialogOpen: false,
@@ -422,7 +115,7 @@ export const RegionUsers: React.FC = () => {
   const fetchCurrentUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}false`);
-      setCurrentUsers(transformData(rows));
+      setCurrentUsers(transformUserData(rows));
       setErrorStates({ ...errorStates, getUsersError: '' });
     } catch (e: any) {
       setErrorStates({ ...errorStates, getUsersError: e.message });
@@ -572,6 +265,13 @@ export const RegionUsers: React.FC = () => {
     });
     selectUser(row);
   };
+
+  const pendingCols = getPendingUserColumns({
+    userType: user?.user_type,
+    handleApproveClick,
+    handleDenyClick
+  });
+  const memberCols = getMemberUserColumns();
 
   const handleDenyCancelClick = () => {
     setDialogStates((prevState) => ({
@@ -754,6 +454,12 @@ export const RegionUsers: React.FC = () => {
             rows={currentUsers}
             disableRowSelectionOnClick
             slots={{ toolbar: GridToolbar }}
+            slotProps={{
+              toolbar: {
+                csvOptions: { disableToolbarButton: true },
+                printOptions: { disableToolbarButton: true }
+              }
+            }}
             autoPageSize
             showToolbar
           />
@@ -781,7 +487,9 @@ export const RegionUsers: React.FC = () => {
                 slots={{ toolbar: GridToolbar }}
                 slotProps={{
                   toolbar: {
-                    showQuickFilter: true
+                    showQuickFilter: true,
+                    csvOptions: { disableToolbarButton: true },
+                    printOptions: { disableToolbarButton: true }
                   }
                 }}
                 sx={{
@@ -845,7 +553,11 @@ export const RegionUsers: React.FC = () => {
             isInfoDialogOpen: false
           }));
         }}
-        icon={<CheckCircleOutline color="success" sx={{ fontSize: '80px' }} />}
+        icon={
+          <CheckCircleOutline
+            sx={{ fontSize: '80px', color: theme.palette.primary.dark }}
+          />
+        }
         title={<Typography variant="h4">Success </Typography>}
         content={<Typography variant="body1">{infoDialogContent}</Typography>}
       />

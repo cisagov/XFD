@@ -21,6 +21,16 @@ resource "aws_db_parameter_group" "default" {
     value = "0"
   }
 
+  parameter {
+    name  = "log_min_duration_statement"
+    value = "2000" # Log queries taking longer than 2000ms (2s)
+  }
+
+  parameter {
+    name  = "log_statement"
+    value = "mod" # Log all modification statements (INSERT, UPDATE, DELETE)
+  }
+
   lifecycle {
     create_before_destroy = true
   }
@@ -43,12 +53,14 @@ resource "aws_db_instance" "db" {
     ? data.aws_availability_zones.available.names[0]
     : data.aws_availability_zones.available.names[0]
   )
-  multi_az                            = true
-  backup_retention_period             = 35
-  storage_encrypted                   = true
-  iam_database_authentication_enabled = true
-  enabled_cloudwatch_logs_exports     = ["postgresql", "upgrade"]
-  deletion_protection                 = true
+  multi_az                              = true
+  backup_retention_period               = 35
+  storage_encrypted                     = true
+  iam_database_authentication_enabled   = true
+  enabled_cloudwatch_logs_exports       = ["postgresql", "upgrade"]
+  deletion_protection                   = true
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
 
   // database information
   db_name  = var.db_table_name

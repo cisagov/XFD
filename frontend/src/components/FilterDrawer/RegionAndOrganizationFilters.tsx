@@ -99,69 +99,71 @@ export const RegionAndOrganizationFilters: React.FC<
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {
-      try {
-        const results = await apiPost<{
-          body: { hits: { hits: { _source: OrganizationShallow }[] } };
-        }>(ENDPOINTS.ORGANIZATIONS_SEARCH_ES, {
-          body: {
-            search_term,
-            regions
-          }
-        });
-
-        const orgs = results.body.hits.hits.map((hit) => hit._source);
-        // Filter out organizations that match the exclusions
-        const refinedOrgs = orgs.filter((org) => {
-          let exlude = false;
-          ORGANIZATION_EXCLUSIONS.forEach((exc) => {
-            if (org.name.toLowerCase().includes(exc)) {
-              exlude = true;
+      if (userLevel !== STANDARD_USER) {
+        try {
+          const results = await apiPost<{
+            body: { hits: { hits: { _source: OrganizationShallow }[] } };
+          }>(ENDPOINTS.ORGANIZATIONS_SEARCH_ES, {
+            body: {
+              search_term,
+              regions
             }
           });
-          return !exlude;
-        });
-        // Filter out organizations that are already in the filters
-        const filteredOrgs = refinedOrgs.filter(
-          (org) =>
-            !filters.find(
-              (filter) =>
-                filter.field === ORGANIZATION_FILTER_KEY &&
-                filter.values.find(
-                  (value: { id: string }) => value.id === org.id
-                )
-            )
-        );
-        // Sort filtered orgs by name
-        const sortedOrgs = filteredOrgs.sort((a, b) =>
-          a.name.localeCompare(b.name)
-        );
 
-        // Utility function to replce HTML encodings
-        const decodeHtml = (org_name: string): string => {
-          const encodings: { [key: string]: string } = {
-            '&amp;': '&',
-            '&lt;': '<',
-            '&gt;': '>',
-            '&quot;': '"',
-            '&#039;': "'"
-          };
-          return org_name.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, (m) => {
-            return encodings[m];
+          const orgs = results.body.hits.hits.map((hit) => hit._source);
+          // Filter out organizations that match the exclusions
+          const refinedOrgs = orgs.filter((org) => {
+            let exclude = false;
+            ORGANIZATION_EXCLUSIONS.forEach((exc) => {
+              if (org.name.toLowerCase().includes(exc)) {
+                exclude = true;
+              }
+            });
+            return !exclude;
           });
-        };
-        // Decode HTML encodings in org names
-        sortedOrgs.forEach((org) => {
-          org.name = decodeHtml(org.name);
-        });
+          // Filter out organizations that are already in the filters
+          const filteredOrgs = refinedOrgs.filter(
+            (org) =>
+              !filters.find(
+                (filter) =>
+                  filter.field === ORGANIZATION_FILTER_KEY &&
+                  filter.values.find(
+                    (value: { id: string }) => value.id === org.id
+                  )
+              )
+          );
+          // Sort filtered orgs by name
+          const sortedOrgs = filteredOrgs.sort((a, b) =>
+            a.name.localeCompare(b.name)
+          );
 
-        setOrgResults(sortedOrgs);
-      } catch (e) {
-        logger.error('RegionAndOrganizationFilters.fetchOrgs failed:', {
-          error: e
-        });
+          // Utility function to replce HTML encodings
+          const decodeHtml = (org_name: string): string => {
+            const encodings: { [key: string]: string } = {
+              '&amp;': '&',
+              '&lt;': '<',
+              '&gt;': '>',
+              '&quot;': '"',
+              '&#039;': "'"
+            };
+            return org_name.replace(/&amp;|&lt;|&gt;|&quot;|&#039;/g, (m) => {
+              return encodings[m];
+            });
+          };
+          // Decode HTML encodings in org names
+          sortedOrgs.forEach((org) => {
+            org.name = decodeHtml(org.name);
+          });
+
+          setOrgResults(sortedOrgs);
+        } catch (e) {
+          logger.error('RegionAndOrganizationFilters.fetchOrgs failed:', {
+            error: e
+          });
+        }
       }
     },
-    [apiPost, setOrgResults, filters]
+    [apiPost, setOrgResults, filters, userLevel]
   );
 
   const regionFilterValues = useMemo(() => {
