@@ -30,6 +30,7 @@ interface KeyboardNavigationResult {
     tabIndex: number;
     'data-focused': boolean;
     'aria-current': boolean;
+    onFocus: () => void;
   };
 }
 
@@ -108,24 +109,20 @@ export function useKeyboardNavigation({
     (index: number) => {
       if (disabled) return -1;
 
-      // If no item is focused, make first item tabbable
-      if (focusedIndex === -1) {
-        return index === 0 ? 0 : -1;
-      }
-
-      // Only the focused item should be tabbable
-      return focusedIndex === index ? 0 : -1;
+      // Make all items tabbable so users can Tab through each row
+      return 0;
     },
-    [focusedIndex, disabled]
+    [disabled]
   );
 
   const getFocusProps = useCallback(
     (index: number) => ({
       tabIndex: getTabIndex(index),
       'data-focused': focusedIndex === index,
-      'aria-current': focusedIndex === index
+      'aria-current': focusedIndex === index,
+      onFocus: () => setFocusedIndex(index)
     }),
-    [focusedIndex, getTabIndex]
+    [focusedIndex, getTabIndex, setFocusedIndex]
   );
 
   return {
