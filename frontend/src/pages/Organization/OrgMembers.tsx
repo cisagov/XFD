@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import { Organization as OrganizationType, Role } from 'types';
@@ -14,6 +14,7 @@ import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import { ENDPOINTS } from '@/constants/endpoints';
+import { useUserLevel, STANDARD_USER, GLOBAL_VIEW } from 'hooks/useUserLevel';
 
 type OrgMemberProps = {
   organization: OrganizationType;
@@ -43,59 +44,69 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   setUserRoles
 }) => {
   const { apiPost, user } = useAuthContext();
-  const [removeUserDialogOpen, setRemoveUserDialogOpen] = React.useState(false);
-  const [infoDialogOpen, setInfoDialogOpen] = React.useState(false);
-  const [selectedRow, setSelectedRow] = React.useState<Role>();
-  const [hasError, setHasError] = React.useState('');
+  const userLevel = useUserLevel().userLevel;
+  const [removeUserDialogOpen, setRemoveUserDialogOpen] = useState(false);
+  const [infoDialogOpen, setInfoDialogOpen] = useState(false);
+  const [selectedRow, setSelectedRow] = useState<Role>();
+  const [hasError, setHasError] = useState('');
 
   const flatUserRoles = flattenUserRoles(userRoles);
 
-  const userRoleColumns: GridColDef[] = [
-    {
-      field: 'full_name',
-      headerName: 'Name',
-      flex: 1
-    },
-    {
-      field: 'email',
-      headerName: 'Email',
-      flex: 1.5
-    },
-    {
-      field: 'role',
-      headerName: 'Role',
-      flex: 1
-    },
-    {
-      field: 'remove',
-      headerName: 'Remove',
-      flex: 0.5,
-      sortable: false,
-      filterable: false,
-      renderCell: (params: GridRenderCellParams) => {
-        const descriptionId = `description-${params.row.id}`;
-        const description = `Remove ${params.row.full_name}`;
-        return (
-          <>
-            <span id={descriptionId} style={{ display: 'none' }}>
-              {description}
-            </span>
-            <IconButton
-              color="error"
-              aria-label={description}
-              aria-describedby={descriptionId}
-              onClick={() => {
-                setSelectedRow(params.row);
-                setRemoveUserDialogOpen(true);
-              }}
-            >
-              <RemoveCircleOutline />
-            </IconButton>
-          </>
-        );
+  const userRoleColumns = useMemo<GridColDef[]>(() => {
+    const visibleColumns = [
+      {
+        field: 'full_name',
+        headerName: 'Name',
+        flex: 1
+      },
+      {
+        field: 'email',
+        headerName: 'Email',
+        flex: 1.5
+      },
+      {
+        field: 'role',
+        headerName: 'Role',
+        flex: 1
+      },
+      {
+        field: 'remove',
+        headerName: 'Remove',
+        flex: 0.5,
+        sortable: false,
+        filterable: false,
+        renderCell: (params: GridRenderCellParams) => {
+          const descriptionId = `description-${params.row.id}`;
+          const description = `Remove ${params.row.full_name}`;
+          return (
+            <>
+              <span id={descriptionId} style={{ display: 'none' }}>
+                {description}
+              </span>
+              <IconButton
+                color="error"
+                aria-label={description}
+                aria-describedby={descriptionId}
+                onClick={() => {
+                  setSelectedRow(params.row);
+                  setRemoveUserDialogOpen(true);
+                }}
+              >
+                <RemoveCircleOutline />
+              </IconButton>
+            </>
+          );
+        }
       }
+    ];
+
+    let filteredColumns = visibleColumns;
+    if (userLevel === GLOBAL_VIEW || userLevel === STANDARD_USER) {
+      filteredColumns = visibleColumns.filter((col) => col.field !== 'remove');
     }
-  ];
+
+    return filteredColumns;
+  }, [userLevel]);
 
   const removeUser = async () => {
     try {
