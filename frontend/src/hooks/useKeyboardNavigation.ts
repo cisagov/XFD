@@ -14,6 +14,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
 // Interface Definitions
+
+// Configuration options for keyboard navigation behavior
 interface KeyboardNavigationOptions {
   itemCount: number;
   initialFocusIndex?: number;
@@ -21,6 +23,7 @@ interface KeyboardNavigationOptions {
   disabled?: boolean;
 }
 
+// Return value from useKeyboardNavigation hook
 interface KeyboardNavigationResult {
   focusedIndex: number;
   setFocusedIndex: (index: number) => void;
@@ -44,11 +47,13 @@ export function useKeyboardNavigation({
 
   // Update focus when index changes
   useEffect(() => {
+    // Prevent the callback from firing when no item is focused
     if (onFocusChange && focusedIndex !== -1) {
       onFocusChange(focusedIndex);
     }
   }, [focusedIndex, onFocusChange]);
 
+  // Memoized keyboard event handler for turning keyboard input into focus
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (disabled || itemCount === 0) return;
@@ -81,15 +86,8 @@ export function useKeyboardNavigation({
           break;
 
         case 'Tab':
-          // Allow natural tab behavior - don't prevent default
-          // Reset focus index when tabbing away
-          if (!event.shiftKey) {
-            // Tabbing forward out of component
-            setFocusedIndex(-1);
-          } else {
-            // Shift+Tab backward out of component
-            setFocusedIndex(-1);
-          }
+          // Allow natural tab behavior and reset focus when tabbing away
+          setFocusedIndex(-1);
           break;
 
         case 'Enter':
@@ -105,6 +103,7 @@ export function useKeyboardNavigation({
     [disabled, itemCount]
   );
 
+  // Memoized utility that determines the appropriate tabIndex value for navigable items in the collection
   const getTabIndex = useCallback(
     (_index: number) => {
       if (disabled) return -1;
@@ -115,6 +114,7 @@ export function useKeyboardNavigation({
     [disabled]
   );
 
+  // Memoized utility that creates a standardized set of props for making list items properly focusable and accessible
   const getFocusProps = useCallback(
     (index: number) => ({
       tabIndex: getTabIndex(index),
