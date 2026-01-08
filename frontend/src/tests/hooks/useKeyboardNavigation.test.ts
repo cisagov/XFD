@@ -1,6 +1,6 @@
 /**
  * @fileoverview Unit tests for the useKeyboardNavigation hook
- * 
+ *
  * This test suite validates the keyboard navigation functionality including:
  * - Basic initialization and state management
  * - Arrow key navigation (up/down)
@@ -11,7 +11,7 @@
  * - Focus props generation
  * - Callback invocation
  * - Edge cases (empty collections, single items)
- * 
+ *
  * @author GitHub Copilot
  * @since 2026-01-07
  */
@@ -24,7 +24,10 @@ import { renderHook } from '@testing-library/react';
 import { act } from 'react';
 
 // Test utilities
-import { keyboardEvents, defaultKeyboardNavOptions } from '../../test-utils/keyboard';
+import {
+  keyboardEvents,
+  defaultKeyboardNavOptions
+} from '../../test-utils/keyboard';
 
 // Hook under test
 import { useKeyboardNavigation } from '../../hooks/useKeyboardNavigation';
@@ -38,7 +41,9 @@ describe('useKeyboardNavigation', () => {
   // -------------------- Basic Functionality --------------------
   describe('Basic functionality', () => {
     it('should initialize with correct default values', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       expect(result.current.focusedIndex).toBe(-1);
       expect(typeof result.current.setFocusedIndex).toBe('function');
@@ -49,14 +54,19 @@ describe('useKeyboardNavigation', () => {
 
     it('should initialize with custom initialFocusIndex', () => {
       const { result } = renderHook(() =>
-        useKeyboardNavigation({ ...defaultKeyboardNavOptions, initialFocusIndex: 2 })
+        useKeyboardNavigation({
+          ...defaultKeyboardNavOptions,
+          initialFocusIndex: 2
+        })
       );
 
       expect(result.current.focusedIndex).toBe(2);
     });
 
     it('should update focusedIndex when setFocusedIndex is called', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(3);
@@ -69,7 +79,9 @@ describe('useKeyboardNavigation', () => {
   // -------------------- Keyboard Navigation --------------------
   describe('Keyboard navigation', () => {
     it('should handle ArrowDown key correctly', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       const keyDownEvent = keyboardEvents.arrowDown();
 
@@ -90,7 +102,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should not go beyond last item with ArrowDown', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(4); // Last item (itemCount - 1)
@@ -106,7 +120,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should handle ArrowUp key correctly', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(2);
@@ -123,7 +139,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should go to last item when ArrowUp from -1', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       const keyDownEvent = keyboardEvents.arrowUp();
 
@@ -135,7 +153,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should not go below first item with ArrowUp', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(0);
@@ -151,7 +171,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should handle Home key correctly', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(3);
@@ -168,7 +190,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should handle End key correctly', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       const keyDownEvent = keyboardEvents.end();
 
@@ -181,7 +205,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should reset focus index on Tab', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(2);
@@ -198,7 +224,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should reset focus index on Shift+Tab', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(2);
@@ -214,7 +242,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should ignore other keys', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       const keyDownEvent = keyboardEvents.escape();
 
@@ -259,7 +289,9 @@ describe('useKeyboardNavigation', () => {
   // -------------------- Tab Index Management --------------------
   describe('Tab index management', () => {
     it('should return 0 for all items when not disabled', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       expect(result.current.getTabIndex(0)).toBe(0);
       expect(result.current.getTabIndex(1)).toBe(0);
@@ -270,7 +302,9 @@ describe('useKeyboardNavigation', () => {
   // -------------------- Focus Props Generation --------------------
   describe('Focus props generation', () => {
     it('should generate correct focus props for unfocused item', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       const focusProps = result.current.getFocusProps(0);
 
@@ -281,7 +315,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should generate correct focus props for focused item', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       act(() => {
         result.current.setFocusedIndex(2);
@@ -296,7 +332,9 @@ describe('useKeyboardNavigation', () => {
     });
 
     it('should update focus index when onFocus is called', () => {
-      const { result } = renderHook(() => useKeyboardNavigation(defaultKeyboardNavOptions));
+      const { result } = renderHook(() =>
+        useKeyboardNavigation(defaultKeyboardNavOptions)
+      );
 
       const focusProps = result.current.getFocusProps(3);
 

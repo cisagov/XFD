@@ -1,5 +1,5 @@
 /**
- * 
+ *
  * Provides common keyboard event mocks and utilities for testing
  * keyboard navigation and accessibility features.
  */
@@ -10,7 +10,10 @@ import type { KeyboardEvent } from 'react';
 /**
  * Creates a mock keyboard event object for testing
  */
-export const createMockKeyEvent = (key: string, options: Partial<KeyboardEvent> = {}): any => ({
+export const createMockKeyEvent = (
+  key: string,
+  options: Partial<KeyboardEvent> = {}
+): any => ({
   key,
   preventDefault: vi.fn(),
   shiftKey: false,

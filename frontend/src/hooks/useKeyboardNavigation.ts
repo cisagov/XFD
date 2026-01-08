@@ -106,7 +106,7 @@ export function useKeyboardNavigation({
   );
 
   const getTabIndex = useCallback(
-    (index: number) => {
+    (_index: number) => {
       if (disabled) return -1;
 
       // Make all items tabbable so users can Tab through each row
