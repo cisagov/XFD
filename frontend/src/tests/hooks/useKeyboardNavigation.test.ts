@@ -1,5 +1,4 @@
 /**
- * @fileoverview Unit tests for the useKeyboardNavigation hook
  *
  * This test suite validates the keyboard navigation functionality including:
  * - Basic initialization and state management
@@ -12,8 +11,6 @@
  * - Callback invocation
  * - Edge cases (empty collections, single items)
  *
- * @author GitHub Copilot
- * @since 2026-01-07
  */
 
 // Testing framework imports
