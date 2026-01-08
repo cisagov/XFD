@@ -540,36 +540,150 @@ describe('OrgMembers Component', () => {
     });
   });
 
+  describe('Regional Admin remove user functionality', () => {
+    const regionalAdminAuthCtx = {
+      ...authCtx,
+      user: regionalAdminUser,
+      apiPost: mockApiPost
+    };
+
+    beforeEach(() => {
+      vi.mocked(useAuthContext).mockReturnValue(regionalAdminAuthCtx);
+    });
+
+    it('should open confirm dialog when remove button is clicked', async () => {
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      const removeButtons = screen.getAllByLabelText(/Remove Jane Doe/);
+      fireEvent.click(removeButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+    });
+
+    it('should call API and show success dialog on user removal', async () => {
+      mockApiPost.mockResolvedValueOnce({});
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      // Click remove button
+      const removeButtons = screen.getAllByLabelText(/Remove Jane Doe/);
+      fireEvent.click(removeButtons[0]);
+
+      // Wait for confirm dialog
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click confirm button
+      const confirmButton = screen.getByTestId('confirm-button');
+      fireEvent.click(confirmButton);
+
+      // Verify API was called
+      await waitFor(() => {
+        expect(mockApiPost).toHaveBeenCalledWith(
+          expect.stringContaining('org-123'),
+          { body: {} }
+        );
+      });
+
+      // Verify success dialog appears
+      await waitFor(() => {
+        expect(screen.getByTestId('info-dialog')).toBeInTheDocument();
+      });
+    });
+
+    it('should handle API error during user removal', async () => {
+      const mockError = new Error('API Error');
+      mockApiPost.mockRejectedValueOnce(mockError);
+
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      // Click remove button
+      const removeButtons = screen.getAllByLabelText(/Remove Jane Doe/);
+      fireEvent.click(removeButtons[0]);
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click confirm button
+      const confirmButton = screen.getByTestId('confirm-button');
+      fireEvent.click(confirmButton);
+
+      // Verify error was logged
+      await waitFor(() => {
+        expect(logger.logger.error).toHaveBeenCalledWith(
+          'OrgMembers.removeUser failed:',
+          expect.objectContaining({
+            error: mockError,
+            organizationId: 'org-123',
+            roleId: 'role-1'
+          })
+        );
+      });
+    });
+
+    it('should close dialogs when cancel is clicked', async () => {
+      render(
+        <OrgMembers
+          organization={mockOrganization}
+          userRoles={mockUserRoles}
+          setUserRoles={mockSetUserRoles}
+        />
+      );
+
+      // Open confirm dialog
+      const removeButtons = screen.getAllByLabelText(/Remove Jane Doe/);
+      fireEvent.click(removeButtons[0]);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument();
+      });
+
+      // Click cancel
+      const cancelButton = screen.getByTestId('cancel-button');
+      fireEvent.click(cancelButton);
+
+      // Verify dialog is closed
+      await waitFor(() => {
+        expect(screen.queryByTestId('confirm-dialog')).not.toBeInTheDocument();
+      });
+    });
+  });
+
   describe('GlobalView user restrictions', () => {
     it('should disable row selection for globalView users', () => {
+      const globalViewAuthCtx = {
+        ...authCtx,
+        user: globalViewUser,
+        apiPost: mockApiPost
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalViewAuthCtx);
+
       const { container } = render(
         <OrgMembers
           organization={mockOrganization}
           userRoles={mockUserRoles}
           setUserRoles={mockSetUserRoles}
-        />,
-        {
-          authContext: {
-            user: {
-              id: 'viewer-1',
-              user_type: 'globalView',
-              email: 'viewer@example.com',
-              first_name: 'Global',
-              last_name: 'Viewer',
-              full_name: 'Global Viewer',
-              created_at: '2023-01-01T00:00:00Z',
-              updated_at: '2023-01-01T00:00:00Z',
-              invite_pending: false,
-              roles: [],
-              isRegistered: true,
-              apiKeys: [],
-              date_accepted_terms: '2023-01-01T00:00:00Z',
-              accepted_terms_version: 'v1',
-              last_logged_in: '2023-01-01T00:00:00Z',
-              first_login: false
-            }
-          }
-        }
+        />
       );
 
       // DataGrid with disableRowSelectionOnClick should be rendered
