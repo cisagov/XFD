@@ -33,6 +33,12 @@ interface KeyboardNavigationResult {
     'aria-current': boolean;
     onFocus: () => void;
   };
+  getContainerProps: () => {
+    tabIndex: number;
+    onKeyDown: (event: React.KeyboardEvent) => void;
+    onFocus: (event: React.FocusEvent) => void;
+    role: string;
+  };
 }
 
 export function useKeyboardNavigation({
@@ -101,13 +107,14 @@ export function useKeyboardNavigation({
     [disabled, itemCount]
   );
 
-  // Memoized utility that determines the appropriate tabIndex value for navigable items in the collection
+  // Memoized utility that determines the appropriate tabIndex value for child items
+  // In roving tabindex pattern, ALL descendants should have tabindex="-1"
   const getTabIndex = useCallback(
     (_index: number) => {
       if (disabled) return -1;
 
-      // Make all items tabbable so users can Tab through each row
-      return 0;
+      // All descendant items are always tabindex="-1" in roving tabindex pattern
+      return -1;
     },
     [disabled]
   );
@@ -123,11 +130,29 @@ export function useKeyboardNavigation({
     [focusedIndex, getTabIndex, setFocusedIndex]
   );
 
+  // Memoized utility that creates container props for the composite widget
+  // Container should be focusable and handle keyboard events
+  const getContainerProps = useCallback(
+    () => ({
+      tabIndex: disabled ? -1 : 0,
+      onKeyDown: handleKeyDown,
+      onFocus: (event: React.FocusEvent) => {
+        // When container receives focus, automatically focus first item
+        if (event.target === event.currentTarget && focusedIndex === -1) {
+          setFocusedIndex(0);
+        }
+      },
+      role: 'application' // Indicates this is a composite widget
+    }),
+    [disabled, handleKeyDown, focusedIndex]
+  );
+
   return {
     focusedIndex,
     setFocusedIndex,
     handleKeyDown,
     getTabIndex,
-    getFocusProps
+    getFocusProps,
+    getContainerProps
   };
 }
