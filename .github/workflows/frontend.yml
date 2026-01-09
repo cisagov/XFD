@@ -103,7 +103,7 @@ jobs:
           npm run build
         working-directory: ./frontend
       - name: Deploy Staging
-        run: npx sls deploy --stage=staging-cd
+        run: serverless deploy --stage=staging-cd
         working-directory: ./frontend
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -154,7 +154,7 @@ jobs:
           ls -la ./frontend/docs-build
           ls -la ./frontend
       - name: Deploy Integration
-        run: npx sls deploy --stage=integration
+        run: serverless deploy --stage=integration
         working-directory: ./frontend
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
