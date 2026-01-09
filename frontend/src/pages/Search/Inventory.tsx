@@ -191,7 +191,7 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
         alignItems="center"
         justifyContent="space-between"
         pb={2}
-        mt={totalResults >= TOTAL_RESULTS_LIMIT ? 2 : 0}
+        mt={totalResults >= TOTAL_RESULTS_LIMIT ? 1 : 0}
       >
         {nonInitialFilters.length > 0 && <FiltersApplied />}
         {/* Keeps SortBar fixed to the right side of the screen */}
