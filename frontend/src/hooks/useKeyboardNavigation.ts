@@ -16,6 +16,7 @@ import { useCallback, useEffect, useState } from 'react';
 // Configuration options for keyboard navigation behavior
 interface KeyboardNavigationOptions {
   itemCount: number;
+  columnCount?: number; // Number of columns for 2D grid navigation
   initialFocusIndex?: number;
   onFocusChange?: (index: number) => void;
   disabled?: boolean;
@@ -33,6 +34,15 @@ interface KeyboardNavigationResult {
     'aria-current': boolean;
     onFocus: () => void;
   };
+  getCellFocusProps: (
+    rowIndex: number,
+    columnIndex: number
+  ) => {
+    tabIndex: number;
+    'data-focused': boolean;
+    'aria-current': boolean;
+    onFocus: () => void;
+  };
   getContainerProps: () => {
     tabIndex: number;
     onKeyDown: (event: React.KeyboardEvent) => void;
@@ -43,11 +53,29 @@ interface KeyboardNavigationResult {
 
 export function useKeyboardNavigation({
   itemCount,
+  columnCount = 1, // Default to 1 column for backward compatibility
   initialFocusIndex = -1,
   onFocusChange,
   disabled = false
 }: KeyboardNavigationOptions): KeyboardNavigationResult {
   const [focusedIndex, setFocusedIndex] = useState(initialFocusIndex);
+
+  // Convert linear index to row/column coordinates
+  const getCoordinates = (index: number): { row: number; col: number } => {
+    if (index === -1) return { row: -1, col: -1 };
+    return {
+      row: Math.floor(index / columnCount),
+      col: index % columnCount
+    };
+  };
+
+  // Convert row/column coordinates to linear index
+  const getIndex = (row: number, col: number): number => {
+    const totalRows = Math.ceil(itemCount / columnCount);
+    if (row < 0 || row >= totalRows || col < 0 || col >= columnCount) return -1;
+    const index = row * columnCount + col;
+    return index >= itemCount ? -1 : index;
+  };
 
   // Update focus when index changes
   useEffect(() => {
@@ -62,21 +90,75 @@ export function useKeyboardNavigation({
     (event: React.KeyboardEvent) => {
       if (disabled || itemCount === 0) return;
 
+      const { row, col } = getCoordinates(focusedIndex);
+
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault();
-          setFocusedIndex((prevIndex) => {
-            if (prevIndex === -1) return 0;
-            return prevIndex < itemCount - 1 ? prevIndex + 1 : prevIndex;
-          });
+          if (focusedIndex === -1) {
+            setFocusedIndex(0);
+          } else if (columnCount > 1) {
+            // 2D navigation: move down one row
+            const newIndex = getIndex(row + 1, col);
+            if (newIndex !== -1) {
+              setFocusedIndex(newIndex);
+            }
+          } else {
+            // 1D navigation: move to next item
+            setFocusedIndex((prevIndex) => {
+              if (prevIndex === -1) return 0;
+              return prevIndex < itemCount - 1 ? prevIndex + 1 : prevIndex;
+            });
+          }
           break;
 
         case 'ArrowUp':
           event.preventDefault();
-          setFocusedIndex((prevIndex) => {
-            if (prevIndex === -1) return itemCount - 1;
-            return prevIndex > 0 ? prevIndex - 1 : prevIndex;
-          });
+          if (focusedIndex === -1) {
+            setFocusedIndex(itemCount - 1);
+          } else if (columnCount > 1) {
+            // 2D navigation: move up one row
+            const newIndex = getIndex(row - 1, col);
+            if (newIndex !== -1) {
+              setFocusedIndex(newIndex);
+            }
+          } else {
+            // 1D navigation: move to previous item
+            setFocusedIndex((prevIndex) => {
+              if (prevIndex === -1) return itemCount - 1;
+              return prevIndex > 0 ? prevIndex - 1 : prevIndex;
+            });
+          }
+          break;
+
+        case 'ArrowRight':
+          if (columnCount > 1) {
+            event.preventDefault();
+            if (focusedIndex === -1) {
+              setFocusedIndex(0);
+            } else {
+              // 2D navigation: move right one column
+              const newIndex = getIndex(row, col + 1);
+              if (newIndex !== -1) {
+                setFocusedIndex(newIndex);
+              }
+            }
+          }
+          break;
+
+        case 'ArrowLeft':
+          if (columnCount > 1) {
+            event.preventDefault();
+            if (focusedIndex === -1) {
+              setFocusedIndex(0);
+            } else {
+              // 2D navigation: move left one column
+              const newIndex = getIndex(row, col - 1);
+              if (newIndex !== -1) {
+                setFocusedIndex(newIndex);
+              }
+            }
+          }
           break;
 
         case 'Home':
@@ -104,7 +186,7 @@ export function useKeyboardNavigation({
           break;
       }
     },
-    [disabled, itemCount]
+    [disabled, itemCount, focusedIndex, columnCount, getCoordinates, getIndex]
   );
 
   // Memoized utility that determines the appropriate tabIndex value for child items
@@ -130,6 +212,20 @@ export function useKeyboardNavigation({
     [focusedIndex, getTabIndex, setFocusedIndex]
   );
 
+  // Memoized utility that creates focus props for individual cells in a 2D grid
+  const getCellFocusProps = useCallback(
+    (rowIndex: number, columnIndex: number) => {
+      const cellIndex = getIndex(rowIndex, columnIndex);
+      return {
+        tabIndex: getTabIndex(cellIndex),
+        'data-focused': focusedIndex === cellIndex,
+        'aria-current': focusedIndex === cellIndex,
+        onFocus: () => setFocusedIndex(cellIndex)
+      };
+    },
+    [focusedIndex, getTabIndex, setFocusedIndex, getIndex]
+  );
+
   // Memoized utility that creates container props for the composite widget
   // Container should be focusable and handle keyboard events
   const getContainerProps = useCallback(
@@ -153,6 +249,7 @@ export function useKeyboardNavigation({
     handleKeyDown,
     getTabIndex,
     getFocusProps,
+    getCellFocusProps,
     getContainerProps
   };
 }
