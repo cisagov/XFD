@@ -13,8 +13,6 @@
 // React Hooks
 import { useCallback, useEffect, useState } from 'react';
 
-// Interface Definitions
-
 // Configuration options for keyboard navigation behavior
 interface KeyboardNavigationOptions {
   itemCount: number;
