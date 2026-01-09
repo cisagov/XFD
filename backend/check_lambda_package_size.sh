@@ -4,7 +4,7 @@ set -euo pipefail
 
 MAX_SIZE_KB=262000
 
-serverless package --stage=staging-cd
+npx serverless package --stage=staging-cd
 
 unzip .serverless/crossfeed.zip -d crossfeed-staging-cd
 
