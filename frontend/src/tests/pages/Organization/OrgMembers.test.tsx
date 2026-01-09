@@ -152,29 +152,6 @@ describe('OrgMembers Component', () => {
           userRoles={mockUserRoles}
           setUserRoles={mockSetUserRoles}
         />
-        // {
-        //   authContext: {
-        //     user: {
-        //       id: 'admin-1',
-        //       user_type: 'globalAdmin',
-        //       email: 'admin@example.com',
-        //       first_name: 'Global',
-        //       last_name: 'Admin',
-        //       full_name: 'Global Admin',
-        //       created_at: '2023-01-01T00:00:00Z',
-        //       updated_at: '2023-01-01T00:00:00Z',
-        //       invite_pending: false,
-        //       roles: [],
-        //       isRegistered: true,
-        //       apiKeys: [],
-        //       date_accepted_terms: '2023-01-01T00:00:00Z',
-        //       accepted_terms_version: 'v1',
-        //       last_logged_in: '2023-01-01T00:00:00Z',
-        //       first_login: false
-        //     },
-        //     apiPost: mockApiPost
-        //   }
-        // }
       );
 
       const disableExportValue = screen.getByTestId('disable-export');
@@ -196,29 +173,6 @@ describe('OrgMembers Component', () => {
           userRoles={mockUserRoles}
           setUserRoles={mockSetUserRoles}
         />
-        // {
-        //   authContext: {
-        //     user: {
-        //       id: 'admin-2',
-        //       user_type: 'regionalAdmin',
-        //       email: 'regional@example.com',
-        //       first_name: 'Regional',
-        //       last_name: 'Admin',
-        //       full_name: 'Regional Admin',
-        //       created_at: '2023-01-01T00:00:00Z',
-        //       updated_at: '2023-01-01T00:00:00Z',
-        //       invite_pending: false,
-        //       roles: [],
-        //       isRegistered: true,
-        //       apiKeys: [],
-        //       date_accepted_terms: '2023-01-01T00:00:00Z',
-        //       accepted_terms_version: 'v1',
-        //       last_logged_in: '2023-01-01T00:00:00Z',
-        //       first_login: false
-        //     },
-        //     apiPost: mockApiPost
-        //   }
-        // }
       );
 
       const disableExportValue = screen.getByTestId('disable-export');
@@ -240,29 +194,6 @@ describe('OrgMembers Component', () => {
           userRoles={mockUserRoles}
           setUserRoles={mockSetUserRoles}
         />
-        // {
-        //   authContext: {
-        //     user: {
-        //       id: 'viewer-1',
-        //       user_type: 'globalView',
-        //       email: 'viewer@example.com',
-        //       first_name: 'Global',
-        //       last_name: 'Viewer',
-        //       full_name: 'Global Viewer',
-        //       created_at: '2023-01-01T00:00:00Z',
-        //       updated_at: '2023-01-01T00:00:00Z',
-        //       invite_pending: false,
-        //       roles: [],
-        //       isRegistered: true,
-        //       apiKeys: [],
-        //       date_accepted_terms: '2023-01-01T00:00:00Z',
-        //       accepted_terms_version: 'v1',
-        //       last_logged_in: '2023-01-01T00:00:00Z',
-        //       first_login: false
-        //     },
-        //     apiPost: mockApiPost
-        //   }
-        // }
       );
 
       const disableExportValue = screen.getByTestId('disable-export');
@@ -282,29 +213,6 @@ describe('OrgMembers Component', () => {
           userRoles={mockUserRoles}
           setUserRoles={mockSetUserRoles}
         />
-        // {
-        //   authContext: {
-        //     user: {
-        //       id: 'user-1',
-        //       user_type: 'standard',
-        //       email: 'user@example.com',
-        //       first_name: 'Standard',
-        //       last_name: 'User',
-        //       full_name: 'Standard User',
-        //       created_at: '2023-01-01T00:00:00Z',
-        //       updated_at: '2023-01-01T00:00:00Z',
-        //       invite_pending: false,
-        //       roles: [],
-        //       isRegistered: true,
-        //       apiKeys: [],
-        //       date_accepted_terms: '2023-01-01T00:00:00Z',
-        //       accepted_terms_version: 'v1',
-        //       last_logged_in: '2023-01-01T00:00:00Z',
-        //       first_login: false
-        //     },
-        //     apiPost: mockApiPost
-        //   }
-        // }
       );
 
       const disableExportValue = screen.getByTestId('disable-export');
