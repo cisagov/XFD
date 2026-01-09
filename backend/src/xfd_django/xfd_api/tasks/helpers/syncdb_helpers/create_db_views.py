@@ -6,7 +6,7 @@ import logging
 from django.db import connections
 
 # If changes are made to materialized view make sure to update version number
-VW_SERVICE_VERSION = "20250823"
+VW_SERVICE_VERSION = "20251209"
 MAT_VW_COMBINED_VULNS_VERSION = "20250823"
 DOMAIN_MAT_VIEW_VERSION = "20250823"
 DOMAIN_SEARCH_MAT_VIEW_VERSION = "20250909"
