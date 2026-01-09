@@ -1,5 +1,5 @@
 // frontend/vite.config.mts
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -33,7 +33,6 @@ export default defineConfig({
     host: '0.0.0.0',
     strictPort: true,
     watch: { usePolling: true, interval: 1000 },
-    hmr: { host: 'localhost', clientPort: 3000 },
     proxy: {
       '/matomo/matomo.php': {
         target: 'http://backend:3000',
