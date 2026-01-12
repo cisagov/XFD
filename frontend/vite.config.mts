@@ -77,10 +77,10 @@ export default defineConfig({
         'src/components/Metrics/*'
       ],
       thresholds: {
-        statements: 41.61,
-        branches: 30.29,
-        functions: 37.14,
-        lines: 42.08,
+        statements: 41.67,
+        branches: 30.27,
+        functions: 37.19,
+        lines: 42.13,
         autoUpdate: true
       }
     }
