@@ -66,6 +66,13 @@ export default function buildState(response, resultsPerPage) {
   const totalPages = buildTotalPages(resultsPerPage, totalResults);
   const facets = buildStateFacets(response.aggregations);
 
+  // console.log('buildState', {
+  //   results,
+  //   totalPages,
+  //   totalResults,
+  //   facets
+  // });
+
   return {
     results,
     totalPages,

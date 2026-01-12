@@ -189,7 +189,17 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           a.value.localeCompare(b.value)
       )
     : [];
+  // console.log('facets in DrawerInterior:', facets);
+  // console.log('cve in DrawerInterior:', cveFacet);
 
+  // const organizationFacet: any[] = facets?.['organization.name']
+  //   ? facets['organization.name'][0].data.sort(
+  //       (a: { value: string }, b: { value: string }) =>
+  //         a.value.localeCompare(b.value)
+  //     )
+  //   : [];
+
+  // console.log('organization in DrawerInterior:', organizationFacet);
   // To-Do: Create array(s) to handle permutations of null and N/A values
   const titleCaseSeverityFacet = facets?.['vulnerabilities.severity']
     ? facets['vulnerabilities.severity'][0].data.map(
