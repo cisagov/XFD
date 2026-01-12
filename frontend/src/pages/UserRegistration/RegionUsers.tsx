@@ -457,7 +457,8 @@ export const RegionUsers: React.FC = () => {
             slotProps={{
               toolbar: {
                 csvOptions: { disableToolbarButton: true },
-                printOptions: { disableToolbarButton: true }
+                printOptions: { disableToolbarButton: true },
+                showQuickFilter: false
               }
             }}
             autoPageSize
@@ -487,7 +488,7 @@ export const RegionUsers: React.FC = () => {
                 slots={{ toolbar: GridToolbar }}
                 slotProps={{
                   toolbar: {
-                    showQuickFilter: true,
+                    showQuickFilter: false,
                     csvOptions: { disableToolbarButton: true },
                     printOptions: { disableToolbarButton: true }
                   }
