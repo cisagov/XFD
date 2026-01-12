@@ -66,6 +66,9 @@ jobs:
 
       - name: Check Lambda size
         run: ./check_lambda_package_size.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   build_worker:
     runs-on: ubuntu-latest
