@@ -84,7 +84,14 @@ def get_domain_by_id(domain_id: str):
                     "id": service.id,
                     "port": service.port,
                     "last_seen": service.last_seen,
-                    "products": service.products,
+                    "products": [
+                        {
+                            "name": service.service,
+                            "cpe": service.service_cpe,
+                            "tags": service.tags or [],
+                            "vendor": service.vendor,
+                        }
+                    ],
                 }
                 for service in domain.services.all()
             ],

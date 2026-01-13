@@ -1362,27 +1362,13 @@ class Service(models.Model):
         null=True,
         help_text="Text that is automatically sent back to a client when they connect to the service.",
     )
-    products = models.JSONField(help_text="Products identified running on the port.")
-    censys_metadata = models.JSONField(
-        db_column="censys_metadata",
-        help_text="Metadata provided from the Censys scan of the service.",
+    service_cpe = models.TextField(
+        blank=True, null=True, help_text="CPE id associated with the service."
     )
-    censys_ipv4_results = models.JSONField(
-        db_column="censys_ipv4_results",
-        help_text="IPv4 results provided from the Censys scan of the service.",
+    tags = models.TextField(
+        blank=True, null=True, help_text="Tags associated with the service."
     )
-    intrigue_ident_results = models.JSONField(
-        db_column="intrigue_ident_results",
-        help_text="Additional details about the service provided by Intrigue scans.",
-    )
-    shodan_results = models.JSONField(
-        db_column="shodan_results",
-        help_text="Details about the service identified through the Shodan scan.",
-    )
-    wappalyzer_results = models.JSONField(
-        db_column="wappalyzer_results",
-        help_text="Details about the service identified by the wappalyzer scan.",
-    )
+    vendor = models.TextField(blank=True, null=True, help_text="Vendor of the service.")
     domain = models.ForeignKey(
         "Domain",
         models.DO_NOTHING,

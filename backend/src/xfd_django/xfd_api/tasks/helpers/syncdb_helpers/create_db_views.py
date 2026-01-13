@@ -309,13 +309,6 @@ def create_vuln_materialized_views(database):
 
         cursor.execute(
             """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_substate
-        ON mat_vw_combined_vulns (substate);
-        """
-        )
-
-        cursor.execute(
-            """
         CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_is_kev
         ON mat_vw_combined_vulns (is_kev);
         """
@@ -325,13 +318,6 @@ def create_vuln_materialized_views(database):
             """
         CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_created_at
         ON mat_vw_combined_vulns (created_at);
-        """
-        )
-
-        cursor.execute(
-            """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_scan_source
-        ON mat_vw_combined_vulns (scan_source);
         """
         )
 
@@ -362,49 +348,9 @@ def create_vuln_materialized_views(database):
 
         cursor.execute(
             """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_cpe_trgm
-        ON mat_vw_combined_vulns
-        USING gin (cpe gin_trgm_ops);
-        """
-        )
-
-        cursor.execute(
-            """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_os_trgm
-        ON mat_vw_combined_vulns
-        USING gin (os gin_trgm_ops);
-        """
-        )
-
-        cursor.execute(
-            """
         CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_cve_trgm
         ON mat_vw_combined_vulns
         USING gin (cve gin_trgm_ops);
-        """
-        )
-
-        cursor.execute(
-            """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_cwe_trgm
-        ON mat_vw_combined_vulns
-        USING gin (cwe gin_trgm_ops);
-        """
-        )
-
-        cursor.execute(
-            """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_port_trgm
-        ON mat_vw_combined_vulns
-        USING gin (port gin_trgm_ops);
-        """
-        )
-
-        cursor.execute(
-            """
-        CREATE INDEX IF NOT EXISTS idx_mat_vw_combined_vulns_service_string_trgm
-        ON mat_vw_combined_vulns
-        USING gin (service_string gin_trgm_ops);
         """
         )
 
@@ -454,6 +400,7 @@ def create_domain_materialized_view(database):
                 ips_subs link ON sub.sub_domain_uid = link.sub_domain_id
             LEFT JOIN
                 ip ON ip.id = link.ip_id
+            WHERE sub.last_seen >= now() - interval '90 days'
             GROUP BY
                 sub.sub_domain_uid, sub.created_at, sub.updated_at, sub.synced_at,
                 sub.from_root_domain, sub.subdomain_source, sub.ip_only,
@@ -492,7 +439,8 @@ def create_domain_materialized_view(database):
             FROM
                 ip
             WHERE
-                ip.id NOT IN (SELECT ip_id FROM ips_subs);
+                ip.id NOT IN (SELECT ip_id FROM ips_subs)
+                AND ip.updated_timestamp >= now() - interval '90 days';
         """
         )
         # Add unique index to allow REFRESH CONCURRENTLY
@@ -516,17 +464,9 @@ def create_domain_materialized_view(database):
             "CREATE INDEX idx_vw_domain_organization_id ON mat_vw_domain (organization_id);"
         )
         cursor.execute("CREATE INDEX idx_vw_domain_name ON mat_vw_domain (name);")
-        cursor.execute(
-            "CREATE INDEX idx_vw_domain_reverse_name ON mat_vw_domain (reverse_name);"
-        )
+
         cursor.execute("CREATE INDEX idx_vw_domain_ip ON mat_vw_domain (ip);")
-        cursor.execute("CREATE INDEX idx_vw_domain_source ON mat_vw_domain (source);")
-        cursor.execute(
-            "CREATE INDEX idx_vw_domain_created_at ON mat_vw_domain (created_at);"
-        )
-        cursor.execute(
-            "CREATE INDEX idx_vw_domain_updated_at ON mat_vw_domain (updated_at);"
-        )
+
         cursor.execute(
             "CREATE INDEX CONCURRENTLY idx_vw_domain_org_id_id ON mat_vw_domain (organization_id, id);"
         )
@@ -558,26 +498,15 @@ def create_service_mat_view(database):
                 s.port,
                 COALESCE(s.product, s.server) AS service,
                 s.server AS banner,
-                jsonb_build_array(
-                jsonb_build_object(
-                        'name', COALESCE(s.product, s.server),
-                        'cpe', NULL,
-                        'tags', COALESCE(s.tags, '[]'::jsonb),
-                        'vendor',
-                            CASE
-                                WHEN s.product ILIKE 'apache%' THEN 'apache'
-                                WHEN s.product ILIKE 'microsoft%' THEN 'microsoft'
-                                WHEN s.product ILIKE 'nginx%' THEN 'nginx'
-                                WHEN s.product ILIKE 'jquery%' THEN 'jquery'
-                                ELSE split_part(lower(s.product), ' ', 1)
-                            END
-                    )
-                ) AS products,
-                NULL::jsonb AS "censys_metadata",
-                NULL::jsonb AS "censys_ipv4_results",
-                NULL::jsonb AS "intrigue_ident_results",
-                NULL::jsonb AS "shodan_results",
-                NULL::jsonb AS "wappalyzer_results",
+                NULL::text AS service_cpe,
+                COALESCE(s.tags, '[]'::jsonb) AS tags,
+                CASE
+                    WHEN s.product ILIKE 'apache%' THEN 'apache'
+                    WHEN s.product ILIKE 'microsoft%' THEN 'microsoft'
+                    WHEN s.product ILIKE 'nginx%' THEN 'nginx'
+                    WHEN s.product ILIKE 'jquery%' THEN 'jquery'
+                    ELSE split_part(lower(s.product), ' ', 1)
+                END AS vendor,
                 s.timestamp AS "last_seen",
                 s.ip_string AS "ip_string",
                 COALESCE(sub_link.sub_domain_id,s.ip_uid) AS domain_id,
@@ -607,26 +536,15 @@ def create_service_mat_view(database):
                 ps.port,
                 ps.service_name AS service,
                 ps.service_product AS banner,
-                jsonb_build_array(
-                    jsonb_build_object(
-                        'name', ps.service_name,
-                        'cpe', ps.service_cpe,
-                        'tags', '[]'::jsonb,
-                        'vendor',
-                            CASE
-                                WHEN ps.service_name ILIKE 'apache%' THEN 'apache'
-                                WHEN ps.service_name ILIKE 'microsoft%' THEN 'microsoft'
-                                WHEN ps.service_name ILIKE 'nginx%' THEN 'nginx'
-                                WHEN ps.service_name ILIKE 'jquery%' THEN 'jquery'
-                                ELSE split_part(lower(ps.service_name), ' ', 1)
-                            END
-                    )
-                ) AS products,
-                NULL::jsonb AS censys_metadata,
-                NULL::jsonb AS censys_ipv4_results,
-                NULL::jsonb AS intrigue_ident_results,
-                NULL::jsonb AS shodan_results,
-                NULL::jsonb AS wappalyzer_results,
+                ps.service_cpe AS service_cpe,
+                '[]'::jsonb AS tags,
+                CASE
+                    WHEN ps.service_name ILIKE 'apache%' THEN 'apache'
+                    WHEN ps.service_name ILIKE 'microsoft%' THEN 'microsoft'
+                    WHEN ps.service_name ILIKE 'nginx%' THEN 'nginx'
+                    WHEN ps.service_name ILIKE 'jquery%' THEN 'jquery'
+                    ELSE split_part(lower(ps.service_name), ' ', 1)
+                END AS vendor,
                 ps.time_scanned AS last_seen,
                 ps.ip_string AS ip_string,
                 COALESCE(sub_link.sub_domain_id, ps.ip_id) AS domain_id,
@@ -671,18 +589,6 @@ def create_service_mat_view(database):
 
         cursor.execute(
             """
-        CREATE INDEX IF NOT EXISTS idx_vw_service_port ON mat_vw_service (port);
-        """
-        )
-
-        cursor.execute(
-            """
-        CREATE INDEX IF NOT EXISTS idx_vw_service_service_source ON mat_vw_service (service_source);
-        """
-        )
-
-        cursor.execute(
-            """
         CREATE INDEX IF NOT EXISTS idx_vw_service_updated_at ON mat_vw_service (updated_at);
         """
         )
@@ -713,7 +619,7 @@ def create_domain_search_mat_view(database):
                     s.domain_id,
                     s.id AS service_id,
                     s.port,
-                    COALESCE(s.service, (s.products->0->>'name')) AS service_name,
+                    COALESCE(s.service, s.banner) AS service_name,
                     s.last_seen
                 FROM mat_vw_service s
             ),
