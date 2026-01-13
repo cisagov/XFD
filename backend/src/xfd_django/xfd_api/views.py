@@ -1271,7 +1271,7 @@ async def dns_twist_sync(
     try:
         return await dns_twist_sync_post(sync_body, request, current_user)
     except Exception as e:
-        LOGGER.error("Error occurred during DNSTwist sync: %s", e)
+        print(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e)
         )
@@ -1613,8 +1613,8 @@ async def call_get_users_v2(
     return get_users_v2(state, region_id, invite_pending, current_user)
 
 
-@api_router.post(
-    "/v2/update_user/{user_id}",
+@api_router.put(
+    "/v2/users/{user_id}",
     dependencies=[Depends(get_current_active_user_unsafe)],
     response_model=UserResponseV2,
     tags=["Users"],

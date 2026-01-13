@@ -1641,7 +1641,7 @@ def test_standard_user_cannot_clear_invite_pending():
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "You do not have permission to perform this action."
+        == "Unauthorized to update the following fields: invite_pending"
     )
 
 
@@ -1667,7 +1667,7 @@ def test_standard_user_cannot_self_approve():
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "You do not have permission to perform this action."
+        == "Unauthorized to update the following fields: date_approved"
     )
 
 
