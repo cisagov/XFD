@@ -254,7 +254,7 @@ describe('Header / NavMenuDrawer role-based menus', () => {
     vi.clearAllMocks();
   });
 
-  it('does not show Admin Hub for STANDARD_USER (userLevel = 1)', async () => {
+  it('does not show Admin Hub for STANDARD_USER', async () => {
     mockedUseUserLevel.mockReturnValue({
       userLevel: STANDARD_USER,
       user_type: 'standard',
@@ -271,7 +271,7 @@ describe('Header / NavMenuDrawer role-based menus', () => {
     expect(drawerQueries.queryByText(/admin hub/i)).not.toBeInTheDocument();
   });
 
-  it('shows Admin Hub without Admin Tools for REGIONAL_ADMIN (userLevel = 2)', async () => {
+  it('shows Admin Hub without Admin Tools for REGIONAL_ADMIN', async () => {
     const user = userEvent.setup();
 
     mockedUseUserLevel.mockReturnValue({
@@ -314,7 +314,7 @@ describe('Header / NavMenuDrawer role-based menus', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows Admin Hub with Admin Tools for GLOBAL_ADMIN (userLevel = 4)', async () => {
+  it('shows Admin Hub with Admin Tools for GLOBAL_ADMIN', async () => {
     const user = userEvent.setup();
 
     mockedUseUserLevel.mockReturnValue({
@@ -359,7 +359,7 @@ describe('Header / NavMenuDrawer role-based menus', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows Admin Hub without Admin Tools for GLOBAL_VIEW (userLevel = 3)', async () => {
+  it('shows Admin Hub without Admin Tools for GLOBAL_VIEW', async () => {
     const user = userEvent.setup();
 
     mockedUseUserLevel.mockReturnValue({
