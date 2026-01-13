@@ -251,7 +251,7 @@ def process_org(org, orgs_list, data_source, failures):
                 # Get subdomain uid
                 # Check Blocklist
                 for dom in finalorglist:
-                    LOGGER.info("Checking Blocklist: %s", dom)
+                    LOGGER.info("Checking blocklist: %s", dom)
                     domain_dict, perm_list = checkBlocklist(
                         dom, data_source, org, perm_list
                     )
