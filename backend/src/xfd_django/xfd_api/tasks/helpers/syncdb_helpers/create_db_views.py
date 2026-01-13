@@ -48,12 +48,12 @@ def create_vuln_normal_views(database):
                 FROM ips_subs
                 ORDER BY ip_id, sub_domain_id
             )
-            SELECT DISTINCT ON (t.id)
+            SELECT
                 'vuln_scanning_tickets' AS scan_source,
                 t.id AS vuln_id,
                 t.opened_timestamp::timestamp AS created_at,
                 t.updated_timestamp::timestamp AS updated_at,
-                COALESCE(t.closed_timestamp::timestamp, t.updated_timestamp::timestamp) AS last_seen,
+                COALESCE(t.closed_timestamp, t.updated_timestamp) AS last_seen,
                 t.cve_string AS cve,
                 t.vuln_name AS title,
                 vs.cpe AS product,
@@ -99,7 +99,8 @@ def create_vuln_normal_views(database):
             FROM ticket t
             LEFT JOIN latest_ticket_event te ON te.ticket_id = t.id
             LEFT JOIN vuln_scan vs ON vs.id = te.vuln_scan_id
-            LEFT JOIN latest_ip_sub sub_link ON sub_link.ip_id = t.ip_id;
+            LEFT JOIN latest_ip_sub sub_link ON sub_link.ip_id = t.ip_id
+            WHERE COALESCE(t.closed_timestamp, t.updated_timestamp) >= now() - interval '90 days';
             """
         )
 

@@ -8,7 +8,8 @@ import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db.models.functions import Coalesce
 from netfields import InetAddressField
 
 manage_db = True
@@ -1722,8 +1723,13 @@ class TicketEvent(models.Model):
             models.Index(fields=["vuln_scan"]),
             models.Index(fields=["ticket", "port_scan"]),
             models.Index(fields=["ticket", "vuln_scan"]),
-            models.Index(fields=["ticket", "-event_timestamp", "id"]),
+            # Index to improve latest_ticket_event filter in vw_ticket_vulns
+            models.Index(
+                fields=["ticket", "-event_timestamp", "-id"],
+                name="ticket_event_latest_idx",
+            ),
         ]
+
         db_table = "ticket_event"
         unique_together = ("event_timestamp", "ticket", "action")
 
@@ -3035,6 +3041,14 @@ class Ticket(models.Model):
             models.Index(fields=["ip_string"], name="tickets_ip_idx"),
             # 3. Optional: cover “open” tickets if you often filter by is_open
             models.Index(fields=["is_open"], name="tickets_is_open_idx"),
+            # TODO: Maybe add an index here that helps do the 90 day view filter
+            models.Index(
+                Coalesce(
+                    F("closed_timestamp"),
+                    F("updated_timestamp"),
+                ),
+                name="ticket_last_seen_idx",
+            ),
         ]
         db_table = "ticket"
         unique_together = ["id"]
