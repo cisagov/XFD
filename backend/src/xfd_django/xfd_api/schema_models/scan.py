@@ -457,8 +457,8 @@ SCAN_SCHEMA = {
         type="fargate",
         is_passive=True,
         global_scan=True,
-        cpu="2048",
-        memory="16384",
+        cpu="1024",
+        memory="8192",
         description="Rerun VS Summary fills.",
     ),
     "refresh_material_views": ScanSchema(

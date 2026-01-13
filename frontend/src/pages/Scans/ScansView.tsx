@@ -88,8 +88,10 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans');
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      }>(ENDPOINTS.SCANS);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
