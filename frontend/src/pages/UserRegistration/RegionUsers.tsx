@@ -12,7 +12,7 @@ import {
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import { User, Organization as OrganizationType } from 'types';
+import { User } from 'types';
 import { initializeUser } from '@/constants/userAndOrgData';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
@@ -25,9 +25,9 @@ import { logger } from '@/utils/logger';
 import { transformUserData } from '@/utils/transformTableData';
 import {
   getPendingUserColumns,
-  getMemberUserColumns,
-  organizationCols as orgCols
+  getMemberUserColumns
 } from './UserRegistrationColumns';
+import { OrganizationSelector } from './OrganizationSelector';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -38,7 +38,6 @@ type DialogStates = {
 };
 
 type ErrorStates = {
-  getOrgsError: string;
   getUsersError: string;
   getUpdateError: string;
   getDeleteError: string;
@@ -62,7 +61,6 @@ export const RegionUsers: React.FC = () => {
     isUserAlreadyApprovedDialogOpen: false
   });
   const [errorStates, setErrorStates] = useState<ErrorStates>({
-    getOrgsError: '',
     getUsersError: '',
     getUpdateError: '',
     getDeleteError: ''
@@ -72,36 +70,10 @@ export const RegionUsers: React.FC = () => {
     type: 'include',
     ids: new Set<string | number>()
   });
-  const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
 
-  const fetchOrganizations = async (row: User) => {
-    if (!row.region_id) {
-      setOrganizations([]);
-      setErrorStates((prev) => ({
-        ...prev,
-        getOrgsError: 'This user has no region assigned.'
-      }));
-      return;
-    }
-    try {
-      const rows = await apiGet<OrganizationType[]>(
-        ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', row.region_id)
-      );
-      setOrganizations(rows);
-      if (row.roles.length > 0) {
-        setSelectedOrg({
-          type: 'include',
-          ids: new Set([row.roles[0].organization.id])
-        });
-      }
-      setErrorStates({ ...errorStates, getOrgsError: '', getUpdateError: '' });
-    } catch (e: any) {
-      setErrorStates({ ...errorStates, getOrgsError: e.message });
-    }
-  };
   const fetchPendingUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}true`);
@@ -255,7 +227,6 @@ export const RegionUsers: React.FC = () => {
       isOrgDialogOpen: true
     });
     selectUser(row);
-    fetchOrganizations(row);
   };
 
   const handleDenyClick = (row: typeof initializeUser) => {
@@ -385,31 +356,6 @@ export const RegionUsers: React.FC = () => {
       setErrorStates({ ...errorStates, getUpdateError: e.message });
     }
   };
-  const onRowSelectionModelChange = (
-    newRowSelectionModel: GridRowSelectionModel
-  ) => {
-    const newIds = Array.isArray(newRowSelectionModel)
-      ? newRowSelectionModel
-      : Array.from(newRowSelectionModel.ids);
-
-    if (newIds.length > 1) {
-      const lastSelected = newIds[newIds.length - 1];
-      setSelectedOrg({
-        type: 'include',
-        ids: new Set([lastSelected])
-      });
-    } else if (newIds.length === 1) {
-      setSelectedOrg({
-        type: 'include',
-        ids: new Set(newIds)
-      });
-    } else {
-      setSelectedOrg({
-        type: 'include',
-        ids: new Set()
-      });
-    }
-  };
 
   return (
     <Box
@@ -473,55 +419,17 @@ export const RegionUsers: React.FC = () => {
         onCancel={handleApproveCancelClick}
         title={`Add ${selectedUser.full_name} to an organization in Region ${selectedUser.region_id}`}
         content={
-          <>
-            <Typography mb={3}>
-              To complete the approval process, select one organization for this
-              user to join.
-            </Typography>
-            <Paper sx={{ height: 600, margin: 'auto' }}>
-              <DataGrid
-                checkboxSelection
-                onRowSelectionModelChange={onRowSelectionModelChange}
-                rowSelectionModel={selectedOrg}
-                rows={organizations ?? []}
-                columns={orgCols}
-                slots={{ toolbar: GridToolbar }}
-                slotProps={{
-                  toolbar: {
-                    showQuickFilter: false,
-                    csvOptions: { disableToolbarButton: true },
-                    printOptions: { disableToolbarButton: true }
-                  }
-                }}
-                sx={{
-                  '& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer':
-                    {
-                      display: 'none'
-                    }
-                }}
-                disableRowSelectionOnClick
-                showToolbar
-              />
-            </Paper>
-            {errorStates.getOrgsError && (
-              <Alert severity="error">
-                Error retrieving organizations: {errorStates.getOrgsError}
-              </Alert>
-            )}
-            {selectedOrg.ids.size !== 0 &&
-              errorStates.getUpdateError.length === 0 && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  {selectedUser.full_name} will become a member of the selected
-                  organization.
-                </Alert>
-              )}
-            {errorStates.getUpdateError.length !== 0 && (
-              <Alert severity="error">
-                Error updating user: {errorStates.getUpdateError}. See the
-                network tab for more details.
-              </Alert>
-            )}
-          </>
+          <OrganizationSelector
+            regionId={selectedUser.region_id}
+            selectedUser={selectedUser}
+            initialOrgId={selectedUser.roles[0]?.organization.id}
+            onSelectionChange={(id) => {
+              setSelectedOrg({
+                type: 'include',
+                ids: new Set(id ? [id] : [])
+              });
+            }}
+          />
         }
         disabled={selectedOrg.ids.size === 0}
         screenWidth="lg"
