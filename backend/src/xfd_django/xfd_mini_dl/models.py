@@ -3041,7 +3041,6 @@ class Ticket(models.Model):
             models.Index(fields=["ip_string"], name="tickets_ip_idx"),
             # 3. Optional: cover “open” tickets if you often filter by is_open
             models.Index(fields=["is_open"], name="tickets_is_open_idx"),
-            # TODO: Maybe add an index here that helps do the 90 day view filter
             models.Index(
                 Coalesce(
                     F("closed_timestamp"),
