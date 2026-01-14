@@ -24,6 +24,7 @@ defaults:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment: staging
     timeout-minutes: 20
     steps:
       - name: Checkout code
@@ -63,6 +64,13 @@ jobs:
 
       - name: Run pytest
         run: make pytest
+
+      - name: Check Lambda size
+        run: ./check_lambda_package_size.sh
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          SLS_DEBUG: '*'
 
   build_worker:
     runs-on: ubuntu-latest
@@ -109,14 +117,14 @@ jobs:
         run: npm ci
 
       - name: Ensure domain exists
-        run: npx sls create_domain --stage=staging-cd
+        run: npx serverless create_domain --stage=staging-cd
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SLS_DEBUG: '*'
 
       - name: Deploy backend
-        run: npx sls deploy --stage=staging-cd
+        run: npx serverless deploy --stage=staging-cd
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -172,14 +180,14 @@ jobs:
         run: npm ci
 
       - name: Ensure domain exists
-        run: npx sls create_domain --stage=integration
+        run: npx serverless create_domain --stage=integration
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           SLS_DEBUG: '*'
 
       - name: Deploy backend
-        run: npx sls deploy --stage=integration --force
+        run: npx serverless deploy --stage=integration --force
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
