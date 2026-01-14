@@ -299,7 +299,9 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
 
     # Update additional fields
     user.cognito_username = None
-    user.cognito_use_case_description = identity["nickname"]
+    user.cognito_use_case_description = (
+        identity["nickname"] if "nickname" in identity else ""
+    )
     user.cognito_email_verified = True
     user.cognito_groups = groups
     user.last_logged_in = datetime.now(timezone.utc)
