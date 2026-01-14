@@ -8,7 +8,8 @@ import uuid
 from django.contrib.postgres.fields import ArrayField
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Q
+from django.db.models.functions import Coalesce
 from netfields import InetAddressField
 
 manage_db = True
@@ -1362,27 +1363,13 @@ class Service(models.Model):
         null=True,
         help_text="Text that is automatically sent back to a client when they connect to the service.",
     )
-    products = models.JSONField(help_text="Products identified running on the port.")
-    censys_metadata = models.JSONField(
-        db_column="censys_metadata",
-        help_text="Metadata provided from the Censys scan of the service.",
+    service_cpe = models.TextField(
+        blank=True, null=True, help_text="CPE id associated with the service."
     )
-    censys_ipv4_results = models.JSONField(
-        db_column="censys_ipv4_results",
-        help_text="IPv4 results provided from the Censys scan of the service.",
+    tags = models.TextField(
+        blank=True, null=True, help_text="Tags associated with the service."
     )
-    intrigue_ident_results = models.JSONField(
-        db_column="intrigue_ident_results",
-        help_text="Additional details about the service provided by Intrigue scans.",
-    )
-    shodan_results = models.JSONField(
-        db_column="shodan_results",
-        help_text="Details about the service identified through the Shodan scan.",
-    )
-    wappalyzer_results = models.JSONField(
-        db_column="wappalyzer_results",
-        help_text="Details about the service identified by the wappalyzer scan.",
-    )
+    vendor = models.TextField(blank=True, null=True, help_text="Vendor of the service.")
     domain = models.ForeignKey(
         "Domain",
         models.DO_NOTHING,
@@ -1736,8 +1723,13 @@ class TicketEvent(models.Model):
             models.Index(fields=["vuln_scan"]),
             models.Index(fields=["ticket", "port_scan"]),
             models.Index(fields=["ticket", "vuln_scan"]),
-            models.Index(fields=["ticket", "-event_timestamp", "id"]),
+            # Index to improve latest_ticket_event filter in vw_ticket_vulns
+            models.Index(
+                fields=["ticket", "-event_timestamp", "-id"],
+                name="ticket_event_latest_idx",
+            ),
         ]
+
         db_table = "ticket_event"
         unique_together = ("event_timestamp", "ticket", "action")
 
@@ -3049,6 +3041,13 @@ class Ticket(models.Model):
             models.Index(fields=["ip_string"], name="tickets_ip_idx"),
             # 3. Optional: cover “open” tickets if you often filter by is_open
             models.Index(fields=["is_open"], name="tickets_is_open_idx"),
+            models.Index(
+                Coalesce(
+                    F("closed_timestamp"),
+                    F("updated_timestamp"),
+                ),
+                name="ticket_last_seen_idx",
+            ),
         ]
         db_table = "ticket"
         unique_together = ["id"]
@@ -5676,6 +5675,7 @@ class SubDomains(AutoLengthCheckModel):
     last_seen = models.DateTimeField(
         blank=True,
         null=True,
+        auto_now=True,
         help_text="Date of the last time the subdomain was seen.",
     )
     created_at = models.DateTimeField(

@@ -38,7 +38,13 @@ def get_domain_by_id(domain_id: str):
                 Prefetch(
                     "services",
                     queryset=Service.objects.only(
-                        "id", "port", "service", "last_seen", "products"
+                        "id",
+                        "port",
+                        "service",
+                        "last_seen",
+                        "service_cpe",
+                        "tags",
+                        "vendor",
                     ),
                 ),
             )
@@ -84,7 +90,14 @@ def get_domain_by_id(domain_id: str):
                     "id": service.id,
                     "port": service.port,
                     "last_seen": service.last_seen,
-                    "products": service.products,
+                    "products": [
+                        {
+                            "name": service.service,
+                            "cpe": service.service_cpe,
+                            "tags": service.tags or [],
+                            "vendor": service.vendor,
+                        }
+                    ],
                 }
                 for service in domain.services.all()
             ],
