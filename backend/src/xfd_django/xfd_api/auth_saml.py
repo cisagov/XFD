@@ -2,8 +2,12 @@
 
 # Standard Python Libraries
 from datetime import datetime, timezone
+
+# import http
 import logging
 import os
+
+# import re
 import ssl
 from typing import Any, Dict, Optional
 import urllib.parse
@@ -19,16 +23,21 @@ from onelogin.saml2.settings import OneLogin_Saml2_Settings
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_mini_dl.models import User
 
-from .auth import (
+from .auth import (  # csrf_protect,
+    clear_auth_and_csrf_cookies,
     create_jwt_token,
+    set_auth_and_csrf_cookies,
     update_login_block_status,
     user_to_dict,
     validate_json_serialization,
 )
 
+# from xfd_api.views import api_router as router
+
 LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
+# router = APIRouter(dependencies=[Depends(csrf_protect)])
 
 
 # =============================================================================
@@ -311,34 +320,40 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
     return user
 
 
-def _redirect_with_cookies(relay: Optional[str], token: str) -> RedirectResponse:
+def _redirect_with_cookies(
+    relay: Optional[str], token: str, request: Request
+) -> RedirectResponse:
     """Return a 303 redirect to the SPA and set auth cookies."""
     relay_path = _path_only(relay)
     target = f"{FRONTEND_DOMAIN.rstrip('/')}{relay_path}"
     resp = RedirectResponse(target, status_code=303)
 
-    is_https = BACKEND_DOMAIN.startswith("https://")
+    # is_https = BACKEND_DOMAIN.startswith("https://")
     # TODO: CRASM-3443 Refactor token usage globally to reduce security risks for XSS.
     # Avoid tokens in localStorage and set cookie flags appropriately for security.
     # Determine need for "token" and "crossfeed-token" and adjust accordingly.
 
     # Set auth cookies to match current design expectations.
-    resp.set_cookie(
-        "token",
-        token,
-        secure=is_https,
-        samesite="None" if not IS_LOCAL else "Lax",
-        path="/",
-        domain=COOKIE_DOMAIN,
-    )
-    resp.set_cookie(
-        "crossfeed-token",
-        token,
-        secure=is_https,
-        samesite="None" if not IS_LOCAL else "Lax",
-        path="/",
-        domain=COOKIE_DOMAIN,
-    )
+    # resp.set_cookie(
+    #     "token",
+    #     token,
+    #     secure=is_https,
+    #     # httponly=True,
+    #     samesite="None" if not IS_LOCAL else "Lax",
+    #     path="/",
+    #     domain=COOKIE_DOMAIN,
+    # )
+    # resp.set_cookie(
+    #     "crossfeed-token",
+    #     token,
+    #     secure=is_https,
+    #     # httponly=True,
+    #     samesite="None" if not IS_LOCAL else "Lax",
+    #     path="/",
+    #     domain=COOKIE_DOMAIN,
+    # )
+    set_auth_and_csrf_cookies(resp, token, request)
+
     return resp
 
 
@@ -395,15 +410,21 @@ async def saml_acs(request: Request):
     validate_json_serialization(user_to_dict(user), label="User Dict")
 
     relay = form.get("RelayState") or "/"
-    return _redirect_with_cookies(relay, token)
+    return _redirect_with_cookies(relay, token, request)
 
 
 @router.get("/saml/logout")
 def saml_logout(request: Request, next: str = "/"):
     """Log the user out of the app and clear auth cookies."""
+    # next_path = _path_only(request.query_params.get("next"))
+    # target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
+    # resp = RedirectResponse(target, status_code=303)
+    # resp.delete_cookie("token", path="/")
+    # resp.delete_cookie("crossfeed-token", path="/")
+    # return resp
     next_path = _path_only(request.query_params.get("next"))
     target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
     resp = RedirectResponse(target, status_code=303)
-    resp.delete_cookie("token", path="/")
-    resp.delete_cookie("crossfeed-token", path="/")
+
+    clear_auth_and_csrf_cookies(resp, request)
     return resp

@@ -27,13 +27,14 @@ export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
   component,
   ...rest
 }) => {
-  const { token, user, logout } = useAuthContext();
+  // const { token, user, logout } = useAuthContext();
+  const { user, logout } = useAuthContext();
   const history = useHistory();
 
-  if (token && !user) {
-    // waiting on user profile
-    return null;
-  }
+  // if (token && !user) {
+  //   // waiting on user profile
+  //   return null;
+  // }
 
   // user has authenticated and registered but needs to create an account
   if (user && !user.isRegistered) {
