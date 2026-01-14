@@ -196,7 +196,6 @@ export function useKeyboardNavigableWidget({
   // Implements roving tabindex: focused cell gets 0, others get -1, defaults to first cell
   const getTabIndex = useCallback(
     (index: number) => {
-      console.log(`Getting tabIndex for cell ${index}`);
       if (disabled) return -1;
 
       // If no cell is focused yet (-1), make first cell tabbable
