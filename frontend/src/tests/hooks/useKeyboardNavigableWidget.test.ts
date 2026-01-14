@@ -8,19 +8,6 @@
  * - Disabled state behavior
  * - Tab index management
  * - Focus props generation
- * - Callbac    it('should update focus index when onFocus is called', () => {
-      const { result } = renderHook(() =>
-        useKeyboardNavigableWidget(defaultKeyboardNavOptions)
-      );
-
-      const focusProps = result.current.getCellFocusProps(3, 0);
-
-      act(() => {
-        focusProps.onFocus();
-      });
-
-      expect(result.current.focusedIndex).toBe(3);
- * - Edge cases (empty collections, single items)
  *
  */
 
@@ -269,7 +256,10 @@ describe('useKeyboardNavigableWidget', () => {
   describe('Disabled state', () => {
     it('should not handle keyboard events when disabled', () => {
       const { result } = renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, disabled: true })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          disabled: true
+        })
       );
 
       const keyDownEvent = {
@@ -286,7 +276,10 @@ describe('useKeyboardNavigableWidget', () => {
 
     it('should return -1 for tabIndex when disabled', () => {
       const { result } = renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, disabled: true })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          disabled: true
+        })
       );
 
       expect(result.current.getTabIndex(0)).toBe(-1);
@@ -305,12 +298,12 @@ describe('useKeyboardNavigableWidget', () => {
       expect(result.current.getTabIndex(0)).toBe(0);
       expect(result.current.getTabIndex(1)).toBe(-1);
       expect(result.current.getTabIndex(4)).toBe(-1);
-      
+
       // After focusing item 2, only item 2 should be tabbable
       act(() => {
         result.current.setFocusedIndex(2);
       });
-      
+
       expect(result.current.getTabIndex(0)).toBe(-1);
       expect(result.current.getTabIndex(1)).toBe(-1);
       expect(result.current.getTabIndex(2)).toBe(0);
@@ -370,7 +363,10 @@ describe('useKeyboardNavigableWidget', () => {
     it('should call onFocusChange when focus changes', () => {
       const onFocusChange = vi.fn();
       const { result } = renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, onFocusChange })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          onFocusChange
+        })
       );
 
       act(() => {
@@ -383,7 +379,10 @@ describe('useKeyboardNavigableWidget', () => {
     it('should not call onFocusChange when focus is -1', () => {
       const onFocusChange = vi.fn();
       renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, onFocusChange })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          onFocusChange
+        })
       );
 
       expect(onFocusChange).not.toHaveBeenCalled();
@@ -392,7 +391,10 @@ describe('useKeyboardNavigableWidget', () => {
     it('should call onFocusChange when focus changes via keyboard', () => {
       const onFocusChange = vi.fn();
       const { result } = renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, onFocusChange })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          onFocusChange
+        })
       );
 
       const keyDownEvent = {
@@ -412,7 +414,10 @@ describe('useKeyboardNavigableWidget', () => {
   describe('Edge cases', () => {
     it('should handle empty collection (itemCount = 0)', () => {
       const { result } = renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, itemCount: 0 })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          itemCount: 0
+        })
       );
 
       const keyDownEvent = {
@@ -429,7 +434,10 @@ describe('useKeyboardNavigableWidget', () => {
 
     it('should handle single item collection', () => {
       const { result } = renderHook(() =>
-        useKeyboardNavigableWidget({ ...defaultKeyboardNavOptions, itemCount: 1 })
+        useKeyboardNavigableWidget({
+          ...defaultKeyboardNavOptions,
+          itemCount: 1
+        })
       );
 
       // Arrow down should go to item 0
