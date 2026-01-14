@@ -27,6 +27,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   selectedUser
 }) => {
   const { apiGet } = useAuthContext();
+  const [loading, setLoading] = useState<boolean>(false);
   const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [internalErrorStates, setInternalErrorStates] = useState({
     getOrgsError: '',
@@ -40,7 +41,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
       ids: new Set<string | number>(initialOrgId ? [initialOrgId] : [])
     });
 
-  const fetchOrganizations = async () => {
+  const fetchOrganizations = React.useCallback(async () => {
     if (!regionId) {
       setOrganizations([]);
       setInternalErrorStates((prev) => ({
@@ -49,20 +50,23 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
       }));
       return;
     }
+    setLoading(true);
     try {
       const rows = await apiGet<OrganizationType[]>(
         ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', regionId)
       );
       setOrganizations(rows);
       setInternalErrorStates({ getOrgsError: '', getUpdateError: '' });
+      setLoading(false);
     } catch (e: any) {
       setInternalErrorStates((prev) => ({ ...prev, getOrgsError: e.message }));
+      setLoading(false);
     }
-  };
+  }, [regionId, apiGet]);
 
   useEffect(() => {
     fetchOrganizations();
-  }, [regionId]);
+  }, [fetchOrganizations]);
 
   const onRowSelectionModelChange = (
     newRowSelectionModel: GridRowSelectionModel
@@ -125,6 +129,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
           }}
           disableRowSelectionOnClick
           showToolbar
+          loading={loading}
         />
       </Paper>
 
