@@ -38,7 +38,7 @@ def get_domain_by_id(domain_id: str):
                 Prefetch(
                     "services",
                     queryset=Service.objects.only(
-                        "id", "port", "service", "last_seen", "products"
+                        "id", "port", "service", "last_seen", "service_cpe", "tags", "vendor"
                     ),
                 ),
             )

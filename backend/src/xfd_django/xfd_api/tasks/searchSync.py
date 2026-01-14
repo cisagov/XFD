@@ -141,7 +141,6 @@ def handler(command_options):
                                         "vendor": service.vendor,
                                     }
                                 ],
-                                "censys_metadata": service.censys_metadata,
                             }
                             for service in domain.services.all()
                         ],
