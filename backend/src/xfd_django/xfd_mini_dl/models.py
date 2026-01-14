@@ -5676,6 +5676,7 @@ class SubDomains(AutoLengthCheckModel):
     last_seen = models.DateTimeField(
         blank=True,
         null=True,
+        auto_now=True,
         help_text="Date of the last time the subdomain was seen.",
     )
     created_at = models.DateTimeField(
