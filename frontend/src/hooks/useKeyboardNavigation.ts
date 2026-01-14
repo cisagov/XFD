@@ -28,12 +28,6 @@ interface KeyboardNavigationResult {
   setFocusedIndex: (index: number) => void;
   handleKeyDown: (event: React.KeyboardEvent) => void;
   getTabIndex: (index: number) => number;
-  getFocusProps: (index: number) => {
-    tabIndex: number;
-    'data-focused': boolean;
-    'aria-current': boolean;
-    onFocus: () => void;
-  };
   getCellFocusProps: (
     rowIndex: number,
     columnIndex: number
@@ -207,17 +201,6 @@ export function useKeyboardNavigation({
     [disabled]
   );
 
-  // Memoized utility that creates a standardized set of props for making list items properly focusable and accessible
-  const getFocusProps = useCallback(
-    (index: number) => ({
-      tabIndex: getTabIndex(index),
-      'data-focused': focusedIndex === index,
-      'aria-current': focusedIndex === index,
-      onFocus: () => setFocusedIndex(index)
-    }),
-    [focusedIndex, getTabIndex, setFocusedIndex]
-  );
-
   // Memoized utility that creates focus props for individual cells in a 2D grid
   const getCellFocusProps = useCallback(
     (rowIndex: number, columnIndex: number) => {
@@ -244,7 +227,6 @@ export function useKeyboardNavigation({
     setFocusedIndex,
     handleKeyDown,
     getTabIndex,
-    getFocusProps,
     getCellFocusProps
   };
 }
