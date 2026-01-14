@@ -118,10 +118,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/integration'
     steps:
       - uses: actions/checkout@v3
-      - name: Debug Directory Structure
-        run: |
-          pwd
-          ls -la .
       - uses: actions/setup-node@v3
         with:
           node-version: '20.19.4'
@@ -149,10 +145,6 @@ jobs:
           cp integration.env .env
           npm run build
         working-directory: ./frontend
-      - name: Debug Directory Structure After Build
-        run: |
-          ls -la ./frontend/docs-build
-          ls -la ./frontend
       - name: Deploy Integration
         run: npx sls deploy --stage=integration
         working-directory: ./frontend
