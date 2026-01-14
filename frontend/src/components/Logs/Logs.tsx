@@ -443,7 +443,10 @@ export const Logs: FC<LogsProps> = () => {
           slotProps={{
             basePopper: {
               placement: 'bottom-start'
-            }
+            },
+            toolbar: {
+              disableExport: true
+            } as any
           }}
           onFilterModelChange={(model) => {
             setFilters(model.items);
