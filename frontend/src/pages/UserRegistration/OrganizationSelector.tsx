@@ -68,37 +68,44 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
     fetchOrganizations();
   }, [fetchOrganizations]);
 
-  const onRowSelectionModelChange = (
-    newRowSelectionModel: GridRowSelectionModel
-  ) => {
-    const newIds = Array.isArray(newRowSelectionModel)
-      ? newRowSelectionModel
-      : Array.from(newRowSelectionModel.ids);
+  const onRowSelectionModelChange = React.useCallback(
+    (newRowSelectionModel: GridRowSelectionModel) => {
+      const newIds = Array.isArray(newRowSelectionModel)
+        ? newRowSelectionModel
+        : Array.from(newRowSelectionModel.ids);
 
-    let finalId: string | null = null;
+      let finalId: string | null = null;
 
-    if (newIds.length > 1) {
-      const lastSelected = newIds[newIds.length - 1];
-      finalId = lastSelected.toString();
-      setLocalSelectedOrg({
-        type: 'include',
-        ids: new Set([lastSelected])
-      });
-    } else if (newIds.length === 1) {
-      finalId = newIds[0].toString();
-      setLocalSelectedOrg({
-        type: 'include',
-        ids: new Set(newIds)
-      });
-    } else {
-      setLocalSelectedOrg({
-        type: 'include',
-        ids: new Set()
-      });
+      if (newIds.length > 1) {
+        const lastSelected = newIds[newIds.length - 1];
+        finalId = lastSelected.toString();
+        setLocalSelectedOrg({
+          type: 'include',
+          ids: new Set([lastSelected])
+        });
+      } else if (newIds.length === 1) {
+        finalId = newIds[0].toString();
+        setLocalSelectedOrg({
+          type: 'include',
+          ids: new Set(newIds)
+        });
+      } else {
+        setLocalSelectedOrg({
+          type: 'include',
+          ids: new Set()
+        });
+      }
+      // Pass the ID back up to the parent
+      onSelectionChange(finalId);
+    },
+    [onSelectionChange]
+  );
+
+  useEffect(() => {
+    if (initialOrgId) {
+      onSelectionChange(initialOrgId);
     }
-    // Pass the ID back up to the parent
-    onSelectionChange(finalId);
-  };
+  }, [initialOrgId, onSelectionChange]);
 
   return (
     <>
