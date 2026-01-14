@@ -8,6 +8,19 @@
  * - Disabled state behavior
  * - Tab index management
  * - Focus props generation
+ * - Callbac    it('should update focus index when onFocus is called', () => {
+      const { result } = renderHook(() =>
+        useKeyboardNavigableWidget(defaultKeyboardNavOptions)
+      );
+
+      const focusProps = result.current.getCellFocusProps(3, 0);
+
+      act(() => {
+        focusProps.onFocus();
+      });
+
+      expect(result.current.focusedIndex).toBe(3);
+ * - Edge cases (empty collections, single items)
  *
  */
 
@@ -283,14 +296,25 @@ describe('useKeyboardNavigableWidget', () => {
 
   // -------------------- Tab Index Management --------------------
   describe('Tab index management', () => {
-    it('should return 0 for all items when not disabled', () => {
+    it('should implement roving tabindex pattern', () => {
       const { result } = renderHook(() =>
         useKeyboardNavigableWidget(defaultKeyboardNavOptions)
       );
 
+      // Initially, first item should be tabbable (focusedIndex = -1)
       expect(result.current.getTabIndex(0)).toBe(0);
-      expect(result.current.getTabIndex(1)).toBe(0);
-      expect(result.current.getTabIndex(4)).toBe(0);
+      expect(result.current.getTabIndex(1)).toBe(-1);
+      expect(result.current.getTabIndex(4)).toBe(-1);
+      
+      // After focusing item 2, only item 2 should be tabbable
+      act(() => {
+        result.current.setFocusedIndex(2);
+      });
+      
+      expect(result.current.getTabIndex(0)).toBe(-1);
+      expect(result.current.getTabIndex(1)).toBe(-1);
+      expect(result.current.getTabIndex(2)).toBe(0);
+      expect(result.current.getTabIndex(4)).toBe(-1);
     });
   });
 
