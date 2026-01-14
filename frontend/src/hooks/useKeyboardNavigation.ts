@@ -11,7 +11,7 @@
  */
 
 // React Hooks
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 
 // Configuration options for keyboard navigation behavior
 interface KeyboardNavigationOptions {
@@ -42,6 +42,7 @@ interface KeyboardNavigationResult {
     'data-focused': boolean;
     'aria-current': boolean;
     onFocus: () => void;
+    ref: (element: HTMLElement | null) => void;
   };
 }
 
@@ -53,6 +54,7 @@ export function useKeyboardNavigation({
   disabled = false
 }: KeyboardNavigationOptions): KeyboardNavigationResult {
   const [focusedIndex, setFocusedIndex] = useState(initialFocusIndex);
+  const cellRefs = useRef<Map<number, HTMLElement>>(new Map());
 
   // Convert linear index to row/column coordinates
   const getCoordinates = (index: number): { row: number; col: number } => {
@@ -78,6 +80,16 @@ export function useKeyboardNavigation({
       onFocusChange(focusedIndex);
     }
   }, [focusedIndex, onFocusChange]);
+
+  // Focus the actual DOM element when focusedIndex changes
+  useEffect(() => {
+    if (focusedIndex !== -1) {
+      const element = cellRefs.current.get(focusedIndex);
+      if (element && document.activeElement !== element) {
+        element.focus();
+      }
+    }
+  }, [focusedIndex]);
 
   // Memoized keyboard event handler for turning keyboard input into focus
   const handleKeyDown = useCallback(
@@ -214,7 +226,14 @@ export function useKeyboardNavigation({
         tabIndex: getTabIndex(cellIndex),
         'data-focused': focusedIndex === cellIndex,
         'aria-current': focusedIndex === cellIndex,
-        onFocus: () => setFocusedIndex(cellIndex)
+        onFocus: () => setFocusedIndex(cellIndex),
+        ref: (element: HTMLElement | null) => {
+          if (element) {
+            cellRefs.current.set(cellIndex, element);
+          } else {
+            cellRefs.current.delete(cellIndex);
+          }
+        }
       };
     },
     [focusedIndex, getTabIndex, setFocusedIndex, getIndex]
