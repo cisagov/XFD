@@ -1,12 +1,19 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import { Organization as OrganizationType, Role } from 'types';
-import { Alert, Box, IconButton, Paper, Typography } from '@mui/material';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import RemoveCircleOutline from '@mui/icons-material/RemoveCircleOutline';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { CheckCircleOutline, RemoveCircleOutline } from '@mui/icons-material';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type OrgMemberProps = {
   organization: OrganizationType;
@@ -93,13 +100,20 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
   const removeUser = async () => {
     try {
       await apiPost(
-        `/organizations/${organization?.id}/roles/${selectedRow?.id}/remove`,
+        ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
+          '{organization_id}',
+          organization?.id
+        ).replace('{role_id}', selectedRow?.id || ''),
         { body: {} }
       );
       setRemoveUserDialogOpen(false);
       setInfoDialogOpen(true);
     } catch (e) {
-      console.error(e);
+      logger.error('OrgMembers.removeUser failed:', {
+        error: e,
+        organizationId: organization?.id,
+        roleId: selectedRow?.id
+      });
       setHasError(e + '.');
     }
   };
@@ -119,13 +133,20 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           columns={userRoleColumns}
           slots={{ toolbar: CustomToolbar }}
           slotProps={{
-            toolbar: { exportTitle: organization?.name + ' Members' } as any
+            toolbar: {
+              disableExport: true,
+              exportTitle: organization?.name + ' Members'
+            } as any,
+            basePopper: {
+              placement: 'bottom-start'
+            }
           }}
           initialState={{
             pagination: { paginationModel: { pageSize: 15 } }
           }}
           pageSizeOptions={[15, 30, 50, 100]}
           disableRowSelectionOnClick={user?.user_type === 'globalView'}
+          showToolbar
         />
       </Paper>
       <ConfirmDialog
@@ -138,8 +159,8 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
           <React.Fragment>
             <Typography mb={3}>
               This request will permanently remove{' '}
-              <b>{selectedRow?.user.full_name}</b> from{' '}
-              <b>{organization.name}</b> and cannot be undone.
+              <b>{selectedRow?.user?.full_name}</b> from{' '}
+              <b>{organization?.name}</b> and cannot be undone.
             </Typography>
             {hasError && (
               <Alert severity="error">
@@ -165,8 +186,8 @@ export const OrgMembers: React.FC<OrgMemberProps> = ({
         title={<Typography variant="h4">Success</Typography>}
         content={
           <Typography variant="body1">
-            {selectedRow?.user.full_name} has been removed from{' '}
-            {organization.name}
+            {selectedRow?.user?.full_name} has been removed from{' '}
+            {organization?.name}
           </Typography>
         }
       />

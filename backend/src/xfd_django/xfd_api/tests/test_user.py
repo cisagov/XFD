@@ -1,6 +1,9 @@
 """Test user."""
+
 # Standard Python Libraries
 from datetime import datetime
+import logging
+import os
 import secrets
 from unittest.mock import patch
 import uuid
@@ -13,6 +16,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import ApiKey, Organization, Role, User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -53,7 +58,9 @@ def test_invite_by_regular_user_should_not_work():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -138,9 +145,11 @@ def test_invite_by_global_view_should_not_work():
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -170,7 +179,7 @@ def test_invite_by_organization_admin_should_work():
     )
 
     email = "{}@crossfeed.cisa.gov".format(secrets.token_hex(4))
-    print("here")
+    LOGGER.info("here")
     response = client.post(
         "/users",
         json={
@@ -236,7 +245,9 @@ def test_invite_by_organization_admin_should_not_work_if_setting_user_type():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -518,7 +529,9 @@ def test_invite_existing_user_by_global_view_should_not_work():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -534,6 +547,8 @@ def test_register_approve_success(mock_email):
         region_id="region-1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_approve = User.objects.create(
         first_name="Test",
@@ -544,7 +559,7 @@ def test_register_approve_success(mock_email):
         updated_at=datetime.now(),
     )
     # Mock email sending
-    response = client.put(
+    response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
@@ -554,7 +569,7 @@ def test_register_approve_success(mock_email):
     assert data["body"] == "User registration approved."
     mock_email.assert_called_once_with(
         user_to_approve.email,
-        subject="CyHy Dashboard Registration Approved",
+        subject="CISA CyHy Dashboard Account Approved",
         first_name=user_to_approve.first_name,
         last_name=user_to_approve.last_name,
         template="crossfeed_approval_notification.html",
@@ -572,6 +587,8 @@ def test_register_approve_unauthorized_region():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_approve = User.objects.create(
         first_name="Test",
@@ -582,13 +599,16 @@ def test_register_approve_unauthorized_region():
         updated_at=datetime.now(),
     )
 
-    response = client.put(
+    response = client.post(
         "/users/{}/register/approve".format(user_to_approve.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized region access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -604,6 +624,8 @@ def test_register_deny_success(mock_denied_email):
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_deny = User.objects.create(
         first_name="Test",
@@ -613,7 +635,7 @@ def test_register_deny_success(mock_denied_email):
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    response = client.put(
+    response = client.post(
         "/users/{}/register/deny".format(user_to_deny.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
@@ -640,6 +662,8 @@ def test_register_deny_unauthorized_region():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
     )
     user_to_deny = User.objects.create(
         first_name="Test",
@@ -650,14 +674,17 @@ def test_register_deny_unauthorized_region():
         updated_at=datetime.now(),
     )
 
-    response = client.put(
+    response = client.post(
         "/users/{}/register/deny".format(user_to_deny.id),
         headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized region access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -786,7 +813,10 @@ def test_delete_user_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
     # Ensure the user still exists
     assert User.objects.filter(id=target_user.id).exists()
@@ -991,7 +1021,7 @@ def test_get_users_by_region_id_as_regional_admin():
         "/users/region_id/1",
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
-    print(response.json())
+    LOGGER.info(response.json())
 
     assert response.status_code == 200
     data = response.json()
@@ -1324,8 +1354,8 @@ def test_update_user_v2_as_global_admin():
 
     payload = {"first_name": "Updated", "last_name": "User"}
 
-    response = client.put(
-        "/v2/users/{}".format(user.id),
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
     )
@@ -1360,14 +1390,17 @@ def test_update_user_v2_as_standard_user_fails():
 
     payload = {"first_name": "Hacked", "last_name": "User"}
 
-    response = client.put(
-        "/v2/users/{}".format(target_user.id),
+    response = client.post(
+        "/v2/update_user/{}".format(target_user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(standard_user))},
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1384,7 +1417,7 @@ def test_update_user_v2_no_auth():
 
     payload = {"first_name": "Anonymous"}
 
-    response = client.put("/v2/users/{}".format(user.id), json=payload)
+    response = client.post("/v2/update_user/{}".format(user.id), json=payload)
 
     assert response.status_code == 401
 
@@ -1405,8 +1438,8 @@ def test_update_user_v2_non_existent_user():
 
     payload = {"first_name": "DoesNotExist"}
 
-    response = client.put(
-        "/v2/users/{}".format(fake_user_id),
+    response = client.post(
+        "/v2/update_user/{}".format(fake_user_id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
     )
@@ -1438,14 +1471,17 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
 
     payload = {"user_type": UserType.GLOBAL_ADMIN}
 
-    response = client.put(
-        "/v2/users/{}".format(user.id),
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Only global admins can update userType."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1460,14 +1496,17 @@ def test_update_user_v2_standard_user_cannot_update_own_email():
 
     payload = {"email": "hacked@example.com"}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 403
-    assert "email" in response.json()["detail"]
+    assert (
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1485,14 +1524,17 @@ def test_update_user_v2_standard_user_cannot_approve_themselves():
         "approved_by": None,
     }
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 403
-    assert "date_approved" in response.json()["detail"]
+    assert (
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1515,19 +1557,22 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
 
     payload = {"user_type": UserType.GLOBAL_ADMIN}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(regional_admin)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
     assert response.status_code == 403
-    assert "Only global admins can update userType." in response.json()["detail"]
+    assert (
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
-def test_update_user_v2_regional_admin_cannot_update_in_region_state():
-    """Test update user v2 standard user."""
+def test_update_user_v2_regional_admin_can_update_in_region_state():
+    """Regional admin can update user state, regardless of region."""
     regional_admin = User.objects.create(
         first_name="RA",
         last_name="Admin",
@@ -1545,13 +1590,13 @@ def test_update_user_v2_regional_admin_cannot_update_in_region_state():
 
     payload = {"state": "NY"}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(regional_admin)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
     )
 
-    assert response.status_code == 403
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1566,10 +1611,10 @@ def test_update_user_v2_standard_user_cannot_update_name():
 
     payload = {"first_name": "New", "last_name": "Name"}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 403
@@ -1588,15 +1633,15 @@ def test_standard_user_cannot_clear_invite_pending():
 
     payload = {"invite_pending": False}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "Unauthorized to update the following fields: invite_pending"
+        == "You do not have permission to perform this action."
     )
 
 
@@ -1614,15 +1659,15 @@ def test_standard_user_cannot_self_approve():
     # 'approved' isn't a direct field, but we simulate by trying to set date_approved
     payload = {"date_approved": datetime.now().isoformat()}
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": f"Bearer {create_jwt_token(user)}"},
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "Unauthorized to update the following fields: date_approved"
+        == "You do not have permission to perform this action."
     )
 
 
@@ -1745,13 +1790,16 @@ def test_standard_user_updates_self_user_type_unauthenticated():
     payload = {
         "user_type": UserType.STANDARD,
     }
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "Only global admins can update userType."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1774,8 +1822,8 @@ def test_standard_user_updates_self_unauthenticated():
         "region_id": "11",
         "state": "CA",
     }
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1792,6 +1840,7 @@ def test_standard_user_updates_other_unauthenticated():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        first_login=True,
     )
     user_to_update = User.objects.create(
         first_name="Test",
@@ -1800,15 +1849,19 @@ def test_standard_user_updates_other_unauthenticated():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        first_login=True,
     )
     payload = {}
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1822,7 +1875,6 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=False,
     )
 
@@ -1830,22 +1882,22 @@ def test_regional_user_updates_self_confirm_authorized_fields():
         "first_name": "Updated",
         "last_name": "New",
         "invite_pending": False,
-        "first_login": False,
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
+        "first_login": False,
     }
 
-    response = client.put(
-        f"/v2/users/{user.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
-    print("Bang Bang", response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"
-    assert response.json()["first_login"] is None
     assert response.json()["approved_by"] is None
+    assert response.json()["first_login"] is False
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1859,7 +1911,6 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=False,
     )
 
@@ -1871,19 +1922,17 @@ def test_regional_user_updates_other_confirm_authorized_fields():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
-        first_login=True,
         invite_pending=True,
     )
     payload = {
         "first_name": "Updated",
         "last_name": "New",
         "invite_pending": False,
-        "first_login": False,
         "date_approved": datetime.now().isoformat(),
         "approved_by": None,
     }
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1891,7 +1940,6 @@ def test_regional_user_updates_other_confirm_authorized_fields():
     assert response.status_code == 200
     assert response.json()["first_name"] == "Updated"
     assert response.json()["last_name"] == "New"
-    assert response.json()["first_login"] is None
     assert response.json()["date_approved"] is None
 
 
@@ -1922,13 +1970,12 @@ def test_global_user_updates_confirm_authorized_fields():
         "state": "NY",
         "first_name": "Updated",
         "last_name": "New",
-        "user_type": UserType.REGIONAL_ADMIN,
         "date_approved": datetime.now().isoformat(),
         "accepted_terms_version": "1.0",
         "login_blocked_by_maintenance": False,
     }
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
@@ -1958,13 +2005,151 @@ def test_global_user_updates_confirm_unauthorized_fields():
         login_blocked_by_maintenance=True,
     )
     payload = {"email": "{}@example.com".format(secrets.token_hex(4))}
-    response = client.put(
-        f"/v2/users/{user_to_update.id}",
+    response = client.post(
+        "/v2/update_user/{}".format(user_to_update.id),
         json=payload,
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
     assert response.status_code == 403
     assert (
         response.json()["detail"]
-        == "Unauthorized to update the following fields: email"
+        == "You do not have permission to perform this action."
     )
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_email_domain_uppercase_email():
+    """Test that email domain check is case-insensitive."""
+    # Set up a global admin user
+    global_admin = User.objects.create(
+        first_name="Admin",
+        last_name="Global",
+        email="fake_test_gadmin@cisa.dhs.gov",
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    # Test uppercase email
+    os.environ["ALLOWED_ADMIN_EMAIL_DOMAINS"] = "cisa.dhs.gov"
+    uppercase_email_user = User.objects.create(
+        first_name="UpperCase",
+        last_name="Email",
+        email="UPPERCASEMAIL@CISA.DHS.GOV",
+        user_type=UserType.REGIONAL_ADMIN,
+    )
+    uppercase_email_payload = {
+        "user_type": UserType.GLOBAL_ADMIN,
+    }
+    response = client.post(
+        "/v2/update_user/{}".format(uppercase_email_user.id),
+        json=uppercase_email_payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_email_domain_missing_at_symbol():
+    """Test that email domain check handles missing @ symbol."""
+    # Set up a global admin user
+    global_admin = User.objects.create(
+        first_name="Admin",
+        last_name="Global",
+        email="fake_test_gadmin@cisa.dhs.gov",
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    # Test uppercase email
+    os.environ["ALLOWED_ADMIN_EMAIL_DOMAINS"] = "cisa.dhs.gov"
+    missing_at_symbol_user = User.objects.create(
+        first_name="MissingAt",
+        last_name="Symbol",
+        email="missingatsymbolcisa.dhs.gov",
+        user_type=UserType.REGIONAL_ADMIN,
+    )
+    missing_at_symbol_payload = {
+        "user_type": UserType.GLOBAL_ADMIN,
+    }
+    response = client.post(
+        "/v2/update_user/{}".format(missing_at_symbol_user.id),
+        json=missing_at_symbol_payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+    )
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_email_domain_missing_env_vars():
+    """Test that email domain check handles missing env vars."""
+    # Set up a global admin user
+    global_admin = User.objects.create(
+        first_name="Admin",
+        last_name="Global",
+        email="fake_test_gadmin@cisa.dhs.gov",
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    # Test uppercase email
+    os.environ["ALLOWED_ADMIN_EMAIL_DOMAINS"] = "cisa.dhs.gov"
+    valid_user = User.objects.create(
+        first_name="UpperCase",
+        last_name="Email",
+        email="valid.user@cisa.dhs.gov",
+        user_type=UserType.REGIONAL_ADMIN,
+    )
+    valid_user_payload = {
+        "user_type": UserType.GLOBAL_ADMIN,
+    }
+    response_valid = client.post(
+        "/v2/update_user/{}".format(valid_user.id),
+        json=valid_user_payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+    )
+    # Assumme valid domain vars work
+    assert response_valid.status_code == 200
+    # Now test with missing env var
+    os.environ["ALLOWED_ADMIN_EMAIL_DOMAINS"] = ""
+
+    response_invalid = client.post(
+        "/v2/update_user/{}".format(valid_user.id),
+        json=valid_user_payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+    )
+    assert response_invalid.status_code == 403
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_email_domain_standard_user_updates():
+    """Test that standard user updates are not blocked by email domain check."""
+    # Set up a global admin user
+    global_admin = User.objects.create(
+        first_name="Admin",
+        last_name="Global",
+        email="fake_test_gadmin@cisa.dhs.gov",
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    # Test uppercase email
+    os.environ["ALLOWED_ADMIN_EMAIL_DOMAINS"] = ""
+    valid_user = User.objects.create(
+        first_name="Valid",
+        last_name="User",
+        email="valid.user@cisa.dhs.gov",
+        user_type=UserType.REGIONAL_ADMIN,
+    )
+    valid_user_payload = {
+        "user_type": UserType.STANDARD,
+    }
+    response = client.post(
+        "/v2/update_user/{}".format(valid_user.id),
+        json=valid_user_payload,
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+    )
+    assert response.status_code == 200

@@ -6,7 +6,10 @@ import os
 from django.core.management.base import BaseCommand
 from django.db import connections
 from xfd_api.tasks.helpers.syncdb_helpers.adjust_columns import adjust_column_types
-from xfd_api.tasks.helpers.syncdb_helpers.create_sampe_data import populate_sample_data
+from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
+    populate_sample_data,
+    populate_scan_results,
+)
 from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (
     manage_elasticsearch_indices,
     sync_es_organizations,
@@ -38,15 +41,24 @@ class Command(BaseCommand):
             action="store_true",
             help="Populate the database with sample data.",
         )
+        parser.add_argument(
+            "-m",
+            "--metrics",
+            action="store_true",
+            help="Populate scan_results table with sample data using existing ids from scan and organization tables.",
+        )
 
     def handle(self, *args, **options):  # pylint: disable=R0915
         """Handle method."""
         dangerouslyforce = options["dangerouslyforce"]
         populate = options["populate"]
+        metrics = options["metrics"]
 
         mdl_username = os.getenv("MDL_USERNAME")
         mdl_password = os.getenv("MDL_PASSWORD")
         mdl_name = os.getenv("MDL_NAME")
+        # TODO: Uncomment when IS_LOCAL is needed
+        # is_local = os.getenv("IS_LOCAL")
 
         if not (mdl_username and mdl_password and mdl_name):
             self.stderr.write(
@@ -126,6 +138,7 @@ class Command(BaseCommand):
         if populate:
             self.stdout.write("Populating the database with sample data...")
             populate_sample_data()
+
             self.stdout.write("Sample data population complete.")
 
             # Step 4.1: Sync domains in ES
@@ -133,3 +146,9 @@ class Command(BaseCommand):
 
         # Step 5: Sync organizations in ES
         sync_es_organizations()
+
+        # Step 6: Populate Scan Results
+        if metrics:
+            self.stdout.write("Generating scan results...")
+            populate_scan_results()
+            self.stdout.write("Scan results population complete.")

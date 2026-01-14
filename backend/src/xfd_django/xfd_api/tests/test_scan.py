@@ -1,6 +1,7 @@
 """Test scan."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 from unittest.mock import patch
 
@@ -12,6 +13,8 @@ from xfd_django.asgi import app
 from xfd_mini_dl.models import Organization, OrganizationTag, Scan, User, UserType
 
 client = TestClient(app)
+
+LOGGER = logging.getLogger(__name__)
 
 
 # Test: list by globalAdmin should return all scans
@@ -186,7 +189,9 @@ def test_create_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: update by globalAdmin should succeed
@@ -204,8 +209,8 @@ def test_update_by_global_admin_succeeds():
 
     scan = Scan.objects.create(name="censys", arguments="{}", frequency=999999)
 
-    response = client.put(
-        "/scans/{}".format(scan.id),
+    response = client.post(
+        "/update_scan/{}".format(scan.id),
         json={
             "name": "findomain",
             "arguments": "{}",
@@ -258,8 +263,8 @@ def test_update_non_granular_to_granular_by_global_admin():
     )
     organization.tags.set([tag])
 
-    response = client.put(
-        "/scans/{}".format(scan.id),
+    response = client.post(
+        "/update_scan/{}".format(scan.id),
         json={
             "name": "findomain",
             "arguments": "{}",
@@ -273,7 +278,7 @@ def test_update_non_granular_to_granular_by_global_admin():
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     data = response.json()
     assert data["name"] == "findomain"
@@ -299,15 +304,17 @@ def test_update_by_global_view_fails():
 
     scan = Scan.objects.create(name="censys", arguments="{}", frequency=999999)
 
-    response = client.put(
-        "/scans/{}".format(scan.id),
+    response = client.post(
+        "/update_scan/{}".format(scan.id),
         json={"name": "findomain", "arguments": "{}", "frequency": 999991},
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: delete by globalAdmin should succeed
@@ -354,7 +361,9 @@ def test_delete_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: get by globalView should succeed
@@ -403,7 +412,9 @@ def test_get_by_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # Test: scheduler invoke by globalAdmin should succeed
@@ -425,7 +436,7 @@ def test_scheduler_invoke_by_global_admin(mock_scheduler):
         "/scheduler/invoke",
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     assert response.json() == {}
     mock_scheduler.assert_called_once()
@@ -451,7 +462,9 @@ def test_scheduler_invoke_by_global_view_fails(mock_scheduler):
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
     mock_scheduler.assert_not_called()
 
 
@@ -509,7 +522,9 @@ def test_run_scan_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -578,7 +593,10 @@ def test_list_granular_scans_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

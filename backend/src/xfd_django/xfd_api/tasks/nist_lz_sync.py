@@ -29,7 +29,6 @@ from xfd_mini_dl.models import Cve as CveModel
 from xfd_mini_dl.models import DataSource
 
 # --- Constants & Logging ---
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")

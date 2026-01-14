@@ -46,6 +46,17 @@ repos:
       - id: yamllint
         args:
           - --strict
+  - repo: local
+    hooks:
+      - id: eslint
+        name: ESLint
+        entry: >
+          bash -c 'export NVM_DIR="$HOME/.nvm";
+          [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" --no-use
+          && nvm use || true;
+          cd frontend && npx eslint . --cache --fix'
+        language: system
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
 
   # GitHub Actions hooks
   - repo: https://github.com/python-jsonschema/check-jsonschema
@@ -90,6 +101,7 @@ repos:
       - id: bandit
         args:
           - --config=.bandit.yml
+        additional_dependencies: ["pbr>=6"]
   - repo: https://github.com/psf/black-pre-commit-mirror
     rev: 23.9.1
     hooks:
@@ -100,6 +112,15 @@ repos:
       - id: flake8
         additional_dependencies:
           - flake8-docstrings
+  - repo: https://github.com/PyCQA/flake8
+    rev: 6.1.0
+    hooks:
+      - id: flake8
+        name: flake8 (no print in backend)
+        files: ^backend/
+        additional_dependencies:
+          - flake8-print
+        args: [--select=T20]
   - repo: https://github.com/PyCQA/isort
     rev: 5.12.0
     hooks:
@@ -110,6 +131,7 @@ repos:
       - id: mypy
         additional_dependencies:
           - types-requests
+          - types-retry
           - redis==5.2.0
   - repo: https://github.com/asottile/pyupgrade
     rev: v3.10.1

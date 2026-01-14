@@ -1,9 +1,14 @@
 -e external/pshtt
-mitmproxy==10.1.1
+aiohappyeyeballs==2.5.0
+cryptography==44.0.1
+h11==0.16.0
+mitmproxy==12.0.0
 nested_lookup==0.2.25
-numpy==1.24.3
 pandas==2.2.3
+pydantic==2.3.0
 python-dotenv
+requests==2.32.4
 requests-http-signature==0.2.0
 shodan==1.27.0
-sslyze==5.2.0
+sslyze==6.2.0
+zipp==3.19.1

@@ -26,7 +26,6 @@ from xfd_mini_dl.models import (
 
 from ..utils.csv_utils import create_checksum
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
 

@@ -1,6 +1,7 @@
 """Censys scan."""
 # Standard Python Libraries
 import datetime
+import logging
 import os
 import re
 import time
@@ -14,6 +15,9 @@ from xfd_mini_dl.models import DataSource, Organization, SubDomains
 # Constants controlling pagination and rate limiting
 RESULT_LIMIT = 1000
 RESULTS_PER_PAGE = 100
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 def fetch_page(root_domain, next_token=None):
@@ -47,13 +51,14 @@ def fetch_censys_data(root_domain):
 
     Logs the total number of certificates found and only retrieves up to RESULT_LIMIT.
     """
-    print("Fetching certificates for {}".format(root_domain))
+    LOGGER.info("Fetching certificates for %s", root_domain)
     data = fetch_page(root_domain)
     total = data.get("result", {}).get("total", 0)
-    print(
-        "Censys found {} certificates for {}. Fetching {} of them...".format(
-            total, root_domain, min(total, RESULT_LIMIT)
-        )
+    LOGGER.info(
+        "Censys found %d certificates for %s. Fetching %d of them...",
+        total,
+        root_domain,
+        min(total, RESULT_LIMIT),
     )
     result_count = 0
     next_token = data.get("result", {}).get("links", {}).get("next")
@@ -87,7 +92,7 @@ def handler(command_options):
     organization = orgs_to_sync.first()
     organization_id = organization.id
 
-    print("Running Censys on organization: {}".format(organization_name))
+    LOGGER.info("Running Censys on organization: %s", organization_name)
 
     # Fetch or create the Censys data source record.
     censys_datasource, _ = DataSource.objects.get_or_create(
@@ -137,10 +142,10 @@ def handler(command_options):
                         subdomains_created += 1
         time.sleep(1)  # Respect rate limits
 
-    print(
-        "Censys saved or updated {} subdomains for organization {}".format(
-            subdomains_created, organization_name
-        )
+    LOGGER.info(
+        "Censys saved or updated %d subdomains for organization %s",
+        subdomains_created,
+        organization_name,
     )
 
     return {"status_code": 200, "body": "Success running censys."}

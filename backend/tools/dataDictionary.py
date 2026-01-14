@@ -2,6 +2,7 @@
 # Standard Python Libraries
 import argparse
 import ast
+import logging
 import os
 import sys
 
@@ -10,6 +11,9 @@ import astor
 from openpyxl import Workbook, load_workbook
 import pandas as pd
 import psycopg2
+
+# Set up logging
+LOGGER = logging.getLogger(__name__)
 
 ################################################################################
 # 1) SQL "template" that takes a {schema_name} placeholder for fromSql
@@ -212,7 +216,7 @@ def main(
         )
 
     elif from_excel:
-        print("Updating Models file " + models_path + " from " + excel_path)
+        LOGGER.info("Updating Models file %s from %s", models_path, excel_path)
         # ============ (C) Update Django models.py from Excel
         # We load the Excel/CSV with columns:
         # schema_nm, table_nm, obj_typ, ord, is_key, column_nm, data_typ, nullable, column_descr
@@ -220,10 +224,10 @@ def main(
         new_source = add_help_text_from_excel(models_path, help_dict)
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(new_source)
-        print(f"[INFO] Updated {output_path} from Excel/CSV: {excel_path}")
+        LOGGER.info("Updated %s from Excel/CSV: %s", output_path, excel_path)
 
     elif to_excel:
-        print("Updating Excel file " + excel_path + " from " + models_path)
+        LOGGER.info("Updating Excel file %s from %s", excel_path, models_path)
         # ============ (D) Update/Create the Excel/CSV from Django models.py
         help_dict = extract_help_text_from_source(models_path)
         update_excel_from_help_dict(excel_path, help_dict)
@@ -242,7 +246,7 @@ def export_data_dictionary_to_csv(query, csv_path, host, port, dbname, user, pas
     df = pd.read_sql(query, conn)
     df.to_csv(csv_path, index=False)
     conn.close()
-    print(f"[INFO] Exported data dictionary to CSV: {csv_path}")
+    LOGGER.info("Exported data dictionary to CSV: %s", csv_path)
 
 
 ################################################################################
@@ -289,7 +293,7 @@ def update_postgres_column_comments_from_excel(
     conn.commit()
     cur.close()
     conn.close()
-    print(f"[INFO] Updated Postgres from {excel_path} using column_descr.")
+    LOGGER.info("Updated Postgres from %s using column_descr.", excel_path)
 
 
 ################################################################################
@@ -332,7 +336,7 @@ def load_help_dict_from_excel(xlsx_path):
         ws = wb.active
         ws.append(REQUIRED_COLUMNS)
         wb.save(xlsx_path)
-        print(f"[INFO] Created new XLSX file with headers: {xlsx_path}")
+        LOGGER.info("Created new XLSX file with headers: %s", xlsx_path)
 
     # Now read the Excel or CSV.
     if xlsx_path.lower().endswith(".csv"):
@@ -519,7 +523,7 @@ def update_excel_from_help_dict(excel_path, help_dict):
     # Write out
     if excel_path.lower().endswith(".csv"):
         merged_df.to_csv(excel_path, index=False)
-        print(f"[INFO] Updated/created CSV file: {excel_path}")
+        LOGGER.info("Updated/created CSV file: %s", excel_path)
     else:
         # Overwrite the Excel file
         wb = Workbook()
@@ -528,7 +532,7 @@ def update_excel_from_help_dict(excel_path, help_dict):
         for row_data in merged_df.itertuples(index=False):
             ws.append(list(row_data))
         wb.save(excel_path)
-        print(f"[INFO] Updated/created Excel file: {excel_path}")
+        LOGGER.info("Updated/created Excel file: %s", excel_path)
 
 
 ################################################################################
@@ -575,8 +579,8 @@ def get_help_text_from_field(call_node):
 
 if __name__ == "__main__":
     os.chdir(sys.path[0] + "/..")
-    print("CWD: {}".format(os.getcwd()))
-    print("CWD: {}".format(sys.path[0]))
+    LOGGER.info("CWD: %s", os.getcwd())
+    LOGGER.info("CWD: %s", sys.path[0])
     parser = argparse.ArgumentParser(
         description="Synchronize Django model help_text with Excel/CSV or Postgres data dictionary."
     )

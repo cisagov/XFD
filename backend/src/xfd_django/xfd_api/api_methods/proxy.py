@@ -34,8 +34,13 @@ async def proxy_request(
         if cookies:
             headers["Cookie"] = "{}={}".format(cookie_name, cookies[cookie_name])
 
-    # Make the request to the target URL
-    async with httpx.AsyncClient() as client:
+    client = getattr(request.app.state, "httpx", None)
+    _temp_client = None
+    if client is None:  # fallback for tests/CLI without startup
+        _temp_client = httpx.AsyncClient(timeout=httpx.Timeout(20.0))
+        client = _temp_client
+
+    try:
         proxy_response = await client.request(
             method=request.method,
             url="{}/{}".format(target_url, path),
@@ -43,6 +48,9 @@ async def proxy_request(
             params=request.query_params,
             content=await request.body(),
         )
+    finally:
+        if _temp_client is not None:
+            await _temp_client.aclose()
 
     # Remove chunked encoding for API Gateway compatibility
     proxy_response_headers = dict(proxy_response.headers)

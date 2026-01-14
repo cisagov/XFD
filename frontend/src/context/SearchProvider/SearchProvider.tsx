@@ -1,8 +1,10 @@
 import React from 'react';
+import { logger } from '@/utils/logger';
 import applyDisjunctiveFaceting from './applyDisjunctiveFaceting';
 import buildState from './buildState';
 import { useAuthContext } from 'context';
 import { SearchProvider as ESProvider } from '@elastic/react-search-ui';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface ApiResponse {
   suggest: any;
@@ -22,60 +24,18 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
       sortField: 'name',
       sortDirection: 'asc'
     },
-    //TODO: Implement or delete these queries CRASM-2819
-    // debug: false,
-    // alwaysSearchOnInitialLoad: false,
-    // trackUrlState: false,
-    // initialState: {
-    //   resultsPerPage: 15,
-    //   sortField: 'name',
-    //   sortDirection: 'asc'
-    // },
-    // searchQuery: {
-    //   search_fields: {
-    //     name: {}
-    //   },
-    //   result_fields: {
-    //     name: {
-    //       raw: {}
-    //     }
-    //   }
-    // },
-    // autocompleteQuery: {
-    //   suggestions: {
-    //     types: {
-    //       documents: {
-    //         fields: ['name']
-    //       }
-    //     }
-    //   }
-    // },
 
     onResultClick: () => {
       /* Not implemented */
     },
     onAutocompleteResultClick: (e: any, f: any) => {
-      console.error(e, f);
+      logger.error(
+        'SearchProvider.onAutocompleteResultClick: Not implemented',
+        { e, f }
+      );
     },
-    onAutocomplete: async ({ search_term }: { search_term: string }) => {
-      // const requestBody = buildAutocompleteRequest({ search_term });
-      // const json = await apiPost<ApiResponse>('/search', {
-      //   body: {
-      //     ...requestBody
-      //   },
-      //   showLoading: false
-      // });
-      // // const state = buildState(json);
-      // const state = {
-      //   results: json.suggest['main-suggest'][0].options.map((e: any) => ({
-      //     text: { raw: e.text },
-      //     id: { raw: e._source.id }
-      //   }))
-      // };
-      // // console.error(state.results);
-      // return {
-      //   autocompletedResults: state.results
-      // };
+    onAutocomplete: async () => {
+      // Not implemented - using custom organization search in FilterDrawer components
     },
     onSearch: async (state: any) => {
       const {
@@ -95,7 +55,7 @@ export const SearchProvider: React.FC<SearchProviderProps> = ({ children }) => {
         sortField
       };
 
-      const responseJson = await apiPost<ApiResponse>('/search', {
+      const responseJson = await apiPost<ApiResponse>(ENDPOINTS.SEARCH_ES, {
         body
       });
       const responseJsonWithDisjunctiveFacetCounts =

@@ -2,15 +2,15 @@
 # Standard Python Libraries
 import csv
 import io
+import logging
 from typing import Any, Dict, List
 
 # Third-Party Libraries
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_api.auth import (
     get_organization_region,
     get_tag_organizations,
     is_global_view_admin,
-    is_regional_admin_for_organization,
 )
 from xfd_api.helpers.elastic_search import build_request
 from xfd_api.helpers.s3_client import S3Client
@@ -18,6 +18,9 @@ from xfd_api.tasks.es_client import ESClient
 from xfd_mini_dl.models import Role
 
 from ..schema_models.search import DomainSearchBody
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 async def get_options(search_body, user) -> Dict[str, Any]:
@@ -68,8 +71,11 @@ async def fetch_all_results(
         try:
             response = client.search_domains(request)
         except Exception as e:
-            print("Elasticsearch error: {}".format(e))
-            raise HTTPException(status_code=500, detail="Error querying Elasticsearch.")
+            LOGGER.exception("Elasticsearch error: %s", e)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error querying Elasticsearch.",
+            )
 
         hits = response.get("hits", {}).get("hits", [])
         if not hits:
@@ -77,6 +83,55 @@ async def fetch_all_results(
 
         results.extend(hit["_source"] for hit in hits)
         current += 1
+
+    return results
+
+
+async def fetch_all_results_scroll(
+    search_body: DomainSearchBody,
+    client: ESClient,
+    page_size: int = 1000,
+    scroll_keepalive: str = "2m",
+) -> list[dict]:
+    """Fetch all results from Elasticsearch using the scroll API."""
+    results: list[dict] = []
+    scroll_id = None
+
+    # Build base request using your existing function
+    body = build_request(search_body)
+
+    # Scroll-specific tweaks
+    body.pop("from", None)
+    body["size"] = page_size
+    body.pop("aggs", None)
+    body.pop("highlight", None)
+
+    try:
+        resp = client.search_domains(body=body, scroll=scroll_keepalive)
+        scroll_id = resp.get("_scroll_id")
+        hits = resp.get("hits", {}).get("hits", [])
+
+        while hits:
+            results.extend(h["_source"] for h in hits if "_source" in h)
+
+            resp = client.scroll_domains(
+                scroll_id=scroll_id, keepalive=scroll_keepalive
+            )
+            scroll_id = resp.get("_scroll_id", scroll_id)
+            hits = resp.get("hits", {}).get("hits", [])
+
+    except Exception as e:
+        LOGGER.exception("Elasticsearch scroll error: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error streaming results from Elasticsearch.",
+        )
+    finally:
+        if scroll_id:
+            try:
+                client.clear_scroll_domains(scroll_id=scroll_id)
+            except Exception:
+                LOGGER.warning("Failed to clear scroll_id %s", scroll_id)
 
     return results
 
@@ -147,20 +202,16 @@ def get_org_memberships(current_user) -> list[str]:
 
 def is_valid_org(org_id: str, user) -> bool:
     """Validate the user is authorized to see the organization's data."""
-    if is_global_view_admin(user):
+    if is_global_view_admin(user) or user.user_type == "regionalAdmin":
         return True
-    elif user.user_type == "regionalAdmin":
-        return is_regional_admin_for_organization(user, org_id)
     else:
         return str(org_id) in get_org_memberships(user)
 
 
 def is_valid_region(region_id: str, user) -> bool:
     """Validate user is allowed to see specified region."""
-    if is_global_view_admin(user):
+    if is_global_view_admin(user) or user.user_type == "regionalAdmin":
         return True
-    elif user.user_type == "regionalAdmin":
-        return region_id == user.region_id
     else:
         user_orgs = get_org_memberships(user)
         user_regions = {get_organization_region(org_id) for org_id in user_orgs}
@@ -180,36 +231,11 @@ def clean_and_authorize_filters(search_body: DomainSearchBody, current_user):
 
     new_filters = list(non_org_filters)
 
-    if is_global_view_admin(current_user):
-        # For global admins, keep all filters intact (no validation)
+    if is_global_view_admin(current_user) or current_user.user_type == "regionalAdmin":
+        # For global admins and regional admins, keep all filters intact (no validation)
         # So just return early with filters untouched
         return
 
-    elif current_user.user_type == "regionalAdmin" and current_user.region_id:
-        region_id = current_user.region_id
-
-        # Always inject region filter
-        new_filters.append(
-            {"field": "organization.region_id", "values": [region_id], "type": "any"}
-        )
-
-        # Include only the orgs that are in-region
-        requested_org_ids = set(extract_org_ids_from_filters(filters))
-
-        valid_org_ids = {
-            org_id
-            for org_id in requested_org_ids
-            if is_regional_admin_for_organization(current_user, org_id)
-        }
-
-        if valid_org_ids:
-            new_filters.append(
-                {
-                    "field": "organization_id",
-                    "values": [{"id": org_id} for org_id in valid_org_ids],
-                    "type": "any",
-                }
-            )
     else:
         # Standard user: allowed orgs only
         requested_org_ids = set(extract_org_ids_from_filters(filters))
@@ -340,7 +366,7 @@ async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str
 
     # Fetch results from Elasticsearch
     client = ESClient()
-    results = await fetch_all_results(search_body, client)
+    results = await fetch_all_results_scroll(search_body, client)
 
     # Process results for CSV
     processed_results = process_results(results)
@@ -384,7 +410,7 @@ async def search_export(search_body: DomainSearchBody, current_user) -> Dict[str
     try:
         csv_url = s3_client.save_csv(csv_content, "domains")
     except Exception as e:
-        print("S3 upload error: {}".format(e))
-        raise HTTPException(status_code=500, detail="Error uploading CSV to S3.")
+        LOGGER.exception("S3 upload error: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return {"url": csv_url}

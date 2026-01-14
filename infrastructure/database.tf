@@ -13,12 +13,22 @@ resource "aws_db_subnet_group" "default" {
 }
 
 resource "aws_db_parameter_group" "default" {
-  name   = "crossfeed-${var.stage}-postgres15"
-  family = "postgres15"
+  name   = "crossfeed-${var.stage}-postgres17"
+  family = "postgres17"
 
   parameter {
     name  = "rds.force_ssl"
     value = "0"
+  }
+
+  parameter {
+    name  = "log_min_duration_statement"
+    value = "2000" # Log queries taking longer than 2000ms (2s)
+  }
+
+  parameter {
+    name  = "log_statement"
+    value = "mod" # Log all modification statements (INSERT, UPDATE, DELETE)
   }
 
   lifecycle {
@@ -27,22 +37,30 @@ resource "aws_db_parameter_group" "default" {
 }
 
 resource "aws_db_instance" "db" {
-  identifier                          = var.db_name
-  instance_class                      = var.db_instance_class
-  allocated_storage                   = 1000
-  max_allocated_storage               = 10000
-  storage_type                        = "gp2"
-  engine                              = "postgres"
-  engine_version                      = "15.12"
-  allow_major_version_upgrade         = true
-  skip_final_snapshot                 = true
-  availability_zone                   = data.aws_availability_zones.available.names[0]
-  multi_az                            = true
-  backup_retention_period             = 35
-  storage_encrypted                   = true
-  iam_database_authentication_enabled = true
-  enabled_cloudwatch_logs_exports     = ["postgresql", "upgrade"]
-  deletion_protection                 = true
+  identifier                  = var.db_name
+  instance_class              = var.db_instance_class
+  allocated_storage           = 1000
+  max_allocated_storage       = 10000
+  storage_type                = "gp3"
+  iops                        = 16000
+  storage_throughput          = 1000
+  engine                      = "postgres"
+  engine_version              = "17.6"
+  allow_major_version_upgrade = true
+  skip_final_snapshot         = true
+  availability_zone = (
+    var.stage == "staging"
+    ? data.aws_availability_zones.available.names[0]
+    : data.aws_availability_zones.available.names[0]
+  )
+  multi_az                              = true
+  backup_retention_period               = 35
+  storage_encrypted                     = true
+  iam_database_authentication_enabled   = true
+  enabled_cloudwatch_logs_exports       = ["postgresql", "upgrade"]
+  deletion_protection                   = true
+  performance_insights_enabled          = true
+  performance_insights_retention_period = 7
 
   // database information
   db_name  = var.db_table_name
@@ -61,9 +79,9 @@ resource "aws_db_instance" "db" {
     ART            = "CISA-VM"
     POC            = "Lamar Steward   Craig Duhn"
     PocEmail       = "lamar.stewart@cisa.dhs.gov"
-    Name           = "crossfeed-stage-db"
+    Name           = "crossfeed-${var.stage}-db"
     BillingProject = "VM-Crossfeed"
-    workload-type  = "staging"
+    workload-type  = var.stage
   }
 }
 
@@ -313,257 +331,4 @@ resource "aws_ssm_parameter" "crossfeed_send_db_name" {
     Project = var.project
     Owner   = "Crossfeed managed resource"
   }
-}
-
-resource "aws_s3_bucket" "reports_bucket" {
-  bucket = var.reports_bucket_name
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-    Owner   = "Crossfeed managed resource"
-  }
-}
-
-resource "aws_s3_bucket_policy" "reports_bucket" {
-  bucket = var.reports_bucket_name
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Sid" : "RequireSSLRequests",
-        "Action" : "s3:*",
-        "Effect" : "Deny",
-        "Principal" : "*",
-        "Resource" : [
-          aws_s3_bucket.reports_bucket.arn,
-          "${aws_s3_bucket.reports_bucket.arn}/*"
-        ],
-        "Condition" : {
-          "Bool" : {
-            "aws:SecureTransport" : "false"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_acl" "reports_bucket" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.reports_bucket.id
-  acl    = "private"
-}
-
-resource "aws_s3_bucket_ownership_controls" "reports_bucket" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.reports_bucket.id
-  rule {
-    object_ownership = "ObjectWriter"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "reports_bucket" {
-  bucket = aws_s3_bucket.reports_bucket.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_versioning" "reports_bucket" {
-  bucket = aws_s3_bucket.reports_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_logging" "reports_bucket" {
-  bucket        = aws_s3_bucket.reports_bucket.id
-  target_bucket = aws_s3_bucket.logging_bucket.id
-  target_prefix = "reports_bucket/"
-}
-
-resource "aws_s3_bucket" "pe_db_backups_bucket" {
-  bucket = var.pe_db_backups_bucket_name
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-    Owner   = "Crossfeed managed resource"
-  }
-}
-
-resource "aws_s3_bucket_policy" "pe_db_backups_bucket" {
-  bucket = aws_s3_bucket.pe_db_backups_bucket.id
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Sid" : "RequireSSLRequests",
-        "Action" : "s3:*",
-        "Effect" : "Deny",
-        "Principal" : "*",
-        "Resource" : [
-          aws_s3_bucket.pe_db_backups_bucket.arn,
-          "${aws_s3_bucket.pe_db_backups_bucket.arn}/*"
-        ],
-        "Condition" : {
-          "Bool" : {
-            "aws:SecureTransport" : "false"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_acl" "pe_db_backups_bucket" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.pe_db_backups_bucket.id
-  acl    = "private"
-}
-
-resource "aws_s3_bucket_ownership_controls" "pe_db_backups_bucket" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.pe_db_backups_bucket.id
-  rule {
-    object_ownership = "ObjectWriter"
-  }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "pe_db_backups_bucket" {
-  bucket = aws_s3_bucket.pe_db_backups_bucket.id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_versioning" "pe_db_backups_bucket" {
-  bucket = aws_s3_bucket.pe_db_backups_bucket.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_logging" "pe_db_backups_bucket" {
-  bucket        = aws_s3_bucket.pe_db_backups_bucket.id
-  target_bucket = aws_s3_bucket.logging_bucket.id
-  target_prefix = "pe_db_backups_bucket/"
-}
-
-resource "aws_s3_bucket" "crossfeed-lz-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = var.crossfeed-lz-sync_name
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-  }
-}
-
-resource "aws_s3_bucket_policy" "crossfeed-lz-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = var.crossfeed-lz-sync_name
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Sid" : "RequireSSLRequests",
-        "Action" : "s3:*",
-        "Effect" : "Deny",
-        "Principal" : "*",
-        "Resource" : [
-          aws_s3_bucket.crossfeed-lz-sync[0].arn,
-          "${aws_s3_bucket.crossfeed-lz-sync[0].arn}/*"
-        ],
-        "Condition" : {
-          "Bool" : {
-            "aws:SecureTransport" : "false"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_acl" "crossfeed-lz-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.crossfeed-lz-sync[0].id
-  acl    = "private"
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "crossfeed-lz-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.crossfeed-lz-sync[0].id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket" "crossfeed-xpanse-org-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = var.xpanse_org_sync_bucket_name
-  tags = {
-    Project = var.project
-    Stage   = var.stage
-  }
-}
-
-resource "aws_s3_bucket_policy" "crossfeed-xpanse-org-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = var.xpanse_org_sync_bucket_name
-  policy = jsonencode({
-    "Version" : "2012-10-17",
-    "Statement" : [
-      {
-        "Sid" : "RequireSSLRequests",
-        "Action" : "s3:*",
-        "Effect" : "Deny",
-        "Principal" : "*",
-        "Resource" : [
-          aws_s3_bucket.crossfeed-xpanse-org-sync[0].arn,
-          "${aws_s3_bucket.crossfeed-xpanse-org-sync[0].arn}/*"
-        ],
-        "Condition" : {
-          "Bool" : {
-            "aws:SecureTransport" : "false"
-          }
-        }
-      }
-    ]
-  })
-}
-
-resource "aws_s3_bucket_acl" "crossfeed-xpanse-org-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
-  acl    = "private"
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "crossfeed-xpanse-org-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-resource "aws_s3_bucket_ownership_controls" "crossfeed-xpanse-org-sync" {
-  count  = var.is_dmz ? 1 : 0
-  bucket = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
-  rule {
-    object_ownership = "ObjectWriter"
-  }
-}
-
-resource "aws_s3_bucket_logging" "crossfeed-xpanse-org-sync" {
-  count         = var.is_dmz ? 1 : 0
-  bucket        = aws_s3_bucket.crossfeed-xpanse-org-sync[0].id
-  target_bucket = aws_s3_bucket.logging_bucket.id
-  target_prefix = "crossfeed-xpanse-org-sync/"
 }

@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo } from 'react';
+import { logger } from '@/utils/logger';
 
 import { usePersistentState } from 'hooks';
 import { StaticsContext } from './StaticsContext';
 import { useAuthContext } from './AuthContext';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface StaticsContextProviderProps {
   children: React.ReactNode;
@@ -19,7 +21,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
   const { apiGet, user } = useAuthContext();
   const fetchRegions = useCallback(async () => {
     try {
-      const results = await apiGet('/regions');
+      const results = await apiGet(ENDPOINTS.REGIONS);
       setRegions(
         results
           .map((region: { region_id: string }) => region.region_id)
@@ -31,7 +33,7 @@ export const StaticsContextProvider: React.FC<StaticsContextProviderProps> = ({
           })
       );
     } catch (e) {
-      console.log(e);
+      logger.error('StaticsContextProvider.fetchRegions failed:', { error: e });
     }
   }, [apiGet, setRegions]);
 

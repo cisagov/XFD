@@ -6,6 +6,11 @@ useDotenv: true
 configValidationMode: error
 
 custom:
+  # Single source of truth from env.yml (or SSM in GovCloud)
+  adotLayerArnSelected: ${file(env.yml):${self:provider.stage}.ADOT_ARN}
+  # Functions expect an array of ARNs
+  adotLayers:
+    - ${self:custom.adotLayerArnSelected}
   customDomain:
     domainName: ${file(env.yml):${self:provider.stage}.DOMAIN, ''}
     basePath: ''
@@ -77,7 +82,8 @@ custom:
 
 provider:
   name: aws
-  region: ${file(env.yml):${self:provider.stage}.REGION, ''}
+  region: ${opt:region, env:AWS_REGION, env:AWS_DEFAULT_REGION,
+    file(env.yml):${self:provider.stage}.REGION, 'us-east-1'}
   endpointType: ${file(env.yml):${self:provider.stage}.ENDPOINT_TYPE, ''}
   runtime: python3.11
   timeout: 30
@@ -97,79 +103,9 @@ provider:
         Principal: '*'
         Action: execute-api:Invoke
         Resource: execute-api:/${self:provider.stage}/*/*
+  tracing:
+    lambda: true
 
-  iam:
-    role:
-      statements:
-        # TODO: make the resources more specific. See Resource: '*' was
-        - Effect: Allow
-          Action:
-            - lambda:InvokeAsync
-            - lambda:InvokeFunction
-            - cognito-idp:AdminDisableUser
-            - cognito-idp:ListUsers
-            - cognito-idp:AdminSetUserPassword
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - ecs:RunTask
-            - ecs:ListTasks
-            - ecs:DescribeTasks
-            - ecs:DescribeServices
-            - ecs:UpdateService
-            - iam:PassRole
-            - logs:GetLogEvents
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - ses:SendRawEmail
-            - ses:SendEmail
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - s3:GetObject
-            - s3:GetObjectAcl
-            - s3:PutObject
-            - s3:PutObjectAcl
-            - s3:PutBucketAcl
-            - s3:GetBucketAcl
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - sts:AssumeRole
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - sqs:CreateQueue
-            - sqs:ListQueues
-            - sqs:ReceiveMessage
-            - sqs:DeleteMessage
-            - sqs:SendMessage
-            - sqs:GetQueueAttributes
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - logs:CreateExportTask
-            - logs:CreateLogStream
-            - logs:Describe*
-            - logs:Get*
-            - logs:List*
-            - logs:PutLogEvents
-            - logs:StartQuery
-            - logs:StopQuery
-            - logs:TestMetricFilter
-            - logs:FilterLogEvents
-            - logs:StartLiveTail
-            - logs:StopLiveTail
-          Resource: '*'
-        - Effect: Allow
-          Action:
-            - ssm:DescribeParameters
-            - ssm:GetParameter
-            - ssm:GetParameters
-            - ssm:GetParametersByPath
-            - ssm:PutParameter
-          Resource: '*'
 
 resources:
   Conditions:
@@ -189,12 +125,22 @@ resources:
         VisibilityTimeout: 18000  # 5 hours
         MaximumMessageSize: 262144  # 256 KB
         MessageRetentionPeriod: 604800  # 7 days
+    EcsRemediatorArnParameter:
+      Type: AWS::SSM::Parameter
+      Properties:
+        Name: /crossfeed/${self:provider.stage}/ECS_REMEDIATOR_ARN
+        Type: String
+        Value:
+          Fn::GetAtt: [EcsRemediatorLambdaFunction, Arn]
+        Description: ARN of the ECS Remediator Lambda for ${self:provider.stage}
+
 
 functions:
   - ${file(./src/tasks/functions.yml)}
   - ${file(./src/api/functions.yml)}
 
 plugins:
+  - serverless-iam-roles-per-function
   - serverless-better-credentials
   - serverless-domain-manager
   - serverless-dotenv-plugin

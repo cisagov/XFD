@@ -1,10 +1,15 @@
 import React from 'react';
+import Box from '@mui/material/Box';
+import Container from '@mui/material/Container';
+import Tab from '@mui/material/Tab';
+import TabContext from '@mui/lab/TabContext';
+import TabList from '@mui/lab/TabList';
+import TabPanel from '@mui/lab/TabPanel';
 import Notifications from 'pages/Notifications';
 import ScansView from 'pages/Scans/ScansView';
 import ScanTasksView from 'pages/Scans/ScanTasksView';
+import Metrics from '../../components/Metrics/MetricsDashboard';
 import QueueMonitorView from 'pages/Scans/QueueMonitorView';
-import { Box, Container, Tab } from '@mui/material';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Logs } from 'components/Logs/Logs';
 
 export const AdminTools: React.FC = () => {
@@ -14,7 +19,7 @@ export const AdminTools: React.FC = () => {
     setValue(new_value);
   };
   return (
-    <Container maxWidth="lg" sx={{ py: '10px' }}>
+    <Container maxWidth="xl" sx={{ py: 1 }}>
       <Box sx={{ width: '100%', typography: 'body1' }}>
         <TabContext value={value}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
@@ -24,6 +29,7 @@ export const AdminTools: React.FC = () => {
               <Tab label="Queue Monitoring" value="3" />
               <Tab label="Notifications" value="4" />
               <Tab label="User Logs" value="5" />
+              <Tab label="Metrics" value="6" />
             </TabList>
           </Box>
           <TabPanel value="1">
@@ -40,6 +46,9 @@ export const AdminTools: React.FC = () => {
           </TabPanel>
           <TabPanel value="5">
             <Logs />
+          </TabPanel>
+          <TabPanel value="6">
+            <Metrics />
           </TabPanel>
         </TabContext>
       </Box>

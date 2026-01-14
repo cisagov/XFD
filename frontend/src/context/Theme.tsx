@@ -45,6 +45,8 @@ declare module '@mui/material/styles' {
   interface TypographyVariants {
     boldBody: React.CSSProperties;
     largeBody: React.CSSProperties;
+    subMenuText: React.CSSProperties;
+    logText: React.CSSProperties;
     globalNav: React.CSSProperties;
     link: React.CSSProperties;
     miniStatCallout: React.CSSProperties;
@@ -56,6 +58,8 @@ declare module '@mui/material/styles' {
   interface TypographyVariantsOptions {
     boldBody: React.CSSProperties;
     largeBody: React.CSSProperties;
+    subMenuText: React.CSSProperties;
+    logText: React.CSSProperties;
     globalNav: React.CSSProperties;
     link: React.CSSProperties;
     miniStatCallout: React.CSSProperties;
@@ -70,6 +74,9 @@ declare module '@mui/material/Button' {
   interface ButtonPropsVariantOverrides {
     globalNav: true;
     primaryContained: true;
+    primaryText: true;
+    approve: true;
+    deny: true;
   }
 }
 
@@ -89,8 +96,10 @@ declare module '@mui/material/styles' {
 declare module '@mui/material/Typography' {
   interface TypographyPropsVariantOverrides {
     boldBody: true;
-    largeBody: true;
+    subMenuText: true;
+    logText: true;
     globalNav: true;
+    largeBody: true;
     link: true;
     miniStatCallout: true;
     statCallout: true;
@@ -143,6 +152,49 @@ const theme = createTheme({
             '&:hover': {
               color: theme.palette.primary.darker
             }
+          })
+        },
+        {
+          props: { variant: 'primaryText' },
+          style: ({ theme }) => ({
+            color: theme.palette.primary.dark,
+            textTransform: 'none',
+            '&:hover': {
+              color: theme.palette.primary.darker
+            },
+            fontSize: theme.typography.button.fontSize,
+            fontWeight: theme.typography.button.fontWeight
+          })
+        },
+        {
+          props: { variant: 'approve' },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.primary.dark,
+            color: theme.palette.neutrals.white,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.darker
+            },
+            height: '40px',
+            padding: '10px 16px 10px 16px',
+            borderRadius: '4px',
+            ...theme.typography.button
+          })
+        },
+        {
+          props: { variant: 'deny' },
+          style: ({ theme }) => ({
+            backgroundColor: theme.palette.neutrals.white,
+            color: theme.palette.primary.dark,
+            border: `2pt solid ${theme.palette.primary.dark}`,
+            '&:hover': {
+              backgroundColor: theme.palette.primary.light,
+              color: theme.palette.primary.dark,
+              border: `2pt solid ${theme.palette.primary.dark}`
+            },
+            height: '40px',
+            padding: '10px 16px 10px 16px',
+            borderRadius: '4px',
+            ...theme.typography.button
           })
         }
       ]
@@ -253,6 +305,33 @@ const theme = createTheme({
           }
         })
       }
+    },
+
+    MuiTabs: {
+      styleOverrides: {
+        indicator: ({ theme }) => ({
+          backgroundColor: theme.palette.primary.dark,
+          height: 4
+        })
+      }
+    },
+
+    MuiTab: {
+      styleOverrides: {
+        root: ({ theme }) => ({
+          textTransform: 'none',
+          fontSize: '16px',
+          fontWeight: 600,
+          color: theme.palette.neutrals.main,
+          '&.Mui-selected': {
+            color: theme.palette.primary.dark,
+            fontWeight: 'bold'
+          },
+          '&:hover': {
+            color: theme.palette.primary.darker
+          }
+        })
+      }
     }
 
     // To-do: Re-enable this after clarification with Design Team
@@ -288,8 +367,9 @@ const theme = createTheme({
     error: {
       main: '#C41230'
     },
+    // TODO need to change success color for contrast issue CRASM-3445
     success: {
-      main: '#5E9732'
+      main: '#52832B'
     },
     background: {
       default: '#FFFFFF'
@@ -324,6 +404,18 @@ const theme = createTheme({
       textTransform: 'none',
       letterSpacing: '0%',
       lineHeight: '22px'
+    },
+    logText: {
+      fontSize: '18px',
+      fontWeight: 400,
+      textTransform: 'none',
+      letterSpacing: '0%',
+      lineHeight: '22px'
+    },
+    subMenuText: {
+      fontSize: '16px',
+      fontWeight: 600,
+      textTransform: 'none'
     },
     button: {
       fontSize: '14px',

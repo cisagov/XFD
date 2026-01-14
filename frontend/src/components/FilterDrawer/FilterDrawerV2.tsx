@@ -1,16 +1,21 @@
 import React, { FC } from 'react';
-import { ContextType } from 'context';
+import { useLocation } from 'react-router-dom';
 import { withSearch } from '@elastic/react-search-ui';
+import { useTheme } from '@mui/material/styles';
 import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
 import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import Stack from '@mui/system/Stack';
+import Typography from '@mui/material/Typography';
+import CloseIcon from '@mui/icons-material/Close';
+import { ContextType, useSavedSearchContext } from 'context';
 import { DrawerInterior } from './DrawerInterior';
 import { RegionAndOrganizationFilters } from './RegionAndOrganizationFilters';
-import { matchPath } from 'utils/matchPath';
-import { useLocation } from 'react-router-dom';
-import { Stack } from '@mui/system';
-import { Button, IconButton, Toolbar, Typography } from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
+import { matchPath } from 'utils/stringUtils';
+import { useAreFiltersDefault } from '@/hooks/useAreFiltersDefault';
 import { VSDashRegionAndOrgFilters } from './VSDashRegionAndOrgFilters';
+import { ROUTES } from '@/constants/routes';
 
 export const drawerWidth = 278;
 
@@ -20,6 +25,7 @@ export const FilterDrawer: FC<
     isMobile: boolean;
     setIsFilterDrawerOpen: (isOpen: boolean) => void;
     initialFilters: any[];
+    topOffset: number;
   }
 > = (props) => {
   const {
@@ -35,12 +41,14 @@ export const FilterDrawer: FC<
     initialFilters,
     autocompletedResults,
     autocompletedSuggestions,
-    results
+    results,
+    topOffset
   } = props;
   const { pathname } = useLocation();
+  const { setActiveSearchId } = useSavedSearchContext();
 
   const restoreInitialFilters = () => {
-    if (matchPath(['/inventory'], pathname)) {
+    if (matchPath([ROUTES.INVENTORY], pathname)) {
       initialFilters.forEach((filter) => {
         filter.values.forEach((value: string) => {
           addFilter(filter.field, value, 'any');
@@ -49,12 +57,15 @@ export const FilterDrawer: FC<
     }
   };
 
+  const defaultFilters = useAreFiltersDefault(filters, initialFilters);
+
   const clearFiltersAndSearch = () => {
     setSearchTerm('', {
       shouldClearFilters: true,
       autocompleteResults: false
     });
     restoreInitialFilters();
+    setActiveSearchId('');
   };
 
   const [expanded, setExpanded] = React.useState<string | false>('panel1');
@@ -63,18 +74,17 @@ export const FilterDrawer: FC<
     (panel: string) => (event: React.SyntheticEvent, newExpanded: boolean) => {
       setExpanded(newExpanded ? panel : false);
     };
-
+  const theme = useTheme();
   const DrawerList = (
     <Stack justifyContent={'space-between'} height="100vh">
       <Box role="presentation">
-        <Toolbar />
-        <Toolbar />
         <Stack
           direction="row"
           alignItems="center"
           justifyContent="space-between"
-          height={63}
+          height={84}
           px={2}
+          sx={{ borderBottom: `.5px solid ${theme.palette.neutrals.light}` }}
         >
           <Typography variant="h3" component="h3">
             Filter
@@ -94,7 +104,7 @@ export const FilterDrawer: FC<
           </IconButton>
         </Stack>
 
-        {matchPath(['/overview', '/inventory'], pathname) && (
+        {matchPath([ROUTES.INVENTORY], pathname) && (
           <RegionAndOrganizationFilters
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -109,7 +119,7 @@ export const FilterDrawer: FC<
             handleExpanded={handleExpanded}
           />
         )}
-        {matchPath(['/', '/VSDashboard'], pathname) && (
+        {matchPath([ROUTES.HOME, ROUTES.VSDASHBOARD], pathname) && (
           <VSDashRegionAndOrgFilters
             addFilter={addFilter}
             removeFilter={removeFilter}
@@ -117,7 +127,7 @@ export const FilterDrawer: FC<
           />
         )}
         {matchPath(
-          ['/inventory', '/inventory/domains', '/inventory/vulnerabilities'],
+          [ROUTES.INVENTORY, ROUTES.DOMAINS, ROUTES.VULNERABILITIES],
           pathname
         ) && (
           <DrawerInterior
@@ -133,29 +143,29 @@ export const FilterDrawer: FC<
           />
         )}
       </Box>
-      {matchPath(['/inventory'], pathname) && (
+      {matchPath([ROUTES.INVENTORY], pathname) && (
         <Box>
-          {filters.length > 0 && (
-            <Box
-              paddingBottom={5}
-              display="flex"
-              width="100%"
-              justifyContent="center"
+          <Box
+            paddingBottom={5}
+            display="flex"
+            width="100%"
+            justifyContent="center"
+          >
+            <Button
+              onClick={clearFiltersAndSearch}
+              disabled={defaultFilters}
+              sx={{
+                color: 'primary.dark',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                lineHeight: '20px',
+                letterSpacing: '0.1em'
+              }}
+              aria-label="Reset Filters"
             >
-              <Button
-                onClick={clearFiltersAndSearch}
-                sx={{
-                  color: 'primary.dark',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  lineHeight: '20px',
-                  letterSpacing: '0.1em'
-                }}
-              >
-                Reset
-              </Button>
-            </Box>
-          )}
+              Reset
+            </Button>
+          </Box>
         </Box>
       )}
     </Stack>
@@ -163,23 +173,23 @@ export const FilterDrawer: FC<
 
   return (
     <Drawer
+      container={document.getElementById('main-layout')}
       open={isFilterDrawerOpen}
       variant={isMobile ? 'temporary' : 'persistent'}
       ModalProps={{ keepMounted: isMobile }}
       onClose={() => setIsFilterDrawerOpen(false)}
       sx={{
         width: drawerWidth,
+        flexShrink: 0,
         '& .MuiDrawer-paper': {
+          position: 'fixed',
           width: drawerWidth,
           overflow: 'auto',
           backgroundColor: 'neutrals.white',
-          overscrollBehavior: 'contain',
-          // Hide scrollbar for Firefox, IE/Edge, and Chrome/Safari/Opera
-          msOverflowStyle: 'none',
-          scrollbarWidth: 'none',
-          '&::-webkit-scrollbar': {
-            display: 'none'
-          }
+          top: isMobile ? 0 : topOffset - 84,
+          height: isMobile ? '100%' : `calc(100% - (${topOffset}px - 84px))`,
+          minHeight: `calc(100% - ${topOffset}px)`,
+          zIndex: (theme) => theme.zIndex.appBar
         }
       }}
     >

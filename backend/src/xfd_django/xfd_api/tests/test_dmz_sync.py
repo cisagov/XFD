@@ -4,6 +4,7 @@
 from datetime import datetime, timedelta
 import hashlib
 import json
+import logging
 import os
 import secrets
 import uuid
@@ -31,6 +32,7 @@ from xfd_mini_dl.models import (
 )
 
 client = TestClient(app)
+LOGGER = logging.getLogger(__name__)
 #######################################################
 #                ASM_sync Sync Tests
 #######################################################
@@ -182,7 +184,7 @@ def test_dmz_asm_sync_invalid_date_format(admin_user):
     )
 
     assert response.status_code == 422
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
@@ -256,8 +258,7 @@ def test_asm_sync_success(admin_user, organization, data_source):
         json=asm_sync_request_payload,
     )
 
-    print("Error in JSON")
-    print(response.json())
+    LOGGER.error("Error in JSON: %s", response.json())
     # Check response
     assert response.status_code == 200
     data = response.json()
@@ -305,7 +306,7 @@ def test_asm_sync_no_results(admin_user, organization):
         json=asm_sync_request_payload,
     )
 
-    print(response.json())
+    LOGGER.info(response.json())
     # Check response
     assert response.status_code == 200
     data = response.json()
@@ -333,10 +334,10 @@ def test_asm_sync_invalid_date_format(admin_user):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=asm_sync_request_payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
     # Check response
     assert response.status_code == 422  # Assuming it returns a 422 for invalid input
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 #######################################################
@@ -462,7 +463,10 @@ def test_shodan_sync_unauthorized_user():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -603,7 +607,10 @@ def test_censys_sync_unauthorized_user():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -655,7 +662,7 @@ def test_cred_sync_success(admin_user, organization):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=cred_sync_payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     data = response.json()
     assert "total_pages" in data
@@ -674,7 +681,7 @@ def test_cred_sync_unauthorized(organization):
     }
 
     response = client.post("/dmz_sync/cred_sync", json=cred_sync_payload)
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 401
     assert response.json()["detail"] == "No valid authentication credentials provided"
 
@@ -694,9 +701,9 @@ def test_cred_sync_invalid_date_format(admin_user):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=cred_sync_payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 422
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
@@ -711,7 +718,7 @@ def test_cred_sync_missing_acronym(admin_user):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=cred_sync_payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 422  # Expecting validation error
 
 
@@ -730,7 +737,7 @@ def test_cred_sync_no_results(admin_user):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=cred_sync_payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
     data = response.json()
     assert data["total_pages"] == 1
@@ -752,7 +759,7 @@ def test_checksum_header(admin_user):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
 
     assert response.status_code == 200
     response_json = json.dumps(response.json(), sort_keys=True)
@@ -812,7 +819,7 @@ def test_cred_sync_pagination(admin_user, setup_test_data):
         headers={"Authorization": "Bearer {}".format(create_jwt_token(admin_user))},
         json=payload,
     )
-    print(response.json())
+    LOGGER.info(response.json())
     assert response.status_code == 200
 
     data = response.json()

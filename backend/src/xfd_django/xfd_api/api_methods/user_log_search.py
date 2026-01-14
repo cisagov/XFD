@@ -3,19 +3,22 @@
 # Standard Python Libraries
 from datetime import timedelta
 import json
+import logging
 import re
-import traceback
 from typing import Any, Dict, Optional
 
 # Third-Party Libraries
 from dateutil.parser import parse  # type: ignore
 from django.db.models import Q
 from django.utils import timezone
-from fastapi import HTTPException
+from fastapi import HTTPException, status
 from xfd_mini_dl.models import Log
 
 from ..auth import is_global_view_admin
 from ..schema_models.user_log_schema import LogSearch, LogSearchFilter
+
+# Configure logging
+LOGGER = logging.getLogger(__name__)
 
 
 def parse_query_string(query):
@@ -65,6 +68,8 @@ def _find_first_value(sources, key, default=""):
 ACTED_ON_USER_PATHS = [
     ("user",),
     ("removal_result", "role_deleted", "user"),
+    ("removal_result", "user_deleted"),
+    ("deny_result", "denied_user"),
     ("user_to_approve",),
     ("approval_results", "role_deleted", "user"),
 ]
@@ -322,9 +327,8 @@ def search_logs(search_data, current_user):
     except ValueError as ve:
         raise HTTPException(status_code=500, detail=str(ve))
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception("Unhandled error occurred: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def _normalize_operator(operator: str) -> str:
@@ -406,8 +410,8 @@ def search_logs_filtered(search_data: LogSearchFilter, current_user):
         return filtered_logs[start:end], len(filtered_logs)
 
     except ValueError as ve:
-        raise HTTPException(status_code=500, detail=str(ve))
+        LOGGER.exception("ValueError occurred: %s", ve)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as e:
-        print(e)
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
+        LOGGER.exception("Unhandled error occurred: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

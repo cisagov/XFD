@@ -3,6 +3,9 @@ import { parse } from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
+import { logger } from '@/utils/logger.js';
 
 type cbResponse = {
   token: string;
@@ -19,7 +22,7 @@ export const LoginGovCallback: React.FC = () => {
     const origState = localStorage.getItem('state');
 
     try {
-      const { token } = await apiPost<cbResponse>('/auth/callback', {
+      const { token } = await apiPost<cbResponse>(ENDPOINTS.V1_CALLBACK, {
         body: {
           state,
           code,
@@ -31,9 +34,10 @@ export const LoginGovCallback: React.FC = () => {
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
     } catch (e) {
+      logger.error('Login.gov callback error: ', e);
     } finally {
-      // route guard on '/' will respond appropriately
-      historyPush('/');
+      // route guard on ROUTES.HOME will respond appropriately
+      historyPush(ROUTES.HOME);
     }
   }, [apiPost, historyPush, login]);
 

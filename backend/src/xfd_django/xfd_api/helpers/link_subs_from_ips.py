@@ -11,8 +11,6 @@ import time
 from django.utils import timezone
 import requests
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
-
 LOGGER = logging.getLogger(__name__)
 WHOIS_KEY = os.getenv("WHOIS_XML_KEY")
 thread_count = os.getenv("WHOIS_XML_THREAD_COUNT")

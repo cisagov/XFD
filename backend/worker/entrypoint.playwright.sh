@@ -3,6 +3,7 @@
 set -euo pipefail
 
 # Define the cleanup function (like finally)
+# shellcheck disable=SC2317
 upload_reports() {
   echo "📤 Uploading results to S3..."
 
@@ -40,7 +41,11 @@ npx playwright install --with-deps
 echo "🔁 Running Playwright tests..."
 # Don't let failure here kill the rest — trap will still run
 if ! npx playwright test; then
-  echo "❌ Playwright tests failed!"
+  echo -e "\n\033[0;31m❌ Playwright tests failed!\033[0m"
+  EXIT_CODE=1
+else
+  echo -e "\n\033[0;32m✅ All tests passed!\033[0m"
+  EXIT_CODE=0
 fi
 
-echo "✅ Test execution finished. Awaiting report upload..."
+exit "$EXIT_CODE"

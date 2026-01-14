@@ -1,11 +1,14 @@
 """Adjust column types based on model.py vs. RDS."""
 # Standard Python Libraries
+import logging
 import re
 import traceback
 
 # Third-Party Libraries
 from django.db import connections
 from xfd_api.tasks.syncdb_task import get_ordered_models
+
+LOGGER = logging.getLogger(__name__)
 
 
 def normalize_pg_type(column_name: str, table_name: str, database: str) -> str:
@@ -73,7 +76,7 @@ def adjust_column_types(target_app_label: str, using: str = "mini_data_lake"):
     if using:
         database = using
 
-    print(
+    (
         f"Phase 2: Adjusting column types for '{target_app_label}' on DB alias '{database}'…"
     )
 
@@ -118,15 +121,23 @@ def adjust_column_types(target_app_label: str, using: str = "mini_data_lake"):
 
             # 4d) If actual is an array but model expects a scalar, warn + skip:
             if actual.endswith("[]") and not desired_pref.endswith("[]"):
-                print(
-                    f"⚠️ Skipping ALTER on {table_name}.{col}: "
-                    f"actual is '{actual}', but model expects '{desired_pref}'. Cannot cast array→scalar."
+                LOGGER.warning(
+                    "⚠️ Skipping ALTER on %s.%s: "
+                    "actual is '%s', but model expects '%s'. Cannot cast array→scalar.",
+                    table_name,
+                    col,
+                    actual,
+                    desired_pref,
                 )
                 continue
 
             # 5) Otherwise, we truly need an ALTER:
-            print(
-                f"Column type mismatch on {table_name}.{col}: actual='{actual}' vs desired='{desired_pref}'"
+            LOGGER.info(
+                "Column type mismatch on %s.%s: actual='%s' vs desired='%s'",
+                table_name,
+                col,
+                actual,
+                desired_pref,
             )
 
             # 5a) Drop any dependent views (via pg_depend):
@@ -149,17 +160,20 @@ def adjust_column_types(target_app_label: str, using: str = "mini_data_lake"):
                 dependents = [r[0] for r in cursor.fetchall()]
 
             for vname in dependents:
-                print(
-                    f"Dropping dependent view '{vname}' to allow ALTER on {table_name}.{col}"
+                LOGGER.warning(
+                    "Dropping dependent view '%s' to allow ALTER on %s.%s",
+                    vname,
+                    table_name,
+                    col,
                 )
                 try:
                     with connections[database].cursor() as c2:
                         c2.execute(
                             f"DROP VIEW IF EXISTS {connections[database].ops.quote_name(vname)} CASCADE;"
                         )
-                    print(f"‣ Dropped view '{vname}'")
+                    LOGGER.info("‣ Dropped view '%s'", vname)
                 except Exception as e:
-                    print(f"⚠️ Could not drop view '{vname}': {e}")
+                    LOGGER.error("⚠️ Could not drop view '%s': %s", vname, e)
 
             # 5b) Finally attempt the ALTER:
             try:
@@ -170,9 +184,11 @@ def adjust_column_types(target_app_label: str, using: str = "mini_data_lake"):
                 )
                 with connections[database].cursor() as cursor:
                     cursor.execute(alter_sql)
-                print(f"✅ Altered {table_name}.{col} to type {desired_pref}")
+                LOGGER.info("✅ Altered %s.%s to type %s", table_name, col, desired_pref)
             except Exception as e:
-                print(f"❌ Failed to ALTER {table_name}.{col} → {desired_pref}: {e}")
+                LOGGER.error(
+                    "❌ Failed to ALTER %s.%s → %s: %s", table_name, col, desired_pref, e
+                )
                 traceback.print_exc()
 
-    print("Column‐type adjustments complete.")
+    LOGGER.info("Column‐type adjustments complete.")

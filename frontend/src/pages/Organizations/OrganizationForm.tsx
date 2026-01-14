@@ -1,26 +1,25 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { logger } from '@/utils/logger';
 import * as orgFormStyles from './orgFormStyle';
 import { Organization, OrganizationTag } from 'types';
-import {
-  Autocomplete,
-  Button,
-  Chip,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControlLabel,
-  MenuItem,
-  Select,
-  Switch,
-  TextField,
-  Typography
-} from '@mui/material';
-import { SelectChangeEvent } from '@mui/material/Select';
+import Autocomplete from '@mui/material/Autocomplete';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import MenuItem from '@mui/material/MenuItem';
+import Select, { SelectChangeEvent } from '@mui/material/Select';
+import Switch from '@mui/material/Switch';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
 import {
   STATE_ABBREVIATED_OPTIONS,
   STATE_OPTIONS
-} from '../../constants/constants';
+} from '@/constants/constants';
 import { useAuthContext } from 'context';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 const StyledDialog = orgFormStyles.StyledDialog;
 
@@ -63,7 +62,6 @@ export const OrganizationForm: React.FC<{
 }> = ({
   organization,
   onSubmit,
-  type,
   open,
   setOpen,
   parent,
@@ -92,10 +90,12 @@ export const OrganizationForm: React.FC<{
 
   const fetchTags = useCallback(async () => {
     try {
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error('OrganizationForm.fetchTags failed:', { error: e });
     }
   }, [apiGet]);
 
@@ -167,7 +167,7 @@ export const OrganizationForm: React.FC<{
           size="small"
           margin="dense"
           id="name"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="name"
           type="text"
           fullWidth
@@ -183,7 +183,7 @@ export const OrganizationForm: React.FC<{
           size="small"
           margin="dense"
           id="acronym"
-          inputProps={{ maxLength: 250 }}
+          slotProps={{ htmlInput: { maxLength: 250 } }}
           name="acronym"
           type="text"
           fullWidth
@@ -264,7 +264,7 @@ export const OrganizationForm: React.FC<{
           freeSolo
           value={chosenTags}
           onChange={handleTagChange}
-          renderTags={(value: readonly string[], getTagProps) =>
+          renderValue={(value: readonly string[], getTagProps) =>
             value.map((option: string, index: number) => {
               const { key, ...tagProps } = getTagProps({ index });
               return (

@@ -12,6 +12,6 @@
     "build"
   ],
   "include": [
-    "src"
+    "frontend/src"
   ]
 }

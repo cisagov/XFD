@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
+import Alert from '@mui/material/Alert';
+import Autocomplete from '@mui/material/Autocomplete';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Chip from '@mui/material/Chip';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import Grid from '@mui/material/Grid';
+import Stack from '@mui/material/Stack';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import Place from '@mui/icons-material/Place';
+import Public from '@mui/icons-material/Public';
+import { logger } from '@/utils/logger';
 import { useAuthContext } from 'context';
 import {
   PendingDomain,
   Organization as OrganizationType,
   OrganizationTag
 } from 'types';
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  Grid,
-  Stack,
-  Switch,
-  TextField,
-  Typography
-} from '@mui/material';
-import { CheckCircleOutline, Place, Public } from '@mui/icons-material';
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ListInput from './ListInput';
 
@@ -50,7 +50,7 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
   setOrganization,
   tags
 }) => {
-  const { apiPut, apiPost, user, setFeedbackMessage } = useAuthContext();
+  const { apiPost, user, setFeedbackMessage } = useAuthContext();
   const [inputValue, setInputValue] = useState('');
   const [dialog, setDialog] = useState<{
     open: boolean;
@@ -59,35 +59,12 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
     stage?: number;
     domainVerificationStatusMessage?: string;
   }>({ open: false });
-  const [isSaveDisabled, setIsSaveDisabled] = useState(true);
+  const [, setIsSaveDisabled] = useState(true);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [chosenTags, setChosenTags] = useState(
     () => organization.tags?.map((t) => t.name) || []
   );
   const [localTags, setLocalTags] = useState(chosenTags);
-
-  const updateOrganization = async () => {
-    try {
-      const org = await apiPut(`/organizations/${organization.id}`, {
-        body: organization
-      });
-      setOrganization(org);
-      setFeedbackMessage({
-        message: 'Organization successfully updated',
-        type: 'success'
-      });
-      setInfoDialogOpen(true);
-    } catch (e: any) {
-      setFeedbackMessage({
-        message:
-          e.status === 422
-            ? 'Error updating organization'
-            : e.message || e.toString(),
-        type: 'error'
-      });
-      console.error(e);
-    }
-  };
 
   const initiateDomainVerification = async (domain: string) => {
     try {
@@ -104,7 +81,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error('OrgSettings.initiateDomainVerification failed:', {
+        error: e,
+        domain,
+        organizationId: organization.id
+      });
     }
   };
 
@@ -136,7 +117,11 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             : e.message || e.toString(),
         type: 'error'
       });
-      console.error(e);
+      logger.error('OrgSettings.checkDomainVerification failed:', {
+        error: e,
+        domain,
+        organizationId: organization.id
+      });
     }
   };
 
@@ -240,7 +225,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
               Enter a domain to begin verification.
             </DialogContentText>
             <TextField
-              autoFocus
               fullWidth
               label="Domain"
               onChange={(e) => setInputValue(e.target.value)}
@@ -250,7 +234,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
       default:
         return (
           <TextField
-            autoFocus
             fullWidth
             placeholder={`Enter ${dialog.label?.slice(0, -1)}(s)`}
             onChange={(e) => setInputValue(e.target.value)}
@@ -317,8 +300,10 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             value={organization.name}
             disabled
             variant="standard"
-            InputProps={{
-              sx: { fontSize: '18px', fontWeight: 400 }
+            slotProps={{
+              htmlInput: {
+                sx: { fontSize: '18px', fontWeight: 400 }
+              }
             }}
           />
         </Grid>
@@ -346,6 +331,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           <ListInput
             label="Root Domains"
             type="root_domains"
+            disableAddButton
+            disableDelete
             organization={organization}
             userType={user?.user_type}
             setOrganization={setOrganization}
@@ -358,6 +345,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
           <ListInput
             label="IP Blocks"
             type="ip_blocks"
+            disableAddButton
+            disableDelete
             organization={organization}
             userType={user?.user_type}
             setOrganization={setOrganization}
@@ -371,6 +360,8 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             <ListInput
               label="Tags"
               type="tags"
+              disableAddButton
+              disableDelete
               organization={organization}
               userType={user?.user_type}
               setOrganization={setOrganization}
@@ -384,34 +375,13 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
             />
           </Grid>
         )}
-        <Grid size={{ xs: 12 }}>
-          <Grid container spacing={1}>
-            <Grid size={{ xs: 12, sm: 3, lg: 2 }} my={1}>
-              <Typography variant="body2">Passive Mode</Typography>
-            </Grid>
-            <Grid ml={-1}>
-              <Switch
-                checked={organization.is_passive}
-                onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                  setOrganization({
-                    ...organization,
-                    is_passive: event.target.checked
-                  });
-                  if (!organization.is_passive) {
-                    setIsSaveDisabled(false);
-                  }
-                }}
-                color="primary"
-                disabled={user?.user_type === 'globalView'}
-                slotProps={{
-                  input: {
-                    'aria-label': 'Toggle passive mode',
-                    role: 'switch'
-                  }
-                }}
-              />
-            </Grid>
-          </Grid>
+        <Grid size={{ xs: 12 }} my={1}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <Typography variant="body2">Passive Mode:</Typography>
+            <Typography variant="body2">
+              {organization.is_passive ? 'True' : 'False'}
+            </Typography>
+          </Stack>
         </Grid>
         {organization.root_domains.length === 0 && (
           <Grid size={{ xs: 12 }}>
@@ -423,17 +393,6 @@ export const OrgSettings: React.FC<OrgSettingsProps> = ({
         <Grid size={{ xs: 12 }} mt={2}>
           <Button variant="outlined" sx={{ mr: 1 }} href="/organizations">
             Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={updateOrganization}
-            disabled={
-              organization.root_domains.length === 0 ||
-              isSaveDisabled ||
-              user?.user_type === 'globalView'
-            }
-          >
-            Save
           </Button>
         </Grid>
       </Grid>

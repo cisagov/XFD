@@ -1,28 +1,30 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { logger } from '@/utils/logger';
 import { styled } from '@mui/material/styles';
 import { useHistory } from 'react-router-dom';
-import {
-  Paper,
-  Accordion,
-  AccordionSummary,
-  Typography,
-  AccordionDetails,
-  List,
-  ListItem,
-  ListItemText,
-  Collapse,
-  Button
-} from '@mui/material';
-import { ExpandLess, ExpandMore, KeyboardBackspace } from '@mui/icons-material';
+import Accordion from '@mui/material/Accordion';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Collapse from '@mui/material/Collapse';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
+import ExpandLess from '@mui/icons-material/ExpandLess';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import KeyboardBackspace from '@mui/icons-material/KeyboardBackspace';
 import { Domain } from 'types';
 import { useDomainApi } from 'hooks';
-import { DefinitionList } from '../../components/DefinitionList';
+import { DefinitionList } from 'components/DefinitionList';
 // @ts-ignore:next-line
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Webpage } from 'types';
 import { useAuthContext } from 'context';
-import { getSeverityColor } from 'pages/Risk/utils';
-import { Box } from '@mui/system';
+import { getSeverityColor } from 'utils/getSeverityColor';
+import { ROUTES } from '@/constants/routes';
 
 const PREFIX = 'DomainDetails';
 
@@ -156,7 +158,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
       const result = await getDomain(domainId);
       setDomain(result);
     } catch (e) {
-      console.error(e);
+      logger.error('DomainDetails.fetchDomain failed:', { error: e, domainId });
     }
   }, [domainId, getDomain]);
 
@@ -204,13 +206,6 @@ export const DomainDetails: React.FC<Props> = (props) => {
         value: domain.ip
       });
     }
-    ret.push({
-      label: 'First Seen',
-      value: `${differenceInCalendarDays(
-        Date.now(),
-        parseISO(domain.created_at)
-      )} days ago`
-    });
     ret.push({
       label: 'Last Seen',
       value: `${differenceInCalendarDays(
@@ -354,6 +349,7 @@ export const DomainDetails: React.FC<Props> = (props) => {
       <Button
         onClick={() => history.goBack()}
         startIcon={<KeyboardBackspace />}
+        variant="primaryText"
       >
         Back To Results
       </Button>
@@ -407,7 +403,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                     <AccordionSummary
                       onClick={() => {
                         if (!isDisabled) {
-                          history.push('/inventory/vulnerability/' + vuln.id);
+                          history.push(
+                            ROUTES.VULNERABILITY.replace(
+                              ':vulnerabilityId',
+                              vuln.id
+                            )
+                          );
                         }
                       }}
                       onKeyDown={(event) => {
@@ -416,7 +417,12 @@ export const DomainDetails: React.FC<Props> = (props) => {
                           (event.key === 'Enter' || event.key === ' ')
                         ) {
                           event.preventDefault();
-                          history.push('/inventory/vulnerability/' + vuln.id);
+                          history.push(
+                            ROUTES.VULNERABILITY.replace(
+                              ':vulnerabilityId',
+                              vuln.id
+                            )
+                          );
                         }
                       }}
                       aria-label={`Vulnerability: ${vuln.title} - ${formatSeverity(vuln.severity)}`}

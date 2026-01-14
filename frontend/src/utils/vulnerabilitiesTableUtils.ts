@@ -1,4 +1,4 @@
-import { GridFilterItem } from '@mui/x-data-grid';
+import { GridFilterItem, GridFilterModel } from '@mui/x-data-grid';
 import { ORGANIZATION_EXCLUSIONS } from 'hooks/useUserTypeFilters';
 import { UserOrganization } from 'types';
 import { LocationState } from 'types/vulnerabilities';
@@ -28,6 +28,18 @@ export const formatSeverity = (severity?: any) => {
   } else {
     return 'Other';
   }
+};
+
+export const convertStringToBooleanValue = (field: string, value: any): any => {
+  if (field === 'is_kev' || field === 'is_kev_ransomware') {
+    if (typeof value === 'string') {
+      const lowerCaseValue = value.toLowerCase();
+      if (lowerCaseValue === 'yes' || lowerCaseValue === 'true') return true;
+      if (lowerCaseValue === 'no' || lowerCaseValue === 'false') return false;
+      return null;
+    }
+  }
+  return value;
 };
 
 export const extractInitialFilters = (state: LocationState) => {
@@ -105,9 +117,14 @@ export const normalizeFilters = (
   orgId?: string
 ) => {
   const result = filters
-    .filter((f) => Boolean(f.value))
-    .reduce<Record<string, string | boolean>>((acc, cur) => {
-      acc[cur.field] = cur.value as string;
+    .filter((f) => {
+      if (f.value === undefined || f.value === null) return false;
+      if (typeof f.value === 'string' && f.value.trim() === '') return false;
+      return true;
+    })
+    .reduce<Record<string, string | boolean | null>>((acc, cur) => {
+      acc[cur.field] = convertStringToBooleanValue(cur.field, cur.value);
+
       return acc;
     }, {});
   if (
@@ -125,10 +142,6 @@ export const normalizeFilters = (
     }
   }
 
-  if (result['is_kev']) {
-    result['is_kev'] = 'true';
-  }
-
   const isExcludedOrg = ORGANIZATION_EXCLUSIONS.some((exc) =>
     currentOrganization?.name.toLowerCase().includes(exc)
   );
@@ -141,5 +154,74 @@ export const normalizeFilters = (
     result['severity'] = formatSeverity(result['severity']);
   }
 
+  if (orgId) {
+    result['organization'] = orgId;
+  }
+
   return result;
+};
+
+export const shouldTriggerFilterUpdate = (
+  newItems: GridFilterItem[],
+  previousItems: GridFilterItem[]
+): boolean => {
+  const newComplete = newItems.filter(
+    (item) =>
+      item.value !== undefined && item.value !== null && item.value !== ''
+  );
+
+  const prevComplete = previousItems.filter(
+    (item) =>
+      item.value !== undefined && item.value !== null && item.value !== ''
+  );
+
+  // Check intermediate state
+  if (
+    prevComplete.length > 0 &&
+    newComplete.length === 0 &&
+    newItems.length > 0
+  ) {
+    return false;
+  }
+
+  // Different lengths = different filters
+  if (newComplete.length !== prevComplete.length) {
+    return true;
+  }
+
+  // Compare each filter item
+  return newComplete.some((newItem, index) => {
+    const prevItem = prevComplete[index];
+    return (
+      newItem.field !== prevItem.field ||
+      newItem.operator !== prevItem.operator ||
+      newItem.value !== prevItem.value
+    );
+  });
+};
+export const cleanFilterModelItems = (
+  newModel: GridFilterModel,
+  previousModel: GridFilterModel
+): GridFilterModel => {
+  const cleanedItems = newModel.items.map((item, index) => {
+    const prevItem = previousModel.items[index];
+
+    // Clear value when field changes (prevents value carryover)
+    if (prevItem && prevItem.field !== item.field && prevItem.id === item.id) {
+      return { ...item, value: undefined };
+    }
+
+    // Normalize empty/null/whitespace values to undefined
+    if (
+      item.value === '' ||
+      item.value === null ||
+      (typeof item.value === 'string' && item.value.trim() === '')
+    ) {
+      return { ...item, value: undefined };
+    }
+
+    return item;
+  });
+
+  return { ...newModel, items: cleanedItems };
 };

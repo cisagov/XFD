@@ -1,4 +1,4 @@
-FROM node:18-alpine3.17
+FROM node:20.19.4-alpine
 USER root
 
 RUN apk update && apk upgrade
@@ -15,4 +15,6 @@ RUN npm ci --legacy-peer-deps
 
 COPY . .
 
-CMD [ "npm", "run", "start" ]
+EXPOSE 3000
+
+CMD [ "npm", "run", "dev" ]

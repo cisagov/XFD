@@ -10,7 +10,7 @@ https://docs.djangoproject.com/en/4.1/howto/deployment/asgi/
 # Standard Python Libraries
 import asyncio
 from asyncio import Semaphore
-import functools
+import logging
 import os
 import threading
 
@@ -19,14 +19,18 @@ import django
 from django.apps import apps
 from django.conf import settings
 from fastapi import FastAPI, Request, Response
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import httpx
 from mangum import Mangum
 from redis import asyncio as aioredis
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from xfd_api.tasks.scheduler import handler as scheduler_handler
 from xfd_django.docker_events import listen_for_docker_events
 from xfd_django.middleware.middleware import LoggingMiddleware
 
-print = functools.partial(print, flush=True)
+LOGGER = logging.getLogger(__name__)
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
@@ -36,17 +40,30 @@ django.setup()
 apps.populate(settings.INSTALLED_APPS)
 
 
-def set_security_headers(response: Response):
+def set_security_headers(response: Response, isMatomo):
     """Apply security headers to the HTTP response."""
-    # Set Content Security Policy (CSP)
-    csp_value = "; ".join(
-        [
-            "{} {}".format(key, " ".join(map(str, value)))
-            for key, value in settings.SECURE_CSP_POLICY.items()
-            if isinstance(value, (list, tuple))
-        ]
-    )
-    response.headers["Content-Security-Policy"] = csp_value
+    # Conditionally set Content Security Policy (CSP) based on the request URL
+
+    # TODO: Uncomment the following lines if you want to set CSP for Matomo
+    if isMatomo:
+        csp_value = "; ".join(
+            [
+                "{} {}".format(key, " ".join(map(str, value)))
+                for key, value in settings.MATOMO_CONTENT_SECURITY_POLICY.items()
+                if isinstance(value, (list, tuple))
+            ]
+        )
+        response.headers["Content-Security-Policy"] = csp_value
+    else:
+        # Set Secure Content Security Policy (CSP)
+        csp_value = "; ".join(
+            [
+                "{} {}".format(key, " ".join(map(str, value)))
+                for key, value in settings.SECURE_CSP_POLICY.items()
+                if isinstance(value, (list, tuple))
+            ]
+        )
+        response.headers["Content-Security-Policy"] = csp_value
 
     # Set Strict-Transport-Security (HSTS)
     hsts_value = "max-age={}".format(settings.SECURE_HSTS_SECONDS)
@@ -77,24 +94,102 @@ def get_application() -> FastAPI:
     # Third-Party Libraries
     from xfd_api.views import api_router  # pylint: disable=C0415
 
-    app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
+    app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG, log_config=None)
+
+    # Create one pooled client on startup
+    @app.on_event("startup")
+    async def _httpx_startup():
+        app.state.httpx = httpx.AsyncClient(
+            timeout=httpx.Timeout(connect=5, read=30, write=30, pool=30),
+            limits=httpx.Limits(
+                max_connections=200,
+                max_keepalive_connections=50,
+                keepalive_expiry=60.0,
+            ),
+            http2=False,
+        )
+
+    # Close it on shutdown
+    @app.on_event("shutdown")
+    async def _httpx_shutdown():
+        await app.state.httpx.aclose()
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.ALLOWED_HOSTS or ["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+        expose_headers=[
+            "x-amzn-requestid",
+            "x-amzn-apigw-id",
+            "cf-ray",
+            "cf-cache-status",
+            "content-type",
+            "content-length",
+            "date",
+            "server",
+        ],
     )
 
     # Add security headers middleware
     @app.middleware("http")
     async def security_headers_middleware(request: Request, call_next):
         response = await call_next(request)
-        return set_security_headers(response)
+        isMatomo = bool(request.url.path.startswith("/matomo"))
+        return set_security_headers(response, isMatomo)
 
     app.add_middleware(LoggingMiddleware)
 
     app.include_router(api_router)
+
+    # ── Generic exception handler ────────────────────────────────
+    @app.exception_handler(Exception)
+    async def _handle_uncaught_exceptions(request: Request, exc: Exception):
+        LOGGER.exception(f"Unhandled Server Error {exc}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error"},
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def _handle_validation_errors(request: Request, exc: RequestValidationError):
+        LOGGER.error(f"Validation error: {exc}")
+
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "Invalid request parameters."},
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def _handle_http_exceptions(request: Request, exc: StarletteHTTPException):
+        if exc.status_code == 403:
+            # 1. Try to get user from request.state (where we put it in auth.py)
+            user = getattr(request.state, "user", None)
+
+            # 2. Fallback: Check request.scope directly to avoid AssertionError
+            if not user:
+                # SAFE: request.scope.get("user") returns None instead of crashing
+                user = request.scope.get("user")
+
+            # 3. Get the ID safely
+            user_id = getattr(user, "id", "Unknown")
+
+            LOGGER.warning(
+                f"UserID: {user_id} attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
+            )
+
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "detail": "You do not have permission to perform this action."
+                },
+            )
+
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
 
     @app.on_event("startup")
     async def startup():
@@ -131,18 +226,18 @@ def run_docker_events_listener():
     """Run the Docker events listener for local development in a separate thread."""
     thread = threading.Thread(target=listen_for_docker_events, daemon=True)
     thread.start()
-    print("Docker events listener started in a separate thread.")
+    LOGGER.info("Docker events listener started in a separate thread.")
 
 
 async def run_scheduler():
     """Run the scheduler in local development."""
     try:
-        print("Starting local scheduler...")
+        LOGGER.info("Starting local scheduler...")
         while True:
             await scheduler_handler({}, {})
             await asyncio.sleep(120)  # Run every 120 seconds
     except Exception as e:
-        print("Error running local scheduler: {}".format(e))
+        LOGGER.error("Error running local scheduler: %s", e)
 
 
 app = get_application()

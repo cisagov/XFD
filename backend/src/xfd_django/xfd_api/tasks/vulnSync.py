@@ -1,5 +1,6 @@
 """VulnSync scan."""
 # Standard Python Libraries
+import logging
 import os
 import time
 
@@ -13,6 +14,8 @@ from xfd_api.models import Domain, Organization, Service, Vulnerability
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
+
+LOGGER = logging.getLogger(__name__)
 
 
 def handler(event, context):
@@ -29,22 +32,22 @@ def handler(event, context):
 
 def main():
     """Fetch and save PE vulnerabilities and services."""
-    print("Scanning PE database for vulnerabilities & services for all organizations.")
+    LOGGER.info(
+        "Scanning PE database for vulnerabilities & services for all organizations."
+    )
 
     # Retrieve all organizations
     all_orgs = Organization.objects.all()
 
     # For each organization, fetch vulnerability data
     for org in all_orgs:
-        print("Processing organization: {}, {}".format(org.acronym, org.name))
+        LOGGER.info("Processing organization: %s, %s", org.acronym, org.name)
 
         # Fetch PE vulnerability task data
         data = fetch_pe_vuln_task(org.acronym)
         if not data or not data.get("tasks_dict"):
-            print(
-                "Failed to start PE API task for org: {}, {}".format(
-                    org.acronym, org.name
-                )
+            LOGGER.warning(
+                "Failed to start PE API task for org: %s, %s", org.acronym, org.name
             )
             continue
 
@@ -56,10 +59,11 @@ def main():
                 response = fetch_pe_vuln_data(scan_name, task_id)
 
             if response and response.get("status") == "Failure":
-                print(
-                    "Failed fetching data for task {} for org {}, {}".format(
-                        task_id, org.acronym, org.name
-                    )
+                LOGGER.error(
+                    "Failed fetching data for task %s for org %s, %s",
+                    task_id,
+                    org.acronym,
+                    org.name,
                 )
                 continue
 
@@ -73,7 +77,7 @@ def main():
 
 def fetch_pe_vuln_task(org_acronym):
     """Fetch PE vulnerability task data."""
-    print("Fetching PE vulnerability task for organization: {}".format(org_acronym))
+    LOGGER.info("Fetching PE vulnerability task for organization: %s", org_acronym)
     headers = {
         "X-API-KEY": os.getenv("CF_API_KEY"),
         "access_token": os.getenv("PE_API_KEY"),
@@ -91,7 +95,7 @@ def fetch_pe_vuln_task(org_acronym):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching PE task: {}".format(e))
+        LOGGER.error("Error fetching PE task: %s", e)
         return None
 
 
@@ -111,7 +115,7 @@ def fetch_pe_vuln_data(scan_name, task_id):
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print("Error fetching PE vulnerability data: {}".format(e))
+        LOGGER.error("Error fetching PE vulnerability data: %s", e)
         return None
 
 
@@ -122,7 +126,7 @@ def process_vulnerability(vuln, org):
         service = save_service(vuln, domain)
         save_vulnerability(vuln, domain, service)
     except Exception as e:
-        print("Error processing vulnerability: {}".format(e))
+        LOGGER.error("Error processing vulnerability: %s", e)
 
 
 def save_domain(vuln, org):
@@ -138,7 +142,7 @@ def save_domain(vuln, org):
             try:
                 service_domain = dns.resolver.resolve(service_ip, "PTR")[0].to_text()
             except Exception as e:
-                print(e)
+                LOGGER.error(e)
                 service_domain = service_ip
                 ip_only = True
         else:
@@ -146,7 +150,7 @@ def save_domain(vuln, org):
             try:
                 service_ip = dns.resolver.resolve(service_domain, "A")[0].to_text()
             except Exception as e:
-                print(e)
+                LOGGER.error(e)
                 service_ip = None
 
         domain, _ = Domain.objects.update_or_create(
@@ -163,7 +167,7 @@ def save_domain(vuln, org):
         )
         return domain
     except Exception as e:
-        print("Failed to save domain: {}".format(e))
+        LOGGER.exception("Failed to save domain: %s", e)
         raise
 
 
@@ -191,7 +195,7 @@ def save_service(vuln, domain):
         )
         return service
     except Exception as e:
-        print("Failed to save service: {}".format(e))
+        LOGGER.exception("Failed to save service: %s", e)
         raise
 
 
@@ -216,5 +220,5 @@ def save_vulnerability(vuln, domain, service):
             },
         )
     except Exception as e:
-        print("Failed to save vulnerability: {}".format(e))
+        LOGGER.exception("Failed to save vulnerability: %s", e)
         raise

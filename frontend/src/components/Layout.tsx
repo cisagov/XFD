@@ -2,37 +2,44 @@ import React, {
   PropsWithChildren,
   useCallback,
   useEffect,
+  useRef,
   useState
 } from 'react';
-import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
+import { withSearch } from '@elastic/react-search-ui';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import { styled, useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/system';
 import { GovBanner, Header } from 'components';
 import { useUserActivityTimeout } from 'hooks/useUserActivityTimeout';
 import { useAuthContext } from 'context/AuthContext';
 import UserInactiveModal from './UserInactivityModal/UserInactivityModal';
-import { matchPath } from 'utils/matchPath';
+import { matchPath } from 'utils/stringUtils';
 import { FilterDrawerV2 } from './FilterDrawer/FilterDrawerV2';
-import { withSearch } from '@elastic/react-search-ui';
 import { ContextType } from 'context';
 import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { useStaticsContext } from 'context/StaticsContext';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 import { useUserLevel } from 'hooks/useUserLevel';
-import { useTheme } from '@mui/material/styles';
-import { useMediaQuery } from '@mui/system';
 import FilterDrawerToggle from './FilterDrawer/FilterDrawerToggle';
+import { FILTER_ENABLED_PATHS } from '@/constants/filterPaths';
+import { ROUTES } from '@/constants/routes';
 
 const Main = styled('main', {
-  shouldForwardProp: (prop) => prop !== 'open' && prop !== 'user'
+  shouldForwardProp: (prop) =>
+    prop !== 'open' && prop !== 'user' && prop !== 'topOffset'
 })<{
   open?: boolean;
   user?: boolean;
-}>(() => ({
-  flexGrow: 1,
+  topOffset?: number;
+}>(({ topOffset }) => ({
   minHeight: '100vh',
-  height: '100vh',
   overflowY: 'auto',
-  overscrollBehavior: 'contain'
+  overscrollBehavior: 'contain',
+  paddingTop: topOffset ?? 0
 }));
 
 export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
@@ -41,7 +48,12 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   addFilter
   // removeFilter
 }) => {
+  const { pathname } = useLocation();
   const { logout, user } = useAuthContext();
+  const topRef = useRef<HTMLDivElement>(null);
+  const [topOffset, setTopOffset] = useState(0);
+
+  const noAlertPaths = ['/create-account', ROUTES.LOGIN, ROUTES.OKTA_CALLBACK];
 
   useEffect(() => {
     localStorage.setItem('es-search-filters', JSON.stringify(filters));
@@ -53,6 +65,21 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
 
   const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
     useFilterDrawerContext();
+
+  const [siteWideAlert, setSiteWideAlert] = useState(() => {
+    return localStorage.getItem('siteWideAlertOff') === 'true';
+  });
+
+  useEffect(() => {
+    if (topRef.current) {
+      setTopOffset(topRef.current.getBoundingClientRect().height);
+    }
+  }, [siteWideAlert, user, pathname]);
+
+  const handleAlertClose = () => {
+    setSiteWideAlert(true);
+    localStorage.setItem('siteWideAlertOff', 'true');
+  };
 
   const userLevel = useUserLevel().userLevel;
 
@@ -75,11 +102,8 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
     [logout, resetTimeout]
   );
 
-  const { pathname } = useLocation();
-
   useEffect(() => {
-    const pathsAllowed = ['/', '/inventory'];
-    if (!matchPath(pathsAllowed, pathname)) {
+    if (!matchPath(FILTER_ENABLED_PATHS, pathname)) {
       setIsFilterDrawerOpen(false);
     }
   }, [pathname, setIsFilterDrawerOpen]);
@@ -110,25 +134,66 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
       <UserInactiveModal
         isOpen={isTimedOut}
         onCountdownEnd={handleCountdownEnd}
-        countdown={60} // 60 second timer for user inactivity timeout
+        countdown={60}
       />
-      <Main open={isFilterDrawerOpen} user={!!user}>
-        <div style={{ display: 'flex' }}>
-          <GovBanner />
-        </div>
+      <Box
+        ref={topRef}
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: (theme) => theme.zIndex.appBar
+        }}
+      >
+        <GovBanner />
+        {!siteWideAlert && user && !noAlertPaths.includes(pathname) && (
+          <Box sx={{ backgroundColor: '#E5F6FD' }}>
+            <Box
+              display="flex"
+              flexDirection="column"
+              maxWidth="1152px"
+              width="100%"
+              margin="auto"
+            >
+              <Alert severity="info" onClose={handleAlertClose}>
+                <AlertTitle
+                  variant="largeBody"
+                  color="primary.darker"
+                  sx={{ fontWeight: '700' }}
+                >
+                  CyHy Dashboard - Beta (Early Access)
+                </AlertTitle>
+                <Typography
+                  variant="body1"
+                  color="primary.darker"
+                  fontWeight="600"
+                >
+                  You are using an early release version of the CyHy Dashboard.
+                  This site is fully functional, but some features are still
+                  being improved and refined. Your feedback during this stage
+                  directly shapes improvements. Please go to the Support menu to
+                  share feedback, report bugs, or submit questions so we can
+                  enhance the dashboard to better meet your needs.
+                </Typography>
+              </Alert>
+            </Box>
+          </Box>
+        )}
         <Header />
-        {userLevel > 0 && (
-          <>
-            {matchPath(['/', '/inventory', '/VSDashboard'], pathname) && (
-              <FilterDrawerToggle />
-            )}
-            <FilterDrawerV2
-              setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-              isFilterDrawerOpen={isFilterDrawerOpen}
-              isMobile={isMobile}
-              initialFilters={initialFilters}
-            />
-          </>
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerToggle />
+        )}
+      </Box>
+      <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
+        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+          <FilterDrawerV2
+            setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+            isFilterDrawerOpen={isFilterDrawerOpen}
+            isMobile={isMobile}
+            initialFilters={initialFilters}
+            topOffset={topOffset}
+          />
         )}
         {children}
       </Main>

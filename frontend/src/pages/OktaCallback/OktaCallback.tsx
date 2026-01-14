@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect } from 'react';
+import { logger } from '@/utils/logger';
 import { parse } from 'query-string';
 import { useAuthContext } from 'context';
 import { User } from 'types';
 import { useHistory } from 'react-router-dom';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { ROUTES } from '@/constants/routes';
 
 type OktaCallbackResponse = {
   token: string;
@@ -10,42 +13,59 @@ type OktaCallbackResponse = {
 };
 
 export const OktaCallback: React.FC = () => {
-  const { apiPost, login } = useAuthContext();
+  const { login } = useAuthContext();
   const history = useHistory();
 
   const handleOktaCallback = useCallback(async () => {
-    const { code } = parse(window.location.search);
-    console.log('Code: ', code);
-    const nonce = localStorage.getItem('nonce');
-    console.log('Nonce: ', nonce);
+    const { code, state } = parse(window.location.search);
+
+    if (!code || !state) {
+      logger.error('OktaCallback: Missing OAuth parameters', {
+        hasCode: !!code,
+        hasState: !!state
+      });
+      history.replace(ROUTES.HOME);
+      return;
+    }
+
+    const signedToken = localStorage.getItem('oauthMeta');
+
+    if (!signedToken) {
+      logger.error(
+        'OktaCallback: Missing signed OAuth metadata in localStorage'
+      );
+      history.replace(ROUTES.HOME);
+      return;
+    }
 
     try {
-      // Pass request to backend callback endpoint
-      const response = await apiPost<OktaCallbackResponse>(
-        '/auth/okta-callback',
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}${ENDPOINTS.OKTA_CALLBACK}`,
         {
-          body: {
-            code: code
-          }
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ code, state, signedToken })
         }
       );
-      console.log('Response: ', response);
-      console.log('token ', response.token);
 
-      // Login
-      await login(response.token);
+      const data: OktaCallbackResponse & { detail?: string } = await res.json();
+      if (!res.ok) throw new Error(data?.detail || 'OAuth callback failed');
 
-      // Storage Management
-      localStorage.setItem('token', response.token);
+      await login(data.token);
+
+      // Clean up
+      localStorage.setItem('token', data.token);
+      localStorage.removeItem('oauthMeta');
       localStorage.removeItem('nonce');
       localStorage.removeItem('state');
 
-      history.push('/');
+      history.replace(ROUTES.HOME);
     } catch (e) {
-      console.error(e);
-      history.push('/');
+      logger.error('OktaCallback: OAuth callback failed', { error: e });
+      history.replace(ROUTES.HOME);
     }
-  }, [apiPost, history, login]);
+  }, [history, login]);
 
   useEffect(() => {
     handleOktaCallback();

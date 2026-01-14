@@ -190,6 +190,12 @@ variable "log_metric_db_deletion" {
   default     = "crossfeed-staging-DBDeletion"
 }
 
+variable "matomo_force_index_url" {
+  description = "Public URL for Matomo dashboard; should match {frontend_domain}/matomo"
+  type        = string
+  default     = "staging.crossfeed.cyber.dhs.gov/matomo"
+}
+
 variable "sns_topic_alarms" {
   description = "sns_alarm_topic_name"
   type        = string
@@ -556,6 +562,13 @@ variable "create_db_accessor_instance" {
   default     = false
 }
 
+variable "create_pe_instance" {
+  description = "Whether to create a PE EC2 instance. This instance can be used to access RDS and is spun up in a private subnet. It can be accessed using AWS Systems Manager Session Manager."
+  type        = bool
+  default     = false
+}
+
+
 variable "create_email_sender_instance" {
   description = "Whether to create a email sending EC2 instance. This instance can be used to access AWS SES and is spun up in a private subnet. It can be accessed using AWS Systems Manager Session Manager."
   type        = bool
@@ -848,6 +861,12 @@ variable "ssm_vs_pull_date_range" {
   default     = "/crossfeed/staging/VS_PULL_DATE_RANGE"
 }
 
+variable "ssm_latest_port_scan_cutoff" {
+  description = "ssm_latest_port_scan_cutoff"
+  type        = string
+  default     = "/crossfeed/staging/LATEST_PORT_SCAN_CUTOFF"
+}
+
 variable "ssm_dmz_sync_endpoint" {
   description = "ssm_dmz_sync_endpoint"
   type        = string
@@ -898,4 +917,34 @@ variable "playwright_worker_repository_name" {
   description = "playwright_worker_repository_name"
   type        = string
   default     = "crossfeed-playwright-staging-worker"
+}
+
+variable "zscaler_cert_bucket_name" {
+  description = "zscaler_cert_bucket_name"
+  type        = string
+  default     = "cisa-crossfeed-staging-zscaler"
+}
+
+variable "backend_api_log_group_name" {
+  description = "backend_api_log_group_name"
+  type        = string
+  default     = "cyhy-staging-backend-api"
+}
+
+variable "backend_api_requests_log_group_name" {
+  description = "backend_api_requests_log_group_name"
+  type        = string
+  default     = "cyhy-staging-backend-api-requests"
+}
+
+variable "django_env_bucket_name" {
+  description = "django_env_bucket_name"
+  type        = string
+  default     = "cyhy-staging-django-env"
+}
+
+variable "ssm_django_env_kms_arn" {
+  description = "django_env_kms_key_arn"
+  type        = string
+  default     = "/crossfeed/prod/DJANGO_ENV_KMS_ARN"
 }

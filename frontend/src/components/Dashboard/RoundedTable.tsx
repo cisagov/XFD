@@ -1,17 +1,15 @@
 import React from 'react';
-import {
-  Alert,
-  Box,
-  Card,
-  Divider,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  Typography
-} from '@mui/material';
+import Box from '@mui/material/Box';
+import Card from '@mui/material/Card';
+import Divider from '@mui/material/Divider';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Typography from '@mui/material/Typography';
 import { SxProps } from '@mui/system';
+import { formatDisplayValue } from '@/utils/stringUtils';
 
 type ColumnConfig<T> = {
   key: keyof T;
@@ -78,20 +76,11 @@ const cellBodySx = {
 export default function RoundedTable<T extends Record<string, any>>({
   columns,
   data,
-  noDataMessage = 'No data available.',
   tableStyles = tableSx,
   rowHeadStyles = rowHeadSx,
   rowBodyStyles = rowBodySx,
   cellBodyStyles = cellBodySx
 }: RoundedTableProps<T>) {
-  if (data.length === 0) {
-    return (
-      <Alert severity="info" sx={{ width: '100%', mt: 2 }}>
-        {noDataMessage}
-      </Alert>
-    );
-  }
-
   return (
     <>
       <Table sx={tableStyles} component="table">
@@ -126,7 +115,9 @@ export default function RoundedTable<T extends Record<string, any>>({
                   aria-label={col.header + ' ' + row[col.key]}
                   component="td"
                 >
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
+                  {col.render
+                    ? col.render(row[col.key], row)
+                    : formatDisplayValue(row[col.key])}
                 </TableCell>
               ))}
             </TableRow>
@@ -162,7 +153,9 @@ export default function RoundedTable<T extends Record<string, any>>({
                   align="center"
                   sx={{ py: 2 }}
                 >
-                  {col.render ? col.render(row[col.key], row) : row[col.key]}
+                  {col.render
+                    ? col.render(row[col.key], row)
+                    : formatDisplayValue(row[col.key])}
                 </Typography>
                 {colIndex < columns.length - 1 && (
                   <Divider sx={{ my: 1, borderColor: 'neutrals.light' }} />

@@ -1,0 +1,91 @@
+import React from 'react';
+import { RouteProps, Route, useHistory } from 'react-router-dom';
+import { useAuthContext } from 'context';
+import { ROUTES } from '@/constants/routes';
+import { logger } from '@/utils/logger';
+
+interface AuthRedirectRouteProps extends RouteProps {
+  unauth?: string | React.ComponentType;
+  permissions?: Array<String>;
+  component: React.ComponentType;
+}
+
+/*
+possible states:
+
+- user is authenticated
+- user has authenticated but needs to create account
+- user has authenticated but needs to sign terms
+- user is not authenticated
+- user is not authenticated, this is oauth callback (should not be protected)
+- user is authenticated, but does not have tha correct permissions for route
+*/
+
+export const RouteGuard: React.FC<AuthRedirectRouteProps> = ({
+  unauth = ROUTES.HOME,
+  permissions = [],
+  component,
+  ...rest
+}) => {
+  const { token, user, logout } = useAuthContext();
+  const history = useHistory();
+
+  if (token && !user) {
+    // waiting on user profile
+    return null;
+  }
+
+  // user has authenticated and registered but needs to create an account
+  if (user && !user.isRegistered) {
+    history.push('/create-account');
+    return null;
+  }
+
+  // Redirect to landing with request sent message for unapproved users
+  if (
+    user &&
+    user.invite_pending &&
+    window.location.pathname !== ROUTES.HOME &&
+    window.location.pathname !== ROUTES.LOGOUT
+  ) {
+    logger.info('RouteGuard: User is not approved, redirecting to home', {
+      pathname: window.location.pathname
+    });
+    history.push(ROUTES.HOME);
+    return null;
+  }
+
+  // TODO: Uncomment if we decide to fully block logins during maintenance windows.
+  // if (user && user.login_blocked_by_maintenance) {
+  //   logout();
+  //   return null;
+  // }
+
+  if (typeof unauth === 'string' && !user) {
+    history.push(unauth);
+    return null;
+  }
+
+  if (user && permissions && permissions.length > 0) {
+    // user is not globalAdmin and invalid user_type permissions
+    if (
+      user.user_type !== 'globalAdmin' &&
+      !permissions.includes(user.user_type)
+    ) {
+      logger.info('RouteGuard: User access denied, logging out', {
+        userType: user.user_type,
+        requiredPermissions: permissions
+      });
+      logout();
+      history.push(ROUTES.HOME);
+      return null;
+    }
+  }
+
+  return (
+    <Route
+      {...rest}
+      component={user ? component : (unauth as React.ComponentType)}
+    />
+  );
+};

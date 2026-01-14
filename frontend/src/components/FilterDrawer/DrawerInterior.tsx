@@ -1,30 +1,29 @@
 import React, { useMemo } from 'react';
-import {
-  AccordionDetails,
-  Accordion as MuiAccordion,
-  AccordionSummary as MuiAccordionSummary,
-  IconButton,
-  Stack,
-  Typography,
-  Box,
-  List,
-  FormControlLabel,
-  ListItem,
-  FormGroup,
-  Radio,
-  useTheme
-} from '@mui/material';
-import {
-  DeleteOutline,
-  ExpandMore,
-  FiberManualRecordRounded
-} from '@mui/icons-material';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import Box from '@mui/material/Box';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import Radio from '@mui/material/Radio';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import { useTheme } from '@mui/material/styles';
+import DeleteOutline from '@mui/icons-material/DeleteOutline';
+import ExpandMore from '@mui/icons-material/ExpandMore';
+import FiberManualRecordRounded from '@mui/icons-material/FiberManualRecordRounded';
 import { FacetFilter, TaggedArrayInput } from 'components';
-import { ContextType } from '../../context/SearchProvider';
-import { useAuthContext } from '../../context';
+import { ContextType } from 'context/SearchProvider';
+import { useAuthContext } from 'context';
 import { useSavedSearchContext } from 'context/SavedSearchContext';
 import { withSearch } from '@elastic/react-search-ui';
 import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
+import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -59,9 +58,6 @@ const FiltersApplied: React.FC = () => {
   );
 };
 
-const Accordion = MuiAccordion;
-const AccordionSummary = MuiAccordionSummary;
-
 export const DrawerInterior: React.FC<Props> = (props) => {
   const {
     filters,
@@ -85,18 +81,22 @@ export const DrawerInterior: React.FC<Props> = (props) => {
     setActiveSearchId
   } = useSavedSearchContext();
 
-  const advanceFiltersReq = filters.length > 1 || searchTerm !== '';
   const theme = useTheme();
 
   const deleteSearch = async (id: string) => {
     try {
-      await apiDelete(`/saved-searches/${id}`, { body: {} });
-      const updatedSearches = await apiGet('/saved-searches'); // Get current saved searches
+      await apiDelete(ENDPOINTS.SAVED_SEARCH.replace('{saved_search_id}', id), {
+        body: {}
+      });
+      const updatedSearches = await apiGet(ENDPOINTS.SAVED_SEARCHES); // Get current saved searches
       setSavedSearches(updatedSearches.result); // Update the saved searches
       setSavedSearchCount(updatedSearches.result.length); // Update the count
       localStorage.removeItem('savedSearch');
     } catch (e) {
-      console.log(e);
+      logger.error('DrawerInterior.deleteSearch failed:', {
+        error: e,
+        searchId: id
+      });
     }
   };
   const displaySavedSearch = (id: string) => {
@@ -162,6 +162,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
       ),
     [filters]
   );
+
+  const noServicesFacet = facets?.['no_services']
+    ? facets['no_services'][0].data.sort(
+        (a: { value: string }, b: { value: string }) =>
+          a.value.localeCompare(b.value)
+      )
+    : [];
 
   const portFacet: any[] = facets?.['services.port']
     ? facets['services.port'][0].data.sort(
@@ -312,7 +319,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           </AccordionDetails>
         </Accordion>
       )}
-      {portFacet.length > 0 && (
+      {(portFacet.length > 0 || noServicesFacet.length > 0) && (
         <Accordion
           square
           elevation={0}
@@ -323,20 +330,48 @@ export const DrawerInterior: React.FC<Props> = (props) => {
           <AccordionSummary expandIcon={<ExpandMore />}>
             <Stack direction="row" alignItems="center" spacing={1}>
               <Typography variant="largeBody">Ports</Typography>
-              {filtersByColumn['services.port']?.length > 0 && (
+              {(filtersByColumn['services.port']?.length > 0 ||
+                filtersByColumn['no_services']?.length > 0) && (
                 <FiltersApplied />
               )}
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
-            <FacetFilter
-              options={portFacet}
-              selected={filtersByColumn['services.port'] ?? []}
-              onSelect={(value) => addFilter('services.port', value, 'any')}
-              onDeselect={(value) =>
-                removeFilter('services.port', value, 'any')
-              }
-            />
+            <Stack sx={{ overflowY: 'scroll', maxHeight: '300px' }}>
+              {facets.no_services &&
+                facets.no_services[0].data.map(() => (
+                  <FormControlLabel
+                    key="no_services"
+                    control={
+                      <Checkbox
+                        sx={{
+                          '&.Mui-checked': {
+                            color: theme.palette.primary.dark
+                          }
+                        }}
+                        checked={filters.some((f) => f.field === 'no_services')}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            addFilter('no_services', true, 'any');
+                          } else {
+                            removeFilter('no_services', true, 'any');
+                          }
+                        }}
+                      />
+                    }
+                    label={`Unassigned`}
+                  />
+                ))}
+              <FacetFilter
+                options={portFacet}
+                selected={filtersByColumn['services.port'] ?? []}
+                onSelect={(value) => addFilter('services.port', value, 'any')}
+                onDeselect={(value) =>
+                  removeFilter('services.port', value, 'any')
+                }
+                disableScroll={true}
+              />
+            </Stack>
           </AccordionDetails>
         </Accordion>
       )}
@@ -417,7 +452,7 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             totalResults={totalResults}
             sortField={''}
             sortDirection={''}
-            advancedFiltersReq={advanceFiltersReq}
+            initialFilters={initialFilters}
           />
           {ascendingSavedSearches.length > 0 ? (
             <List sx={{ maxHeight: 5 * 42, overflowY: 'auto' }}>

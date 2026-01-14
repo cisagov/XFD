@@ -1,6 +1,7 @@
 """Test domain API."""
 # Standard Python Libraries
 from datetime import datetime
+import logging
 import secrets
 
 # Third-Party Libraries
@@ -32,6 +33,7 @@ from xfd_mini_dl.models import (
 
 client = TestClient(app)
 
+LOGGER = logging.getLogger(__name__)
 
 bad_id = "960b7db7-f3af-411d-a247-33371"
 search_fields = {
@@ -244,8 +246,10 @@ def test_search_domain_by_organization(user, domain, refresh_vuln_views):
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domain_by_organization_name(user, domain, refresh_vuln_views):
     """Test domain by org name."""
-    print("Domain in view:", Domain.objects.values("id", "organization_id", "name"))
-    print("Org in DB:", Organization.objects.all().values("id", "name"))
+    LOGGER.info(
+        "Domain in view: %s", Domain.objects.values("id", "organization_id", "name")
+    )
+    LOGGER.info("Org in DB: %s", Organization.objects.all().values("id", "name"))
     # Test search domains by organization
     response = client.post(
         "/domain/search",

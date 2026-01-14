@@ -1,5 +1,9 @@
 import classes from './Scans.module.scss';
+import { logger } from '@/utils/logger';
 import React, { useCallback, useRef, useState } from 'react';
+import { FaPlayCircle } from 'react-icons/fa';
+import { FaTimes } from 'react-icons/fa';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 // TODO: Refactor to use Material-UI components
 import {
   Button,
@@ -9,34 +13,23 @@ import {
   ModalHeading,
   ModalRef
 } from '@trussworks/react-uswds';
-import { ModalToggleButton } from 'components';
-// import { Column, CellProps } from 'react-table';
-import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
-// import { FaTimes, FaEdit } from 'react-icons/fa';
-import { FaTimes } from 'react-icons/fa';
-import { FaPlayCircle } from 'react-icons/fa';
-import { useAuthContext } from 'context';
-// @ts-ignore:next-line
-import { formatDistanceToNow, parseISO } from 'date-fns';
-// import { Link } from 'react-router-dom';
-import { setFrequency } from 'pages/Scan/Scan';
-import { ScanForm, ScanFormValues } from 'components/ScanForm';
+import Alert from '@mui/material/Alert';
+import MuiButton from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import {
-  Alert,
-  Button as MuiButton,
-  Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  IconButton,
-  Paper,
-  DialogTitle
-} from '@mui/material';
-//Needed for the CustomToolbar:
-// import CustomToolbar from 'components/DataGrid/CustomToolbar';
-// import { Add, Publish } from '@mui/icons-material';
+import { ModalToggleButton } from 'components';
+import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
+import { useAuthContext } from 'context';
+import { ScanForm, ScanFormValues } from 'components/ScanForm';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 interface Errors extends Partial<Scan> {
   global?: string;
@@ -72,6 +65,8 @@ const ScansView: React.FC = () => {
   const deleteModalRef = useRef<ModalRef>(null);
   const [errors, setErrors] = useState<Errors>({});
   const [open, setOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMsg, setSnackbarMsg] = useState('');
 
   const [values] = useState<ScanFormValues>({
     name: 'censys',
@@ -83,7 +78,8 @@ const ScansView: React.FC = () => {
     is_user_modifiable: false,
     is_single_scan: false,
     tags: [],
-    concurrent_tasks: 1
+    concurrent_tasks: 1,
+    useDateRange: false
   });
 
   const fetchScans = useCallback(async () => {
@@ -92,8 +88,10 @@ const ScansView: React.FC = () => {
         scans: Scan[];
         organizations: Organization[];
         schema: ScanSchema;
-      }>('/scans');
-      const tags = await apiGet<OrganizationTag[]>(`/organizations/tags`);
+      }>(ENDPOINTS.SCANS);
+      const tags = await apiGet<OrganizationTag[]>(
+        ENDPOINTS.ORGANIZATIONS_TAGS
+      );
       setScans(scans);
       setScanSchema(schema);
       setOrganizationOptions(
@@ -101,13 +99,13 @@ const ScansView: React.FC = () => {
       );
       setTags(tags);
     } catch (e) {
-      console.error(e);
+      logger.error('ScansView.fetchScans failed:', { error: e });
     }
   }, [apiGet]);
 
   const deleteRow = async (id: string) => {
     try {
-      await apiDelete(`/scans/${id}`, { body: {} });
+      await apiDelete(ENDPOINTS.SCAN.replace('{scan_id}', id));
       setScans(scans.filter((scan) => scan.id !== id));
     } catch (e: any) {
       setErrors({
@@ -116,8 +114,15 @@ const ScansView: React.FC = () => {
             ? 'Unable to delete scan'
             : (e.message ?? e.toString())
       });
-      console.log(e);
+      logger.error('ScansView.deleteRow failed:', { error: e, scanId: id });
     }
+  };
+
+  const setFrequency = async (body: ScanFormValues) => {
+    if (body.is_single_scan) body.frequency = 1;
+    if (body.frequencyUnit === 'minute') body.frequency *= 60;
+    else if (body.frequencyUnit === 'hour') body.frequency *= 60 * 60;
+    else body.frequency *= 60 * 60 * 24;
   };
 
   const onSubmit = async (body: ScanFormValues) => {
@@ -126,7 +131,7 @@ const ScansView: React.FC = () => {
       body.arguments = JSON.parse(body.arguments);
       setFrequency(body);
 
-      const scan = await apiPost('/scans', {
+      const scan = await apiPost(ENDPOINTS.SCANS, {
         body: {
           ...body,
           organizations: body.organizations
@@ -136,20 +141,24 @@ const ScansView: React.FC = () => {
         }
       });
       setScans(scans.concat(scan));
+      setSnackbarMsg('Scan created successfully!');
+      setSnackbarOpen(true);
     } catch (e: any) {
       setErrors({
         global: e.message ?? e.toString()
       });
-      console.log(e);
+      setSnackbarMsg(`Scan creation failed: ${e.message ?? e.toString()}`);
+      setSnackbarOpen(true);
+      logger.error('ScansView.createScan failed:', { error: e });
     }
   };
 
   const invokeScheduler = async () => {
     setErrors({ ...errors, scheduler: '' });
     try {
-      await apiPost('/scheduler/invoke', { body: {} });
+      await apiPost(ENDPOINTS.SCAN_SCHEDULER, { body: {} });
     } catch (e) {
-      console.error(e);
+      logger.error('ScansView.invokeScheduler failed:', { error: e });
       setErrors({ ...errors, scheduler: 'Invocation failed.' });
     }
   };
@@ -177,9 +186,9 @@ const ScansView: React.FC = () => {
 
   const runScan = async (id: string) => {
     try {
-      await apiPost(`/scans/${id}/run`, { body: {} });
+      await apiPost(ENDPOINTS.SCAN_RUN.replace('{scan_id}', id), { body: {} });
     } catch (e) {
-      console.error(e);
+      logger.error('ScansView.runScan failed:', { error: e, scanId: id });
       setErrors({ ...errors, scheduler: 'Run failed.' });
     }
     await invokeScheduler();
@@ -193,11 +202,21 @@ const ScansView: React.FC = () => {
     setOpen(false);
   };
 
+  type SnackbarCloseReason = 'timeout' | 'clickaway';
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleSnackbarClose = (
+    event: React.SyntheticEvent<any> | Event,
+    reason?: SnackbarCloseReason
+  ) => {
+    if (reason === 'clickaway') return;
+    setSnackbarOpen(false);
+    triggerRef.current?.focus();
+  };
+
   const handleClick = () => {
     setOpen(true);
   };
-
-  //Code for new table//
 
   React.useEffect(() => {
     fetchScans();
@@ -237,7 +256,7 @@ const ScansView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
-            aria-label={`Run scan for ${cellValues.row.name}`}
+            aria-label={`Run ${cellValues.row.name} scan.`}
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
@@ -251,29 +270,109 @@ const ScansView: React.FC = () => {
         );
       }
     },
-    { field: 'name', headerName: 'Name', minWidth: 100, flex: 1 },
-    { field: 'tags', headerName: 'Tags', minWidth: 100, flex: 1 },
-    { field: 'mode', headerName: 'Mode', minWidth: 100, flex: 1 },
+    {
+      field: 'name',
+      headerName: 'Name',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Scan name: ${cellValues.row.name}`}
+          >
+            {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'tags',
+      headerName: 'Tags',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Tags for ${cellValues.row.name} scan: ${cellValues.row.tags}`}
+          >
+            {cellValues.row.tags}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'mode',
+      headerName: 'Mode',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Mode for ${cellValues.row.name} scan: ${cellValues.row.mode}`}
+          >
+            {cellValues.row.mode}
+          </Box>
+        );
+      }
+    },
     {
       field: 'frequency',
       headerName: 'Frequency',
       minWidth: 100,
       flex: 1,
       renderCell: (params: GridRenderCellParams) => {
-        if (params.row.is_single_scan) {
-          return 'Single Scan';
-        }
-        return formatFrequency(Number(params.value));
+        return (
+          <Box
+            component={'span'}
+            aria-label={
+              params.row.is_single_scan
+                ? `Frequency for ${params.row.name} scan: Single Scan`
+                : `Frequency for ${params.row.name} scan: ${formatFrequency(Number(params.value))}`
+            }
+          >
+            {params.row.is_single_scan
+              ? 'Single Scan'
+              : formatFrequency(Number(params.value))}
+          </Box>
+        );
       }
     },
-    { field: 'last_run', headerName: 'Last Run', minWidth: 100, flex: 1 },
+    {
+      field: 'last_run',
+      headerName: 'Last Run',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Last run for ${cellValues.row.name} scan: ${cellValues.row.last_run}`}
+          >
+            {cellValues.row.last_run}
+          </Box>
+        );
+      }
+    },
     {
       field: 'concurrent_tasks',
       headerName: 'Concurrent Tasks',
       minWidth: 100,
       flex: 1,
       align: 'center',
-      headerAlign: 'center'
+      headerAlign: 'center',
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Concurrent tasks for ${cellValues.row.name} scan: ${cellValues.row.concurrent_tasks}`}
+          >
+            {cellValues.row.concurrent_tasks}
+          </Box>
+        );
+      }
     },
     {
       field: 'delete',
@@ -287,7 +386,7 @@ const ScansView: React.FC = () => {
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
-            aria-label={`Delete scan for ${cellValues.row.name}`}
+            aria-label={`Delete ${cellValues.row.name} scan.`}
             tabIndex={cellValues.tabIndex}
             color="primary"
             onClick={() => {
@@ -301,37 +400,26 @@ const ScansView: React.FC = () => {
         );
       }
     },
-    { field: 'description', headerName: 'Description', minWidth: 250, flex: 5 }
+    {
+      field: 'description',
+      headerName: 'Description',
+      minWidth: 250,
+      flex: 5,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component={'span'}
+            aria-label={`Description for ${cellValues.row.name} scan: ${cellValues.row.description}`}
+          >
+            {cellValues.row.description}
+          </Box>
+        );
+      }
+    }
   ];
 
   //To-do: Add a button to toolbar to import scans
-  // const importScanButton = (
-  //   <MuiButton
-  //     size="small"
-  //     sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-  //     startIcon={<Publish />}
-  //     onClick={() => {
-  //       setDialogOpen(true);
-  //     }}
-  //   >
-  //     Import
-  //   </MuiButton>
-  // );
-
   //To-do: Add a button to toolbar to add scans
-  // const addScanButton = (
-  //   <MuiButton
-  //     size="small"
-  //     sx={{ '& .MuiButton-startIcon': { mr: '2px', mb: '2px' } }}
-  //     startIcon={<Add />}
-  //     onClick={() => {
-  //       addScanModalRef.current?.toggleModal(undefined, true);
-  //     }}
-  //   >
-  //     Add Scan
-  //   </MuiButton>
-  // );
-
   //To-do: Dialogs/Modals need to be built for Import and Add Scan. Export is already handled by MUI DataGrid.
 
   return (
@@ -373,10 +461,6 @@ const ScansView: React.FC = () => {
               rows={scansRows}
               columns={scansCols}
               //To-do: re-enable Custom Toolbar to handle scan Create, Export, Import,
-              // slots={{ toolbar: CustomToolbar }}
-              // slotProps={{
-              //   toolbar: { children: [importScanButton, addScanButton] }
-              // }}
             />
           )}
         </Paper>
@@ -431,6 +515,18 @@ const ScansView: React.FC = () => {
           </ButtonGroup>
         </ModalFooter>
       </Modal>
+      <Snackbar
+        open={snackbarOpen}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={handleSnackbarClose}
+          severity={snackbarMsg.includes('failed') ? 'error' : 'success'}
+          sx={{ width: '100%' }}
+        >
+          <span>{snackbarMsg}</span>
+        </Alert>
+      </Snackbar>
     </>
   );
 };

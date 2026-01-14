@@ -121,5 +121,5 @@ def handler(event):
             "body": "Xpanse Alerts sync completed successfully.",
         }
     except Exception as e:
-        print("Error in handler", e)
+        LOGGER.error("Error in handler: %s", e)
         return {"statusCode": 500, "body": str(e)}

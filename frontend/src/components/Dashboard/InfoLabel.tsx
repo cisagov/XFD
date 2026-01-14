@@ -1,12 +1,16 @@
 import React from 'react';
-import {
-  Box,
-  Typography,
-  Link as MuiLink,
-  TypographyProps
-} from '@mui/material';
+import { useHistory, useLocation } from 'react-router-dom';
+import Box from '@mui/material/Box';
+import Link from '@mui/material/Link';
+import { SxProps } from '@mui/system';
+import Typography, { TypographyProps } from '@mui/material/Typography';
 import InfoTooltipIcon from './InfoTooltipIcon';
-import { useHistory } from 'react-router-dom';
+import {
+  useNavigationContext,
+  isVSDashboard,
+  isDrillDownDestination
+} from 'context/NavigationContext';
+import { ROUTES } from '@/constants/routes';
 
 type InfoLabelProps = {
   label: string;
@@ -16,6 +20,7 @@ type InfoLabelProps = {
   typographyVariant?: TypographyProps['variant'];
   headingLevel?: 'h2' | 'h3' | 'p';
   tooltipContentJson: { content: string; id: string }[];
+  labelStyle?: SxProps;
 };
 
 const InfoLabel: React.FC<InfoLabelProps> = ({
@@ -25,9 +30,12 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
   typographyVariant = 'h2',
   headingLevel = 'h2',
   tooltipContentJson,
-  stateVariables = {}
+  stateVariables = {},
+  labelStyle
 }) => {
   const history = useHistory();
+  const location = useLocation();
+  const { markDrillDown } = useNavigationContext();
 
   const tooltipContent = (label: string): string => {
     const info = tooltipContentJson.find(
@@ -38,7 +46,17 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
 
   const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
-    history.push(link || '/inventory', stateVariables);
+
+    // Only mark as drill-down if coming from VS Dashboard to a drill-down destination
+    const isFromVSDashboard = isVSDashboard(location.pathname);
+    const targetUrl = link || ROUTES.INVENTORY;
+    const isDrillDownTarget = isDrillDownDestination(targetUrl);
+
+    if (isFromVSDashboard && isDrillDownTarget) {
+      markDrillDown(location.pathname, targetUrl);
+    }
+
+    history.push(targetUrl, stateVariables);
   };
 
   return (
@@ -53,17 +71,18 @@ const InfoLabel: React.FC<InfoLabelProps> = ({
           variant={typographyVariant}
           component={headingLevel}
           color="primary.darker"
+          sx={labelStyle}
         >
           {label}
         </Typography>
         <InfoTooltipIcon label={label} tooltipContent={tooltipContent(label)} />
       </Box>
       {viewDetails && link && (
-        <MuiLink href="#" onClick={handleClick}>
+        <Link href="#" onClick={handleClick}>
           <Typography variant="link" component="span" fontWeight="bold">
             View Details
           </Typography>
-        </MuiLink>
+        </Link>
       )}
     </Box>
   );

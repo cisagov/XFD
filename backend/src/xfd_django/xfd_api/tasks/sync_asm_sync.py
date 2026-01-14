@@ -19,7 +19,6 @@ os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
 # Constants
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 MAX_RETRIES = 3  # Max retries for failed tasks

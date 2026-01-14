@@ -2,6 +2,7 @@ import { Query, Domain, DomainSearchApiResponse } from 'types';
 import { useAuthContext } from 'context';
 import { useCallback } from 'react';
 import { ORGANIZATION_EXCLUSIONS } from './useUserTypeFilters';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export interface DomainQuery extends Query<DomainSearchApiResponse> {
   showAll?: boolean;
@@ -19,7 +20,7 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
   const { currentOrganization, apiPost, apiGet, user } = useAuthContext();
   const listDomains = useCallback(
     async (query: DomainQuery, doExport = false) => {
-      const { page, filters, pageSize = PAGE_SIZE } = query;
+      const { page, filters, pageSize = PAGE_SIZE, order, sort } = query;
       const tableFilters: any = filters
         .filter((f) => Boolean(f.value))
         .reduce(
@@ -45,12 +46,14 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
       }
 
       const { result, count, url } = await apiPost<ApiResponse>(
-        doExport ? '/domain/export' : '/domain/search',
+        doExport ? ENDPOINTS.DOMAIN_EXPORT : ENDPOINTS.DOMAIN_SEARCH,
         {
           body: {
             pageSize,
             page,
-            filters: tableFilters
+            filters: tableFilters,
+            order,
+            sort
           }
         }
       );
@@ -67,7 +70,9 @@ export const useDomainApi = (showAll?: boolean, orgId?: string) => {
 
   const getDomain = useCallback(
     async (domainId: string) => {
-      return await apiGet<Domain>(`/domain/${domainId}`);
+      return await apiGet<Domain>(
+        ENDPOINTS.DOMAIN.replace('{domain_id}', domainId)
+      );
     },
     [apiGet]
   );

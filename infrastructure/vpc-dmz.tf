@@ -53,6 +53,17 @@ resource "aws_subnet" "worker" {
   }
 }
 
+resource "aws_subnet" "pe" {
+  count             = var.is_dmz ? 1 : 0
+  availability_zone = data.aws_availability_zones.available.names[1]
+  vpc_id            = aws_vpc.crossfeed_vpc[0].id
+  cidr_block        = "10.0.7.0/24"
+
+  tags = {
+    Project = var.project
+  }
+}
+
 resource "aws_subnet" "es_1" {
   count             = var.is_dmz ? 1 : 0
   availability_zone = data.aws_availability_zones.available.names[0]
@@ -159,6 +170,12 @@ resource "aws_route_table_association" "r_assoc_backend" {
   count          = var.is_dmz ? 1 : 0
   route_table_id = aws_route_table.r2[0].id
   subnet_id      = aws_subnet.backend[0].id
+}
+
+resource "aws_route_table_association" "r_assoc_pe" {
+  count          = var.is_dmz ? 1 : 0
+  route_table_id = aws_route_table.r2[0].id
+  subnet_id      = aws_subnet.pe[0].id
 }
 
 resource "aws_route_table_association" "r_assoc_matomo" {

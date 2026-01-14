@@ -1,16 +1,19 @@
 import React from 'react';
-import { FormGroup, FormControlLabel, Checkbox, useTheme } from '@mui/material';
-import { styled } from '@mui/material/styles';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormGroup from '@mui/material/FormGroup';
+import { styled, useTheme } from '@mui/material/styles';
 
 interface Props {
   options: { value: string; count: number }[];
   selected: string[];
   onSelect(value: string): void;
   onDeselect(value: string): void;
+  disableScroll?: boolean;
 }
 
 export const FacetFilter: React.FC<Props> = (props) => {
-  const { options, selected, onSelect, onDeselect } = props;
+  const { options, selected, onSelect, onDeselect, disableScroll } = props;
   const theme = useTheme();
 
   const handleChange = (
@@ -27,7 +30,7 @@ export const FacetFilter: React.FC<Props> = (props) => {
 
   return (
     <>
-      <Root className={classes.root}>
+      <Root className={classes.root} disableScroll={disableScroll}>
         <FormGroup classes={{ root: classes.root }}>
           {options.map((opt) => (
             <FormControlLabel
@@ -88,13 +91,15 @@ const classes = {
   formControl: `${PREFIX}-formControl`
 };
 
-const Root = styled('div')(({ theme }) => ({
+const Root = styled('div', {
+  shouldForwardProp: (prop) => prop !== 'disableScroll'
+})<{ disableScroll?: boolean }>(({ theme, disableScroll }) => ({
   [`&.${classes.root}`]: {
     width: '100%',
     paddingTop: 0,
     flexWrap: 'nowrap',
     maxHeight: 4.75 * 42, // 4.75 items of height 42px. Works with the gradient overlay.
-    overflowY: 'scroll',
+    overflowY: disableScroll ? 'none' : 'scroll',
     scrollbarWidth: 'auto'
   },
 

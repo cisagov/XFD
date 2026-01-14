@@ -1,64 +1,203 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
-import { Organization } from 'types';
-import { useAuthContext } from 'context';
-import {
-  Alert,
-  Box,
-  Button,
-  IconButton,
-  Paper,
-  Stack,
-  Typography
-} from '@mui/material';
-import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
 import { useHistory } from 'react-router-dom';
-import { CheckCircleOutline } from '@mui/icons-material';
+
+// Material-UI Components
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Stack from '@mui/material/Stack';
+import Typography from '@mui/material/Typography';
+import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
+import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
+
+// DataGrid Components
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridFilterModel,
+  GridSortModel
+} from '@mui/x-data-grid';
+
+// Types
+import { Organization } from 'types';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Components
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
 
+// Utils
+import { logger } from '@/utils/logger';
+
+// Constants
+import { ROUTES } from '@/constants/routes';
+import { ENDPOINTS } from '@/constants/endpoints';
+
+type OrgsApiResponse = {
+  result: Organization[];
+  count: number;
+  url?: string;
+};
+
 export const Organizations: React.FC = () => {
-  const { apiGet, apiPost, setFeedbackMessage, user } = useAuthContext();
+  const { apiPost, setFeedbackMessage } = useAuthContext();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [rowCount, setRowCount] = useState(0);
   const [loadingError, setLoadingError] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [infoDialogOpen, setInfoDialogOpen] = useState(false);
   const [chosenTags, setChosenTags] = useState<string[]>([]);
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 15
+  });
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({
+    items: []
+  });
+  const [debouncedFilterModel, setDebouncedFilterModel] =
+    useState<GridFilterModel>(filterModel);
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const history = useHistory();
-  const region_id = user?.region_id;
+  const reqIdRef = useRef(0);
 
-  const getOrgsUrl = () => {
-    if (user?.user_type === 'regionalAdmin') {
-      return `/organizations/region_id/${region_id}`;
-    }
-    return `/v2/organizations`;
-  };
-  const orgsUrl = getOrgsUrl();
+  useEffect(() => {
+    const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
+    return () => clearTimeout(h);
+  }, [filterModel]);
+
+  const buildFilters = useCallback((model: GridFilterModel) => {
+    const filters: Record<string, any> = {};
+    model.items.forEach((i) => {
+      if (!i.value) return;
+      if (i.field === 'name') {
+        const v = String(i.value).trim();
+        if (v.length >= 2) filters.name = v; // gate short inputs
+      }
+      if (i.field === 'state') filters.state = String(i.value).trim();
+      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
+    });
+    return filters;
+  }, []);
+
+  const requestBody = useMemo(() => {
+    const firstSort = sortModel[0];
+    return {
+      page: paginationModel.page + 1,
+      pageSize: paginationModel.pageSize,
+      sort: firstSort?.field || undefined,
+      order: firstSort?.sort || undefined,
+      filters: buildFilters(debouncedFilterModel)
+    };
+  }, [paginationModel, debouncedFilterModel, sortModel, buildFilters]);
 
   const fetchOrganizations = useCallback(async () => {
+    const myId = ++reqIdRef.current;
     setIsLoading(true);
     setLoadingError(false);
     try {
-      const rows = await apiGet<Organization[]>(orgsUrl);
-      setOrganizations(rows);
+      const data = await apiPost<OrgsApiResponse>(
+        ENDPOINTS.ORGANIZATIONS_SEARCH,
+        {
+          body: requestBody
+        }
+      );
+      if (myId !== reqIdRef.current) return; // ignore stale responses
+      setOrganizations(data.result);
+      setRowCount(data.count);
     } catch (e) {
-      console.error(e);
-      setLoadingError(true);
+      if (myId === reqIdRef.current) {
+        logger.error('Organizations.fetchOrganizations failed:', { error: e });
+        setLoadingError(true);
+      }
     } finally {
-      setIsLoading(false);
+      if (myId === reqIdRef.current) setIsLoading(false);
     }
-  }, [apiGet, orgsUrl]);
+  }, [apiPost, requestBody]);
 
   useEffect(() => {
     fetchOrganizations();
   }, [fetchOrganizations]);
 
   const orgCols: GridColDef[] = [
-    { field: 'name', headerName: 'Organization', minWidth: 100, flex: 2 },
-    { field: 'state', headerName: 'State', minWidth: 100, flex: 1 },
-    { field: 'region_id', headerName: 'Region', minWidth: 100, flex: 1 },
+    {
+      field: 'name',
+      headerName: 'Organization',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Organization Name: ${cellValues.row.name}`}
+          >
+            {cellValues.row.name}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'acronym',
+      headerName: 'Acronym',
+      minWidth: 100,
+      flex: 2,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
+          >
+            {cellValues.row.acronym}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'state',
+      headerName: 'State',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`State for Organization ${cellValues.row.name}: ${cellValues.row.state}`}
+          >
+            {cellValues.row.state}
+          </Box>
+        );
+      }
+    },
+    {
+      field: 'region_id',
+      headerName: 'Region',
+      minWidth: 100,
+      flex: 1,
+      renderCell: (cellValues: GridRenderCellParams) => {
+        return (
+          <Box
+            component="span"
+            aria-label={`Region for Organization ${cellValues.row.name}: ${cellValues.row.region_id}`}
+          >
+            {cellValues.row.region_id}
+          </Box>
+        );
+      }
+    },
     {
       field: 'view',
       headerName: 'View/Edit',
@@ -69,7 +208,7 @@ export const Organizations: React.FC = () => {
       filterable: false,
       disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `View or edit organization ${cellValues.row.name}`;
+        const ariaLabel = `View or Edit Organization ${cellValues.row.name}`;
         const descriptionId = `description-${cellValues.row.id}`;
         return (
           <>
@@ -81,7 +220,12 @@ export const Organizations: React.FC = () => {
               aria-label={ariaLabel}
               aria-describedby={descriptionId}
               onClick={() =>
-                history.push('/organizations/' + cellValues.row.id)
+                history.push(
+                  ROUTES.ORGANIZATION.replace(
+                    ':organizationId',
+                    cellValues.row.id
+                  )
+                )
               }
             >
               <EditNoteOutlinedIcon />
@@ -94,7 +238,9 @@ export const Organizations: React.FC = () => {
 
   const onSubmit = async (body: Object) => {
     try {
-      const org = await apiPost('/organizations', { body });
+      const org = await apiPost<Organization>(ENDPOINTS.ORGANIZATIONS, {
+        body
+      });
       setOrganizations((prev) => [...prev, org]);
       setInfoDialogOpen(true);
     } catch (e: any) {
@@ -106,7 +252,7 @@ export const Organizations: React.FC = () => {
         type: 'error'
       });
       setChosenTags([]);
-      console.error(e);
+      logger.error('Organizations.handleSubmit failed:', { error: e });
     }
   };
 
@@ -129,16 +275,13 @@ export const Organizations: React.FC = () => {
       >
         Organizations
       </Typography>
-      <Box mb={3} mt={3} display="flex" justifyContent="center">
-        {isLoading ? (
-          <Paper elevation={2}>
-            <Alert severity="info">Loading Organizations...</Alert>
-          </Paper>
-        ) : loadingError ? (
-          <Stack direction="row" spacing={2}>
-            <Paper elevation={2}>
-              <Alert severity="warning">Error Loading Organizations!</Alert>
-            </Paper>
+
+      {loadingError && (
+        <Box mb={2}>
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Alert severity="warning" sx={{ flex: 1 }}>
+              Error Loading Organizations!
+            </Alert>
             <Button
               onClick={fetchOrganizations}
               variant="contained"
@@ -148,20 +291,44 @@ export const Organizations: React.FC = () => {
               Retry
             </Button>
           </Stack>
-        ) : (
-          <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
-            <DataGrid
-              rows={organizations}
-              columns={orgCols}
-              slots={{ toolbar: CustomToolbar }}
-              initialState={{
-                pagination: { paginationModel: { pageSize: 15 } }
-              }}
-              pageSizeOptions={[15, 30, 50, 100]}
-            />
-          </Paper>
-        )}
-      </Box>
+        </Box>
+      )}
+
+      <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
+        <DataGrid
+          rows={organizations}
+          columns={orgCols}
+          slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
+          slotProps={{
+            basePopper: { placement: 'bottom-start' },
+            toolbar: { disableExport: true } as any
+          }}
+          loading={isLoading}
+          paginationMode="server"
+          rowCount={rowCount}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
+          filterMode="server"
+          filterModel={filterModel}
+          onFilterModelChange={(m) => {
+            setFilterModel(m);
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          }}
+          sortingMode="server"
+          sortModel={sortModel}
+          onSortModelChange={(m) => {
+            setSortModel(m);
+            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          }}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 15, page: 0 } }
+          }}
+          pageSizeOptions={[15, 30, 50, 100]}
+          disableRowSelectionOnClick
+          showToolbar
+        />
+      </Paper>
+
       <OrganizationForm
         onSubmit={onSubmit}
         open={dialogOpen}

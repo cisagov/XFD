@@ -1,24 +1,28 @@
 """API methods to support Queu Monitoring endpoints."""
 
 # Standard Python Libraries
+import logging
 import os
 
 # Third-Party Libraries
 import boto3
-from fastapi import HTTPException
-from xfd_api.helpers.email import _setup_proxy
+from botocore.session import Session as BotoCoreSession
+from fastapi import HTTPException, status
+from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.queue_monitoring import QueueSearch
 
 from ..auth import is_global_view_admin
 
+LOGGER = logging.getLogger(__name__)
+
 is_local = os.getenv("IS_LOCAL")
 base_queue_url = os.getenv("QUEUE_URL")
+IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
 
 
 # POST: /queues/search
 def list_queues(search_data: QueueSearch, current_user):
     """Fetch queue metadata including message counts."""
-    _setup_proxy()  # Setup proxy if LZ_PROXY_URL is defined
     try:
         if not is_global_view_admin(current_user):
             raise HTTPException(status_code=403, detail="Unauthorized access.")
@@ -33,6 +37,9 @@ def list_queues(search_data: QueueSearch, current_user):
         page = search_data.page or 1
 
         # Connect to SQS
+        if not IS_DMZ:
+            session = BotoCoreSession()
+            session.set_config_variable("ca_bundle", ensure_zscaler_cert_downloaded())
         sqs = boto3.client(
             "sqs",
             region_name=os.getenv("AWS_REGION", "us-east-1"),
@@ -73,10 +80,8 @@ def list_queues(search_data: QueueSearch, current_user):
                 }
                 queue_data.append(queue_info)
             except Exception as attr_err:
-                print(
-                    "Error fetching attributes for queue {}: {}".format(
-                        queue_name, attr_err
-                    )
+                LOGGER.error(
+                    "Error fetching attributes for queue %s: %s", queue_name, attr_err
                 )
 
         # Apply filters
@@ -98,7 +103,7 @@ def list_queues(search_data: QueueSearch, current_user):
         return {"result": paginated_data, "count": len(queue_data)}
 
     except Exception as e:
-        print("Error fetching queue metadata: {}".format(e))
+        LOGGER.exception("Error fetching queue metadata: %s", e)
         raise HTTPException(
-            status_code=500, detail="Failed to retrieve queue metadata."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )

@@ -18,7 +18,7 @@ from xfd_mini_dl.models import DataSource, DomainPermutations, Organization, Sub
 
 date = datetime.datetime.now().strftime("%Y-%m-%d")
 LOGGER = logging.getLogger(__name__)
-BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "localhost")
+BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "http://backend:3000/blocklist/check")
 DMZ_API_KEY = os.getenv("DMZ_API_KEY", "local")
 
 
@@ -177,7 +177,7 @@ def check_domain_in_blocklist(
         )
         response.raise_for_status()
         data = response.json()
-        print("Blocklist API response:", data)
+        LOGGER.info("Blocklist API response: %s", data)
         if isinstance(data, dict) and (
             data.get("attacks", 0) > 0 or data.get("reports", 0) > 0
         ):
@@ -257,7 +257,7 @@ def execute_dnstwist_data(domain_dict):
             dshield_attack_count=domain_dict["dshield_attack_count"],
         )
     except Exception as e:
-        LOGGER.error(f"Error adding domain permutation to data lake {str(e)}")
+        LOGGER.error("Error adding domain permutation to data lake: %s", str(e))
 
 
 def process_org(org, orgs_list, data_source, failures):
@@ -283,7 +283,7 @@ def process_org(org, orgs_list, data_source, failures):
                 # Get subdomain uid
                 # Check Blocklist
                 for dom in finalorglist:
-                    print("Checking Blocklist", dom)
+                    LOGGER.info("Checking Blocklist: %s", dom)
                     domain_dict, perm_list = checkBlocklist(
                         dom, data_source, org, perm_list
                     )
@@ -365,5 +365,5 @@ def handler(event):
             "body": "Xpanse Alerts sync completed successfully.",
         }
     except Exception as e:
-        print("Error in handler", e)
+        LOGGER.error("Error in handler: %s", e)
         return {"statusCode": 500, "body": str(e)}

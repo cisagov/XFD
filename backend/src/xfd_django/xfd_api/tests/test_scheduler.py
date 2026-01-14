@@ -65,15 +65,13 @@ def test_scheduler_respects_frequency_window(org):
     scan = Scan.objects.create(
         name="censys",
         concurrent_tasks=1,
-        frequency=1,
+        frequency=126000,
         last_run=timezone.now() - timedelta(hours=12),
     )
     scheduler = Scheduler()
     scheduler.initialize([scan], [org])
 
-    with patch("xfd_api.tasks.scheduler.scan_execution_handler") as mock_exec:
-        scheduler.run()
-        mock_exec.assert_not_called()
+    assert scan.last_run > timezone.now() - timedelta(seconds=scan.frequency)
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])

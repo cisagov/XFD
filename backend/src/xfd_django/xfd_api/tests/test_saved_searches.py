@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 import pytest
 from xfd_api.auth import create_jwt_token
 from xfd_django.asgi import app
-from xfd_mini_dl.models import SavedSearch, User, UserType
+from xfd_mini_dl.models import Organization, Role, SavedSearch, User, UserType
 
 client = TestClient(app)
 
@@ -53,6 +53,7 @@ def create_standard_user():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        region_id=1,
     )
     yield user
     user.delete()
@@ -68,6 +69,7 @@ def create_secondary_standard_user():
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        region_id=2,
     )
     yield user
     user.delete()
@@ -135,8 +137,8 @@ def test_update_saved_search_by_global_admin_fails(
     body["search_term"] = "123"
     body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
 
-    response = client.put(
-        "/saved-searches/{}".format(search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(global_admin_user)},
     )
@@ -179,8 +181,8 @@ def test_update_saved_search_by_global_view_fails(
     body["name"] = "test-{}".format(secrets.token_hex(4))
     body["search_term"] = "123"
     body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
-    response = client.put(
-        "/saved-searches/{}".format(saved_search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(saved_search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(global_view_user)},
     )
@@ -218,8 +220,8 @@ def test_update_saved_search_by_standard_user_with_access(create_standard_user):
     body["search_term"] = "123"
     body["updated_at"] = datetime.now().isoformat()  # Update the timestamp
 
-    response = client.put(
-        "/saved-searches/{}".format(search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
@@ -256,8 +258,8 @@ def test_update_saved_search_by_standard_user_without_access_fails(
         "updated_at": str(datetime.now()),  # Include updatedAt field
     }
     search = SavedSearch.objects.create(**body, created_by=user_with_access)
-    response = client.put(
-        "/saved-searches/{}".format(search.id),
+    response = client.post(
+        "/update_saved-searches/{}".format(search.id),
         json=body,
         headers={"Authorization": "Bearer " + create_jwt_token(user_without_access)},
     )
@@ -583,3 +585,209 @@ def test_get_saved_search_by_different_user_fails(
 
     # Cleanup
     search.delete()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_create_saved_search_with_unauthorized_filters_fails(
+    create_standard_user, create_secondary_standard_user
+):
+    """
+    Ensure that creating a saved search with unauthorized filters fails.
+
+    This test verifies that a user cannot create a saved search with filters they do not have access to.
+    Assertions:
+        The response status code should be 403.
+    """
+    # Setup users and organizations
+
+    user = create_standard_user
+    user_in_diff_region = create_secondary_standard_user
+
+    authorized_org = Organization.objects.create(
+        name="AuthorizedOrg-{}".format(secrets.token_hex(4)),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id=1,
+    )
+    unauthorized_org = Organization.objects.create(
+        name="UnauthorizedOrg-{}".format(secrets.token_hex(4)),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id=2,
+    )
+    # Assign organization to authorized user
+    Role.objects.create(
+        user=user,
+        organization=authorized_org,
+        role="user",
+    )
+
+    # Search creation with unauthorized filters
+    name = "test-{}".format(secrets.token_hex(4))
+    unauthorized_filters = [
+        {
+            "field": "organization.region_id",
+            "values": [user_in_diff_region.region_id],
+            "type": "any",
+        },
+        {
+            "field": "organization_id",
+            "values": [
+                {
+                    "id": str(unauthorized_org.id),
+                    "name": unauthorized_org.name,
+                    "region_id": str(unauthorized_org.region_id),
+                }
+            ],
+            "type": "any",
+        },
+    ]
+
+    unauth_response = client.post(
+        "/saved-searches",
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        json={
+            "name": name,
+            "count": 3,
+            "sort_direction": "",
+            "sort_field": "",
+            "search_term": "",
+            "search_path": "",
+            "filters": unauthorized_filters,
+        },
+    )
+    assert unauth_response.status_code == 403
+    assert unauth_response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
+
+    # Cleanup
+    authorized_org.delete()
+    unauthorized_org.delete()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_create_saved_search_with_default_standard_user_filters_fails(
+    create_standard_user,
+):
+    """Ensure that creating a saved search with default filters fails."""
+    # Setup users and organizations
+
+    user = create_standard_user
+
+    authorized_org = Organization.objects.create(
+        name="AuthorizedOrg-{}".format(secrets.token_hex(4)),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id=1,
+    )
+
+    authorized_org = Organization.objects.create(
+        name="AuthorizedOrg-{}".format(secrets.token_hex(4)),
+        root_domains=["test-{}".format(secrets.token_hex(4))],
+        ip_blocks=[],
+        is_passive=False,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id=1,
+    )
+    # Assign organization to authorized user
+    Role.objects.create(
+        user=user,
+        organization=authorized_org,
+        role="user",
+    )
+
+    # Search creation with default filters
+    name = "test-{}".format(secrets.token_hex(4))
+    default_filters = [
+        {
+            "field": "organization.region_id",
+            "values": [str(user.region_id)],
+            "type": "any",
+        },
+        {
+            "field": "organization_id",
+            "values": [
+                {
+                    "id": str(authorized_org.id),
+                    "name": authorized_org.name,
+                    "region_id": str(authorized_org.region_id),
+                }
+            ],
+            "type": "any",
+        },
+    ]
+
+    response = client.post(
+        "/saved-searches",
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        json={
+            "name": name,
+            "count": 3,
+            "sort_direction": "",
+            "sort_field": "",
+            "search_term": "",
+            "search_path": "",
+            "filters": default_filters,
+        },
+    )
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
+
+    # Cleanup
+    authorized_org.delete()
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_create_saved_search_with_default_admin_user_filters_fails(create_global_admin):
+    """Ensure that creating a saved search with default filters fails."""
+    # Setup users
+    user = create_global_admin
+
+    # Get all region IDs from organizations
+    admin_region_ids = [
+        str(region)
+        for region in Organization.objects.values_list(
+            "region_id", flat=True
+        ).distinct()
+    ]
+
+    # Search creation with default filters
+    name = "test-{}".format(secrets.token_hex(4))
+    default_filters = [
+        {
+            "field": "organization.region_id",
+            "values": admin_region_ids,
+            "type": "any",
+        },
+    ]
+
+    response = client.post(
+        "/saved-searches",
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        json={
+            "name": name,
+            "count": 3,
+            "sort_direction": "",
+            "sort_field": "",
+            "search_term": "",
+            "search_path": "",
+            "filters": default_filters,
+        },
+    )
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }

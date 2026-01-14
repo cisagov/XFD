@@ -1,6 +1,7 @@
 """Scan Execution."""
 # Standard Python Libraries
 import json
+import logging
 import os
 import random
 import re
@@ -19,6 +20,7 @@ django.setup()
 from xfd_api.tasks.ecs_client import ECSClient
 from xfd_mini_dl.models import Scan, ScanTask
 
+LOGGER = logging.getLogger(__name__)
 QUEUE_URL = os.getenv("QUEUE_URL")
 
 # Conditionally import Docker if in local environment
@@ -57,8 +59,14 @@ def create_scan_task(
 
 
 def start_desired_tasks(
-    scan_type, desired_count, scan_id, organizations, is_pe=False, shodan_api_keys=[]
-):
+    scan_type,
+    desired_count,
+    scan_id,
+    organizations,
+    is_pe=False,
+    shodan_api_keys=[],
+    arguments=None,
+):  # pylint: disable=R0913, R0915
     """Start the desired number of tasks on AWS ECS or local Docker based on configuration."""
     # Step 1: Get the scan instance
     scans_with_name = Scan.objects.filter(name=scan_type)
@@ -87,17 +95,18 @@ def start_desired_tasks(
     # Step 5: Determine how many *this* scan is allowed to start
     remaining_for_this_scan = desired_count - this_scan_running
     if scan_type == "shodan" and len(shodan_api_keys) < remaining_for_this_scan:
-        print(
-            "Not enough Shodan API keys. Needed: {}, Provided: {}".format(
-                remaining_for_this_scan, len(shodan_api_keys)
-            )
+        LOGGER.warning(
+            "Not enough Shodan API keys. Needed: %s, Provided: %s",
+            remaining_for_this_scan,
+            len(shodan_api_keys),
         )
         return
     if remaining_for_this_scan <= 0:
-        print(
-            "Scan {} already has {} tasks running (desired: {}). Not launching more.".format(
-                scan_id, this_scan_running, desired_count
-            )
+        LOGGER.warning(
+            "Scan %s already has %s tasks running (desired: %s). Not launching more.",
+            scan_id,
+            this_scan_running,
+            desired_count,
         )
         return
 
@@ -105,16 +114,19 @@ def start_desired_tasks(
     remaining_count = min(len(available_indexes), remaining_for_this_scan)
 
     if remaining_count == 0:
-        print(
-            "No available concurrency slots for scan '{}'. Max: {}, Running: {}".format(
-                scan_type, max_concurrent, len(existing_indexes)
-            )
+        LOGGER.warning(
+            "No available concurrency slots for scan '%s'. Max: %d, Running: %d",
+            scan_type,
+            max_concurrent,
+            len(existing_indexes),
         )
         return
 
     queue_url = "{}{}-queue".format(QUEUE_URL, scan_type)
     batch_size = 1 if scan_type == "shodan" else 10
     shodan_api_keys = shodan_api_keys or []
+    if arguments is None:
+        arguments = {}
 
     while remaining_count > 0:
         current_batch_count = min(remaining_count, batch_size)
@@ -127,7 +139,7 @@ def start_desired_tasks(
         if is_pe:
             if os.getenv("IS_LOCAL"):
                 # Use local Docker environment (old method)
-                print("Starting local containers (PE)...")
+                LOGGER.info("Starting local containers (PE)...")
                 start_local_containers(
                     current_batch_count, scan_type, queue_url, shodan_api_key
                 )
@@ -166,12 +178,12 @@ def start_desired_tasks(
                             ]
                         },
                     )
-                    print("Tasks started (PE): {}".format(current_batch_count))
+                    LOGGER.info("Tasks started (PE): %d", current_batch_count)
                 except ClientError as e:
-                    print("Error starting PE tasks: {}".format(e))
+                    LOGGER.error("Error starting PE tasks: %s", e)
                     raise e
         else:
-            print("Running ECS task")
+            LOGGER.info("Running ECS task")
             ecs = ECSClient()
             command_options = {
                 "scanId": scan_id,
@@ -179,6 +191,7 @@ def start_desired_tasks(
                 "SERVICE_QUEUE_URL": queue_url,
                 "SERVICE_TYPE": scan_type,
                 "count": current_batch_count,
+                **arguments,
             }
             if scan_type == "shodan":
                 command_options["SHODAN_API_KEY"] = shodan_api_key
@@ -188,7 +201,7 @@ def start_desired_tasks(
             result = ecs.run_command(command_options)
 
             if not result.get("tasks"):
-                print("Failed to start ECS task for scan {}".format(scan_type))
+                LOGGER.exception("Failed to start ECS task for scan %s", scan_type)
                 raise Exception(
                     "Failed to start ECS task for scan {}".format(scan_type)
                 )
@@ -205,10 +218,10 @@ def start_desired_tasks(
                     fargate_task_arn=task_arn,
                     concurrency_index=index_to_use,
                 )
-                print(
-                    "Started ECS task {} with concurrency index {}".format(
-                        task_arn, index_to_use
-                    )
+                LOGGER.info(
+                    "Started ECS task %s with concurrency index %d",
+                    task_arn,
+                    index_to_use,
                 )
 
         remaining_count -= current_batch_count
@@ -230,7 +243,7 @@ def start_local_containers(count, scan_type, queue_url, shodan_api_key=""):
                 mem_limit="4g",
                 detach=True,
                 environment=[
-                    "DB_DIALECT={}".format(os.getenv("DB_DIALECT")),
+                    "DB_DIALECT={}".format("postgres"),
                     "DB_HOST={}".format(os.getenv("DB_HOST")),
                     "IS_LOCAL=true",
                     "DB_PORT={}".format(os.getenv("DB_PORT")),
@@ -247,23 +260,24 @@ def start_local_containers(count, scan_type, queue_url, shodan_api_key=""):
                 ],
             )
             container.start()
-            print("Started container: {}".format(container_name))
+            LOGGER.info("Started container: %s", container_name)
         except Exception as e:
-            print("Error starting local container {}: {}".format(i, e))
+            LOGGER.error("Error starting local container %d: %s", i, e)
 
 
 def handler(event, context):
     """Handle the AWS Lambda event to start tasks on ECS or Docker."""
     try:
-        print("Starting scan execution")
+        LOGGER.info("Starting scan execution")
         desired_count = event.get("desiredCount", 1)
         scan_type = event.get("scanType")
         is_pe = event.get("isPe", True)
         scan_id = event.get("scanId", "")
         organizations = event.get("organizations", [])
+        arguments = event.get("arguments", {})
 
         if not scan_type:
-            print("scanType must be provided.")
+            LOGGER.error("Failed: no scanType provided.")
             return {"status_code": 400, "body": "Failed: no scanType provided."}
 
         if scan_type == "shodan":
@@ -276,7 +290,7 @@ def handler(event, context):
             )
 
             if len(shodan_api_keys) < desired_count:
-                print("Not enough API keys provided for Shodan tasks.")
+                LOGGER.error("Failed: insufficient API keys for Shodan.")
                 return {
                     "status_code": 400,
                     "body": "Failed: insufficient API keys for Shodan.",
@@ -289,14 +303,20 @@ def handler(event, context):
                 organizations,
                 is_pe=is_pe,
                 shodan_api_keys=shodan_api_keys,
+                arguments=arguments,
             )
 
         else:
             start_desired_tasks(
-                scan_type, desired_count, scan_id, organizations, is_pe=is_pe
+                scan_type,
+                desired_count,
+                scan_id,
+                organizations,
+                is_pe=is_pe,
+                arguments=arguments,
             )
 
         return {"status_code": 200, "body": "Tasks started successfully."}
     except Exception as e:
-        print("Error in handler: {}".format(e))
+        LOGGER.error("Error in handler: %s", e)
         return {"status_code": 500, "body": json.dumps(str(e))}
