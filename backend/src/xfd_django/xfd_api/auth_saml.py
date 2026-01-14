@@ -247,6 +247,7 @@ def _extract_identity(auth: OneLogin_Saml2_Auth) -> Dict[str, Any]:
     email = (attrs.get("email") or [None])[0]
     first = (attrs.get("firstName") or attrs.get("given_name") or [""])[0]
     last = (attrs.get("lastName") or attrs.get("family_name") or [""])[0]
+    nickname = (attrs.get("nickname") or [""])[0]
     groups = attrs.get("groups") or []
 
     return {
@@ -255,6 +256,7 @@ def _extract_identity(auth: OneLogin_Saml2_Auth) -> Dict[str, Any]:
         "first": first,
         "last": last,
         "groups": groups,
+        "nickname": nickname,
     }
 
 
