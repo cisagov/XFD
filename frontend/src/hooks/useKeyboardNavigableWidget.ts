@@ -52,24 +52,6 @@ export function useKeyboardNavigableWidget({
 }: KeyboardNavigableWidgetOptions): KeyboardNavigableWidgetResult {
   const [focusedIndex, setFocusedIndex] = useState(initialFocusIndex);
   const cellRefs = useRef<Map<number, HTMLElement>>(new Map());
-
-  // Convert linear index to row/column coordinates
-  const getCoordinates = (index: number): { row: number; col: number } => {
-    if (index === -1) return { row: -1, col: -1 };
-    return {
-      row: Math.floor(index / columnCount),
-      col: index % columnCount
-    };
-  };
-
-  // Convert row/column coordinates to linear index
-  const getIndex = (row: number, col: number): number => {
-    const totalRows = Math.ceil(itemCount / columnCount);
-    if (row < 0 || row >= totalRows || col < 0 || col >= columnCount) return -1;
-    const index = row * columnCount + col;
-    return index >= itemCount ? -1 : index;
-  };
-
   // Update focus when index changes
   useEffect(() => {
     // Prevent the callback from firing when no item is focused
@@ -87,6 +69,30 @@ export function useKeyboardNavigableWidget({
       }
     }
   }, [focusedIndex]);
+
+  // Convert linear index to row/column coordinates
+  const getCoordinates = useCallback(
+    (index: number): { row: number; col: number } => {
+      if (index === -1) return { row: -1, col: -1 };
+      return {
+        row: Math.floor(index / columnCount),
+        col: index % columnCount
+      };
+    },
+    [columnCount]
+  );
+
+  // Convert row/column coordinates to linear index
+  const getIndex = useCallback(
+    (row: number, col: number): number => {
+      const totalRows = Math.ceil(itemCount / columnCount);
+      if (row < 0 || row >= totalRows || col < 0 || col >= columnCount)
+        return -1;
+      const index = row * columnCount + col;
+      return index >= itemCount ? -1 : index;
+    },
+    [itemCount, columnCount]
+  );
 
   // Memoized keyboard event handler for turning keyboard input into focus
   const handleKeyDown = useCallback(
