@@ -1,20 +1,23 @@
 /**
- * Custom hook for keyboard navigation in table components
+ * Custom hook for keyboard navigable widgets (composite widgets)
  *
  * Provides comprehensive keyboard accessibility features including:
- * - Arrow key navigation (Up/Down)
+ * - Arrow key navigation (Up/Down/Left/Right for 2D grids)
  * - Home/End key support for jumping to first/last items
- * - Proper Tab/Shift+Tab behavior
+ * - Proper Tab/Shift+Tab behavior with roving tabindex pattern
  * - Focus management and visual indicators
  * - ARIA attributes for screen readers
+ * - DOM focus synchronization for proper screen reader announcements
  *
+ * Implements WAI-ARIA roving tabindex pattern for composite widgets like
+ * tables, grids, menus, and other grouped interactive elements.
  */
 
 // React Hooks
 import { useCallback, useEffect, useState, useRef } from 'react';
 
-// Configuration options for keyboard navigation behavior
-interface KeyboardNavigationOptions {
+// Configuration options for keyboard navigable widget behavior
+interface KeyboardNavigableWidgetOptions {
   itemCount: number;
   columnCount?: number; // Number of columns for 2D grid navigation
   initialFocusIndex?: number;
@@ -22,8 +25,8 @@ interface KeyboardNavigationOptions {
   disabled?: boolean;
 }
 
-// Return value from useKeyboardNavigation hook
-interface KeyboardNavigationResult {
+// Return value from useKeyboardNavigableWidget hook
+interface KeyboardNavigableWidgetResult {
   focusedIndex: number;
   setFocusedIndex: (index: number) => void;
   handleKeyDown: (event: React.KeyboardEvent) => void;
@@ -40,13 +43,13 @@ interface KeyboardNavigationResult {
   };
 }
 
-export function useKeyboardNavigation({
+export function useKeyboardNavigableWidget({
   itemCount,
   columnCount = 1, // Default to 1 column for backward compatibility
   initialFocusIndex = -1,
   onFocusChange,
   disabled = false
-}: KeyboardNavigationOptions): KeyboardNavigationResult {
+}: KeyboardNavigableWidgetOptions): KeyboardNavigableWidgetResult {
   const [focusedIndex, setFocusedIndex] = useState(initialFocusIndex);
   const cellRefs = useRef<Map<number, HTMLElement>>(new Map());
 
