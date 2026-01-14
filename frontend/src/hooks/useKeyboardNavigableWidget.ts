@@ -193,15 +193,18 @@ export function useKeyboardNavigableWidget({
   );
 
   // Memoized utility that determines the appropriate tabIndex value for child items
-  // First cell gets tabIndex 0, all others get -1
+  // Implements roving tabindex: focused cell gets 0, others get -1, defaults to first cell
   const getTabIndex = useCallback(
     (index: number) => {
+      console.log(`Getting tabIndex for cell ${index}`);
       if (disabled) return -1;
 
-      // First cell is the tab stop, all others are -1
-      return index === 0 ? 0 : -1;
+      // If no cell is focused yet (-1), make first cell tabbable
+      // Otherwise, only the currently focused cell is tabbable
+      const tabbableIndex = focusedIndex === -1 ? 0 : focusedIndex;
+      return index === tabbableIndex ? 0 : -1;
     },
-    [disabled]
+    [disabled, focusedIndex]
   );
 
   // Memoized utility that creates focus props for individual cells in a 2D grid
