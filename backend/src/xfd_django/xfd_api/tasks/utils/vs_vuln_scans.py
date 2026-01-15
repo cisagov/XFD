@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from collections import Counter
+from datetime import timedelta
 from ipaddress import ip_network
 import logging
 import os
@@ -12,6 +13,7 @@ from django.db import models
 from django.db.models import (
     CharField,
     Count,
+    DateTimeField,
     ExpressionWrapper,
     F,
     FloatField,
@@ -332,10 +334,25 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
             LOGGER.error("Organization with ID %s not found.", org_id)
             return
 
-        all_org_tickets = Ticket.objects.filter(organization=org)
-        open_tickets = all_org_tickets.filter(is_open=True)
+        cutoff = timezone.now() - timedelta(days=90)
+
+        base_tickets = (
+            Ticket.objects.filter(organization=org)
+            .annotate(
+                activity_ts=Coalesce(
+                    "closed_timestamp",
+                    "updated_timestamp",
+                    output_field=DateTimeField(),
+                )
+            )
+            .filter(activity_ts__gte=cutoff)
+        )
+
+        open_tickets = base_tickets.filter(is_open=True)
+
         included = open_tickets.filter(
-            false_positive__in=[False, None], vuln_source="nessus"
+            false_positive__in=[False, None],
+            vuln_source="nessus",
         )
 
         if not included.exists():
@@ -564,7 +581,7 @@ def create_vuln_scan_summary(summary_date=None, org_id=None):
                 "start_date": start_date,
                 "end_date": end_date,
                 "assets_owned_count": get_asset_owned_count(org),
-                "false_positive_count": all_org_tickets.filter(
+                "false_positive_count": open_tickets.filter(
                     false_positive=True, is_open=True, vuln_source="nessus"
                 ).count(),
                 "vulnerable_host_count": included.values("ip_string")
