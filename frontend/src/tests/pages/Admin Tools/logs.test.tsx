@@ -178,4 +178,15 @@ describe('Logs Page', () => {
       expect(payloadRow).toBeInTheDocument();
     });
   });
+
+  describe('Does not render Export button', () => {
+    it('does not render Export button', async () => {
+      render(<Logs />);
+
+      const exportButton = screen.queryByRole('button', {
+        name: /export/i
+      });
+      expect(exportButton).not.toBeInTheDocument();
+    });
+  });
 });
