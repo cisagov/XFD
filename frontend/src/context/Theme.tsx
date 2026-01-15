@@ -23,11 +23,13 @@ declare module '@mui/material/styles' {
   interface Palette {
     disabled: Palette['primary'];
     neutrals: Palette['primary'];
+    focus: Palette['primary'];
   }
 
   interface PaletteOptions {
     disabled?: PaletteOptions['primary'];
     neutrals?: PaletteOptions['primary'];
+    focus?: PaletteOptions['primary'];
   }
 
   interface PaletteColor {
@@ -384,6 +386,12 @@ const theme = createTheme({
       dark: '#2F2F30',
       white: '#FFFFFF',
       black: '#000000'
+    },
+    focus: {
+      main: '#1976d2', // MUI primary blue for focus states (matches DataGrid)
+      light: '#e3f2fd', // Light blue background for focus states
+      dark: '#1565c0', // Darker variant if needed
+      contrastText: '#ffffff'
     }
   },
   typography: {
