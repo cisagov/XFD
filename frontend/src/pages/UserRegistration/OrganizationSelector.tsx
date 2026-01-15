@@ -12,10 +12,6 @@ export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (selectedOrgId: string | null) => void;
   initialOrgId?: string;
-  errorStates?: {
-    getOrgsError: string;
-    getUpdateError: string;
-  };
   selectedOrg?: GridRowSelectionModel;
   selectedUser?: { full_name: string };
 }
@@ -29,10 +25,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   const { apiGet } = useAuthContext();
   const [loading, setLoading] = useState<boolean>(false);
   const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
-  const [internalErrorStates, setInternalErrorStates] = useState({
-    getOrgsError: '',
-    getUpdateError: ''
-  });
+  const [organizationsError, setOrganizationsError] = useState('');
 
   // Local state to manage the grid selection, matching your original logic
   const [localSelectedOrg, setLocalSelectedOrg] =
@@ -44,10 +37,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   const fetchOrganizations = React.useCallback(async () => {
     if (!regionId) {
       setOrganizations([]);
-      setInternalErrorStates((prev) => ({
-        ...prev,
-        getOrgsError: 'This user has no region assigned.'
-      }));
+      setOrganizationsError('This user has no region assigned.');
       return;
     }
     setLoading(true);
@@ -56,10 +46,10 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', regionId)
       );
       setOrganizations(rows);
-      setInternalErrorStates({ getOrgsError: '', getUpdateError: '' });
+      setOrganizationsError('');
       setLoading(false);
     } catch (e: any) {
-      setInternalErrorStates((prev) => ({ ...prev, getOrgsError: e.message }));
+      setOrganizationsError(e.message);
       setLoading(false);
     }
   }, [regionId, apiGet]);
@@ -140,19 +130,18 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
         />
       </Paper>
 
-      {internalErrorStates.getOrgsError && (
+      {organizationsError.length > 0 && (
         <Alert severity="error">
-          Error retrieving organizations: {internalErrorStates.getOrgsError}
+          Error retrieving organizations: {organizationsError}
         </Alert>
       )}
 
-      {localSelectedOrg.ids.size !== 0 &&
-        internalErrorStates.getUpdateError.length === 0 && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            {selectedUser?.full_name} will become a member of the selected
-            organization.
-          </Alert>
-        )}
+      {localSelectedOrg.ids.size !== 0 && (
+        <Alert severity="info" sx={{ mt: 2 }}>
+          {selectedUser?.full_name} will become a member of the selected
+          organization.
+        </Alert>
+      )}
     </>
   );
 };
