@@ -10,7 +10,7 @@ import { organizationCols as orgCols } from './UserRegistrationColumns';
 
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
-  onSelectionChange: (selectedOrgId: string | null) => void;
+  onSelectionChange: (organization: OrganizationType | null) => void;
   initialOrgId?: string;
   selectedOrg?: GridRowSelectionModel;
   selectedUser?: { full_name: string };
@@ -47,12 +47,18 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
       );
       setOrganizations(rows);
       setOrganizationsError('');
+      if (initialOrgId) {
+        const initialOrg = rows.find((org) => org.id === initialOrgId);
+        if (initialOrg) {
+          onSelectionChange(initialOrg);
+        }
+      }
       setLoading(false);
     } catch (e: any) {
       setOrganizationsError(e.message);
       setLoading(false);
     }
-  }, [regionId, apiGet]);
+  }, [regionId, apiGet, initialOrgId, onSelectionChange]);
 
   useEffect(() => {
     fetchOrganizations();
@@ -85,17 +91,14 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
           ids: new Set()
         });
       }
-      // Pass the ID back up to the parent
-      onSelectionChange(finalId);
+      // Pass the full object back up to the parent
+      const selectedOrgData =
+        organizations.find((org) => org.id === finalId) || null;
+      // Pass the full object (including name and acronym) back to the parent
+      onSelectionChange(selectedOrgData);
     },
-    [onSelectionChange]
+    [onSelectionChange, organizations]
   );
-
-  useEffect(() => {
-    if (initialOrgId) {
-      onSelectionChange(initialOrgId);
-    }
-  }, [initialOrgId, onSelectionChange]);
 
   return (
     <>

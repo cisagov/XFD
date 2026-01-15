@@ -70,6 +70,7 @@ export const RegionUsers: React.FC = () => {
     type: 'include',
     ids: new Set<string | number>()
   });
+  const [selectedOrgObject, setSelectedOrgObject] = useState<any>(null);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
@@ -126,7 +127,7 @@ export const RegionUsers: React.FC = () => {
   const updateUser = useCallback(
     async (
       user_id: string,
-      org_name: string
+      selectedOrgObject: any
     ): Promise<{ success: boolean; body: string }> => {
       try {
         const res = await apiPost(
@@ -135,15 +136,24 @@ export const RegionUsers: React.FC = () => {
             body: { invite_pending: false }
           }
         );
+        const mockRoles = [
+          {
+            organization: {
+              id: selectedOrgObject.id,
+              name: selectedOrgObject.name,
+              acronym: selectedOrgObject.acronym
+            }
+          }
+        ];
+        // Combine the API response with selection data
+        const updatedUserWithRoles = { ...res, roles: mockRoles };
+        const transformedUser = transformUserData([updatedUserWithRoles])[0];
         apiRefPendingUsers.current?.updateRows([
           { id: user_id, _action: 'delete' }
         ]);
-        setPendingUsers((prevPendingUsers) =>
-          prevPendingUsers.filter((user) => user.id !== user_id)
-        );
-        res['organizations'] = org_name;
-        apiRefCurrentUsers.current?.updateRows([res]);
-        setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
+        setPendingUsers((prev) => prev.filter((u) => u.id !== user_id));
+        apiRefCurrentUsers.current?.updateRows([transformedUser]);
+        setCurrentUsers((prev) => [...prev, transformedUser]);
         return { success: true, body: 'User registration approved' };
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
@@ -156,25 +166,23 @@ export const RegionUsers: React.FC = () => {
   const addOrgToUser = useCallback(
     async (
       user_id: string,
-      selectedOrgId: any
+      orgObject: any
     ): Promise<{ success: boolean; body: string }> => {
       try {
-        const res = await apiPost(
+        await apiPost(
           ENDPOINTS.ORGANIZATION_ADD_USER.replace(
             '{organization_id}',
-            selectedOrgId
+            orgObject.id // Extract ID for the API call
           ),
-          {
-            body: { user_id, role: 'user' }
-          }
+          { body: { user_id, role: 'user' } }
         );
-        return updateUser(user_id, res.organization.name);
+        return updateUser(user_id, orgObject);
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
         return { success: false, body: e.message };
       }
     },
-    [apiPost, updateUser, errorStates]
+    [apiPost, updateUser]
   );
 
   const sendApprovalEmail = useCallback(
@@ -293,10 +301,7 @@ export const RegionUsers: React.FC = () => {
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
         : '';
-      const selectedOrgId =
-        selectedOrg.ids.size > 0
-          ? Array.from(selectedOrg.ids)[0].toString()
-          : null;
+      const selectedOrgId = selectedOrgObject?.id || null;
       let success = false;
 
       // This call is to determine if the user was already approved by another admin since opening the dialog.
@@ -321,23 +326,23 @@ export const RegionUsers: React.FC = () => {
 
       // If the user's org was already added and not modified, only update the user.
       if (userHadOrg && originalOrgId === selectedOrgId) {
-        const updateUserResult = await updateUser(
-          selectedUser.id,
-          selectedUser.roles[0].organization.name
-        );
+        const existingOrg = selectedUser.roles[0].organization;
+        const updateUserResult = await updateUser(selectedUser.id, existingOrg);
         success = updateUserResult.success;
-        // If the user now has a different org than before, remove the previous org.
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
-        // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
         removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
-        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        // Pass the full selected object to both
+        const addOrgResult = await addOrgToUser(
+          selectedUser.id,
+          selectedOrgObject
+        );
         success = addOrgResult.success;
-        // If the user had no previous org, add the user to the selected org which then also updates the user.
-
-        // If the previous operation was successful or if the user had no previous org,
-        // add the user to the selected org which then also updates the user.
       } else {
-        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        // Pass the full selected object
+        const addOrgResult = await addOrgToUser(
+          selectedUser.id,
+          selectedOrgObject
+        );
         success = addOrgResult.success;
       }
       if (success) {
@@ -356,6 +361,14 @@ export const RegionUsers: React.FC = () => {
       setErrorStates({ ...errorStates, getUpdateError: e.message });
     }
   };
+
+  const handleOrgSelectionChange = useCallback((org: any) => {
+    setSelectedOrg({
+      type: 'include',
+      ids: new Set(org ? [org.id] : [])
+    });
+    setSelectedOrgObject(org);
+  }, []);
 
   return (
     <Box
@@ -423,12 +436,7 @@ export const RegionUsers: React.FC = () => {
             regionId={selectedUser.region_id}
             selectedUser={selectedUser}
             initialOrgId={selectedUser.roles[0]?.organization.id}
-            onSelectionChange={(id) => {
-              setSelectedOrg({
-                type: 'include',
-                ids: new Set(id ? [id] : [])
-              });
-            }}
+            onSelectionChange={handleOrgSelectionChange}
           />
         }
         disabled={selectedOrg.ids.size === 0}
