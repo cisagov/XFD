@@ -11,6 +11,7 @@ import {
   testUser
 } from '@/test-utils';
 import { formatTimestamp } from '@/components/Logs/Logs';
+import userEvent from '@testing-library/user-event';
 
 //Mock hooks
 vi.mock('@/context/AuthContext');
@@ -36,7 +37,8 @@ const sampleLogs = {
         organization: {
           name: 'Test Org'
         },
-        state: 'Florida'
+        state: 'Florida',
+        timestamp: '2023-10-01T12:00:00Z'
       }
     }
   ]
@@ -187,6 +189,32 @@ describe('Logs Page', () => {
         name: /export/i
       });
       expect(exportButton).not.toBeInTheDocument();
+    });
+  });
+
+  describe('renders Modal on Payload button click', () => {
+    it('renders Modal on Payload button click and displays key payload details in <pre>', async () => {
+      render(<Logs />);
+
+      const payloadButton = await screen.findByRole('button', {
+        name: /details for log/i
+      });
+      expect(payloadButton).toBeInTheDocument();
+
+      // Click the Payload button
+      const user = userEvent.setup();
+      await user.click(payloadButton);
+
+      // Check that the Modal appears
+      const modal = await screen.findByRole('dialog');
+      expect(modal).toBeInTheDocument();
+
+      // Check for Modal header
+      expect(await screen.findByText(/Payload Details/i)).toBeInTheDocument();
+
+      // Check that the payload details are displayed in <pre>
+      const preElement = await screen.findByRole('pre');
+      expect(preElement).toBeInTheDocument();
     });
   });
 });
