@@ -213,7 +213,7 @@ describe('Logs Page', () => {
       expect(await screen.findByText(/Payload Details/i)).toBeInTheDocument();
 
       // Check that the payload details are displayed in <pre>
-      const preElement = await screen.findByRole('pre');
+      const preElement = await screen.findByTestId('payload-pre');
       expect(preElement).toBeInTheDocument();
     });
   });

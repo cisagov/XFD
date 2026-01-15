@@ -490,7 +490,9 @@ export const Logs: FC<LogsProps> = () => {
               wordBreak: 'break-word'
             }}
           >
-            <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>
+            <pre data-testid="payload-pre">
+              {JSON.stringify(dialogDetails?.payload, null, 2)}
+            </pre>
           </Box>
         </DialogContent>
       </Dialog>
