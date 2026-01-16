@@ -247,6 +247,7 @@ def _extract_identity(auth: OneLogin_Saml2_Auth) -> Dict[str, Any]:
     email = (attrs.get("email") or [None])[0]
     first = (attrs.get("firstName") or attrs.get("given_name") or [""])[0]
     last = (attrs.get("lastName") or attrs.get("family_name") or [""])[0]
+    nickname = (attrs.get("nickname") or [""])[0]
     groups = attrs.get("groups") or []
 
     return {
@@ -255,6 +256,7 @@ def _extract_identity(auth: OneLogin_Saml2_Auth) -> Dict[str, Any]:
         "first": first,
         "last": last,
         "groups": groups,
+        "nickname": nickname,
     }
 
 
@@ -299,7 +301,9 @@ def _upsert_user(identity: Dict[str, Any]) -> User:
 
     # Update additional fields
     user.cognito_username = None
-    user.cognito_use_case_description = None
+    user.cognito_use_case_description = (
+        identity["nickname"] if "nickname" in identity else ""
+    )
     user.cognito_email_verified = True
     user.cognito_groups = groups
     user.last_logged_in = datetime.now(timezone.utc)
