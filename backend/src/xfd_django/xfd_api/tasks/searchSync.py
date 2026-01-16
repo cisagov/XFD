@@ -133,8 +133,14 @@ def handler(command_options):
                                 "last_seen": service.last_seen.isoformat()
                                 if service.last_seen
                                 else None,
-                                "products": service.products,
-                                "censys_metadata": service.censys_metadata,
+                                "products": [
+                                    {
+                                        "name": service.service,
+                                        "cpe": service.service_cpe,
+                                        "tags": service.tags or [],
+                                        "vendor": service.vendor,
+                                    }
+                                ],
                             }
                             for service in domain.services.all()
                         ],
