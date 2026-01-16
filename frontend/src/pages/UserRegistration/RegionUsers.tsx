@@ -182,7 +182,7 @@ export const RegionUsers: React.FC = () => {
         return { success: false, body: e.message };
       }
     },
-    [apiPost, updateUser]
+    [apiPost, updateUser, errorStates]
   );
 
   const sendApprovalEmail = useCallback(
