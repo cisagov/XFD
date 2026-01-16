@@ -330,6 +330,7 @@ export const RegionUsers: React.FC = () => {
         const updateUserResult = await updateUser(selectedUser.id, existingOrg);
         success = updateUserResult.success;
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
+        // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
         removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
         // Pass the full selected object to both
         const addOrgResult = await addOrgToUser(
