@@ -12,9 +12,11 @@ import {
 import { format } from 'date-fns';
 
 // Only allow equals + contains for string filters
-const textFilterOperators = getGridStringOperators().filter(
-  (op) => op.value === 'equals' || op.value === 'contains'
-);
+const getTextFilterOperators = () =>
+  getGridStringOperators().filter(
+    (op) => op.value === 'equals' || op.value === 'contains'
+  );
+const textFilterOperators = getTextFilterOperators();
 
 type UseUserColumnsProps = {
   user: { user_type?: string } | null | undefined;
