@@ -109,6 +109,7 @@ export const FilterDrawer: FC<
             addFilter={addFilter}
             removeFilter={removeFilter}
             filters={filters}
+            facets={facets}
             setSearchTerm={setSearchTerm}
             searchTerm={searchTerm}
             autocompletedResults={autocompletedResults}

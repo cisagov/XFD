@@ -360,6 +360,7 @@ def build_request(state: DomainSearchBody) -> Dict[str, Any]:
             "name": {"terms": {"field": "name.keyword"}},
             "from_root_domain": {"terms": {"field": "from_root_domain.keyword"}},
             "organization": {"terms": {"field": "organization.name.keyword"}},
+            "organization_id": {"terms": {"field": "organization.id.keyword"}},
             "services": {
                 "nested": {"path": "services"},
                 "aggs": {
@@ -385,6 +386,9 @@ def build_request(state: DomainSearchBody) -> Dict[str, Any]:
                     },
                     "cve": {"terms": {"field": "vulnerabilities.cve.keyword"}},
                 },
+            },
+            "organization.region_id": {
+                "terms": {"field": "organization.region_id.keyword"}
             },
         },
         "query": query,

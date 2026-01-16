@@ -64,6 +64,7 @@ interface RegionAndOrganizationFiltersProps {
   results: any[];
   initialFilters: any[];
   expanded?: string | false;
+  facets?: any;
 
   handleExpanded?: (
     panel: string
@@ -87,7 +88,7 @@ export const RegionAndOrganizationFilters: React.FC<
   filters,
   initialFilters,
   expanded,
-
+  // facets,
   handleExpanded
 }) => {
   const { setShowMaps, user, apiPost } = useAuthContext();
@@ -96,6 +97,12 @@ export const RegionAndOrganizationFilters: React.FC<
   const [orgResults, setOrgResults] = useState<OrganizationShallow[]>([]);
   const userLevel = useUserLevel().userLevel;
   const theme = useTheme();
+
+  // console.log('organization name facets', facets.organization);
+
+  // console.log('organization id facets', facets.organization_id);
+
+  // console.log('region facets', facets['organization.region_id']);
 
   const searchOrganizations = useCallback(
     async (search_term: string, regions?: string[]) => {

@@ -47,8 +47,8 @@ const FACETS = [
   'organization',
   // The following commented-out code is to be used for future .x releases.
   // Returning org id and region id with facets will allow for a full range of dynamic filters.
-  // 'organization.id',
-  //'organization.region_id',
+  'organization_id',
+  'organization.region_id',
   'services.products.cpe'
 ];
 export default function buildStateFacets(aggregations) {
