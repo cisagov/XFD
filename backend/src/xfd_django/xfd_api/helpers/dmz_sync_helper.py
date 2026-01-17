@@ -61,6 +61,55 @@ def query_api(url_route, acronym, last_seen_after, page_size=50, page_number=1):
         return None
 
 
+def query_api_cursor(
+    url_route,
+    acronym,
+    since_date,
+    page_size=25,
+    cursor_ips=None,
+    cursor_loose_subs=None,
+):
+    """Pull DMZ sync data using cursors from the DMZ."""
+    url = os.getenv("DMZ_SYNC_ENDPOINT") + url_route
+    payload = {
+        "acronym": acronym,
+        "page_size": page_size,
+        "since_date": since_date,
+        "cursor_ips": cursor_ips,
+        "cursor_loose_subs": cursor_loose_subs,
+    }
+
+    headers = {
+        "X-API-KEY": os.environ.get("DMZ_API_KEY"),
+        "Content-Type": "application/json",
+    }
+
+    response = requests.post(url, headers=headers, json=payload, timeout=29)
+    retry_count, max_retries, time_delay = 1, 10, 5
+
+    while response.status_code != 200 and retry_count <= max_retries:
+        LOGGER.info(
+            "Retrying DMZ_sync endpoint (code %d), attempt %d of %d (url: %s)",
+            response.status_code,
+            retry_count,
+            max_retries,
+            url,
+        )
+        time.sleep(time_delay)
+        response = requests.post(url, headers=headers, json=payload, timeout=29)
+        retry_count += 1
+        if retry_count > max_retries:
+            LOGGER.warning("Failed to retrieve data with cursors")
+            return None
+
+    if validate_response_checksum(response):
+        LOGGER.info("✅ Checksum is valid!")
+        return response
+    else:
+        LOGGER.warning("❌ Checksum validation failed!")
+        return None
+
+
 def validate_response_checksum(response):
     """Validate the checksum from an API response."""
     try:

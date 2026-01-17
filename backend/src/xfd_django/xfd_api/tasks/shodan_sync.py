@@ -11,6 +11,7 @@ from urllib.parse import urljoin
 import django
 from django.utils import timezone
 import requests
+from xfd_api.helpers.data_pull_history import get_last_queried, update_query_timestamp
 from xfd_api.helpers.date_time_helpers import calculate_days_back
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
@@ -38,77 +39,87 @@ API_URL = api_url
 
 
 def handler(command_options):
-    """Retrieve and save Shodan assets/vulns from commercial via sync."""
+    """Retrieve and save Shodan assets/vulns from DMZ API using cursor-based pagination with DataPullTracker."""
     try:
+        # ------------------------
+        # Validate org input
+        # ------------------------
         organization_name = command_options.get("organizationName")
         organization_id = command_options.get("organizationId")
         if not organization_name or not organization_id:
             return {"statusCode": 400, "body": "Organization name or id not provided."}
 
-        orgs_to_sync = Organization.objects.filter(id=organization_id)
-        if not orgs_to_sync.exists():
-            return {"statusCode": 500, "body": "Organization not found."}
-        organization = orgs_to_sync.first()
-
-        LOGGER.info("Running Shodan Sync on organization: %s", organization_name)
+        organization = Organization.objects.get(id=organization_id)
 
         shodan_datasource, _ = DataSource.objects.get_or_create(
             name="Shodan",
             defaults={
-                "description": "Shodan is the world's first search engine for Internet-connected devices.",
+                "description": "Shodan sync",
                 "last_run": timezone.now().date(),
             },
         )
 
-        since_date = calculate_days_back(15)
+        # ------------------------
+        # Determine since_date from DataPullTracker
+        # ------------------------
+        last_queried = get_last_queried(organization, "shodan_sync")
+        since_date = last_queried or calculate_days_back(15)
 
-        page = 1
+        # Track the start time for this sync
+        start_time = datetime.datetime.now(datetime.timezone.utc)
+
         per_page = 200
         done = False
+        cursor_assets = None
+        cursor_vulns = None
 
+        # ------------------------
+        # Cursor-based sync loop
+        # ------------------------
         while not done:
             payload = {
                 "acronym": organization.acronym,
-                "page": page,
                 "page_size": per_page,
                 "since_date": since_date,
+                "cursor_assets": cursor_assets,
+                "cursor_vulns": cursor_vulns,
             }
 
             response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=60)
             response.raise_for_status()
-            # Validate checksum by passing the response object
-            is_valid = validate_response_checksum(response)
 
-            if is_valid:
-                LOGGER.info("Checksum is valid!")
-            else:
+            if not validate_response_checksum(response):
                 LOGGER.error("Checksum validation failed!")
                 return {"statusCode": 500, "body": "Checksum validation failed!"}
 
             body = response.json()
-
             if body.get("status") != "ok":
-                raise Exception("Shodan sync returned non-ok status: {}".format(body))
+                raise Exception(f"Shodan sync returned non-ok status: {body}")
 
             result = body.get("payload", {})
-            total_pages = result.get("total_pages", 1)
-            current_page = result.get("current_page", 1)
-            assets = result.get("data", {}).get("shodan_assets", [])
-            vulns = result.get("data", {}).get("shodan_vulns", [])
+            assets = result.get("shodan_assets", [])
+            vulns = result.get("shodan_vulns", [])
 
             LOGGER.info(
-                "Syncing page %s of %s: %s assets, %s vulns",
-                current_page,
-                total_pages,
+                "Syncing: %s assets, %s vulns",
                 len(assets),
                 len(vulns),
             )
+
             save_findings_to_db(assets, vulns, organization, shodan_datasource)
 
-            if current_page >= total_pages:
-                done = True
-            else:
-                page += 1
+            # Update cursors for next request
+            cursor_assets = result.get("next_cursor_assets")
+            cursor_vulns = result.get("next_cursor_vulns")
+
+            has_more_assets = result.get("has_more_assets", False)
+            has_more_vulns = result.get("has_more_vulns", False)
+            done = not (has_more_assets or has_more_vulns)
+
+        # ------------------------
+        # Sync completed successfully — update DataPullTracker
+        # ------------------------
+        update_query_timestamp(organization, "shodan_sync", start_time)
 
         return {"statusCode": 200, "body": "Shodan sync completed successfully."}
 

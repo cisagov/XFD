@@ -9,8 +9,9 @@ import django
 from django.db.models import Q
 from django.utils import timezone
 import requests
+from xfd_api.helpers.data_pull_history import get_last_queried, update_query_timestamp
 from xfd_api.helpers.date_time_helpers import calculate_days_back
-from xfd_api.helpers.dmz_sync_helper import query_api
+from xfd_api.helpers.dmz_sync_helper import query_api_cursor, validate_response_checksum
 from xfd_mini_dl.models import Cidr, DataSource, Ip, IpsSubs, Organization, SubDomains
 
 # Django setup
@@ -78,37 +79,63 @@ def main(command_options):
 
         LOGGER.info("Pulling ASM data for %s", organization.acronym)
         acronym = organization.acronym
-        page_size = 10
-        page_number = 1
+        page_size = 25
 
-        last_seen_after = calculate_days_back(15)
-        response = query_api(
-            "/dmz_sync/asm_sync", acronym, last_seen_after, page_size, page_number
-        )
+        # Cursor-based sync
+        start_time = datetime.datetime.now(datetime.timezone.utc)
+        last_sync = get_last_queried(organization, "sync_asm_sync")
+        if not last_sync:
+            # If never run before, fallback to 21 days back
+            last_sync = calculate_days_back(21)
+        cursor_ips = None
+        cursor_loose_subs = None
+        done = False
+        retries = 0
 
-        if response:
-            total_pages = process_response(response, organization)
-        else:
-            LOGGER.error("Failed to query DMZ ASM Sync API.")
-            return {"statusCode": 500, "body": "Failed to query DMZ ASM Sync API."}
-
-        page_number += 1
-        while page_number <= total_pages:
-            response = query_api(
-                "/dmz_sync/asm_sync", acronym, last_seen_after, page_size, page_number
+        while not done:
+            response = query_api_cursor(
+                "/dmz_sync/asm_sync",
+                acronym,
+                last_sync.isoformat(),
+                page_size,
+                cursor_ips,
+                cursor_loose_subs,
             )
-            if response:
-                total_pages = process_response(response, organization)
-                page_number += 1
-            else:
-                LOGGER.error("Failed to query DMZ ASM Sync API.")
-                flag_asset_changes(organization)
-                return {
-                    "statusCode": 500,
-                    "body": "Failed during pagination of ASM Sync API.",
-                }
+
+            if not response:
+                retries += 1
+                if retries >= MAX_RETRIES:
+                    flag_asset_changes(organization)
+                    return {
+                        "statusCode": 500,
+                        "body": "ASM Sync failed after retries",
+                    }
+                LOGGER.info(
+                    "Retrying ASM Sync API call (%d/%d)...", retries, MAX_RETRIES
+                )
+                continue
+
+            retries = 0
+
+            if not validate_response_checksum(response):
+                LOGGER.error("Checksum validation failed for ASM Sync response!")
+                return {"statusCode": 500, "body": "Checksum validation failed!"}
+
+            body = response.json()
+            ip_data = body.get("ip_data", [])
+            loose_subs = body.get("loose_subs", [])
+            cursor_ips = body.get("next_cursor_ips")
+            cursor_loose_subs = body.get("next_cursor_loose_subs")
+            has_more_ips = body.get("has_more_ips", False)
+            has_more_loose_subs = body.get("has_more_loose_subs", False)
+
+            process_response(ip_data, loose_subs, organization)
+
+            if not has_more_ips and not has_more_loose_subs:
+                done = True
 
         flag_asset_changes(organization)
+        update_query_timestamp(organization, "sync_asm_sync", query_time=start_time)
         LOGGER.info("Completed pulling ASM data for %s", organization.acronym)
         return {"statusCode": 200, "body": "ASM sync completed successfully."}
 
@@ -137,14 +164,20 @@ def get_data_sources():
             )
 
 
-def process_response(response, org):
+def process_response(ip_data, loose_subs, org):
     """Save ASM sync response to the MDL."""
-    data = response.json()
-
-    for ip_sub in data.get("ip_data", []):
-        cidr = Cidr.objects.using(db_name).get(
-            network=ip_sub.get("origin_cidr_network"), cidrorgs__organization=org
-        )
+    for ip_sub in ip_data:
+        cidr = None
+        try:
+            cidr = Cidr.objects.using(db_name).get(
+                network=ip_sub.get("origin_cidr_network"), cidrorgs__organization=org
+            )
+        except Cidr.DoesNotExist:
+            LOGGER.warning(
+                "CIDR %s not found for org %s",
+                ip_sub.get("origin_cidr_network"),
+                org.acronym,
+            )
 
         ip_obj, created = Ip.objects.using(db_name).get_or_create(
             ip=ip_sub.get("ip"),
@@ -192,23 +225,24 @@ def process_response(response, org):
                     },
                 )
 
-    for loose_sub in data.get("loose_subs", []):
+    for loose_sub in loose_subs:
         save_sub(loose_sub, org)
-
-    return data.get("total_pages")
 
 
 def save_sub(sub_dict, org):
     """Save and update sub_domain."""
     try:
-        data_source = DataSource.objects.using(db_name).get(
-            name=sub_dict.get("subdomain_source")
-        )
-    except DataSource.DoesNotExist:
         data_source = unknown_data_source
-    try:
-        if not sub_dict.get("is_root_domain"):
-            root_obj, rd_created = SubDomains.objects.using(db_name).get_or_create(
+        try:
+            data_source = DataSource.objects.using(db_name).get(
+                name=sub_dict.get("subdomain_source")
+            )
+        except DataSource.DoesNotExist:
+            pass
+
+        root_obj = None
+        if not sub_dict.get("is_root_domain") and sub_dict.get("from_root_domain"):
+            root_obj, _ = SubDomains.objects.using(db_name).get_or_create(
                 sub_domain=sub_dict.get("from_root_domain"),
                 organization=org,
                 defaults={
@@ -218,8 +252,7 @@ def save_sub(sub_dict, org):
                     "data_source": unknown_data_source,
                 },
             )
-        else:
-            root_obj = None
+
         sub_obj, sd_created = SubDomains.objects.using(db_name).get_or_create(
             sub_domain=sub_dict.get("sub_domain"),
             organization=org,
@@ -227,7 +260,6 @@ def save_sub(sub_dict, org):
                 "root_domain": root_obj,
                 "is_root_domain": sub_dict.get("is_root_domain"),
                 "data_source": data_source,
-                # 'dns_record':
                 "status": sub_dict.get("status"),
                 "first_seen": sub_dict.get("first_seen"),
                 "last_seen": sub_dict.get("last_seen"),
@@ -253,6 +285,7 @@ def save_sub(sub_dict, org):
                 "trustymail_results": sub_dict.get("trustymail_results"),
             },
         )
+
         if not sd_created:
             sub_obj.data_source = data_source
             sub_obj.status = sub_dict.get("status")
@@ -286,9 +319,9 @@ def save_sub(sub_dict, org):
 
 
 def flag_asset_changes(org):
-    """Mark Ips and Subdomains that are were not seen in the last scan as not current."""
+    """Mark Ips and Subdomains that were not seen in the last 90 days as not current."""
     cutoff_date = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
-        days=5
+        days=90
     )
 
     SubDomains.objects.using(db_name).filter(

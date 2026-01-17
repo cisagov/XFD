@@ -117,11 +117,13 @@ from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.cve import GetAllCvesResponse
 from .schema_models.dmz_sync import (
+    AsmSyncRequest,
     AsmSyncResponse,
     CensysSyncResponse,
     CredSyncResponse,
     CybersixSyncResponse,
     DataSource,
+    ShodanSyncRequest,
     ShodanSyncResponse,
     SyncRequest,
 )
@@ -1935,7 +1937,7 @@ def serialize_custom(obj):
     tags=["DMZ Sync"],
 )
 async def asm_sync(
-    asm_sync_data: SyncRequest,
+    asm_sync_data: AsmSyncRequest,
     current_user: User = Depends(get_current_active_user),
 ):
     """
@@ -1945,18 +1947,11 @@ async def asm_sync(
     based on the input parameters provided. The response is serialized and includes a
     SHA-256 checksum in the headers for integrity verification.
 
-    ### Request Body Parameters (SyncRequest):
-    - **page** (int, default=1):
-    Page number for pagination of the results.
-
-    - **page_size** (int, optional, default=25):
-    Number of records per page.
-
-    - **acronym** (str):
-    Organization acronym to filter the results.
-
-    - **since_date** (datetime):
-    Return results updated or found since this date.
+    ### Request Body (SyncRequest):
+    - **cursor**: Optional string representing the last cursor from previous page.
+    - **page_size**: Number of records to return (default 25)
+    - **acronym**: Organization acronym
+    - **since_date**: Return results updated since this timestamp
 
     ### Headers:
     - **X-Salted-Checksum**:
@@ -1986,7 +1981,7 @@ async def asm_sync(
     tags=["DMZ Sync"],
 )
 async def shodan_sync(
-    shodan_data: SyncRequest,
+    shodan_data: ShodanSyncRequest,
     current_user: User = Depends(get_current_active_user),
 ):
     """Return Shodan Assets and Vulns for a provided org with checksum verification."""
