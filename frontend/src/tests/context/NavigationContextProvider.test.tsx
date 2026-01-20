@@ -9,8 +9,8 @@
  * - Full test coverage for all branches and state transitions
  */
 
-import React from 'react';
-import { screen, act } from '@testing-library/react';
+import React, { act } from 'react';
+import { screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { render } from 'test-utils';
 import {
