@@ -258,6 +258,52 @@ export const TestComponentToCapture: React.FC<{
 };
 
 /**
+ * Test component for testing complete state reset functionality
+ */
+export const TestComponentWithReset: React.FC = () => {
+  const {
+    isDrillDown,
+    sourceRoute,
+    targetRoute,
+    wasAllRegionsSelected,
+    markDrillDown,
+    clearDrillDown,
+    setAllRegionsSelected
+  } = useNavigationContext();
+
+  const handleCompleteReset = () => {
+    clearDrillDown();
+    setAllRegionsSelected(false);
+  };
+
+  return (
+    <div>
+      <div data-testid="isDrillDown">{isDrillDown.toString()}</div>
+      <div data-testid="sourceRoute">{sourceRoute || 'null'}</div>
+      <div data-testid="targetRoute">{targetRoute || 'null'}</div>
+      <div data-testid="wasAllRegionsSelected">
+        {wasAllRegionsSelected.toString()}
+      </div>
+      <button
+        data-testid="markDrillDown"
+        onClick={() => markDrillDown(ROUTES.DOMAINS, ROUTES.DOMAIN)}
+      >
+        Mark Drill Down
+      </button>
+      <button
+        data-testid="setAllRegionsSelected"
+        onClick={() => setAllRegionsSelected(true)}
+      >
+        Set All Regions Selected
+      </button>
+      <button data-testid="completeReset" onClick={handleCompleteReset}>
+        Complete Reset
+      </button>
+    </div>
+  );
+};
+
+/**
  * Mock functions factory for navigation tests
  */
 export const createNavigationMocks = () => ({

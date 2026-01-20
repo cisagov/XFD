@@ -22,6 +22,7 @@ import {
   TestComponentForReturning,
   TestComponentForEdgeCases,
   TestComponentToCapture,
+  TestComponentWithReset,
   createNavigationMocks,
   testRoutes
 } from 'test-utils/navigation';
@@ -528,51 +529,6 @@ describe('NavigationContextProvider', () => {
     });
 
     it('should handle state resets properly', () => {
-      const TestComponentWithReset: React.FC = () => {
-        const {
-          isDrillDown,
-          sourceRoute,
-          targetRoute,
-          wasAllRegionsSelected,
-          markDrillDown,
-          clearDrillDown,
-          setAllRegionsSelected
-        } = useNavigationContext();
-
-        const handleCompleteReset = () => {
-          clearDrillDown();
-          setAllRegionsSelected(false);
-        };
-
-        return (
-          <div>
-            <div data-testid="isDrillDown">{isDrillDown.toString()}</div>
-            <div data-testid="sourceRoute">{sourceRoute || 'null'}</div>
-            <div data-testid="targetRoute">{targetRoute || 'null'}</div>
-            <div data-testid="wasAllRegionsSelected">
-              {wasAllRegionsSelected.toString()}
-            </div>
-            <button
-              data-testid="markDrillDown"
-              onClick={() =>
-                markDrillDown(testRoutes.DOMAINS, testRoutes.DOMAIN)
-              }
-            >
-              Mark Drill Down
-            </button>
-            <button
-              data-testid="setAllRegionsSelected"
-              onClick={() => setAllRegionsSelected(true)}
-            >
-              Set All Regions Selected
-            </button>
-            <button data-testid="completeReset" onClick={handleCompleteReset}>
-              Complete Reset
-            </button>
-          </div>
-        );
-      };
-
       render(<TestComponentWithReset />);
 
       // Set up some state
