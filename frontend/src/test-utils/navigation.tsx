@@ -23,7 +23,9 @@ export interface NavigationTestComponentProps {
  * Reusable test component that consumes NavigationContext and exposes all context values
  * through data-testid attributes for easy testing
  */
-export const NavigationTestComponent: React.FC<NavigationTestComponentProps> = ({
+export const NavigationTestComponent: React.FC<
+  NavigationTestComponentProps
+> = ({
   testId = 'navigation-test-component',
   onMarkDrillDown,
   onClearDrillDown,
@@ -125,7 +127,8 @@ export const TestComponentWithDifferentRoutes: React.FC<{
  * Test component for testing empty routes
  */
 export const TestComponentWithEmptyRoutes: React.FC = () => {
-  const { markDrillDown, sourceRoute, targetRoute, isDrillDown } = useNavigationContext();
+  const { markDrillDown, sourceRoute, targetRoute, isDrillDown } =
+    useNavigationContext();
   return (
     <div>
       <div data-testid="isDrillDown">{isDrillDown.toString()}</div>
@@ -145,16 +148,14 @@ export const TestComponentWithEmptyRoutes: React.FC = () => {
  * Test component for testing toggle functionality
  */
 export const TestComponentWithToggle: React.FC = () => {
-  const { setAllRegionsSelected, wasAllRegionsSelected } = useNavigationContext();
+  const { setAllRegionsSelected, wasAllRegionsSelected } =
+    useNavigationContext();
   return (
     <div>
       <div data-testid="wasAllRegionsSelected">
         {wasAllRegionsSelected.toString()}
       </div>
-      <button
-        data-testid="setTrue"
-        onClick={() => setAllRegionsSelected(true)}
-      >
+      <button data-testid="setTrue" onClick={() => setAllRegionsSelected(true)}>
         Set True
       </button>
       <button
@@ -175,7 +176,7 @@ export const TestComponentForReturning: React.FC<{
   routeToCheck?: string;
 }> = ({ onCheckReturning, routeToCheck = ROUTES.VSDASHBOARD }) => {
   const { markDrillDown, isReturningFromDrillDown } = useNavigationContext();
-  
+
   const handleCheckReturning = () => {
     const result = isReturningFromDrillDown(routeToCheck);
     onCheckReturning?.(result);
@@ -185,14 +186,13 @@ export const TestComponentForReturning: React.FC<{
     <div>
       <button
         data-testid="markDrillDown"
-        onClick={() => markDrillDown(ROUTES.VSDASHBOARD, ROUTES.VULNERABILITIES)}
+        onClick={() =>
+          markDrillDown(ROUTES.VSDASHBOARD, ROUTES.VULNERABILITIES)
+        }
       >
         Mark Drill Down
       </button>
-      <button
-        data-testid="checkReturning"
-        onClick={handleCheckReturning}
-      >
+      <button data-testid="checkReturning" onClick={handleCheckReturning}>
         Check Returning
       </button>
     </div>
@@ -207,7 +207,7 @@ export const TestComponentForEdgeCases: React.FC<{
   onCheckReturningNull?: (isReturning: boolean) => void;
 }> = ({ onCheckReturningEmpty, onCheckReturningNull }) => {
   const { markDrillDown, isReturningFromDrillDown } = useNavigationContext();
-  
+
   const handleCheckReturningEmpty = () => {
     const result = isReturningFromDrillDown('');
     onCheckReturningEmpty?.(result);
@@ -249,7 +249,7 @@ export const TestComponentToCapture: React.FC<{
   onContextCapture: (context: any) => void;
 }> = ({ onContextCapture }) => {
   const context = useNavigationContext();
-  
+
   React.useEffect(() => {
     onContextCapture(context);
   }, [context, onContextCapture]);

@@ -1,6 +1,6 @@
 /**
  * Unit tests for NavigationContextProvider component
- * 
+ *
  * Unit tests for the NavigationContextProvider to ensure proper behavior of:
  * - Initial state and provider defaults
  * - State updates triggered by navigation actions
@@ -93,13 +93,18 @@ describe('NavigationContextProvider', () => {
       // Reset the mock to test second call
       onMarkDrillDown.mockClear();
 
-      render(<TestComponentWithDifferentRoutes onMarkDrillDown={onMarkDrillDown} />);
+      render(
+        <TestComponentWithDifferentRoutes onMarkDrillDown={onMarkDrillDown} />
+      );
 
       act(() => {
         screen.getByTestId('markDrillDownDifferent').click();
       });
 
-      expect(onMarkDrillDown).toHaveBeenCalledWith(testRoutes.DOMAINS, testRoutes.DOMAIN);
+      expect(onMarkDrillDown).toHaveBeenCalledWith(
+        testRoutes.DOMAINS,
+        testRoutes.DOMAIN
+      );
     });
 
     it('should handle empty or null route values', () => {
@@ -195,7 +200,11 @@ describe('NavigationContextProvider', () => {
   describe('setAllRegionsSelected function', () => {
     it('should update wasAllRegionsSelected state when setAllRegionsSelected is called', () => {
       const { onSetAllRegionsSelected } = createNavigationMocks();
-      render(<NavigationTestComponent onSetAllRegionsSelected={onSetAllRegionsSelected} />);
+      render(
+        <NavigationTestComponent
+          onSetAllRegionsSelected={onSetAllRegionsSelected}
+        />
+      );
 
       expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
         'false'
@@ -268,7 +277,7 @@ describe('NavigationContextProvider', () => {
       });
 
       render(
-        <TestComponentForReturning 
+        <TestComponentForReturning
           onCheckReturning={onCheckReturning}
           routeToCheck={testRoutes.DOMAINS}
         />
@@ -316,7 +325,7 @@ describe('NavigationContextProvider', () => {
       });
 
       render(
-        <TestComponentForEdgeCases 
+        <TestComponentForEdgeCases
           onCheckReturningEmpty={onCheckReturningEmpty}
           onCheckReturningNull={onCheckReturningNull}
         />
@@ -373,10 +382,17 @@ describe('NavigationContextProvider', () => {
         const { isDrillDown, markDrillDown } = useNavigationContext();
         return (
           <div>
-            <div data-testid="consumer1-isDrillDown">{isDrillDown.toString()}</div>
+            <div data-testid="consumer1-isDrillDown">
+              {isDrillDown.toString()}
+            </div>
             <button
               data-testid="consumer1-markDrillDown"
-              onClick={() => markDrillDown(testRoutes.VS_DASHBOARD, testRoutes.VULNERABILITIES)}
+              onClick={() =>
+                markDrillDown(
+                  testRoutes.VS_DASHBOARD,
+                  testRoutes.VULNERABILITIES
+                )
+              }
             >
               Consumer 1 Mark
             </button>
@@ -388,8 +404,12 @@ describe('NavigationContextProvider', () => {
         const { isDrillDown, sourceRoute } = useNavigationContext();
         return (
           <div>
-            <div data-testid="consumer2-isDrillDown">{isDrillDown.toString()}</div>
-            <div data-testid="consumer2-sourceRoute">{sourceRoute || 'null'}</div>
+            <div data-testid="consumer2-isDrillDown">
+              {isDrillDown.toString()}
+            </div>
+            <div data-testid="consumer2-sourceRoute">
+              {sourceRoute || 'null'}
+            </div>
           </div>
         );
       };
@@ -402,9 +422,15 @@ describe('NavigationContextProvider', () => {
       );
 
       // Initial state
-      expect(screen.getByTestId('consumer1-isDrillDown')).toHaveTextContent('false');
-      expect(screen.getByTestId('consumer2-isDrillDown')).toHaveTextContent('false');
-      expect(screen.getByTestId('consumer2-sourceRoute')).toHaveTextContent('null');
+      expect(screen.getByTestId('consumer1-isDrillDown')).toHaveTextContent(
+        'false'
+      );
+      expect(screen.getByTestId('consumer2-isDrillDown')).toHaveTextContent(
+        'false'
+      );
+      expect(screen.getByTestId('consumer2-sourceRoute')).toHaveTextContent(
+        'null'
+      );
 
       // Update state from consumer 1
       act(() => {
@@ -412,9 +438,15 @@ describe('NavigationContextProvider', () => {
       });
 
       // Both consumers should see the updated state
-      expect(screen.getByTestId('consumer1-isDrillDown')).toHaveTextContent('true');
-      expect(screen.getByTestId('consumer2-isDrillDown')).toHaveTextContent('true');
-      expect(screen.getByTestId('consumer2-sourceRoute')).toHaveTextContent(testRoutes.VS_DASHBOARD);
+      expect(screen.getByTestId('consumer1-isDrillDown')).toHaveTextContent(
+        'true'
+      );
+      expect(screen.getByTestId('consumer2-isDrillDown')).toHaveTextContent(
+        'true'
+      );
+      expect(screen.getByTestId('consumer2-sourceRoute')).toHaveTextContent(
+        testRoutes.VS_DASHBOARD
+      );
     });
   });
 
@@ -426,7 +458,9 @@ describe('NavigationContextProvider', () => {
 
       expect(() => {
         render(<ComponentWithoutProvider />, { wrapper: undefined });
-      }).toThrow('useNavigationContext must be used within a NavigationProvider');
+      }).toThrow(
+        'useNavigationContext must be used within a NavigationProvider'
+      );
 
       // Restore console.error
       console.error = originalError;
@@ -448,7 +482,9 @@ describe('NavigationContextProvider', () => {
       expect(screen.getByTestId('isDrillDown')).toHaveTextContent('false');
       expect(screen.getByTestId('sourceRoute')).toHaveTextContent('null');
       expect(screen.getByTestId('targetRoute')).toHaveTextContent('null');
-      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent('true');
+      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
+        'true'
+      );
     });
   });
 
@@ -461,7 +497,9 @@ describe('NavigationContextProvider', () => {
         screen.getByTestId('setAllRegionsSelected').click();
       });
 
-      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent('true');
+      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
+        'true'
+      );
 
       // Step 2: Mark drill down
       act(() => {
@@ -469,9 +507,15 @@ describe('NavigationContextProvider', () => {
       });
 
       expect(screen.getByTestId('isDrillDown')).toHaveTextContent('true');
-      expect(screen.getByTestId('sourceRoute')).toHaveTextContent(testRoutes.VS_DASHBOARD);
-      expect(screen.getByTestId('targetRoute')).toHaveTextContent(testRoutes.VULNERABILITIES);
-      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent('true');
+      expect(screen.getByTestId('sourceRoute')).toHaveTextContent(
+        testRoutes.VS_DASHBOARD
+      );
+      expect(screen.getByTestId('targetRoute')).toHaveTextContent(
+        testRoutes.VULNERABILITIES
+      );
+      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
+        'true'
+      );
 
       // Step 3: Clear drill down (should preserve wasAllRegionsSelected)
       act(() => {
@@ -481,7 +525,9 @@ describe('NavigationContextProvider', () => {
       expect(screen.getByTestId('isDrillDown')).toHaveTextContent('false');
       expect(screen.getByTestId('sourceRoute')).toHaveTextContent('null');
       expect(screen.getByTestId('targetRoute')).toHaveTextContent('null');
-      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent('true');
+      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
+        'true'
+      );
     });
 
     it('should handle state resets properly', () => {
@@ -506,14 +552,21 @@ describe('NavigationContextProvider', () => {
             <div data-testid="isDrillDown">{isDrillDown.toString()}</div>
             <div data-testid="sourceRoute">{sourceRoute || 'null'}</div>
             <div data-testid="targetRoute">{targetRoute || 'null'}</div>
-            <div data-testid="wasAllRegionsSelected">{wasAllRegionsSelected.toString()}</div>
+            <div data-testid="wasAllRegionsSelected">
+              {wasAllRegionsSelected.toString()}
+            </div>
             <button
               data-testid="markDrillDown"
-              onClick={() => markDrillDown(testRoutes.DOMAINS, testRoutes.DOMAIN)}
+              onClick={() =>
+                markDrillDown(testRoutes.DOMAINS, testRoutes.DOMAIN)
+              }
             >
               Mark Drill Down
             </button>
-            <button data-testid="setAllRegionsSelected" onClick={() => setAllRegionsSelected(true)}>
+            <button
+              data-testid="setAllRegionsSelected"
+              onClick={() => setAllRegionsSelected(true)}
+            >
               Set All Regions Selected
             </button>
             <button data-testid="completeReset" onClick={handleCompleteReset}>
@@ -532,7 +585,9 @@ describe('NavigationContextProvider', () => {
       });
 
       expect(screen.getByTestId('isDrillDown')).toHaveTextContent('true');
-      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent('true');
+      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
+        'true'
+      );
 
       // Complete reset
       act(() => {
@@ -542,7 +597,9 @@ describe('NavigationContextProvider', () => {
       expect(screen.getByTestId('isDrillDown')).toHaveTextContent('false');
       expect(screen.getByTestId('sourceRoute')).toHaveTextContent('null');
       expect(screen.getByTestId('targetRoute')).toHaveTextContent('null');
-      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent('false');
+      expect(screen.getByTestId('wasAllRegionsSelected')).toHaveTextContent(
+        'false'
+      );
     });
 
     it('should handle nested provider scenarios gracefully', () => {
@@ -577,8 +634,12 @@ describe('NavigationContextProvider', () => {
       render(<OuterComponent />);
 
       // Initially both should be false
-      expect(screen.getByTestId('outer-isDrillDown')).toHaveTextContent('false');
-      expect(screen.getByTestId('inner-isDrillDown')).toHaveTextContent('false');
+      expect(screen.getByTestId('outer-isDrillDown')).toHaveTextContent(
+        'false'
+      );
+      expect(screen.getByTestId('inner-isDrillDown')).toHaveTextContent(
+        'false'
+      );
 
       // Trigger inner drill down
       act(() => {
@@ -586,7 +647,9 @@ describe('NavigationContextProvider', () => {
       });
 
       // Inner should be true, outer should still be false (independent contexts)
-      expect(screen.getByTestId('outer-isDrillDown')).toHaveTextContent('false');
+      expect(screen.getByTestId('outer-isDrillDown')).toHaveTextContent(
+        'false'
+      );
       expect(screen.getByTestId('inner-isDrillDown')).toHaveTextContent('true');
     });
   });
