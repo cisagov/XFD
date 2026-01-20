@@ -5,7 +5,7 @@ import {
   getPendingUserColumns,
   getMemberUserColumns,
   organizationCols
-} from '@/pages/RegionUsers/UserRegistrationColumns';
+} from '@/pages/UserRegistration/UserRegistrationColumns';
 
 describe('Column factories', () => {
   const mockApprove = vi.fn();
