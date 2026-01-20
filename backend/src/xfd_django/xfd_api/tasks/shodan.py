@@ -15,7 +15,12 @@ import shodan
 from xfd_api.tasks.helpers.get_ips import get_ips_by_cidr
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
-SHODAN_IP_CHUNK_SIZE = 50  # TODO validate this number used to be set to 10 but the comment said it was doing 100
+SHODAN_IP_CHUNK_SIZE = int(
+    os.getenv("SHODAN_IP_CHUNK_SIZE", "50")
+)  # TODO validate this number used to be set to 10 but the comment said it was doing 100
+SHODAN_QUERY_DAYS_BACK = int(
+    os.getenv("SHODAN_QUERY_DAYS_BACK", "15")
+)  # TODO tune based on pull cadence
 # Constants controlling pagination and rate limiting
 LOGGER = logging.getLogger(__name__)
 
@@ -333,7 +338,7 @@ def search_shodan(
 def get_dates():
     """Get dates for the query."""
     now = datetime.datetime.now()
-    days_back = datetime.timedelta(days=15)  # TODO determine appropriate date
+    days_back = datetime.timedelta(days=SHODAN_QUERY_DAYS_BACK)
     days_forward = datetime.timedelta(days=1)
     start = now - days_back
     end = now + days_forward

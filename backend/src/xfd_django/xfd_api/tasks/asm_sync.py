@@ -245,5 +245,3 @@ def enumerate_roots(root_domain):
             if not created:
                 sub_obj.last_seen = datetime.datetime.now(datetime.timezone.utc)
                 sub_obj.save()
-
-            # TODO if not created update last_seen
