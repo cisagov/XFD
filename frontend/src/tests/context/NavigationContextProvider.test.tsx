@@ -447,7 +447,9 @@ describe('NavigationContextProvider', () => {
   describe('Error Handling', () => {
     it('should throw error when useNavigationContext is used outside provider', () => {
       // Mock console.error to prevent the error from showing in test output
+      // eslint-disable-next-line no-console
       const originalError = console.error;
+      // eslint-disable-next-line no-console
       console.error = vi.fn();
 
       expect(() => {
@@ -457,6 +459,7 @@ describe('NavigationContextProvider', () => {
       );
 
       // Restore console.error
+      // eslint-disable-next-line no-console
       console.error = originalError;
     });
 

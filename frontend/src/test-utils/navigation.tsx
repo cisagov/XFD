@@ -83,7 +83,7 @@ export const NavigationTestComponent: React.FC<
       <button
         data-testid="isReturningFromDrillDown"
         onClick={() => {
-          const result = isReturningFromDrillDown(ROUTES.VSDASHBOARD);
+          const _result = isReturningFromDrillDown(ROUTES.VSDASHBOARD);
           onIsReturningFromDrillDown?.(ROUTES.VSDASHBOARD);
         }}
       >
@@ -97,7 +97,7 @@ export const NavigationTestComponent: React.FC<
  * Test component that tries to use NavigationContext without provider (for error testing)
  */
 export const ComponentWithoutProvider: React.FC = () => {
-  const context = useNavigationContext();
+  const _context = useNavigationContext();
   return <div>Should not render</div>;
 };
 
