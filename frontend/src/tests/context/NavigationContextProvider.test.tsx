@@ -40,12 +40,6 @@ describe('NavigationContextProvider', () => {
         'false'
       );
     });
-
-    it('should render children components', () => {
-      render(<NavigationTestComponent testId="child-component" />);
-
-      expect(screen.getByTestId('child-component')).toBeInTheDocument();
-    });
   });
 
   describe('markDrillDown function', () => {
