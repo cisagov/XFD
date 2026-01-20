@@ -4,19 +4,9 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import EditNoteOutlined from '@mui/icons-material/EditNoteOutlined';
 import Delete from '@mui/icons-material/Delete';
-import {
-  GridColDef,
-  GridRenderCellParams,
-  getGridStringOperators
-} from '@mui/x-data-grid';
+import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { format } from 'date-fns';
-
-// Only allow equals + contains for string filters
-const getTextFilterOperators = () =>
-  getGridStringOperators().filter(
-    (op) => op.value === 'equals' || op.value === 'contains'
-  );
-const textFilterOperators = getTextFilterOperators();
+import { textFilterOperators } from '@/utils/transformTableData';
 
 type UseUserColumnsProps = {
   user: { user_type?: string } | null | undefined;

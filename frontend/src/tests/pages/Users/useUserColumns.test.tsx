@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useUserColumns } from '@/pages/Users/useUserColumns';
 
@@ -10,8 +10,6 @@ const baseProps = {
   setEditUserDialogOpen: noop,
   setDeleteUserDialogOpen: noop
 };
-
-const EXPECTED_TEXT_OPERATOR_VALUES = ['equals', 'contains'];
 
 it('returns user columns', () => {
   const { result } = renderHook(() =>
