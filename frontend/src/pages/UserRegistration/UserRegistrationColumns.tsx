@@ -125,6 +125,9 @@ export const getPendingUserColumns = ({
       headerName: 'Registration Status',
       minWidth: 250,
       flex: 2,
+      filterable: false,
+      sortable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Stack direction="row" spacing={2} p={1}>
