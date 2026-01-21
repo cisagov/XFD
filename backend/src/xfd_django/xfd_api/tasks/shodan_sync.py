@@ -63,7 +63,13 @@ def handler(command_options):
         # Determine since_date from DataPullTracker
         # ------------------------
         last_queried = get_last_queried(organization, "shodan_sync")
-        since_date = last_queried or calculate_days_back(15)
+
+        if last_queried:
+            # Convert UTC-aware datetime → ISO 8601 string
+            since_date = last_queried.astimezone(datetime.timezone.utc).isoformat()
+        else:
+            # Already returns ISO string
+            since_date = calculate_days_back(15)
 
         # Track the start time for this sync
         start_time = datetime.datetime.now(datetime.timezone.utc)
