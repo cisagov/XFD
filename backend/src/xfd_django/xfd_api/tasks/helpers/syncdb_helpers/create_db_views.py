@@ -401,7 +401,6 @@ def create_domain_materialized_view(database):
                 ips_subs link ON sub.sub_domain_uid = link.sub_domain_id
             LEFT JOIN
                 ip ON ip.id = link.ip_id
-            WHERE sub.last_seen >= now() - interval '90 days'
             GROUP BY
                 sub.sub_domain_uid, sub.created_at, sub.updated_at, sub.synced_at,
                 sub.from_root_domain, sub.subdomain_source, sub.ip_only,
@@ -440,8 +439,7 @@ def create_domain_materialized_view(database):
             FROM
                 ip
             WHERE
-                ip.id NOT IN (SELECT ip_id FROM ips_subs)
-                AND ip.updated_timestamp >= now() - interval '90 days';
+                ip.id NOT IN (SELECT ip_id FROM ips_subs);
         """
         )
         # Add unique index to allow REFRESH CONCURRENTLY
