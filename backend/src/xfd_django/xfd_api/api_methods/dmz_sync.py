@@ -353,14 +353,14 @@ def dmz_asm_sync(asm_sync_data, current_user):  # pylint: disable=R0915
         subs_qs = (
             SubDomains.objects.filter(organization=organization, current=True)
             .exclude(ipssubs__current=True)
-            .order_by("last_seen", "id")
+            .order_by("last_seen", "sub_domain_uid")
         )
 
         if cursor_loose_subs:
             last_seen_cursor, last_id_cursor = decode_cursor(cursor_loose_subs)
             subs_qs = subs_qs.filter(
                 Q(last_seen__gt=last_seen_cursor)
-                | Q(last_seen=last_seen_cursor, id__gt=last_id_cursor)
+                | Q(last_seen=last_seen_cursor, sub_domain_uid__gt=last_id_cursor)
             )
 
         subs_page = list(subs_qs[:page_size])
@@ -413,7 +413,7 @@ def dmz_asm_sync(asm_sync_data, current_user):  # pylint: disable=R0915
         next_cursor_loose_subs = None
         if subs_page and getattr(subs_page[-1], "last_seen", None):
             next_cursor_loose_subs = encode_cursor(
-                subs_page[-1].last_seen, str(subs_page[-1].id)
+                subs_page[-1].last_seen, str(subs_page[-1].sub_domain_uid)
             )
         has_more_loose_subs = len(subs_page) == page_size
 
@@ -475,7 +475,9 @@ def dmz_shodan_sync(shodan_data, current_user):
                 Q(timestamp__gt=last_ts)
                 | Q(timestamp=last_ts, shodan_asset_uid__gt=last_id)
             )
-        assets_qs = assets_qs.order_by("timestamp", "shodan_asset_uid")[:page_size]
+        assets_page = list(
+            assets_qs.order_by("timestamp", "shodan_asset_uid")[:page_size]
+        )
 
         shodan_assets_data = [
             {
@@ -489,16 +491,18 @@ def dmz_shodan_sync(shodan_data, current_user):
                 else None,
                 "data_source_name": obj.data_source.name if obj.data_source else None,
             }
-            for obj in assets_qs
+            for obj in assets_page
         ]
 
         # Compute next cursor for assets
         next_cursor_assets = (
-            encode_cursor(assets_qs[-1].timestamp, str(assets_qs[-1].shodan_asset_uid))
+            encode_cursor(
+                assets_page[-1].timestamp, str(assets_page[-1].shodan_asset_uid)
+            )
             if assets_qs
             else None
         )
-        has_more_assets = len(assets_qs) == page_size
+        has_more_assets = len(assets_page) == page_size
 
         # ------------------------
         # Query ShodanVulns
@@ -512,7 +516,7 @@ def dmz_shodan_sync(shodan_data, current_user):
                 Q(timestamp__gt=last_ts)
                 | Q(timestamp=last_ts, shodan_vuln_uid__gt=last_id)
             )
-        vulns_qs = vulns_qs.order_by("timestamp", "shodan_vuln_uid")[:page_size]
+        vulns_page = list(vulns_qs.order_by("timestamp", "shodan_vuln_uid")[:page_size])
 
         shodan_vulns_data = [
             {
@@ -526,16 +530,16 @@ def dmz_shodan_sync(shodan_data, current_user):
                 else None,
                 "data_source_name": obj.data_source.name if obj.data_source else None,
             }
-            for obj in vulns_qs
+            for obj in vulns_page
         ]
 
         # Compute next cursor for vulns
         next_cursor_vulns = (
-            encode_cursor(vulns_qs[-1].timestamp, str(vulns_qs[-1].shodan_vuln_uid))
-            if vulns_qs
+            encode_cursor(vulns_page[-1].timestamp, str(vulns_page[-1].shodan_vuln_uid))
+            if vulns_page
             else None
         )
-        has_more_vulns = len(vulns_qs) == page_size
+        has_more_vulns = len(vulns_page) == page_size
 
         # ------------------------
         # Return
