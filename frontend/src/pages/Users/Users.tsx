@@ -239,6 +239,16 @@ export const Users: React.FC = () => {
               } as any,
               basePopper: {
                 placement: 'bottom-start'
+              },
+              columnsManagement: {
+                getTogglableColumns: (columns) => {
+                  const alwaysVisible = ['full_name'];
+                  return columns
+                    .filter(
+                      (col) => col.field && !alwaysVisible.includes(col.field)
+                    )
+                    .map((col) => col.field as string);
+                }
               }
             }}
             initialState={{

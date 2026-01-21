@@ -191,7 +191,18 @@ export const Organizations: React.FC = () => {
           slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
-            toolbar: { disableExport: true } as any
+            toolbar: { disableExport: true } as any,
+            columnsManagement: {
+              disableResetButton: true,
+              getTogglableColumns: (columns) => {
+                const alwaysVisible = ['name'];
+                return columns
+                  .filter(
+                    (col) => col.field && !alwaysVisible.includes(col.field)
+                  )
+                  .map((col) => col.field as string);
+              }
+            }
           }}
           loading={isLoading}
           paginationMode="server"
