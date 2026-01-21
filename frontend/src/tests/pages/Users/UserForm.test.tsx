@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from 'test-utils';
+import { render, screen, waitFor, act } from 'test-utils';
 import userEvent from '@testing-library/user-event';
 import type { Organization } from 'types';
 import UserForm from '@/pages/Users/UserForm';
@@ -79,6 +79,28 @@ vi.mock('components/Dialog/AnimatedConfirmDialog', () => ({
       </div>
     ) : null
 }));
+
+type DeferredPromise<TValue> = {
+  promise: Promise<TValue>;
+  resolve: (value: TValue) => void;
+  reject: (reason?: unknown) => void;
+};
+
+const createDeferredPromise = <TValue,>(): DeferredPromise<TValue> => {
+  let resolvePromise!: (value: TValue) => void;
+  let rejectPromise!: (reason?: unknown) => void;
+
+  const promise = new Promise<TValue>((resolve, reject) => {
+    resolvePromise = resolve;
+    rejectPromise = reject;
+  });
+
+  return {
+    promise,
+    resolve: resolvePromise,
+    reject: rejectPromise
+  };
+};
 
 // -------------------- Helpers --------------------
 
@@ -185,6 +207,9 @@ describe('UserForm', () => {
   it('submits successfully and updates users list', async () => {
     const user = userEvent.setup();
 
+    const updateDeferred = createDeferredPromise<void>();
+    mockUpdateUser.mockReturnValueOnce(updateDeferred.promise);
+
     render(
       <UserForm
         users={baseUsers}
@@ -201,7 +226,15 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-    await user.click(confirmButton);
+
+    await act(async () => {
+      await user.click(confirmButton);
+    });
+
+    await act(async () => {
+      updateDeferred.resolve(undefined);
+      await updateDeferred.promise;
+    });
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
@@ -238,7 +271,8 @@ describe('UserForm', () => {
       response: { data: { detail: 'Bad things happened' } }
     });
 
-    mockUpdateUser.mockRejectedValueOnce(error);
+    const updateDeferred = createDeferredPromise<void>();
+    mockUpdateUser.mockReturnValueOnce(updateDeferred.promise);
 
     render(
       <UserForm
@@ -256,7 +290,19 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-    await user.click(confirmButton);
+
+    await act(async () => {
+      await user.click(confirmButton);
+    });
+
+    await act(async () => {
+      updateDeferred.reject(error);
+      try {
+        await updateDeferred.promise;
+      } catch {
+        // Expected rejection.
+      }
+    });
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
@@ -301,6 +347,9 @@ describe('UserForm', () => {
       refetch: vi.fn()
     });
 
+    const updateDeferred = createDeferredPromise<void>();
+    mockUpdateUser.mockReturnValueOnce(updateDeferred.promise);
+
     render(
       <UserForm
         users={baseUsers}
@@ -317,7 +366,15 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-    await user.click(confirmButton);
+
+    await act(async () => {
+      await user.click(confirmButton);
+    });
+
+    await act(async () => {
+      updateDeferred.resolve(undefined);
+      await updateDeferred.promise;
+    });
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
@@ -643,7 +700,10 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-    await user.click(confirmButton);
+
+    await act(async () => {
+      await user.click(confirmButton);
+    });
 
     const dialog = await screen.findByTestId('user-form-dialog');
 
