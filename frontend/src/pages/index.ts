@@ -11,7 +11,7 @@ export { default as AdminTools } from './AdminTools';
 export { default as Notifications } from './Notifications';
 export { default as Organization } from './Organization';
 export { default as Organizations } from './Organizations';
-export { default as RegionUsers } from './RegionUsers';
+export { default as RegionUsers } from './UserRegistration';
 export { default as Settings } from './Settings';
 export { default as Users } from './Users';
 export { default as Vulnerabilities } from './Vulnerabilities';

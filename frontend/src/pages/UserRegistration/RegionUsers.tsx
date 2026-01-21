@@ -12,7 +12,7 @@ import {
   GridToolbar,
   useGridApiRef
 } from '@mui/x-data-grid';
-import { User, Organization as OrganizationType } from 'types';
+import { User } from 'types';
 import { initializeUser } from '@/constants/userAndOrgData';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import { ExportCustomerMetricsButton } from '@components/Metrics/Widgets/ExportCustomerMetricsButton';
@@ -25,9 +25,9 @@ import { logger } from '@/utils/logger';
 import { transformUserData } from '@/utils/transformTableData';
 import {
   getPendingUserColumns,
-  getMemberUserColumns,
-  organizationCols as orgCols
+  getMemberUserColumns
 } from './UserRegistrationColumns';
+import { OrganizationSelector } from './OrganizationSelector';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -38,7 +38,6 @@ type DialogStates = {
 };
 
 type ErrorStates = {
-  getOrgsError: string;
   getUsersError: string;
   getUpdateError: string;
   getDeleteError: string;
@@ -62,7 +61,6 @@ export const RegionUsers: React.FC = () => {
     isUserAlreadyApprovedDialogOpen: false
   });
   const [errorStates, setErrorStates] = useState<ErrorStates>({
-    getOrgsError: '',
     getUsersError: '',
     getUpdateError: '',
     getDeleteError: ''
@@ -72,36 +70,11 @@ export const RegionUsers: React.FC = () => {
     type: 'include',
     ids: new Set<string | number>()
   });
-  const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
+  const [selectedOrgObject, setSelectedOrgObject] = useState<any>(null);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
 
-  const fetchOrganizations = async (row: User) => {
-    if (!row.region_id) {
-      setOrganizations([]);
-      setErrorStates((prev) => ({
-        ...prev,
-        getOrgsError: 'This user has no region assigned.'
-      }));
-      return;
-    }
-    try {
-      const rows = await apiGet<OrganizationType[]>(
-        ENDPOINTS.ORGANIZATIONS_REGION.replace('{region_id}', row.region_id)
-      );
-      setOrganizations(rows);
-      if (row.roles.length > 0) {
-        setSelectedOrg({
-          type: 'include',
-          ids: new Set([row.roles[0].organization.id])
-        });
-      }
-      setErrorStates({ ...errorStates, getOrgsError: '', getUpdateError: '' });
-    } catch (e: any) {
-      setErrorStates({ ...errorStates, getOrgsError: e.message });
-    }
-  };
   const fetchPendingUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}true`);
@@ -154,7 +127,7 @@ export const RegionUsers: React.FC = () => {
   const updateUser = useCallback(
     async (
       user_id: string,
-      org_name: string
+      selectedOrgObject: any
     ): Promise<{ success: boolean; body: string }> => {
       try {
         const res = await apiPost(
@@ -163,15 +136,24 @@ export const RegionUsers: React.FC = () => {
             body: { invite_pending: false }
           }
         );
+        const mockRoles = [
+          {
+            organization: {
+              id: selectedOrgObject.id,
+              name: selectedOrgObject.name,
+              acronym: selectedOrgObject.acronym
+            }
+          }
+        ];
+        // Combine the API response with selection data
+        const updatedUserWithRoles = { ...res, roles: mockRoles };
+        const transformedUser = transformUserData([updatedUserWithRoles])[0];
         apiRefPendingUsers.current?.updateRows([
           { id: user_id, _action: 'delete' }
         ]);
-        setPendingUsers((prevPendingUsers) =>
-          prevPendingUsers.filter((user) => user.id !== user_id)
-        );
-        res['organizations'] = org_name;
-        apiRefCurrentUsers.current?.updateRows([res]);
-        setCurrentUsers((prevCurrentUsers) => [...prevCurrentUsers, res]);
+        setPendingUsers((prev) => prev.filter((u) => u.id !== user_id));
+        apiRefCurrentUsers.current?.updateRows([transformedUser]);
+        setCurrentUsers((prev) => [...prev, transformedUser]);
         return { success: true, body: 'User registration approved' };
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
@@ -184,19 +166,17 @@ export const RegionUsers: React.FC = () => {
   const addOrgToUser = useCallback(
     async (
       user_id: string,
-      selectedOrgId: any
+      orgObject: any
     ): Promise<{ success: boolean; body: string }> => {
       try {
-        const res = await apiPost(
+        await apiPost(
           ENDPOINTS.ORGANIZATION_ADD_USER.replace(
             '{organization_id}',
-            selectedOrgId
+            orgObject.id // Extract ID for the API call
           ),
-          {
-            body: { user_id, role: 'user' }
-          }
+          { body: { user_id, role: 'user' } }
         );
-        return updateUser(user_id, res.organization.name);
+        return updateUser(user_id, orgObject);
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
         return { success: false, body: e.message };
@@ -255,7 +235,6 @@ export const RegionUsers: React.FC = () => {
       isOrgDialogOpen: true
     });
     selectUser(row);
-    fetchOrganizations(row);
   };
 
   const handleDenyClick = (row: typeof initializeUser) => {
@@ -322,10 +301,7 @@ export const RegionUsers: React.FC = () => {
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
         : '';
-      const selectedOrgId =
-        selectedOrg.ids.size > 0
-          ? Array.from(selectedOrg.ids)[0].toString()
-          : null;
+      const selectedOrgId = selectedOrgObject?.id || null;
       let success = false;
 
       // This call is to determine if the user was already approved by another admin since opening the dialog.
@@ -350,23 +326,24 @@ export const RegionUsers: React.FC = () => {
 
       // If the user's org was already added and not modified, only update the user.
       if (userHadOrg && originalOrgId === selectedOrgId) {
-        const updateUserResult = await updateUser(
-          selectedUser.id,
-          selectedUser.roles[0].organization.name
-        );
+        const existingOrg = selectedUser.roles[0].organization;
+        const updateUserResult = await updateUser(selectedUser.id, existingOrg);
         success = updateUserResult.success;
-        // If the user now has a different org than before, remove the previous org.
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
         // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
         removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
-        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        // Pass the full selected object to both
+        const addOrgResult = await addOrgToUser(
+          selectedUser.id,
+          selectedOrgObject
+        );
         success = addOrgResult.success;
-        // If the user had no previous org, add the user to the selected org which then also updates the user.
-
-        // If the previous operation was successful or if the user had no previous org,
-        // add the user to the selected org which then also updates the user.
       } else {
-        const addOrgResult = await addOrgToUser(selectedUser.id, selectedOrgId);
+        // Pass the full selected object
+        const addOrgResult = await addOrgToUser(
+          selectedUser.id,
+          selectedOrgObject
+        );
         success = addOrgResult.success;
       }
       if (success) {
@@ -385,31 +362,14 @@ export const RegionUsers: React.FC = () => {
       setErrorStates({ ...errorStates, getUpdateError: e.message });
     }
   };
-  const onRowSelectionModelChange = (
-    newRowSelectionModel: GridRowSelectionModel
-  ) => {
-    const newIds = Array.isArray(newRowSelectionModel)
-      ? newRowSelectionModel
-      : Array.from(newRowSelectionModel.ids);
 
-    if (newIds.length > 1) {
-      const lastSelected = newIds[newIds.length - 1];
-      setSelectedOrg({
-        type: 'include',
-        ids: new Set([lastSelected])
-      });
-    } else if (newIds.length === 1) {
-      setSelectedOrg({
-        type: 'include',
-        ids: new Set(newIds)
-      });
-    } else {
-      setSelectedOrg({
-        type: 'include',
-        ids: new Set()
-      });
-    }
-  };
+  const handleOrgSelectionChange = useCallback((org: any) => {
+    setSelectedOrg({
+      type: 'include',
+      ids: new Set(org ? [org.id] : [])
+    });
+    setSelectedOrgObject(org);
+  }, []);
 
   return (
     <Box
@@ -457,7 +417,8 @@ export const RegionUsers: React.FC = () => {
             slotProps={{
               toolbar: {
                 csvOptions: { disableToolbarButton: true },
-                printOptions: { disableToolbarButton: true }
+                printOptions: { disableToolbarButton: true },
+                showQuickFilter: false
               }
             }}
             autoPageSize
@@ -472,55 +433,12 @@ export const RegionUsers: React.FC = () => {
         onCancel={handleApproveCancelClick}
         title={`Add ${selectedUser.full_name} to an organization in Region ${selectedUser.region_id}`}
         content={
-          <>
-            <Typography mb={3}>
-              To complete the approval process, select one organization for this
-              user to join.
-            </Typography>
-            <Paper sx={{ height: 600, margin: 'auto' }}>
-              <DataGrid
-                checkboxSelection
-                onRowSelectionModelChange={onRowSelectionModelChange}
-                rowSelectionModel={selectedOrg}
-                rows={organizations ?? []}
-                columns={orgCols}
-                slots={{ toolbar: GridToolbar }}
-                slotProps={{
-                  toolbar: {
-                    showQuickFilter: true,
-                    csvOptions: { disableToolbarButton: true },
-                    printOptions: { disableToolbarButton: true }
-                  }
-                }}
-                sx={{
-                  '& .MuiDataGrid-columnHeaderCheckbox .MuiDataGrid-columnHeaderTitleContainer':
-                    {
-                      display: 'none'
-                    }
-                }}
-                disableRowSelectionOnClick
-                showToolbar
-              />
-            </Paper>
-            {errorStates.getOrgsError && (
-              <Alert severity="error">
-                Error retrieving organizations: {errorStates.getOrgsError}
-              </Alert>
-            )}
-            {selectedOrg.ids.size !== 0 &&
-              errorStates.getUpdateError.length === 0 && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                  {selectedUser.full_name} will become a member of the selected
-                  organization.
-                </Alert>
-              )}
-            {errorStates.getUpdateError.length !== 0 && (
-              <Alert severity="error">
-                Error updating user: {errorStates.getUpdateError}. See the
-                network tab for more details.
-              </Alert>
-            )}
-          </>
+          <OrganizationSelector
+            regionId={selectedUser.region_id}
+            selectedUser={selectedUser}
+            initialOrgId={selectedUser.roles[0]?.organization.id}
+            onSelectionChange={handleOrgSelectionChange}
+          />
         }
         disabled={selectedOrg.ids.size === 0}
         screenWidth="lg"
