@@ -165,10 +165,9 @@ def search_shodan(
                         continue
                     for d in r["data"]:
                         # Convert Shodan date string to UTC datetime
-                        shodan_datetime = datetime.datetime.strptime(
+                        shodan_utc = datetime.datetime.strptime(
                             d["timestamp"], "%Y-%m-%dT%H:%M:%S.%f"
-                        )
-                        shodan_utc = time_to_utc(shodan_datetime)
+                        ).replace(tzinfo=datetime.timezone.utc)
                         # Only include results in the timeframe
                         if start < shodan_utc < end:
                             prod = d.get("product", None)
@@ -215,7 +214,9 @@ def search_shodan(
                                             "protocol": d["_shodan"]["module"],
                                             "server": serv,
                                             "tags": r["tags"],
-                                            "timestamp": d["timestamp"],
+                                            "timestamp": parse_utc_timestamp(
+                                                d["timestamp"]
+                                            ),
                                             "type": ftype,
                                             "is_verified": False,
                                             "cpe": d.get("cpe", None),
@@ -260,7 +261,9 @@ def search_shodan(
                                         "severity": None,
                                         "summary": None,
                                         "tags": r["tags"],
-                                        "timestamp": d["timestamp"],
+                                        "timestamp": parse_utc_timestamp(
+                                            d["timestamp"]
+                                        ),
                                         "type": ftype,
                                         "is_verified": False,
                                         "cpe": d.get("cpe", None),
@@ -337,14 +340,17 @@ def search_shodan(
 
 def get_dates():
     """Get dates for the query."""
-    now = datetime.datetime.now()
-    days_back = datetime.timedelta(days=SHODAN_QUERY_DAYS_BACK)
-    days_forward = datetime.timedelta(days=1)
-    start = now - days_back
-    end = now + days_forward
-    start_time = time_to_utc(start)
-    end_time = time_to_utc(end)
-    return start_time, end_time
+    now = timezone.now()
+    start = now - datetime.timedelta(days=SHODAN_QUERY_DAYS_BACK)
+    end = now + datetime.timedelta(days=1)
+    return start, end
+
+
+def parse_utc_timestamp(ts):
+    """Convert strings to datetime."""
+    if isinstance(ts, str):
+        return parse_datetime(ts).replace(tzinfo=datetime.timezone.utc)
+    return ts  # already a datetime
 
 
 def time_to_utc(in_time):
@@ -546,8 +552,8 @@ def insert_shodan_assets(data, organization):
 
             key = (
                 ip_instance.id,
-                row_dict["port"],
-                row_dict["protocol"],
+                int(row_dict["port"]),
+                row_dict["protocol"].lower(),
             )
 
             mdl_asset_fields = {
@@ -562,10 +568,7 @@ def insert_shodan_assets(data, organization):
                 "country_code": row_dict.get("country_code"),
                 "location": row_dict.get("location"),
                 "data_source": row_dict.get("data_source_uid"),
-                "timestamp": timezone.make_aware(
-                    parse_datetime(row_dict["timestamp"]),
-                    timezone.timezone.utc,
-                ),
+                "timestamp": parse_utc_timestamp(row_dict["timestamp"]),
                 "ip_string": row_dict["ip"],
             }
 
@@ -634,8 +637,6 @@ def insert_shodan_vulns(data, organization):
         )
     }
 
-    LOGGER.info("existing vulns")
-    LOGGER.info(existing_vulns)
     to_create = []
     to_update = []
 
@@ -649,8 +650,8 @@ def insert_shodan_vulns(data, organization):
 
             key = (
                 ip_instance.id,
-                row_dict["port"],
-                row_dict["protocol"],
+                int(row_dict["port"]),
+                row_dict["protocol"].lower(),
             )
 
             mdl_vuln_data = {
@@ -685,20 +686,17 @@ def insert_shodan_vulns(data, organization):
                 "banner": row_dict.get("banner"),
                 "version": row_dict.get("version"),
                 "cpe": row_dict.get("cpe"),
-                "timestamp": timezone.make_aware(parse_datetime(row_dict["timestamp"])),
+                "timestamp": parse_utc_timestamp(row_dict["timestamp"]),
                 "ip_string": row_dict["ip"],
             }
 
             if key in existing_vulns:
                 # --- Update existing vuln ---
-                LOGGER.info("the following key is already identified")
-                LOGGER.info(key)
                 vuln = existing_vulns[key]
                 for field, value in mdl_vuln_data.items():
                     setattr(vuln, field, value)
                 to_update.append(vuln)
             else:
-                LOGGER.info("New shodan vuln identified")
                 # --- Create new vuln ---
                 to_create.append(
                     ShodanVulns(

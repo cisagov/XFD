@@ -101,7 +101,9 @@ class ECSClient:
                             "WORKER_USER_AGENT": os.getenv("WORKER_USER_AGENT"),
                             "SHODAN_API_KEY": command_options["SHODAN_API_KEY"],
                             "SHODAN_IP_CHUNK_SIZE": os.getenv("SHODAN_IP_CHUNK_SIZE"),
-                            "SHODAN_QUERY_DAYS_BACK": os.getenv("SHODAN_QUERY_DAYS_BACK"),
+                            "SHODAN_QUERY_DAYS_BACK": os.getenv(
+                                "SHODAN_QUERY_DAYS_BACK"
+                            ),
                             "PE_SHODAN_API_KEYS": os.getenv("PE_SHODAN_API_KEYS"),
                             "QUALYS_USERNAME": os.getenv("QUALYS_USERNAME"),
                             "QUALYS_PASSWORD": os.getenv("QUALYS_PASSWORD"),
