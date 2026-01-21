@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, act } from 'test-utils';
+import { render, screen, waitFor } from 'test-utils';
 import userEvent from '@testing-library/user-event';
 import type { Organization } from 'types';
 import UserForm from '@/pages/Users/UserForm';
@@ -79,28 +79,6 @@ vi.mock('components/Dialog/AnimatedConfirmDialog', () => ({
       </div>
     ) : null
 }));
-
-type DeferredPromise<TValue> = {
-  promise: Promise<TValue>;
-  resolve: (value: TValue) => void;
-  reject: (reason?: unknown) => void;
-};
-
-const createDeferredPromise = <TValue,>(): DeferredPromise<TValue> => {
-  let resolvePromise!: (value: TValue) => void;
-  let rejectPromise!: (reason?: unknown) => void;
-
-  const promise = new Promise<TValue>((resolve, reject) => {
-    resolvePromise = resolve;
-    rejectPromise = reject;
-  });
-
-  return {
-    promise,
-    resolve: resolvePromise,
-    reject: rejectPromise
-  };
-};
 
 // -------------------- Helpers --------------------
 
@@ -207,9 +185,6 @@ describe('UserForm', () => {
   it('submits successfully and updates users list', async () => {
     const user = userEvent.setup();
 
-    const updateDeferred = createDeferredPromise<void>();
-    mockUpdateUser.mockReturnValueOnce(updateDeferred.promise);
-
     render(
       <UserForm
         users={baseUsers}
@@ -226,24 +201,10 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-
-    await act(async () => {
-      await user.click(confirmButton);
-    });
-
-    await act(async () => {
-      updateDeferred.resolve(undefined);
-      await updateDeferred.promise;
-    });
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
-      expect(mockSetUsers).toHaveBeenCalledTimes(1);
-      expect(mockSetEditUserDialogOpen).toHaveBeenCalledWith(false);
-      expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
-        'This user has been successfully updated.'
-      );
-      expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
     });
 
     const [calledId, calledBody] = mockUpdateUser.mock.calls[0];
@@ -258,6 +219,13 @@ describe('UserForm', () => {
 
     expect(mockRemoveUserFromOrganization).not.toHaveBeenCalled();
     expect(mockAddUserToOrganization).not.toHaveBeenCalled();
+
+    expect(mockSetUsers).toHaveBeenCalledTimes(1);
+    expect(mockSetEditUserDialogOpen).toHaveBeenCalledWith(false);
+    expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
+      'This user has been successfully updated.'
+    );
+    expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
   });
 
   /**
@@ -271,8 +239,7 @@ describe('UserForm', () => {
       response: { data: { detail: 'Bad things happened' } }
     });
 
-    const updateDeferred = createDeferredPromise<void>();
-    mockUpdateUser.mockReturnValueOnce(updateDeferred.promise);
+    mockUpdateUser.mockRejectedValueOnce(error);
 
     render(
       <UserForm
@@ -290,28 +257,17 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-
-    await act(async () => {
-      await user.click(confirmButton);
-    });
-
-    await act(async () => {
-      updateDeferred.reject(error);
-      try {
-        await updateDeferred.promise;
-      } catch {
-        // Expected rejection.
-      }
-    });
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
-      expect(mockSetApiErrorStates).toHaveBeenCalled();
-      expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
-        'This user has not been updated. Check the console log for more details.'
-      );
-      expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
     });
+
+    expect(mockSetApiErrorStates).toHaveBeenCalled();
+    expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
+      'This user has not been updated. Check the console log for more details.'
+    );
+    expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
   });
 
   /**
@@ -347,9 +303,6 @@ describe('UserForm', () => {
       refetch: vi.fn()
     });
 
-    const updateDeferred = createDeferredPromise<void>();
-    mockUpdateUser.mockReturnValueOnce(updateDeferred.promise);
-
     render(
       <UserForm
         users={baseUsers}
@@ -366,28 +319,17 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-
-    await act(async () => {
-      await user.click(confirmButton);
-    });
-
-    await act(async () => {
-      updateDeferred.resolve(undefined);
-      await updateDeferred.promise;
-    });
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
-      expect(mockRemoveUserFromOrganization).toHaveBeenCalledWith(
-        'org-1',
-        'role-1'
-      );
-      expect(mockAddUserToOrganization).toHaveBeenCalledWith(
-        'org-2',
-        1,
-        'user'
-      );
     });
+
+    expect(mockRemoveUserFromOrganization).toHaveBeenCalledWith(
+      'org-1',
+      'role-1'
+    );
+    expect(mockAddUserToOrganization).toHaveBeenCalledWith('org-2', 1, 'user');
   });
 
   /**
@@ -700,16 +642,10 @@ describe('UserForm', () => {
     );
 
     const confirmButton = await screen.findByTestId('user-form-confirm');
-
-    await act(async () => {
-      await user.click(confirmButton);
-    });
+    await user.click(confirmButton);
 
     const dialog = await screen.findByTestId('user-form-dialog');
-
-    await waitFor(() => {
-      expect(dialog).toHaveAttribute('data-disabled', 'true');
-    });
+    expect(dialog).toHaveAttribute('data-disabled', 'true');
 
     resolveUpdate!();
 
