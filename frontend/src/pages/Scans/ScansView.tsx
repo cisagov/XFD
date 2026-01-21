@@ -23,19 +23,17 @@ import {
 } from '@trussworks/react-uswds';
 
 // Material-UI Components
-import {
-  Alert,
-  Button as MuiButton,
-  Box,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  IconButton,
-  Paper,
-  Snackbar
-} from '@mui/material';
+import Alert from '@mui/material/Alert';
+import MuiButton from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Dialog from '@mui/material/Dialog';
+import DialogActions from '@mui/material/DialogActions';
+import DialogContent from '@mui/material/DialogContent';
+import DialogContentText from '@mui/material/DialogContentText';
+import DialogTitle from '@mui/material/DialogTitle';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Snackbar from '@mui/material/Snackbar';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Local Components & Context

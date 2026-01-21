@@ -2,7 +2,9 @@
 import React from 'react';
 
 // MUI Components
-import { Box, Button, Stack } from '@mui/material';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Stack from '@mui/material/Stack';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
 // Utils

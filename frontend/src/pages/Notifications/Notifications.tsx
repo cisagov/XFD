@@ -5,16 +5,14 @@ import React from 'react';
 import { isAfter, parseISO } from 'date-fns';
 
 // MUI Components
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  Grid,
-  IconButton,
-  Paper,
-  Typography
-} from '@mui/material';
+import Alert from '@mui/material/Alert';
+import Box from '@mui/material/Box';
+import Button from '@mui/material/Button';
+import Card from '@mui/material/Card';
+import Grid from '@mui/material/Grid';
+import IconButton from '@mui/material/IconButton';
+import Paper from '@mui/material/Paper';
+import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import Delete from '@mui/icons-material/Delete';
 import Edit from '@mui/icons-material/Edit';
@@ -148,8 +146,19 @@ export const Notifications: React.FC = () => {
         );
       }
     },
-    { field: 'updated_by', headerName: 'Admin Email', flex: 2, filterOperators: textFilterOperators },
-    { field: 'message', headerName: 'Message', flex: 3, minWidth: 200, filterOperators: textFilterOperators },
+    {
+      field: 'updated_by',
+      headerName: 'Admin Email',
+      flex: 2,
+      filterOperators: textFilterOperators
+    },
+    {
+      field: 'message',
+      headerName: 'Message',
+      flex: 3,
+      minWidth: 200,
+      filterOperators: textFilterOperators
+    },
     {
       field: 'update',
       headerName: 'Update',
