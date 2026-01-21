@@ -205,6 +205,12 @@ describe('UserForm', () => {
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+      expect(mockSetUsers).toHaveBeenCalledTimes(1);
+      expect(mockSetEditUserDialogOpen).toHaveBeenCalledWith(false);
+      expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
+        'This user has been successfully updated.'
+      );
+      expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
     });
 
     const [calledId, calledBody] = mockUpdateUser.mock.calls[0];
@@ -219,13 +225,6 @@ describe('UserForm', () => {
 
     expect(mockRemoveUserFromOrganization).not.toHaveBeenCalled();
     expect(mockAddUserToOrganization).not.toHaveBeenCalled();
-
-    expect(mockSetUsers).toHaveBeenCalledTimes(1);
-    expect(mockSetEditUserDialogOpen).toHaveBeenCalledWith(false);
-    expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
-      'This user has been successfully updated.'
-    );
-    expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
   });
 
   /**
@@ -261,13 +260,12 @@ describe('UserForm', () => {
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+      expect(mockSetApiErrorStates).toHaveBeenCalled();
+      expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
+        'This user has not been updated. Check the console log for more details.'
+      );
+      expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
     });
-
-    expect(mockSetApiErrorStates).toHaveBeenCalled();
-    expect(mockSetInfoDialogContent).toHaveBeenCalledWith(
-      'This user has not been updated. Check the console log for more details.'
-    );
-    expect(mockSetInfoDialogOpen).toHaveBeenCalledWith(true);
   });
 
   /**
@@ -323,13 +321,16 @@ describe('UserForm', () => {
 
     await waitFor(() => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
+      expect(mockRemoveUserFromOrganization).toHaveBeenCalledWith(
+        'org-1',
+        'role-1'
+      );
+      expect(mockAddUserToOrganization).toHaveBeenCalledWith(
+        'org-2',
+        1,
+        'user'
+      );
     });
-
-    expect(mockRemoveUserFromOrganization).toHaveBeenCalledWith(
-      'org-1',
-      'role-1'
-    );
-    expect(mockAddUserToOrganization).toHaveBeenCalledWith('org-2', 1, 'user');
   });
 
   /**
@@ -645,7 +646,10 @@ describe('UserForm', () => {
     await user.click(confirmButton);
 
     const dialog = await screen.findByTestId('user-form-dialog');
-    expect(dialog).toHaveAttribute('data-disabled', 'true');
+
+    await waitFor(() => {
+      expect(dialog).toHaveAttribute('data-disabled', 'true');
+    });
 
     resolveUpdate!();
 
