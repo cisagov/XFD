@@ -1,0 +1,107 @@
+// FilterDrawerToggle.spec.tsx
+import React from 'react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import '@testing-library/jest-dom';
+
+import FilterDrawerToggle from '@components/FilterDrawer/FilterDrawerToggle';
+
+// ----------------------
+// Mock
+// ----------------------
+const mockSetIsFilterDrawerOpen = vi.fn();
+let mockIsFilterDrawerOpenValue = false;
+
+vi.mock('context/FilterDrawerContext', () => ({
+  useFilterDrawerContext: () => ({
+    isFilterDrawerOpen: mockIsFilterDrawerOpenValue,
+    setIsFilterDrawerOpen: mockSetIsFilterDrawerOpen
+  })
+}));
+
+vi.mock('@mui/material/AppBar', () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="appbar">{children}</div>
+  )
+}));
+
+vi.mock('@mui/material/Toolbar', () => ({
+  default: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="toolbar">{children}</div>
+  )
+}));
+
+vi.mock('@mui/material/Button', () => ({
+  default: ({
+    children,
+    onClick,
+    'aria-label': ariaLabel
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    'aria-label'?: string;
+  }) => (
+    <button type="button" aria-label={ariaLabel} onClick={onClick}>
+      {children}
+    </button>
+  )
+}));
+
+vi.mock('@mui/icons-material/FilterAlt', () => ({
+  default: () => <span aria-hidden="true">FilterIcon</span>
+}));
+
+// ----------------------
+// Tests
+// ----------------------
+
+describe('FilterDrawerToggle', () => {
+  beforeEach(() => {
+    mockIsFilterDrawerOpenValue = false;
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders a button with correct accessible name', () => {
+    render(<FilterDrawerToggle />);
+
+    expect(
+      screen.getByRole('button', { name: 'Toggle Filter Drawer' })
+    ).toBeInTheDocument();
+  });
+
+  it('clicking the button toggles drawer open state via context setter', async () => {
+    const user = userEvent.setup();
+    render(<FilterDrawerToggle />);
+
+    await user.click(
+      screen.getByRole('button', { name: 'Toggle Filter Drawer' })
+    );
+
+    expect(mockSetIsFilterDrawerOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('supports keyboard activation using Enter and Space', async () => {
+    const user = userEvent.setup();
+    render(<FilterDrawerToggle />);
+
+    const toggleButton = screen.getByRole('button', {
+      name: 'Toggle Filter Drawer'
+    });
+
+    toggleButton.focus();
+    expect(toggleButton).toHaveFocus();
+
+    await user.keyboard('{Enter}');
+    expect(mockSetIsFilterDrawerOpen).toHaveBeenCalledWith(true);
+
+    mockSetIsFilterDrawerOpen.mockClear();
+
+    await user.keyboard(' ');
+    expect(mockSetIsFilterDrawerOpen).toHaveBeenCalledWith(true);
+  });
+});
