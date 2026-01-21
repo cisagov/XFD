@@ -1,45 +1,48 @@
+// React
 import React, { useCallback, useEffect, useState } from 'react';
+
+// Date utilities
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
+
+// External libraries
 import { FaSyncAlt } from 'react-icons/fa';
 import { LazyLog } from 'react-lazylog';
 import { Button } from '@trussworks/react-uswds';
 
-// Material-UI Components
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import MuiButton from '@mui/material/Button';
-import Dialog from '@mui/material/Dialog';
-import DialogContent from '@mui/material/DialogContent';
-import DialogTitle from '@mui/material/DialogTitle';
-import Icon from '@mui/material/Icon';
-import IconButton from '@mui/material/IconButton';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-import Typography from '@mui/material/Typography';
+// MUI Components
+import {
+  Alert,
+  Box,
+  Button as MuiButton,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  Icon,
+  IconButton,
+  Menu,
+  MenuItem,
+  Paper,
+  Stack,
+  Typography
+} from '@mui/material';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
-
-// DataGrid Components
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-
-// Types
-import { OrgQuery } from 'types';
-import { Scan, ScanTask } from 'types';
-
-// Context
-import { useAuthContext } from 'context';
 
 // Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 
-// Utils
-import { logger } from '@/utils/logger';
+// Context & Hooks
+import { useAuthContext } from 'context';
 
-// Constants
+// Types
+import { OrgQuery, Scan, ScanTask } from 'types';
+
+// Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 // Styles
 import classes from './Scans.module.scss';
@@ -214,6 +217,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'ID',
       minWidth: 100,
       flex: 2,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -230,6 +234,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Status',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -246,6 +251,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Name',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -262,6 +268,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Created At',
       minWidth: 200,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -278,6 +285,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Finished At',
       minWidth: 200,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -294,6 +302,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Details',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton

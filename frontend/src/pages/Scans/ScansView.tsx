@@ -1,9 +1,17 @@
-import classes from './Scans.module.scss';
-import { logger } from '@/utils/logger';
+// React
 import React, { useCallback, useRef, useState } from 'react';
-import { FaPlayCircle } from 'react-icons/fa';
-import { FaTimes } from 'react-icons/fa';
+
+// Icons
+import { FaPlayCircle, FaTimes } from 'react-icons/fa';
+
+// Date utilities
 import { formatDistanceToNow, parseISO } from 'date-fns';
+
+// Styles & Utils
+import classes from './Scans.module.scss';
+import { textFilterOperators } from '@/utils/transformTableData';
+import { logger } from '@/utils/logger';
+
 // TODO: Refactor to use Material-UI components
 import {
   Button,
@@ -13,18 +21,24 @@ import {
   ModalHeading,
   ModalRef
 } from '@trussworks/react-uswds';
-import Alert from '@mui/material/Alert';
-import MuiButton from '@mui/material/Button';
-import Box from '@mui/material/Box';
-import Dialog from '@mui/material/Dialog';
-import DialogActions from '@mui/material/DialogActions';
-import DialogContent from '@mui/material/DialogContent';
-import DialogContentText from '@mui/material/DialogContentText';
-import DialogTitle from '@mui/material/DialogTitle';
-import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
-import Snackbar from '@mui/material/Snackbar';
+
+// Material-UI Components
+import {
+  Alert,
+  Button as MuiButton,
+  Box,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Paper,
+  Snackbar
+} from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Local Components & Context
 import { ModalToggleButton } from 'components';
 import { Scan, Organization, ScanSchema, OrganizationTag } from 'types';
 import { useAuthContext } from 'context';
@@ -275,6 +289,7 @@ const ScansView: React.FC = () => {
       headerName: 'Name',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -291,6 +306,7 @@ const ScansView: React.FC = () => {
       headerName: 'Tags',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -307,6 +323,7 @@ const ScansView: React.FC = () => {
       headerName: 'Mode',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -345,6 +362,7 @@ const ScansView: React.FC = () => {
       headerName: 'Last Run',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -405,6 +423,7 @@ const ScansView: React.FC = () => {
       headerName: 'Description',
       minWidth: 250,
       flex: 5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
