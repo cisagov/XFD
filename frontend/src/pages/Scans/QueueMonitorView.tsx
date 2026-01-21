@@ -1,24 +1,18 @@
+// React
 import React, { useCallback, useEffect, useState } from 'react';
 
-// Material-UI Components
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Paper from '@mui/material/Paper';
-import Stack from '@mui/material/Stack';
-
-// DataGrid Components
+// MUI Components
+import { Alert, Box, Button, Paper, Stack } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 
-// Context
+// Context & Hooks
 import { useAuthContext } from 'context';
 
-// Utils
+// Constants & Utils
+import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { formatDisplayValue } from 'utils/stringUtils';
-
-// Constants
-import { ENDPOINTS } from '@/constants/endpoints';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 interface Queue {
   name: string;
@@ -58,6 +52,7 @@ const QueueMonitorView: React.FC = () => {
       field: 'name',
       headerName: 'Queue Name',
       flex: 2,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
@@ -71,6 +66,7 @@ const QueueMonitorView: React.FC = () => {
       field: 'messages_available',
       headerName: 'Available',
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
@@ -84,6 +80,7 @@ const QueueMonitorView: React.FC = () => {
       field: 'messages_in_flight',
       headerName: 'In-Flight',
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
@@ -97,6 +94,7 @@ const QueueMonitorView: React.FC = () => {
       field: 'messages_delayed',
       headerName: 'Delayed',
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
