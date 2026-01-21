@@ -223,7 +223,7 @@ def decode_cursor(cursor: str) -> Tuple[datetime, str]:
     return last_seen, obj_id
 
 
-def dmz_asm_sync(asm_sync_data, current_user):
+def dmz_asm_sync(asm_sync_data, current_user):  # pylint: disable=R0915
     """Return ASM asset data using cursor-based pagination for IPs and unlinked subdomains."""
     try:
         # ------------------------
