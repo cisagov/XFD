@@ -1,12 +1,20 @@
+// React
 import React from 'react';
-import Alert from '@mui/material/Alert';
-import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
-import Card from '@mui/material/Card';
-import Grid from '@mui/material/Grid';
-import IconButton from '@mui/material/IconButton';
-import Paper from '@mui/material/Paper';
-import Typography from '@mui/material/Typography';
+
+// Date utilities
+import { isAfter, parseISO } from 'date-fns';
+
+// MUI Components
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  Grid,
+  IconButton,
+  Paper,
+  Typography
+} from '@mui/material';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
 import Delete from '@mui/icons-material/Delete';
 import Edit from '@mui/icons-material/Edit';
@@ -16,19 +24,25 @@ import {
   GridColDef,
   GridRenderCellParams
 } from '@mui/x-data-grid';
-import { isAfter, parseISO } from 'date-fns';
-import { formReadableDate, humanReadableDate, toEST } from 'utils/dateUtils';
-import { useAuthContext } from 'context';
-import { initialNotificationValues, MaintenanceNotification } from 'types';
+
+// Components
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import NotificationForm from 'components/Notifications/NotificationForm';
 import NotificationTable from 'components/Notifications/NotificationTable';
+
+// Context & Hooks
+import { useAuthContext } from 'context';
 import { useSubmitForm } from '@/hooks/Notifications/useNotificationSubmit';
 import { useNotificationApiCall } from '@/hooks/Notifications/useNotificationApiCall';
 import { useNotificationAction } from '@/hooks/Notifications/useNotificationAction';
 import { useDeleteNotification } from '@/hooks/Notifications/useDeleteNotification';
 import { useFetchNotification } from '@/hooks/Notifications/useFetchNotification';
+
+// Types & Utils
+import { initialNotificationValues, MaintenanceNotification } from 'types';
+import { formReadableDate, humanReadableDate, toEST } from 'utils/dateUtils';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 const dateValidator = (
   startDateStr: string,
@@ -112,6 +126,7 @@ export const Notifications: React.FC = () => {
       field: 'maintenance_type',
       headerName: 'Type',
       flex: 0.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: any) => {
         return <>{cellValues.value.toUpperCase()}</>;
       }
@@ -120,6 +135,7 @@ export const Notifications: React.FC = () => {
       field: 'timeFrame',
       headerName: 'Time Frame',
       flex: 1.5,
+      filterOperators: textFilterOperators,
       minWidth: 180,
       renderCell: (cellValues: GridRenderCellParams) => {
         const start_date = humanReadableDate(cellValues.row.start_datetime);
@@ -132,13 +148,15 @@ export const Notifications: React.FC = () => {
         );
       }
     },
-    { field: 'updated_by', headerName: 'Admin Email', flex: 2 },
-    { field: 'message', headerName: 'Message', flex: 3, minWidth: 200 },
+    { field: 'updated_by', headerName: 'Admin Email', flex: 2, filterOperators: textFilterOperators },
+    { field: 'message', headerName: 'Message', flex: 3, minWidth: 200, filterOperators: textFilterOperators },
     {
       field: 'update',
       headerName: 'Update',
       flex: 0.4,
       minWidth: 50,
+      filterable: false,
+      sortable: false,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
@@ -170,6 +188,8 @@ export const Notifications: React.FC = () => {
       headerName: 'Delete',
       flex: 0.4,
       minWidth: 50,
+      filterable: false,
+      sortable: false,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
