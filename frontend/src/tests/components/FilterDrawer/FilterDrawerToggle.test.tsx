@@ -66,6 +66,7 @@ describe('FilterDrawerToggle', () => {
     cleanup();
   });
 
+  /** Renders the toggle button with the expected accessible label. */
   it('renders a button with correct accessible name', () => {
     render(<FilterDrawerToggle />);
 
@@ -74,6 +75,7 @@ describe('FilterDrawerToggle', () => {
     ).toBeInTheDocument();
   });
 
+  /** Clicking the button calls the context setter to open the drawer. */
   it('clicking the button toggles drawer open state via context setter', async () => {
     const user = userEvent.setup();
     render(<FilterDrawerToggle />);
@@ -85,6 +87,7 @@ describe('FilterDrawerToggle', () => {
     expect(mockSetIsFilterDrawerOpen).toHaveBeenCalledWith(true);
   });
 
+  /** Allows keyboard activation with Enter and Space. */
   it('supports keyboard activation using Enter and Space', async () => {
     const user = userEvent.setup();
     render(<FilterDrawerToggle />);

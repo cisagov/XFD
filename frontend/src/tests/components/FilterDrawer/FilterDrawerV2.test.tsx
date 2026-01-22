@@ -7,8 +7,6 @@ import '@testing-library/jest-dom';
 import { FilterDrawer } from '@components/FilterDrawer/FilterDrawerV2';
 import { ROUTES } from '@/constants/routes';
 
-const FilterDrawerForTests = FilterDrawer as unknown as React.FC<any>;
-
 // ----------------------
 // Mocks
 // ----------------------
@@ -32,6 +30,47 @@ vi.mock('@mui/material/styles', () => ({
     }
   })
 }));
+
+/**
+ * ✅ Fix act(...) warnings from MUI ripple / transitions
+ * Replace MUI Button/IconButton with plain <button> so TouchRipple/TransitionGroup
+ * never runs in unit tests.
+ */
+vi.mock('@mui/material/IconButton', () => {
+  type IconButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    children?: React.ReactNode;
+  };
+
+  const MockIconButton = React.forwardRef<HTMLButtonElement, IconButtonProps>(
+    ({ children, ...restProps }, forwardedRef) => (
+      <button ref={forwardedRef} type="button" {...restProps}>
+        {children}
+      </button>
+    )
+  );
+
+  MockIconButton.displayName = 'MockIconButton';
+
+  return { default: MockIconButton };
+});
+
+vi.mock('@mui/material/Button', () => {
+  type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+    children?: React.ReactNode;
+  };
+
+  const MockButton = React.forwardRef<HTMLButtonElement, ButtonProps>(
+    ({ children, ...restProps }, forwardedRef) => (
+      <button ref={forwardedRef} type="button" {...restProps}>
+        {children}
+      </button>
+    )
+  );
+
+  MockButton.displayName = 'MockButton';
+
+  return { default: MockButton };
+});
 
 const mockMatchPath = vi.fn();
 
@@ -110,6 +149,8 @@ function ensureMainLayoutContainer(): void {
   document.body.appendChild(containerElement);
 }
 
+const FilterDrawerForTests = FilterDrawer as unknown as React.FC<any>;
+
 type FilterDrawerTestOverrides = Partial<{
   isMobile: boolean;
   isFilterDrawerOpen: boolean;
@@ -163,6 +204,7 @@ describe('FilterDrawerV2 (FilterDrawer)', () => {
     vi.clearAllMocks();
   });
 
+  /** Renders the drawer UI when the drawer is open. */
   it('renders drawer content when open is true', () => {
     mockUseLocation.mockReturnValue({ pathname: ROUTES.INVENTORY });
     mockMatchPath.mockImplementation(
@@ -184,6 +226,7 @@ describe('FilterDrawerV2 (FilterDrawer)', () => {
     ).toBeInTheDocument();
   });
 
+  /** Closes the drawer when the close icon is clicked. */
   it('invokes setIsFilterDrawerOpen(false) when close icon is clicked', async () => {
     mockUseLocation.mockReturnValue({ pathname: ROUTES.INVENTORY });
     mockMatchPath.mockImplementation(
@@ -205,6 +248,7 @@ describe('FilterDrawerV2 (FilterDrawer)', () => {
     expect(setIsFilterDrawerOpenSpy).toHaveBeenCalledWith(false);
   });
 
+  /** Closes the drawer when the Drawer onClose handler fires. */
   it('invokes setIsFilterDrawerOpen(false) when Drawer onClose fires', async () => {
     mockUseLocation.mockReturnValue({ pathname: ROUTES.INVENTORY });
     mockMatchPath.mockImplementation(
@@ -226,6 +270,7 @@ describe('FilterDrawerV2 (FilterDrawer)', () => {
     expect(setIsFilterDrawerOpenSpy).toHaveBeenCalledWith(false);
   });
 
+  /** Resets search, restores initial filters, and clears active saved search. */
   it('Reset button calls setSearchTerm clear + restores initial filters (inventory) + clears active search', async () => {
     mockUseLocation.mockReturnValue({ pathname: ROUTES.INVENTORY });
     mockMatchPath.mockImplementation(
@@ -269,6 +314,7 @@ describe('FilterDrawerV2 (FilterDrawer)', () => {
     expect(mockSetActiveSearchId).toHaveBeenCalledWith('');
   });
 
+  /** Disables Reset when filters are already at defaults. */
   it('Reset button disabled when useAreFiltersDefault returns true', () => {
     mockUseLocation.mockReturnValue({ pathname: ROUTES.INVENTORY });
     mockMatchPath.mockImplementation(

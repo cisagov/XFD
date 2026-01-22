@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
@@ -114,6 +114,7 @@ describe('SavedSearchContextProvider', () => {
     cleanup();
   });
 
+  /** Loads saved searches on mount and sets count to the API result length. */
   it('initializes savedSearches from API on mount and sets savedSearchCount to response length', async () => {
     mockApiGet.mockResolvedValueOnce({
       result: [
@@ -133,13 +134,12 @@ describe('SavedSearchContextProvider', () => {
     });
 
     expect(screen.getByTestId('searches-length')).toHaveTextContent('2');
-
     expect(screen.getByTestId('count')).toHaveTextContent('2');
-
     expect(screen.getByTestId('active-id')).toHaveTextContent('');
     expect(screen.getByTestId('active-search')).toHaveTextContent('');
   });
 
+  /** Updates savedSearches state and re-renders children with new values. */
   it('setSavedSearches updates state and children receive new value', async () => {
     mockApiGet.mockResolvedValueOnce({ result: [] });
 
@@ -157,12 +157,14 @@ describe('SavedSearchContextProvider', () => {
 
     expect(screen.getByTestId('searches-length')).toHaveTextContent('0');
 
-    await user.click(screen.getByRole('button', { name: 'Set Searches' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Set Searches' }));
+    });
 
-    // ✅ proves children received updated savedSearches
     expect(screen.getByTestId('searches-length')).toHaveTextContent('1');
   });
 
+  /** Sets activeSearch when an id is set, and clears it when id is cleared. */
   it('activeSearch is set/cleared correctly when setActiveSearchId is called', async () => {
     mockApiGet.mockResolvedValueOnce({
       result: [createSavedSearch({ id: 'search-002', name: 'Second Search' })]
@@ -180,15 +182,22 @@ describe('SavedSearchContextProvider', () => {
       expect(screen.getByTestId('searches-length')).toHaveTextContent('1');
     });
 
-    await user.click(screen.getByRole('button', { name: 'Set Active' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Set Active' }));
+    });
+
     expect(screen.getByTestId('active-id')).toHaveTextContent('search-002');
     expect(screen.getByTestId('active-search')).toHaveTextContent('search-002');
 
-    await user.click(screen.getByRole('button', { name: 'Clear Active' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Clear Active' }));
+    });
+
     expect(screen.getByTestId('active-id')).toHaveTextContent('');
     expect(screen.getByTestId('active-search')).toHaveTextContent('');
   });
 
+  /** Confirms count stays the same when searches change, unless setSavedSearchCount is called. */
   it('savedSearchCount does not change when setSavedSearches is called (current provider behavior)', async () => {
     mockApiGet.mockResolvedValueOnce({ result: [] });
 
@@ -204,18 +213,21 @@ describe('SavedSearchContextProvider', () => {
       expect(screen.getByTestId('count')).toHaveTextContent('0');
     });
 
-    await user.click(screen.getByRole('button', { name: 'Set Searches' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Set Searches' }));
+    });
 
-    // savedSearches changed...
     expect(screen.getByTestId('searches-length')).toHaveTextContent('1');
-
-    // ...but count stays the same unless setSavedSearchCount is called
     expect(screen.getByTestId('count')).toHaveTextContent('0');
 
-    await user.click(screen.getByRole('button', { name: 'Set Count' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Set Count' }));
+    });
+
     expect(screen.getByTestId('count')).toHaveTextContent('1');
   });
 
+  /** Logs an error if the API request fails. */
   it('logs an error when apiGet fails', async () => {
     mockApiGet.mockRejectedValueOnce(new Error('Network error'));
 

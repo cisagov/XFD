@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/react';
+import { render, screen, cleanup, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 
@@ -81,6 +81,7 @@ describe('FilterDrawerContextProvider', () => {
     window.localStorage.clear();
   });
 
+  /** Defaults to closed when there is no saved value in localStorage. */
   it('initializes with isFilterDrawerOpen=false when localStorage is empty', () => {
     render(
       <FilterDrawerContextProvider>
@@ -95,6 +96,7 @@ describe('FilterDrawerContextProvider', () => {
     expect(screen.getByTestId('open-state')).toHaveTextContent('false');
   });
 
+  /** Uses the saved localStorage value as the initial drawer state. */
   it('reads initial drawer state from localStorage on mount', () => {
     window.localStorage.setItem('filterDrawerOpen', 'true');
 
@@ -107,6 +109,7 @@ describe('FilterDrawerContextProvider', () => {
     expect(screen.getByTestId('open-state')).toHaveTextContent('true');
   });
 
+  /** Saves drawer state changes back to localStorage. */
   it('writes updated drawer state to localStorage when state changes', async () => {
     const user = userEvent.setup();
 
@@ -116,15 +119,22 @@ describe('FilterDrawerContextProvider', () => {
       </FilterDrawerContextProvider>
     );
 
-    await user.click(screen.getByRole('button', { name: 'Open' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Open' }));
+    });
+
     expect(screen.getByTestId('open-state')).toHaveTextContent('true');
     expect(window.localStorage.getItem('filterDrawerOpen')).toBe('true');
 
-    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+    });
+
     expect(screen.getByTestId('open-state')).toHaveTextContent('false');
     expect(window.localStorage.getItem('filterDrawerOpen')).toBe('false');
   });
 
+  /** Handles quick open/close updates and ends in the last state. */
   it('handles rapid open/close calls without ending in an inconsistent state', async () => {
     const user = userEvent.setup();
 
@@ -134,10 +144,12 @@ describe('FilterDrawerContextProvider', () => {
       </FilterDrawerContextProvider>
     );
 
-    await user.click(screen.getByRole('button', { name: 'Open' }));
-    await user.click(screen.getByRole('button', { name: 'Close' }));
-    await user.click(screen.getByRole('button', { name: 'Open' }));
-    await user.click(screen.getByRole('button', { name: 'Close' }));
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Open' }));
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+      await user.click(screen.getByRole('button', { name: 'Open' }));
+      await user.click(screen.getByRole('button', { name: 'Close' }));
+    });
 
     expect(screen.getByTestId('open-state')).toHaveTextContent('false');
     expect(window.localStorage.getItem('filterDrawerOpen')).toBe('false');
