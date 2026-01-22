@@ -400,6 +400,98 @@ describe('Domain and IP Filter Component', () => {
     });
   });
 
+  describe('Domain Autocomplete for Global View User', () => {
+    it('renders Domain Autocomplete for Global View', async () => {
+      const globalViewAuthCtx = {
+        ...authCtx,
+        user: globalViewUser
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalViewAuthCtx);
+
+      render(<DomainAndIPFilter {...defaultDomainProps} />);
+
+      const domainAutocomplete = await screen.findByLabelText(/search domain/i);
+      expect(domainAutocomplete).toBeInTheDocument();
+    });
+
+    it('renders options when opening Domain Autocomplete', async () => {
+      const globalViewAuthCtx = {
+        ...authCtx,
+        user: globalViewUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockDomains.map((domain) => ({
+                _source: domain
+              }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalViewAuthCtx);
+
+      render(<DomainAndIPFilter {...defaultDomainProps} />);
+
+      const domainAutocomplete =
+        await screen.findByLabelText(/search domains/i);
+      expect(domainAutocomplete).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await act(async () => {
+        await user.click(domainAutocomplete);
+      });
+
+      const option1 = await screen.findByText('example1.com');
+      const option2 = await screen.findByText('example2.com');
+      const option3 = await screen.findByText('example3.com');
+      const option4 = await screen.findByText('example4.com');
+
+      expect(option1).toBeInTheDocument();
+      expect(option2).toBeInTheDocument();
+      expect(option3).toBeInTheDocument();
+      expect(option4).toBeInTheDocument();
+    });
+
+    it('narrows down domain options based on user input', async () => {
+      const globalViewAuthCtx = {
+        ...authCtx,
+        user: globalViewUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockDomains.map((domain) => ({
+                _source: domain
+              }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalViewAuthCtx);
+
+      render(<DomainAndIPFilter {...defaultDomainProps} />);
+
+      const domainAutocomplete =
+        await screen.findByLabelText(/search domains/i);
+      expect(domainAutocomplete).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await act(async () => {
+        await user.click(domainAutocomplete);
+      });
+
+      await act(async () => {
+        await user.type(domainAutocomplete, 'example2');
+      });
+
+      const option2 = await screen.findByText('example2.com');
+      expect(option2).toBeInTheDocument();
+
+      expect(screen.queryByText('example1.com')).not.toBeInTheDocument();
+      expect(screen.queryByText('example3.com')).not.toBeInTheDocument();
+      expect(screen.queryByText('example4.com')).not.toBeInTheDocument();
+    });
+  });
+
   describe('Domain Autocomplete for Regional Admin User', () => {
     it('renders Domain Autocomplete for Regional Admin', async () => {
       const regionalAdminAuthCtx = {
