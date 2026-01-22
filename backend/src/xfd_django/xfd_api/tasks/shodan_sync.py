@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import os
+import time
 from urllib.parse import urljoin
 
 # Third-Party Libraries
@@ -37,6 +38,9 @@ else:
     api_url = urljoin(base_url + "/", "dmz_sync/shodan_sync")
 API_URL = api_url
 
+MAX_RETRIES = 3
+RETRY_DELAY = 5
+
 
 def handler(command_options):
     """Retrieve and save Shodan assets/vulns from DMZ API using cursor-based pagination with DataPullTracker."""
@@ -60,18 +64,14 @@ def handler(command_options):
         )
 
         # ------------------------
-        # Determine since_date from DataPullTracker
+        # Determine since_date
         # ------------------------
         last_queried = get_last_queried(organization, "shodan_sync")
-
         if last_queried:
-            # Convert UTC-aware datetime → ISO 8601 string
             since_date = last_queried.astimezone(datetime.timezone.utc).isoformat()
         else:
-            # Already returns ISO string
             since_date = calculate_days_back(15)
 
-        # Track the start time for this sync
         start_time = datetime.datetime.now(datetime.timezone.utc)
 
         per_page = 200
@@ -91,9 +91,50 @@ def handler(command_options):
                 "cursor_vulns": cursor_vulns,
             }
 
-            response = requests.post(API_URL, headers=HEADERS, json=payload, timeout=60)
-            response.raise_for_status()
+            attempt = 1
+            response = None
 
+            while attempt <= MAX_RETRIES:
+                try:
+                    response = requests.post(
+                        API_URL,
+                        headers=HEADERS,
+                        json=payload,
+                        timeout=60,
+                    )
+
+                    # 🚫 Fail fast on 4xx
+                    if 400 <= response.status_code < 500:
+                        LOGGER.error(
+                            "Non-retryable DMZ error %d (payload=%s)",
+                            response.status_code,
+                            payload,
+                        )
+                        response.raise_for_status()
+
+                    response.raise_for_status()
+                    break  # success
+
+                except requests.RequestException as exc:
+                    if attempt >= MAX_RETRIES:
+                        LOGGER.exception(
+                            "Failed to retrieve cursor page after %d attempts",
+                            MAX_RETRIES,
+                        )
+                        raise
+
+                    LOGGER.warning(
+                        "Retrying cursor page (attempt %d/%d): %s",
+                        attempt,
+                        MAX_RETRIES,
+                        exc,
+                    )
+                    time.sleep(RETRY_DELAY)
+                    attempt += 1
+
+            # ------------------------
+            # Response validation
+            # ------------------------
             if not validate_response_checksum(response):
                 LOGGER.error("Checksum validation failed!")
                 return {"statusCode": 500, "body": "Checksum validation failed!"}
@@ -114,7 +155,7 @@ def handler(command_options):
 
             save_findings_to_db(assets, vulns, organization, shodan_datasource)
 
-            # Update cursors for next request
+            # Advance cursors ONLY after success
             cursor_assets = result.get("next_cursor_assets")
             cursor_vulns = result.get("next_cursor_vulns")
 
@@ -123,14 +164,14 @@ def handler(command_options):
             done = not (has_more_assets or has_more_vulns)
 
         # ------------------------
-        # Sync completed successfully — update DataPullTracker
+        # Sync completed — update DataPullTracker
         # ------------------------
         update_query_timestamp(organization, "shodan_sync", start_time)
 
         return {"statusCode": 200, "body": "Shodan sync completed successfully."}
 
     except Exception as e:
-        LOGGER.error(e)
+        LOGGER.exception("Shodan sync failed")
         return {"statusCode": 500, "body": str(e)}
 
 

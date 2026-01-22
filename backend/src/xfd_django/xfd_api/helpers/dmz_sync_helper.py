@@ -84,30 +84,65 @@ def query_api_cursor(
         "Content-Type": "application/json",
     }
 
-    response = requests.post(url, headers=headers, json=payload, timeout=29)
     retry_count, max_retries, time_delay = 1, 10, 5
 
-    while response.status_code != 200 and retry_count <= max_retries:
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=29)
+    except requests.RequestException as exc:
+        LOGGER.warning("Initial request failed: %s", exc)
+        response = None
+
+    while True:
+        if response is None:
+            status_code = None
+        else:
+            status_code = response.status_code
+
+        # ✅ Success
+        if status_code == 200:
+            break
+
+        # ❌ Fail fast on 4xx
+        if status_code is not None and 400 <= status_code < 500:
+            LOGGER.error(
+                "DMZ_sync request failed with non-retryable status %d (url: %s, payload: %s)",
+                status_code,
+                url,
+                payload,
+            )
+            return None
+
+        # 🔁 Retryable failure
+        if retry_count > max_retries:
+            LOGGER.warning(
+                "Failed to retrieve data with cursors after %d attempts", max_retries
+            )
+            return None
+
         LOGGER.info(
-            "Retrying DMZ_sync endpoint (code %d), attempt %d of %d (url: %s)",
-            response.status_code,
+            "Retrying DMZ_sync endpoint (code %s), attempt %d of %d (url: %s)",
+            status_code,
             retry_count,
             max_retries,
             url,
         )
         time.sleep(time_delay)
-        response = requests.post(url, headers=headers, json=payload, timeout=29)
-        retry_count += 1
-        if retry_count > max_retries:
-            LOGGER.warning("Failed to retrieve data with cursors")
-            return None
 
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=29)
+        except requests.RequestException as exc:
+            LOGGER.warning("Retry %d failed: %s", retry_count, exc)
+            response = None
+
+        retry_count += 1
+
+    # Final success path
     if validate_response_checksum(response):
         LOGGER.info("✅ Checksum is valid!")
         return response
-    else:
-        LOGGER.warning("❌ Checksum validation failed!")
-        return None
+
+    LOGGER.warning("❌ Checksum validation failed!")
+    return None
 
 
 def validate_response_checksum(response):
