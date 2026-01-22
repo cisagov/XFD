@@ -22,10 +22,10 @@ BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "http://backend:3000/blocklist/chec
 DMZ_API_KEY = os.getenv("DMZ_API_KEY", "local")
 
 
+# pylint: disable=R0915
 def make_domain_dict(
     org, data_source, dom, malicious, attacks, reports, dshield_count, dshield_attacks
 ):
-    # pylint: disable=too-many-statements
     """Create a dictionary for a domain permutation record."""
     return {
         "organization": org,
