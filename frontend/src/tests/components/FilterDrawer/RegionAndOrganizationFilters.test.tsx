@@ -173,9 +173,9 @@ describe('RegionAndOrganizationFilters Component', () => {
         await user.click(organizationAccordion);
       });
 
-      const orgAutoComplete = await screen.findByLabelText(
-        'Search Organizations'
-      );
+      const orgAutoComplete =
+        await screen.findByLabelText(/search organizations/i);
+
       expect(orgAutoComplete).toBeInTheDocument();
 
       await act(async () => {
@@ -223,9 +223,8 @@ describe('RegionAndOrganizationFilters Component', () => {
         await user.click(organizationAccordion);
       });
 
-      const orgAutoComplete = await screen.findByLabelText(
-        'Search Organizations'
-      );
+      const orgAutoComplete =
+        await screen.findByLabelText(/search organizations/i);
       expect(orgAutoComplete).toBeInTheDocument();
 
       await act(async () => {
