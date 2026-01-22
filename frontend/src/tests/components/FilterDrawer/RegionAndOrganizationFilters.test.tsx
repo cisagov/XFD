@@ -177,11 +177,36 @@ describe('RegionAndOrganizationFilters Component', () => {
         await screen.findByLabelText(/search organizations/i);
 
       expect(orgAutoComplete).toBeInTheDocument();
+    });
+    it('renders organization filter options correctly', async () => {
+      const globalAdminAuthCtx = {
+        ...authCtx,
+        user: globalAdminUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockOrganizations.map((org) => ({ _source: org }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalAdminAuthCtx);
+      render(<RegionAndOrganizationFilters {...defaultProps} />);
 
+      const organizationAccordion = await screen.findByText('Organizations');
+      expect(organizationAccordion).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await act(async () => {
+        await user.click(organizationAccordion);
+      });
+
+      const orgAutoComplete =
+        await screen.findByLabelText(/search organizations/i);
+      expect(orgAutoComplete).toBeInTheDocument();
       await act(async () => {
         await user.click(orgAutoComplete);
       });
-      // Check if organization filter options are rendered
 
       expect(
         await screen.findByText('Organization 1 (ORG1)')
@@ -195,6 +220,51 @@ describe('RegionAndOrganizationFilters Component', () => {
       expect(
         await screen.findByText('Organization 4 (ORG4)')
       ).toBeInTheDocument();
+    });
+
+    it('narrows down organization options based on user input', async () => {
+      const globalAdminAuthCtx = {
+        ...authCtx,
+        user: globalAdminUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockOrganizations.map((org) => ({ _source: org }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalAdminAuthCtx);
+      render(<RegionAndOrganizationFilters {...defaultProps} />);
+
+      const organizationAccordion = await screen.findByText('Organizations');
+      expect(organizationAccordion).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await act(async () => {
+        await user.click(organizationAccordion);
+      });
+
+      const orgAutoComplete =
+        await screen.findByLabelText(/search organizations/i);
+      expect(orgAutoComplete).toBeInTheDocument();
+
+      await act(async () => {
+        await user.type(orgAutoComplete, 'Organization 1');
+      });
+
+      expect(
+        await screen.findByText('Organization 1 (ORG1)')
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText('Organization 2 (ORG2)')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Organization 3 (ORG3)')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Organization 4 (ORG4)')
+      ).not.toBeInTheDocument();
     });
   });
 
