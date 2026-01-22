@@ -8,6 +8,8 @@ import { inspectorServer } from '@react-dev-inspector/vite-plugin';
 
 const enableInspector = process.env.ENABLE_INSPECTOR === 'true';
 const mode = process.env.MODE || 'development';
+const isCI = process.env.CI === 'true';
+
 const plugins: PluginOption[] = [
   react(),
   tsconfigPaths(),
@@ -81,7 +83,7 @@ export default defineConfig({
         branches: 34.05,
         functions: 41.25,
         lines: 46.12,
-        autoUpdate: true
+        autoUpdate: isCI
       }
     }
   }
