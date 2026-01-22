@@ -24,7 +24,8 @@ DMZ_API_KEY = os.getenv("DMZ_API_KEY", "local")
 
 def make_domain_dict(
     org, data_source, dom, malicious, attacks, reports, dshield_count, dshield_attacks
-):  # pylint: disable=too-many-statements
+):
+    # pylint: disable=too-many-statements
     """Create a dictionary for a domain permutation record."""
     return {
         "organization": org,
