@@ -45,91 +45,96 @@ def make_domain_dict(
     }
 
 
-def checkDshield(dom, data_source, org, perm_list, blocklist_results=None):
-    """
-    Cross reference the dnstwist results with DShield Blocklist.
+def _is_invalid_dom(dom):
+    if "original" in dom.get("fuzzer", ""):
+        return True
+    if "dns_a" not in dom:
+        return True
+    if str(dom["dns_a"][0]) == "!ServFail":
+        return True
+    return False
 
-    Args:
-        dom: Domain object from dnstwist
-        data_source: Data source record
-        org: Organization record
-        perm_list: List of already processed permutations
-        blocklist_results: Pre-fetched blocklist results dict (optional)
-    """
-    malicious = False
-    attacks = 0
-    reports = 0
-    dshield_attacks = 0
-    dshield_count = 0
-    if "original" in dom["fuzzer"]:
-        return None, perm_list
-    elif "dns_a" not in dom:
-        return None, perm_list
-    else:
-        if str(dom["dns_a"][0]) == "!ServFail":
-            return None, perm_list
 
-        # Check IPv4 in blocklist results
-        ipv4 = str(dom["dns_a"][0])
-        if blocklist_results and ipv4 in blocklist_results:
-            result = blocklist_results[ipv4]
-            if result.get("attacks", 0) > 0 or result.get("reports", 0) > 0:
-                malicious = True
-                attacks = result.get("attacks", 0)
-                reports = result.get("reports", 0)
+def _check_blocklist(ip, blocklist_results):
+    if not blocklist_results or not ip or ip not in blocklist_results:
+        return False, 0, 0
 
-    # Check IPv6
-    if "dns_aaaa" not in dom:
+    result = blocklist_results[ip]
+    attacks = result.get("attacks", 0)
+    reports = result.get("reports", 0)
+
+    malicious = attacks > 0 or reports > 0
+    return malicious, attacks, reports
+
+
+def _check_ipv6(dom, blocklist_results, attacks, reports):
+    dom.setdefault("dns_aaaa", [""])
+
+    ipv6 = str(dom["dns_aaaa"][0])
+    if not ipv6 or ipv6 == "!ServFail":
         dom["dns_aaaa"] = [""]
-    elif str(dom["dns_aaaa"][0]) == "!ServFail":
-        dom["dns_aaaa"] = [""]
-    else:
-        # Check IPv6 in blocklist results
-        ipv6 = str(dom["dns_aaaa"][0])
-        if blocklist_results and ipv6.strip() and ipv6 in blocklist_results:
-            result = blocklist_results[ipv6]
-            if result.get("attacks", 0) > 0 or result.get("reports", 0) > 0:
-                malicious = True
-                # Take the maximum values if both IPv4 and IPv6 have results
-                attacks = max(attacks, result.get("attacks", 0))
-                reports = max(reports, result.get("reports", 0))
+        return False, attacks, reports
 
-    # Query DShield API for the primary IP
+    malicious, v6_attacks, v6_reports = _check_blocklist(ipv6, blocklist_results)
+
+    return (
+        malicious,
+        max(attacks, v6_attacks),
+        max(reports, v6_reports),
+    )
+
+
+def _query_dshield(ip):
     try:
-        ip_to_check = (
-            str(dom["dns_a"][0])
-            if dom["dns_a"] and str(dom["dns_a"][0]) != "!ServFail"
-            else None
-        )
-        if ip_to_check:
-            dshield_result = dshield.ip(ip_to_check, return_format=dshield.JSON)
-            parsed = json.loads(dshield_result)
-            ip_info = parsed.get("ip", {})
+        result = dshield.ip(ip, return_format=dshield.JSON)
+        parsed = json.loads(result)
+        ip_info = parsed.get("ip", {})
 
-            dshield_attacks = int(ip_info.get("attacks") or 0)
-            dshield_count = len(ip_info.get("threatfeeds", []))
+        attacks = int(ip_info.get("attacks") or 0)
+        feeds = len(ip_info.get("threatfeeds", []))
 
-            if dshield_attacks > 0 or dshield_count > 0:
-                malicious = True
-    except Exception as e:
-        LOGGER.info("Error querying DShield API: %s", str(e))
-        dshield_attacks = 0
-        dshield_count = 0
+        return attacks, feeds
+    except Exception as exc:
+        LOGGER.info("Error querying DShield API: %s", exc)
+        return 0, 0
 
-    # Clean-up other fields
-    if "ssdeep_score" not in dom:
-        dom["ssdeep_score"] = ""
-    if "dns_mx" not in dom:
-        dom["dns_mx"] = [""]
-    if "dns_ns" not in dom:
-        dom["dns_ns"] = [""]
 
-    # Ignore duplicates
+def _cleanup_dom(dom):
+    dom.setdefault("ssdeep_score", "")
+    dom.setdefault("dns_mx", [""])
+    dom.setdefault("dns_ns", [""])
+
+
+def checkDshield(dom, data_source, org, perm_list, blocklist_results=None):
+    """Check DShield for the given domain and return a domain dict."""
+    malicious = False
+    attacks = reports = 0
+    dshield_attacks = dshield_count = 0
+
+    if _is_invalid_dom(dom):
+        return None, perm_list
+
+    ipv4 = str(dom["dns_a"][0])
+    v4_malicious, attacks, reports = _check_blocklist(ipv4, blocklist_results)
+    malicious |= v4_malicious
+
+    v6_malicious, attacks, reports = _check_ipv6(
+        dom, blocklist_results, attacks, reports
+    )
+    malicious |= v6_malicious
+
+    if ipv4:
+        dshield_attacks, dshield_count = _query_dshield(ipv4)
+        if dshield_attacks > 0 or dshield_count > 0:
+            malicious = True
+
+    _cleanup_dom(dom)
+
     permutation = dom["domain"]
     if permutation in perm_list:
         return None, perm_list
-    else:
-        perm_list.append(permutation)
+
+    perm_list.append(permutation)
 
     domain_dict = make_domain_dict(
         org,
@@ -141,6 +146,7 @@ def checkDshield(dom, data_source, org, perm_list, blocklist_results=None):
         dshield_count,
         dshield_attacks,
     )
+
     return domain_dict, perm_list
 
 
