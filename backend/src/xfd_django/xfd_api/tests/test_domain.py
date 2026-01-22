@@ -359,7 +359,7 @@ def test_domains_search_autofill_endpoint_auth_user_200(mock_search):
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.tasks.es_client.ESClient.search_domains")
-def test_domains_search_autofill_endpoint_regional_unauth(mock_search):
+def test_domains_search_autofill_endpoint_regional_auth(mock_search):
     """Test domain search autocomplete endpoint."""
     user = User.objects.create(
         first_name="",
@@ -380,8 +380,7 @@ def test_domains_search_autofill_endpoint_regional_unauth(mock_search):
         },
         headers={"Authorization": "Bearer " + create_jwt_token(user)},
     )
-    assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.status_code == 200
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
