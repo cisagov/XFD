@@ -42,7 +42,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 5
 
 
-def handler(command_options):
+def handler(command_options):  # pylint: disable=R0915
     """Retrieve and save Shodan assets/vulns from DMZ API using cursor-based pagination with DataPullTracker."""
     try:
         # ------------------------
