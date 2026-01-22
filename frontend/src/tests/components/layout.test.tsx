@@ -1,6 +1,7 @@
 import React from 'react';
 import { render } from 'test-utils/test-utils';
 import { afterAll, describe, expect, it, vi } from 'vitest';
+import { act } from '@testing-library/react';
 import { Layout } from '../../components/Layout';
 import { StaticsContext, StaticsContextType } from 'context/StaticsContext';
 import {
@@ -70,35 +71,47 @@ vi.mock('components/FilterDrawer/FilterDrawerV2', () => ({
 afterAll(() => {
   vi.restoreAllMocks();
 });
-
 describe('Layout component', () => {
-  it('matches snapshot', () => {
-    const { asFragment } = render(
+  const renderWithProviders = (ui: React.ReactElement) => {
+    return render(
       <SearchProvider>
         <StaticsContext.Provider value={value}>
           <FilterDrawerContextProvider>
-            <NavigationProvider>
-              <Layout {...testContext} />
-            </NavigationProvider>
+            <NavigationProvider>{ui}</NavigationProvider>
           </FilterDrawerContextProvider>
         </StaticsContext.Provider>
       </SearchProvider>
     );
+  };
+
+  it('matches snapshot', () => {
+    const { asFragment } = renderWithProviders(<Layout {...testContext} />);
     expect(asFragment()).toMatchSnapshot();
   });
 
   it('renders children', () => {
-    const { getByText } = render(
-      <SearchProvider>
-        <StaticsContext.Provider value={value}>
-          <FilterDrawerContextProvider>
-            <NavigationProvider>
-              <Layout {...testContext}>some children</Layout>
-            </NavigationProvider>
-          </FilterDrawerContextProvider>
-        </StaticsContext.Provider>
-      </SearchProvider>
+    const { getByText } = renderWithProviders(
+      <Layout {...testContext}>some children</Layout>
     );
     expect(getByText('some children')).toBeInTheDocument();
+  });
+
+  it('saves alert preference to localStorage when closed', async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const { getByLabelText } = renderWithProviders(<Layout {...testContext} />);
+    const closeButton = getByLabelText(/close/i);
+    await act(async () => {
+      closeButton.click();
+    });
+    expect(setItemSpy).toHaveBeenCalledWith('siteWideAlertOff', 'true');
+  });
+
+  it('ensures the outer wrapper prevents body scrolling', () => {
+    const { container } = renderWithProviders(<Layout {...testContext} />);
+    const wrapper = container.firstChild as HTMLElement;
+    expect(wrapper).toHaveStyle({
+      height: '100vh',
+      overflow: 'hidden'
+    });
   });
 });
