@@ -75,14 +75,9 @@ def main():
     blocklist_record_ips = [
         str(ipaddress.ip_interface(x.ip).ip) for x in blocklist_records
     ]
-    LOGGER.info("Number of existing blocklist records: %s", len(blocklist_record_ips))
-    LOGGER.info("Number of downloaded blocklist IPs: %s", len(blocklist_ips))
     ips_to_create = list(filter(lambda x: x not in blocklist_record_ips, blocklist_ips))
-    LOGGER.info("Number of IPs to create: %s", len(ips_to_create))
     ips_to_update = list(filter(lambda x: x in blocklist_ips, blocklist_record_ips))
-    LOGGER.info("Number of IPs to update: %s", len(ips_to_update))
     ips_to_delete = list(filter(lambda x: x not in blocklist_ips, blocklist_record_ips))
-    LOGGER.info("Number of IPs to delete: %s", len(ips_to_delete))
 
     # Create new blocklist records with API queries for accurate counts
     # First, collect all API data for the IPs using parallel requests
@@ -145,15 +140,11 @@ def main():
         for ip_str, data in ip_data.items()
     ]
 
-    created_count = 0
     if records_to_create:
         try:
             Blocklist.objects.bulk_create(records_to_create)
-            created_count = len(records_to_create)
         except Exception as e:
             LOGGER.warning("Failed to bulk create blocklist records: %s", e)
-
-    LOGGER.info("Created %d new blocklist records.", created_count)
 
     # Update existing records - just update timestamp and malicious flag
     try:

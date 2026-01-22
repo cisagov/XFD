@@ -22,6 +22,29 @@ BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "http://backend:3000/blocklist/chec
 DMZ_API_KEY = os.getenv("DMZ_API_KEY", "local")
 
 
+def make_domain_dict(
+    org, data_source, dom, malicious, attacks, reports, dshield_count, dshield_attacks
+):
+    """Create a dictionary for a domain permutation record."""
+    return {
+        "organization": org,
+        "data_source": data_source,
+        "domain_permutation": dom["domain"],
+        "ipv4": dom["dns_a"][0],
+        "ipv6": dom["dns_aaaa"][0],
+        "mail_server": dom["dns_mx"][0],
+        "name_server": dom["dns_ns"][0],
+        "fuzzer": dom["fuzzer"],
+        "date_active": date,
+        "ssdeep_score": dom["ssdeep_score"],
+        "malicious": malicious,
+        "blocklist_attack_count": attacks,
+        "blocklist_report_count": reports,
+        "dshield_record_count": dshield_count,
+        "dshield_attack_count": dshield_attacks,
+    }
+
+
 def checkDshield(dom, data_source, org, perm_list, blocklist_results=None):
     """
     Cross reference the dnstwist results with DShield Blocklist.
@@ -108,23 +131,16 @@ def checkDshield(dom, data_source, org, perm_list, blocklist_results=None):
     else:
         perm_list.append(permutation)
 
-    domain_dict = {
-        "organization": org,
-        "data_source": data_source,
-        "domain_permutation": dom["domain"],
-        "ipv4": dom["dns_a"][0],
-        "ipv6": dom["dns_aaaa"][0],
-        "mail_server": dom["dns_mx"][0],
-        "name_server": dom["dns_ns"][0],
-        "fuzzer": dom["fuzzer"],
-        "date_active": date,
-        "ssdeep_score": dom["ssdeep_score"],
-        "malicious": malicious,
-        "blocklist_attack_count": attacks,
-        "blocklist_report_count": reports,
-        "dshield_record_count": dshield_count,
-        "dshield_attack_count": dshield_attacks,
-    }
+    domain_dict = make_domain_dict(
+        org,
+        data_source,
+        dom,
+        malicious,
+        attacks,
+        reports,
+        dshield_count,
+        dshield_attacks,
+    )
     return domain_dict, perm_list
 
 
