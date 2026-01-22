@@ -260,8 +260,9 @@ export const Organizations: React.FC = () => {
     <Box
       sx={{
         maxWidth: '1152px',
+        width: '100%',
         margin: 'auto',
-        px: { xs: 0, sm: 0.5, md: 1, lg: 1, xl: 0 },
+        px: { xs: 0, sm: 0.5, md: 1, lg: 1, xl: 1 },
         pb: 3,
         minHeight: '100vh'
       }}

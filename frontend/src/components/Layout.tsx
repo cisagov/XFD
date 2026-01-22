@@ -35,11 +35,17 @@ const Main = styled('main', {
   open?: boolean;
   user?: boolean;
   topOffset?: number;
-}>(({ topOffset }) => ({
-  minHeight: '100vh',
+}>(() => ({
+  flexGrow: 1,
+  minHeight: 0,
+  width: '100%',
   overflowY: 'auto',
-  overscrollBehavior: 'contain',
-  paddingTop: topOffset ?? 0
+  overflowX: 'hidden',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  scrollbarGutter: 'stable',
+  WebkitOverflowScrolling: 'touch'
 }));
 
 export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
@@ -71,10 +77,19 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   });
 
   useEffect(() => {
-    if (topRef.current) {
-      setTopOffset(topRef.current.getBoundingClientRect().height);
-    }
-  }, [siteWideAlert, user, pathname]);
+    const headerElement = topRef.current;
+    if (!headerElement) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const height =
+          entry.borderBoxSize?.[0]?.blockSize ??
+          entry.target.getBoundingClientRect().height;
+        setTopOffset(height);
+      }
+    });
+    resizeObserver.observe(headerElement);
+    return () => resizeObserver.disconnect();
+  }, [pathname]);
 
   const handleAlertClose = () => {
     setSiteWideAlert(true);
@@ -130,7 +145,15 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
 
   return (
-    <>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        overflow: 'hidden'
+      }}
+    >
       <UserInactiveModal
         isOpen={isTimedOut}
         onCountdownEnd={handleCountdownEnd}
@@ -139,11 +162,10 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
       <Box
         ref={topRef}
         sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: (theme) => theme.zIndex.appBar
+          width: '100%',
+          zIndex: (theme) => theme.zIndex.appBar,
+          flexShrink: 0,
+          bgcolor: 'neutrals.white'
         }}
       >
         <GovBanner />
@@ -186,18 +208,28 @@ export const Layout: React.FC<PropsWithChildren<ContextType>> = ({
         )}
       </Box>
       <Main open={isFilterDrawerOpen} user={!!user} topOffset={topOffset}>
-        {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
-          <FilterDrawerV2
-            setIsFilterDrawerOpen={setIsFilterDrawerOpen}
-            isFilterDrawerOpen={isFilterDrawerOpen}
-            isMobile={isMobile}
-            initialFilters={initialFilters}
-            topOffset={topOffset}
-          />
-        )}
-        {children}
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: '1152px',
+            px: { xs: 2, sm: 3, md: 4 },
+            pb: 3,
+            flexGrow: 1
+          }}
+        >
+          {userLevel > 0 && matchPath(FILTER_ENABLED_PATHS, pathname) && (
+            <FilterDrawerV2
+              setIsFilterDrawerOpen={setIsFilterDrawerOpen}
+              isFilterDrawerOpen={isFilterDrawerOpen}
+              isMobile={isMobile}
+              initialFilters={initialFilters}
+              topOffset={topOffset}
+            />
+          )}
+          {children}
+        </Box>
       </Main>
-    </>
+    </Box>
   );
 };
 

@@ -10,6 +10,12 @@ import {
 } from 'context';
 import { NavigationProvider } from 'context/NavigationContextProvider';
 
+global.ResizeObserver = vi.fn().mockImplementation(() => ({
+  observe: vi.fn(),
+  unobserve: vi.fn(),
+  disconnect: vi.fn()
+}));
+
 const testContext: ContextType = {
   addFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
   removeFilter: (field: string, value: any, type: 'any' | 'all' | 'none') => {},
