@@ -78,7 +78,8 @@ def main(event):
                 #     continue
 
                 data = chunk["chunk"]
-                serialized = json.dumps(data, default=str, sort_keys=True)
+                payload = {"data": data}
+                serialized = json.dumps(payload, default=str, sort_keys=True)
                 salted_checksum = hashlib.sha256(
                     (SALT + serialized).encode()
                 ).hexdigest()
@@ -89,12 +90,13 @@ def main(event):
                     "Authorization": os.getenv("DMZ_API_KEY", ""),
                 }
 
-                requests.post(
+                res = requests.post(
                     f"{os.getenv('DMZ_SYNC_ENDPOINT')}/dns_twist_sync",
                     headers=headers,
-                    json=serialized,
+                    data=serialized,
                     timeout=60,
                 )
+                LOGGER.info("Response status code: %s", res.status_code)
                 # response = requests.post("http://backend:3000/dns_twist_sync", headers=headers, json={"data": serialized})
                 LOGGER.info(
                     "Sent %s domain permutations to sync endpoint",

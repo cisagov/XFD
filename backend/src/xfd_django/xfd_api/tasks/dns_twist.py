@@ -1,6 +1,6 @@
 """Use DNS twist to fuzz domain names and cross check with a blacklist."""
 # Standard Python Libraries
-import contextlib
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
 import json
 import logging
@@ -22,9 +22,17 @@ BACKEND_DOMAIN = os.getenv("BACKEND_DOMAIN", "http://backend:3000/blocklist/chec
 DMZ_API_KEY = os.getenv("DMZ_API_KEY", "local")
 
 
-# Update this function to use the new homebrew blocklist checking system
-def checkBlocklist(dom, data_source, org, perm_list):
-    """Cross reference the dnstwist results with DShield Blocklist."""
+def checkDshield(dom, data_source, org, perm_list, blocklist_results=None):
+    """
+    Cross reference the dnstwist results with DShield Blocklist.
+
+    Args:
+        dom: Domain object from dnstwist
+        data_source: Data source record
+        org: Organization record
+        perm_list: List of already processed permutations
+        blocklist_results: Pre-fetched blocklist results dict (optional)
+    """
     malicious = False
     attacks = 0
     reports = 0
@@ -38,10 +46,14 @@ def checkBlocklist(dom, data_source, org, perm_list):
         if str(dom["dns_a"][0]) == "!ServFail":
             return None, perm_list
 
-        # Check IP in Blocklist API
-        check_domain_in_blocklist(
-            dom, malicious, attacks, reports, dshield_attacks, dshield_count
-        )
+        # Check IPv4 in blocklist results
+        ipv4 = str(dom["dns_a"][0])
+        if blocklist_results and ipv4 in blocklist_results:
+            result = blocklist_results[ipv4]
+            if result.get("attacks", 0) > 0 or result.get("reports", 0) > 0:
+                malicious = True
+                attacks = result.get("attacks", 0)
+                reports = result.get("reports", 0)
 
     # Check IPv6
     if "dns_aaaa" not in dom:
@@ -49,17 +61,37 @@ def checkBlocklist(dom, data_source, org, perm_list):
     elif str(dom["dns_aaaa"][0]) == "!ServFail":
         dom["dns_aaaa"] = [""]
     else:
-        # Check IP in Blocklist API
-        # To-Do: Update this function to use the new homebrew blocklist checking system
-        dom["use_check_ipv6"] = True
-        check_domain_in_blocklist(
-            dom,
-            malicious,
-            attacks,
-            reports,
-            dshield_attacks,
-            dshield_count,
+        # Check IPv6 in blocklist results
+        ipv6 = str(dom["dns_aaaa"][0])
+        if blocklist_results and ipv6.strip() and ipv6 in blocklist_results:
+            result = blocklist_results[ipv6]
+            if result.get("attacks", 0) > 0 or result.get("reports", 0) > 0:
+                malicious = True
+                # Take the maximum values if both IPv4 and IPv6 have results
+                attacks = max(attacks, result.get("attacks", 0))
+                reports = max(reports, result.get("reports", 0))
+
+    # Query DShield API for the primary IP
+    try:
+        ip_to_check = (
+            str(dom["dns_a"][0])
+            if dom["dns_a"] and str(dom["dns_a"][0]) != "!ServFail"
+            else None
         )
+        if ip_to_check:
+            dshield_result = dshield.ip(ip_to_check, return_format=dshield.JSON)
+            parsed = json.loads(dshield_result)
+            ip_info = parsed.get("ip", {})
+
+            dshield_attacks = int(ip_info.get("attacks") or 0)
+            dshield_count = len(ip_info.get("threatfeeds", []))
+
+            if dshield_attacks > 0 or dshield_count > 0:
+                malicious = True
+    except Exception as e:
+        LOGGER.info("Error querying DShield API: %s", str(e))
+        dshield_attacks = 0
+        dshield_count = 0
 
     # Clean-up other fields
     if "ssdeep_score" not in dom:
@@ -96,16 +128,27 @@ def checkBlocklist(dom, data_source, org, perm_list):
     return domain_dict, perm_list
 
 
-def execute_dnstwist(root_domain, test=0):
-    """Run dnstwist on each root domain."""
+def execute_dnstwist(root_domain, test=0, threads=2):
+    """Run dnstwist on each root domain.
+
+    Args:
+        root_domain: The domain to run dnstwist on
+        test: If 1, return early without secondary .gov processing
+        threads: Number of internal threads for dnstwist (default 2 to allow for
+                 concurrent execution at the caller level without overloading)
+    """
     pathtoDict = str(pathlib.Path(__file__).parent.resolve()) + "/data/common_tlds.dict"
     dnstwist_result = dnstwist.run(
         registered=True,
         tld=pathtoDict,
         format="json",
-        threads=8,
+        threads=threads,
         domain=root_domain,
     )
+    LOGGER.info(
+        "DNSTwist found %d permutations for %s", len(dnstwist_result), root_domain
+    )
+    LOGGER.info("DNSTwist data: %s", dnstwist_result)
     if test == 1:
         return dnstwist_result
     finalorglist = dnstwist_result + []
@@ -117,7 +160,7 @@ def execute_dnstwist(root_domain, test=0):
                     registered=True,
                     tld=pathtoDict,
                     format="json",
-                    threads=8,
+                    threads=threads,
                     domain=dom["domain"],
                 )
                 finalorglist += secondlist
@@ -157,58 +200,60 @@ def get_data_source(data_source_name: str) -> Optional[str]:
         return None
 
 
-def check_domain_in_blocklist(
-    dom, malicious, attacks, reports, dshield_attacks, dshield_count
-):
-    """Cross reference the dnstwist results with internal and DShield blocklists."""
-    dns_key = "dns_aaaa" if dom.get("use_check_ipv6") else "dns_a"
+def check_domains_in_blocklist(domains: list) -> dict:
+    """
+    Check multiple domains against the blocklist API in bulk.
 
-    try:
-        ip_address = str(dom[dns_key][0])
-    except (KeyError, IndexError):
-        return malicious, attacks, reports, dshield_attacks, dshield_count
+    Args:
+        domains: List of domain objects from dnstwist results
 
-    # Query internal blocklist API
+    Returns:
+        Dictionary mapping IP addresses to their blocklist results
+        Format: {
+            "ip_address": {
+                "attacks": int,
+                "reports": int
+            }
+        }
+    """
+    # Collect all unique IPs from the domains (both IPv4 and IPv6)
+    ip_addresses = set()
+
+    for dom in domains:
+        # Collect IPv4 addresses
+        if "dns_a" in dom and dom["dns_a"]:
+            ip = str(dom["dns_a"][0])
+            if ip != "!ServFail" and ip.strip():
+                ip_addresses.add(ip)
+
+        # Collect IPv6 addresses
+        if "dns_aaaa" in dom and dom["dns_aaaa"]:
+            ip = str(dom["dns_aaaa"][0])
+            if ip != "!ServFail" and ip.strip():
+                ip_addresses.add(ip)
+
+    # Convert set to list for JSON serialization
+    ip_list = list(ip_addresses)
+
+    if not ip_list:
+        LOGGER.info("No IP addresses to check in blocklist")
+        return {}
+
+    # Make bulk API call
     try:
-        response = requests.get(
-            f"{BACKEND_DOMAIN}?ip_address={ip_address}",
+        response = requests.post(
+            "http://backend:3000/blocklist/check",
+            json={"ip_addresses": ip_list},
             timeout=60,
             headers={"Authorization": DMZ_API_KEY},
         )
         response.raise_for_status()
-        data = response.json()
-        LOGGER.info("Blocklist API response: %s", data)
-        if isinstance(data, dict) and (
-            data.get("attacks", 0) > 0 or data.get("reports", 0) > 0
-        ):
-            malicious = True
-            attacks = int(data.get("attacks", 0))
-            reports = int(data.get("reports", 0))
-
+        results = response.json()
+        LOGGER.info("Bulk blocklist API response for %d IPs", len(results))
+        return results
     except Exception as e:
-        # Optionally log the error
-        LOGGER.info("Error querying internal blocklist API: %s", str(e))
-        attacks = 0
-        reports = 0
-
-    # Query DShield API
-    try:
-        dshield_result = dshield.ip(ip_address, return_format=dshield.JSON)
-        parsed = json.loads(dshield_result)
-        ip_info = parsed.get("ip", {})
-
-        dshield_attacks = int(ip_info.get("attacks") or 0)
-        dshield_count = len(ip_info.get("threatfeeds", []))
-
-        if dshield_attacks > 0 or dshield_count > 0:
-            malicious = True
-
-    except Exception as e:
-        LOGGER.info("Error querying DShield API: %s", str(e))
-        dshield_attacks = 0
-        dshield_count = 0
-
-    return malicious, attacks, reports, dshield_attacks, dshield_count
+        LOGGER.error("Error querying bulk blocklist API: %s", str(e))
+        return {}
 
 
 def get_org_root_domains(org_id):
@@ -234,30 +279,56 @@ def get_orgs() -> list:
         return []
 
 
-def execute_dnstwist_data(domain_dict):
-    """Insert the domain permutation into the database."""
-    try:
-        DomainPermutations.objects.update_or_create(
-            suspected_domain_uid=uuid4(),
-            organization=domain_dict["organization"],
-            domain_permutation=domain_dict["domain_permutation"],
-            ipv4=domain_dict["ipv4"],
-            ipv6=domain_dict["ipv6"],
-            mail_server=domain_dict["mail_server"],
-            name_server=domain_dict["name_server"],
-            fuzzer=domain_dict["fuzzer"],
+def bulk_upsert_domain_permutations(domain_dicts):
+    """Bulk insert/update domain permutations into the database."""
+    if not domain_dicts:
+        return
+
+    # Build model instances from dicts
+    instances = [
+        DomainPermutations(
+            organization=d["organization"],
+            domain_permutation=d["domain_permutation"],
+            ipv4=d["ipv4"],
+            ipv6=d["ipv6"],
+            mail_server=d["mail_server"],
+            name_server=d["name_server"],
+            fuzzer=d["fuzzer"],
             date_observed=datetime.datetime.now(datetime.timezone.utc),
-            date_active=domain_dict["date_active"],
-            ssdeep_score=domain_dict["ssdeep_score"],
-            malicious=domain_dict["malicious"],
-            blocklist_attack_count=domain_dict["blocklist_attack_count"],
-            blocklist_report_count=domain_dict["blocklist_report_count"],
-            data_source=domain_dict["data_source"],
-            dshield_record_count=domain_dict["dshield_record_count"],
-            dshield_attack_count=domain_dict["dshield_attack_count"],
+            date_active=d["date_active"],
+            ssdeep_score=d["ssdeep_score"],
+            malicious=d["malicious"],
+            blocklist_attack_count=d["blocklist_attack_count"],
+            blocklist_report_count=d["blocklist_report_count"],
+            data_source=d["data_source"],
+            dshield_record_count=d["dshield_record_count"],
+            dshield_attack_count=d["dshield_attack_count"],
         )
-    except Exception as e:
-        LOGGER.error("Error adding domain permutation to data lake: %s", str(e))
+        for d in domain_dicts
+    ]
+
+    DomainPermutations.objects.bulk_create(
+        instances,
+        update_conflicts=True,
+        unique_fields=["organization", "domain_permutation"],
+        update_fields=[
+            "ipv4",
+            "ipv6",
+            "mail_server",
+            "name_server",
+            "fuzzer",
+            "date_observed",
+            "date_active",
+            "ssdeep_score",
+            "malicious",
+            "blocklist_attack_count",
+            "blocklist_report_count",
+            "data_source",
+            "dshield_record_count",
+            "dshield_attack_count",
+        ],
+    )
+    LOGGER.info("Bulk upserted %d domain permutations", len(instances))
 
 
 def process_org(org, orgs_list, data_source, failures):
@@ -272,29 +343,69 @@ def process_org(org, orgs_list, data_source, failures):
             root_dict = get_org_root_domains(org_id)
             domain_list = []
             perm_list = []
+            all_domains = []
 
-            for root in root_dict:
+            # First pass: collect all domains from all root domains using thread pool
+            def run_dnstwist_for_root(root):
+                """Run dnstwist for a single root domain."""
                 root_domain = root.sub_domain
                 LOGGER.info("\tRunning on root domain: %s", root_domain)
-                with open("dnstwist_output.txt", "w") as f, contextlib.redirect_stdout(
-                    f
-                ):
-                    finalorglist = execute_dnstwist(root_domain)
-                # Get subdomain uid
-                # Check Blocklist
-                for dom in finalorglist:
-                    LOGGER.info("Checking Blocklist: %s", dom)
-                    domain_dict, perm_list = checkBlocklist(
-                        dom, data_source, org, perm_list
-                    )
-                    if domain_dict is not None:
-                        domain_list.append(domain_dict)
+                return execute_dnstwist(root_domain)
+
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                futures = {
+                    executor.submit(run_dnstwist_for_root, root): root
+                    for root in root_dict
+                }
+                for future in as_completed(futures):
+                    try:
+                        finalorglist = future.result()
+                        all_domains.extend(finalorglist)
+                    except Exception as e:
+                        root = futures[future]
+                        LOGGER.error(
+                            "Error running dnstwist for %s: %s", root.sub_domain, str(e)
+                        )
+
+            # Perform bulk blocklist check for all domains
+            LOGGER.info(
+                "Performing bulk blocklist check for %d domains", len(all_domains)
+            )
+            blocklist_results = check_domains_in_blocklist(all_domains)
+
+            # Second pass: process each domain with pre-fetched blocklist results
+            # Use thread pool for concurrent DShield checks
+            seen_permutations = set(perm_list)
+
+            def process_domain(dom):
+                """Process a single domain through DShield check."""
+                # Check for duplicates using domain permutation
+                permutation = dom.get("domain")
+                if permutation and permutation in seen_permutations:
+                    return None
+                LOGGER.info("Checking D Shield: %s", dom)
+                # Pass empty perm_list since we handle deduplication here
+                domain_dict, _ = checkDshield(
+                    dom, data_source, org, [], blocklist_results
+                )
+                return domain_dict
+
+            with ThreadPoolExecutor(max_workers=20) as executor:
+                futures = {
+                    executor.submit(process_domain, dom): dom for dom in all_domains
+                }
+                for future in as_completed(futures):
+                    try:
+                        domain_dict = future.result()
+                        if domain_dict is not None:
+                            # Track seen permutations to avoid duplicates
+                            seen_permutations.add(domain_dict["domain_permutation"])
+                            domain_list.append(domain_dict)
+                    except Exception as e:
+                        LOGGER.error("Error processing domain: %s", str(e))
+
             try:
-                for domain in domain_list:
-                    execute_dnstwist_data(domain)
-                    LOGGER.info(
-                        "Inserted %s into database", domain["domain_permutation"]
-                    )
+                bulk_upsert_domain_permutations(domain_list)
             except Exception:
                 # TODO: Create custom exceptions.
                 # Issue 265: https://github.com/cisagov/pe-reports/issues/265
