@@ -33,6 +33,22 @@ interface LogDetails {
 
 const PAGE_SIZE = 15;
 
+export const formatTimestamp = (timestamp: string): string | null => {
+  if (!timestamp) return 'N/A';
+  try {
+    const utcDate = parseISO(timestamp);
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const zonedDate = toZonedTime(utcDate, timeZone);
+    return format(zonedDate, 'MM/dd/yyyy hh:mm a');
+  } catch (error) {
+    logger.error('Logs.formatTimestamp: Date parse failed', {
+      error,
+      timestamp
+    });
+    return null;
+  }
+};
+
 export const Logs: FC<LogsProps> = () => {
   const { apiPost } = useAuthContext();
   const [filters, setFilters] = useState<Array<GridFilterItem>>([]);
@@ -117,22 +133,6 @@ export const Logs: FC<LogsProps> = () => {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
-
-  const formatTimestamp = (timestamp: string): string | null => {
-    if (!timestamp) return 'N/A';
-    try {
-      const utcDate = parseISO(timestamp);
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const zonedDate = toZonedTime(utcDate, timeZone);
-      return format(zonedDate, 'MM/dd/yyyy hh:mm a');
-    } catch (error) {
-      logger.error('Logs.formatTimestamp: Date parse failed', {
-        error,
-        timestamp
-      });
-      return null;
-    }
-  };
 
   const logCols: GridColDef[] = [
     {
@@ -443,7 +443,10 @@ export const Logs: FC<LogsProps> = () => {
           slotProps={{
             basePopper: {
               placement: 'bottom-start'
-            }
+            },
+            toolbar: {
+              disableExport: true
+            } as any
           }}
           onFilterModelChange={(model) => {
             setFilters(model.items);
@@ -487,7 +490,9 @@ export const Logs: FC<LogsProps> = () => {
               wordBreak: 'break-word'
             }}
           >
-            <pre>{JSON.stringify(dialogDetails?.payload, null, 2)}</pre>
+            <pre data-testid="payload-pre">
+              {JSON.stringify(dialogDetails?.payload, null, 2)}
+            </pre>
           </Box>
         </DialogContent>
       </Dialog>
