@@ -55,9 +55,13 @@ vi.mock('components/Header/Header', () => ({
 vi.mock('components/GovBanner', () => ({
   GovBanner: () => <div>GOV_BANNER</div>
 }));
-vi.mock('@mui/x-data-grid', () => ({
-  DataGrid: () => <div>DATA_GRID</div>
-}));
+vi.mock('@mui/x-data-grid', async (importOriginal) => {
+  const actual = (await importOriginal()) as any;
+  return {
+    ...actual,
+    DataGrid: () => <div>DATA_GRID</div>
+  };
+});
 vi.mock('components/FilterDrawer/FilterDrawerV2', () => ({
   FilterDrawerV2: () => <div>FILTER_DRAWER</div>
 }));

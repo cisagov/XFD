@@ -5,27 +5,18 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { useHistory } from 'react-router-dom';
 
 // Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
 
 // DataGrid Components
-import {
-  DataGrid,
-  GridColDef,
-  GridRenderCellParams,
-  GridFilterModel,
-  GridSortModel
-} from '@mui/x-data-grid';
+import { DataGrid, GridFilterModel, GridSortModel } from '@mui/x-data-grid';
 
 // Types
 import { Organization } from 'types';
@@ -38,12 +29,12 @@ import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
 import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
+import { useOrgsColumns } from './useOrgsColumns';
 
 // Utils
 import { logger } from '@/utils/logger';
 
 // Constants
-import { ROUTES } from '@/constants/routes';
 import { ENDPOINTS } from '@/constants/endpoints';
 
 type OrgsApiResponse = {
@@ -71,7 +62,6 @@ export const Organizations: React.FC = () => {
   const [debouncedFilterModel, setDebouncedFilterModel] =
     useState<GridFilterModel>(filterModel);
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
-  const history = useHistory();
   const reqIdRef = useRef(0);
 
   useEffect(() => {
@@ -133,108 +123,7 @@ export const Organizations: React.FC = () => {
     fetchOrganizations();
   }, [fetchOrganizations]);
 
-  const orgCols: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Organization',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organization Name: ${cellValues.row.name}`}
-          >
-            {cellValues.row.name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'acronym',
-      headerName: 'Acronym',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
-          >
-            {cellValues.row.acronym}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'state',
-      headerName: 'State',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`State for Organization ${cellValues.row.name}: ${cellValues.row.state}`}
-          >
-            {cellValues.row.state}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'region_id',
-      headerName: 'Region',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Region for Organization ${cellValues.row.name}: ${cellValues.row.region_id}`}
-          >
-            {cellValues.row.region_id}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'view',
-      headerName: 'View/Edit',
-      minWidth: 100,
-      flex: 1,
-      disableExport: true,
-      sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `View or Edit Organization ${cellValues.row.name}`;
-        const descriptionId = `description-${cellValues.row.id}`;
-        return (
-          <>
-            <span id={descriptionId} style={{ display: 'none' }}>
-              {`Edit details for organization ${cellValues.row.name}`}
-            </span>
-            <IconButton
-              color="primary"
-              aria-label={ariaLabel}
-              aria-describedby={descriptionId}
-              onClick={() =>
-                history.push(
-                  ROUTES.ORGANIZATION.replace(
-                    ':organizationId',
-                    cellValues.row.id
-                  )
-                )
-              }
-            >
-              <EditNoteOutlinedIcon />
-            </IconButton>
-          </>
-        );
-      }
-    }
-  ];
+  const orgCols = useOrgsColumns();
 
   const onSubmit = async (body: Object) => {
     try {
@@ -296,12 +185,24 @@ export const Organizations: React.FC = () => {
 
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
         <DataGrid
+          rowHeight={52}
           rows={organizations}
           columns={orgCols}
           slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
-            toolbar: { disableExport: true } as any
+            toolbar: { disableExport: true } as any,
+            columnsManagement: {
+              disableResetButton: true,
+              getTogglableColumns: (columns) => {
+                const alwaysVisible = ['name'];
+                return columns
+                  .filter(
+                    (col) => col.field && !alwaysVisible.includes(col.field)
+                  )
+                  .map((col) => col.field as string);
+              }
+            }
           }}
           loading={isLoading}
           paginationMode="server"
