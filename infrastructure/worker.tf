@@ -95,6 +95,8 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         "${data.aws_ssm_parameter.qualys_password.arn}",
         "${data.aws_ssm_parameter.qualys_username.arn}",
         "${data.aws_ssm_parameter.shodan_api_key.arn}",
+        "${data.aws_ssm_parameter.shodan_ip_chunk_size.arn}",
+        "${data.aws_ssm_parameter.shodan_query_days_back.arn}",
         "${data.aws_ssm_parameter.sixgill_client_id.arn}",
         "${data.aws_ssm_parameter.sixgill_client_secret.arn}",
         "${data.aws_ssm_parameter.ssm_dmz_api_key.arn}",
@@ -400,6 +402,14 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
+        "name": "SHODAN_IP_CHUNK_SIZE",
+        "valueFrom": "${data.aws_ssm_parameter.shodan_ip_chunk_size.arn}"
+      },
+      {
+        "name": "SHODAN_QUERY_DAYS_BACK",
+        "valueFrom": "${data.aws_ssm_parameter.shodan_query_days_back.arn}"
+      },
+      {
         "name": "SIXGILL_CLIENT_ID",
         "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
       },
@@ -464,6 +474,10 @@ data "aws_ssm_parameter" "censys_api_id" { name = var.ssm_censys_api_id }
 data "aws_ssm_parameter" "censys_api_secret" { name = var.ssm_censys_api_secret }
 
 data "aws_ssm_parameter" "shodan_api_key" { name = var.ssm_shodan_api_key }
+
+data "aws_ssm_parameter" "shodan_ip_chunk_size" { name = var.ssm_shodan_ip_chunk_size }
+
+data "aws_ssm_parameter" "shodan_query_days_back" { name = var.ssm_shodan_query_days_back }
 
 data "aws_ssm_parameter" "pe_shodan_api_keys" { name = var.ssm_pe_shodan_api_keys }
 
