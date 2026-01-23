@@ -1,6 +1,11 @@
+// React
 import React, { FC, useCallback, useEffect, useState } from 'react';
+
+// Date utilities
 import { toZonedTime } from 'date-fns-tz';
 import { format, parseISO } from 'date-fns';
+
+// MUI
 import Box from '@mui/material/Box';
 import Dialog from '@mui/material/Dialog';
 import DialogContent from '@mui/material/DialogContent';
@@ -16,10 +21,17 @@ import {
   GridFilterItem,
   GridRenderEditCellParams
 } from '@mui/x-data-grid';
-import { useAuthContext } from 'context';
+
+// Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 interface LogsProps {}
 
@@ -140,6 +152,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Event',
       minWidth: 100,
       flex: 1.25,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
           <Box
@@ -156,6 +169,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acting User Name',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         const p =
           cellValues.row.payload?.user_performed_assignment ||
@@ -177,6 +191,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acting User Email',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         const p =
           cellValues.row.payload?.user_performed_assignment ||
@@ -198,6 +213,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acted-on User Name',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         const u =
           cellValues.row.payload?.user ||
@@ -220,6 +236,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Acted-on User Email',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         const u =
           cellValues.row.payload?.user ||
@@ -242,6 +259,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Organization',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
           <Box
@@ -276,6 +294,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Region',
       minWidth: 100,
       flex: 0.75,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
           <Box
@@ -296,6 +315,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Role',
       minWidth: 100,
       flex: 0.75,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
           <Box
@@ -312,6 +332,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'State',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
           <Box
@@ -342,6 +363,7 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'User Type',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderEditCellParams) => {
         return (
           <Box
@@ -414,6 +436,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Payload',
       maxWidth: 70,
       flex: 0.5,
+      filterable: false,
+      sortable: false,
       renderCell: (cellValues: GridRenderEditCellParams) => (
         <IconButton
           aria-label={`Details for Log ${cellValues.row.id}`}
