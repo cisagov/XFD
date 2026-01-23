@@ -8,6 +8,8 @@ import { inspectorServer } from '@react-dev-inspector/vite-plugin';
 
 const enableInspector = process.env.ENABLE_INSPECTOR === 'true';
 const mode = process.env.MODE || 'development';
+const isCI = process.env.CI === 'true';
+
 const plugins: PluginOption[] = [
   react(),
   tsconfigPaths(),
@@ -77,11 +79,11 @@ export default defineConfig({
         'src/components/Metrics/*'
       ],
       thresholds: {
-        statements: 45.43,
-        branches: 34,
-        functions: 41.08,
-        lines: 45.96,
-        autoUpdate: true
+        statements: 45.98,
+        branches: 34.61,
+        functions: 41.54,
+        lines: 46.5,
+        autoUpdate: isCI
       }
     }
   }
