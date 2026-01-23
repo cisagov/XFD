@@ -1,4 +1,5 @@
 import { formatDate, parseISO } from 'date-fns';
+import { getGridStringOperators } from '@mui/x-data-grid';
 import { User } from 'types';
 
 export const transformUserData = (data: User[]): User[] => {
@@ -15,3 +16,10 @@ export const transformUserData = (data: User[]): User[] => {
       : 'None'
   }));
 };
+
+const getTextFilterOperators = () =>
+  getGridStringOperators().filter(
+    (op) => op.value === 'equals' || op.value === 'contains'
+  );
+
+export const textFilterOperators = getTextFilterOperators();
