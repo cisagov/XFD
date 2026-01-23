@@ -338,6 +338,7 @@ const ScansView: React.FC = () => {
       headerName: 'Frequency',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (params: GridRenderCellParams) => {
         return (
           <Box
@@ -377,6 +378,7 @@ const ScansView: React.FC = () => {
       headerName: 'Concurrent Tasks',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       align: 'center',
       headerAlign: 'center',
       renderCell: (cellValues: GridRenderCellParams) => {
