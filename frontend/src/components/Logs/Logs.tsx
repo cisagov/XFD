@@ -436,6 +436,8 @@ export const Logs: FC<LogsProps> = () => {
       headerName: 'Payload',
       maxWidth: 70,
       flex: 0.5,
+      filterable: false,
+      sortable: false,
       renderCell: (cellValues: GridRenderEditCellParams) => (
         <IconButton
           aria-label={`Details for Log ${cellValues.row.id}`}
