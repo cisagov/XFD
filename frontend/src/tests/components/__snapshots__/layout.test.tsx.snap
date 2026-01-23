@@ -1,121 +1,257 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`Layout component > matches snapshot 1`] = `
+exports[`Layout component > Layout component > matches snapshot 1`] = `
 <DocumentFragment>
   <div
-    class="MuiBox-root css-yuxl5"
+    class="MuiBox-root css-e96of9"
   >
-    <div>
-      GOV_BANNER
-    </div>
     <div
-      class="MuiBox-root css-dfy4bm"
+      class="MuiBox-root css-banc4g"
     >
+      <div>
+        GOV_BANNER
+      </div>
       <div
-        class="MuiBox-root css-1c00z4o"
+        class="MuiBox-root css-dfy4bm"
       >
         <div
-          class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation0 MuiAlert-root MuiAlert-colorInfo MuiAlert-standardInfo MuiAlert-standard css-172si4r-MuiPaper-root-MuiAlert-root"
-          role="alert"
-          style="--Paper-shadow: none;"
+          class="MuiBox-root css-1c00z4o"
         >
           <div
-            class="MuiAlert-icon css-vab54s-MuiAlert-icon"
-          >
-            <svg
-              aria-hidden="true"
-              class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
-              data-testid="InfoOutlinedIcon"
-              focusable="false"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20, 12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10, 10 0 0,0 12,2M11,17H13V11H11V17Z"
-              />
-            </svg>
-          </div>
-          <div
-            class="MuiAlert-message css-zioonp-MuiAlert-message"
+            class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation0 MuiAlert-root MuiAlert-colorInfo MuiAlert-standardInfo MuiAlert-standard css-172si4r-MuiPaper-root-MuiAlert-root"
+            role="alert"
+            style="--Paper-shadow: none;"
           >
             <div
-              class="MuiTypography-root MuiTypography-largeBody MuiTypography-gutterBottom MuiAlertTitle-root css-16l1za6-MuiTypography-root-MuiAlertTitle-root"
-            >
-              CyHy Dashboard - Beta (Early Access)
-            </div>
-            <p
-              class="MuiTypography-root MuiTypography-body1 css-l19xdt-MuiTypography-root"
-            >
-              You are using an early release version of the CyHy Dashboard. This site is fully functional, but some features are still being improved and refined. Your feedback during this stage directly shapes improvements. Please go to the Support menu to share feedback, report bugs, or submit questions so we can enhance the dashboard to better meet your needs.
-            </p>
-          </div>
-          <div
-            class="MuiAlert-action css-rgppqo-MuiAlert-action"
-          >
-            <button
-              aria-label="Close"
-              class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-sizeSmall css-11jejgn-MuiButtonBase-root-MuiIconButton-root"
-              tabindex="0"
-              title="Close"
-              type="button"
+              class="MuiAlert-icon css-vab54s-MuiAlert-icon"
             >
               <svg
                 aria-hidden="true"
-                class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall css-120dh41-MuiSvgIcon-root"
-                data-testid="CloseIcon"
+                class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                data-testid="InfoOutlinedIcon"
                 focusable="false"
                 viewBox="0 0 24 24"
               >
                 <path
-                  d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                  d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20, 12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10, 10 0 0,0 12,2M11,17H13V11H11V17Z"
                 />
               </svg>
-            </button>
+            </div>
+            <div
+              class="MuiAlert-message css-zioonp-MuiAlert-message"
+            >
+              <div
+                class="MuiTypography-root MuiTypography-largeBody MuiTypography-gutterBottom MuiAlertTitle-root css-16l1za6-MuiTypography-root-MuiAlertTitle-root"
+              >
+                CyHy Dashboard - Beta (Early Access)
+              </div>
+              <p
+                class="MuiTypography-root MuiTypography-body1 css-l19xdt-MuiTypography-root"
+              >
+                You are using an early release version of the CyHy Dashboard. This site is fully functional, but some features are still being improved and refined. Your feedback during this stage directly shapes improvements. Please go to the Support menu to share feedback, report bugs, or submit questions so we can enhance the dashboard to better meet your needs.
+              </p>
+            </div>
+            <div
+              class="MuiAlert-action css-rgppqo-MuiAlert-action"
+            >
+              <button
+                aria-label="Close"
+                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-sizeSmall css-11jejgn-MuiButtonBase-root-MuiIconButton-root"
+                tabindex="0"
+                title="Close"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall css-120dh41-MuiSvgIcon-root"
+                  data-testid="CloseIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>
+      <div>
+        HEADER
+      </div>
+      <header
+        class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1duqi3m-MuiPaper-root-MuiAppBar-root"
+        style="--Paper-shadow: none;"
+      >
+        <div
+          class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
+        >
+          <button
+            aria-label="Toggle Filter Drawer"
+            class="MuiButtonBase-root MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary css-1vd37re-MuiButtonBase-root-MuiButton-root"
+            tabindex="0"
+            type="button"
+          >
+            <span
+              class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeMedium css-1sh91j5-MuiButton-startIcon"
+            >
+              <svg
+                aria-hidden="true"
+                class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                data-testid="FilterAltIcon"
+                focusable="false"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39c.51-.66.04-1.61-.79-1.61H5.04c-.83 0-1.3.95-.79 1.61"
+                />
+              </svg>
+            </span>
+            Filter
+          </button>
+        </div>
+      </header>
     </div>
-    <div>
-      HEADER
-    </div>
-    <header
-      class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1duqi3m-MuiPaper-root-MuiAppBar-root"
-      style="--Paper-shadow: none;"
+    <main
+      class="css-ao8o4p"
     >
       <div
-        class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
+        class="MuiBox-root css-1200z2u"
       >
-        <button
-          aria-label="Toggle Filter Drawer"
-          class="MuiButtonBase-root MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary css-1vd37re-MuiButtonBase-root-MuiButton-root"
-          tabindex="0"
-          type="button"
-        >
-          <span
-            class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeMedium css-1sh91j5-MuiButton-startIcon"
-          >
-            <svg
-              aria-hidden="true"
-              class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
-              data-testid="FilterAltIcon"
-              focusable="false"
-              viewBox="0 0 24 24"
-            >
-              <path
-                d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39c.51-.66.04-1.61-.79-1.61H5.04c-.83 0-1.3.95-.79 1.61"
-              />
-            </svg>
-          </span>
-          Filter
-        </button>
+        <div>
+          FILTER_DRAWER
+        </div>
       </div>
-    </header>
+    </main>
   </div>
-  <main
-    class="css-170g0n7"
+</DocumentFragment>
+`;
+
+exports[`Layout component > matches snapshot 1`] = `
+<DocumentFragment>
+  <div
+    class="MuiBox-root css-e96of9"
   >
-    <div>
-      FILTER_DRAWER
+    <div
+      class="MuiBox-root css-banc4g"
+    >
+      <div>
+        GOV_BANNER
+      </div>
+      <div
+        class="MuiBox-root css-dfy4bm"
+      >
+        <div
+          class="MuiBox-root css-1c00z4o"
+        >
+          <div
+            class="MuiPaper-root MuiPaper-elevation MuiPaper-rounded MuiPaper-elevation0 MuiAlert-root MuiAlert-colorInfo MuiAlert-standardInfo MuiAlert-standard css-172si4r-MuiPaper-root-MuiAlert-root"
+            role="alert"
+            style="--Paper-shadow: none;"
+          >
+            <div
+              class="MuiAlert-icon css-vab54s-MuiAlert-icon"
+            >
+              <svg
+                aria-hidden="true"
+                class="MuiSvgIcon-root MuiSvgIcon-fontSizeInherit css-1ckov0h-MuiSvgIcon-root"
+                data-testid="InfoOutlinedIcon"
+                focusable="false"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M11,9H13V7H11M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20, 12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10, 10 0 0,0 12,2M11,17H13V11H11V17Z"
+                />
+              </svg>
+            </div>
+            <div
+              class="MuiAlert-message css-zioonp-MuiAlert-message"
+            >
+              <div
+                class="MuiTypography-root MuiTypography-largeBody MuiTypography-gutterBottom MuiAlertTitle-root css-16l1za6-MuiTypography-root-MuiAlertTitle-root"
+              >
+                CyHy Dashboard - Beta (Early Access)
+              </div>
+              <p
+                class="MuiTypography-root MuiTypography-body1 css-l19xdt-MuiTypography-root"
+              >
+                You are using an early release version of the CyHy Dashboard. This site is fully functional, but some features are still being improved and refined. Your feedback during this stage directly shapes improvements. Please go to the Support menu to share feedback, report bugs, or submit questions so we can enhance the dashboard to better meet your needs.
+              </p>
+            </div>
+            <div
+              class="MuiAlert-action css-rgppqo-MuiAlert-action"
+            >
+              <button
+                aria-label="Close"
+                class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-sizeSmall css-11jejgn-MuiButtonBase-root-MuiIconButton-root"
+                tabindex="0"
+                title="Close"
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  class="MuiSvgIcon-root MuiSvgIcon-fontSizeSmall css-120dh41-MuiSvgIcon-root"
+                  data-testid="CloseIcon"
+                  focusable="false"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        HEADER
+      </div>
+      <header
+        class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1duqi3m-MuiPaper-root-MuiAppBar-root"
+        style="--Paper-shadow: none;"
+      >
+        <div
+          class="MuiToolbar-root MuiToolbar-regular css-78voab-MuiToolbar-root"
+        >
+          <button
+            aria-label="Toggle Filter Drawer"
+            class="MuiButtonBase-root MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-primaryContained MuiButton-primaryContainedPrimary MuiButton-sizeMedium MuiButton-primaryContainedSizeMedium MuiButton-colorPrimary css-1vd37re-MuiButtonBase-root-MuiButton-root"
+            tabindex="0"
+            type="button"
+          >
+            <span
+              class="MuiButton-icon MuiButton-startIcon MuiButton-iconSizeMedium css-1sh91j5-MuiButton-startIcon"
+            >
+              <svg
+                aria-hidden="true"
+                class="MuiSvgIcon-root MuiSvgIcon-fontSizeMedium css-1umw9bq-MuiSvgIcon-root"
+                data-testid="FilterAltIcon"
+                focusable="false"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M4.25 5.61C6.27 8.2 10 13 10 13v6c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-6s3.72-4.8 5.74-7.39c.51-.66.04-1.61-.79-1.61H5.04c-.83 0-1.3.95-.79 1.61"
+                />
+              </svg>
+            </span>
+            Filter
+          </button>
+        </div>
+      </header>
     </div>
-  </main>
+    <main
+      class="css-ao8o4p"
+    >
+      <div
+        class="MuiBox-root css-1200z2u"
+      >
+        <div>
+          FILTER_DRAWER
+        </div>
+      </div>
+    </main>
+  </div>
 </DocumentFragment>
 `;

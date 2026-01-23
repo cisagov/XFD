@@ -1,8 +1,14 @@
+// React
 import React from 'react';
+
+// MUI Components
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Stack from '@mui/material/Stack';
 import { GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Utils
+import { textFilterOperators } from '@/utils/transformTableData';
 
 export const getPendingUserColumns = ({
   userType,
@@ -19,6 +25,7 @@ export const getPendingUserColumns = ({
       headerName: 'Name',
       minWidth: 100,
       flex: 1.1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -35,6 +42,7 @@ export const getPendingUserColumns = ({
       headerName: 'Email',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -67,6 +75,7 @@ export const getPendingUserColumns = ({
       headerName: 'State',
       minWidth: 80,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -99,6 +108,7 @@ export const getPendingUserColumns = ({
       headerName: 'Use Case',
       minWidth: 150,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -115,6 +125,9 @@ export const getPendingUserColumns = ({
       headerName: 'Registration Status',
       minWidth: 250,
       flex: 2,
+      filterable: false,
+      sortable: false,
+      disableColumnMenu: true,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Stack direction="row" spacing={2} p={1}>
@@ -149,6 +162,7 @@ export const getMemberUserColumns = (): GridColDef[] => {
       headerName: 'Name',
       minWidth: 100,
       flex: 1.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -165,6 +179,7 @@ export const getMemberUserColumns = (): GridColDef[] => {
       headerName: 'Email',
       minWidth: 100,
       flex: 2,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -197,6 +212,7 @@ export const getMemberUserColumns = (): GridColDef[] => {
       headerName: 'State',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -229,6 +245,7 @@ export const getMemberUserColumns = (): GridColDef[] => {
       headerName: 'Organizations',
       minWidth: 250,
       flex: 2,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component="span"
@@ -243,6 +260,7 @@ export const getMemberUserColumns = (): GridColDef[] => {
       headerName: 'Org Acronym',
       minWidth: 100,
       flex: 0.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component="span"
@@ -263,6 +281,7 @@ export const organizationCols: GridColDef[] = [
     headerName: 'Organization Name',
     minWidth: 100,
     flex: 2,
+    filterOperators: textFilterOperators,
     renderCell: (cellValues: GridRenderCellParams) => {
       return (
         <Box
@@ -279,6 +298,7 @@ export const organizationCols: GridColDef[] = [
     headerName: 'Org Acronym',
     minWidth: 100,
     flex: 1,
+    filterOperators: textFilterOperators,
     renderCell: (cellValues: GridRenderCellParams) => {
       return (
         <Box
@@ -311,6 +331,7 @@ export const organizationCols: GridColDef[] = [
     headerName: 'State',
     minWidth: 100,
     flex: 1,
+    filterOperators: textFilterOperators,
     renderCell: (cellValues: GridRenderCellParams) => {
       return (
         <Box
