@@ -4,8 +4,10 @@ import datetime
 import logging
 import os
 import time
+from typing import Any, Dict, List
 
 # Third-Party Libraries
+from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 import requests
@@ -13,6 +15,12 @@ import shodan
 from xfd_api.tasks.helpers.get_ips import get_ips_by_cidr
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
+SHODAN_IP_CHUNK_SIZE = int(
+    os.getenv("SHODAN_IP_CHUNK_SIZE", "50")
+)  # TODO validate this number used to be set to 10 but the comment said it was doing 100
+SHODAN_QUERY_DAYS_BACK = int(
+    os.getenv("SHODAN_QUERY_DAYS_BACK", "15")
+)  # TODO tune based on pull cadence
 # Constants controlling pagination and rate limiting
 LOGGER = logging.getLogger(__name__)
 
@@ -69,7 +77,7 @@ def handler(command_options):
         }
 
     # Otherwise run shodan search on the IPs
-    failed = search_shodan(ips, api, start, end, org_uid, org_name, failed)
+    failed = search_shodan(ips, api, start, end, organization, failed)
 
     # Log all failures for this thread
     if len(failed) > 0:
@@ -95,7 +103,7 @@ def shodan_api_init(api_key):
 
 
 def search_shodan(
-    ips, api, start, end, org_uid, org_name, failed
+    ips, api, start, end, organization: Organization, failed
 ):  # pylint: disable=R0913, R0915
     """Search IPs in the Shodan API."""
     # Build dictionaries for naming conventions and definitions
@@ -103,9 +111,12 @@ def search_shodan(
 
     # Break up IPs into chunks of 100
     tot_ips = len(ips)
-    ip_chunks = [ips[i : i + 10] for i in range(0, tot_ips, 10)]
+    ip_chunks = [
+        ips[i : i + SHODAN_IP_CHUNK_SIZE]
+        for i in range(0, tot_ips, SHODAN_IP_CHUNK_SIZE)
+    ]
     tot = len(ip_chunks)
-    LOGGER.info("Split %s IPs into %s chunks - %s", tot_ips, tot, org_name)
+    LOGGER.info("Split %s IPs into %s chunks - %s", tot_ips, tot, organization.name)
 
     # Loop through chunks and query Shodan
     # Fetch or create the Censys data source record.
@@ -124,18 +135,39 @@ def search_shodan(
                 # Initialize lists to store Shodan results
                 data = []
                 risk_data = []
-                vuln_data = []
-                results = api.host(ip_chunk)
+                vuln_data: List[Dict[str, Any]] = []
+                # Attempt batch lookup first
+                try:
+                    results = api.host(ip_chunk)
+                except shodan.APIError as e:
+                    if "No information available" in str(e):
+                        LOGGER.info(
+                            "One or more IPs had no Shodan data. Falling back to per-IP calls. - %s",
+                            organization.name,
+                        )
+                        results = []
+                        for ip in ip_chunk:
+                            try:
+                                results.append(api.host(ip))
+                            except shodan.APIError:
+                                LOGGER.info(
+                                    "No Shodan data for IP %s - %s",
+                                    ip,
+                                    organization.name,
+                                )
+                                continue
+                    else:
+                        # Real API failure (rate limit, auth, etc.)
+                        raise
                 for r in results:
                     # Catch situation where response is a single string
                     if isinstance(r, str):
                         continue
                     for d in r["data"]:
                         # Convert Shodan date string to UTC datetime
-                        shodan_datetime = datetime.datetime.strptime(
+                        shodan_utc = datetime.datetime.strptime(
                             d["timestamp"], "%Y-%m-%dT%H:%M:%S.%f"
-                        )
-                        shodan_utc = time_to_utc(shodan_datetime)
+                        ).replace(tzinfo=datetime.timezone.utc)
                         # Only include results in the timeframe
                         if start < shodan_utc < end:
                             prod = d.get("product", None)
@@ -144,7 +176,7 @@ def search_shodan(
                             vulns = d.get("vulns", None)
                             location = d.get("location", None)
                             if vulns is not None:
-                                unverified = []
+                                unverified: List[str] = []
                                 for cve in list(vulns.keys()):
                                     # Check if CVEs are verified
                                     unverified, vuln_data = is_verified(
@@ -154,7 +186,7 @@ def search_shodan(
                                         ac_dict,
                                         ci_dict,
                                         vuln_data,
-                                        org_uid,
+                                        organization.id,
                                         r,
                                         d,
                                         asn,
@@ -175,14 +207,16 @@ def search_shodan(
                                             "mitigation": mitigation,
                                             "name": name,
                                             "organization": r["org"],
-                                            "organizations_uid": org_uid,
+                                            "organizations_uid": organization.id,
                                             "port": d["port"],
                                             "potential_vulns": risk,
                                             "product": prod,
                                             "protocol": d["_shodan"]["module"],
                                             "server": serv,
                                             "tags": r["tags"],
-                                            "timestamp": d["timestamp"],
+                                            "timestamp": parse_utc_timestamp(
+                                                d["timestamp"]
+                                            ),
                                             "type": ftype,
                                             "is_verified": False,
                                             "cpe": d.get("cpe", None),
@@ -218,7 +252,7 @@ def search_shodan(
                                         "mitigation": mitigation,
                                         "name": name,
                                         "organization": r["org"],
-                                        "organizations_uid": org_uid,
+                                        "organizations_uid": organization.id,
                                         "port": d["port"],
                                         "potential_vulns": risk,
                                         "product": prod,
@@ -227,7 +261,9 @@ def search_shodan(
                                         "severity": None,
                                         "summary": None,
                                         "tags": r["tags"],
-                                        "timestamp": d["timestamp"],
+                                        "timestamp": parse_utc_timestamp(
+                                            d["timestamp"]
+                                        ),
                                         "type": ftype,
                                         "is_verified": False,
                                         "cpe": d.get("cpe", None),
@@ -245,7 +281,7 @@ def search_shodan(
                                     "ip": r["ip_str"],
                                     "isn": r["isp"],
                                     "organization": r["org"],
-                                    "organizations_uid": org_uid,
+                                    "organizations_uid": organization.id,
                                     "port": d["port"],
                                     "product": prod,
                                     "protocol": d["_shodan"]["module"],
@@ -260,49 +296,61 @@ def search_shodan(
                 all_vulns = vuln_data + risk_data
 
                 # Insert shodan assets/vulns for this ip chunk
-                failed = insert_shodan_assets(data)
-                failed = insert_shodan_vulns(all_vulns)
+                insert_shodan_assets(data, organization)
+                insert_shodan_vulns(all_vulns, organization)
                 time.sleep(1)
                 break
             except shodan.APIError as e:
                 if try_count == 5:
                     LOGGER.error(
-                        "Failed 5 times. Continuing to next chunk - %s", org_name
+                        "Failed 5 times. Continuing to next chunk - %s",
+                        organization.name,
                     )
                     failed.append(
-                        "{} chunk {} failed 5 times and skipped".format(org_name, count)
+                        "{} chunk {} failed 5 times and skipped".format(
+                            organization.name, count
+                        )
                     )
                     break
-                LOGGER.error("%s - %s", e, org_name)
+                LOGGER.error("%s - %s", e, organization.name)
                 LOGGER.error(
-                    "Try #%s failed. Calling the API again. - %s", try_count, org_name
+                    "Try #%s failed. Calling the API again. - %s - %s",
+                    try_count,
+                    organization.name,
+                    e,
                 )
                 try_count += 1
                 # Most likely too many API calls per second so sleep
                 time.sleep(5)
             except Exception as e:
-                LOGGER.error("%s - %s", e, org_name)
+                LOGGER.error("%s - %s", e, organization.name)
                 LOGGER.error(
-                    "Not a shodan API error. Continuing to next chunk - %s", org_name
+                    "Not a shodan API error. Continuing to next chunk - %s",
+                    organization.name,
                 )
-                failed.append("{} chunk {} failed and skipped".format(org_name, count))
+                failed.append(
+                    "{} chunk {} failed and skipped".format(organization.name, count)
+                )
                 break
 
-        LOGGER.info("chunk %s/%s complete - %s", count, tot, org_name)
+        LOGGER.info("chunk %s/%s complete - %s", count, tot, organization.name)
 
     return failed
 
 
 def get_dates():
     """Get dates for the query."""
-    now = datetime.datetime.now()
-    days_back = datetime.timedelta(days=30)
-    days_forward = datetime.timedelta(days=1)
-    start = now - days_back
-    end = now + days_forward
-    start_time = time_to_utc(start)
-    end_time = time_to_utc(end)
-    return start_time, end_time
+    now = timezone.now()
+    start = now - datetime.timedelta(days=SHODAN_QUERY_DAYS_BACK)
+    end = now + datetime.timedelta(days=1)
+    return start, end
+
+
+def parse_utc_timestamp(ts):
+    """Convert strings to datetime."""
+    if isinstance(ts, str):
+        return parse_datetime(ts).replace(tzinfo=datetime.timezone.utc)
+    return ts  # already a datetime
 
 
 def time_to_utc(in_time):
@@ -463,18 +511,50 @@ def get_shodan_dicts():
     return risky_ports, name_dict, risk_dict, av_dict, ac_dict, ci_dict
 
 
-def insert_shodan_assets(data):
-    """Insert Shodan data into the shodan_assets table."""
+def insert_shodan_assets(data, organization):
+    """Insert Shodan data into the shodan_assets table using bulk operations."""
+    if not data:
+        return "0 records created in the shodan_assets table"
+
+    # --- Preload IPs (already a win you added) ---
+    ips = {
+        ip.ip: ip
+        for ip in Ip.objects.filter(
+            organization=organization,
+            ip__in={row["ip"] for row in data},
+        )
+    }
+
+    # --- Preload existing assets for idempotency ---
+    existing_assets = {
+        (
+            asset.ip_id,
+            int(asset.port),
+            asset.protocol.lower(),
+        ): asset
+        for asset in ShodanAssets.objects.filter(
+            organization=organization,
+            ip__in=ips.values(),
+        )
+    }
+
+    to_create = []
+    to_update = []
     create_cnt = 0
 
-    for row in data:
-        row_dict = row.__dict__ if hasattr(row, "__dict__") else row
+    with transaction.atomic():
+        for row in data:
+            row_dict = row if isinstance(row, dict) else row.__dict__
 
-        try:
-            organization = Organization.objects.get(id=row_dict["organizations_uid"])
-            ip_instance = Ip.objects.filter(
-                ip=row_dict["ip"], organization=organization
-            ).first()
+            ip_instance = ips.get(row_dict["ip"])
+            if not ip_instance:
+                continue
+
+            key = (
+                ip_instance.id,
+                int(row_dict["port"]),
+                row_dict["protocol"].lower(),
+            )
 
             mdl_asset_fields = {
                 "asn": row_dict.get("asn"),
@@ -488,41 +568,92 @@ def insert_shodan_assets(data):
                 "country_code": row_dict.get("country_code"),
                 "location": row_dict.get("location"),
                 "data_source": row_dict.get("data_source_uid"),
-                "timestamp": timezone.make_aware(
-                    parse_datetime(row_dict["timestamp"]), timezone.timezone.utc
-                ),
+                "timestamp": parse_utc_timestamp(row_dict["timestamp"]),
                 "ip_string": row_dict["ip"],
             }
 
-            mdl_obj, created = ShodanAssets.objects.update_or_create(
-                organization=organization,
-                ip=ip_instance,
-                port=row_dict["port"],
-                protocol=row_dict["protocol"],
-                defaults=mdl_asset_fields,
-            )
-            if created:
+            if key in existing_assets:
+                # --- Update existing object ---
+                asset = existing_assets[key]
+                for field, value in mdl_asset_fields.items():
+                    setattr(asset, field, value)
+                to_update.append(asset)
+            else:
+                # --- Create new object ---
+                to_create.append(
+                    ShodanAssets(
+                        organization=organization,
+                        ip=ip_instance,
+                        port=row_dict["port"],
+                        protocol=row_dict["protocol"],
+                        **mdl_asset_fields,
+                    )
+                )
                 create_cnt += 1
-        except Exception as e:
-            LOGGER.warning("Shodan Asset failed to save to MDL: %s", e)
-            continue
 
-    return "{} records created in the shodan_assets table".format(create_cnt)
+        # --- Bulk DB writes ---
+        if to_create:
+            ShodanAssets.objects.bulk_create(
+                to_create,
+                batch_size=500,
+            )
+
+        if to_update:
+            ShodanAssets.objects.bulk_update(
+                to_update,
+                fields=list(mdl_asset_fields.keys()),
+                batch_size=500,
+            )
+
+    return f"{create_cnt} records created in the shodan_assets table"
 
 
-def insert_shodan_vulns(data):
+def insert_shodan_vulns(data, organization):
     """Insert Shodan vulnerability data into the credential_exposures table."""
+    if not data:
+        return "0 records created in the credential_exposures table"
+
     create_cnt = 0
 
-    for row in data:
-        row_dict = row.__dict__ if hasattr(row, "__dict__") else row
+    # --- Preload IPs ---
+    ips = {
+        ip.ip: ip
+        for ip in Ip.objects.filter(
+            organization=organization,
+            ip__in={row["ip"] for row in data},
+        )
+    }
 
-        organization = Organization.objects.get(id=row_dict["organizations_uid"])
-        ip_instance = Ip.objects.filter(
-            ip=row_dict["ip"], organization=organization
-        ).first()
+    # --- Preload existing vulns for idempotency ---
+    existing_vulns = {
+        (
+            vuln.ip_id,
+            int(vuln.port),
+            vuln.protocol.lower(),
+        ): vuln
+        for vuln in ShodanVulns.objects.filter(
+            organization=organization,
+            ip__in=ips.values(),
+        )
+    }
 
-        try:
+    to_create = []
+    to_update = []
+
+    with transaction.atomic():
+        for row in data:
+            row_dict = row if isinstance(row, dict) else row.__dict__
+
+            ip_instance = ips.get(row_dict["ip"])
+            if not ip_instance:
+                continue
+
+            key = (
+                ip_instance.id,
+                int(row_dict["port"]),
+                row_dict["protocol"].lower(),
+            )
+
             mdl_vuln_data = {
                 "organization_name": row_dict.get("organization"),
                 "cve": row_dict.get("cve"),
@@ -555,22 +686,41 @@ def insert_shodan_vulns(data):
                 "banner": row_dict.get("banner"),
                 "version": row_dict.get("version"),
                 "cpe": row_dict.get("cpe"),
-                "timestamp": timezone.make_aware(parse_datetime(row_dict["timestamp"])),
+                "timestamp": parse_utc_timestamp(row_dict["timestamp"]),
                 "ip_string": row_dict["ip"],
             }
 
-            mdl_obj, created = ShodanVulns.objects.update_or_create(
-                organization=organization,
-                ip=ip_instance,
-                port=row_dict["port"],
-                protocol=row_dict["protocol"],
-                defaults=mdl_vuln_data,
-            )
-            if created:
+            if key in existing_vulns:
+                # --- Update existing vuln ---
+                vuln = existing_vulns[key]
+                for field, value in mdl_vuln_data.items():
+                    setattr(vuln, field, value)
+                to_update.append(vuln)
+            else:
+                # --- Create new vuln ---
+                to_create.append(
+                    ShodanVulns(
+                        organization=organization,
+                        ip=ip_instance,
+                        port=row_dict["port"],
+                        protocol=row_dict["protocol"],
+                        **mdl_vuln_data,
+                    )
+                )
                 create_cnt += 1
 
-        except Exception as e:
-            LOGGER.warning("Shodan Vuln failed to save to MDL: %s", e)
-            continue
+        # --- Bulk DB writes ---
+        if to_create:
+            ShodanVulns.objects.bulk_create(
+                to_create,
+                batch_size=500,
+            )
 
-    return "{} records created in the credential_exposures table".format(create_cnt)
+        if to_update:
+            ShodanVulns.objects.bulk_update(
+                to_update,
+                fields=list(mdl_vuln_data.keys()),
+                batch_size=500,
+            )
+
+    return f"{create_cnt} records created in the credential_exposures table"

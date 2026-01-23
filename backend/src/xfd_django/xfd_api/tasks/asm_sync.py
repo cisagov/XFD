@@ -227,7 +227,7 @@ def enumerate_roots(root_domain):
             sub != "www.{root}".format(root=root_domain.sub_domain)
             and sub != root_domain.sub_domain
         ):
-            SubDomains.objects.get_or_create(
+            sub_obj, created = SubDomains.objects.get_or_create(
                 organization=root_domain.organization,
                 sub_domain=sub,
                 defaults={
@@ -241,3 +241,7 @@ def enumerate_roots(root_domain):
                     "identified": False,
                 },
             )
+
+            if not created:
+                sub_obj.last_seen = datetime.datetime.now(datetime.timezone.utc)
+                sub_obj.save()
