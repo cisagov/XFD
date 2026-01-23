@@ -65,7 +65,7 @@ def handler(command_options):
         }
 
     # Get initialized API object
-    api_key = os.getenv("SHODAN_API_KEY", "")
+    api_key = command_options.get("SHODAN_API_KEY")
     LOGGER.debug("Running on api key: %s", api_key)
     api = shodan_api_init(api_key)
 
