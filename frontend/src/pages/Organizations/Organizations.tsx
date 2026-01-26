@@ -72,6 +72,8 @@ export const Organizations: React.FC = () => {
 
   const [filters, setFilters] = useState<GridFilterModel>({ items: [] });
 
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
+
   useEffect(() => {
     return () => {
       if (filterTimerRef.current) {
@@ -81,10 +83,10 @@ export const Organizations: React.FC = () => {
     };
   }, []);
 
-  useEffect(() => {
-    const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
-    return () => clearTimeout(h);
-  }, [filterModel]);
+  // useEffect(() => {
+  //   const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
+  //   return () => clearTimeout(h);
+  // }, [filterModel]);
 
   const buildFilters = useCallback((model: GridFilterModel) => {
     const filters: Record<string, any> = {};
@@ -210,7 +212,27 @@ export const Organizations: React.FC = () => {
           slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
-            toolbar: { disableExport: true } as any,
+            toolbar: {
+              disableExport: true,
+              hasActiveFilters: hasActiveFilters
+            } as any,
+            panel: {
+              onClose: () => {
+                // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                // Prevents mismatch between filter model and applied filters.
+
+                const hasIncompleteFilters = filterModel.items.some(
+                  (item) => item.value === undefined
+                );
+
+                if (hasIncompleteFilters) {
+                  setFilterModel({ items: [] });
+                  setFilters({ items: [] });
+                  setHasActiveFilters(false);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                }
+              }
+            },
             columnsManagement: {
               disableResetButton: true,
               getTogglableColumns: (columns) => {
@@ -258,7 +280,7 @@ export const Organizations: React.FC = () => {
               setIsLoading(true);
 
               setFilters({ items: cleanedModel.items });
-              // setHasActiveFilters(cleanedModel.items.length > 0);
+              setHasActiveFilters(cleanedModel.items.length > 0);
               setPaginationModel((prev) => ({ ...prev, page: 0 }));
               filterTimerRef.current = null;
             }, 1000);
