@@ -41,7 +41,7 @@ def test_blocklist_check_blocked():
 
     assert response.status_code == 200
     assert response.json() == {
-        blocked_ip: {
+        "111.111.111.111": {
             "attacks": 1,
             "reports": 1,
         }
