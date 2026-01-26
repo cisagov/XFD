@@ -4,7 +4,6 @@ export * from './Header/Header';
 export * from './AuthRoute';
 export * from './Routes/RouteGuard';
 export * from './Routes/Routes';
-export * from './TaggedInput';
 export * from '../pages/Domains/DomainDetails';
 export * from './FilterDrawer/AutoCompletedResults';
 export * from './FilterDrawer/FacetFilter';

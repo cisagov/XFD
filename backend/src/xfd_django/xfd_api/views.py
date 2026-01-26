@@ -35,12 +35,17 @@ from .api_methods import dmz_sync as dmz_sync_methods
 from .api_methods import matomo_proxy_handler
 from .api_methods import notification as notification_methods
 from .api_methods import organization, proxy, scan, scan_tasks, user
-from .api_methods.blocklist import handle_check_ip
+from .api_methods.blocklist import handle_bulk_check_ips
 from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.dns_twist_sync import dns_twist_sync_post
-from .api_methods.domain import export_domains, get_domain_by_id, search_domains
+from .api_methods.domain import (
+    export_domains,
+    get_domain_by_id,
+    search_domains,
+    search_domains_name,
+)
 from .api_methods.export import export
 from .api_methods.export_customer_metrics import export_customer_metrics
 from .api_methods.metrics import (
@@ -112,7 +117,10 @@ from .schema_models import scan as scanSchema
 from .schema_models import scan_tasks as scanTaskSchema
 from .schema_models import stat_schema
 from .schema_models.api_key import ApiKey as ApiKeySchema
-from .schema_models.blocklist import BlocklistCheckResponse
+from .schema_models.blocklist import (
+    BulkBlocklistCheckRequest,
+    BulkBlocklistCheckResponse,
+)
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
 from .schema_models.cve import GetAllCvesResponse
@@ -128,7 +136,12 @@ from .schema_models.dmz_sync import (
     SyncRequest,
 )
 from .schema_models.dns_twist_sync import DnsTwistSyncBody, DnsTwistSyncResponse
-from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
+from .schema_models.domain import (
+    DomainNameSearch,
+    DomainSearch,
+    DomainSearchResponse,
+    GetDomainResponse,
+)
 from .schema_models.export import ExportPayload, ExportResponse
 from .schema_models.metrics import (
     GetScanDailyStatusCountsResponse,
@@ -921,6 +934,19 @@ async def search_organizations(
 ):
     """Search for organizations in Elasticsearch."""
     return organization.search_organizations_task(search_body, current_user)
+
+
+@api_router.post(
+    "/search/domains",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Domains"],
+)
+async def search_domains_post(
+    search_body: DomainNameSearch,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Search for domains by name in Elasticsearch."""
+    return search_domains_name(search_body, current_user)
 
 
 # ========================================
@@ -1825,19 +1851,19 @@ async def get_vulnerability_by_source_id_route(
 # ========================================
 
 
-@api_router.get(
+@api_router.post(
     "/blocklist/check",
     dependencies=[Depends(get_current_active_user)],
-    response_model=BlocklistCheckResponse,
+    response_model=BulkBlocklistCheckResponse,
     tags=["Blocklist"],
 )
-async def get_blocklist(
+async def post_blocklist_bulk_check(
     request: Request,
-    ip_address: str = Query(..., description="IP address to check"),
+    payload: BulkBlocklistCheckRequest,
     current_user: User = Depends(get_current_active_user),
 ):
-    """Determine if IP is on the blocklist."""
-    return await handle_check_ip(ip_address, current_user)
+    """Determine if multiple IPs are on the blocklist."""
+    return await handle_bulk_check_ips(payload.ip_addresses, current_user)
 
 
 # ========================================

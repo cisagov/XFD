@@ -1,6 +1,6 @@
 """Update the blocklist with the latest data from blocklist.de."""
 # Standard Python Libraries
-from datetime import timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import ipaddress
 import logging
 
@@ -32,13 +32,14 @@ def query_blocklist_api(ip_str):
     response = requests.get(
         "http://api.blocklist.de/api.php?ip=" + ip_str,
         timeout=60,
-    ).content
-    response = str(response)
+    )
+    response.raise_for_status()  # Raise exception for HTTP errors (including 429 rate limits)
+    response_text = str(response.content)
     # LOGGER.info("Queried blocklist API for IP: %s", ip_str)
-    # LOGGER.info("Blocklist API response: %s", response)
+    # LOGGER.info("Blocklist API response: %s", response_text)
     malicious = False
-    attacks = int(str(response).split("attacks: ")[1].split("<")[0])
-    reports = int(str(response).split("reports: ")[1].split("<")[0])
+    attacks = int(response_text.split("attacks: ")[1].split("<")[0])
+    reports = int(response_text.split("reports: ")[1].split("<")[0])
     if attacks > 0 or reports > 0:
         malicious = True
     return malicious, attacks, reports
@@ -64,49 +65,102 @@ def create_new_blocklist_records(blocklist, created_count):
 
 
 def main():
-    """Download blocklist data and query the blocklist API."""
+    """Handle the blocklist update process."""
     blocklist = download_blocklist_as_dict()
     if len(blocklist) == 0:
         LOGGER.warning("No blocklist data downloaded.")
         return
-    LOGGER.info("Blocklist downloaded successfully with %d entries.", len(blocklist))
+    blocklist_ips = list(blocklist.keys())
     blocklist_records = Blocklist.objects.all()
-    # Prune blocklist records that are not in the downloaded blocklist data
-    updated_count = 0
-    for ip_record in blocklist_records:
-        ip_str = str(ipaddress.ip_interface(ip_record.ip).ip)
-        if ip_str in blocklist:
-            LOGGER.info("Updating blocklist record for IP: %s", ip_str)
-            # If the IP is in the blocklist, update the record
-            malicious, attacks, reports = query_blocklist_api(ip_str)
-            updated = False
-            if attacks != ip_record.attacks:
-                # Update the attacks count
-                ip_record.attacks = attacks
-                updated = True
-            if reports != ip_record.reports:
-                # Update the reports count
-                ip_record.reports = reports
-                updated = True
-            if malicious != ip_record.malicious:
-                ip_record.malicious = malicious
-                updated = True
-            if updated:
-                ip_record.updated_at = timezone.now()
+    blocklist_record_ips = [
+        str(ipaddress.ip_interface(x.ip).ip) for x in blocklist_records
+    ]
+    ips_to_create = list(filter(lambda x: x not in blocklist_record_ips, blocklist_ips))
+    ips_to_update = list(filter(lambda x: x in blocklist_ips, blocklist_record_ips))
+    ips_to_delete = list(filter(lambda x: x not in blocklist_ips, blocklist_record_ips))
 
-            ip_record.save()
-            updated_count += 1
-            # Remove the IP from blocklist to improve performance
-            del blocklist[ip_str]
-    # Add new blocklist records based on the downloaded data
-    LOGGER.info("Updated %d blocklist records.", updated_count)
-    created_count = 0
-    create_new_blocklist_records(blocklist, created_count)
-    LOGGER.info("Created %d new blocklist records.", created_count)
-    # Delete all records that have not been updated in the last 30 days
-    threshold_date = timezone.now() - timedelta(days=30)
-    deleted_count, _ = Blocklist.objects.filter(updated_at__lt=threshold_date).delete()
-    LOGGER.info("Deleted %d old blocklist records.", deleted_count)
+    # Create new blocklist records with API queries for accurate counts
+    # First, collect all API data for the IPs using parallel requests
+    def fetch_ip_data(ip_str):
+        """Fetch blocklist data for a single IP."""
+        try:
+            malicious, attacks, reports = query_blocklist_api(ip_str)
+            return ip_str, {
+                "malicious": malicious,
+                "attacks": attacks,
+                "reports": reports,
+            }
+        except requests.HTTPError as e:
+            if e.response.status_code == 429:
+                LOGGER.warning("Rate limit hit for IP %s: %s", ip_str, e)
+            else:
+                LOGGER.warning(
+                    "HTTP error querying blocklist API for IP %s (status %d): %s",
+                    ip_str,
+                    e.response.status_code,
+                    e,
+                )
+            return ip_str, None
+        except Exception as e:
+            LOGGER.warning("Failed to query blocklist API for IP %s: %s", ip_str, e)
+            return ip_str, None
+
+    ip_data = {}
+    total_ips = len(ips_to_create)
+    completed = 0
+
+    # Use ThreadPoolExecutor for parallel API requests
+    max_workers = 50
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Submit all tasks
+        future_to_ip = {
+            executor.submit(fetch_ip_data, ip_str): ip_str for ip_str in ips_to_create
+        }
+
+        # Process results as they complete
+        for future in as_completed(future_to_ip):
+            completed += 1
+            ip_str, data = future.result()
+            if data is not None:
+                ip_data[ip_str] = data
+            if completed % max_workers == 0 or completed == total_ips:
+                LOGGER.info("API query progress: %d/%d completed", completed, total_ips)
+
+    # Batch create all records in a single database transaction
+    now = timezone.now()
+    records_to_create = [
+        Blocklist(
+            ip=ip_str,
+            created_at=now,
+            updated_at=now,
+            malicious=data["malicious"],
+            attacks=data["attacks"],
+            reports=data["reports"],
+        )
+        for ip_str, data in ip_data.items()
+    ]
+
+    if records_to_create:
+        try:
+            Blocklist.objects.bulk_create(records_to_create)
+        except Exception as e:
+            LOGGER.warning("Failed to bulk create blocklist records: %s", e)
+
+    # Update existing records - just update timestamp and malicious flag
+    try:
+        updated_count = Blocklist.objects.filter(ip__in=ips_to_update).update(
+            updated_at=timezone.now(), malicious=True
+        )
+        LOGGER.info("Updated %d existing blocklist records.", updated_count)
+    except Exception as e:
+        LOGGER.warning("Failed to update blocklist records: %s", e)
+
+    # Delete records no longer in the blocklist
+    try:
+        deleted_count, _ = Blocklist.objects.filter(ip__in=ips_to_delete).delete()
+        LOGGER.info("Deleted %d blocklist records no longer in source.", deleted_count)
+    except Exception as e:
+        LOGGER.warning("Failed to delete old blocklist records: %s", e)
 
 
 def handler(_):

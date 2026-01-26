@@ -5,6 +5,7 @@ import logging
 import socket
 
 # Third-Party Libraries
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 import dns.resolver
 from xfd_api.helpers.asset_inserts import create_or_update_ip
@@ -16,6 +17,8 @@ DATE = datetime.datetime.now(datetime.timezone.utc)
 
 def get_matching_cidr(ip, org):
     """Return cidr that contains the ip owned by the org."""
+    if settings.IS_LOCAL:
+        return Cidr.objects.filter().first()
     try:
         # Use .get() to find a single CIDR network that contains the IP
         matching_cidr = Cidr.objects.get(
@@ -35,6 +38,12 @@ def get_matching_cidr(ip, org):
 def resolve_domain(domain, nameservers=None):
     """Identify ips linked to a given domain."""
     ip_addresses = set()
+
+    # If local add ip address based on string value instead of lookup
+    if settings.IS_LOCAL:
+        ip_addresses.add((domain.ip_address, "IPv4"))
+        return ip_addresses
+
     if not nameservers:
         nameservers = ["8.8.8.8"]
     # Create a resolver instance and optionally set a custom DNS server
@@ -46,7 +55,7 @@ def resolve_domain(domain, nameservers=None):
 
     try:
         # Resolve IPv4 addresses (A records)
-        ipv4_answers = dns.resolver.resolve(domain, "A")
+        ipv4_answers = dns.resolver.resolve(domain.sub_domain, "A")
         for rdata in ipv4_answers:
             ip_addresses.add((rdata.address, "IPv4"))
     except dns.resolver.NoAnswer:
@@ -56,7 +65,7 @@ def resolve_domain(domain, nameservers=None):
 
     try:
         # Resolve IPv6 addresses (AAAA records)
-        ipv6_answers = dns.resolver.resolve(domain, "AAAA")
+        ipv6_answers = dns.resolver.resolve(domain.sub_domain, "AAAA")
         for rdata in ipv6_answers:
             ip_addresses.add((rdata.address, "IPv6"))
     except dns.resolver.NoAnswer:
@@ -74,9 +83,10 @@ def get_ips_and_type_dns(subdomain, org):
     for ip_address, version in ip_set:
         cidr = get_matching_cidr(ip_address, org)
         if cidr:
-            LOGGER.warning(
-                "Found matching cidr for %s: %s", str(ip_address), cidr.network
-            )
+            if not settings.IS_LOCAL:
+                LOGGER.warning(
+                    "Found matching cidr for %s: %s", str(ip_address), cidr.network
+                )
             ip_info.append((ip_address, version, cidr))
     return ip_info
 
@@ -121,7 +131,7 @@ def get_ips_and_type_socket(subdomain, org):
 
 def link_ip_from_domain(sub, org):
     """Link IP from domain."""
-    ips = get_ips_and_type_dns(sub.sub_domain, org)
+    ips = get_ips_and_type_dns(sub, org)
 
     if not ips:
         return 0

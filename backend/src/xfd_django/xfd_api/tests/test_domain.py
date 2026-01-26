@@ -3,6 +3,7 @@
 from datetime import datetime
 import logging
 import secrets
+from unittest.mock import patch
 
 # Third-Party Libraries
 from django.db import transaction
@@ -329,3 +330,80 @@ def test_search_domains_does_not_exist(user, domain, refresh_vuln_views):
     assert response.status_code == 200
     data = response.json()
     assert len(data["result"]) == 0, "No result found for the given organization name"
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_domains")
+def test_domains_search_autofill_endpoint_auth_user_200(mock_search):
+    """Test domain search autocomplete endpoint."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+    response = client.post(
+        "/search/domains",
+        json={
+            "search_term": "127",
+            "search_field": "name",
+            "regions": [],
+            "organizations": [],
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_domains")
+def test_domains_search_autofill_endpoint_regional_auth(mock_search):
+    """Test domain search autocomplete endpoint."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id="8",
+    )
+    response = client.post(
+        "/search/domains",
+        json={
+            "search_term": "127",
+            "search_field": "name",
+            "regions": ["3"],
+            "organizations": [],
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+@patch("xfd_api.tasks.es_client.ESClient.search_domains")
+def test_domains_search_autofill_endpoint_global_auth(mock_search):
+    """Test domain search autocomplete endpoint."""
+    user = User.objects.create(
+        first_name="",
+        last_name="",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        region_id="8",
+    )
+    response = client.post(
+        "/search/domains",
+        json={
+            "search_term": "127",
+            "search_field": "name",
+            "regions": ["3"],
+            "organizations": [],
+        },
+        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+    )
+    assert response.status_code == 200
