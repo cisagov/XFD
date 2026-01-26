@@ -40,7 +40,12 @@ from .api_methods.cpe import get_cpes_by_id
 from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.dns_twist_sync import dns_twist_sync_post
-from .api_methods.domain import export_domains, get_domain_by_id, search_domains
+from .api_methods.domain import (
+    export_domains,
+    get_domain_by_id,
+    search_domains,
+    search_domains_name,
+)
 from .api_methods.export import export
 from .api_methods.export_customer_metrics import export_customer_metrics
 from .api_methods.metrics import (
@@ -128,7 +133,12 @@ from .schema_models.dmz_sync import (
     SyncRequest,
 )
 from .schema_models.dns_twist_sync import DnsTwistSyncBody, DnsTwistSyncResponse
-from .schema_models.domain import DomainSearch, DomainSearchResponse, GetDomainResponse
+from .schema_models.domain import (
+    DomainNameSearch,
+    DomainSearch,
+    DomainSearchResponse,
+    GetDomainResponse,
+)
 from .schema_models.export import ExportPayload, ExportResponse
 from .schema_models.metrics import (
     GetScanDailyStatusCountsResponse,
@@ -921,6 +931,19 @@ async def search_organizations(
 ):
     """Search for organizations in Elasticsearch."""
     return organization.search_organizations_task(search_body, current_user)
+
+
+@api_router.post(
+    "/search/domains",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["Domains"],
+)
+async def search_domains_post(
+    search_body: DomainNameSearch,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Search for domains by name in Elasticsearch."""
+    return search_domains_name(search_body, current_user)
 
 
 # ========================================
