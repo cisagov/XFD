@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanFilterModelItems } from '@/utils/vulnerabilitiesTableUtils';
+import { cleanFilterModelItems } from '@/utils/tableUtils';
 
 describe('cleanFilterModelItems', () => {
   it('clears value when field changes', () => {

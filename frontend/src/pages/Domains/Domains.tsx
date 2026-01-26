@@ -50,7 +50,7 @@ import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 
 // Utils
 import { logger } from '@/utils/logger';
-import { extractInitialFilters } from 'utils/vulnerabilitiesTableUtils';
+import { extractInitialFilters } from '@/utils/tableUtils';
 import { formatDisplayValue } from 'utils/stringUtils';
 
 // Constants

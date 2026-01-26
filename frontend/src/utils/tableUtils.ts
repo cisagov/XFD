@@ -110,7 +110,7 @@ export const extractInitialFilters = (state: LocationState) => {
   return hiddenFilters;
 };
 
-export const normalizeFilters = (
+export const normalizeVulnFilters = (
   filters: GridFilterItem[],
   currentOrganization?: UserOrganization | null | undefined,
   userType?: string,

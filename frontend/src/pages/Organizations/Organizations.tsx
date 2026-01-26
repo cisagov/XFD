@@ -36,7 +36,7 @@ import { logger } from '@/utils/logger';
 import {
   cleanFilterModelItems,
   shouldTriggerFilterUpdate
-} from 'utils/vulnerabilitiesTableUtils';
+} from '@/utils/tableUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
