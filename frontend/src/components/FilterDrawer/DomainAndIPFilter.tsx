@@ -11,6 +11,7 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import { useAuthContext } from '@/context';
+import { logger } from '@/utils/logger';
 
 export const DOMAIN_FILTER_KEY = 'name';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
@@ -138,7 +139,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
           return [];
         }
       } catch (error) {
-        // console.error('Error fetching domain and IP search results:', error);
+        logger.error('Error fetching domain and IP search results:', error);
         setDomainResults([]);
         setIpResults([]);
       }
