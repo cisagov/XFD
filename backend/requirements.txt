@@ -72,7 +72,7 @@ pytest-env==1.1.5
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-json-logger==2.0.7
-python-multipart==0.0.19
+python-multipart==0.0.22
 python3-saml==1.16.0
 PyYAML==6.0.2
 redis==5.2.0
