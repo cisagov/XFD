@@ -12,6 +12,7 @@ import Typography from '@mui/material/Typography';
 import { useTheme } from '@mui/material/styles';
 import { useAuthContext } from '@/context';
 import { logger } from '@/utils/logger';
+import { ENDPOINTS } from '@/constants/endpoints';
 
 export const DOMAIN_FILTER_KEY = 'name';
 export const ORGANIZATION_FILTER_KEY = 'organization_id';
@@ -86,7 +87,7 @@ export const DomainAndIPFilter: React.FC<Props> = ({
               hits: { _source: ResultShallow }[];
             };
           };
-        }>('/search/domains', {
+        }>(ENDPOINTS.DOMAIN_IP_SEARCH_ES, {
           body: { search_term, search_field, regions, organizations }
         });
         const body = results?.body?.hits?.hits;
