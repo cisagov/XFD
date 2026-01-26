@@ -24,7 +24,7 @@ exports[`Header component > matches snapshot 1`] = `
             src="/src/assets/cisaSeal.svg"
           />
           <h1
-            class="MuiTypography-root MuiTypography-h1 css-17hzhq5-MuiTypography-root"
+            class="MuiTypography-root MuiTypography-h1 css-129khbk-MuiTypography-root"
           >
             CyHy Dashboard
           </h1>
@@ -40,7 +40,7 @@ exports[`Header component > matches snapshot 1`] = `
             class="MuiBox-root css-1tuuctk"
           >
             <a
-              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-oqos3x-MuiButtonBase-root-MuiButton-root"
+              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-1s9qfn4-MuiButtonBase-root-MuiButton-root"
               href="/VSDashboard"
               tabindex="0"
             >
@@ -63,7 +63,7 @@ exports[`Header component > matches snapshot 1`] = `
             class="MuiBox-root css-1tuuctk"
           >
             <a
-              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-oqos3x-MuiButtonBase-root-MuiButton-root"
+              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-1s9qfn4-MuiButtonBase-root-MuiButton-root"
               href="/inventory"
               tabindex="0"
             >
@@ -88,7 +88,7 @@ exports[`Header component > matches snapshot 1`] = `
             <button
               aria-haspopup="true"
               aria-label="Learning Center menu"
-              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-oqos3x-MuiButtonBase-root-MuiButton-root"
+              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-1s9qfn4-MuiButtonBase-root-MuiButton-root"
               tabindex="0"
               type="button"
             >
@@ -128,7 +128,7 @@ exports[`Header component > matches snapshot 1`] = `
             <button
               aria-haspopup="true"
               aria-label="Support menu"
-              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-oqos3x-MuiButtonBase-root-MuiButton-root"
+              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-1s9qfn4-MuiButtonBase-root-MuiButton-root"
               tabindex="0"
               type="button"
             >
@@ -168,7 +168,7 @@ exports[`Header component > matches snapshot 1`] = `
             <button
               aria-haspopup="true"
               aria-label="My Account menu"
-              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-oqos3x-MuiButtonBase-root-MuiButton-root"
+              class="MuiButtonBase-root MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary MuiButton-root MuiButton-globalNav MuiButton-globalNavPrimary MuiButton-sizeMedium MuiButton-globalNavSizeMedium MuiButton-colorPrimary css-1s9qfn4-MuiButtonBase-root-MuiButton-root"
               tabindex="0"
               type="button"
             >
@@ -199,7 +199,7 @@ exports[`Header component > matches snapshot 1`] = `
       <button
         aria-haspopup="true"
         aria-label="Open mobile menu"
-        class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-zfrvyv-MuiButtonBase-root-MuiIconButton-root"
+        class="MuiButtonBase-root MuiIconButton-root MuiIconButton-sizeMedium css-190d48r-MuiButtonBase-root-MuiIconButton-root"
         tabindex="0"
         type="button"
       >
