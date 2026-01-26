@@ -43,7 +43,7 @@ async def dns_twist_sync_post(sync_body, request: Request, current_user):
         description="DNSTwist is a domain name permutation engine.",
         last_run=datetime.datetime.now(),
     )
-    orgs_with_dps = json.loads(sync_body.data)
+    orgs_with_dps = sync_body.data
     LOGGER.info("DATA: %s", orgs_with_dps)
     for org in orgs_with_dps:
         domain_permutations = org.get("domain_permutations", [])
@@ -86,8 +86,10 @@ async def dns_twist_sync_post(sync_body, request: Request, current_user):
 def create_checksum(data):
     """Validate the checksum from an API response."""
     try:
-        # Recompute the checksum
-        calculated_checksum = hashlib.sha256((SALT + data).encode()).hexdigest()
+        # Recompute the checksum - serialize the same way the sender does
+        payload = {"data": data}
+        serialized = json.dumps(payload, default=str, sort_keys=True)
+        calculated_checksum = hashlib.sha256((SALT + serialized).encode()).hexdigest()
 
         return calculated_checksum
     except Exception as e:

@@ -17,51 +17,58 @@ client = TestClient(app)
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_blocklist_check_blocked():
-    """Test blocklist check."""
+    """Test blocklist check (blocked IP)."""
     user = User.objects.create(
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
         user_type=UserType.GLOBAL_ADMIN,
     )
-    random_ip_address = "111.111.111.111"
+    blocked_ip = "111.111.111.111"
+
     Blocklist.objects.create(
-        ip=random_ip_address,
+        ip=blocked_ip,
         created_at=datetime.now(timezone.utc),
         reports=1,
         attacks=1,
     )
 
-    response = client.get(
+    response = client.post(
         "/blocklist/check/",
-        params={"ip_address": random_ip_address},
+        json={"ip_addresses": [blocked_ip]},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
     assert response.status_code == 200
     assert response.json() == {
-        "attacks": 1,
-        "reports": 1,
+        "111.111.111.111": {
+            "attacks": 1,
+            "reports": 1,
+        }
     }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_blocklist_check_unblocked():
-    """Test blocklist check."""
+    """Test blocklist check (unblocked IP)."""
     user = User.objects.create(
         first_name="first",
         last_name="last",
         email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
         user_type=UserType.GLOBAL_ADMIN,
     )
-    random_ip_address = "222.222.222.222"
-    response = client.get(
+    unblocked_ip = "222.222.222.222"
+
+    response = client.post(
         "/blocklist/check/",
-        params={"ip_address": random_ip_address},
+        json={"ip_addresses": [unblocked_ip]},
         headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
     )
 
+    assert response.status_code == 200
     assert response.json() == {
-        "attacks": 0,
-        "reports": 0,
+        unblocked_ip: {
+            "attacks": 0,
+            "reports": 0,
+        }
     }
