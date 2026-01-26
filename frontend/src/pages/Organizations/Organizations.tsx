@@ -33,6 +33,10 @@ import { useOrgsColumns } from './useOrgsColumns';
 
 // Utils
 import { logger } from '@/utils/logger';
+import {
+  cleanFilterModelItems,
+  shouldTriggerFilterUpdate
+} from 'utils/vulnerabilitiesTableUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -59,10 +63,23 @@ export const Organizations: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
-  const [debouncedFilterModel, setDebouncedFilterModel] =
-    useState<GridFilterModel>(filterModel);
+  // const [debouncedFilterModel, setDebouncedFilterModel] =
+  //   useState<GridFilterModel>(filterModel);
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const reqIdRef = useRef(0);
+
+  const filterTimerRef = useRef<number | null>(null);
+
+  const [filters, setFilters] = useState<GridFilterModel>({ items: [] });
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
@@ -91,9 +108,10 @@ export const Organizations: React.FC = () => {
       pageSize: paginationModel.pageSize,
       sort: firstSort?.field || undefined,
       order: firstSort?.sort || undefined,
-      filters: buildFilters(debouncedFilterModel)
+      // filters: buildFilters(debouncedFilterModel)
+      filters: buildFilters(filters)
     };
-  }, [paginationModel, debouncedFilterModel, sortModel, buildFilters]);
+  }, [paginationModel, filters, sortModel, buildFilters]);
 
   const fetchOrganizations = useCallback(async () => {
     const myId = ++reqIdRef.current;
@@ -212,9 +230,38 @@ export const Organizations: React.FC = () => {
           onPaginationModelChange={setPaginationModel}
           filterMode="server"
           filterModel={filterModel}
-          onFilterModelChange={(m) => {
-            setFilterModel(m);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          // onFilterModelChange={(m) => {
+          //   setFilterModel(m);
+          //   setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          // }}
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+            // console.log('CLEANED MODEL:', cleanedModel);
+
+            const shouldUpdate = shouldTriggerFilterUpdate(
+              cleanedModel.items,
+              filterModel.items
+            );
+
+            // console.log('SHOULD UPDATE FILTERS?', shouldUpdate);
+
+            if (!shouldUpdate) {
+              return;
+            }
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setIsLoading(true);
+
+              setFilters({ items: cleanedModel.items });
+              // setHasActiveFilters(cleanedModel.items.length > 0);
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              filterTimerRef.current = null;
+            }, 1000);
           }}
           sortingMode="server"
           sortModel={sortModel}
