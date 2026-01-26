@@ -12,7 +12,7 @@ from ..auth import is_global_view_admin
 
 async def handle_bulk_check_ips(ip_addresses: list[str], current_user):
     """
-    Determing if multiple IP's exist within our blocklist table.
+    Determine if multiple IP's exist within our blocklist table.
 
     Returns: {
         ip_address: {
@@ -23,31 +23,33 @@ async def handle_bulk_check_ips(ip_addresses: list[str], current_user):
     """
     if not is_global_view_admin(current_user):
         raise HTTPException(status_code=403, detail="Unauthorized")
-    results = {}
+
+    # Validate all IPs first
     for ip in ip_addresses:
         try:
             ipaddress.ip_address(ip)
         except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid IP address: {ip}")
-        attacks = 0
-        reports = 0
-        try:
-            record = Blocklist.objects.get(ip=ip)
-            if isinstance(record.attacks, int) and record.attacks > 0:
-                attacks = record.attacks
-            if isinstance(record.reports, int) and record.reports > 0:
-                reports = record.reports
-            results[ip] = {
-                "attacks": attacks,
-                "reports": reports,
-            }
-        except HTTPException as http_exc:
-            raise http_exc
-        except Blocklist.DoesNotExist:
-            results[ip] = {
-                "attacks": 0,
-                "reports": 0,
-            }
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=400, detail="Invalid IP address")
+
+    # Initialize results with defaults for all IPs
+    results = {ip: {"attacks": 0, "reports": 0} for ip in ip_addresses}
+
+    # Single query to fetch all matching records
+    records = Blocklist.objects.filter(ip__in=ip_addresses)
+    for record in records:
+        attacks = (
+            record.attacks
+            if isinstance(record.attacks, int) and record.attacks > 0
+            else 0
+        )
+        reports = (
+            record.reports
+            if isinstance(record.reports, int) and record.reports > 0
+            else 0
+        )
+        results[record.ip] = {
+            "attacks": attacks,
+            "reports": reports,
+        }
+
     return results
