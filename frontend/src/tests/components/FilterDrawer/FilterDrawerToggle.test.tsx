@@ -4,7 +4,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-
 import FilterDrawerToggle from '@components/FilterDrawer/FilterDrawerToggle';
 
 // ----------------------
@@ -13,10 +12,19 @@ import FilterDrawerToggle from '@components/FilterDrawer/FilterDrawerToggle';
 const mockSetIsFilterDrawerOpen = vi.fn();
 let mockIsFilterDrawerOpenValue = false;
 
-vi.mock('context/FilterDrawerContext', () => ({
+let mockSelectedRegionId = 'initial';
+let mockSelectedOrgName = 'initial';
+
+vi.mock('@/context/FilterDrawerContext', () => ({
   useFilterDrawerContext: () => ({
     isFilterDrawerOpen: mockIsFilterDrawerOpenValue,
-    setIsFilterDrawerOpen: mockSetIsFilterDrawerOpen
+    setIsFilterDrawerOpen: mockSetIsFilterDrawerOpen,
+    get selectedRegionId() {
+      return mockSelectedRegionId;
+    },
+    get selectedOrgName() {
+      return mockSelectedOrgName;
+    }
   })
 }));
 
@@ -106,5 +114,26 @@ describe('FilterDrawerToggle', () => {
 
     await user.keyboard(' ');
     expect(mockSetIsFilterDrawerOpen).toHaveBeenCalledWith(true);
+  });
+
+  /** Updates committedRegionId and committedOrgName when context values change */
+  it('updates committed region and organization when context values change', () => {
+    mockSelectedRegionId = 'region-1';
+    mockSelectedOrgName = 'Org A';
+
+    const { rerender } = render(<FilterDrawerToggle />);
+
+    expect(screen.getByText('Region:')).toBeInTheDocument();
+    expect(screen.getByText('region-1')).toBeInTheDocument();
+    expect(screen.getByText('Organization:')).toBeInTheDocument();
+    expect(screen.getByText('Org A')).toBeInTheDocument();
+
+    mockSelectedRegionId = 'region-2';
+    mockSelectedOrgName = 'Org B';
+
+    rerender(<FilterDrawerToggle />);
+
+    expect(screen.getByText('region-2')).toBeInTheDocument();
+    expect(screen.getByText('Org B')).toBeInTheDocument();
   });
 });
