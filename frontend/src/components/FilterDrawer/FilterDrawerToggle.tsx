@@ -24,10 +24,13 @@ const FilterDrawerToggle: React.FC = () => {
   const [committedOrgName, setCommittedOrgName] = React.useState<string | null>(
     null
   );
+  const prevOrgNameRef = React.useRef<string | null>(null);
+
   React.useEffect(() => {
-    if (selectedOrgName) {
+    if (selectedOrgName && selectedOrgName !== prevOrgNameRef.current) {
       setCommittedOrgName(selectedOrgName);
       setCommittedRegionId(selectedRegionId);
+      prevOrgNameRef.current = selectedOrgName;
     }
   }, [selectedOrgName, selectedRegionId]);
 
