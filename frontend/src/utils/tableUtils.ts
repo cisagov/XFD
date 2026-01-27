@@ -203,25 +203,32 @@ export const cleanFilterModelItems = (
   newModel: GridFilterModel,
   previousModel: GridFilterModel
 ): GridFilterModel => {
-  const cleanedItems = newModel.items.map((item, index) => {
-    const prevItem = previousModel.items[index];
+  const cleanedItems = newModel.items
+    .map((item, index) => {
+      const prevItem = previousModel.items[index];
 
-    // Clear value when field changes (prevents value carryover)
-    if (prevItem && prevItem.field !== item.field && prevItem.id === item.id) {
-      return { ...item, value: undefined };
-    }
+      // Clear value when field changes (prevents value carryover)
+      if (
+        prevItem &&
+        prevItem.field !== item.field &&
+        prevItem.id === item.id
+      ) {
+        return { ...item, value: undefined };
+      }
 
-    // Normalize empty/null/whitespace values to undefined
-    if (
-      item.value === '' ||
-      item.value === null ||
-      (typeof item.value === 'string' && item.value.trim() === '')
-    ) {
-      return { ...item, value: undefined };
-    }
+      // Normalize empty/null/whitespace values to undefined
+      if (
+        item.value === '' ||
+        item.value === null ||
+        (typeof item.value === 'string' && item.value.trim() === '')
+      ) {
+        return { ...item, value: undefined };
+      }
 
-    return item;
-  });
+      return item;
+    })
+
+    .filter((item) => item.value !== undefined);
 
   return { ...newModel, items: cleanedItems };
 };

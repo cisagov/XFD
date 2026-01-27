@@ -63,8 +63,7 @@ export const Organizations: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
-  // const [debouncedFilterModel, setDebouncedFilterModel] =
-  //   useState<GridFilterModel>(filterModel);
+
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const reqIdRef = useRef(0);
 
@@ -83,18 +82,13 @@ export const Organizations: React.FC = () => {
     };
   }, []);
 
-  // useEffect(() => {
-  //   const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
-  //   return () => clearTimeout(h);
-  // }, [filterModel]);
-
   const buildFilters = useCallback((model: GridFilterModel) => {
     const filters: Record<string, any> = {};
     model.items.forEach((i) => {
       if (!i.value) return;
       if (i.field === 'name') {
         const v = String(i.value).trim();
-        if (v.length >= 2) filters.name = v; // gate short inputs
+        if (v.length >= 1) filters.name = v; // gate short inputs
       }
       if (i.field === 'state') filters.state = String(i.value).trim();
       if (i.field === 'region_id') filters.region_id = String(i.value).trim();
@@ -110,7 +104,6 @@ export const Organizations: React.FC = () => {
       pageSize: paginationModel.pageSize,
       sort: firstSort?.field || undefined,
       order: firstSort?.sort || undefined,
-      // filters: buildFilters(debouncedFilterModel)
       filters: buildFilters(filters)
     };
   }, [paginationModel, filters, sortModel, buildFilters]);
@@ -220,7 +213,6 @@ export const Organizations: React.FC = () => {
               onClose: () => {
                 // Clear any incomplete filters when the panel closes and fetch unfiltered data.
                 // Prevents mismatch between filter model and applied filters.
-
                 const hasIncompleteFilters = filterModel.items.some(
                   (item) => item.value === undefined
                 );
@@ -252,22 +244,16 @@ export const Organizations: React.FC = () => {
           onPaginationModelChange={setPaginationModel}
           filterMode="server"
           filterModel={filterModel}
-          // onFilterModelChange={(m) => {
-          //   setFilterModel(m);
-          //   setPaginationModel((prev) => ({ ...prev, page: 0 }));
-          // }}
           onFilterModelChange={(model) => {
             const cleanedModel = cleanFilterModelItems(model, filterModel);
             setFilterModel(cleanedModel);
-            // console.log('CLEANED MODEL:', cleanedModel);
 
             const shouldUpdate = shouldTriggerFilterUpdate(
               cleanedModel.items,
               filterModel.items
             );
 
-            // console.log('SHOULD UPDATE FILTERS?', shouldUpdate);
-
+            setHasActiveFilters(cleanedModel.items.length !== 0);
             if (!shouldUpdate) {
               return;
             }
@@ -280,7 +266,7 @@ export const Organizations: React.FC = () => {
               setIsLoading(true);
 
               setFilters({ items: cleanedModel.items });
-              setHasActiveFilters(cleanedModel.items.length > 0);
+
               setPaginationModel((prev) => ({ ...prev, page: 0 }));
               filterTimerRef.current = null;
             }, 1000);
