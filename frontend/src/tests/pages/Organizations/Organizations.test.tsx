@@ -14,9 +14,9 @@ const mockApiPost = vi.fn();
 const mockSetFeedbackMessage = vi.fn();
 
 vi.mock('context', async () => {
-  const actual = await vi.importActual<Record<string, unknown>>('context');
+  const actual = await vi.importActual('context');
   return {
-    ...actual,
+    ...(actual as Record<string, unknown>),
     useAuthContext: () => ({
       apiPost: mockApiPost,
       setFeedbackMessage: mockSetFeedbackMessage
@@ -99,7 +99,9 @@ vi.mock('@/pages/Organizations/OrganizationForm', () => ({
   }
 }));
 
-vi.mock('@mui/x-data-grid', () => {
+vi.mock('@mui/x-data-grid', async (importOriginal) => {
+  const actual = (await importOriginal()) as any;
+
   const DataGrid = (props: any) => {
     const ToolbarComponent = props?.slots?.toolbar;
 
@@ -194,8 +196,8 @@ vi.mock('@mui/x-data-grid', () => {
       </div>
     );
   };
-
   return {
+    ...actual,
     DataGrid
   };
 });

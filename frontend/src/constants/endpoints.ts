@@ -2,6 +2,7 @@ export const ENDPOINTS = {
   DOMAIN: '/domain/{domain_id}',
   DOMAIN_EXPORT: '/domain/export',
   DOMAIN_SEARCH: '/domain/search',
+  DOMAIN_IP_SEARCH_ES: '/search/domains',
   GET_OAUTH_METADATA: '/auth/get-oauth-meta',
   LOGS_FILTERED_SEARCH: '/logs/filtered-search',
   LOGS_SEARCH: '/logs/search',

@@ -1,3 +1,4 @@
+// React & Libraries
 import React, {
   useEffect,
   useCallback,
@@ -39,6 +40,7 @@ import InfoLabel from 'components/Dashboard/InfoLabel';
 
 // Utils
 import { formatDisplayValue } from 'utils/stringUtils';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -182,6 +184,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Scan Name',
         minWidth: 140,
         flex: 1.6,
+        filterOperators: textFilterOperators,
         renderCell: (params: GridRenderCellParams<SummaryRow>) => (
           <Box component="span" aria-label={'Scan name ' + params.row.name}>
             {params.row.name}
@@ -193,6 +196,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Total Orgs',
         minWidth: 110,
         flex: 0.7,
+        filterOperators: textFilterOperators,
         align: 'center',
         headerAlign: 'center',
         renderCell: (params: GridRenderCellParams<SummaryRow>) => (
@@ -216,6 +220,7 @@ const ScansWidget: React.FC = () => {
       headerName: String(code),
       minWidth: 80,
       flex: 0.6,
+      filterOperators: textFilterOperators,
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams<SummaryRow>) => (
@@ -283,6 +288,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Status Code',
         minWidth: 120,
         flex: 0.6,
+        filterOperators: textFilterOperators,
         renderCell: (params: GridRenderCellParams<DetailRow>) => (
           <Box
             component="span"
@@ -333,6 +339,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Total',
         minWidth: 100,
         flex: 0.5,
+        filterOperators: textFilterOperators,
         align: 'right',
         headerAlign: 'right',
         renderCell: (params: GridRenderCellParams<DetailRow>) => (
