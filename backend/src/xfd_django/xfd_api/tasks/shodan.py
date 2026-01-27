@@ -15,6 +15,11 @@ import shodan
 from xfd_api.tasks.helpers.get_ips import get_ips_by_cidr
 from xfd_mini_dl.models import DataSource, Ip, Organization, ShodanAssets, ShodanVulns
 
+
+class FatalScanError(Exception):
+    """Non-recoverable scan error (e.g. invalid API key)."""
+
+
 SHODAN_IP_CHUNK_SIZE = int(
     os.getenv("SHODAN_IP_CHUNK_SIZE", "50")
 )  # TODO validate this number used to be set to 10 but the comment said it was doing 100
@@ -67,14 +72,8 @@ def handler(command_options):
     # Get initialized API object
     api_key = command_options.get("SHODAN_API_KEY")
     LOGGER.debug("Running on api key: %s", api_key)
-    api = shodan_api_init(api_key)
 
-    if not api:
-        LOGGER.debug("Not a valid API key: %s.", api_key)
-        return {
-            "status_code": 500,
-            "body": "No Ips for {}".format(org_name),
-        }
+    api = shodan.Shodan(api_key)
 
     # Otherwise run shodan search on the IPs
     failed = search_shodan(ips, api, start, end, organization, failed)
@@ -87,19 +86,6 @@ def handler(command_options):
         }
 
     return {"status_code": 200, "body": "Success running Shodan."}
-
-
-def shodan_api_init(api_key):
-    """Connect to Shodan API."""
-    try:
-        api = shodan.Shodan(api_key)
-        # Test api key
-        api.info()
-    except Exception:
-        LOGGER.error("Invalid Shodan API key:")
-        LOGGER.debug("%s", api_key)
-        return None
-    return api
 
 
 def search_shodan(
@@ -301,37 +287,50 @@ def search_shodan(
                 time.sleep(1)
                 break
             except shodan.APIError as e:
-                if try_count == 5:
-                    LOGGER.error(
-                        "Failed 5 times. Continuing to next chunk - %s",
-                        organization.name,
+                msg = str(e).lower()
+
+                # FATAL: invalid / revoked key → STOP CONTAINER
+                if any(
+                    s in msg
+                    for s in ("invalid api key", "unauthorized", "access denied")
+                ):
+                    LOGGER.critical(
+                        "Invalid Shodan API key detected. Stopping worker. Error: %s",
+                        e,
                     )
-                    failed.append(
-                        "{} chunk {} failed 5 times and skipped".format(
-                            organization.name, count
-                        )
+                    raise FatalScanError("Invalid Shodan API key")
+
+                # RATE LIMIT → RETRY WITH BACKOFF
+                if "rate limit" in msg:
+                    sleep = min(60, try_count * 10)
+                    LOGGER.warning(
+                        "Rate limited by Shodan (try %s). Sleeping %ss",
+                        try_count,
+                        sleep,
                     )
-                    break
-                LOGGER.error("%s - %s", e, organization.name)
-                LOGGER.error(
-                    "Try #%s failed. Calling the API again. - %s - %s",
+                    time.sleep(sleep)
+                    try_count += 1
+                    continue
+
+                # OTHER TRANSIENT ERRORS → RETRY
+                LOGGER.warning(
+                    "Transient Shodan API error (try %s/%s): %s",
                     try_count,
-                    organization.name,
+                    5,
                     e,
                 )
+
+                if try_count >= 5:
+                    LOGGER.error(
+                        "Transient Shodan failure after %s retries. Skipping chunk %s for %s.",
+                        try_count,
+                        count,
+                        organization.name,
+                    )
+                    break  # skip THIS chunk only
+
                 try_count += 1
-                # Most likely too many API calls per second so sleep
                 time.sleep(5)
-            except Exception as e:
-                LOGGER.error("%s - %s", e, organization.name)
-                LOGGER.error(
-                    "Not a shodan API error. Continuing to next chunk - %s",
-                    organization.name,
-                )
-                failed.append(
-                    "{} chunk {} failed and skipped".format(organization.name, count)
-                )
-                break
 
         LOGGER.info("chunk %s/%s complete - %s", count, tot, organization.name)
 
