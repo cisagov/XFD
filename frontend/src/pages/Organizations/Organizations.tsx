@@ -35,7 +35,8 @@ import { useOrgsColumns } from './useOrgsColumns';
 import { logger } from '@/utils/logger';
 import {
   cleanFilterModelItems,
-  shouldTriggerFilterUpdate
+  shouldTriggerFilterUpdate,
+  buildOrgFilters
 } from '@/utils/tableUtils';
 
 // Constants
@@ -82,21 +83,6 @@ export const Organizations: React.FC = () => {
     };
   }, []);
 
-  const buildFilters = useCallback((model: GridFilterModel) => {
-    const filters: Record<string, any> = {};
-    model.items.forEach((i) => {
-      if (!i.value) return;
-      if (i.field === 'name') {
-        const v = String(i.value).trim();
-        if (v.length >= 1) filters.name = v; // gate short inputs
-      }
-      if (i.field === 'state') filters.state = String(i.value).trim();
-      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
-      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
-    });
-    return filters;
-  }, []);
-
   const requestBody = useMemo(() => {
     const firstSort = sortModel[0];
     return {
@@ -104,9 +90,9 @@ export const Organizations: React.FC = () => {
       pageSize: paginationModel.pageSize,
       sort: firstSort?.field || undefined,
       order: firstSort?.sort || undefined,
-      filters: buildFilters(filters)
+      filters: buildOrgFilters(filters)
     };
-  }, [paginationModel, filters, sortModel, buildFilters]);
+  }, [paginationModel, filters, sortModel]);
 
   const fetchOrganizations = useCallback(async () => {
     const myId = ++reqIdRef.current;

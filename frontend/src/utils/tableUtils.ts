@@ -232,3 +232,18 @@ export const cleanFilterModelItems = (
 
   return { ...newModel, items: cleanedItems };
 };
+
+export const buildOrgFilters = (model: GridFilterModel) => {
+  const filters: Record<string, any> = {};
+  model.items.forEach((i) => {
+    if (!i.value) return;
+    if (i.field === 'name') {
+      const v = String(i.value).trim();
+      if (v.length >= 1) filters.name = v; // gate short inputs
+    }
+    if (i.field === 'state') filters.state = String(i.value).trim();
+    if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+    if (i.field === 'acronym') filters.acronym = String(i.value).trim();
+  });
+  return filters;
+};
