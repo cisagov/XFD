@@ -32,12 +32,9 @@ from .auth import (  # csrf_protect,
     validate_json_serialization,
 )
 
-# from xfd_api.views import api_router as router
-
 LOGGER = logging.getLogger(__name__)
 
 router = APIRouter()
-# router = APIRouter(dependencies=[Depends(csrf_protect)])
 
 
 # =============================================================================
@@ -328,30 +325,6 @@ def _redirect_with_cookies(
     target = f"{FRONTEND_DOMAIN.rstrip('/')}{relay_path}"
     resp = RedirectResponse(target, status_code=303)
 
-    # is_https = BACKEND_DOMAIN.startswith("https://")
-    # TODO: CRASM-3443 Refactor token usage globally to reduce security risks for XSS.
-    # Avoid tokens in localStorage and set cookie flags appropriately for security.
-    # Determine need for "token" and "crossfeed-token" and adjust accordingly.
-
-    # Set auth cookies to match current design expectations.
-    # resp.set_cookie(
-    #     "token",
-    #     token,
-    #     secure=is_https,
-    #     # httponly=True,
-    #     samesite="None" if not IS_LOCAL else "Lax",
-    #     path="/",
-    #     domain=COOKIE_DOMAIN,
-    # )
-    # resp.set_cookie(
-    #     "crossfeed-token",
-    #     token,
-    #     secure=is_https,
-    #     # httponly=True,
-    #     samesite="None" if not IS_LOCAL else "Lax",
-    #     path="/",
-    #     domain=COOKIE_DOMAIN,
-    # )
     set_auth_and_csrf_cookies(resp, token, request)
 
     return resp
@@ -416,12 +389,6 @@ async def saml_acs(request: Request):
 @router.get("/saml/logout")
 def saml_logout(request: Request, next: str = "/"):
     """Log the user out of the app and clear auth cookies."""
-    # next_path = _path_only(request.query_params.get("next"))
-    # target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
-    # resp = RedirectResponse(target, status_code=303)
-    # resp.delete_cookie("token", path="/")
-    # resp.delete_cookie("crossfeed-token", path="/")
-    # return resp
     next_path = _path_only(request.query_params.get("next"))
     target = f"{FRONTEND_DOMAIN.rstrip('/')}{next_path}"
     resp = RedirectResponse(target, status_code=303)

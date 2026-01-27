@@ -1,16 +1,22 @@
-"""Tests for the /dmz_sync/was_findings endpoint."""
+"""Tests for the /dmz_sync/was_findings endpoint (cookie auth + CSRF)."""
+
 # Standard Python Libraries
 from datetime import date, datetime, timezone
+from http.cookies import SimpleCookie
 import uuid
 
 # Third-Party Libraries
 from fastapi.testclient import TestClient
 import pytest
-from xfd_api.auth import create_jwt_token
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response as StarletteResponse
+from xfd_api.auth import create_jwt_token, set_auth_and_csrf_cookies
 from xfd_django.asgi import app
 from xfd_mini_dl.models import User, WasFindings
 
 client = TestClient(app)
+
+CSRF_HEADER_NAME = "X-CSRF-Token"
 
 
 def is_hex_sha256(candidate: str) -> bool:
@@ -23,6 +29,75 @@ def is_hex_sha256(candidate: str) -> bool:
     return True
 
 
+# =============================================================================
+# Cookie auth + CSRF helpers (same pattern as your passing api_key tests)
+# =============================================================================
+def _apply_set_cookie_headers_to_client(resp: StarletteResponse) -> None:
+    set_cookie_headers = resp.headers.getlist("set-cookie")
+    if not set_cookie_headers:
+        raise AssertionError(
+            "No Set-Cookie headers were set by set_auth_and_csrf_cookies()"
+        )
+
+    for set_cookie in set_cookie_headers:
+        c: SimpleCookie = SimpleCookie()
+        c.load(set_cookie)
+        for name, morsel in c.items():
+            client.cookies.set(name, morsel.value)
+
+
+def _prime_client_auth_and_csrf(user: User) -> None:
+    token = create_jwt_token(user)
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [
+            (b"host", b"testserver"),
+            (b"x-forwarded-proto", b"http"),
+        ],
+        "query_string": b"",
+        "server": ("testserver", 80),
+        "scheme": "http",
+    }
+    req = StarletteRequest(scope)
+    resp = StarletteResponse()
+
+    set_auth_and_csrf_cookies(resp, token, req)
+    _apply_set_cookie_headers_to_client(resp)
+
+
+def _csrf_headers() -> dict:
+    csrf_cookie_name = None
+    for k in client.cookies.keys():
+        lk = k.lower()
+        if "csrf" in lk or "xsrf" in lk:
+            csrf_cookie_name = k
+            break
+
+    if not csrf_cookie_name:
+        raise AssertionError(
+            f"No CSRF cookie found. Cookies present: {list(client.cookies.keys())}"
+        )
+
+    csrf_val = client.cookies.get(csrf_cookie_name)
+    if not csrf_val:
+        raise AssertionError(f"CSRF cookie '{csrf_cookie_name}' had no value")
+
+    return {CSRF_HEADER_NAME: csrf_val}
+
+
+def _auth_post(user: User, url: str, params: dict):
+    """POST with cookie auth + CSRF."""
+    client.cookies.clear()
+    _prime_client_auth_and_csrf(user)
+    return client.post(url, headers=_csrf_headers(), params=params)
+
+
+# =============================================================================
+# Tests
+# =============================================================================
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_call_all_was_findings_empty_db():
     """Endpoint should return ok, empty payload, and checksum when DB has no findings."""
@@ -36,9 +111,9 @@ def test_get_call_all_was_findings_empty_db():
         updated_at=now,
     )
 
-    response = client.post(
+    response = _auth_post(
+        admin_user,
         "/dmz_sync/was_findings",
-        headers={"Authorization": f"Bearer {create_jwt_token(admin_user)}"},
         params={"page": 1, "per_page": 100},
     )
 
@@ -73,11 +148,12 @@ def test_get_call_all_was_findings_with_data():
         updated_at=now,
     )
 
-    response = client.post(
+    response = _auth_post(
+        admin_user,
         "/dmz_sync/was_findings",
-        headers={"Authorization": f"Bearer {create_jwt_token(admin_user)}"},
         params={"page": 1, "per_page": 100},
     )
+
     assert response.status_code == 201
     body = response.json()
     assert body["status"] == "ok"
@@ -100,11 +176,13 @@ def test_get_call_all_was_findings_forbidden_non_admin():
         created_at=now,
         updated_at=now,
     )
-    response = client.post(
+
+    response = _auth_post(
+        non_admin,
         "/dmz_sync/was_findings",
-        headers={"Authorization": f"Bearer {create_jwt_token(non_admin)}"},
         params={"page": 1, "per_page": 100},
     )
+
     assert response.status_code == 403
 
 
@@ -117,17 +195,18 @@ def test_get_call_all_was_findings_forbidden_no_user_type():
         last_name="User",
         email=f"{uuid.uuid4()}@example.com",
         user_type="",  # explicitly no role
-        invite_pending=False,  # <-- ensure user is active so auth passes
+        invite_pending=False,  # ensure user is active so auth passes
         created_at=now,
         updated_at=now,
     )
-    response = client.post(
+
+    response = _auth_post(
+        no_type_user,
         "/dmz_sync/was_findings",
-        headers={"Authorization": f"Bearer {create_jwt_token(no_type_user)}"},
         params={"page": 1, "per_page": 100},
     )
+
     assert response.status_code == 403
-    # Optional: confirm it's the role gate, not auth
     body = response.json()
     assert body.get("detail") in {
         "Unauthorized access.",

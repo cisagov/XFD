@@ -43,25 +43,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   } | null>(null);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Single cookies instance for the lifetime of the provider
-  // const cookies = useMemo(() => new Cookies(), []);
-
-  // Compute cookie options that work both locally and in prod
-  // const cookieOpts = useMemo(() => {
-  //   const isLocalhost =
-  //     window.location.hostname === 'localhost' ||
-  //     window.location.hostname === '127.0.0.1';
-  //   const domainEnv = import.meta.env.VITE_OKTA_COOKIE_DOMAIN as
-  //     | string
-  //     | undefined;
-  //   return {
-  //     path: '/',
-  //     // Only set a domain attribute if NOT on localhost (cookie APIs treat localhost specially)
-  //     domain: !isLocalhost && domainEnv ? domainEnv : undefined,
-  //     secure: window.location.protocol === 'https:'
-  //   } as const;
-  // }, []);
-
   const login = useCallback((nextPath?: string) => {
     const next = encodeURIComponent(
       nextPath ?? window.location.pathname ?? '/'
@@ -69,32 +50,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
   }, []);
 
-  // const logout = useCallback(async () => {
-  //   setIsLoggingOut(true);
-
-  //   // If the user has a token, reload at the end to reset app state
-  //   const shouldReload = !!token;
-
-  //   try {
-  //     // Clear local storage and Amplify session (if any)
-  //     localStorage.clear();
-
-  //     // Remove both cookies the backend may have set
-  //     cookies.remove('token', cookieOpts);
-  //     cookies.remove('crossfeed-token', cookieOpts);
-
-  //     // Clear in-memory state
-  //     setAuthUser(null);
-  //     setToken(null);
-  //   } catch (error) {
-  //     logger.error(error);
-  //   } finally {
-  //     setIsLoggingOut(false);
-  //     if (shouldReload) {
-  //       window.location.reload();
-  //     }
-  //   }
-  // }, [cookies, cookieOpts, setToken, token]);
   const logout = useCallback(async () => {
     setIsLoggingOut(true);
 
