@@ -30,7 +30,14 @@ export const FilterDrawerContextProvider: React.FC<
       selectedOrgName,
       setSelectedOrgName
     }),
-    [isFilterDrawerOpen, selectedRegionId, selectedOrgName]
+    [
+      isFilterDrawerOpen,
+      setIsFilterDrawerOpen,
+      selectedRegionId,
+      setSelectedRegionId,
+      selectedOrgName,
+      setSelectedOrgName
+    ]
   );
 
   return (
