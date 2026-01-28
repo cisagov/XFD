@@ -122,20 +122,10 @@ def _get_auth_cookie(request: Request) -> str | None:
     return None
 
 
-def _get_csrf_cookie(request: Request) -> str | None:
-    """Get CSRF cookie value from request, if present."""
-    # If you have a single known cookie name, just use it directly.
-    for k, v in request.cookies.items():
-        lk = k.lower()
-        if any(tok in lk for tok in CSRF_COOKIE_CANDIDATES):
-            return v
-    return None
-
-
 async def csrf_protect(request: Request) -> None:
-    """Double-submit CSRF protection."""
+    """Double-submit CSRF protection (cookie value must match X-CSRF-Token header)."""
     # Allow safe methods / preflight
-    if request.method in ("GET", "HEAD", "OPTIONS"):
+    if request.method.upper() in ("GET", "HEAD", "OPTIONS", "TRACE"):
         return
 
     # Allow auth/bootstrap endpoints to set cookies without CSRF
@@ -144,7 +134,7 @@ async def csrf_protect(request: Request) -> None:
         return
 
     # If the request is using header-based auth, CSRF is not relevant.
-    # This prevents "sticky cookie" failures in tests and avoids forcing CSRF on API clients.
+    # Avoid forcing CSRF on API clients and avoids "sticky cookie" failures in tests.
     if _has_auth_header(request):
         return
 
@@ -153,7 +143,8 @@ async def csrf_protect(request: Request) -> None:
     if not _get_auth_cookie(request):
         return
 
-    csrf_cookie = _get_csrf_cookie(request)
+    # Deterministic CSRF cookie lookup: only the cookie name we set.
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
     csrf_header = request.headers.get(CSRF_HEADER_NAME)
 
     if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
