@@ -22,10 +22,10 @@ class FatalScanError(Exception):
 
 SHODAN_IP_CHUNK_SIZE = int(
     os.getenv("SHODAN_IP_CHUNK_SIZE", "50")
-)  # TODO validate this number used to be set to 10 but the comment said it was doing 100
+)  # TODO: CRASM-3708 Validate this number used to be set to 10 but the comment said it was doing 100
 SHODAN_QUERY_DAYS_BACK = int(
     os.getenv("SHODAN_QUERY_DAYS_BACK", "15")
-)  # TODO tune based on pull cadence
+)  # TODO: CRASM-3708 tune based on pull cadence
 # Constants controlling pagination and rate limiting
 LOGGER = logging.getLogger(__name__)
 
