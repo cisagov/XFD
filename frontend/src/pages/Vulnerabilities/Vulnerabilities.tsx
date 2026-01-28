@@ -61,10 +61,10 @@ import { truncateString } from 'utils/stringUtils';
 import {
   cleanFilterModelItems,
   formatSeverity,
-  normalizeFilters,
+  normalizeVulnFilters,
   extractInitialFilters,
   shouldTriggerFilterUpdate
-} from 'utils/vulnerabilitiesTableUtils';
+} from '@/utils/tableUtils';
 
 // Constants
 import { ROUTES } from '@/constants/routes';
@@ -139,7 +139,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
       showAll = false
     }: SearchParams): Promise<ApiResponse | undefined> => {
       try {
-        const tableFilters = normalizeFilters(
+        const tableFilters = normalizeVulnFilters(
           filters,
           currentOrganization
             ? ({

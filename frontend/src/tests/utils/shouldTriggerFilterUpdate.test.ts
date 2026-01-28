@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { shouldTriggerFilterUpdate } from '@/utils/vulnerabilitiesTableUtils';
+import { shouldTriggerFilterUpdate } from '@/utils/tableUtils';
 
 describe('shouldTriggerFilterUpdate', () => {
   it('returns true when previous and current filter models are different', () => {

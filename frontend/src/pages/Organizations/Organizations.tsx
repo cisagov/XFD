@@ -33,6 +33,11 @@ import { useOrgsColumns } from './useOrgsColumns';
 
 // Utils
 import { logger } from '@/utils/logger';
+import {
+  cleanFilterModelItems,
+  shouldTriggerFilterUpdate,
+  buildOrgFilters
+} from '@/utils/tableUtils';
 
 // Constants
 import { ENDPOINTS } from '@/constants/endpoints';
@@ -59,29 +64,23 @@ export const Organizations: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
-  const [debouncedFilterModel, setDebouncedFilterModel] =
-    useState<GridFilterModel>(filterModel);
+
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const reqIdRef = useRef(0);
 
-  useEffect(() => {
-    const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
-    return () => clearTimeout(h);
-  }, [filterModel]);
+  const filterTimerRef = useRef<number | null>(null);
 
-  const buildFilters = useCallback((model: GridFilterModel) => {
-    const filters: Record<string, any> = {};
-    model.items.forEach((i) => {
-      if (!i.value) return;
-      if (i.field === 'name') {
-        const v = String(i.value).trim();
-        if (v.length >= 2) filters.name = v; // gate short inputs
+  const [filters, setFilters] = useState<GridFilterModel>({ items: [] });
+
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
       }
-      if (i.field === 'state') filters.state = String(i.value).trim();
-      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
-      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
-    });
-    return filters;
+    };
   }, []);
 
   const requestBody = useMemo(() => {
@@ -91,9 +90,9 @@ export const Organizations: React.FC = () => {
       pageSize: paginationModel.pageSize,
       sort: firstSort?.field || undefined,
       order: firstSort?.sort || undefined,
-      filters: buildFilters(debouncedFilterModel)
+      filters: buildOrgFilters(filters)
     };
-  }, [paginationModel, debouncedFilterModel, sortModel, buildFilters]);
+  }, [paginationModel, filters, sortModel]);
 
   const fetchOrganizations = useCallback(async () => {
     const myId = ++reqIdRef.current;
@@ -192,7 +191,26 @@ export const Organizations: React.FC = () => {
           slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
-            toolbar: { disableExport: true } as any,
+            toolbar: {
+              disableExport: true,
+              hasActiveFilters: hasActiveFilters
+            } as any,
+            panel: {
+              onClose: () => {
+                // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                // Prevents mismatch between filter model and applied filters.
+                const hasIncompleteFilters = filterModel.items.some(
+                  (item) => item.value === undefined
+                );
+
+                if (hasIncompleteFilters) {
+                  setFilterModel({ items: [] });
+                  setFilters({ items: [] });
+                  setHasActiveFilters(false);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                }
+              }
+            },
             columnsManagement: {
               disableResetButton: true,
               getTogglableColumns: (columns) => {
@@ -212,9 +230,32 @@ export const Organizations: React.FC = () => {
           onPaginationModelChange={setPaginationModel}
           filterMode="server"
           filterModel={filterModel}
-          onFilterModelChange={(m) => {
-            setFilterModel(m);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+
+            const shouldUpdate = shouldTriggerFilterUpdate(
+              cleanedModel.items,
+              filterModel.items
+            );
+
+            setHasActiveFilters(cleanedModel.items.length !== 0);
+            if (!shouldUpdate) {
+              return;
+            }
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setIsLoading(true);
+
+              setFilters({ items: cleanedModel.items });
+
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              filterTimerRef.current = null;
+            }, 1000);
           }}
           sortingMode="server"
           sortModel={sortModel}
