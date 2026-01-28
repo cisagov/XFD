@@ -59,8 +59,6 @@ interface RegionAndOrganizationFiltersProps {
   filters: any[];
   setSearchTerm: (s: string, opts?: any) => void;
   searchTerm: string;
-  autocompletedResults: any[];
-  autocompletedSuggestions: any;
   results: any[];
   initialFilters: any[];
   expanded?: string | false;

@@ -8,9 +8,6 @@ export interface ContextType {
     filterType: 'all' | 'any' | 'none'
   ): void;
   setSearchTerm(s: string, opts?: any): void;
-  autocompletedResults: any[];
-  autocompletedResultsRequestId: string;
-  autocompletedSuggestions: any;
   current: number;
   error: string;
   facets: any;
