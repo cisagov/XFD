@@ -41,7 +41,7 @@ OAUTH_META_SECRET = os.getenv("CSRF_SECRET", "super-secret")
 AUTH_COOKIE_NAME = "crossfeed-token"  # Choosing this over legacy "token"
 LEGACY_AUTH_COOKIE_NAME = "token"  # Optional: legacy support during rollout
 CSRF_COOKIE_NAME = "csrf_token"
-CSRF_HEADER_NAME = "x-csrf-token"
+CSRF_HEADER_NAME = "X-CSRF-Token"
 # Endpoints that MUST NOT require CSRF, because they establish sessions/cookies
 CSRF_EXEMPT_PATH_PREFIXES = (
     "/auth/",  # okta callback, oauth meta, etc.
@@ -99,6 +99,7 @@ CSRF_COOKIE_CANDIDATES = ("csrf", "xsrf", "csrf-token", "xsrf-token")
 
 
 def _has_auth_header(request: Request) -> bool:
+    """Determine if the request has any form of header-based authentication."""
     # Authorization: Bearer <token> OR raw token
     auth = request.headers.get("Authorization") or ""
     if auth.strip():
@@ -142,7 +143,7 @@ async def csrf_protect(request: Request) -> None:
     if any(path.startswith(pfx) for pfx in CSRF_EXEMPT_PATH_PREFIXES):
         return
 
-    # ✅ If the request is using header-based auth, CSRF is not relevant.
+    # If the request is using header-based auth, CSRF is not relevant.
     # This prevents "sticky cookie" failures in tests and avoids forcing CSRF on API clients.
     if _has_auth_header(request):
         return
@@ -160,86 +161,6 @@ async def csrf_protect(request: Request) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="CSRF validation failed",
         )
-    # """Double-submit CSRF protection."""
-    # # Allow safe methods / preflight
-    # if request.method in ("GET", "HEAD", "OPTIONS"):
-    #     return
-
-    # # Allow auth/bootstrap endpoints to set cookies without CSRF
-    # path = request.url.path or "/"
-    # if any(path.startswith(pfx) for pfx in CSRF_EXEMPT_PATH_PREFIXES):
-    #     return
-
-    # # Only enforce CSRF if the request is using cookie auth.
-    # # If there's no auth cookie, don't block here — let auth dependencies return 401 where appropriate.
-    # if not _get_auth_cookie(request):
-    #     return
-
-    # csrf_cookie = _get_csrf_cookie(request)
-    # csrf_header = request.headers.get(CSRF_HEADER_NAME)
-
-    # if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_403_FORBIDDEN,
-    #         detail="CSRF validation failed",
-    #     )
-
-
-# V2 test version of csrf_protect using async def
-# async def csrf_protect(request: Request) -> None:
-#     # Only enforce CSRF for state-changing requests
-#     if request.method in ("GET", "HEAD", "OPTIONS"):
-#         return
-
-#     # If there's no auth cookie, treat as unauthenticated (401),
-#     # not a CSRF failure (403).
-#     if not _get_auth_cookie(request):
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="No valid authentication credentials provided",
-#         )
-
-#     csrf_cookie = _get_csrf_cookie(request)
-#     csrf_header = request.headers.get(CSRF_HEADER_NAME)
-
-#     if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="CSRF validation failed",
-#         )
-
-
-# def csrf_protect(request: Request) -> None:
-#     """
-#     Double-submit CSRF protection.
-
-#     - For unsafe methods, require:
-#         cookie csrf_token == header x-csrf-token
-#     - Skip GET/HEAD/OPTIONS
-#     - Skip exempt paths (auth bootstrap)
-#     """
-#     # Always allow safe methods / preflight
-#     if request.method in ("GET", "HEAD", "OPTIONS"):
-#         return
-
-#     path = request.url.path or "/"
-#     if any(path.startswith(pfx) for pfx in CSRF_EXEMPT_PATH_PREFIXES):
-#         return
-
-#     cookie_token = request.cookies.get(CSRF_COOKIE_NAME)
-#     header_token = request.headers.get(CSRF_HEADER_NAME)
-
-#     if not cookie_token or not header_token or cookie_token != header_token:
-#         raise HTTPException(
-#             status_code=status.HTTP_403_FORBIDDEN,
-#             detail="CSRF validation failed",
-#         )
-
-
-def _cookie_domain_from_frontend(frontend_domain: str, is_local: bool) -> Optional[str]:
-    """Determine the correct cookie domain based on the frontend domain."""
-    # reuse your logic if you want; simplest safe default:
-    return None if is_local else None
 
 
 def check_is_https(request: Request) -> bool:
