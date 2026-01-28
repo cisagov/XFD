@@ -27,7 +27,8 @@ const FilterDrawerToggle: React.FC = () => {
   const prevOrgNameRef = React.useRef<string | null>(null);
 
   React.useEffect(() => {
-    if (selectedOrgName !== prevOrgNameRef.current) {
+    // Ensure org name is not null and has changed before updating committed state
+    if (selectedOrgName && selectedOrgName !== prevOrgNameRef.current) {
       setCommittedOrgName(selectedOrgName);
       setCommittedRegionId(selectedRegionId);
       prevOrgNameRef.current = selectedOrgName;
