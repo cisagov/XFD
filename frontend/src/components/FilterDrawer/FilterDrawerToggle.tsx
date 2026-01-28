@@ -1,17 +1,38 @@
 import React from 'react';
 import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
 import FilterAlt from '@mui/icons-material/FilterAlt';
 import { useFilterDrawerContext } from 'context/FilterDrawerContext';
 
 const FilterDrawerToggle: React.FC = () => {
-  const { isFilterDrawerOpen, setIsFilterDrawerOpen } =
-    useFilterDrawerContext();
+  const {
+    isFilterDrawerOpen,
+    setIsFilterDrawerOpen,
+    selectedRegionId,
+    selectedOrgName
+  } = useFilterDrawerContext();
 
   const handleToggle = () => {
     setIsFilterDrawerOpen(!isFilterDrawerOpen);
   };
+  const [committedRegionId, setCommittedRegionId] = React.useState<
+    string | null
+  >(null);
+  const [committedOrgName, setCommittedOrgName] = React.useState<string | null>(
+    null
+  );
+  const prevOrgNameRef = React.useRef<string | null>(null);
+
+  React.useEffect(() => {
+    if (selectedOrgName !== prevOrgNameRef.current) {
+      setCommittedOrgName(selectedOrgName);
+      setCommittedRegionId(selectedRegionId);
+      prevOrgNameRef.current = selectedOrgName;
+    }
+  }, [selectedOrgName, selectedRegionId]);
 
   return (
     <AppBar
@@ -45,6 +66,52 @@ const FilterDrawerToggle: React.FC = () => {
         >
           Filter
         </Button>
+        {committedRegionId && (
+          <>
+            <Typography
+              variant="filterStatCallout"
+              sx={{ color: 'primary.darker', ml: 3 }}
+            >
+              Region:
+            </Typography>
+            <Typography
+              variant="filterStatCallout"
+              sx={{ color: 'primary.dark', ml: '4px' }}
+            >
+              {committedRegionId}
+            </Typography>
+          </>
+        )}
+
+        {committedRegionId && committedOrgName && (
+          <Box
+            aria-hidden
+            sx={{
+              height: 18,
+              width: '1px',
+              backgroundColor: 'neutrals.light',
+              mx: '8px',
+              alignSelf: 'center'
+            }}
+          />
+        )}
+
+        {committedOrgName && (
+          <>
+            <Typography
+              variant="filterStatCallout"
+              sx={{ color: 'primary.darker' }}
+            >
+              Organization:
+            </Typography>
+            <Typography
+              variant="filterStatCallout"
+              sx={{ color: 'primary.dark', ml: '4px' }}
+            >
+              {committedOrgName}
+            </Typography>
+          </>
+        )}
       </Toolbar>
     </AppBar>
   );

@@ -52,6 +52,7 @@ declare module '@mui/material/styles' {
     globalNav: React.CSSProperties;
     link: React.CSSProperties;
     miniStatCallout: React.CSSProperties;
+    filterStatCallout: React.CSSProperties;
     statCallout: React.CSSProperties;
     uiElementsI: React.CSSProperties;
     uiElementsII: React.CSSProperties;
@@ -65,6 +66,7 @@ declare module '@mui/material/styles' {
     globalNav: React.CSSProperties;
     link: React.CSSProperties;
     miniStatCallout: React.CSSProperties;
+    filterStatCallout: React.CSSProperties;
     statCallout: React.CSSProperties;
     uiElementsI: React.CSSProperties;
     uiElementsII: React.CSSProperties;
@@ -104,6 +106,7 @@ declare module '@mui/material/Typography' {
     largeBody: true;
     link: true;
     miniStatCallout: true;
+    filterStatCallout: true;
     statCallout: true;
     uiElementsI: true;
     uiElementsII: true;
@@ -358,7 +361,7 @@ const theme = createTheme({
       main: '#0078AE',
       light: '#ECF7FF',
       dark: '#005288',
-      darker: '#002B45'
+      darker: '#002C45'
     },
     secondary: {
       main: '#EC7633',
@@ -459,6 +462,11 @@ const theme = createTheme({
       fontSize: '20px',
       fontWeight: 500,
       textTransform: 'uppercase'
+    },
+    filterStatCallout: {
+      fontSize: '20px',
+      fontWeight: 600,
+      textTransform: 'none'
     },
     statCallout: {
       fontSize: '36px',

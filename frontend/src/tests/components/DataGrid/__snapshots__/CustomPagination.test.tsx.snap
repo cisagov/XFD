@@ -62,7 +62,7 @@ exports[`CustomPagination Component > Component Rendering > matches snapshot wit
       >
         <button
           aria-label="Go to previous page"
-          class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-colorInherit MuiIconButton-sizeMedium css-buffoc-MuiButtonBase-root-MuiIconButton-root"
+          class="MuiButtonBase-root Mui-disabled MuiIconButton-root Mui-disabled MuiIconButton-colorInherit MuiIconButton-sizeMedium css-n2f7i0-MuiButtonBase-root-MuiIconButton-root"
           disabled=""
           tabindex="-1"
           title="Go to previous page"
@@ -82,7 +82,7 @@ exports[`CustomPagination Component > Component Rendering > matches snapshot wit
         </button>
         <button
           aria-label="Go to next page"
-          class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-sizeMedium css-buffoc-MuiButtonBase-root-MuiIconButton-root"
+          class="MuiButtonBase-root MuiIconButton-root MuiIconButton-colorInherit MuiIconButton-sizeMedium css-n2f7i0-MuiButtonBase-root-MuiIconButton-root"
           tabindex="0"
           title="Go to next page"
           type="button"
