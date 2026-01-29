@@ -99,7 +99,7 @@ exports[`Vulnerabilities component > matches snapshot after loading sample data 
       style="--Paper-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2),0px 2px 2px 0px rgba(0,0,0,0.14),0px 1px 5px 0px rgba(0,0,0,0.12);"
     >
       <div
-        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-214018530 css-1vefv4w-MuiDataGrid-root"
+        class="MuiDataGrid-root MuiDataGrid-root--densityStandard MuiDataGrid-withBorderColor MuiDataGridVariables-214018530 css-1prbk40-MuiDataGrid-root"
         style="--DataGrid-hasScrollX: 0; --DataGrid-hasScrollY: 1; --DataGrid-scrollbarSize: 0px; --DataGrid-rowWidth: 0px; --DataGrid-columnsTotalWidth: 0px; --DataGrid-leftPinnedWidth: 0px; --DataGrid-rightPinnedWidth: 0px; --DataGrid-headerHeight: 56px; --DataGrid-headersTotalHeight: 56px; --DataGrid-topContainerHeight: 56px; --DataGrid-bottomContainerHeight: 0px; --height: 52px;"
       >
         <div
