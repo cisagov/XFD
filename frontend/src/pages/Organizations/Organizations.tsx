@@ -36,7 +36,8 @@ import { logger } from '@/utils/logger';
 import {
   cleanFilterModelItems,
   shouldTriggerFilterUpdate,
-  buildOrgFilters
+  buildOrgFilters,
+  isFilterModelEmpty
 } from '@/utils/tableUtils';
 
 // Constants
@@ -233,6 +234,11 @@ export const Organizations: React.FC = () => {
           onFilterModelChange={(model) => {
             const cleanedModel = cleanFilterModelItems(model, filterModel);
             setFilterModel(cleanedModel);
+            const emptyModel = isFilterModelEmpty(cleanedModel);
+            if (emptyModel) {
+              setHasActiveFilters(false);
+              return;
+            }
 
             const shouldUpdate = shouldTriggerFilterUpdate(
               cleanedModel.items,
