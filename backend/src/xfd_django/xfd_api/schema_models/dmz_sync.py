@@ -181,7 +181,22 @@ class SyncRequest(BaseModel):
     since_date: Optional[datetime] = None
 
     class Config:
-        """Config."""
+        """SyncRequest Config."""
+
+        from_attributes = True
+
+
+class AsmSyncRequest(BaseModel):
+    """AsmSyncRequest schema."""
+
+    page_size: Optional[int] = 25
+    acronym: str
+    since_date: Optional[datetime] = None
+    cursor_ips: Optional[str] = None
+    cursor_loose_subs: Optional[str] = None
+
+    class Config:
+        """AsmSyncRequest Config."""
 
         from_attributes = True
 
@@ -309,15 +324,33 @@ class LooseSub(BaseModel):
 
 
 class AsmSyncResponse(BaseModel):
-    """Cpe schema."""
+    """AsmSyncResponse schema."""
 
-    total_pages: int
-    current_page: int
     ip_data: Optional[List[IpInsert]] = None
     loose_subs: Optional[List[LooseSub]] = None
+    next_cursor_ips: Optional[str] = None
+    next_cursor_loose_subs: Optional[str] = None
+    has_more_ips: bool = False
+    has_more_loose_subs: bool = False
 
     class Config:
         """Config."""
+
+        from_attributes = True
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
+
+class ShodanSyncRequest(BaseModel):
+    """Cursor-based Shodan sync request."""
+
+    acronym: str
+    page_size: Optional[int] = 25
+    since_date: Optional[datetime] = None
+    cursor_assets: Optional[str] = None
+    cursor_vulns: Optional[str] = None
+
+    class Config:
+        """ShodanSyncRequest Config."""
 
         from_attributes = True
 

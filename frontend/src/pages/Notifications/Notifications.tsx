@@ -1,4 +1,10 @@
+// React
 import React from 'react';
+
+// Date utilities
+import { isAfter, parseISO } from 'date-fns';
+
+// MUI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -16,19 +22,25 @@ import {
   GridColDef,
   GridRenderCellParams
 } from '@mui/x-data-grid';
-import { isAfter, parseISO } from 'date-fns';
-import { formReadableDate, humanReadableDate, toEST } from 'utils/dateUtils';
-import { useAuthContext } from 'context';
-import { initialNotificationValues, MaintenanceNotification } from 'types';
+
+// Components
 import InfoDialog from 'components/Dialog/InfoDialog';
 import ConfirmDialog from 'components/Dialog/ConfirmDialog';
 import NotificationForm from 'components/Notifications/NotificationForm';
 import NotificationTable from 'components/Notifications/NotificationTable';
+
+// Context & Hooks
+import { useAuthContext } from 'context';
 import { useSubmitForm } from '@/hooks/Notifications/useNotificationSubmit';
 import { useNotificationApiCall } from '@/hooks/Notifications/useNotificationApiCall';
 import { useNotificationAction } from '@/hooks/Notifications/useNotificationAction';
 import { useDeleteNotification } from '@/hooks/Notifications/useDeleteNotification';
 import { useFetchNotification } from '@/hooks/Notifications/useFetchNotification';
+
+// Types & Utils
+import { initialNotificationValues, MaintenanceNotification } from 'types';
+import { formReadableDate, humanReadableDate, toEST } from 'utils/dateUtils';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 const dateValidator = (
   startDateStr: string,
@@ -112,6 +124,7 @@ export const Notifications: React.FC = () => {
       field: 'maintenance_type',
       headerName: 'Type',
       flex: 0.5,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: any) => {
         return <>{cellValues.value.toUpperCase()}</>;
       }
@@ -120,6 +133,7 @@ export const Notifications: React.FC = () => {
       field: 'timeFrame',
       headerName: 'Time Frame',
       flex: 1.5,
+      filterOperators: textFilterOperators,
       minWidth: 180,
       renderCell: (cellValues: GridRenderCellParams) => {
         const start_date = humanReadableDate(cellValues.row.start_datetime);
@@ -132,13 +146,26 @@ export const Notifications: React.FC = () => {
         );
       }
     },
-    { field: 'updated_by', headerName: 'Admin Email', flex: 2 },
-    { field: 'message', headerName: 'Message', flex: 3, minWidth: 200 },
+    {
+      field: 'updated_by',
+      headerName: 'Admin Email',
+      flex: 2,
+      filterOperators: textFilterOperators
+    },
+    {
+      field: 'message',
+      headerName: 'Message',
+      flex: 3,
+      minWidth: 200,
+      filterOperators: textFilterOperators
+    },
     {
       field: 'update',
       headerName: 'Update',
       flex: 0.4,
       minWidth: 50,
+      filterable: false,
+      sortable: false,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
@@ -170,6 +197,8 @@ export const Notifications: React.FC = () => {
       headerName: 'Delete',
       flex: 0.4,
       minWidth: 50,
+      filterable: false,
+      sortable: false,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton

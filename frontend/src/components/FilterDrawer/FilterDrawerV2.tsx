@@ -39,8 +39,6 @@ export const FilterDrawer: FC<
     setSearchTerm,
     filters,
     initialFilters,
-    autocompletedResults,
-    autocompletedSuggestions,
     results,
     topOffset
   } = props;
@@ -111,8 +109,6 @@ export const FilterDrawer: FC<
             filters={filters}
             setSearchTerm={setSearchTerm}
             searchTerm={searchTerm}
-            autocompletedResults={autocompletedResults}
-            autocompletedSuggestions={autocompletedSuggestions}
             results={results}
             initialFilters={initialFilters}
             expanded={expanded}
@@ -206,8 +202,6 @@ export const FilterDrawerV2 = withSearch(
     facets,
     searchTerm,
     setSearchTerm,
-    autocompletedResults,
-    autocompletedSuggestions,
     results
   }: ContextType) => ({
     addFilter,
@@ -216,8 +210,6 @@ export const FilterDrawerV2 = withSearch(
     facets,
     searchTerm,
     setSearchTerm,
-    autocompletedResults,
-    autocompletedSuggestions,
     results
   })
 )(FilterDrawer);

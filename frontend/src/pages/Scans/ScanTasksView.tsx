@@ -1,9 +1,16 @@
+// React
 import React, { useCallback, useEffect, useState } from 'react';
+
+// Date utilities
 // @ts-ignore:next-line
 import { formatDistanceToNow, parseISO } from 'date-fns';
+
+// External libraries
 import { FaSyncAlt } from 'react-icons/fa';
 import { LazyLog } from 'react-lazylog';
 import { Button } from '@trussworks/react-uswds';
+
+// MUI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import MuiButton from '@mui/material/Button';
@@ -19,13 +26,24 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import KeyboardArrowDown from '@mui/icons-material/KeyboardArrowDown';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
-import { OrgQuery } from 'types';
-import { Scan, ScanTask } from 'types';
-import { useAuthContext } from 'context';
-import classes from './Scans.module.scss';
+
+// Components
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomPagination from 'components/DataGrid/CustomPagination';
+
+// Context & Hooks
+import { useAuthContext } from 'context';
+
+// Types
+import { OrgQuery, Scan, ScanTask } from 'types';
+
+// Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import { textFilterOperators } from '@/utils/transformTableData';
+
+// Styles
+import classes from './Scans.module.scss';
 
 interface ApiResponse {
   result: ScanTask[];
@@ -197,6 +215,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'ID',
       minWidth: 100,
       flex: 2,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -213,6 +232,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Status',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -229,6 +249,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Name',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -245,6 +266,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Created At',
       minWidth: 200,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -261,6 +283,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Finished At',
       minWidth: 200,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <Box
@@ -277,6 +300,7 @@ export const ScanTasksView: React.FC = () => {
       headerName: 'Details',
       minWidth: 100,
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => {
         return (
           <IconButton
@@ -485,7 +509,7 @@ export const ScanTasksView: React.FC = () => {
               rows={scansTasksRows}
               rowCount={totalResults}
               columns={scansTasksCols}
-              slots={{ toolbar: CustomToolbar }}
+              slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
               slotProps={{
                 toolbar: {
                   children: [scanNameDropdown, scanStatusDropdown].map(

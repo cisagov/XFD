@@ -1,3 +1,4 @@
+// React & Libraries
 import React, {
   useEffect,
   useCallback,
@@ -5,27 +6,47 @@ import React, {
   useMemo,
   useRef
 } from 'react';
+import dayjs from 'dayjs';
+
+// Material-UI Components
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
+import { visuallyHidden } from '@mui/utils';
+
+// DataGrid Components
 import {
   DataGrid,
   GridColDef,
   GridRenderCellParams,
   GridCellParams
 } from '@mui/x-data-grid';
+
+// Charts
 import { SparkLineChart } from '@mui/x-charts/SparkLineChart';
-import dayjs from 'dayjs';
-import { visuallyHidden } from '@mui/utils';
-import { useAuthContext } from 'context';
-import * as MetricsStyles from '../style';
-import InfoLabel from 'components/Dashboard/InfoLabel';
+
+// Types
 import {
   ScanDetails,
   ScanSummaries,
   OrgCountByStatus,
   ScanSummary
 } from '../../../types/metrics';
+
+// Context
+import { useAuthContext } from 'context';
+
+// Components
+import InfoLabel from 'components/Dashboard/InfoLabel';
+
+// Utils
+import { formatDisplayValue } from 'utils/stringUtils';
+import { textFilterOperators } from '@/utils/transformTableData';
+
+// Constants
 import { ENDPOINTS } from '@/constants/endpoints';
+
+// Styles
+import * as MetricsStyles from '../style';
 
 const scanMetricsTooltip = [
   {
@@ -163,6 +184,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Scan Name',
         minWidth: 140,
         flex: 1.6,
+        filterOperators: textFilterOperators,
         renderCell: (params: GridRenderCellParams<SummaryRow>) => (
           <Box component="span" aria-label={'Scan name ' + params.row.name}>
             {params.row.name}
@@ -174,6 +196,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Total Orgs',
         minWidth: 110,
         flex: 0.7,
+        filterOperators: textFilterOperators,
         align: 'center',
         headerAlign: 'center',
         renderCell: (params: GridRenderCellParams<SummaryRow>) => (
@@ -186,7 +209,7 @@ const ScansWidget: React.FC = () => {
               params.row.name
             }
           >
-            {params.row.total_orgs}
+            {formatDisplayValue(params.row.total_orgs)}
           </Box>
         )
       }
@@ -197,6 +220,7 @@ const ScansWidget: React.FC = () => {
       headerName: String(code),
       minWidth: 80,
       flex: 0.6,
+      filterOperators: textFilterOperators,
       align: 'center',
       headerAlign: 'center',
       renderCell: (params: GridRenderCellParams<SummaryRow>) => (
@@ -211,7 +235,7 @@ const ScansWidget: React.FC = () => {
             params.row.name
           }
         >
-          {params.value}
+          {formatDisplayValue(params.value || 0)}
         </Box>
       )
     }));
@@ -264,6 +288,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Status Code',
         minWidth: 120,
         flex: 0.6,
+        filterOperators: textFilterOperators,
         renderCell: (params: GridRenderCellParams<DetailRow>) => (
           <Box
             component="span"
@@ -314,6 +339,7 @@ const ScansWidget: React.FC = () => {
         headerName: 'Total',
         minWidth: 100,
         flex: 0.5,
+        filterOperators: textFilterOperators,
         align: 'right',
         headerAlign: 'right',
         renderCell: (params: GridRenderCellParams<DetailRow>) => (
@@ -331,7 +357,7 @@ const ScansWidget: React.FC = () => {
               ' days'
             }
           >
-            {params.row.total}
+            {formatDisplayValue(params.row.total)}
           </Box>
         )
       }

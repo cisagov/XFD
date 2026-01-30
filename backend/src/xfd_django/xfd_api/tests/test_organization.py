@@ -203,7 +203,9 @@ def test_create_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -295,7 +297,9 @@ def test_update_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -358,7 +362,9 @@ def test_delete_org_by_org_admin_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -390,7 +396,9 @@ def test_delete_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized access."}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 # --- Everything below: only change is that POST/DELETE now includes cookie+CSRF.
@@ -903,7 +911,10 @@ def test_upsert_organization_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access. View logs for details."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -993,7 +1004,10 @@ def test_add_user_to_org_v2_unauthorized():
     )
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 # Search endpoints are POST -> include CSRF so you don’t get blocked before auth.

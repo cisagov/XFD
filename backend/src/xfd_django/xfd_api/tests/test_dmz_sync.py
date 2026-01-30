@@ -199,7 +199,6 @@ def test_dmz_asm_sync_success(admin_user, organization):
     asm_sync_payload = {
         "acronym": "DHS",
         "page_size": 25,
-        "page": 1,
         "since_date": "2023-01-01T00:00:00",
     }
 
@@ -207,9 +206,14 @@ def test_dmz_asm_sync_success(admin_user, organization):
 
     assert response.status_code == 200
     data = response.json()
-    assert "total_pages" in data
     assert "ip_data" in data
     assert "loose_subs" in data
+
+    assert "has_more_ips" in data
+    assert "has_more_loose_subs" in data
+
+    assert "next_cursor_ips" in data
+    assert "next_cursor_loose_subs" in data
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
@@ -236,14 +240,13 @@ def test_dmz_asm_sync_no_organization(admin_user):
     asm_sync_payload = {
         "acronym": "NON_EXISTENT",
         "page_size": 25,
-        "page": 1,
         "since_date": "2023-01-01T00:00:00",
     }
 
     response = _auth_post(admin_user, "/dmz_sync/asm_sync", asm_sync_payload)
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Parent organization not found"
+    assert response.json()["detail"] == "Organization not found"
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
@@ -259,12 +262,12 @@ def test_dmz_asm_sync_invalid_date_format(admin_user):
     response = _auth_post(admin_user, "/dmz_sync/asm_sync", asm_sync_payload)
 
     assert response.status_code == 422
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
 def test_asm_sync_success(admin_user, organization, data_source):
-    """Test ASM sync returns expected IP and subdomain data."""
+    """Test successful ASM sync using cursor pagination."""
     ip1 = Ip.objects.create(
         id=str(uuid.uuid4()),
         ip="192.0.2.1",
@@ -316,7 +319,6 @@ def test_asm_sync_success(admin_user, organization, data_source):
     )
 
     asm_sync_request_payload = {
-        "page": 1,
         "page_size": 25,
         "acronym": "DHS",
         "since_date": "2023-06-01T00:00:00",
@@ -327,30 +329,34 @@ def test_asm_sync_success(admin_user, organization, data_source):
     assert response.status_code == 200
     data = response.json()
 
-    assert data["total_pages"] > 0
-    assert data["current_page"] == 1
+    # ---- Cursor-based contract ----
     assert "ip_data" in data
     assert "loose_subs" in data
+    assert "has_more_ips" in data
+    assert "has_more_loose_subs" in data
+    assert "next_cursor_ips" in data
+    assert "next_cursor_loose_subs" in data
 
+    # ---- IP validation (ascending by last_seen) ----
     ip_data = data["ip_data"]
-    assert len(ip_data) > 0
+    assert len(ip_data) == 2
 
-    # Preserve your ordering assertions if the endpoint returns sorted results.
-    assert ip_data[0]["ip"] == "10.0.0.1"
-    assert ip_data[1]["ip"] == "192.0.2.1"
+    assert ip_data[0]["ip"] == "192.0.2.1"
+    assert ip_data[1]["ip"] == "10.0.0.1"
 
-    assert ip_data[0]["ip_sub_list"][0]["sub_domain"] == "sub2.example.com"
+    assert ip_data[0]["ip_sub_list"][0]["sub_domain"] == "sub1.example.com"
+    assert ip_data[1]["ip_sub_list"][0]["sub_domain"] == "sub2.example.com"
 
+    # ---- Loose subdomains (not linked to IPs) ----
     loose_subs = data["loose_subs"]
-    assert len(loose_subs) > 0
+    assert len(loose_subs) == 1
     assert loose_subs[0]["sub_domain"] == "sub3.example.com"
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
 def test_asm_sync_no_results(admin_user, organization):
-    """Test ASM sync returns empty data when no records match since_date."""
+    """Test ASM sync when no IPs or subdomains match the since_date filter."""
     asm_sync_request_payload = {
-        "page": 1,
         "page_size": 25,
         "acronym": "DHS",
         "since_date": "2024-01-01T00:00:00",
@@ -361,9 +367,21 @@ def test_asm_sync_no_results(admin_user, organization):
     assert response.status_code == 200
     data = response.json()
 
-    assert data["total_pages"] == 1
-    assert len(data["ip_data"]) == 0
-    assert len(data["loose_subs"]) == 0
+    # ---- Cursor-based contract ----
+    assert "ip_data" in data
+    assert "loose_subs" in data
+    assert "has_more_ips" in data
+    assert "has_more_loose_subs" in data
+    assert "next_cursor_ips" in data
+    assert "next_cursor_loose_subs" in data
+
+    # ---- No results ----
+    assert data["ip_data"] == []
+    assert data["loose_subs"] == []
+    assert data["has_more_ips"] is False
+    assert data["has_more_loose_subs"] is False
+    assert data["next_cursor_ips"] is None
+    assert data["next_cursor_loose_subs"] is None
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)
@@ -387,7 +405,7 @@ def test_asm_sync_invalid_date_format(admin_user):
 # =============================================================================
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_shodan_sync_success():
-    """Test Shodan sync returns expected asset and vuln data."""
+    """Test shodan sync success with cursor-based pagination."""
     user = User.objects.create(
         first_name="Test",
         last_name="Admin",
@@ -432,7 +450,6 @@ def test_shodan_sync_success():
 
     payload = {
         "acronym": "SYNC_ORG",
-        "page": 1,
         "page_size": 10,
         "since_date": (datetime.now() - timedelta(days=1)).isoformat(),
     }
@@ -441,10 +458,28 @@ def test_shodan_sync_success():
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ok"
-    assert "shodan_assets" in body["payload"]["data"]
-    assert "shodan_vulns" in body["payload"]["data"]
-    assert "X-Salted-Checksum" in response.headers
+
+    payload = body["payload"]
+
+    assert "shodan_assets" in payload
+    assert "shodan_vulns" in payload
+    assert "next_cursor_assets" in payload
+    assert "next_cursor_vulns" in payload
+    assert "has_more_assets" in payload
+    assert "has_more_vulns" in payload
+
+    # ---- Data validation ----
+    assert len(payload["shodan_assets"]) == 1
+    assert len(payload["shodan_vulns"]) == 1
+
+    assert payload["shodan_assets"][0]["ip_string"] == "8.8.8.8"
+    assert payload["shodan_vulns"][0]["ip_string"] == "8.8.8.8"
+
+    # ---- No pagination overflow ----
+    assert payload["has_more_assets"] is False
+    assert payload["has_more_vulns"] is False
+    assert payload["next_cursor_assets"] is not None
+    assert payload["next_cursor_vulns"] is not None
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -489,12 +524,15 @@ def test_shodan_sync_unauthorized_user():
     response = _auth_post(user, "/dmz_sync/shodan_sync", payload)
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_shodan_sync_org_not_found():
-    """Test Shodan sync request with non-existent organization acronym."""
+    """Test shodan sync when organization does not exist."""
     user = User.objects.create(
         first_name="Test",
         last_name="Admin",
@@ -506,7 +544,6 @@ def test_shodan_sync_org_not_found():
 
     payload = {
         "acronym": "NON_EXISTENT_ORG",
-        "page": 1,
         "page_size": 10,
         "since_date": (datetime.now() - timedelta(days=1)).isoformat(),
     }
@@ -514,7 +551,7 @@ def test_shodan_sync_org_not_found():
     response = _auth_post(user, "/dmz_sync/shodan_sync", payload)
 
     assert response.status_code == 404
-    assert response.json()["detail"] == "Parent organization not found"
+    assert response.json()["detail"] == "Organization not found"
 
 
 # =============================================================================
@@ -613,7 +650,10 @@ def test_censys_sync_unauthorized_user():
     response = _auth_post(user, "/dmz_sync/censys_sync", payload)
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "Unauthorized access."
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -697,7 +737,7 @@ def test_cred_sync_invalid_date_format(admin_user):
     response = _auth_post(admin_user, "/dmz_sync/cred_sync", cred_sync_payload)
 
     assert response.status_code == 422
-    assert "Input should be a valid datetime" in response.json()["detail"][0]["msg"]
+    assert response.json() == {"detail": "Invalid request parameters."}
 
 
 @pytest.mark.django_db(databases=["default", "mini_data_lake"], transaction=True)

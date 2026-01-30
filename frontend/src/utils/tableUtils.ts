@@ -110,7 +110,7 @@ export const extractInitialFilters = (state: LocationState) => {
   return hiddenFilters;
 };
 
-export const normalizeFilters = (
+export const normalizeVulnFilters = (
   filters: GridFilterItem[],
   currentOrganization?: UserOrganization | null | undefined,
   userType?: string,
@@ -203,25 +203,47 @@ export const cleanFilterModelItems = (
   newModel: GridFilterModel,
   previousModel: GridFilterModel
 ): GridFilterModel => {
-  const cleanedItems = newModel.items.map((item, index) => {
-    const prevItem = previousModel.items[index];
+  const cleanedItems = newModel.items
+    .map((item, index) => {
+      const prevItem = previousModel.items[index];
 
-    // Clear value when field changes (prevents value carryover)
-    if (prevItem && prevItem.field !== item.field && prevItem.id === item.id) {
-      return { ...item, value: undefined };
-    }
+      // Clear value when field changes (prevents value carryover)
+      if (
+        prevItem &&
+        prevItem.field !== item.field &&
+        prevItem.id === item.id
+      ) {
+        return { ...item, value: undefined };
+      }
 
-    // Normalize empty/null/whitespace values to undefined
-    if (
-      item.value === '' ||
-      item.value === null ||
-      (typeof item.value === 'string' && item.value.trim() === '')
-    ) {
-      return { ...item, value: undefined };
-    }
+      // Normalize empty/null/whitespace values to undefined
+      if (
+        item.value === '' ||
+        item.value === null ||
+        (typeof item.value === 'string' && item.value.trim() === '')
+      ) {
+        return { ...item, value: undefined };
+      }
 
-    return item;
-  });
+      return item;
+    })
+
+    .filter((item) => item.value !== undefined);
 
   return { ...newModel, items: cleanedItems };
+};
+
+export const buildOrgFilters = (model: GridFilterModel) => {
+  const filters: Record<string, any> = {};
+  model.items.forEach((i) => {
+    if (!i.value) return;
+    if (i.field === 'name') {
+      const v = String(i.value).trim();
+      if (v.length >= 1) filters.name = v; // gate short inputs
+    }
+    if (i.field === 'state') filters.state = String(i.value).trim();
+    if (i.field === 'region_id') filters.region_id = String(i.value).trim();
+    if (i.field === 'acronym') filters.acronym = String(i.value).trim();
+  });
+  return filters;
 };

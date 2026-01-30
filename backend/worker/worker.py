@@ -21,6 +21,7 @@ django.setup()
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
 from xfd_api.schema_models.scan import SCAN_SCHEMA
 from xfd_api.tasks.helpers.log_scan_result import log_scan_result
+from xfd_api.tasks.shodan import FatalScanError
 
 # Setup logging
 LOGGER = logging.getLogger(__name__)
@@ -273,6 +274,13 @@ def main():
                 delete_message(full_queue_path_name, receipt_handle)
             else:
                 LOGGER.warning("No ReceiptHandle found; cannot delete message.")
+
+        except FatalScanError as e:
+            # Fatal Scan error such as invalid API key. Stop Fargate instead of continuing
+            LOGGER.critical("Fatal scan error: %s", e)
+            LOGGER.critical("Stopping worker; leaving messages in queue")
+            sys.exit(1)
+
         except Exception as e:
             LOGGER.error("Error processing %s: %s", org, e)
         time.sleep(1)

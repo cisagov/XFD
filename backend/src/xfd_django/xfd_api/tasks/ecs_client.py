@@ -100,6 +100,10 @@ class ECSClient:
                             "CENSYS_API_SECRET": os.getenv("CENSYS_API_SECRET"),
                             "WORKER_USER_AGENT": os.getenv("WORKER_USER_AGENT"),
                             "SHODAN_API_KEY": command_options["SHODAN_API_KEY"],
+                            "SHODAN_IP_CHUNK_SIZE": os.getenv("SHODAN_IP_CHUNK_SIZE"),
+                            "SHODAN_QUERY_DAYS_BACK": os.getenv(
+                                "SHODAN_QUERY_DAYS_BACK"
+                            ),
                             "PE_SHODAN_API_KEYS": os.getenv("PE_SHODAN_API_KEYS"),
                             "QUALYS_USERNAME": os.getenv("QUALYS_USERNAME"),
                             "QUALYS_PASSWORD": os.getenv("QUALYS_PASSWORD"),
@@ -130,7 +134,7 @@ class ECSClient:
                             "XPANSE_API_KEY": os.getenv("XPANSE_API_KEY"),
                             "XPANSE_AUTH_ID": os.getenv("XPANSE_AUTH_ID"),
                             "VS_PULL_DATE_RANGE": os.getenv("VS_PULL_DATE_RANGE", "90"),
-                            "LATEST_PORT_SCAN_CUTOFF": os.get(
+                            "LATEST_PORT_SCAN_CUTOFF": os.getenv(
                                 "LATEST_PORT_SCAN_CUTOFF", "14"
                             ),
                         },

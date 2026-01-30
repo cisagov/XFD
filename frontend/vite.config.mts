@@ -1,5 +1,5 @@
 // frontend/vite.config.mts
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { visualizer } from 'rollup-plugin-visualizer';
@@ -8,6 +8,8 @@ import { inspectorServer } from '@react-dev-inspector/vite-plugin';
 
 const enableInspector = process.env.ENABLE_INSPECTOR === 'true';
 const mode = process.env.MODE || 'development';
+const isCI = process.env.CI === 'true';
+
 const plugins: PluginOption[] = [
   react(),
   tsconfigPaths(),
@@ -33,7 +35,6 @@ export default defineConfig({
     host: '0.0.0.0',
     strictPort: true,
     watch: { usePolling: true, interval: 1000 },
-    hmr: { host: 'localhost', clientPort: 3000 },
     proxy: {
       '/matomo/matomo.php': {
         target: 'http://backend:3000',
@@ -78,11 +79,11 @@ export default defineConfig({
         'src/components/Metrics/*'
       ],
       thresholds: {
-        statements: 38.97,
-        branches: 27.75,
-        functions: 33.79,
-        lines: 39.39,
-        autoUpdate: true
+        statements: 45.98,
+        branches: 34.61,
+        functions: 41.54,
+        lines: 46.5,
+        autoUpdate: isCI
       }
     }
   }

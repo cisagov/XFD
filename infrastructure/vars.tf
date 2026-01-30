@@ -322,6 +322,18 @@ variable "ssm_shodan_api_key" {
   default     = "/crossfeed/staging/SHODAN_API_KEY"
 }
 
+variable "ssm_shodan_ip_chunk_size" {
+  description = "ssm_shodan_ip_chunk_size"
+  type        = string
+  default     = "/crossfeed/staging/SHODAN_IP_CHUNK_SIZE"
+}
+
+variable "ssm_shodan_query_days_back" {
+  description = "ssm_shodan_query_days_back"
+  type        = string
+  default     = "/crossfeed/staging/SHODAN_QUERY_DAYS_BACK"
+}
+
 variable "ssm_pe_shodan_api_keys" {
   description = "ssm_pe_shodan_api_keys"
   type        = string

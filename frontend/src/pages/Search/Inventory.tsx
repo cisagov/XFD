@@ -23,6 +23,10 @@ import { useUserTypeFilters } from 'hooks/useUserTypeFilters';
 import { FindingsHeader } from 'components/FindingsLibrary/FindingsHeader';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
+import CustomAlert from '@/components/Dashboard/CustomAlert';
+import { formatDisplayValue } from '@/utils/stringUtils';
+
+const TOTAL_RESULTS_LIMIT = 10000;
 
 export const DashboardUI: React.FC<ContextType & { location: any }> = (
   props
@@ -157,6 +161,11 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
     }
   });
 
+  const maxResultsMsg =
+    userLevel > 1
+      ? 'Refine your filters to narrow your results.'
+      : 'Refine your filters, such as severity, to narrow our results.';
+
   return (
     <Box
       display="flex"
@@ -167,11 +176,22 @@ export const DashboardUI: React.FC<ContextType & { location: any }> = (
       margin="auto"
     >
       <FindingsHeader />
+      {totalResults >= TOTAL_RESULTS_LIMIT && (
+        <CustomAlert
+          headerMsg="Maximum Results Displayed"
+          bodyMsg={
+            `Your search results returned more than ${formatDisplayValue(TOTAL_RESULTS_LIMIT)} results. Only the first ${formatDisplayValue(TOTAL_RESULTS_LIMIT)} are shown. ` +
+            maxResultsMsg
+          }
+          hasOnClose={true}
+        />
+      )}
       <Stack
         direction="row"
         alignItems="center"
         justifyContent="space-between"
         pb={2}
+        mt={totalResults >= TOTAL_RESULTS_LIMIT ? 1 : 0}
       >
         {nonInitialFilters.length > 0 && <FiltersApplied />}
         {/* Keeps SortBar fixed to the right side of the screen */}
@@ -304,7 +324,6 @@ export const Dashboard = withSearch(
     facets,
     searchTerm,
     setSearchTerm,
-    autocompletedResults,
     saveSearch,
     sortDirection,
     sortField,
@@ -324,7 +343,6 @@ export const Dashboard = withSearch(
     facets,
     searchTerm,
     setSearchTerm,
-    autocompletedResults,
     saveSearch,
     sortDirection,
     sortField,

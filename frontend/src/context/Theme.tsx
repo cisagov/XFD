@@ -23,11 +23,13 @@ declare module '@mui/material/styles' {
   interface Palette {
     disabled: Palette['primary'];
     neutrals: Palette['primary'];
+    focus: Palette['primary'];
   }
 
   interface PaletteOptions {
     disabled?: PaletteOptions['primary'];
     neutrals?: PaletteOptions['primary'];
+    focus?: PaletteOptions['primary'];
   }
 
   interface PaletteColor {
@@ -50,6 +52,7 @@ declare module '@mui/material/styles' {
     globalNav: React.CSSProperties;
     link: React.CSSProperties;
     miniStatCallout: React.CSSProperties;
+    filterStatCallout: React.CSSProperties;
     statCallout: React.CSSProperties;
     uiElementsI: React.CSSProperties;
     uiElementsII: React.CSSProperties;
@@ -63,6 +66,7 @@ declare module '@mui/material/styles' {
     globalNav: React.CSSProperties;
     link: React.CSSProperties;
     miniStatCallout: React.CSSProperties;
+    filterStatCallout: React.CSSProperties;
     statCallout: React.CSSProperties;
     uiElementsI: React.CSSProperties;
     uiElementsII: React.CSSProperties;
@@ -102,6 +106,7 @@ declare module '@mui/material/Typography' {
     largeBody: true;
     link: true;
     miniStatCallout: true;
+    filterStatCallout: true;
     statCallout: true;
     uiElementsI: true;
     uiElementsII: true;
@@ -356,7 +361,7 @@ const theme = createTheme({
       main: '#0078AE',
       light: '#ECF7FF',
       dark: '#005288',
-      darker: '#002B45'
+      darker: '#002C45'
     },
     secondary: {
       main: '#EC7633',
@@ -384,6 +389,12 @@ const theme = createTheme({
       dark: '#2F2F30',
       white: '#FFFFFF',
       black: '#000000'
+    },
+    focus: {
+      main: '#1976d2', // MUI primary blue for focus states (matches DataGrid)
+      light: '#e3f2fd', // Light blue background for focus states
+      dark: '#1565c0', // Darker variant if needed
+      contrastText: '#ffffff'
     }
   },
   typography: {
@@ -451,6 +462,11 @@ const theme = createTheme({
       fontSize: '20px',
       fontWeight: 500,
       textTransform: 'uppercase'
+    },
+    filterStatCallout: {
+      fontSize: '20px',
+      fontWeight: 600,
+      textTransform: 'none'
     },
     statCallout: {
       fontSize: '36px',

@@ -187,21 +187,23 @@ def query_cidrs_by_org(org_id):
 
 def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
     """Save an IP and associated Subdomains."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+
     LOGGER.info("linking %s to %s", domains, ip)
     ip_object = create_or_update_ip(
         {
             "ip": ip,
             "organization": org,
             "origin_cidr": cidr,
-            "last_seen_timestamp": datetime.datetime.now(datetime.timezone.utc),
-            "last_reverse_lookup": datetime.datetime.now(datetime.timezone.utc),
+            "last_seen_timestamp": now,
+            "last_reverse_lookup": now,
             "current": True,
             "from_cidr": True,
         },
         {
             "origin_cidr": cidr,
-            "last_seen_timestamp": datetime.datetime.now(datetime.timezone.utc),
-            "last_reverse_lookup": datetime.datetime.now(datetime.timezone.utc),
+            "last_seen_timestamp": now,
+            "last_reverse_lookup": now,
             "current": True,
             "from_cidr": True,
         },
@@ -209,8 +211,10 @@ def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
 
     for domain in domains:
         try:
-            root_domain, created = SubDomains.objects.get_or_create(
-                sub_domain=".".join(domain.rsplit(".")[-2:]),
+            root_name = ".".join(domain.rsplit(".")[-2:])
+
+            root_domain, root_created = SubDomains.objects.get_or_create(
+                sub_domain=root_name,
                 organization=org,
                 defaults={
                     "data_source": whois_datasource,
@@ -219,17 +223,21 @@ def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
                     "current": True,
                     "identified": True,
                     "subdomain_source": "WhoisXML",
-                    "first_seen": datetime.datetime.now(datetime.timezone.utc),
-                    "last_seen": datetime.datetime.now(datetime.timezone.utc),
+                    "first_seen": now,
+                    "last_seen": now,
                 },
             )
-            if not created:
-                root_domain.last_seen = datetime.datetime.now(datetime.timezone.utc)
+
+            if not root_created:
+                root_domain.last_seen = now
                 root_domain.current = True
                 root_domain.save()
 
-            if domain != root_domain.sub_domain:
-                sub_domain, created = SubDomains.objects.get_or_create(
+            # Ensure sub_domain is ALWAYS set
+            if domain == root_domain.sub_domain:
+                sub_domain = root_domain
+            else:
+                sub_domain, sub_created = SubDomains.objects.get_or_create(
                     sub_domain=domain,
                     organization=org,
                     defaults={
@@ -237,8 +245,8 @@ def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
                         "current": True,
                         "identified": True,
                         "subdomain_source": "WhoisXML",
-                        "first_seen": datetime.datetime.now(datetime.timezone.utc),
-                        "last_seen": datetime.datetime.now(datetime.timezone.utc),
+                        "first_seen": now,
+                        "last_seen": now,
                         "root_domain": root_domain,
                         "from_root_domain": root_domain.sub_domain,
                         "ip_address": ip,
@@ -246,17 +254,17 @@ def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
                     },
                 )
 
-            if not created:
-                sub_domain.last_seen = datetime.datetime.now(datetime.timezone.utc)
-                sub_domain.ip_address = ip
-                sub_domain.current = True
-                sub_domain.save()
+                if not sub_created:
+                    sub_domain.last_seen = now
+                    sub_domain.ip_address = ip
+                    sub_domain.current = True
+                    sub_domain.save()
 
             IpsSubs.objects.update_or_create(
                 ip=ip_object,
                 sub_domain=sub_domain,
                 defaults={
-                    "last_seen": datetime.datetime.now(datetime.timezone.utc),
+                    "last_seen": now,
                     "current": True,
                 },
             )
@@ -264,6 +272,8 @@ def save_and_link_ip_and_subdomain(ip, cidr, org, domains):
         except KeyError as ke:
             LOGGER.error("Key error: %s", ke)
             continue
-        except Exception as e:
-            LOGGER.error("Unknown error: %s", error=e)
+        except Exception:
+            LOGGER.exception(
+                "Unknown error while linking IP %s to domain %s", ip, domain
+            )
             continue

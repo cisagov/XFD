@@ -159,7 +159,9 @@ def test_create_notification_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -326,7 +328,9 @@ def test_get_notification_by_id_as_regular_user_fails():
     response = client.get(f"/notifications/{notification.id}")
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -416,7 +420,9 @@ def test_update_notification_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     notification.refresh_from_db()
     assert notification.message == "Initial message"

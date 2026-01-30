@@ -5,31 +5,42 @@ import React, {
   useRef,
   useState
 } from 'react';
-import { useHistory } from 'react-router-dom';
+
+// Material-UI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
-import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import CheckCircleOutline from '@mui/icons-material/CheckCircleOutline';
-import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
-import {
-  DataGrid,
-  GridColDef,
-  GridRenderCellParams,
-  GridFilterModel,
-  GridSortModel
-} from '@mui/x-data-grid';
+
+// DataGrid Components
+import { DataGrid, GridFilterModel, GridSortModel } from '@mui/x-data-grid';
+
+// Types
 import { Organization } from 'types';
+
+// Context
 import { useAuthContext } from 'context';
+
+// Components
 import { OrganizationForm } from './OrganizationForm';
 import CustomToolbar from 'components/DataGrid/CustomToolbar';
+import CustomPagination from 'components/DataGrid/CustomPagination';
 import InfoDialog from 'components/Dialog/InfoDialog';
-import { ROUTES } from '@/constants/routes';
-import { ENDPOINTS } from '@/constants/endpoints';
+import { useOrgsColumns } from './useOrgsColumns';
+
+// Utils
 import { logger } from '@/utils/logger';
+import {
+  cleanFilterModelItems,
+  shouldTriggerFilterUpdate,
+  buildOrgFilters
+} from '@/utils/tableUtils';
+
+// Constants
+import { ENDPOINTS } from '@/constants/endpoints';
 
 type OrgsApiResponse = {
   result: Organization[];
@@ -53,30 +64,23 @@ export const Organizations: React.FC = () => {
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: []
   });
-  const [debouncedFilterModel, setDebouncedFilterModel] =
-    useState<GridFilterModel>(filterModel);
+
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
-  const history = useHistory();
   const reqIdRef = useRef(0);
 
-  useEffect(() => {
-    const h = setTimeout(() => setDebouncedFilterModel(filterModel), 300);
-    return () => clearTimeout(h);
-  }, [filterModel]);
+  const filterTimerRef = useRef<number | null>(null);
 
-  const buildFilters = useCallback((model: GridFilterModel) => {
-    const filters: Record<string, any> = {};
-    model.items.forEach((i) => {
-      if (!i.value) return;
-      if (i.field === 'name') {
-        const v = String(i.value).trim();
-        if (v.length >= 2) filters.name = v; // gate short inputs
+  const [filters, setFilters] = useState<GridFilterModel>({ items: [] });
+
+  const [hasActiveFilters, setHasActiveFilters] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (filterTimerRef.current) {
+        clearTimeout(filterTimerRef.current);
+        filterTimerRef.current = null;
       }
-      if (i.field === 'state') filters.state = String(i.value).trim();
-      if (i.field === 'region_id') filters.region_id = String(i.value).trim();
-      if (i.field === 'acronym') filters.acronym = String(i.value).trim();
-    });
-    return filters;
+    };
   }, []);
 
   const requestBody = useMemo(() => {
@@ -86,9 +90,9 @@ export const Organizations: React.FC = () => {
       pageSize: paginationModel.pageSize,
       sort: firstSort?.field || undefined,
       order: firstSort?.sort || undefined,
-      filters: buildFilters(debouncedFilterModel)
+      filters: buildOrgFilters(filters)
     };
-  }, [paginationModel, debouncedFilterModel, sortModel, buildFilters]);
+  }, [paginationModel, filters, sortModel]);
 
   const fetchOrganizations = useCallback(async () => {
     const myId = ++reqIdRef.current;
@@ -118,108 +122,7 @@ export const Organizations: React.FC = () => {
     fetchOrganizations();
   }, [fetchOrganizations]);
 
-  const orgCols: GridColDef[] = [
-    {
-      field: 'name',
-      headerName: 'Organization',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Organization Name: ${cellValues.row.name}`}
-          >
-            {cellValues.row.name}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'acronym',
-      headerName: 'Acronym',
-      minWidth: 100,
-      flex: 2,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Acronym Name: ${cellValues.row.acronym}`}
-          >
-            {cellValues.row.acronym}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'state',
-      headerName: 'State',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`State for Organization ${cellValues.row.name}: ${cellValues.row.state}`}
-          >
-            {cellValues.row.state}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'region_id',
-      headerName: 'Region',
-      minWidth: 100,
-      flex: 1,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        return (
-          <Box
-            component="span"
-            aria-label={`Region for Organization ${cellValues.row.name}: ${cellValues.row.region_id}`}
-          >
-            {cellValues.row.region_id}
-          </Box>
-        );
-      }
-    },
-    {
-      field: 'view',
-      headerName: 'View/Edit',
-      minWidth: 100,
-      flex: 1,
-      disableExport: true,
-      sortable: false,
-      filterable: false,
-      disableColumnMenu: true,
-      renderCell: (cellValues: GridRenderCellParams) => {
-        const ariaLabel = `View or Edit Organization ${cellValues.row.name}`;
-        const descriptionId = `description-${cellValues.row.id}`;
-        return (
-          <>
-            <span id={descriptionId} style={{ display: 'none' }}>
-              {`Edit details for organization ${cellValues.row.name}`}
-            </span>
-            <IconButton
-              color="primary"
-              aria-label={ariaLabel}
-              aria-describedby={descriptionId}
-              onClick={() =>
-                history.push(
-                  ROUTES.ORGANIZATION.replace(
-                    ':organizationId',
-                    cellValues.row.id
-                  )
-                )
-              }
-            >
-              <EditNoteOutlinedIcon />
-            </IconButton>
-          </>
-        );
-      }
-    }
-  ];
+  const orgCols = useOrgsColumns();
 
   const onSubmit = async (body: Object) => {
     try {
@@ -245,8 +148,9 @@ export const Organizations: React.FC = () => {
     <Box
       sx={{
         maxWidth: '1152px',
+        width: '100%',
         margin: 'auto',
-        px: { xs: 0, sm: 0.5, md: 1, lg: 1, xl: 0 },
+        px: { xs: 0, sm: 0.5, md: 1, lg: 1, xl: 1 },
         pb: 3,
         minHeight: '100vh'
       }}
@@ -281,12 +185,43 @@ export const Organizations: React.FC = () => {
 
       <Paper elevation={2} sx={{ width: '100%', minHeight: '200px' }}>
         <DataGrid
+          rowHeight={52}
           rows={organizations}
           columns={orgCols}
-          slots={{ toolbar: CustomToolbar }}
+          slots={{ toolbar: CustomToolbar, pagination: CustomPagination }}
           slotProps={{
             basePopper: { placement: 'bottom-start' },
-            toolbar: { disableExport: true } as any
+            toolbar: {
+              disableExport: true,
+              hasActiveFilters: hasActiveFilters
+            } as any,
+            panel: {
+              onClose: () => {
+                // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                // Prevents mismatch between filter model and applied filters.
+                const hasIncompleteFilters = filterModel.items.some(
+                  (item) => item.value === undefined
+                );
+
+                if (hasIncompleteFilters) {
+                  setFilterModel({ items: [] });
+                  setFilters({ items: [] });
+                  setHasActiveFilters(false);
+                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                }
+              }
+            },
+            columnsManagement: {
+              disableResetButton: true,
+              getTogglableColumns: (columns) => {
+                const alwaysVisible = ['name'];
+                return columns
+                  .filter(
+                    (col) => col.field && !alwaysVisible.includes(col.field)
+                  )
+                  .map((col) => col.field as string);
+              }
+            }
           }}
           loading={isLoading}
           paginationMode="server"
@@ -295,9 +230,32 @@ export const Organizations: React.FC = () => {
           onPaginationModelChange={setPaginationModel}
           filterMode="server"
           filterModel={filterModel}
-          onFilterModelChange={(m) => {
-            setFilterModel(m);
-            setPaginationModel((prev) => ({ ...prev, page: 0 }));
+          onFilterModelChange={(model) => {
+            const cleanedModel = cleanFilterModelItems(model, filterModel);
+            setFilterModel(cleanedModel);
+
+            const shouldUpdate = shouldTriggerFilterUpdate(
+              cleanedModel.items,
+              filterModel.items
+            );
+
+            setHasActiveFilters(cleanedModel.items.length !== 0);
+            if (!shouldUpdate) {
+              return;
+            }
+
+            if (filterTimerRef.current) {
+              clearTimeout(filterTimerRef.current);
+            }
+
+            filterTimerRef.current = window.setTimeout(() => {
+              setIsLoading(true);
+
+              setFilters({ items: cleanedModel.items });
+
+              setPaginationModel((prev) => ({ ...prev, page: 0 }));
+              filterTimerRef.current = null;
+            }, 1000);
           }}
           sortingMode="server"
           sortModel={sortModel}

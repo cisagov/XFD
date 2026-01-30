@@ -1,13 +1,22 @@
+// React
 import React, { useCallback, useEffect, useState } from 'react';
-import { logger } from '@/utils/logger';
-import { useAuthContext } from 'context';
+
+// MUI Components
 import Alert from '@mui/material/Alert';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+
+// Context & Hooks
+import { useAuthContext } from 'context';
+
+// Constants & Utils
 import { ENDPOINTS } from '@/constants/endpoints';
+import { logger } from '@/utils/logger';
+import { formatDisplayValue } from 'utils/stringUtils';
+import { textFilterOperators } from '@/utils/transformTableData';
 
 interface Queue {
   name: string;
@@ -47,6 +56,7 @@ const QueueMonitorView: React.FC = () => {
       field: 'name',
       headerName: 'Queue Name',
       flex: 2,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
@@ -60,12 +70,13 @@ const QueueMonitorView: React.FC = () => {
       field: 'messages_available',
       headerName: 'Available',
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
           aria-label={`Messages Available for ${cellValues.row.id}: ${cellValues.row.messages_available}`}
         >
-          {cellValues.row.messages_available}
+          {formatDisplayValue(cellValues.row.messages_available)}
         </Box>
       )
     },
@@ -73,12 +84,13 @@ const QueueMonitorView: React.FC = () => {
       field: 'messages_in_flight',
       headerName: 'In-Flight',
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
           aria-label={`Messages In-Flight for ${cellValues.row.id}: ${cellValues.row.messages_in_flight}`}
         >
-          {cellValues.row.messages_in_flight}
+          {formatDisplayValue(cellValues.row.messages_in_flight)}
         </Box>
       )
     },
@@ -86,12 +98,13 @@ const QueueMonitorView: React.FC = () => {
       field: 'messages_delayed',
       headerName: 'Delayed',
       flex: 1,
+      filterOperators: textFilterOperators,
       renderCell: (cellValues: GridRenderCellParams) => (
         <Box
           component={'span'}
           aria-label={`Messages Delayed for ${cellValues.row.id}: ${cellValues.row.messages_delayed}`}
         >
-          {cellValues.row.messages_delayed}
+          {formatDisplayValue(cellValues.row.messages_delayed)}
         </Box>
       )
     }
