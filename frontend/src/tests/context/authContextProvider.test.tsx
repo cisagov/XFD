@@ -1,10 +1,29 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { testUser, testOrganization, waitFor, fireEvent } from 'test-utils';
-import { vi, it, expect, afterEach } from 'vitest';
+import { vi, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
 import { useAuthContext } from '../../context/AuthContext';
 import { AuthContextProvider } from 'context/AuthContextProvider';
 
+const originalLocation = window.location;
+
+beforeAll(() => {
+  // @ts-ignore
+  delete window.location;
+
+  (window as any).location = {
+    ...originalLocation,
+    href: '',
+    pathname: '/',
+    assign: vi.fn(),
+    replace: vi.fn(),
+    reload: vi.fn()
+  };
+});
+
+afterAll(() => {
+  (window as any).location = originalLocation;
+});
 const mockedApi = {
   apiGet: vi.fn()
 };
@@ -75,9 +94,12 @@ const renderLoggedIn = async (user?: any, args?: Omit<Props, 'onLogin'>) => {
   return { getByTestId, ...rest };
 };
 
-it('user is null by default', () => {
+it('user is null by default', async () => {
   const { getByTestId } = render(<TestComp />);
-  expect(getByTestId('user')).toHaveTextContent(JSON.stringify(null));
+
+  await waitFor(() => {
+    expect(getByTestId('user')).toHaveTextContent(JSON.stringify(null));
+  });
 });
 
 it('fetches user profile when logged in', async () => {

@@ -113,7 +113,11 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     // }, [apiGet]);
     try {
       const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
-
+      if (!user) {
+        logger.warn('getProfile received empty user object');
+        setAuthUser(null);
+        return;
+      }
       setAuthUser({
         ...user,
         isRegistered: user.first_name !== ''
@@ -125,6 +129,11 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
 
   const setProfile = useCallback(
     async (user: User) => {
+      if (!user) {
+        logger.warn('setProfile called with undefined user');
+        setAuthUser(null);
+        return;
+      }
       setAuthUser({
         ...user,
         isRegistered: user.first_name !== ''
@@ -197,9 +206,9 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   return (
     <AuthContext.Provider
       value={{
+        ...api,
         user: authUser,
-        // token,
-        loading: authLoading,
+        loading: authLoading || api.loading,
         setUser: setProfile,
         refreshUser,
         setOrganization: setOrg,
@@ -208,7 +217,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         currentOrganization: extendedOrg,
         showAllOrganizations: showAllOrganizations,
         setShowAllOrganizations: setShowAllOrganizations,
-        // login: setToken,
         login,
         logout,
         setLoading: () => {},
@@ -217,16 +225,16 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
         userMustSign,
         setFeedbackMessage,
         user_type: '',
-        isLoggingOut,
-        ...api
+        isLoggingOut
       }}
     >
-      {api.loading && (
-        <div className="cisa-crossfeed-loading">
-          <div></div>
-          <div></div>
-        </div>
-      )}
+      {api.loading ||
+        (authLoading && (
+          <div className="cisa-crossfeed-loading">
+            <div></div>
+            <div></div>
+          </div>
+        ))}
       {feedbackMessage && (
         <Snackbar
           open={!!feedbackMessage}
