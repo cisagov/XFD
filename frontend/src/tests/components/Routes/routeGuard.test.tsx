@@ -1,92 +1,163 @@
+// src/components/RouteGuards/RouteGuard.test.tsx
 import React from 'react';
-import * as router from 'react-router-dom';
-import { RouteGuard } from '../../../components/Routes/RouteGuard';
-import { render, testUser } from 'test-utils';
-import { afterAll, afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter, Route } from 'react-router-dom';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { RouteGuard } from '@/components';
+import { useAuthContext } from 'context';
+import { ROUTES } from '@/constants/routes';
 
+// Mock the dependencies
+vi.mock('context');
+vi.mock('@/utils/logger');
+
+// Mock useHistory
+const mockPush = vi.fn();
 vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual<typeof router>('react-router-dom');
+  const actual = await vi.importActual('react-router-dom');
   return {
     ...actual,
-    useHistory: vi.fn()
+    useHistory: () => ({
+      push: mockPush
+    })
   };
 });
-const routerMock = vi.mocked(router);
 
-const Protected: React.FC = () => <div>PROTECTED ROUTE</div>;
+const MockComponent = () => <div data-testid="target">TARGET_COMPONENT</div>;
+const MockUnauthComponent = () => (
+  <div data-testid="unauth">UNAUTH_COMPONENT</div>
+);
 
-const mockPush = vi.fn();
+describe('RouteGuard', () => {
+  const mockLogout = vi.fn();
 
-beforeEach(() => {
-  const mockHistory = {
-    push: mockPush
-  };
-  routerMock.useHistory.mockReturnValue(
-    mockHistory as unknown as ReturnType<typeof router.useHistory>
-  );
-});
-
-afterEach(() => {
-  mockPush.mockReset();
-});
-
-afterAll(() => {
-  vi.restoreAllMocks();
-});
-
-it('renders protected route for authenticated user', () => {
-  const { getByText } = render(<RouteGuard component={Protected} />, {
-    authContext: {
-      user: testUser,
-      token: 'some-token'
-    }
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
-  expect(getByText('PROTECTED ROUTE')).toBeInTheDocument();
-});
 
-it('returns null while loading user profile', () => {
-  const { asFragment } = render(<RouteGuard component={Protected} />, {
-    authContext: {
+  it('allows access if user is authenticated and registered', () => {
+    (useAuthContext as any).mockReturnValue({
+      user: { isRegistered: true, user_type: 'standard' },
+      logout: mockLogout
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/test']}>
+        <RouteGuard path="/test" component={MockComponent} />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('target')).toBeInTheDocument();
+  });
+
+  it('redirects to /create-account if user is not registered', () => {
+    (useAuthContext as any).mockReturnValue({
+      user: { isRegistered: false, user_type: 'standard' },
+      logout: mockLogout
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/test']}>
+        <RouteGuard path="/test" component={MockComponent} />
+      </MemoryRouter>
+    );
+
+    expect(mockPush).toHaveBeenCalledWith('/create-account');
+    expect(screen.queryByTestId('target')).not.toBeInTheDocument();
+  });
+
+  it('redirects to home if user invite is pending', () => {
+    vi.stubGlobal('location', { pathname: '/inventory' });
+
+    (useAuthContext as any).mockReturnValue({
+      user: {
+        isRegistered: true,
+        invite_pending: true,
+        user_type: 'standard'
+      },
+      logout: mockLogout
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/inventory']}>
+        <RouteGuard path="/inventory" component={MockComponent} />
+      </MemoryRouter>
+    );
+
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.HOME);
+    vi.unstubAllGlobals();
+  });
+
+  it('redirects to unauth path if user is not logged in and unauth is a string', () => {
+    (useAuthContext as any).mockReturnValue({
       user: null,
-      token: 'some-token'
-    }
-  });
-  expect(asFragment()).toMatchInlineSnapshot(`<DocumentFragment />`);
-});
+      logout: mockLogout
+    });
 
-it('redirects to /create-account if user is not fully registered', () => {
-  render(<RouteGuard component={Protected} />, {
-    authContext: {
-      user: { ...testUser, isRegistered: false },
-      token: 'some-token'
-    }
-  });
-  expect(mockPush).toHaveBeenCalled();
-  expect(mockPush.mock.calls[0][0]).toEqual('/create-account');
-});
+    render(
+      <MemoryRouter initialEntries={['/test']}>
+        <RouteGuard path="/test" unauth="/login" component={MockComponent} />
+      </MemoryRouter>
+    );
 
-it('redirects to unauth if user is not authenticated and unauth is string', () => {
-  render(<RouteGuard component={Protected} unauth="/not-auth" />, {
-    authContext: {
+    expect(mockPush).toHaveBeenCalledWith('/login');
+  });
+
+  it('renders unauth component if user is not logged in and unauth is a component', () => {
+    (useAuthContext as any).mockReturnValue({
       user: null,
-      token: null
-    }
-  });
-  expect(mockPush).toHaveBeenCalledTimes(1);
-  expect(mockPush.mock.calls[0][0]).toEqual('/not-auth');
-});
+      logout: mockLogout
+    });
 
-it('renders unauth component if user not authenticated and unauth is component', () => {
-  const UnAuth: React.FC = () => <div>UNAUTH ROUTE</div>;
-  const { getByText, queryByText } = render(
-    <RouteGuard component={Protected} unauth={UnAuth} />,
-    {
-      authContext: {
-        user: null,
-        token: null
-      }
-    }
-  );
-  expect(queryByText('PROTECTED ROUTE')).not.toBeInTheDocument();
-  expect(getByText('UNAUTH ROUTE')).toBeInTheDocument();
+    render(
+      <MemoryRouter initialEntries={['/test']}>
+        <RouteGuard
+          path="/test"
+          unauth={MockUnauthComponent}
+          component={MockComponent}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('unauth')).toBeInTheDocument();
+  });
+
+  it('logs out and redirects if user lacks correct permissions', () => {
+    (useAuthContext as any).mockReturnValue({
+      user: { isRegistered: true, user_type: 'standard' },
+      logout: mockLogout
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/admin']}>
+        <RouteGuard
+          path="/admin"
+          permissions={['globalAdmin']}
+          component={MockComponent}
+        />
+      </MemoryRouter>
+    );
+
+    expect(mockLogout).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith(ROUTES.HOME);
+  });
+
+  it('allows access even if permissions do not match if user is globalAdmin', () => {
+    (useAuthContext as any).mockReturnValue({
+      user: { isRegistered: true, user_type: 'globalAdmin' },
+      logout: mockLogout
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/any-route']}>
+        <RouteGuard
+          path="/any-route"
+          permissions={['standard']}
+          component={MockComponent}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByTestId('target')).toBeInTheDocument();
+  });
 });
