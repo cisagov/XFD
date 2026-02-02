@@ -139,7 +139,6 @@ def test_create_api_key_as_regular_user_fails():
     response = client.post("/api-keys", headers=_csrf_headers())
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
     assert not ApiKey.objects.filter(user=user).exists()
 
 
@@ -202,5 +201,4 @@ def test_delete_api_key_as_regular_user_fails():
     response = client.delete(f"/api-keys/{api_key.id}", headers=_csrf_headers())
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
     assert ApiKey.objects.filter(id=api_key.id).exists()

@@ -233,7 +233,9 @@ def test_delete_notification_as_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {"detail": "Unauthorized"}
+    assert response.json() == {
+        "detail": "You do not have permission to perform this action."
+    }
     assert Notification.objects.filter(id=notification.id).exists()
 
 

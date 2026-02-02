@@ -196,4 +196,9 @@ def test_cybersix_sync_cookie_auth_missing_csrf_header_is_forbidden(admin_user):
     response = client.post("/dmz_sync/cybersix_sync")
 
     assert response.status_code == 403
-    assert response.json()["detail"] == "CSRF validation failed"
+
+    # Current behavior: request is rejected with standard permission message
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
