@@ -81,7 +81,7 @@ exports[`Layout component > matches snapshot 1`] = `
         HEADER
       </div>
       <header
-        class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-1duqi3m-MuiPaper-root-MuiAppBar-root"
+        class="MuiPaper-root MuiPaper-elevation MuiPaper-elevation0 MuiAppBar-root MuiAppBar-colorPrimary MuiAppBar-positionSticky css-v4s29r-MuiPaper-root-MuiAppBar-root"
         style="--Paper-shadow: none;"
       >
         <div
