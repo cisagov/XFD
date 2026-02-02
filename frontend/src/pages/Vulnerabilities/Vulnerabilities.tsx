@@ -60,9 +60,10 @@ import { getSeverityColor } from 'utils/getSeverityColor';
 import { truncateString } from 'utils/stringUtils';
 import {
   cleanFilterModelItems,
-  formatSeverity,
-  normalizeVulnFilters,
   extractInitialFilters,
+  formatSeverity,
+  isFilterModelEmpty,
+  normalizeVulnFilters,
   shouldTriggerFilterUpdate
 } from '@/utils/tableUtils';
 
@@ -721,6 +722,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               filterModel={filterModel}
               onFilterModelChange={(model) => {
                 const cleanedModel = cleanFilterModelItems(model, filterModel);
+                const emptyModel = isFilterModelEmpty(cleanedModel);
+                setHasActiveFilters(!emptyModel);
                 setFilterModel(cleanedModel);
 
                 const shouldUpdate = shouldTriggerFilterUpdate(
@@ -734,12 +737,18 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
 
                 if (filterTimerRef.current) {
                   clearTimeout(filterTimerRef.current);
+                  filterTimerRef.current = null;
+                }
+
+                if (emptyModel) {
+                  setFilters([]);
+                  return;
                 }
 
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(cleanedModel.items);
-                  setHasActiveFilters(cleanedModel.items.length > 0);
+                  // setHasActiveFilters(cleanedModel.items.length > 0);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
                 }, 1000);
@@ -777,23 +786,23 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 basePopper: {
                   placement: 'bottom-start'
                 },
-                panel: {
-                  onClose: () => {
-                    // Clear any incomplete filters when the panel closes and fetch unfiltered data.
-                    // Prevents mismatch between filter model and applied filters.
+                // panel: {
+                //   onClose: () => {
+                //     // Clear any incomplete filters when the panel closes and fetch unfiltered data.
+                //     // Prevents mismatch between filter model and applied filters.
 
-                    const hasIncompleteFilters = filterModel.items.some(
-                      (item) => item.value === undefined
-                    );
+                //     const hasIncompleteFilters = filterModel.items.some(
+                //       (item) => item.value === undefined
+                //     );
 
-                    if (hasIncompleteFilters) {
-                      setFilterModel({ items: [] });
-                      setFilters([]);
-                      setHasActiveFilters(false);
-                      setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                    }
-                  }
-                },
+                //     if (hasIncompleteFilters) {
+                //       setFilterModel({ items: [] });
+                //       setFilters([]);
+                //       setHasActiveFilters(false);
+                //       setPaginationModel((prev) => ({ ...prev, page: 0 }));
+                //     }
+                //   }
+                // },
                 columnsManagement: {
                   disableResetButton: true,
                   getTogglableColumns: (columns) => {
