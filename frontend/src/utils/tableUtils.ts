@@ -161,16 +161,16 @@ export const normalizeVulnFilters = (
   return result;
 };
 
+export const getActiveItems = (items: GridFilterItem[]) =>
+  items.filter(
+    (item) =>
+      item.value !== undefined && item.value !== null && item.value !== ''
+  );
+
 export const shouldTriggerFilterUpdate = (
   newItems: GridFilterItem[],
   previousItems: GridFilterItem[]
 ): boolean => {
-  const getActiveItems = (items: GridFilterItem[]) =>
-    items.filter(
-      (item) =>
-        item.value !== undefined && item.value !== null && item.value !== ''
-    );
-
   const newActive = getActiveItems(newItems);
   const prevActive = getActiveItems(previousItems);
 

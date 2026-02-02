@@ -34,7 +34,7 @@ describe('shouldTriggerFilterUpdate', () => {
     expect(result).toBe(false);
   });
 
-  it('returns false when transitioning from filters to no filters (intermediate state)', () => {
+  it('returns true when transitioning from previous filter value to deleted value', () => {
     const prevModel = [
       {
         field: 'severity',
@@ -51,7 +51,7 @@ describe('shouldTriggerFilterUpdate', () => {
     ];
 
     const result = shouldTriggerFilterUpdate(newModel, prevModel);
-    expect(result).toBe(false);
+    expect(result).toBe(true);
   });
 
   it('returns true when transitioning from no filters to filters', () => {
