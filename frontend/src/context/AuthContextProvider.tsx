@@ -25,10 +25,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   children
 }) => {
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  // const [token, setToken] = usePersistentState<string | null>('token', null);
-
-  // const token = null; // legacy compat, but stop using it
-  // const setToken = useCallback(() => {}, []); // legacy compat, but stop using it
   const [authLoading, setAuthLoading] = useState(true);
 
   const [org, setOrg] = usePersistentState<
@@ -54,34 +50,21 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     setIsLoggingOut(true);
 
     try {
-      // remove only auth artifacts if you still had any legacy ones
-      // localStorage.removeItem('token');
-
-      // Best: call backend logout endpoint so it deletes cookies using the same domain/path attributes
-      // (if you have it accessible from SPA)
       try {
-        // window.location.href = `${import.meta.env.VITE_API_URL}/saml/logout?next=/settings`;
         window.location.href = `${import.meta.env.VITE_API_URL}/saml/logout?next=/`;
-        return; // redirecting away
+        return; // redirecting to logout
       } catch {
-        // fallback to client-side cookie removal
+        // Catch any errors from redirecting - Add logic if needed.
       }
-
       setAuthUser(null);
     } finally {
       setIsLoggingOut(false);
     }
-    // }, [cookies, cookieOpts]);
   }, []);
 
   const handleError = useCallback(async (in_error: Error) => {
     logger.error(in_error);
     if (in_error.message.includes('401')) {
-      // Have to remove because it auto logs back in on logout and creates a loop.
-      // console.log(`AuthContextProvider: 401 detected, logging out ${in_error}`);
-      // await logout();
-      // const next = encodeURIComponent(window.location.pathname || '/');
-      // window.location.href = `${import.meta.env.VITE_API_URL}/saml/login?next=${next}`;
     }
   }, []);
 
@@ -89,8 +72,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   const { apiGet } = api;
 
   const getProfile = useCallback(async () => {
-    // const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
-
     // TODO: Uncomment this if we want to fully disable logins during maintenance windows.
     // Currently commented to meet "waiting room" needs and allow login for state selection
     // and user terms acceptance for new users.
@@ -106,11 +87,6 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
     //   return;
     // }
 
-    //   setAuthUser({
-    //     ...user,
-    //     isRegistered: user.first_name !== ''
-    //   });
-    // }, [apiGet]);
     try {
       const user: User = await apiGet<User>(ENDPOINTS.USERS_ME);
       if (!user) {
@@ -143,54 +119,17 @@ export const AuthContextProvider: React.FC<AuthContextProviderProps> = ({
   );
 
   // New, SAML-only "refresh": just refetch the profile if we already have a token
-  // const refreshUser = useCallback(async () => {
-  //   if (!token) return;
-  //   await getProfile();
-  // }, [token, getProfile]);
   const refreshUser = useCallback(async () => {
     setAuthLoading(true);
     await getProfile();
   }, [getProfile]);
 
-  // SPA token update from cookies after SAML ACS redirect
-  // useEffect(() => {
-  //   if (!token) {
-  //     const cookieToken =
-  //       cookies.get('token') || cookies.get('crossfeed-token');
-  //     if (cookieToken) {
-  //       // Set token from cookie if we don't have one yet
-  //       setToken(cookieToken);
-  //     }
-  //   }
-  //   // eslint-disable-next-line react-hooks/exhaustive-deps
-  // }, [token, cookies]);
-
   // On first mount, refresh user
   useEffect(() => {
     refreshUser();
     setAuthLoading(true);
-    // getProfile().catch(() => {
-    //   // if 401, handleError will redirect; still ensure authLoading ends
-    //   setAuthLoading(false);
-    // });
     // eslint-disable-next-line
   }, []);
-
-  // When token changes, either clear user or fetch profile
-  // useEffect(() => {
-  // //   if (!token) {
-  // //     setAuthUser(null);
-  // //   } else {
-  // //     getProfile();
-  // //   }
-  // // }, [token, getProfile]);
-  //   setAuthLoading(true);
-  //   getProfile().catch(() => {
-  //     // if 401, handleError will redirect; still ensure authLoading ends
-  //     setAuthLoading(false);
-  //   });
-  //   // eslint-disable-next-line
-  // }, []);
 
   const extendedOrg = useMemo(
     () => getExtendedOrg(org, authUser),
