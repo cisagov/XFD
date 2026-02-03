@@ -313,7 +313,7 @@ CSRF_COOKIE_SECURE = not IS_LOCAL
 
 # Prevent JavaScript access to cookies to mitigate XSS attacks
 SESSION_COOKIE_HTTPONLY = True
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False
 
 # SameSite policy to prevent CSRF via cross-origin requests
 SESSION_COOKIE_SAMESITE = "Lax"
@@ -387,3 +387,4 @@ SECURE_CSP_POLICY = {
     "frame-ancestors": ["'none'"],
 }
 SECURE_ACCESS_CONTROL_ALLOW_CREDENTIALS = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

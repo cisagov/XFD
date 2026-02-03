@@ -69,6 +69,7 @@ export default defineConfig({
         'src/utils/**/*.{js,ts,jsx,tsx}'
       ],
       exclude: [
+        'src/context/*.ts',
         'src/setupTests.ts',
         'src/utils/openInVSCode.ts',
         'src/utils/devInspector.tsx',
@@ -79,10 +80,10 @@ export default defineConfig({
         'src/components/Metrics/*'
       ],
       thresholds: {
-        statements: 45.98,
-        branches: 34.61,
-        functions: 41.54,
-        lines: 46.5,
+        statements: 47.93,
+        branches: 36.57,
+        functions: 44.06,
+        lines: 48.37,
         autoUpdate: isCI
       }
     }

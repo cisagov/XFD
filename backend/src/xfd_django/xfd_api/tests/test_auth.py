@@ -1,4 +1,5 @@
 """Test auth API."""
+
 # Standard Python Libraries
 import secrets
 from unittest.mock import AsyncMock, patch
@@ -48,9 +49,14 @@ def test_okta_callback_success(mock_get_jwt_from_code):
     )
 
     assert response.status_code == 200
-    data = response.json()
-    assert "token" in data
-    assert data["data"]["user"]["email"] == email
+    body = response.json()
+
+    # NEW SHAPE: token is under body["data"]["token"]
+    assert "data" in body
+    assert "token" in body["data"]
+    assert body["data"]["token"]
+
+    assert body["data"]["user"]["email"] == email
     assert User.objects.filter(email=email).exists()
 
 
@@ -100,14 +106,12 @@ def test_okta_callback_missing_code_or_state():
     """Reject request with missing code or state."""
     signed_token = sign_oauth_data("test_state", "verifier")
 
-    # Missing 'code'
     response = client.post(
         "/auth/okta-callback", json={"state": "test-state", "signedToken": signed_token}
     )
     assert response.status_code == 400
     assert response.json()["detail"] == "Missing required OAuth parameters"
 
-    # Missing 'state'
     response = client.post(
         "/auth/okta-callback", json={"code": "auth-code", "signedToken": signed_token}
     )
@@ -118,14 +122,14 @@ def test_okta_callback_missing_code_or_state():
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 @patch("xfd_api.auth.get_jwt_from_code", new_callable=AsyncMock)
 def test_okta_callback_json_serializable(mock_get_jwt_from_code):
-    """Ensure /auth/okta-callback response is JSON serializable even with related fields."""
+    """Ensure okta-callback response is JSON serializable even with related fields."""
     approver_email = f"{secrets.token_hex(4)}@example.com"
     user_email = f"{secrets.token_hex(4)}@example.com"
 
     approver = User.objects.create(
         email=approver_email,
         okta_id="approver-xyz",
-        user_type="global_admin",
+        user_type="globalAdmin",
         invite_pending=False,
     )
 
@@ -153,8 +157,11 @@ def test_okta_callback_json_serializable(mock_get_jwt_from_code):
     )
 
     assert response.status_code == 200
-    assert "data" in response.json()
-    assert "user" in response.json()["data"]
+    body = response.json()
+    assert "data" in body
+    assert "user" in body["data"]
+    assert "token" in body["data"]
+    assert isinstance(body["data"]["token"], str)
 
 
 @patch("xfd_api.auth.get_jwt_from_code", new_callable=AsyncMock)

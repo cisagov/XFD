@@ -79,7 +79,7 @@ frontend/src/tests/
 │   └── Vulnerabilities/
 │       └── vulnerabilitiesTable.test.tsx
 ├── context/                       # Context tests
-│   └── authCtx.test.tsx
+│   └── authContextProvider.test.tsx
 ├── hooks/                         # Custom hook tests
 │   ├── usePersistentState.test.tsx
 │   ├── useUserActivityTimeout.test.ts

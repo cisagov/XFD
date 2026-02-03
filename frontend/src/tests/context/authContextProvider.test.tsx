@@ -1,10 +1,29 @@
 import React from 'react';
 import { render } from '@testing-library/react';
 import { testUser, testOrganization, waitFor, fireEvent } from 'test-utils';
-import { vi, it, expect, afterEach, afterAll } from 'vitest';
+import { vi, it, expect, afterEach, beforeAll, afterAll } from 'vitest';
 import { useAuthContext } from '../../context/AuthContext';
 import { AuthContextProvider } from 'context/AuthContextProvider';
 
+const originalLocation = window.location;
+
+beforeAll(() => {
+  // @ts-ignore
+  delete window.location;
+
+  (window as any).location = {
+    ...originalLocation,
+    href: '',
+    pathname: '/',
+    assign: vi.fn(),
+    replace: vi.fn(),
+    reload: vi.fn()
+  };
+});
+
+afterAll(() => {
+  (window as any).location = originalLocation;
+});
 const mockedApi = {
   apiGet: vi.fn()
 };
@@ -19,7 +38,6 @@ interface Props {
 
 const InnerTestComp: React.FC<Props> = ({ onLogin, onSetOrg }) => {
   const {
-    token,
     user,
     setOrganization,
     currentOrganization,
@@ -32,7 +50,6 @@ const InnerTestComp: React.FC<Props> = ({ onLogin, onSetOrg }) => {
   return (
     <div>
       <div data-testid="user">{JSON.stringify(user)}</div>
-      <div data-testid="token">{token}</div>
       <div data-testid="org">{JSON.stringify(currentOrganization)}</div>
       <div data-testid="userMustSign">{userMustSign.toString()}</div>
       <div data-testid="maxRole">{maximumRole}</div>
@@ -60,8 +77,8 @@ afterEach(() => {
   Object.values(mockedApi).forEach((fn) => fn.mockReset());
 });
 
-afterAll(() => {
-  vi.restoreAllMocks();
+afterEach(() => {
+  vi.clearAllMocks();
 });
 
 const renderLoggedIn = async (user?: any, args?: Omit<Props, 'onLogin'>) => {
@@ -77,9 +94,12 @@ const renderLoggedIn = async (user?: any, args?: Omit<Props, 'onLogin'>) => {
   return { getByTestId, ...rest };
 };
 
-it('user is null by default', () => {
+it('user is null by default', async () => {
   const { getByTestId } = render(<TestComp />);
-  expect(getByTestId('user')).toHaveTextContent(JSON.stringify(null));
+
+  await waitFor(() => {
+    expect(getByTestId('user')).toHaveTextContent(JSON.stringify(null));
+  });
 });
 
 it('fetches user profile when logged in', async () => {

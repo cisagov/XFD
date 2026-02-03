@@ -1,6 +1,8 @@
-"""Test domain API."""
+"""Test domain API (cookie auth + CSRF)."""
+
 # Standard Python Libraries
 from datetime import datetime
+from http.cookies import SimpleCookie
 import logging
 import secrets
 from unittest.mock import patch
@@ -9,7 +11,9 @@ from unittest.mock import patch
 from django.db import transaction
 from fastapi.testclient import TestClient
 import pytest
-from xfd_api.auth import create_jwt_token
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response as StarletteResponse
+from xfd_api.auth import create_jwt_token, set_auth_and_csrf_cookies
 from xfd_api.tasks.helpers.syncdb_helpers.create_db_views import (
     create_domain_materialized_view,
     create_domain_search_mat_view,
@@ -45,11 +49,77 @@ search_fields = {
     "tag": "",
 }
 
+CSRF_HEADER_NAME = "X-CSRF-Token"
 
+
+# =============================================================================
+# Cookie auth + CSRF helpers
+# =============================================================================
+def _apply_set_cookie_headers_to_client(resp: StarletteResponse) -> None:
+    """Copy Set-Cookie headers from a Starlette response into the TestClient cookie jar."""
+    set_cookie_headers = resp.headers.getlist("set-cookie")
+    if not set_cookie_headers:
+        raise AssertionError(
+            "No Set-Cookie headers were set by set_auth_and_csrf_cookies()"
+        )
+
+    for set_cookie in set_cookie_headers:
+        c: SimpleCookie = SimpleCookie()
+        c.load(set_cookie)
+        for name, morsel in c.items():
+            client.cookies.set(name, morsel.value)
+
+
+def _prime_client_auth_and_csrf(user: User) -> None:
+    """Prime TestClient with auth + csrf cookies using production helper."""
+    token = create_jwt_token(user)
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [
+            (b"host", b"testserver"),
+            (b"x-forwarded-proto", b"http"),
+        ],
+        "query_string": b"",
+        "server": ("testserver", 80),
+        "scheme": "http",
+    }
+    req = StarletteRequest(scope)
+    resp = StarletteResponse()
+
+    set_auth_and_csrf_cookies(resp, token, req)
+    _apply_set_cookie_headers_to_client(resp)
+
+
+def _csrf_headers() -> dict:
+    """Find the CSRF cookie and echo it back in the CSRF header."""
+    csrf_cookie_name = None
+    for k in client.cookies.keys():
+        lk = k.lower()
+        if "csrf" in lk or "xsrf" in lk:
+            csrf_cookie_name = k
+            break
+
+    if not csrf_cookie_name:
+        raise AssertionError(
+            f"No CSRF cookie found. Cookies present: {list(client.cookies.keys())}"
+        )
+
+    csrf_val = client.cookies.get(csrf_cookie_name)
+    if not csrf_val:
+        raise AssertionError(f"CSRF cookie '{csrf_cookie_name}' had no value")
+
+    return {CSRF_HEADER_NAME: csrf_val}
+
+
+# =============================================================================
+# Fixtures
+# =============================================================================
 @pytest.fixture
 def sample_domain_ip_vuln(organization):
     """Create subdomain, IP, and their association."""
-    # Create required DataSource
     data_source_domain = DataSource.objects.create(
         name="Test Source",
         description="Used in tests",
@@ -60,7 +130,6 @@ def sample_domain_ip_vuln(organization):
         name="shodan", description="Test shodan source", last_run=datetime.now().date()
     )
 
-    # Create the IP
     ip = Ip.objects.create(
         ip=search_fields["ip"],
         organization=organization,
@@ -68,7 +137,6 @@ def sample_domain_ip_vuln(organization):
         from_cidr=True,
     )
 
-    # Create the subdomain
     subdomain = SubDomains.objects.create(
         sub_domain="example.crossfeed.local",
         reverse_name="local.crossfeed.example",
@@ -76,10 +144,8 @@ def sample_domain_ip_vuln(organization):
         data_source=data_source_domain,
     )
 
-    # Link IP and subdomain
     IpsSubs.objects.create(ip=ip, sub_domain=subdomain, current=True)
 
-    # Create a Shodan entries
     ShodanAssets.objects.create(
         organization=organization,
         ip=ip,
@@ -122,7 +188,7 @@ def domain(sample_domain_ip_vuln, refresh_vuln_views):
 @pytest.fixture
 def user():
     """Create user fixture."""
-    user = User.objects.create(
+    u = User.objects.create(
         first_name="",
         last_name="",
         email="{}@example.com".format(secrets.token_hex(4)),
@@ -130,22 +196,31 @@ def user():
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    yield user
-    user.delete()  # Clean up after the test
+    yield u
+    u.delete()
 
 
 @pytest.fixture
 def organization():
     """Create org fixture."""
-    organization = Organization.objects.create(
+    org = Organization.objects.create(
         name=search_fields["organization_name"],
         root_domains=["crossfeed.local"],
         ip_blocks=[],
         is_passive=False,
     )
     transaction.commit()
-    assert organization.name == search_fields["organization_name"]
-    yield organization
+    assert org.name == search_fields["organization_name"]
+    yield org
+
+
+@pytest.fixture(autouse=True)
+def _auth(user):
+    """Clear TestClient cookies before and after each test."""
+    client.cookies.clear()
+    _prime_client_auth_and_csrf(user)
+    yield
+    client.cookies.clear()
 
 
 # Create the views
@@ -171,14 +246,13 @@ def refresh_vuln_views(django_db_blocker):
     return _refresh
 
 
+# =============================================================================
+# Tests
+# =============================================================================
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_domain_by_id(user, domain, refresh_vuln_views):
     """Test domain by id."""
-    # Get domain by Id.
-    response = client.get(
-        "/domain/{}".format(domain.id),
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
-    )
+    response = client.get(f"/domain/{domain.id}", headers=_csrf_headers())
 
     assert response.status_code == 200
     data = response.json()
@@ -190,23 +264,17 @@ def test_get_domain_by_id(user, domain, refresh_vuln_views):
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_get_domain_by_id_fails_404(user, domain, refresh_vuln_views):
     """Test domain by id to fail."""
-    # Get domain by Id.
-    response = client.get(
-        "/domain/{}".format(bad_id),
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
-    )
-
+    response = client.get(f"/domain/{bad_id}", headers=_csrf_headers())
     assert response.status_code == 404
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domain_by_ip(user, domain, refresh_vuln_views):
     """Test domain by ip."""
-    # Search for the domain by IP
     response = client.post(
         "/domain/search",
         json={"page": 1, "filters": {"ip": search_fields["ip"]}, "page_size": 25},
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        headers=_csrf_headers(),
     )
 
     assert response.status_code == 200
@@ -215,7 +283,6 @@ def test_search_domain_by_ip(user, domain, refresh_vuln_views):
     assert "result" in data, "Response does not contain 'result' key"
     assert len(data["result"]) > 0, "No result found for the given IP"
 
-    # Validate result contain the correct IP
     for result in data["result"]:
         assert result["ip"] == search_fields["ip"], "Expected IP {}, but got {}".format(
             search_fields["ip"], result["ip"]
@@ -225,7 +292,6 @@ def test_search_domain_by_ip(user, domain, refresh_vuln_views):
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domain_by_organization(user, domain, refresh_vuln_views):
     """Test domain by org."""
-    # Test search domains by organization
     response = client.post(
         "/domain/search",
         json={
@@ -233,7 +299,7 @@ def test_search_domain_by_organization(user, domain, refresh_vuln_views):
             "filters": {"organization": str(domain.organization.id)},
             "page_size": 25,
         },
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        headers=_csrf_headers(),
     )
     assert response.status_code == 200
     data = response.json()
@@ -251,7 +317,7 @@ def test_search_domain_by_organization_name(user, domain, refresh_vuln_views):
         "Domain in view: %s", Domain.objects.values("id", "organization_id", "name")
     )
     LOGGER.info("Org in DB: %s", Organization.objects.all().values("id", "name"))
-    # Test search domains by organization
+
     response = client.post(
         "/domain/search",
         json={
@@ -259,7 +325,7 @@ def test_search_domain_by_organization_name(user, domain, refresh_vuln_views):
             "filters": {"organization_name": search_fields["organization_name"]},
             "page_size": 25,
         },
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        headers=_csrf_headers(),
     )
     assert response.status_code == 200
     data = response.json()
@@ -281,7 +347,6 @@ def test_search_domain_by_organization_name(user, domain, refresh_vuln_views):
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domains_multiple_criteria(user, domain, refresh_vuln_views):
     """Test domain by multi-criteria."""
-    # Test search domains by multiple criteria
     response = client.post(
         "/domain/search",
         json={
@@ -292,7 +357,7 @@ def test_search_domains_multiple_criteria(user, domain, refresh_vuln_views):
             },
             "page_size": 25,
         },
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        headers=_csrf_headers(),
     )
     assert response.status_code == 200
     data = response.json()
@@ -320,11 +385,10 @@ def test_search_domains_multiple_criteria(user, domain, refresh_vuln_views):
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_search_domains_does_not_exist(user, domain, refresh_vuln_views):
     """Test domain by domain not existing."""
-    # Test search domains if record does not exist
     response = client.post(
         "/domain/search",
         json={"page": 1, "filters": {"ip": "Does not exist"}, "page_size": 25},
-        headers={"Authorization": "Bearer " + create_jwt_token(user)},
+        headers=_csrf_headers(),
     )
 
     assert response.status_code == 200

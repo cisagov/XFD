@@ -11,11 +11,11 @@ export type CurrentOrganization = Organization | OrganizationTag;
 
 export interface AuthContextType extends ReturnType<typeof useApi> {
   user_type: string;
-  login(token: string): void;
+  loading: boolean;
+  login: (nextPath?: string) => void;
   logout(): Promise<void>;
   user?: AuthUser | null;
   setUser(user: User): void;
-  token: string | null;
   currentOrganization?: CurrentOrganization | null;
   setOrganization: (organization: CurrentOrganization | null) => void;
   showMaps: boolean;
@@ -32,6 +32,7 @@ export interface AuthContextType extends ReturnType<typeof useApi> {
   touVersion: string;
   userMustSign: boolean;
   isLoggingOut: boolean | null;
+  authChecked?: boolean;
 }
 
 export const AuthContext = React.createContext<AuthContextType>(undefined!);

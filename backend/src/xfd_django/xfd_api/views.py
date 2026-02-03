@@ -105,6 +105,7 @@ from .api_methods.was_sync import (
 )
 from .api_methods.xpanse_sync import xpanse_sync_post
 from .auth import (
+    csrf_protect,
     get_current_active_user,
     get_current_active_user_unsafe,
     handle_okta_callback,
@@ -204,7 +205,8 @@ from .tools.user_logger_decorator import (
 LOGGER = logging.getLogger(__name__)
 
 # Define API router
-api_router = APIRouter()
+# api_router = APIRouter()
+api_router = APIRouter(dependencies=[Depends(csrf_protect)])
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
 

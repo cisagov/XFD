@@ -1,7 +1,9 @@
-"""Test Pshtt Sync Endpoint."""
+"""Test Pshtt Sync Endpoint (cookie auth + CSRF aware)."""
+
 # Standard Python Libraries
 from datetime import datetime
 import hashlib
+from http.cookies import SimpleCookie
 import json
 import os
 import secrets
@@ -9,11 +11,19 @@ import secrets
 # Third-Party Libraries
 from fastapi.testclient import TestClient
 import pytest
-from xfd_api.auth import create_jwt_token
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import Response as StarletteResponse
+from xfd_api.auth import create_jwt_token, set_auth_and_csrf_cookies
 from xfd_django.asgi import app
 from xfd_mini_dl.models import User, UserType
 
 SALT = os.getenv("CHECKSUM_SALT", "default_salt")
+
+client = TestClient(app)
+
+CSRF_HEADER_NAME = "X-CSRF-Token"
+CSRF_COOKIE_CANDIDATES = ("csrf", "xsrf", "csrf-token", "xsrf-token", "csrf_token")
+
 
 dummy_pshtt_data = [
     {
@@ -143,73 +153,141 @@ dummy_pshtt_data = [
 ]
 
 
-def create_checksum(data):
+def create_checksum(data: str) -> str:
     """Create a SHA-256 checksum for the given data."""
     return hashlib.sha256((SALT + data).encode()).hexdigest()
 
 
-client = TestClient(app)
+def _apply_set_cookie_headers_to_client(resp: StarletteResponse) -> None:
+    set_cookie_headers = resp.headers.getlist("set-cookie")
+    if not set_cookie_headers:
+        raise AssertionError(
+            "No Set-Cookie headers were set by set_auth_and_csrf_cookies()."
+        )
+    for set_cookie in set_cookie_headers:
+        c: SimpleCookie = SimpleCookie()
+        c.load(set_cookie)
+        for name, morsel in c.items():
+            client.cookies.set(name, morsel.value)
 
 
-# Test: post valid data with invalid checksum should return 500
+def _prime_client_auth_and_csrf(user: User) -> None:
+    token = create_jwt_token(user)
+
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": [(b"host", b"testserver"), (b"x-forwarded-proto", b"http")],
+        "query_string": b"",
+        "server": ("testserver", 80),
+        "scheme": "http",
+    }
+    req = StarletteRequest(scope)
+    resp = StarletteResponse()
+
+    set_auth_and_csrf_cookies(resp, token, req)
+    _apply_set_cookie_headers_to_client(resp)
+
+
+def _csrf_headers() -> dict:
+    csrf_cookie_name = None
+    for k in client.cookies.keys():
+        lk = k.lower()
+        if any(tok in lk for tok in CSRF_COOKIE_CANDIDATES):
+            csrf_cookie_name = k
+            break
+
+    if not csrf_cookie_name:
+        raise AssertionError(
+            f"No CSRF cookie found. Cookies present: {list(client.cookies.keys())}"
+        )
+
+    csrf_val = client.cookies.get(csrf_cookie_name)
+    if not csrf_val:
+        raise AssertionError(f"CSRF cookie '{csrf_cookie_name}' had no value")
+
+    return {CSRF_HEADER_NAME: csrf_val}
+
+
+@pytest.fixture(autouse=True)
+def _clear_client_cookies_between_tests():
+    client.cookies.clear()
+    yield
+    client.cookies.clear()
+
+
+# -----------------------------------------------------------------------------
+# Tests
+# -----------------------------------------------------------------------------
+
+
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_sync_invalid_checksum_should_return_500():
-    """Test sync with invalid checksum."""
+    """Post valid data with invalid checksum should return 500."""
     user = User.objects.create(
         first_name="first",
         last_name="last",
-        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        email=f"{secrets.token_hex(4)}@crossfeed.cisa.gov",
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
+    _prime_client_auth_and_csrf(user)
+
     invalid_checksum = create_checksum(json.dumps(dummy_pshtt_data)) + "invstr"
+
     response = client.post(
         "/pshtt_sync",
         json={"data": dummy_pshtt_data},
         headers={
+            **_csrf_headers(),
             "x-checksum": invalid_checksum,
-            "Authorization": "Bearer {}".format(create_jwt_token(user)),
         },
     )
+
     assert response.status_code == 500
 
 
-# Test: post valid data with missing checksum should return 500
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_sync_missing_checksum_should_return_500():
-    """Test sync with missing checksum."""
-    user = user = User.objects.create(
+    """Post valid data with missing checksum should return 500."""
+    user = User.objects.create(
         first_name="first",
         last_name="last",
-        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        email=f"{secrets.token_hex(4)}@crossfeed.cisa.gov",
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    headers = {"Authorization": "Bearer {}".format(create_jwt_token(user))}
+    _prime_client_auth_and_csrf(user)
+
     response = client.post(
-        "/pshtt_sync", data=json.dumps({"data": dummy_pshtt_data}), headers=headers
+        "/pshtt_sync",
+        json={"data": dummy_pshtt_data},
+        headers=_csrf_headers(),
     )
 
     assert response.status_code == 500
 
 
-# Test: post empty data should return 500
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_sync_missing_data_should_return_422():
-    """Test sync with missing data."""
-    user = user = User.objects.create(
+    """Post missing data should return 422 (validation error)."""
+    user = User.objects.create(
         first_name="first",
         last_name="last",
-        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        email=f"{secrets.token_hex(4)}@crossfeed.cisa.gov",
         user_type=UserType.STANDARD,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
+    _prime_client_auth_and_csrf(user)
+
     headers = {
-        "Authorization": "Bearer {}".format(create_jwt_token(user)),
+        **_csrf_headers(),
         "x-checksum": create_checksum(json.dumps(dummy_pshtt_data)),
     }
+
     response = client.post("/pshtt_sync", headers=headers)
     assert response.status_code == 422

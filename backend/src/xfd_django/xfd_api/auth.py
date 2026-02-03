@@ -7,7 +7,9 @@ import json
 import logging
 import os
 import re
+import secrets
 from typing import Optional
+import urllib.parse
 from urllib.parse import urlencode
 import uuid
 
@@ -15,14 +17,12 @@ import uuid
 from django.conf import settings
 from django.forms.models import model_to_dict
 from fastapi import Depends, HTTPException, Request, Security, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.security import APIKeyHeader
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 import jwt
 import requests
 from xfd_api.helpers.email import ensure_zscaler_cert_downloaded
-
-# from .helpers import user_to_dict
 from xfd_mini_dl.models import (
     ApiKey,
     Notification,
@@ -38,6 +38,16 @@ JWT_ALGORITHM = settings.JWT_ALGORITHM
 JWT_TIMEOUT_HOURS = settings.JWT_TIMEOUT_HOURS
 OAUTH_META_SECRET = os.getenv("CSRF_SECRET", "super-secret")
 
+AUTH_COOKIE_NAME = "crossfeed-token"  # Choosing this over legacy "token"
+LEGACY_AUTH_COOKIE_NAME = "token"  # Optional: legacy support during rollout
+CSRF_COOKIE_NAME = "csrf_token"
+CSRF_HEADER_NAME = "X-CSRF-Token"
+# Endpoints that MUST NOT require CSRF, because they establish sessions/cookies
+CSRF_EXEMPT_PATH_PREFIXES = (
+    "/auth/",  # okta callback, oauth meta, etc.
+    "/saml/",  # saml login/acs/logout/metadata
+    "/healthcheck",
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -47,6 +57,159 @@ LOGIN_BLOCKED_EXCLUSIONS = ["globalAdmin", "regionalAdmin"]
 api_key_header = APIKeyHeader(name="X-API-KEY", auto_error=False)
 serializer = URLSafeTimedSerializer(OAUTH_META_SECRET)
 IS_DMZ = os.getenv("IS_DMZ", "0") == "1"
+
+
+def _env_truthy(in_var: Optional[str]) -> bool:
+    """Return True if an environment variable-like string is truthy."""
+    if in_var is None:
+        return False
+    return in_var.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def determine_cookie_domain(frontend_domain: str, is_local: bool) -> Optional[str]:
+    """Determine the correct cookie domain based on the environment's frontend domain."""
+    if is_local:
+        return None
+
+    parsed = urllib.parse.urlparse(frontend_domain)
+    host = parsed.hostname or ""
+
+    # DMZ environments
+    if host.endswith("crossfeed.cyber.dhs.gov"):
+        return ".crossfeed.cyber.dhs.gov"
+    # LZ environments
+    if host.endswith("cisa.dhs.gov"):
+        return ".cisa.dhs.gov"
+
+    # Fallback — safest is None (no domain override)
+    return None
+
+
+BACKEND_DOMAIN = (
+    os.getenv("BACKEND_DOMAIN") or os.getenv("APP_BASE_URL") or ""
+).rstrip("/")
+FRONTEND_DOMAIN = (
+    os.getenv("FRONTEND_DOMAIN") or os.getenv("FRONTEND_BASE_URL") or ""
+).rstrip("/")
+IS_LOCAL = _env_truthy(os.getenv("IS_LOCAL"))
+COOKIE_DOMAIN = determine_cookie_domain(FRONTEND_DOMAIN, IS_LOCAL)
+CSRF_HEADER_NAME = "X-CSRF-Token"
+AUTH_COOKIE_NAMES = ("crossfeed-token", "token")  # confirm and cleanup later
+CSRF_COOKIE_CANDIDATES = ("csrf", "xsrf", "csrf-token", "xsrf-token")
+
+
+def _has_auth_header(request: Request) -> bool:
+    """Determine if the request has any form of header-based authentication."""
+    # Authorization: Bearer <token> OR raw token
+    auth = request.headers.get("Authorization") or ""
+    if auth.strip():
+        return True
+
+    # API key header
+    api_key = request.headers.get("X-API-KEY") or ""
+    if api_key.strip():
+        return True
+
+    return False
+
+
+def _get_auth_cookie(request: Request) -> str | None:
+    """Get auth cookie value from request, if present."""
+    for name in AUTH_COOKIE_NAMES:
+        val = request.cookies.get(name)
+        if val:
+            return val
+    return None
+
+
+async def csrf_protect(request: Request) -> None:
+    """Double-submit CSRF protection (cookie value must match X-CSRF-Token header)."""
+    # Allow safe methods / preflight
+    if request.method.upper() in ("GET", "HEAD", "OPTIONS", "TRACE"):
+        return
+
+    # Allow auth/bootstrap endpoints to set cookies without CSRF
+    path = request.url.path or "/"
+    if any(path.startswith(pfx) for pfx in CSRF_EXEMPT_PATH_PREFIXES):
+        return
+
+    # If the request is using header-based auth, CSRF is not relevant.
+    # Avoid forcing CSRF on API clients and avoids "sticky cookie" failures in tests.
+    if _has_auth_header(request):
+        return
+
+    # Only enforce CSRF if the request is using cookie auth.
+    # If there's no auth cookie, don't block here — let auth dependencies return 401 where appropriate.
+    if not _get_auth_cookie(request):
+        return
+
+    # Deterministic CSRF cookie lookup: only the cookie name we set.
+    csrf_cookie = request.cookies.get(CSRF_COOKIE_NAME)
+    csrf_header = request.headers.get(CSRF_HEADER_NAME)
+
+    if not csrf_cookie or not csrf_header or csrf_cookie != csrf_header:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSRF validation failed",
+        )
+
+
+def check_is_https(request: Request) -> bool:
+    """Determine if the current request is HTTPS."""
+    # Prefer proxy header
+    xf_proto = request.headers.get("x-forwarded-proto")
+    if xf_proto:
+        return xf_proto.lower() == "https"
+
+    # Fallback (local dev, no proxy)
+    return request.url.scheme == "https"
+
+
+def set_auth_and_csrf_cookies(
+    response,
+    token: str,
+    request: Request,
+) -> None:
+    """Set authentication and CSRF cookies in the response."""
+    secure = check_is_https(request)
+    samesite = "None" if secure and not IS_LOCAL else "Lax"
+
+    # --- auth cookie (HttpOnly) ---
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=secure,
+        samesite=samesite,
+        path="/",
+        domain=COOKIE_DOMAIN,
+    )
+
+    # --- csrf cookie (readable by JS) ---
+    csrf_token = secrets.token_urlsafe(32)
+    response.set_cookie(
+        key=CSRF_COOKIE_NAME,
+        value=csrf_token,
+        httponly=False,
+        secure=secure,
+        samesite=samesite,
+        path="/",
+        domain=COOKIE_DOMAIN,
+    )
+
+
+def clear_auth_and_csrf_cookies(resp: Response, request: Request) -> None:
+    """Clear authentication and CSRF cookies in the response."""
+    common = {
+        "path": "/",
+        "domain": COOKIE_DOMAIN,
+    }
+
+    # Auth cookies
+    resp.delete_cookie(AUTH_COOKIE_NAME, **common)
+
+    # CSRF cookies (whatever names you used)
+    resp.delete_cookie(CSRF_COOKIE_NAME, **common)
 
 
 def validate_json_serialization(user_object, label="user_object"):
@@ -337,19 +500,11 @@ async def handle_okta_callback(request):
     token = resp.get("token")
 
     # Prepare final response
-    response = JSONResponse(
-        content={"message": "User authenticated", "data": resp, "token": token}
-    )
-    response.set_cookie(key="token", value=token)
+    response = JSONResponse(content={"message": "User authenticated", "data": resp})
 
-    # Set the 'crossfeed-token' cookie
-    response.set_cookie(
-        key="crossfeed-token",
-        value=token,
-        # httponly=True,  # This makes the cookie inaccessible to JavaScript
-        # secure=True,    # Ensures the cookie is only sent over HTTPS
-        # samesite="Lax"  # Restricts when cookies are sent
-    )
+    set_auth_and_csrf_cookies(response, token, request)
+
+    # Optional: keep legacy cookie names during migration
     return response
 
 
