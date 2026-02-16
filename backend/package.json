@@ -4,7 +4,7 @@
   "devDependencies": {
     "osls": "3.61.1",
     "serverless-better-credentials": "^2.0.0",
-    "serverless-domain-manager": "^7.0",
+    "serverless-domain-manager": "^9.1",
     "serverless-dotenv-plugin": "^6.0.0",
     "serverless-iam-roles-per-function": "^3.2.0",
     "serverless-plugin-ifelse": "^1.0.7",
