@@ -1,8 +1,44 @@
-# Frontend Test Structure Documentation
+# Frontend Testing Documentation
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start for New Developers](#quick-start-for-new-developers)
+- [Design Principles](#design-principles)
+- [Testing Stack](#testing-stack)
+- [Current Test Organization](#current-test-organization)
+- [Writing Tests](#writing-tests)
+- [Running Tests](#running-tests)
+- [Testing Guidelines](#testing-guidelines)
+- [XFD-Specific Testing Considerations](#xfd-specific-testing-considerations)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
 
 ## Overview
 
-This document describes the standardized frontend test structure implemented to organize all unit tests in a centralized, maintainable way. All tests are now located in `frontend/src/tests` with a **mirrored directory structure** that exactly matches the actual component/page organization.
+This document provides comprehensive guidance for frontend testing in the XFD (CyHy Dashboard) project. It describes the standardized frontend test structure implemented to organize all unit tests in a centralized, maintainable way. All tests are located in `frontend/src/tests` with a **mirrored directory structure** that exactly matches the actual component/page organization.
+
+This documentation serves as the single source of truth for frontend testing standards, practices, and guidelines within the XFD project, ensuring consistency and quality across the development team.
+
+## Quick Start for New Developers
+
+### Prerequisites
+- Node.js >=20.19.4
+- Basic knowledge of React, TypeScript, and testing concepts
+- Familiarity with React Testing Library patterns
+
+### Getting Started
+1. **Install dependencies**: `npm install`
+2. **Run tests**: `npm test` (starts in watch mode)
+3. **Generate coverage**: `npm run test:coverage`
+4. **Read this documentation** thoroughly before writing your first test
+5. **Review existing tests** in `src/tests/` to understand project patterns
+
+### Key Concepts
+- Tests mirror the exact source code directory structure
+- Use custom `render()` function from `test-utils` for consistent setup
+- All test files use `.test.tsx` or `.test.ts` extension (never `.spec.*`)
+- Focus on testing user behavior, not implementation details
 
 ## Design Principles
 
@@ -17,7 +53,6 @@ src/hooks/             ↔ tests/hooks/
 ```
 
 ### Benefits of This Approach
-
 - **Intuitive Navigation**: Find tests by following the same path as source files
 - **Maintainable**: Simple relative import paths, easier to refactor
 - **Scalable**: No naming conflicts as the project grows
@@ -39,8 +74,34 @@ src/hooks/             ↔ tests/hooks/
 Located in `src/test-utils/`, these provide:
 
 - **Custom render()** function with pre-configured providers (AuthContext, Router, Theme)
-- **Mock data exports** (`testUser`, `testOrganization`)
+- **Mock data exports** for comprehensive testing scenarios:
+  - `testUser` - Mock authenticated user with roles and permissions
+  - `testOrganization` - Mock organization data with domains and settings
+  - `testDomains` - Mock domain data for testing domain-related components
+  - `makeVuln()` - Factory function for creating mock vulnerability data
+  - `makeVulnResponse()` - Factory for mock vulnerability API responses
+- **Navigation utilities** for testing routing and navigation behavior
+- **Keyboard interaction utilities** for accessibility testing
+- **Search context mocks** for testing search functionality
 - **Re-exports** of all testing-library functions for convenient imports
+
+**Available Test Utilities:**
+```typescript
+// Core testing utilities
+import { render, screen, fireEvent, waitFor } from 'test-utils';
+
+// Mock data
+import { 
+  testUser, 
+  testOrganization, 
+  testDomains,
+  makeVuln,
+  makeVulnResponse 
+} from 'test-utils';
+
+// Specialized utilities  
+import { mockKeyboard, mockNavigation } from 'test-utils';
+```
 
 ### Configuration
 
@@ -55,40 +116,56 @@ All tests are centralized in `frontend/src/tests/` with the following structure:
 ```text
 frontend/src/tests/
 ├── components/                    # Component tests
-│   ├── Dialog/
-│   │   └── TermsOfUse/
-│   │       └── termsOfUse.test.tsx
-│   ├── Gates/
-│   │   └── vs-dashboard-gate.test.tsx
-│   ├── Header/
-│   │   └── header.test.tsx
-│   ├── Routes/
-│   │   └── routeGuard.test.tsx
-│   ├── UpdateUserStateForm/
-│   │   └── updateUserStateForm.test.tsx
-│   ├── govBanner.test.tsx         # Root-level component
-│   ├── layout.test.tsx            # Root-level component
-│   └── __snapshots__/             # Snapshot files
+│   ├── Dashboard/                 # Dashboard-related components
+│   ├── DataGrid/                  # Data grid components and utilities
+│   ├── Dialog/                    # Modal and dialog components
+│   ├── FilterDrawer/              # Search and filter drawer components
+│   ├── Gates/                     # Access control and gate components
+│   ├── Header/                    # Navigation and header components
+│   ├── Routes/                    # Routing and route guard components
+│   ├── UpdateUserStateForm/       # User state management forms
+│   ├── govBanner.test.tsx         # Root-level components
+│   ├── layout.test.tsx            # Layout components
+│   └── __snapshots__/             # Automatically generated snapshot files
 ├── pages/                         # Page component tests
-│   ├── Domain/
-│   │   └── domainDetails.test.tsx
-│   ├── Domains/
-│   │   └── domainsTable.test.tsx
-│   ├── LoginGovCallback/
-│   │   └── loginGovCallback.test.tsx
-│   └── Vulnerabilities/
-│       └── vulnerabilitiesTable.test.tsx
-├── context/                       # Context tests
-│   └── authCtx.test.tsx
+│   ├── AdminTools/                # Administrative functionality
+│   ├── Domain/                    # Individual domain pages
+│   ├── Domains/                   # Domain listing and management
+│   ├── LoginGovCallback/          # Authentication callback handling
+│   ├── Organizations/             # Organization management pages
+│   ├── Settings/                  # Application settings
+│   ├── UserRegistration/          # User registration workflows
+│   ├── Users/                     # User management pages
+│   ├── Vulnerabilities/           # Vulnerability listing pages
+│   └── VulnerabilityScanDash/     # Vulnerability dashboard and analytics
+├── context/                       # React Context tests
+│   ├── authCtx.test.tsx          # Authentication context
+│   ├── FilterDrawerContextProvider.test.tsx
+│   ├── NavigationContextProvider.test.tsx
+│   ├── SavedSearchContextProvider.test.tsx
+│   └── SearchProvider.test.tsx    # Various context providers
 ├── hooks/                         # Custom hook tests
+│   ├── useAddUserToOrganization.test.ts
+│   ├── useApiTelemetry.test.ts
+│   ├── useGetApi.test.ts
+│   ├── usePostApi.test.ts         # API-related hooks
 │   ├── usePersistentState.test.tsx
 │   ├── useUserActivityTimeout.test.ts
-│   └── useVulnScanData.test.ts
-├── utils/                         # Utility function tests
-│   ├── dateUtils.test.ts
-│   └── transformVulnScanData.test.ts
-└── types/                         # Type-related tests (future)
+│   └── [other-hooks].test.ts      # Additional custom hooks
+└── utils/                         # Utility function tests
+    ├── buildOrgFilters.test.ts
+    ├── dateUtils.test.ts
+    ├── stringUtils.test.ts
+    ├── transformVulnScanData.test.ts
+    └── [other-utils].test.ts       # Various utility functions
 ```
+
+### Key Organization Principles
+
+- **Mirrored Structure**: Each directory corresponds to its source code counterpart
+- **Logical Grouping**: Tests are grouped by functionality (components, pages, hooks, utils, context)
+- **Consistent Naming**: All test files follow the `.test.tsx` or `.test.ts` convention
+- **Automatic Snapshots**: Snapshot files are automatically managed in `__snapshots__/` directories
 
 ### Naming Conventions
 
@@ -232,7 +309,7 @@ Test individual components, hooks, or utilities in isolation.
 // Component unit test
 describe('Header component', () => {
   it('renders user name when authenticated', () => {
-    render(<Header />, { user: testUser });
+    render(<Header />, { authContext: { user: testUser } });
     expect(screen.getByText(testUser.fullName)).toBeInTheDocument();
   });
 });
@@ -267,16 +344,7 @@ describe('Vulnerabilities page integration', () => {
 
 #### End-to-end Tests
 
-Use Playwright for end-to-end testing.
-
-### Best Practices
-
-1. **Descriptive test names**: Use clear, specific descriptions
-2. **Arrange-Act-Assert**: Structure tests with clear setup, action, and verification
-3. **Use test utilities**: Leverage custom render functions and mock data
-4. **Test user behavior**: Focus on what users see and do, not implementation details
-5. **Snapshot sparingly**: Use for complex UI structures, not simple components
-6. **Mock external dependencies**: Use vi.mock() for API calls, external libraries
+Use Playwright for end-to-end testing (covered in separate documentation).
 
 ### Common Patterns
 
@@ -311,11 +379,227 @@ it('shows loading state during API call', async () => {
 });
 ```
 
+## XFD-Specific Testing Considerations
+
+### Authentication Testing
+
+> **Note**: The XFD application is transitioning away from AWS Amplify authentication (legacy). Current authentication components may still reference Amplify patterns, but new development should follow the updated authentication approach.
+
+When testing components that depend on authentication state:
+
+```typescript
+// Test authenticated state
+render(<Component />, {
+  authContext: {
+    user: testUser,
+    isAuthenticated: true,
+    currentOrganization: testOrganization
+  }
+});
+
+// Test unauthenticated state
+render(<Component />, {
+  authContext: {
+    user: null,
+    isAuthenticated: false,
+    currentOrganization: null
+  }
+});
+```
+
+### Material-UI Component Testing
+
+XFD uses Material-UI extensively. Key considerations:
+
+- **Data Grid Testing**: Use `getByRole('grid')` and `getAllByRole('gridcell')`
+- **Modal Testing**: Ensure proper cleanup with `cleanup()` after modal tests
+- **Theme Testing**: Components are wrapped with `CFThemeProvider` automatically in test utils
+- **Loading States**: Many MUI components have built-in loading states to test
+
+```typescript
+// Testing MUI DataGrid
+it('displays data in grid format', () => {
+  render(<DataGridComponent data={testData} />);
+  
+  expect(screen.getByRole('grid')).toBeInTheDocument();
+  expect(screen.getAllByRole('gridcell')).toHaveLength(expectedCellCount);
+});
+```
+
+### API Testing Patterns
+
+XFD components often integrate with AWS services. Mock API calls appropriately:
+
+```typescript
+// Mock API utilities (already available in test-utils)
+import { vi } from 'vitest';
+
+// Mock successful API response
+const mockApiCall = vi.fn().mockResolvedValue({
+  data: testData,
+  status: 200
+});
+
+// Mock API error
+const mockApiError = vi.fn().mockRejectedValue(new Error('API Error'));
+```
+
+### Router Testing
+
+XFD uses React Router v5. Test navigation and route-dependent components:
+
+```typescript
+// Test component with specific route
+render(<Component />, {
+  initialHistory: ['/domains/123']
+});
+
+// Test navigation behavior
+const linkElement = screen.getByRole('link', { name: /view details/i });
+fireEvent.click(linkElement);
+// Assert navigation occurred
+```
+
+### Organization Context Testing
+
+Many XFD components depend on the current organization context:
+
+```typescript
+// Test with specific organization
+render(<Component />, {
+  authContext: {
+    currentOrganization: testOrganization,
+    user: testUser
+  }
+});
+```
+
+### Vulnerability Data Testing
+
+When testing vulnerability-related components, use the provided test utilities:
+
+```typescript
+import { makeVulnResponse } from 'test-utils/vulnerabilities';
+
+const mockVulnData = makeVulnResponse(5); // Creates 5 mock vulnerabilities
+```
+
+### Domain Testing
+
+For domain-related components:
+
+```typescript
+import { testDomains } from 'test-utils/domains';
+
+render(<DomainsTable domains={testDomains} />);
+```
+
+## Best Practices
+
+### General Testing Principles
+
+1. **Test user behavior, not implementation**: Focus on what users see and do rather than internal component state
+2. **Write descriptive test names**: Use clear, specific descriptions that explain the expected behavior
+3. **Follow Arrange-Act-Assert pattern**: Structure tests with clear setup, action, and verification phases
+4. **Use semantic queries**: Prefer `getByRole`, `getByLabelText`, `getByText` over `getByTestId`
+5. **Test error states**: Always include tests for error scenarios and edge cases
+
+### XFD-Specific Best Practices
+
+#### Accessibility Testing
+- Use semantic HTML elements and ARIA attributes
+- Test keyboard navigation with `Tab`, `Enter`, and arrow keys
+- Verify screen reader compatibility with proper labels and descriptions
+- Test color contrast and visual indicators
+
+```typescript
+// Test keyboard navigation
+it('allows keyboard navigation through table rows', () => {
+  render(<DataTable data={testData} />);
+  
+  const firstRow = screen.getAllByRole('row')[1]; // Skip header
+  firstRow.focus();
+  
+  fireEvent.keyDown(firstRow, { key: 'ArrowDown' });
+  expect(screen.getAllByRole('row')[2]).toHaveFocus();
+});
+```
+
+#### Security Testing Considerations
+- **Input Sanitization**: Test that user inputs are properly sanitized
+- **XSS Prevention**: Verify that dynamic content doesn't execute scripts
+- **Data Exposure**: Ensure sensitive data isn't exposed in test snapshots
+- **Authentication State**: Test unauthorized access scenarios
+
+```typescript
+// Test input sanitization
+it('sanitizes malicious input', () => {
+  const maliciousInput = '<script>alert("xss")</script>';
+  render(<SearchInput value={maliciousInput} />);
+  
+  // Should not contain script tags
+  expect(screen.queryByText('<script>')).not.toBeInTheDocument();
+});
+```
+
+#### Performance Testing Guidelines
+- **Large Data Sets**: Test component behavior with large amounts of data
+- **Loading States**: Verify loading indicators appear and disappear appropriately
+- **Memory Leaks**: Ensure proper cleanup in `useEffect` hooks
+- **Virtualization**: Test virtual scrolling components with mock data
+
+#### Data Integrity Testing
+- **Validation**: Test form validation with various input scenarios
+- **Data Transformation**: Verify data is correctly formatted for display
+- **Sorting/Filtering**: Test table operations maintain data consistency
+- **State Management**: Ensure state updates don't cause data corruption
+
+### Code Quality Standards
+
+#### Test Organization
+- Group related tests using `describe` blocks
+- Use consistent naming conventions across all test files
+- Keep test files focused on single components or utilities
+- Maintain test file size under 500 lines when possible
+
+#### Mock Strategy
+- Mock external dependencies (APIs, third-party libraries)
+- Use `vi.mock()` for module-level mocking
+- Create reusable mock factories for complex objects
+- Reset mocks between tests to prevent interference
+
+```typescript
+// Reusable mock factory
+export const createMockApiResponse = (overrides = {}) => ({
+  data: [],
+  total: 0,
+  page: 1,
+  status: 'success',
+  ...overrides
+});
+```
+
+#### Snapshot Testing Guidelines
+- Use snapshots sparingly for complex UI structures
+- Avoid snapshots for frequently changing components
+- Update snapshots only when intentional changes are made
+- Use descriptive snapshot names that explain the component state
+
+### Continuous Improvement
+- **Regular Review**: Periodically review and refactor tests
+- **Coverage Goals**: Aim for meaningful coverage, not just high percentages
+- **Team Standards**: Follow established team conventions and patterns
+- **Documentation**: Keep test documentation up-to-date with code changes
+
 ## Troubleshooting
 
-### Common Issues
+## Troubleshooting
 
-**Import path errors**: Ensure relative paths are correct for the new structure
+### Common Issues and Solutions
+
+#### Import Path Errors
+**Problem**: Import path errors when running tests after restructuring
+**Solution**: Ensure relative paths are correct for the mirrored structure
 
 ```typescript
 // ❌ Wrong - old flat structure
@@ -325,7 +609,9 @@ import { Component } from '../../Component';
 import { Component } from '../../../components/Header/Component';
 ```
 
-**Missing test utilities**: Import from the centralized test-utils
+#### Missing Test Utilities
+**Problem**: `render` function or mock data not found
+**Solution**: Import from the centralized test-utils
 
 ```typescript
 // ✅ Correct imports
@@ -333,26 +619,151 @@ import { render, screen, fireEvent } from 'test-utils';
 import { testUser } from 'test-utils';
 ```
 
-**Snapshot mismatches**: Update snapshots after structural changes
+#### Authentication Context Issues
+**Problem**: Components fail because they expect authentication context
+**Solution**: Use the custom `render()` function with proper auth context
+
+```typescript
+// ✅ Provide auth context
+render(<Component />, {
+  authContext: {
+    user: testUser,
+    isAuthenticated: true
+  }
+});
+```
+
+#### Material-UI Theme Errors
+**Problem**: MUI components throw theme-related errors
+**Solution**: The custom render function includes `CFThemeProvider` automatically
+
+```typescript
+// ✅ Theme is provided automatically
+import { render } from 'test-utils';
+render(<MuiComponent />); // Theme provider included
+```
+
+#### Router Context Missing
+**Problem**: Components using `useHistory` or `useLocation` fail
+**Solution**: Provide routing context with `initialHistory`
+
+```typescript
+// ✅ Provide routing context
+render(<Component />, {
+  initialHistory: ['/current/path']
+});
+```
+
+#### Async Testing Issues
+**Problem**: Tests fail intermittently with async operations
+**Solution**: Use proper async testing patterns
+
+```typescript
+// ✅ Wait for async operations
+await waitFor(() => {
+  expect(screen.getByText('Loaded data')).toBeInTheDocument();
+});
+
+// ✅ For user events
+await user.click(screen.getByRole('button'));
+```
+
+#### Snapshot Mismatches
+**Problem**: Snapshot tests fail after component updates
+**Solutions**:
+- Review changes carefully before updating
+- Update snapshots: `npm test -- --update`
+- Consider if snapshot is still valuable
 
 ```bash
+# Update all snapshots
 npm test -- --update
-npm test -- -u
+
+# Update specific test snapshots
+npm test -- --update components/Header/header.test.tsx
 ```
 
-**Failing tests blocking coverage**: Exclude problematic test files
+#### Coverage Issues
+**Problem**: Coverage reports show unexpected results
+**Solutions**:
+- Exclude problematic test files: `npm test -- --coverage --run --exclude="**/problematicFile.test.ts"`
+- Check coverage configuration in `vite.config.mts`
+- Verify file paths match coverage include/exclude patterns
 
-```bash
-# Skip specific failing test file
-npm test -- --coverage --run --exclude="**/useVulnScanData.test.ts"
+#### Mock-Related Issues
+**Problem**: Mocks not working as expected
+**Solutions**:
 
-# Skip multiple test files
-npm test -- --exclude="**/file1.test.ts" --exclude="**/file2.test.tsx"
+```typescript
+// ✅ Reset mocks between tests
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+// ✅ Mock modules properly
+vi.mock('../../api/endpoints', () => ({
+  fetchData: vi.fn()
+}));
 ```
 
-**Context/Provider issues**: Some tests may fail due to missing context providers
+#### Performance Issues
+**Problem**: Tests run slowly or time out
+**Solutions**:
+- Use `vi.useFakeTimers()` for date/time-dependent tests
+- Mock expensive operations
+- Reduce test data size
+- Consider running tests in parallel
 
-- Check if components require AuthContext, ThemeProvider, or Router
-- Use the custom `render()` function from `test-utils` which includes providers
-- For hook tests, ensure proper context setup with `renderHook()`
-**Last Updated**: November 2025
+```typescript
+// ✅ Mock timers for faster tests
+beforeEach(() => {
+  vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+});
+```
+
+#### Environment Issues
+**Problem**: Tests behave differently in different environments
+**Solutions**:
+- Check Node.js version (requires >=20.19.4)
+- Verify jsdom environment is properly configured
+- Clear `node_modules` and reinstall if needed
+- Check for conflicting global installations
+
+### XFD-Specific Troubleshooting
+
+#### AWS Amplify Mock Issues (Legacy)
+> **Note**: Amplify is being phased out. This section applies to legacy components only.
+**Problem**: Amplify authentication mocks not working
+**Solution**: Ensure proper mock setup in test utilities for legacy components
+
+#### Large Dataset Performance
+**Problem**: Tests slow when using real data
+**Solution**: Use smaller mock datasets from test-utils
+
+#### MUI DataGrid Issues
+**Problem**: DataGrid components cause test failures
+**Solution**: DataGrid is configured in Vite config dependencies
+
+### Getting Help
+
+1. **Check existing tests**: Look for similar patterns in the codebase
+2. **Review test-utils**: Many common scenarios have helper functions
+3. **Check this documentation**: Most common issues are covered here
+4. **Team consultation**: Reach out to team members for XFD-specific issues
+5. **External resources**: 
+   - [Vitest Documentation](https://vitest.dev/)
+   - [Testing Library Best Practices](https://testing-library.com/docs/guiding-principles)
+   - [React Testing Examples](https://react-testing-examples.com/)
+
+### Debugging Tips
+
+- Use `screen.debug()` to see the rendered DOM
+- Add `console.log()` statements to understand component state
+- Use `--reporter=verbose` for detailed test output
+- Run single test files for faster debugging: `npm test -- path/to/test.test.tsx`
+
+**Last Updated**: February 2026
