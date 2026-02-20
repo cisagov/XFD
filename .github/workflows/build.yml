@@ -5,6 +5,8 @@ on:  # yamllint disable-line rule:truthy
   merge_group:
     types:
       - checks_requested
+  # We use the default activity types for the pull_request event as specified here:
+  # https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
   pull_request:
   push:
   repository_dispatch:
@@ -129,6 +131,7 @@ jobs:
         run: |
           echo "dir=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> e79569c534ec91872ed8fb7733a23b7ca35f8b60
       - uses: actions/cache@v3
 =======
@@ -144,11 +147,22 @@ jobs:
             packer${{ steps.setup-env.outputs.packer-version }}-\
             tf${{ steps.setup-env.outputs.terraform-version }}-
 >>>>>>> d289ef312b24b454cc0edfbe5788697a933d1bd2
+=======
+      - uses: actions/cache@v5
+        env:
+          BASE_CACHE_KEY: >-
+            ${{ github.job }}-${{ runner.os
+            }}-py${{ steps.setup-python.outputs.python-version
+            }}-go${{ steps.setup-go.outputs.go-version
+            }}-packer${{ steps.setup-env.outputs.packer-version
+            }}-tf${{ steps.setup-env.outputs.terraform-version }}-
+>>>>>>> 6ae498b36fa7254aa6967362544a55c30ff3d7ce
         with:
-          key: ${{ env.BASE_CACHE_KEY }}\
-            ${{ hashFiles('**/requirements-test.txt') }}-\
-            ${{ hashFiles('**/requirements.txt') }}-\
-            ${{ hashFiles('**/.pre-commit-config.yaml') }}
+          key: >-
+            ${{ env.BASE_CACHE_KEY }}${{
+            hashFiles('**/requirements-test.txt') }}-${{
+            hashFiles('**/requirements.txt') }}-${{
+            hashFiles('**/.pre-commit-config.yaml') }}
           # Note that the .terraform directory IS NOT included in the
           # cache because if we were caching, then we would need to use
           # the `-upgrade=true` option. This option blindly pulls down the
@@ -227,7 +241,7 @@ jobs:
 >>>>>>> e79569c534ec91872ed8fb7733a23b7ca35f8b60
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip setuptools wheel
+          python -m pip install --upgrade pip setuptools
           pip install --upgrade --requirement requirements-test.txt
       - name: Set up pre-commit hook environments
         run: pre-commit install-hooks
