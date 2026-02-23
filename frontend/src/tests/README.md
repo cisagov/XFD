@@ -32,7 +32,8 @@ This documentation serves as the single source of truth for frontend testing sta
 2. **Run tests**: `npm test` (starts in watch mode)
 3. **Generate coverage**: `npm run test:coverage`
 4. **Read this documentation** thoroughly before writing your first test
-5. **Review existing tests** in `src/tests/` to understand project patterns
+5. **Use the unit test templates**: Check out [📋 Unit Test Templates](../../../docs/testing/unit-templates/) for ready-to-use boilerplate code
+6. **Review existing tests** in `src/tests/` to understand project patterns
 
 ### Key Concepts
 - Tests mirror the exact source code directory structure
@@ -77,30 +78,43 @@ Located in `src/test-utils/`, these provide:
 - **Mock data exports** for comprehensive testing scenarios:
   - `testUser` - Mock authenticated user with roles and permissions
   - `testOrganization` - Mock organization data with domains and settings
-  - `testDomains` - Mock domain data for testing domain-related components
-  - `makeVuln()` - Factory function for creating mock vulnerability data
-  - `makeVulnResponse()` - Factory for mock vulnerability API responses
+  - Additional mock data available in individual files (see below)
 - **Navigation utilities** for testing routing and navigation behavior
 - **Keyboard interaction utilities** for accessibility testing
-- **Search context mocks** for testing search functionality
 - **Re-exports** of all testing-library functions for convenient imports
 
-**Available Test Utilities:**
+**Recommended Import Patterns:**
 ```typescript
-// Core testing utilities
+// ✅ PREFERRED: Use test-utils for everything (includes custom render)
 import { render, screen, fireEvent, waitFor } from 'test-utils';
+import { testUser, testOrganization } from 'test-utils';
 
-// Mock data
+// ⚠️ CURRENT MIXED USAGE (needs standardization):
+// Some tests use: 'test-utils/test-utils'
+// Some tests use: '@/test-utils/test-utils' 
+// Some tests use: relative paths like '../../../test-utils/test-utils'
+
+// ❌ AVOID: Direct @testing-library imports (bypasses custom providers)
+// import { render } from '@testing-library/react'; // Don't do this
+```
+
+**Available Mock Data:**
+```typescript
+// Main exports from test-utils index (RECOMMENDED)
 import { 
   testUser, 
-  testOrganization, 
-  testDomains,
+  testOrganization,
+  makeDomain,
+  makeDomainResponse,
   makeVuln,
-  makeVulnResponse 
+  makeVulnResponse
 } from 'test-utils';
 
-// Specialized utilities  
-import { mockKeyboard, mockNavigation } from 'test-utils';
+// Additional mock data (direct imports when needed)
+import { authCtx } from '@/test-utils/authCtx';
+import { mockDomains } from '@/test-utils/searchDomains';
+import { mockIPs } from '@/test-utils/searchIPs';
+import { testRole } from '@/test-utils/role';
 ```
 
 ### Configuration
@@ -213,16 +227,40 @@ import { formatDate } from '../../utils/dateUtils';
 
 **Relative Imports from Test Files:**
 
-- Component tests: `'../../../components/[ComponentPath]/ComponentName'`
-- Page tests: `'../../../pages/[PagePath]/PageName'`
-- Hook tests: `'../../hooks/hookName'`
-- Utility tests: `'../../utils/utilityName'`
+```typescript
+// Source code imports (using relative paths)
+// Component tests: '../../../components/[ComponentPath]/ComponentName'
+// Page tests: '../../../pages/[PagePath]/PageName'  
+// Hook tests: '../../hooks/hookName'
+// Utility tests: '../../utils/utilityName'
 
-**Test Utilities:**
+// Alternative: Use path aliases (mixed usage in current codebase)
+import { DomainDetails } from '@/pages/Domain/DomainDetails';
+import { useVulnScanData } from '@/hooks/useVulnScanData';
+```
+
+**Test Utilities (Recommended Pattern):**
 
 ```typescript
+// ✅ RECOMMENDED: Import from test-utils index
 import { render, screen, fireEvent, waitFor } from 'test-utils';
 import { testUser, testOrganization } from 'test-utils';
+
+// 📝 NOTE: Some existing tests use alternative patterns:
+// - 'test-utils/test-utils' 
+// - '@/test-utils/test-utils'
+// - Relative paths to test-utils files
+```
+
+**Context and Provider Imports:**
+
+```typescript
+// Context imports (common patterns in existing tests)
+import { useAuthContext } from 'context';
+import { AuthContextProvider } from 'context/AuthContextProvider';
+
+// Alternative absolute path (also used)
+import { useAuthContext } from '@/context/AuthContext';
 ```
 
 ### Snapshot Testing
@@ -494,6 +532,59 @@ import { testDomains } from 'test-utils/domains';
 render(<DomainsTable domains={testDomains} />);
 ```
 
+## Current Inconsistencies & Migration Notes
+
+⚠️ **The XFD test suite is currently in a mixed state with several patterns that need standardization.**
+
+### Import Pattern Inconsistencies
+
+**Current Mixed Usage (found in existing tests):**
+```typescript
+// Pattern 1: Direct test-utils import (PREFERRED)
+import { render, screen } from 'test-utils';
+
+// Pattern 2: Explicit test-utils file path  
+import { render, screen } from 'test-utils/test-utils';
+
+// Pattern 3: Absolute path with alias
+import { render, screen } from '@/test-utils/test-utils';
+
+// Pattern 4: Relative paths
+import { render, screen } from '../../../test-utils/test-utils';
+
+// Pattern 5: Direct @testing-library imports (AVOID - bypasses providers)
+import { render, screen } from '@testing-library/react';
+```
+
+**Recommendation**: Standardize on Pattern 1 (`import { render, screen } from 'test-utils'`) for all new tests.
+
+### Mock Data Access Patterns
+
+**Current Mixed Usage:**
+```typescript
+// Available through main index (PREFERRED)
+import { testUser, testOrganization } from 'test-utils';
+
+// Direct file imports (currently necessary for some mocks)
+import { authCtx } from '@/test-utils/authCtx';
+import { makeVulnResponse } from '@/test-utils/vulnerabilities';
+import { mockDomains } from '@/test-utils/searchDomains';
+
+// Relative path imports (found in some existing tests)
+import { testUser } from '../../../test-utils/user';
+```
+
+**Recommendation**: Use main index exports when available, direct imports when necessary, avoid relative paths.
+
+### Testing Library Import Issues
+
+Some existing tests import directly from `@testing-library/react`, which bypasses the custom render function and its pre-configured providers. This can cause tests to fail that depend on AuthContext, Router, or Theme providers.
+
+**Migration Priority**: 
+1. **High**: Tests that render components requiring AuthContext, Router, or Theme
+2. **Medium**: Tests using custom test utilities or mock data
+3. **Low**: Simple utility function tests that don't need providers
+
 ## Best Practices
 
 ### General Testing Principles
@@ -667,6 +758,40 @@ await waitFor(() => {
 // ✅ For user events
 await user.click(screen.getByRole('button'));
 ```
+
+#### Import Pattern Issues
+**Problem**: Tests fail with "Cannot read property of undefined" or provider-related errors
+**Solutions**:
+```typescript
+// ❌ This may cause issues if component needs providers
+import { render } from '@testing-library/react';
+
+// ✅ Use this instead for components that need AuthContext, Router, Theme
+import { render } from 'test-utils';
+```
+
+**Problem**: Mock data not found or import errors
+**Solutions**:
+```typescript
+// ✅ Use main index exports when available
+import { testUser, makeVuln } from 'test-utils';
+
+// ✅ Use direct imports for non-exported mocks
+import { authCtx } from '@/test-utils/authCtx';
+
+// ❌ Avoid relative paths in new tests
+// import { testUser } from '../../../test-utils/user';
+```
+
+#### Mixed Import Patterns in Existing Tests
+**Problem**: Inconsistent imports across the codebase
+**Current Status**: The codebase has mixed patterns that need standardization:
+- Some tests use `'test-utils'` (preferred)
+- Some use `'test-utils/test-utils'` 
+- Some use `'@/test-utils/test-utils'`
+- Some use direct `@testing-library/react` imports
+
+**For New Tests**: Always use `import { render, screen } from 'test-utils'`
 
 #### Snapshot Mismatches
 **Problem**: Snapshot tests fail after component updates
