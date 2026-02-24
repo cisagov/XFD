@@ -12,7 +12,7 @@ from typing import Iterable, Optional
 import uuid
 
 # Third-Party Libraries
-from django.db import connections, transaction
+from django.db import connections, transaction, OperationalError
 from django.db.models import Count, Max, Min
 from django.utils import timezone
 from psycopg2 import sql
@@ -769,10 +769,9 @@ def enforce_latest_flag_port_scan():
 
 @cloudwatch_metric()
 def mark_stale_latest_port_scans():
-    """Mark any LatestPortScan rows where time_scanned is older than cut off as current = FALSE."""
+    """Mark any LatestPortScan rows where time_scanned is older than cut off as current = FALSE, with deadlock logging."""
+    cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
     try:
-        cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
-
         with connections["mini_data_lake"].cursor() as cursor:
             cursor.execute(
                 """
@@ -782,10 +781,122 @@ def mark_stale_latest_port_scans():
                 """,
                 [cutoff_date],
             )
-
         LOGGER.info("Marked stale LatestPortScan rows as current=FALSE.")
-
+    except OperationalError as e:
+        if "deadlock detected" in str(e):
+            LOGGER.error("Deadlock detected in mark_stale_latest_port_scans()!")
+            try:
+                with connections["mini_data_lake"].cursor() as cursor:
+                    cursor.execute(
+                        """
+                        SELECT blocked_locks.pid AS blocked_pid,
+                               blocked_activity.query AS blocked_query,
+                               blocking_locks.pid AS blocking_pid,
+                               blocking_activity.query AS blocking_query
+                        FROM pg_catalog.pg_locks blocked_locks
+                        JOIN pg_catalog.pg_stat_activity blocked_activity
+                          ON blocked_activity.pid = blocked_locks.pid
+                        JOIN pg_catalog.pg_locks blocking_locks
+                          ON blocking_locks.locktype = blocked_locks.locktype
+                         AND blocking_locks.DATABASE IS NOT DISTINCT FROM blocked_locks.DATABASE
+                         AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
+                         AND blocking_locks.page IS NOT DISTINCT FROM blocked_locks.page
+                         AND blocking_locks.tuple IS NOT DISTINCT FROM blocked_locks.tuple
+                         AND blocking_locks.pid != blocked_locks.pid
+                        JOIN pg_catalog.pg_stat_activity blocking_activity
+                          ON blocking_activity.pid = blocking_locks.pid
+                        WHERE NOT blocked_locks.granted;
+                        """
+                    )
+                    rows = cursor.fetchall()
+                    for row in rows:
+                        blocked_pid, blocked_query, blocking_pid, blocking_query = row
+                        LOGGER.warning(
+                            "Blocked PID %s: %s | Blocking PID %s: %s",
+                            blocked_pid,
+                            blocked_query.strip() if blocked_query else "<None>",
+                            blocking_pid,
+                            blocking_query.strip() if blocking_query else "<None>",
+                        )
+            except Exception as inner_e:
+                LOGGER.exception("Failed to fetch deadlock queries: %s", inner_e)
+        raise
     except Exception as e:
         LOGGER.exception(
             "Failed to mark stale LatestPortScan rows as current=FALSE: %s", e
         )
+
+LATEST_PORT_SCAN_BATCH_SIZE = 1000
+@cloudwatch_metric()
+def mark_stale_latest_port_scans_batched(organization_id):
+    """
+    Mark stale LatestPortScan rows as current=FALSE
+    for a single organization.
+    Uses batched SKIP LOCKED to avoid deadlocks.
+    """
+
+    cutoff_date = timezone.now() - timedelta(days=LATEST_PORT_SCAN_CUTOFF)
+
+    db = "mini_data_lake"
+    total_updated = 0
+    batch_num = 0
+
+    try:
+        while True:
+            batch_num += 1
+
+            with transaction.atomic(using=db):
+                with connections[db].cursor() as cursor:
+
+                    cursor.execute(
+                        """
+                        SELECT id
+                        FROM latest_port_scan
+                        WHERE organization_id = %s
+                          AND current = TRUE
+                          AND time_scanned < %s
+                        ORDER BY id
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT %s
+                        """,
+                        [organization_id, cutoff_date, LATEST_PORT_SCAN_BATCH_SIZE],
+                    )
+
+                    rows = cursor.fetchall()
+                    ids = [row[0] for row in rows]
+
+                    if not ids:
+                        break
+
+                    cursor.execute(
+                        """
+                        UPDATE latest_port_scan
+                        SET current = FALSE
+                        WHERE id = ANY(%s)
+                        """,
+                        [ids],
+                    )
+
+                    updated_count = cursor.rowcount
+                    total_updated += updated_count
+
+                    LOGGER.info(
+                        "Org %s - Batch %d: Marked %d stale rows",
+                        organization_id,
+                        batch_num,
+                        updated_count,
+                    )
+
+        LOGGER.info(
+            "Org %s - Finished marking stale rows. Total updated: %d",
+            organization_id,
+            total_updated,
+        )
+
+    except Exception as e:
+        LOGGER.exception(
+            "Org %s - Failed to mark stale rows: %s",
+            organization_id,
+            e,
+        )
+        raise

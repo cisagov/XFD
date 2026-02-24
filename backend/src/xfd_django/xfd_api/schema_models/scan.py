@@ -209,6 +209,23 @@ SCAN_SCHEMA = {
         description="Pull in vulnerability data from VSs Vulnerability database",
         max_concurrent_tasks=500,
     ),
+    "vs_deadlock_repro": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=False,
+        cpu="16384",
+        memory="65536",
+        description="Reproduce deadlock issue.",
+        max_concurrent_tasks=500,
+    ),
+    "vs_mark_stale_latest_port_scan": ScanSchema(
+        type="fargate",
+        is_passive=True,
+        global_scan=True,
+        cpu="16384",
+        memory="65536",
+        description="Reproduce deadlock issue.",
+    ),
     "vs_org_sync": ScanSchema(
         type="fargate",
         is_passive=True,
