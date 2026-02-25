@@ -9,6 +9,7 @@
 - [Current Test Organization](#current-test-organization)
 - [Writing Tests](#writing-tests)
 - [Running Tests](#running-tests)
+- [Coverage & CI Integration](#coverage--ci-integration)
 - [Testing Guidelines](#testing-guidelines)
 - [XFD-Specific Testing Considerations](#xfd-specific-testing-considerations)
 - [Best Practices](#best-practices)
@@ -32,7 +33,7 @@ This documentation serves as the single source of truth for frontend testing sta
 2. **Run tests**: `npm test` (starts in watch mode)
 3. **Generate coverage**: `npm run test:coverage`
 4. **Read this documentation** thoroughly before writing your first test
-5. **Use the unit test templates**: Check out [📋 Unit Test Templates](../../../docs/testing/unit-templates/) for ready-to-use boilerplate code
+5. **Use the unit test templates**: Check out [📋 Unit Test Templates](../../../docs/testing/frontend/unit-templates/) for ready-to-use boilerplate code
 6. **Review existing tests** in `src/tests/` to understand project patterns
 
 ### Key Concepts
@@ -334,6 +335,50 @@ npm test -- --coverage --run --exclude="**/useVulnScanData.test.ts"
 - **Unit Tests**: Individual components, hooks, utilities
 - **Integration Tests**: Multiple components working together
 - **Snapshot Tests**: Component rendering consistency
+
+## Coverage & CI Integration
+
+### Quick Coverage Commands
+
+```bash
+# Generate coverage report (recommended)
+npm run test:coverage
+
+# View HTML coverage report
+npm run test:coverage && open coverage/index.html
+```
+
+### Coverage Thresholds
+
+The project maintains **automatic coverage thresholds** that prevent regression:
+
+- **Lines**: ~46.5% (auto-updated in CI)
+- **Statements**: ~46.0% (auto-updated in CI) 
+- **Functions**: ~41.5% (auto-updated in CI)
+- **Branches**: ~34.6% (auto-updated in CI)
+
+> **📊 Coverage Enforcement**: These thresholds are automatically maintained by the CI system. When coverage improves, thresholds increase to prevent future regression.
+
+### CI Integration
+
+- **GitHub Actions**: Runs coverage on all PRs and pushes
+- **Coveralls**: Tracks coverage history and trends 
+- **Quality Gates**: PRs must meet coverage thresholds to merge
+- **Auto-Update**: Thresholds automatically increase with improvements
+
+### Comprehensive Coverage Documentation
+
+For complete coverage guidelines, CI configuration, troubleshooting, and advanced commands, see:
+
+📋 **[CI Coverage & Reporting Guidelines](../../../docs/testing/frontend/CI_COVERAGE_GUIDELINES.md)**
+
+This document covers:
+- Detailed threshold configuration and targets
+- Complete CI pipeline integration
+- Local development and analysis commands  
+- Coverage report formats and interpretation
+- Quality gates and failure scenarios
+- Integration with external coverage services
 
 ## Testing Guidelines
 

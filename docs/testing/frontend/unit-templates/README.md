@@ -36,8 +36,9 @@ For your first test, we recommend starting with the [Component Templates](./comp
 
 ## Need Help?
 
-- Check the [main testing documentation](../../frontend/src/tests/README.md)
+- Check the [main testing documentation](../../../../frontend/src/tests/README.md)
 - Review existing tests in `frontend/src/tests/` for patterns
+- See [CI Coverage & Reporting Guidelines](../CI_COVERAGE_GUIDELINES.md) for coverage requirements
 - Consult the troubleshooting section in the main README
 
 ---
