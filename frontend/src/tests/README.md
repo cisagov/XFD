@@ -927,7 +927,9 @@ afterEach(() => {
 5. **External resources**: 
    - [Vitest Documentation](https://vitest.dev/)
    - [Testing Library Best Practices](https://testing-library.com/docs/guiding-principles)
-   - [React Testing Examples](https://react-testing-examples.com/)
+   - [React Testing Library Documentation](https://testing-library.com/docs/react-testing-library/intro/)
+   - [Common Testing Mistakes](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
+   - [Testing JavaScript](https://testingjavascript.com/) - Kent C. Dodds course
 
 ### Debugging Tips
 
