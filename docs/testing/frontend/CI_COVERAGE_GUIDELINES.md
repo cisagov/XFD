@@ -8,7 +8,7 @@
 
 - [Overview](#overview)
 - [Coverage Thresholds](#coverage-thresholds)
-- [Local Development Commands](#local-development-commands)
+- [Command Cheat Sheet](#command-cheat-sheet)
 - [CI Pipeline Integration](#ci-pipeline-integration)
 - [Coverage Reports](#coverage-reports)
 - [Quality Gates](#quality-gates)
@@ -27,33 +27,35 @@ The XFD frontend uses **Vitest** with **Istanbul** coverage provider to generate
 
 ## Coverage Thresholds
 
-### Current Thresholds (Auto-Updated)
+### Coverage Metrics Explained
 
-The following thresholds are **automatically maintained** by the CI system and represent the current baseline coverage levels:
+The XFD frontend tracks four key coverage metrics that are **automatically maintained** by the CI system:
+
+- **Lines**: Percentage of executable code lines that are covered by tests
+- **Statements**: Percentage of individual code statements that have been executed during testing
+- **Functions**: Percentage of functions/methods that have been called during test execution
+- **Branches**: Percentage of conditional branches (if/else, switch cases, etc.) that have been tested
+
+### Auto-Updated Thresholds
+
+Coverage thresholds are automatically maintained by the CI system through Vitest configuration:
 
 ```typescript
 // vite.config.mts - Coverage Configuration
 thresholds: {
-  statements: 45.98,  // Statement coverage
-  branches: 34.61,    // Branch coverage  
-  functions: 41.54,   // Function coverage
-  lines: 46.5,        // Line coverage
-  autoUpdate: true    // Automatically updated in CI
+  statements: "auto-updated",  // Statement coverage threshold
+  branches: "auto-updated",    // Branch coverage threshold
+  functions: "auto-updated",   // Function coverage threshold
+  lines: "auto-updated",       // Line coverage threshold
+  autoUpdate: true             // Automatically updated in CI
 }
 ```
 
-> **📊 Threshold Behavior**: When `autoUpdate: true` is enabled in CI environments, these thresholds automatically increase if coverage improves, preventing regression while allowing organic improvement.
+> **📊 Threshold Behavior**: When `autoUpdate: true` is enabled in CI environments, these thresholds automatically increase if coverage improves, preventing regression while allowing organic improvement. Current threshold values can be found in the `vite.config.mts` file and CI coverage reports.
 
 ### Target Thresholds (Aspirational)
 
-The project aims to achieve the following coverage levels over time:
-
-| Metric | Current | Target | Priority |
-|--------|---------|---------|----------|
-| **Lines** | 46.5% | 80%+ | High |
-| **Statements** | 45.98% | 80%+ | High |
-| **Functions** | 41.54% | 75%+ | Medium |
-| **Branches** | 34.61% | 70%+ | Medium |
+The project aims to achieve **80%+ coverage** across all metrics over time as code quality and test coverage improves organically.
 
 ### Included in Coverage
 
@@ -76,7 +78,7 @@ The following files/directories are excluded from coverage analysis:
 - `src/components/MatomoTracker/*` - Analytics tracking
 - `src/components/Metrics/*` - Metrics components
 
-## Local Development Commands
+## Command Cheat Sheet
 
 ### Basic Coverage Commands
 
@@ -111,7 +113,7 @@ xdg-open ./coverage/index.html
 start ./coverage/index.html
 ```
 
-### Coverage Analysis Commands
+### Advanced Coverage Commands
 
 ```bash
 # Generate coverage with detailed output
@@ -125,6 +127,43 @@ npx vitest run --coverage --exclude="**/test-utils/**"
 
 # Generate only specific report formats
 npx vitest run --coverage --coverage.reporter=html,text
+
+# Skip coverage for faster test runs during development
+npm test
+```
+
+### CI Simulation Commands
+
+```bash
+# Simulate CI environment locally
+CI=true npx vitest --run --coverage
+
+# Generate same reports as CI
+npx vitest run --coverage --reporter=text,json,html,lcov
+
+# Check LCOV format validity
+npx lcov-parse ./coverage/lcov.info
+```
+
+### Troubleshooting Commands
+
+```bash
+# Clear coverage cache
+rm -rf coverage/
+rm -rf node_modules/.vite/
+
+# Reinstall dependencies
+npm ci
+
+# Generate detailed coverage with uncovered lines
+npx vitest run --coverage --reporter=verbose
+
+# Focus coverage on specific directories
+npx vitest run --coverage src/components/ --reporter=verbose
+
+# Check LCOV file exists and is valid
+ls -la ./coverage/lcov.info
+head -n 10 ./coverage/lcov.info
 ```
 
 ## CI Pipeline Integration
@@ -151,6 +190,41 @@ The frontend CI pipeline (`.github/workflows/frontend.yml`) includes the followi
 |----------|---------|-------|
 | `CI=true` | Enables CI mode in Vitest | `true` |
 | `isCI` | Controls threshold auto-update | `process.env.CI === 'true'` |
+
+#### The `isCI` Flag Explained
+
+The `isCI` flag was specifically implemented to solve **merge conflicts** that were occurring with coverage threshold updates. Here's how it works:
+
+**The Problem We Solved:**
+- When developers ran coverage locally, the `autoUpdate: true` feature would automatically update threshold values in `vite.config.mts`
+- Multiple developers running coverage would create different threshold values
+- This caused constant merge conflicts when developers tried to merge their branches
+- The team was spending time resolving these conflicts instead of focusing on code quality
+
+**The Solution:**
+```typescript
+// vite.config.mts - Coverage Configuration
+const isCI = process.env.CI === 'true';
+
+thresholds: {
+  statements: 45.98,
+  branches: 34.61, 
+  functions: 41.54,
+  lines: 46.5,
+  autoUpdate: isCI  // Only auto-update in CI, not locally
+}
+```
+
+**How It Works:**
+- **Locally** (`CI` not set): `isCI = false`, so `autoUpdate: false` - thresholds stay static
+- **In CI Pipeline** (`CI=true`): `isCI = true`, so `autoUpdate: true` - thresholds can increase
+- **Result**: Only the CI system can update thresholds, eliminating local conflicts
+
+**Benefits:**
+1. **No More Merge Conflicts**: Local development doesn't modify threshold values
+2. **Consistent Baseline**: All developers work with the same threshold values
+3. **Controlled Updates**: Only successful CI runs can increase thresholds
+4. **Team Harmony**: Developers focus on writing tests, not resolving config conflicts
 
 ### CI Behavior
 
@@ -224,7 +298,7 @@ The CI pipeline will **FAIL** if:
 ### Common Coverage Issues
 
 #### ❌ "Coverage threshold not met"
-```bash
+```
 Error: Coverage threshold for lines (46.5%) not met. Actual: 45.2%
 ```
 
@@ -234,47 +308,26 @@ Error: Coverage threshold for lines (46.5%) not met. Actual: 45.2%
 3. Review if thresholds need adjustment (discuss with team)
 
 #### ❌ "Istanbul coverage provider failed"
-```bash
+```
 Error: Coverage provider 'istanbul' failed to generate report
 ```
 
-**Solutions**:
-```bash
-# Clear coverage cache
-rm -rf coverage/
-rm -rf node_modules/.vite/
-
-# Reinstall dependencies
-npm ci
-
-# Run coverage again
-npm run test:coverage
-```
+**Solutions**: Use the troubleshooting commands in the [Command Cheat Sheet](#command-cheat-sheet) to clear cache and reinstall dependencies.
 
 #### ❌ "LCOV upload failed"
-```bash
+```
 Error: Failed to upload coverage to Coveralls
 ```
 
 **Solutions**:
 1. Check GitHub token permissions
 2. Verify repository is connected to Coveralls
-3. Check LCOV file exists and is valid:
-   ```bash
-   ls -la ./coverage/lcov.info
-   head -n 10 ./coverage/lcov.info
-   ```
+3. Check LCOV file exists and is valid (see cheat sheet commands)
 
 ### Coverage Analysis Tips
 
 #### Identifying Uncovered Code
-```bash
-# Generate detailed coverage with uncovered lines
-npx vitest run --coverage --reporter=verbose
-
-# Focus on specific directories
-npx vitest run --coverage src/components/ --reporter=verbose
-```
+Use the advanced coverage commands in the [Command Cheat Sheet](#command-cheat-sheet) to generate detailed reports and focus on specific directories.
 
 #### Understanding Coverage Gaps
 1. **Open HTML Report**: Most effective for visual analysis
@@ -283,13 +336,8 @@ npx vitest run --coverage src/components/ --reporter=verbose
 4. **Examine Edge Cases**: Conditional logic may need additional tests
 
 #### Performance Considerations
-```bash
-# Skip coverage for faster test runs during development
-npm test
-
-# Only generate coverage when needed
-npm run test:coverage
-```
+- **Skip coverage for faster test runs**: Use `npm test` during development
+- **Only generate coverage when needed**: Use `npm run test:coverage`
 
 ### Local Development Best Practices
 
@@ -298,18 +346,7 @@ npm run test:coverage
 3. **HTML Report**: Use interactive report to guide test writing
 4. **Threshold Awareness**: Keep current thresholds in mind when making changes
 
-### CI Debugging Commands
-
-```bash
-# Simulate CI environment locally
-CI=true npx vitest --run --coverage
-
-# Generate same reports as CI
-npx vitest run --coverage --reporter=text,json,html,lcov
-
-# Check LCOV format validity
-npx lcov-parse ./coverage/lcov.info
-```
+*For all specific commands, refer to the [Command Cheat Sheet](#command-cheat-sheet) section above.*
 
 ## Integration with Developer Guidelines
 
