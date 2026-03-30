@@ -12,7 +12,7 @@
     ]
   },
   "dependencies": {
-    "@aws-amplify/ui-react": "^5.0.4",
+    "@aws-amplify/ui-react": "^6.15.2",
     "@elastic/react-search-ui": "^1.23.0",
     "@elastic/react-search-ui-views": "1.23.0",
     "@emotion/react": "^11.14.0",
@@ -27,7 +27,8 @@
     "@mui/x-data-grid": "^8.9.2",
     "@testing-library/user-event": "^14.6.1",
     "@trussworks/react-uswds": "^5.1.1",
-    "aws-amplify": "^5.3.12",
+    "aws-amplify": "^6.16.3",
+    "basic-ftp": "^5.2.0",
     "classnames": "^2.3.2",
     "cors": "^2.8.5",
     "date-fns": "^3.6.0",
@@ -48,6 +49,7 @@
     "react-select": "^5.5.9",
     "react-table": "^7.8.0",
     "serverless-http": "^3.2.0",
+    "simple-git": "^3.33.0",
     "universal-cookie": "^7.2.2",
     "zod": "^4.2.1"
   },
@@ -86,8 +88,8 @@
     "rollup": "^4.22.4",
     "rollup-plugin-visualizer": "^6.0.3",
     "sass": "^1.96.0",
-    "serverless-better-credentials": "^1.2.0",
-    "serverless-domain-manager": "^7.0",
+    "serverless-better-credentials": "^2.0.1",
+    "serverless-domain-manager": "^10.0.0",
     "serverless-esbuild": "^1.55.1",
     "serverless-iam-roles-per-function": "^3.2.0",
     "serverless-plugin-ifelse": "^1.0.7",
