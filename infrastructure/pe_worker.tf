@@ -133,6 +133,7 @@ resource "aws_instance" "pe" {
   }
   root_block_device {
     volume_size = 1000
+    encrypted   = true
   }
 
   vpc_security_group_ids = [var.is_dmz ? aws_security_group.allow_internal[0].id : aws_security_group.allow_internal_lz[0].id]
