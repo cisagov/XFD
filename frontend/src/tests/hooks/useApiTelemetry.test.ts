@@ -56,7 +56,10 @@ describe('useApi telemetry', () => {
       }
     };
     // v6: get(...) returns an Operation object; .response is the promise
-    get.mockReturnValueOnce({ response: Promise.reject(error) });
+    // Attach .catch() immediately to prevent unhandled rejection before mock consumes it
+    const rejection = Promise.reject(error);
+    rejection.catch(() => undefined);
+    get.mockReturnValueOnce({ response: rejection });
 
     const { useApi } = await import('../../hooks/useApi');
     const { result } = renderHook(() => useApi());
@@ -78,7 +81,10 @@ describe('useApi telemetry', () => {
     const { get } = await getAmplifyAPI();
 
     // v6: get(...) returns an Operation object; .response is the promise
-    get.mockReturnValueOnce({ response: Promise.reject(new Error('boom')) });
+    // Attach .catch() immediately to prevent unhandled rejection before mock consumes it
+    const rejection = Promise.reject(new Error('boom'));
+    rejection.catch(() => undefined);
+    get.mockReturnValueOnce({ response: rejection });
 
     const { useApi } = await import('../../hooks/useApi');
     const { result } = renderHook(() => useApi());
