@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 
 # Third-Party Libraries
 from django.core.paginator import Paginator
+from django.db import IntegrityError
 from django.db.models import Q
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import (
@@ -777,6 +778,41 @@ def delete_organization(org_id: str, current_user):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _build_add_user_to_org_v2_response(role: Role) -> dict:
+    """Build the response payload for add_user_to_org_v2."""
+    return {
+        "id": str(role.id),
+        "user": {
+            "id": str(role.user.id),
+            "email": role.user.email,
+            "first_name": role.user.first_name,
+            "last_name": role.user.last_name,
+        },
+        "organization": {
+            "id": str(role.organization.id),
+            "name": role.organization.name,
+        },
+        "role": role.role,
+        "approved": role.approved,
+        "approved_by": (
+            {
+                "id": str(role.approved_by.id),
+                "email": role.approved_by.email,
+            }
+            if role.approved_by
+            else None
+        ),
+        "created_by": (
+            {
+                "id": str(role.created_by.id),
+                "email": role.created_by.email,
+            }
+            if role.created_by
+            else None
+        ),
+    }
+
+
 # POST: /v2/organizations/{organization_id}/users
 def add_user_to_org_v2(organization_id: str, user_data, current_user):
     """Add a user to a particular organization."""
@@ -806,7 +842,18 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
         except User.DoesNotExist:
             raise HTTPException(status_code=404, detail="User not found.")
 
-        # Prepare the new role data
+        existing_role = Role.objects.filter(
+            user_id=user.id, organization_id=organization.id
+        ).first()
+        if existing_role:
+            LOGGER.info(
+                "User %s already has role %s for organization %s; returning existing role.",
+                user.id,
+                existing_role.id,
+                organization.id,
+            )
+            return _build_add_user_to_org_v2_response(existing_role)
+
         new_role_data = {
             "user": user,
             "organization": organization,
@@ -816,36 +863,31 @@ def add_user_to_org_v2(organization_id: str, user_data, current_user):
             "created_by": current_user,
         }
 
-        # Create the new role object
-        new_role = Role.objects.create(**new_role_data)
+        try:
+            new_role = Role.objects.create(**new_role_data)
+        except IntegrityError:
+            # Concurrent duplicate assignment; return the existing role if present.
+            existing_role = Role.objects.filter(
+                user_id=user.id, organization_id=organization.id
+            ).first()
+            if existing_role:
+                LOGGER.info(
+                    "Concurrent duplicate role assignment for user %s and organization %s; "
+                    "returning existing role %s.",
+                    user.id,
+                    organization.id,
+                    existing_role.id,
+                )
+                return _build_add_user_to_org_v2_response(existing_role)
+            raise
 
-        # Return the created role in the response
-        return {
-            "id": str(new_role.id),
-            "user": {
-                "id": str(new_role.user.id),
-                "email": new_role.user.email,
-                "first_name": new_role.user.first_name,
-                "last_name": new_role.user.last_name,
-            },
-            "organization": {
-                "id": str(new_role.organization.id),
-                "name": new_role.organization.name,
-            },
-            "role": new_role.role,
-            "approved": new_role.approved,
-            "approved_by": {
-                "id": str(new_role.approved_by.id),
-                "email": new_role.approved_by.email,
-            },
-            "created_by": {
-                "id": str(new_role.created_by.id),
-                "email": new_role.created_by.email,
-            },
-        }
+        return _build_add_user_to_org_v2_response(new_role)
 
     except HTTPException as http_exc:
         raise http_exc
+
+    except IntegrityError:
+        raise
 
     except Exception as e:
         LOGGER.error("Error occurred while adding user to organization: %s", e)

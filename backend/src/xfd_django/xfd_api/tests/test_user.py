@@ -577,6 +577,40 @@ def test_register_approve_success(mock_email):
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_register_approve_already_approved_returns_200_message():
+    """Second approve returns 200 with already-approved body (no duplicate email)."""
+    current_user = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@crossfeed.cisa.gov".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        invite_pending=False,
+        date_accepted_terms=datetime.now(),
+    )
+    user_to_approve = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+        date_approved=datetime.now(),
+        approved_by=current_user,
+    )
+
+    response = client.post(
+        "/users/{}/register/approve".format(user_to_approve.id),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(current_user))},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["body"] == "User registration already approved."
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_register_approve_unauthorized_region():
     """Test approval with unauthorized region access."""
     current_user = User.objects.create(

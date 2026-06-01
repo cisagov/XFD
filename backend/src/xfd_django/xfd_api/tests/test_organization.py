@@ -1664,6 +1664,68 @@ def test_add_user_to_org_v2_success():
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_add_user_to_org_v2_returns_existing_role_when_already_assigned():
+    """Adding a user who already has a role for the org is idempotent (no 500)."""
+    admin = User.objects.create(
+        first_name="Admin",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.REGIONAL_ADMIN,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    organization = Organization.objects.create(
+        name="Test Organization",
+        root_domains=["test.com"],
+        ip_blocks=[],
+        is_passive=False,
+        state="CA",
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    user = User.objects.create(
+        first_name="Test",
+        last_name="User",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        region_id="region-1",
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    existing_role = Role.objects.create(
+        user=user,
+        organization=organization,
+        role="member",
+        approved=True,
+        approved_by=admin,
+        created_by=admin,
+    )
+
+    payload = {
+        "user_id": str(user.id),
+        "role": "member",
+    }
+
+    response = client.post(
+        "/v2/organizations/{}/users".format(str(organization.id)),
+        headers={"Authorization": "Bearer {}".format(create_jwt_token(admin))},
+        json=payload,
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["id"] == str(existing_role.id)
+    assert data["organization"]["id"] == str(organization.id)
+    assert data["user"]["id"] == str(user.id)
+    assert Role.objects.filter(user=user, organization=organization).count() == 1
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_add_user_to_org_v2_unauthorized():
     """Test that a standard user cannot add a user to an organization."""
     user = User.objects.create(
