@@ -26,9 +26,13 @@ vi.mock('hooks/useUserLevel', () => ({
   useUserLevel: () => ({ formattedUserType: 'standard' })
 }));
 
-vi.mock('@/utils/transformTableData', () => ({
-  transformUserData: (rows: unknown[]) => rows
-}));
+vi.mock('@/utils/transformTableData', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/utils/transformTableData')>();
+  return {
+    ...actual,
+    transformUserData: (rows: unknown[]) => rows
+  };
+});
 
 vi.mock('@/pages/UserRegistration/OrganizationSelector', () => ({
   OrganizationSelector: () => <div data-testid="organization-selector" />
