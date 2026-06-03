@@ -18,7 +18,9 @@ vi.mock('@mui/x-data-grid', async (importOriginal) => {
       rows?: Array<Record<string, unknown>>;
       columns?: Array<{
         field?: string;
-        renderCell?: (params: { row: Record<string, unknown> }) => React.ReactNode;
+        renderCell?: (params: {
+          row: Record<string, unknown>;
+        }) => React.ReactNode;
       }>;
     }) => (
       <div data-testid="data-grid">
