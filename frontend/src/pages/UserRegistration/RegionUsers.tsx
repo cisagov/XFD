@@ -45,6 +45,9 @@ type ErrorStates = {
 
 type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
+/** Refresh pending/member tables while admins work on this page (ms). */
+const REGISTRATION_USERS_REFRESH_INTERVAL_MS = 30_000;
+
 export const RegionUsers: React.FC = () => {
   const { apiDelete, apiGet, apiPost, user } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
@@ -79,28 +82,65 @@ export const RegionUsers: React.FC = () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}true`);
       setPendingUsers(rows);
-      setErrorStates({ ...errorStates, getUsersError: '' });
+      setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
-      setErrorStates({ ...errorStates, getUsersError: e.message });
+      setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiGet]);
+  }, [apiGet, getUsersURL]);
   const fetchCurrentUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}false`);
       setCurrentUsers(transformUserData(rows));
-      setErrorStates({ ...errorStates, getUsersError: '' });
+      setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
     } catch (e: any) {
-      setErrorStates({ ...errorStates, getUsersError: e.message });
+      setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiGet]);
+  }, [apiGet, getUsersURL]);
+
+  const isRegistrationDialogOpen =
+    dialogStates.isOrgDialogOpen ||
+    dialogStates.isDenyDialogOpen ||
+    dialogStates.isInfoDialogOpen ||
+    dialogStates.isUserAlreadyApprovedDialogOpen;
 
   useEffect(() => {
     fetchPendingUsers();
     fetchCurrentUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchPendingUsers, fetchCurrentUsers]);
+
+  // Keep registration tables in sync with the server. Polling is paused while a
+  // dialog is open (so approve/deny flows are not disrupted) and while the tab
+  // is hidden. Does not reset session inactivity — that only tracks mouse/keyboard.
+  useEffect(() => {
+    const refreshRegistrationTables = () => {
+      if (document.hidden || isRegistrationDialogOpen) {
+        return;
+      }
+      fetchPendingUsers();
+      fetchCurrentUsers();
+    };
+
+    const intervalId = window.setInterval(
+      refreshRegistrationTables,
+      REGISTRATION_USERS_REFRESH_INTERVAL_MS
+    );
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        refreshRegistrationTables();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [
+    fetchPendingUsers,
+    fetchCurrentUsers,
+    isRegistrationDialogOpen
+  ]);
 
   const deleteUser = useCallback(
     (user_id: string): Promise<boolean> => {
@@ -211,6 +251,7 @@ export const RegionUsers: React.FC = () => {
       ...dialogStates,
       isOrgDialogOpen: false
     });
+    setSelectedOrgObject(null);
     selectUser(initializeUser);
   };
 
@@ -230,6 +271,7 @@ export const RegionUsers: React.FC = () => {
       type: 'include',
       ids: new Set<string | number>()
     });
+    setSelectedOrgObject(null);
     setDialogStates({
       ...dialogStates,
       isOrgDialogOpen: true
@@ -264,6 +306,7 @@ export const RegionUsers: React.FC = () => {
       ...prevState,
       isOrgDialogOpen: false
     }));
+    setSelectedOrgObject(null);
     selectUser(initializeUser);
   };
 
@@ -296,7 +339,6 @@ export const RegionUsers: React.FC = () => {
   const handleApproveConfirmClick = async () => {
     try {
       const emailResult = await sendApprovalEmail(selectedUser.id);
-      const user_id = selectedUser.id;
       const userHadOrg = selectedUser.roles.length > 0;
       const originalOrgId = userHadOrg
         ? selectedUser.roles[0].organization.id
@@ -304,23 +346,50 @@ export const RegionUsers: React.FC = () => {
       const selectedOrgId = selectedOrgObject?.id || null;
       let success = false;
 
-      // This call is to determine if the user was already approved by another admin since opening the dialog.
-      // If so, show the already approved dialog and remove the user from the pending list.
+      // User was approved earlier (e.g. register/approve succeeded but invite_pending was
+      // never cleared). Finish approval by assigning org if needed, then clear pending.
       if (
         emailResult.status_code === 200 &&
         emailResult.body === 'User registration already approved.'
       ) {
-        setDialogStates((prevState) => ({
-          ...prevState,
-          isOrgDialogOpen: false,
-          isUserAlreadyApprovedDialogOpen: true
-        }));
-        apiRefPendingUsers.current?.updateRows([
-          { id: user_id, _action: 'delete' }
-        ]);
-        setPendingUsers((prevPendingUsers) =>
-          prevPendingUsers.filter((user) => user.id !== user_id)
-        );
+        let alreadyApprovedSuccess = false;
+
+        if (userHadOrg && originalOrgId === selectedOrgId) {
+          const updateUserResult = await updateUser(
+            selectedUser.id,
+            selectedUser.roles[0].organization
+          );
+          alreadyApprovedSuccess = updateUserResult.success;
+        } else if (selectedOrgObject) {
+          const addOrgResult = await addOrgToUser(
+            selectedUser.id,
+            selectedOrgObject
+          );
+          alreadyApprovedSuccess = addOrgResult.success;
+        } else if (selectedUser.roles[0]?.organization) {
+          const updateUserResult = await updateUser(
+            selectedUser.id,
+            selectedUser.roles[0].organization
+          );
+          alreadyApprovedSuccess = updateUserResult.success;
+        }
+
+        if (alreadyApprovedSuccess) {
+          handleCloseDialog('closeButtonClick');
+          setDialogStates((prevState) => ({
+            ...prevState,
+            isInfoDialogOpen: true
+          }));
+          setInfoDialogContent(
+            `This user was previously approved. Their registration is now complete and they are a member of Region ${selectedUser.region_id}.`
+          );
+        } else {
+          setDialogStates((prevState) => ({
+            ...prevState,
+            isOrgDialogOpen: false,
+            isUserAlreadyApprovedDialogOpen: true
+          }));
+        }
         return;
       }
 
