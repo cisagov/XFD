@@ -11,7 +11,30 @@ vi.mock('@mui/x-data-grid', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@mui/x-data-grid')>();
   return {
     ...actual,
-    DataGrid: () => <div data-testid="data-grid" />,
+    DataGrid: ({
+      rows = [],
+      columns = []
+    }: {
+      rows?: Array<Record<string, unknown>>;
+      columns?: Array<{
+        field?: string;
+        renderCell?: (params: { row: Record<string, unknown> }) => React.ReactNode;
+      }>;
+    }) => (
+      <div data-testid="data-grid">
+        {rows.map((row) => {
+          const statusCol = columns.find((col) => col.field === 'status');
+          if (!statusCol?.renderCell) {
+            return null;
+          }
+          return (
+            <div key={String(row.id)} data-testid={`row-${row.id}`}>
+              {statusCol.renderCell({ row })}
+            </div>
+          );
+        })}
+      </div>
+    ),
     useGridApiRef: () => ({ current: { updateRows: vi.fn() } }),
     GridToolbar: () => null
   };
