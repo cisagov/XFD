@@ -8,8 +8,7 @@ import { ENDPOINTS } from '@/constants/endpoints';
 const REGISTRATION_USERS_REFRESH_INTERVAL_MS = 30_000;
 
 vi.mock('@mui/x-data-grid', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('@mui/x-data-grid')>();
+  const actual = await importOriginal<typeof import('@mui/x-data-grid')>();
   return {
     ...actual,
     DataGrid: () => <div data-testid="data-grid" />,
@@ -27,7 +26,8 @@ vi.mock('hooks/useUserLevel', () => ({
 }));
 
 vi.mock('@/utils/transformTableData', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/utils/transformTableData')>();
+  const actual =
+    await importOriginal<typeof import('@/utils/transformTableData')>();
   return {
     ...actual,
     transformUserData: (rows: unknown[]) => rows

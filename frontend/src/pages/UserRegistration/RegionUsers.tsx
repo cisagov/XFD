@@ -136,11 +136,7 @@ export const RegionUsers: React.FC = () => {
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [
-    fetchPendingUsers,
-    fetchCurrentUsers,
-    isRegistrationDialogOpen
-  ]);
+  }, [fetchPendingUsers, fetchCurrentUsers, isRegistrationDialogOpen]);
 
   const deleteUser = useCallback(
     (user_id: string): Promise<boolean> => {
