@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render } from '@/test-utils/test-utils';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { useStaticsContext } from '@/context/StaticsContext';
 import { useAuthContext } from '@/context/AuthContext';
 import { authCtx } from '@/test-utils/authCtx';
@@ -581,6 +581,79 @@ describe('Domain and IP Filter Component', () => {
       expect(screen.queryByText('example1.com')).not.toBeInTheDocument();
       expect(screen.queryByText('example3.com')).not.toBeInTheDocument();
       expect(screen.queryByText('example4.com')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('Input clear behavior after selection', () => {
+    it('clears IP input after selecting an IP option', async () => {
+      const globalAdminAuthCtx = {
+        ...authCtx,
+        user: globalAdminUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockIPs.map((ip) => ({ _source: ip }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalAdminAuthCtx);
+      render(<DomainAndIPFilter {...defaultIpProps} />);
+
+      const ipAutocomplete = await screen.findByLabelText(/search ip address/i);
+      expect(ipAutocomplete).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await act(async () => {
+        await user.click(ipAutocomplete);
+      });
+
+      // Click an option
+      const option2 = await screen.findByText('192.168.1.2');
+      await act(async () => {
+        await user.click(option2);
+      });
+
+      // After selection handler clears the input, the input value should be empty
+      await waitFor(() => {
+        const ipInputAfter = screen.getByLabelText(/search ip address/i) as HTMLInputElement;
+        expect(ipInputAfter.value).toBe('');
+      });
+    });
+
+    it('clears Domain input after selecting a Domain option', async () => {
+      const globalAdminAuthCtx = {
+        ...authCtx,
+        user: globalAdminUser,
+        apiPost: vi.fn().mockResolvedValue({
+          body: {
+            hits: {
+              hits: mockDomains.map((d) => ({ _source: d }))
+            }
+          }
+        })
+      };
+      vi.mocked(useAuthContext).mockReturnValue(globalAdminAuthCtx);
+      render(<DomainAndIPFilter {...defaultDomainProps} />);
+
+      const domainAutocomplete = await screen.findByLabelText(/search domains/i);
+      expect(domainAutocomplete).toBeInTheDocument();
+
+      const user = userEvent.setup();
+      await act(async () => {
+        await user.click(domainAutocomplete);
+      });
+
+      const option2 = await screen.findByText('example2.com');
+      await act(async () => {
+        await user.click(option2);
+      });
+
+      // Wait for the component's selection handler to clear the input
+      await waitFor(() => {
+        const domainInputAfter = screen.getByLabelText(/search domains/i) as HTMLInputElement;
+        expect(domainInputAfter.value).toBe('');
+      });
     });
   });
 });
