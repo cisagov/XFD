@@ -40,14 +40,14 @@ from schema import And, Schema, SchemaError, Use
 
 # cisagov Libraries
 # from ._version import __version__
-from .DNSMonitor.dnsmonitor import run_dnsmonitor
-from .DNSTwist.dnstwist import run_dnstwist
-from .Flare.flare_creds import run_flare_creds
-from .Flare.flare_events import run_flare_events
-from .Flare.flare_ident_prune import run_flare_ident_prune
-from .Flare.flare_ident_refresh import run_flare_ident_refresh
-from .Shodan.shodan_top_cves import run_shodan_top_cves
-from .Shodan.shodan_vulns import run_shodan_vulns
+from .dnsmonitor.dnsmonitor import run_dnsmonitor
+from .dnstwist.dnstwist import run_dnstwist
+from .flare.flare_creds import run_flare_creds
+from .flare.flare_events import run_flare_events
+from .flare.flare_ident_prune import run_flare_ident_prune
+from .flare.flare_ident_refresh import run_flare_ident_refresh
+from .shodan.shodan_top_cves import run_shodan_top_cves
+from .shodan.shodan_vulns import run_shodan_vulns
 
 # Setup Logging
 LOGGER = logging.getLogger(__name__)
