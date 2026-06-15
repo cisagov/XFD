@@ -2,20 +2,20 @@
 The main file to launch all P&E data collection scripts.
 
 Usage:
-    pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST] [--key_num=KEY_NUM] [--soc_med_included]
+    pe_source_launcher.py DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST] [--key_num=KEY_NUM] [--soc_med_included]
 
 Arguments:
-    DATA_SOURCE                     Data source to collect data from. Valid values are "dnsmonitor", "dnsmonitor", 
+    DATA_SOURCE                     Data source to collect data from. Valid values are "dnsmonitor", "dnsmonitor",
                                     "dnstwist", "flare_events", "flare_creds", "shodan_vulns", and "shodan_top_cves".
 
 Options:
     -h --help                       Show this message.
     -v --version                    Show version information.
-    -l --log-level=LEVEL            The desired log level. If specified, valid values are 
-                                    "debug", "info", "warning", "error", and "critical". 
+    -l --log-level=LEVEL            The desired log level. If specified, valid values are
+                                    "debug", "info", "warning", "error", and "critical".
                                     [default: info]
     -o --orgs=ORG_LIST              A comma-separated list of organizations to collect data for.
-                                    If specified, organizations in the list must use the abbreviations 
+                                    If specified, organizations in the list must use the abbreviations
                                     in the cyhy-db (e.g. DHS, DHS_CISA). Enter "all" to collect data
                                     for all P&E report customer organizations. Enter "demo" to collect
                                     data for all non-pe customer organizations.
@@ -39,15 +39,15 @@ import docopt
 from schema import And, Schema, SchemaError, Use
 
 # cisagov Libraries
-# from ._version import __version__
-from .dnsmonitor.dnsmonitor import run_dnsmonitor
-from .dnstwist.dnstwist import run_dnstwist
-from .flare.flare_creds import run_flare_creds
-from .flare.flare_events import run_flare_events
-from .flare.flare_ident_prune import run_flare_ident_prune
-from .flare.flare_ident_refresh import run_flare_ident_refresh
-from .shodan.shodan_top_cves import run_shodan_top_cves
-from .shodan.shodan_vulns import run_shodan_vulns
+from pe_source._version import __version__
+from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
+from pe_source.dnstwist.dnstwist_script import run_dnstwist
+from pe_source.flare.flare_creds import run_flare_creds
+from pe_source.flare.flare_events import run_flare_events
+from pe_source.flare.flare_ident_prune import run_flare_ident_prune
+from pe_source.flare.flare_ident_refresh import run_flare_ident_refresh
+from pe_source.shodan.shodan_top_cves import run_shodan_top_cves
+from pe_source.shodan.shodan_vulns import run_shodan_vulns
 
 # Setup Logging
 LOGGER = logging.getLogger(__name__)
@@ -140,7 +140,7 @@ def main():
         validated_args: Dict[str, Any] = schema.validate(args)
     except SchemaError as err:
         # Exit because one or more of the arguments were invalid
-        print(err, file=sys.stderr)
+        LOGGER.error(err, file=sys.stderr)
         sys.exit(1)
 
     # Assign validated arguments to variables
@@ -148,14 +148,14 @@ def main():
 
     # Set up logging
     logging.basicConfig(
-        filename=pe_source.CENTRAL_LOGGING_FILE,
+        filename="./pe_reports_logging.log",
         filemode="a",
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         datefmt="%m/%d/%Y %I:%M:%S",
         level=log_level.upper(),
     )
 
-    # Run pe script for the specified source
+    # Run P&E script for the specified data source
     run_pe_source(
         validated_args["DATA_SOURCE"],
         validated_args["--orgs"],
@@ -165,3 +165,7 @@ def main():
 
     # Stop logging and clean up
     logging.shutdown()
+
+
+if __name__ == "__main__":
+    main()
