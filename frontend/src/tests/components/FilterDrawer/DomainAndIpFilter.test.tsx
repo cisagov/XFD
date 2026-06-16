@@ -616,7 +616,9 @@ describe('Domain and IP Filter Component', () => {
 
       // After selection handler clears the input, the input value should be empty
       await waitFor(() => {
-        const ipInputAfter = screen.getByLabelText(/search ip address/i) as HTMLInputElement;
+        const ipInputAfter = screen.getByLabelText(
+          /search ip address/i
+        ) as HTMLInputElement;
         expect(ipInputAfter.value).toBe('');
       });
     });
@@ -636,7 +638,8 @@ describe('Domain and IP Filter Component', () => {
       vi.mocked(useAuthContext).mockReturnValue(globalAdminAuthCtx);
       render(<DomainAndIPFilter {...defaultDomainProps} />);
 
-      const domainAutocomplete = await screen.findByLabelText(/search domains/i);
+      const domainAutocomplete =
+        await screen.findByLabelText(/search domains/i);
       expect(domainAutocomplete).toBeInTheDocument();
 
       const user = userEvent.setup();
@@ -651,7 +654,9 @@ describe('Domain and IP Filter Component', () => {
 
       // Wait for the component's selection handler to clear the input
       await waitFor(() => {
-        const domainInputAfter = screen.getByLabelText(/search domains/i) as HTMLInputElement;
+        const domainInputAfter = screen.getByLabelText(
+          /search domains/i
+        ) as HTMLInputElement;
         expect(domainInputAfter.value).toBe('');
       });
     });
