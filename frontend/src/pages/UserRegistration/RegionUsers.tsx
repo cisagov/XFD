@@ -371,13 +371,17 @@ export const RegionUsers: React.FC = () => {
         }
 
         if (alreadyApprovedSuccess) {
+          const approvedOrgName =
+            selectedOrgObject?.name ??
+            selectedUser.roles[0]?.organization?.name ??
+            'the selected organization';
           handleCloseDialog('closeButtonClick');
           setDialogStates((prevState) => ({
             ...prevState,
             isInfoDialogOpen: true
           }));
           setInfoDialogContent(
-            `This user was previously approved. Their registration is now complete and they are a member of Region ${selectedUser.region_id}.`
+            `This user was previously approved. Their registration is now complete and they are a member of ${approvedOrgName} in Region ${selectedUser.region_id}.`
           );
         } else {
           setDialogStates((prevState) => ({
