@@ -577,6 +577,11 @@ def get_allowed_user_update_fields(current_user, target_user):
             and current_user.invite_pending is True
         ):
             allowed |= {"can_select_own_state", "state", "region_id", "invite_pending"}
+
+        if (
+            current_user.state is None or current_user.state == ""
+        ) and current_user.invite_pending is True:
+            allowed |= {"state"}
         return allowed
 
     return set()
