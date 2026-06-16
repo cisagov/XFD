@@ -174,7 +174,7 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
         open={updateDialogOpen}
         onClose={() => setUpdateDialogOpen(false)}
         aria-labelledby="update-saved-filter-dialog-title"
-        aria-describedby="update-saved-filter-dialog-description"
+        aria-describedby="update-saved-filter-dialog-content"
         slotProps={{
           paper: {
             component: 'form',
