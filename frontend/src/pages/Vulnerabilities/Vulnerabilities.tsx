@@ -748,7 +748,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 filterTimerRef.current = window.setTimeout(() => {
                   setIsLoading(true);
                   setFilters(cleanedModel.items);
-                  // setHasActiveFilters(cleanedModel.items.length > 0);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
                 }, 1000);
@@ -786,23 +785,6 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                 basePopper: {
                   placement: 'bottom-start'
                 },
-                // panel: {
-                //   onClose: () => {
-                //     // Clear any incomplete filters when the panel closes and fetch unfiltered data.
-                //     // Prevents mismatch between filter model and applied filters.
-
-                //     const hasIncompleteFilters = filterModel.items.some(
-                //       (item) => item.value === undefined
-                //     );
-
-                //     if (hasIncompleteFilters) {
-                //       setFilterModel({ items: [] });
-                //       setFilters([]);
-                //       setHasActiveFilters(false);
-                //       setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                //     }
-                //   }
-                // },
                 columnsManagement: {
                   disableResetButton: true,
                   getTogglableColumns: (columns) => {
