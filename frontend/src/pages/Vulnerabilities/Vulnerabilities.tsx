@@ -723,8 +723,8 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
               onFilterModelChange={(model) => {
                 const cleanedModel = cleanFilterModelItems(model, filterModel);
                 const emptyModel = isFilterModelEmpty(cleanedModel);
-                setHasActiveFilters(!emptyModel);
                 setFilterModel(cleanedModel);
+                setHasActiveFilters(!emptyModel);
 
                 const shouldUpdate = shouldTriggerFilterUpdate(
                   cleanedModel.items,
@@ -750,7 +750,7 @@ export const Vulnerabilities: React.FC<VulnerabilitiesProps> = ({
                   setFilters(cleanedModel.items);
                   setPaginationModel((prev) => ({ ...prev, page: 0 }));
                   filterTimerRef.current = null;
-                }, 1000);
+                }, 500);
               }}
               paginationMode="server"
               paginationModel={paginationModel}
