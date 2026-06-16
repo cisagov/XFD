@@ -173,9 +173,8 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
       <Dialog
         open={updateDialogOpen}
         onClose={() => setUpdateDialogOpen(false)}
-        aria-label="update search"
-        aria-labelledby="update-search-form-title"
-        aria-describedby="update-search-form-description"
+        aria-labelledby="update-saved-filter-dialog-title"
+        aria-describedby="update-saved-filter-dialog-description"
         slotProps={{
           paper: {
             component: 'form',
@@ -190,16 +189,15 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             }
           }
         }}
-        role="dialog"
       >
-        <DialogTitle id="update-saved-search-title">
+        <DialogTitle id="update-saved-filter-dialog-title">
           Update Saved Filter
         </DialogTitle>
         <DialogContent>
           <TextField
             required
             margin="dense"
-            id="name"
+            id="update-saved-filter-dialog-content"
             name="name"
             placeholder={activeSearch?.name}
             type="text"
@@ -308,17 +306,15 @@ export const SaveSearchModal: React.FC<SaveSearchModalProps> = (props) => {
             }
           }
         }}
-        aria-label="Save Search"
-        aria-labelledby="save-search-dialog-title"
-        aria-describedby="dialog-description"
-        role="dialog"
+        aria-labelledby="save-filter-dialog-title"
+        aria-describedby="save-filter-dialog-content"
       >
-        <DialogTitle id="dialog-title">Save Filter</DialogTitle>
+        <DialogTitle id="save-filter-dialog-title">Save Filter</DialogTitle>
         <DialogContent>
           <TextField
             required
             margin="dense"
-            id="name"
+            id="save-filter-dialog-content"
             name="name"
             placeholder="Add custom filter name"
             type="text"

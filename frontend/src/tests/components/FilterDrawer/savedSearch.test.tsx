@@ -162,12 +162,12 @@ describe('SaveSearchModal functionality', () => {
       await user.click(saveNewButton);
 
       const modal = screen.getByRole('dialog', {
-        name: /save search/i
+        name: /save filter/i
       });
       expect(modal).toBeInTheDocument();
     });
 
-    it('opens update search modal when Update button is clicked', async () => {
+    it('opens update saved filter modal when Update button is clicked', async () => {
       vi.mocked(useSavedSearchContext).mockReturnValue({
         savedSearches: [
           {
@@ -196,7 +196,7 @@ describe('SaveSearchModal functionality', () => {
       await user.click(updateButton);
 
       const modal = screen.getByRole('dialog', {
-        name: /update search/i
+        name: /update saved filter/i
       });
       await waitFor(() => {
         expect(modal).toBeInTheDocument();
