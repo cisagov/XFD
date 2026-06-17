@@ -1,7 +1,7 @@
 // frontend/src/App.tsx
 import React, { useEffect } from 'react';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
-import { API, Auth } from 'aws-amplify';
+import { Amplify } from 'aws-amplify';
 import { AuthContextProvider, CFThemeProvider, SearchProvider } from 'context';
 import { ROUTES } from '@/constants/routes';
 import {
@@ -22,17 +22,24 @@ import AppGate from './components/Gates/AppGate';
 import TermsGate from './components/Gates/TermsGate';
 import { MuiGlobalStyles } from 'context/MuiGlobalStyles';
 
-API.configure({
-  endpoints: [{ name: 'crossfeed', endpoint: import.meta.env.VITE_API_URL }]
+Amplify.configure({
+  API: {
+    REST: {
+      crossfeed: {
+        endpoint: import.meta.env.VITE_API_URL,
+        region: import.meta.env.VITE_AWS_REGION
+      }
+    }
+  },
+  ...(import.meta.env.VITE_USE_COGNITO && {
+    Auth: {
+      Cognito: {
+        userPoolId: import.meta.env.VITE_USER_POOL_ID,
+        userPoolClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID
+      }
+    }
+  })
 });
-
-if (import.meta.env.VITE_USE_COGNITO) {
-  Auth.configure({
-    region: import.meta.env.VITE_EMAIL_REGION,
-    userPoolId: import.meta.env.VITE_USER_POOL_ID,
-    userPoolWebClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID
-  });
-}
 
 const instance = createInstance({
   urlBase: `${import.meta.env.VITE_API_URL}${ROUTES.MATOMO}`,
