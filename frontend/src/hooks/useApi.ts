@@ -1,5 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
-import { API } from 'aws-amplify';
+import { post, get, del } from 'aws-amplify/api';
+import {
+  ApiInput,
+  Operation,
+  RestApiOptionsBase,
+  RestApiResponse
+} from '@aws-amplify/api-rest/dist/esm/types';
 // import { useMatomo } from '@datapunt/matomo-tracker-react';
 
 const baseHeaders: HeadersInit = {
@@ -7,7 +13,9 @@ const baseHeaders: HeadersInit = {
   Accept: 'application/json'
 };
 
-type ApiMethod = (apiName: string, path: string, init?: any) => Promise<any>;
+type ApiMethod = (
+  input: ApiInput<RestApiOptionsBase>
+) => Operation<RestApiResponse>;
 type OnError = (e: Error) => Promise<void>;
 
 const isLocal = import.meta.env.VITE_IS_LOCAL === '1';
@@ -108,7 +116,10 @@ export const useApi = (onError?: OnError) => {
         try {
           showLoading && setRequestCount((cnt) => cnt + 1);
           const options = await prepareInit(rest);
-          const result = await method('crossfeed', path, options);
+          // const result = await method('crossfeed', path, options);
+          const response = await method({ apiName: 'crossfeed', path, options })
+            .response;
+          const result = await response.body.json();
           showLoading && setRequestCount((cnt) => cnt - 1);
           return result as T;
         } catch (e: any) {
@@ -158,9 +169,9 @@ export const useApi = (onError?: OnError) => {
   );
 
   const api = {
-    apiGet: useMemo(() => apiMethod(API.get.bind(API), 'get'), [apiMethod]),
-    apiPost: useMemo(() => apiMethod(API.post.bind(API), 'post'), [apiMethod]),
-    apiDelete: useMemo(() => apiMethod(API.del.bind(API), 'del'), [apiMethod])
+    apiGet: useMemo(() => apiMethod(get), [apiMethod]),
+    apiPost: useMemo(() => apiMethod(post), [apiMethod]),
+    apiDelete: useMemo(() => apiMethod(del), [apiMethod])
   };
 
   return {
