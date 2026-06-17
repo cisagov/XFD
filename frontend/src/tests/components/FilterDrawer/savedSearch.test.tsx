@@ -161,7 +161,7 @@ describe('SaveSearchModal functionality', () => {
       const user = userEvent.setup();
       await user.click(saveNewButton);
 
-      const modal = screen.getByRole('dialog', {
+      const modal = screen.getByRole('presentation', {
         name: /save search/i
       });
       expect(modal).toBeInTheDocument();
@@ -195,7 +195,7 @@ describe('SaveSearchModal functionality', () => {
       const user = userEvent.setup();
       await user.click(updateButton);
 
-      const modal = screen.getByRole('dialog', {
+      const modal = screen.getByRole('presentation', {
         name: /update search/i
       });
       await waitFor(() => {
