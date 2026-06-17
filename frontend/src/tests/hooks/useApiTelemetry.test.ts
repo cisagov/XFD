@@ -1,18 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
-vi.mock('aws-amplify', () => ({
-  API: {
-    get: vi.fn(),
-    post: vi.fn(),
-    del: vi.fn(),
-    patch: vi.fn()
-  }
+vi.mock('aws-amplify/api', () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  del: vi.fn()
 }));
 
 const getAmplifyAPI = async () => {
-  const mod = await import('aws-amplify');
-  return mod.API as any;
+  const mod = await import('aws-amplify/api');
+  return {
+    get: mod.get as any,
+    post: mod.post as any,
+    del: mod.del as any
+  };
 };
 
 describe('useApi telemetry', () => {
@@ -44,16 +45,21 @@ describe('useApi telemetry', () => {
   });
 
   it('does not send telemetry when API Gateway headers are present', async () => {
-    const API = await getAmplifyAPI();
+    const { get } = await getAmplifyAPI();
 
-    API.get.mockRejectedValueOnce({
+    const error = {
       response: {
         status: 500,
         headers: {
           'x-amzn-requestid': 'abc123'
         }
       }
-    });
+    };
+    // v6: get(...) returns an Operation object; .response is the promise
+    // Attach .catch() immediately to prevent unhandled rejection before mock consumes it
+    const rejection = Promise.reject(error);
+    rejection.catch(() => undefined);
+    get.mockReturnValueOnce({ response: rejection });
 
     const { useApi } = await import('../../hooks/useApi');
     const { result } = renderHook(() => useApi());
@@ -72,9 +78,13 @@ describe('useApi telemetry', () => {
   });
 
   it('rethrows the original error after telemetry handling', async () => {
-    const API = await getAmplifyAPI();
+    const { get } = await getAmplifyAPI();
 
-    API.get.mockRejectedValueOnce(new Error('boom'));
+    // v6: get(...) returns an Operation object; .response is the promise
+    // Attach .catch() immediately to prevent unhandled rejection before mock consumes it
+    const rejection = Promise.reject(new Error('boom'));
+    rejection.catch(() => undefined);
+    get.mockReturnValueOnce({ response: rejection });
 
     const { useApi } = await import('../../hooks/useApi');
     const { result } = renderHook(() => useApi());
