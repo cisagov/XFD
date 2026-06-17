@@ -34,6 +34,7 @@
     "gatsby-source-filesystem": "^5.9",
     "gatsby-transformer-remark": "^6.10.0",
     "html-loader": "^4.2.0",
+    "lodash": "^4.18.1",
     "prettier": "^2.1.2",
     "prismjs": "^1.27.0",
     "prop-types": "^15.7.2",
@@ -62,11 +63,13 @@
     "gatsby": {
       "cache-manager": "^5.2.1"
     },
+    "postcss": "^8.5.10",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "resolve-url-loader": "^5.0.0",
     "simple-get": "^4.0.1",
     "socket.io": "4.7.5",
+    "svgo": "^3.3.3",
     "ws": "^8.18.0",
     "yaml": "^2.2.2"
   },
