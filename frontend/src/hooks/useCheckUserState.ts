@@ -6,7 +6,8 @@ export function useCheckUserState(user: any, isLoggingOut: boolean | null) {
   useEffect(() => {
     if (!isLoggingOut && user) {
       if (
-        (!user.state || user.state === '') &&
+        !user.state ||
+        user.state === '' ||
         !localStorage.getItem('user_state')
       ) {
         setIsUpdateStateFormOpen(true);
