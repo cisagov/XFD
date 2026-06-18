@@ -14,14 +14,14 @@ Options:
     -l --log-level=LEVEL            The desired log level. If specified, valid values are
                                     "debug", "info", "warning", "error", and "critical".
                                     [default: info]
-    -o --orgs=ORG_LIST              A comma-separated list of organizations to collect data for.
-                                    If specified, organizations in the list must use the abbreviations
-                                    in the cyhy-db (e.g. DHS, DHS_CISA). Enter "all" to collect data
-                                    for all P&E report customer organizations. Enter "demo" to collect
-                                    data for all non-pe customer organizations.
-                                    [default: all]
-    -kn --key_num=KEY_NUM           The number of the data source's API key to use for the script
-                                    if applicable.
+    -o --orgs=ORG_LIST              A comma-separated list of organizations to run the script on.
+                                    If providing a list of organizations you must use the abbreviations
+                                    in the CyHy DB (e.g. DHS, DHS_CISA). Enter "pe" to run on all P&E
+                                    report customer organizations. Enter "demo" to run on all demo
+                                    organizations. Enter "all" to run on all organizations in the database.
+                                    [default: pe]
+    -kn --key_num=KEY_NUM           The number of the data source API key to use for the script
+                                    if applicable. E.g. "1" will use key number 1.
                                     [default: 1]
     -sc --soc_med_included          Include social media sites/posts during in data collection.
 """
@@ -56,17 +56,19 @@ LOGGER = logging.getLogger(__name__)
 def run_pe_source(source, orgs_list, key_num, soc_med_included):
     """Run the specified data collection script."""
     # Determine list of organizations to run the script on
-    if orgs_list != "all" and orgs_list != "demo":
+    if orgs_list == "pe":
+        orgs_list_str = "All P&E Report Organizations"
+    elif orgs_list == "demo":
+        orgs_list_str = "All Demo Organizations"
+    elif orgs_list == "all":
+        orgs_list_str = "All Organizations in Database"
+    else:
         # If list specified, use those orgs
         orgs_list = orgs_list.split(",")
         if len(orgs_list) == 1:
             orgs_list_str = orgs_list[0]
         else:
             orgs_list_str = f"{orgs_list[0]} - {orgs_list[-1]}"
-    else:
-        # If no list specified, use all orgs
-        orgs_list_str = "All P&E Report orgs"
-
     # Log data collection script starting details
     script_full_names = {
         "dnsmonitor": "DNSMonitor",
