@@ -256,11 +256,15 @@ export const DomainAndIPFilter: React.FC<Props> = ({
             }
           }
         }}
-        onInputChange={(e, v) => {
-          if (search_field === 'name') {
-            handleDomainTextChange(v);
-          } else {
-            handleIpTextChange(v);
+        onInputChange={(e, v, reason) => {
+          // Only update the input value when the user types (reason === 'input').
+          // This prevents selection/programmatic events from repopulating the input.
+          if (reason === 'input') {
+            if (search_field === 'name') {
+              handleDomainTextChange(v);
+            } else {
+              handleIpTextChange(v);
+            }
           }
         }}
         // freeSolo
