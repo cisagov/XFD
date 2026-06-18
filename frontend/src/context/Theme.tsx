@@ -385,7 +385,7 @@ const theme = createTheme({
     },
     neutrals: {
       main: '#646566',
-      light: '#A9AEB1',
+      light: '#939294',
       dark: '#2F2F30',
       white: '#FFFFFF',
       black: '#000000'

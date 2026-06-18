@@ -196,22 +196,6 @@ export const Organizations: React.FC = () => {
               disableExport: true,
               hasActiveFilters: hasActiveFilters
             } as any,
-            panel: {
-              onClose: () => {
-                // Clear any incomplete filters when the panel closes and fetch unfiltered data.
-                // Prevents mismatch between filter model and applied filters.
-                const hasIncompleteFilters = filterModel.items.some(
-                  (item) => item.value === undefined
-                );
-
-                if (hasIncompleteFilters) {
-                  setFilterModel({ items: [] });
-                  setFilters({ items: [] });
-                  setHasActiveFilters(false);
-                  setPaginationModel((prev) => ({ ...prev, page: 0 }));
-                }
-              }
-            },
             columnsManagement: {
               disableResetButton: true,
               getTogglableColumns: (columns) => {
@@ -233,35 +217,35 @@ export const Organizations: React.FC = () => {
           filterModel={filterModel}
           onFilterModelChange={(model) => {
             const cleanedModel = cleanFilterModelItems(model, filterModel);
-            setFilterModel(cleanedModel);
             const emptyModel = isFilterModelEmpty(cleanedModel);
-            if (emptyModel) {
-              setHasActiveFilters(false);
-              return;
-            }
+            setFilterModel(cleanedModel);
+            setHasActiveFilters(!emptyModel);
 
             const shouldUpdate = shouldTriggerFilterUpdate(
               cleanedModel.items,
               filterModel.items
             );
 
-            setHasActiveFilters(cleanedModel.items.length !== 0);
             if (!shouldUpdate) {
               return;
             }
 
             if (filterTimerRef.current) {
               clearTimeout(filterTimerRef.current);
+              filterTimerRef.current = null;
+            }
+
+            if (emptyModel) {
+              setFilters({ items: [] });
+              return;
             }
 
             filterTimerRef.current = window.setTimeout(() => {
               setIsLoading(true);
-
               setFilters({ items: cleanedModel.items });
-
               setPaginationModel((prev) => ({ ...prev, page: 0 }));
               filterTimerRef.current = null;
-            }, 1000);
+            }, 500);
           }}
           sortingMode="server"
           sortModel={sortModel}
