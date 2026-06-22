@@ -8,6 +8,12 @@ from xfd_api.tasks.pe_scanExecution import handler, start_desired_tasks
 from xfd_mini_dl.models import Scan, ScanTask
 
 
+@pytest.fixture(autouse=True)
+def pe_ecs_mode(monkeypatch):
+    """PE scan execution tests target the Fargate path, not local Docker workers."""
+    monkeypatch.delenv("IS_LOCAL", raising=False)
+
+
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
 def test_pe_shodan_insufficient_api_keys_blocks():
     """PE Shodan won't run if not enough keys for desired count."""

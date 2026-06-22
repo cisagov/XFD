@@ -19,9 +19,7 @@ from xfd_mini_dl.models import Scan, ScanTask
 
 LOGGER = logging.getLogger(__name__)
 QUEUE_URL = os.getenv("QUEUE_URL")
-
-if not os.getenv("IS_LOCAL"):
-    ecs_client = boto3.client("ecs")
+ecs_client = boto3.client("ecs")
 
 
 def start_desired_tasks(
@@ -94,7 +92,7 @@ def start_desired_tasks(
         )
 
         if os.getenv("IS_LOCAL"):
-            # cisagov Libraries
+            # Third-Party Libraries
             from pe.peScanController import (  # pylint: disable=import-outside-toplevel,import-error
                 SCAN_CATALOG,
                 start_local_docker_workers,
