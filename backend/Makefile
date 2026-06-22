@@ -1,6 +1,9 @@
 .PHONY: syncdb
 .PHONY: populate-cache
 .PHONY: pytest
+.PHONY: pe-test
+.PHONY: pe-requirements-audit
+.PHONY: pe-worker-smoke
 
 # Synchronize and populate the database
 syncdb:
@@ -45,6 +48,22 @@ endif
 
 pylint:
 	docker compose exec backend sh -c "PYTHONPATH=/app pylint ."
+
+# PE unit tests (unittest; no Docker required)
+pe-test:
+	cd pe && pip install -q -e . && \
+	  PYTHONPATH=..:.:src:pe_reports_django_project \
+	  python -m unittest discover -s tests -v
+
+# Audit pinned PE worker dependencies for known CVEs
+pe-requirements-audit:
+	python -m pip install -q pip-audit
+	pip-audit -r pe/requirements.txt
+
+# Verify the pe-worker image built from backend/pe/Dockerfile
+pe-worker-smoke:
+	docker run --rm pe-worker pe-source --help
+	docker run --rm pe-worker python -c "import pe_source.dnstwistscript"
 
 # Redis lambdas
 populate-cache:

@@ -87,7 +87,6 @@ class Scheduler:
                 "scanType": scan.name,
                 "desiredCount": 1,
                 "organizations": [],
-                "isPe": False,
             }
             try:
                 response = scan_execution_handler(event_payload, None)
@@ -189,7 +188,6 @@ class Scheduler:
             "scanType": scan.name,
             "desiredCount": scan.concurrent_tasks,
             "organizations": list(filtered_orgs),
-            "isPe": False,
             "arguments": args,
         }
         try:

@@ -6,7 +6,7 @@ import logging
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 import pika  # For RabbitMQ
-from xfd_api.tasks.scanExecution import handler as scan_execution
+from xfd_api.tasks.pe_scanExecution import handler as scan_execution
 
 # Configure logging
 LOGGER = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ LOGGER = logging.getLogger(__name__)
 class Command(BaseCommand):
     """Command."""
 
-    help = "Run local scan execution and send messages to RabbitMQ"
+    help = "Deprecated: use `make -C backend/pe run` or backend/pe/tools/queue_local_scans.py."
 
     def add_arguments(self, parser):
         """Add arguments."""
