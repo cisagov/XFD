@@ -94,58 +94,58 @@ def start_desired_tasks(
         )
 
         if os.getenv("IS_LOCAL"):
-            # Third-Party Libraries
-            from pe.peScanController import (  # pylint: disable=import-outside-toplevel
-                LOCAL_SCAN_CATALOG,
+            # cisagov Libraries
+            from pe.peScanController import (  # pylint: disable=import-outside-toplevel,import-error
+                SCAN_CATALOG,
                 start_local_docker_workers,
             )
 
             scan_config = dict(
-                LOCAL_SCAN_CATALOG.get(scan_type, {"scan": scan_type, "count": 1})
+                SCAN_CATALOG.get(scan_type, {"scan": scan_type, "count": 1})
             )
             scan_config["count"] = current_batch_count
             api_key_arg = ",".join(shodan_api_keys) if scan_type == "shodan" else ""
             start_local_docker_workers([scan_config], api_key_arg)
             remaining_count -= current_batch_count
             continue
-        else:
-            try:
-                ecs_client.run_task(
-                    cluster=os.getenv("PE_FARGATE_CLUSTER_NAME"),
-                    taskDefinition=os.getenv("PE_FARGATE_TASK_DEFINITION_NAME"),
-                    networkConfiguration={
-                        "awsvpcConfiguration": {
-                            "assignPublicIp": "ENABLED",
-                            "securityGroups": [os.getenv("FARGATE_SG_ID")],
-                            "subnets": [os.getenv("FARGATE_SUBNET_ID")],
+
+        try:
+            ecs_client.run_task(
+                cluster=os.getenv("PE_FARGATE_CLUSTER_NAME"),
+                taskDefinition=os.getenv("PE_FARGATE_TASK_DEFINITION_NAME"),
+                networkConfiguration={
+                    "awsvpcConfiguration": {
+                        "assignPublicIp": "ENABLED",
+                        "securityGroups": [os.getenv("FARGATE_SG_ID")],
+                        "subnets": [os.getenv("FARGATE_SUBNET_ID")],
+                    }
+                },
+                platformVersion="1.4.0",
+                launchType="FARGATE",
+                count=current_batch_count,
+                overrides={
+                    "containerOverrides": [
+                        {
+                            "name": "main",
+                            "environment": [
+                                {"name": "SERVICE_TYPE", "value": scan_type},
+                                {
+                                    "name": "SERVICE_QUEUE_URL",
+                                    "value": queue_url,
+                                },
+                                {
+                                    "name": "PE_SHODAN_API_KEYS",
+                                    "value": shodan_api_key,
+                                },
+                            ],
                         }
-                    },
-                    platformVersion="1.4.0",
-                    launchType="FARGATE",
-                    count=current_batch_count,
-                    overrides={
-                        "containerOverrides": [
-                            {
-                                "name": "main",
-                                "environment": [
-                                    {"name": "SERVICE_TYPE", "value": scan_type},
-                                    {
-                                        "name": "SERVICE_QUEUE_URL",
-                                        "value": queue_url,
-                                    },
-                                    {
-                                        "name": "PE_SHODAN_API_KEYS",
-                                        "value": shodan_api_key,
-                                    },
-                                ],
-                            }
-                        ]
-                    },
-                )
-                LOGGER.info("Tasks started (PE): %d", current_batch_count)
-            except ClientError as e:
-                LOGGER.error("Error starting PE tasks: %s", e)
-                raise e
+                    ]
+                },
+            )
+            LOGGER.info("Tasks started (PE): %d", current_batch_count)
+        except ClientError as e:
+            LOGGER.error("Error starting PE tasks: %s", e)
+            raise e
 
         remaining_count -= current_batch_count
 
