@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { useCheckUserState } from '../../hooks/useCheckUserState';
 
 const userWithState = { state: 'VA' };
@@ -7,16 +7,7 @@ const userWithoutState = { state: null };
 const userWithEmptyState = { state: '' };
 
 describe('useCheckUserState', () => {
-  beforeEach(() => {
-    localStorage.clear();
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   it('opens the form when user has no state', () => {
-    localStorage.setItem('user_state', 'VA');
     const { result } = renderHook(() =>
       useCheckUserState(userWithoutState, false)
     );
@@ -24,22 +15,13 @@ describe('useCheckUserState', () => {
   });
 
   it('opens the form when user state is empty string', () => {
-    localStorage.setItem('user_state', 'VA');
     const { result } = renderHook(() =>
       useCheckUserState(userWithEmptyState, false)
     );
     expect(result.current.isUpdateStateFormOpen).toBe(true);
   });
 
-  it('opens the form when localStorage user_state is missing', () => {
-    const { result } = renderHook(() =>
-      useCheckUserState(userWithState, false)
-    );
-    expect(result.current.isUpdateStateFormOpen).toBe(true);
-  });
-
-  it('does not open the form when user has state and localStorage is set', () => {
-    localStorage.setItem('user_state', 'VA');
+  it('does not open the form when user has state', () => {
     const { result } = renderHook(() =>
       useCheckUserState(userWithState, false)
     );
@@ -59,7 +41,6 @@ describe('useCheckUserState', () => {
   });
 
   it('opens the form when isLoggingOut transitions from true to false', () => {
-    localStorage.setItem('user_state', 'VA');
     const { result, rerender } = renderHook(
       ({ isLoggingOut }) => useCheckUserState(userWithoutState, isLoggingOut),
       { initialProps: { isLoggingOut: true as boolean | null } }
