@@ -11,7 +11,7 @@ from elasticsearch.exceptions import TransportError
 # Constants
 DOMAINS_INDEX = "domains-5"
 ORGANIZATIONS_INDEX = "organizations-1"
-CVE_INDEX = "cve-1"
+CVE_INDEX = "cves-1"
 
 # Define mappings
 organization_mapping = {
