@@ -11,6 +11,7 @@ from elasticsearch.exceptions import TransportError
 # Constants
 DOMAINS_INDEX = "domains-5"
 ORGANIZATIONS_INDEX = "organizations-1"
+CVE_INDEX = "cve-1"
 
 # Define mappings
 organization_mapping = {
@@ -23,6 +24,12 @@ domain_mapping = {
         "vulnerabilities": {"type": "nested"},
         "webpage_body": {"type": "text", "term_vector": "yes"},
         "parent_join": {"type": "join", "relations": {"domain": "webpage"}},
+        "suggest": {"type": "completion"},
+    }
+}
+cve_mapping = {
+    "properties": {
+        "name": {"type": "text"},
         "suggest": {"type": "completion"},
     }
 }
@@ -63,6 +70,25 @@ class ESClient:
             LOGGER.error("Error syncing organizations index: %s", e)
             raise e
 
+    def sync_cve_index(self):
+        """Create or updates the CVE index with mappings."""
+        try:
+            if not self.client.indices.exists(index=CVE_INDEX):
+                LOGGER.info("Creating index %s...", CVE_INDEX)
+                self.client.indices.create(
+                    index=CVE_INDEX,
+                    body={
+                        "mappings": cve_mapping,
+                        "settings": {"number_of_shards": 2},
+                    },
+                )
+            else:
+                LOGGER.info("Updating index %s...", CVE_INDEX)
+                self.client.indices.put_mapping(index=CVE_INDEX, body=cve_mapping)
+        except Exception as e:
+            LOGGER.error("Error syncing CVE index: %s", e)
+            raise e
+
     def sync_domains_index(self):
         """Create or updates the domains index with mappings."""
         try:
@@ -99,6 +125,20 @@ class ESClient:
                 "doc_as_upsert": True,
             }
             for org in organizations
+        ]
+        self._bulk_update(actions)
+
+    def update_cves(self, cves):
+        """Update or inserts CVEs into Elasticsearch."""
+        actions = [
+            {
+                "_op_type": "update",
+                "_index": CVE_INDEX,
+                "_id": cve["id"],
+                "doc": {**cve, "suggest": [{"input": cve["name"], "weight": 1}]},
+                "doc_as_upsert": True,
+            }
+            for cve in cves
         ]
         self._bulk_update(actions)
 
@@ -188,6 +228,10 @@ class ESClient:
     def search_organizations(self, body):
         """Search organizations index with specified query body."""
         return self.client.search(index=ORGANIZATIONS_INDEX, body=body)
+
+    def search_cves(self, body):
+        """Search CVE index with specified query body."""
+        return self.client.search(index=CVE_INDEX, body=body)
 
     def _bulk_update(self, actions):
         """Update to Elasticsearch."""
