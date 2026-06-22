@@ -4,15 +4,15 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE                     Source to collect data from. Valid value: "dnstwist".
+    DATA_SOURCE  Source to collect data from. Valid value: "dnstwist".
 
 Options:
     -h --help                       Show this message.
     -v --version                    Show version information.
     -l --log-level=LEVEL            Log level: debug, info, warning, error, critical.
                                     [default: info]
-    -o --orgs=ORG_LIST              Comma-separated org cyhy_db_name values, DEMO, or all.
-                                    [default: all]
+    -o --orgs=ORG_LIST  Comma-separated org cyhy_db_name values, DEMO, or all.
+                         [default: all]
 """
 
 # Standard Python Libraries
@@ -23,12 +23,10 @@ from typing import Any, Dict
 
 # Third-Party Libraries
 import docopt
-from schema import And, Schema, SchemaError, Use
-
-# cisagov Libraries
 import pe_reports
 from pe_source._version import __version__
 from pe_source.dnstwistscript import run_dnstwist
+from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +57,7 @@ def main():
     try:
         validated_args: Dict[str, Any] = schema.validate(args)
     except SchemaError as err:
-        print(err, file=sys.stderr)
+        sys.stderr.write("{}\n".format(err))
         sys.exit(1)
 
     logging.basicConfig(

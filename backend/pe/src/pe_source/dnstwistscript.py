@@ -12,10 +12,6 @@ import traceback
 # Third-Party Libraries
 import dnstwist
 import dshield
-import psycopg2.extras as extras
-import requests
-
-# cisagov Libraries
 from pe_source.data.pe_db.db_query_source import (
     addSubdomain,
     connect,
@@ -24,6 +20,8 @@ from pe_source.data.pe_db.db_query_source import (
     getSubdomain,
     org_root_domains,
 )
+import psycopg2.extras as extras
+import requests
 
 # Save findings as the last day of the report period
 date = (datetime.datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
@@ -219,7 +217,7 @@ def run_dnstwist(orgs_list):
         org_name = org["name"]
         pe_org_id = org["cyhy_db_name"]
         LOGGER.info(
-            f"Running DNSTwist on {pe_org_id} ({org_idx+1} of {len(pe_orgs_final)})"
+            f"Running DNSTwist on {pe_org_id} ({org_idx + 1} of {len(pe_orgs_final)})"
         )
         # Retrieve DNSTwist data from crossfeed
         try:
@@ -246,7 +244,7 @@ def run_dnstwist(orgs_list):
                     finalorglist = execute_dnstwist(root_domain)
                 LOGGER.info(f"Finished running DNSTwist on root domain: {root}")
 
-                # Get subdomain uid (root domain row in sub_domains; getSubdomain returns -1 if missing)
+                # Root domain row in sub_domains; getSubdomain returns -1 if missing
                 sub_domain = root_domain
                 sub_domain_uid = getSubdomain(sub_domain)
                 if sub_domain_uid == -1:
@@ -254,17 +252,27 @@ def run_dnstwist(orgs_list):
                     sub_domain_uid = getSubdomain(sub_domain)
                 if sub_domain_uid == -1:
                     raise RuntimeError(
-                        f"Could not resolve sub_domain_uid for root domain {sub_domain!r}"
+                        "Could not resolve sub_domain_uid for root domain "
+                        f"{sub_domain!r}"
                     )
 
                 # Check root domain using Blocklist/DShield
                 LOGGER.info(
-                    f"Running blocklist/dshield check on the DNSTwist results from root domain: {root}"
+                    "Running blocklist/dshield check on DNSTwist results "
+                    "from root domain: %s",
+                    root,
                 )
                 for dom_idx, dom in enumerate(finalorglist):
                     domain_name = dom.get("domain")
-                    print(
-                        f"{pe_org_id} - Running blocklist/dshield check on permutation: {domain_name} ({dom_idx+1}/{len(finalorglist)}), from root: {root} ({root_idx+1}/{len(list_of_roots)})"
+                    LOGGER.info(
+                        "%s - blocklist/dshield check on %s (%s/%s), root: %s (%s/%s)",
+                        pe_org_id,
+                        domain_name,
+                        dom_idx + 1,
+                        len(finalorglist),
+                        root,
+                        root_idx + 1,
+                        len(list_of_roots),
                     )
                     domain_dict, perm_list = checkBlocklist(
                         dom, sub_domain_uid, source_uid, pe_org_uid, perm_list
@@ -272,7 +280,9 @@ def run_dnstwist(orgs_list):
                     if domain_dict is not None:
                         domain_list.append(domain_dict)
                 LOGGER.info(
-                    f"Finished running blocklist/dshield check on the DNSTwist results from root domain: {root}"
+                    "Finished blocklist/dshield check on DNSTwist results "
+                    "from root domain: %s",
+                    root,
                 )
         except Exception:
             LOGGER.error(f"Failed retrieving DNSTwist data for {pe_org_id}")
@@ -318,10 +328,14 @@ def run_dnstwist(orgs_list):
 
     # Output summary stats
     LOGGER.info(
-        f"{len(pe_orgs_final) - len(failures)}/{len(pe_orgs_final)} orgs successfully underwent the DNSTwist scan"
+        "%s/%s orgs successfully underwent the DNSTwist scan",
+        len(pe_orgs_final) - len(failures),
+        len(pe_orgs_final),
     )
     LOGGER.info(
-        f"{len(failures)}/{len(pe_orgs_final)} orgs had a significant failure during the DNSTwist scan"
+        "%s/%s orgs had a significant failure during the DNSTwist scan",
+        len(failures),
+        len(pe_orgs_final),
     )
 
     # Clean up and log failures

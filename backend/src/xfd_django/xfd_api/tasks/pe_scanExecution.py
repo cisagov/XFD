@@ -14,6 +14,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
 os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 django.setup()
 
+# Third-Party Libraries
 from xfd_mini_dl.models import Scan, ScanTask
 
 LOGGER = logging.getLogger(__name__)
@@ -93,16 +94,17 @@ def start_desired_tasks(
         )
 
         if os.getenv("IS_LOCAL"):
+            # Third-Party Libraries
             from pe.peScanController import (  # pylint: disable=import-outside-toplevel
                 LOCAL_SCAN_CATALOG,
                 start_local_docker_workers,
             )
 
-            scan_config = dict(LOCAL_SCAN_CATALOG.get(scan_type, {"scan": scan_type, "count": 1}))
-            scan_config["count"] = current_batch_count
-            api_key_arg = (
-                ",".join(shodan_api_keys) if scan_type == "shodan" else ""
+            scan_config = dict(
+                LOCAL_SCAN_CATALOG.get(scan_type, {"scan": scan_type, "count": 1})
             )
+            scan_config["count"] = current_batch_count
+            api_key_arg = ",".join(shodan_api_keys) if scan_type == "shodan" else ""
             start_local_docker_workers([scan_config], api_key_arg)
             remaining_count -= current_batch_count
             continue

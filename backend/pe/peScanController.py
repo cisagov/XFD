@@ -21,8 +21,9 @@ Orgs (comma-separated cyhy_db_name values, or one shortcut used alone):
         One SQS message per org. Use COUNT>1 to drain the queue with multiple workers.
 
     all / DEMO  (batch mode)
-        One SQS message total. The worker passes --orgs=all or --orgs=DEMO to pe-source,
-        which scans every report_on or demo org inside a single worker process (sequential).
+        One SQS message total. The worker passes --orgs=all or --orgs=DEMO to
+        pe-source, which scans every report_on or demo org inside a single worker
+        process (sequential).
 
     all-orgs / demo-orgs  (parallel mode)
         peScanController looks up orgs in the PE database and enqueues one message per
@@ -81,7 +82,7 @@ def local_sqs_endpoint() -> str:
 
 
 def normalize_local_queue_url(queue_url: str) -> str:
-    """ElasticMQ often returns localhost in QueueUrl; workers need the Docker service host."""
+    """Normalize queue URLs that use localhost for Docker network workers."""
     path = urlparse(queue_url).path
     if not path:
         raise ValueError("Invalid queue URL: {!r}".format(queue_url))
@@ -122,7 +123,8 @@ def local_worker_dev_mount() -> Dict[str, Dict[str, str]] | None:
     host_path = host_bind_source_for_container_path(pe_tree)
     if not host_path:
         LOGGER.info(
-            "PE dev tree found at %s but no host bind source; using pe-worker image only",
+            "PE dev tree found at %s but no host bind source; "
+            "using pe-worker image only",
             pe_tree,
         )
         return None
@@ -131,6 +133,7 @@ def local_worker_dev_mount() -> Dict[str, Dict[str, str]] | None:
 
 
 def sqs_endpoint_url() -> str | None:
+    """Return ElasticMQ endpoint URL when running locally, else None."""
     queue_url = os.getenv("QUEUE_URL", "")
     if "elasticmq" in queue_url or "localhost" in queue_url:
         return queue_url.rstrip("/")
@@ -138,6 +141,7 @@ def sqs_endpoint_url() -> str | None:
 
 
 def sqs_client():
+    """Return a boto3 SQS client configured for local ElasticMQ or AWS."""
     endpoint = sqs_endpoint_url()
     if endpoint:
         return boto3.client(
@@ -149,11 +153,13 @@ def sqs_client():
 
 
 def queue_name_for_scan(scan_type: str) -> str:
+    """Build the SQS queue name for a scan type."""
     prefix = os.environ.get("PE_QUEUE_PREFIX", "staging")
     return "{}-{}-queue".format(prefix, scan_type)
 
 
 def queue_url_prefix() -> str:
+    """Return the prefix used to build fully qualified SQS queue URLs."""
     queue_url = os.environ.get("QUEUE_URL")
     endpoint = sqs_endpoint_url()
     if endpoint:
@@ -168,6 +174,7 @@ def queue_url_prefix() -> str:
 
 
 def queue_url_for_scan(scan_type: str) -> str:
+    """Return the queue URL for a scan, creating the queue locally if needed."""
     if sqs_endpoint_url():
         response = sqs_client().create_queue(QueueName=queue_name_for_scan(scan_type))
         return normalize_local_queue_url(response["QueueUrl"])
@@ -175,6 +182,7 @@ def queue_url_for_scan(scan_type: str) -> str:
 
 
 def pe_db_connection_params() -> Dict[str, str]:
+    """Return psycopg2 connection parameters for the PE database."""
     return {
         "host": os.getenv("PE_DB_HOST", os.getenv("DB_HOST", "localhost")),
         "dbname": os.getenv("PE_DB_NAME", "pe"),
@@ -189,19 +197,21 @@ def fetch_orgs_from_db(*, report_on: bool = False, demo: bool = False) -> List[s
     import psycopg2
 
     if report_on:
-        condition = "report_on = true"
+        query = (
+            "SELECT cyhy_db_name FROM organizations "
+            "WHERE report_on = true AND cyhy_db_name IS NOT NULL "
+            "ORDER BY cyhy_db_name"
+        )
         label = "all-orgs"
     elif demo:
-        condition = "demo = true"
+        query = (
+            "SELECT cyhy_db_name FROM organizations "
+            "WHERE demo = true AND cyhy_db_name IS NOT NULL "
+            "ORDER BY cyhy_db_name"
+        )
         label = "demo-orgs"
     else:
         raise ValueError("fetch_orgs_from_db requires report_on=True or demo=True")
-
-    query = (
-        "SELECT cyhy_db_name FROM organizations "
-        "WHERE {} AND cyhy_db_name IS NOT NULL "
-        "ORDER BY cyhy_db_name"
-    ).format(condition)
 
     with psycopg2.connect(**pe_db_connection_params()) as conn:
         with conn.cursor() as cur:
@@ -223,14 +233,13 @@ def resolve_orgs(orgs: List[str]) -> List[str]:
         return []
 
     if len(orgs) == 1:
-        token = orgs[0]
-        if token in ORG_EXPAND_SHORTCUTS:
-            return fetch_orgs_from_db(
-                report_on=token == "all-orgs",
-                demo=token == "demo-orgs",
-            )
-        if token in ORG_BATCH_SHORTCUTS:
-            return [token]
+        shortcut = orgs[0]
+        if shortcut in ORG_EXPAND_SHORTCUTS:
+            if shortcut == "all-orgs":
+                return fetch_orgs_from_db(report_on=True)
+            return fetch_orgs_from_db(demo=True)
+        if shortcut in ORG_BATCH_SHORTCUTS:
+            return [shortcut]
 
     for org in orgs:
         if org in ORG_EXPAND_SHORTCUTS:
@@ -245,6 +254,7 @@ def resolve_scans(
     scans: List[Union[str, Dict[str, Any]]],
     task_count: int | None = None,
 ) -> List[Dict[str, Any]]:
+    """Resolve scan catalog entries and optional taskCount overrides."""
     resolved = []
     for scan in scans:
         if isinstance(scan, str):
@@ -271,6 +281,7 @@ def resolve_scans(
 
 
 def api_keys_for_scan(scan: Dict[str, Any], event_api_keys: str) -> str:
+    """Return Shodan API keys for a scan from config, event, or environment."""
     if scan.get("apiKeys"):
         return scan["apiKeys"]
     if event_api_keys:
@@ -283,6 +294,7 @@ def queue_messages(
     org_list: List[str],
     delay_seconds: float,
 ) -> Dict[str, int]:
+    """Enqueue one SQS message per org for each requested scan."""
     client = sqs_client()
     counts = {}
     for scan in scan_list:
@@ -313,6 +325,7 @@ def queue_messages(
 def start_fargate_tasks(
     scan_list: List[Dict[str, Any]], event_api_keys: str
 ) -> Dict[str, int]:
+    """Start ECS Fargate pe-worker tasks for each scan in the list."""
     ecs_client = boto3.client("ecs")
     cluster = os.environ["PE_FARGATE_CLUSTER_NAME"]
     task_definition = os.environ["PE_FARGATE_TASK_DEFINITION_NAME"]
@@ -351,7 +364,9 @@ def start_fargate_tasks(
             platformVersion="1.4.0",
             launchType="FARGATE",
             count=count,
-            overrides={"containerOverrides": [{"name": "main", "environment": environment}]},
+            overrides={
+                "containerOverrides": [{"name": "main", "environment": environment}]
+            },
         )
         failures = response.get("failures", [])
         if failures:
@@ -397,9 +412,7 @@ def start_local_docker_workers(
                     "SQS_ENDPOINT_URL", "http://elasticmq:9324"
                 ),
                 "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID", "local"),
-                "AWS_SECRET_ACCESS_KEY": os.getenv(
-                    "AWS_SECRET_ACCESS_KEY", "local"
-                ),
+                "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY", "local"),
                 "AWS_DEFAULT_REGION": os.getenv("AWS_REGION", "elasticmq"),
                 "DB_HOST": os.getenv("PE_DB_HOST", os.getenv("DB_HOST", "db")),
                 "PE_DB_NAME": os.getenv("PE_DB_NAME", "pe"),
@@ -428,7 +441,9 @@ def start_local_docker_workers(
                 LOGGER.info("Mounting live PE tree for local worker %s", container_name)
 
             client.containers.run(**run_kwargs)
-            LOGGER.info("Started local pe-worker container %s for %s", container_name, scan_name)
+            LOGGER.info(
+                "Started local pe-worker container %s for %s", container_name, scan_name
+            )
             task_count += 1
 
         started[scan_name] = task_count
@@ -439,6 +454,7 @@ def start_local_docker_workers(
 def start_workers(
     scan_list: List[Dict[str, Any]], event_api_keys: str, local: bool
 ) -> Dict[str, int]:
+    """Start local Docker workers or Fargate tasks depending on environment."""
     if local:
         return start_local_docker_workers(scan_list, event_api_keys)
     return start_fargate_tasks(scan_list, event_api_keys)
@@ -450,7 +466,9 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
     orgs = event.get("orgs")
     queue_only = bool(event.get("queueOnly", False))
     tasks_only = bool(event.get("tasksOnly", False))
-    delay_seconds = float(event.get("messageDelaySeconds", 0 if is_local_mode(event) else 1))
+    delay_seconds = float(
+        event.get("messageDelaySeconds", 0 if is_local_mode(event) else 1)
+    )
     event_api_keys = event.get("apiKeyList", "")
     local = is_local_mode(event)
 

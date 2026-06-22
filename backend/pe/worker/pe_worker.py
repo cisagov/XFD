@@ -1,10 +1,14 @@
-"""PE SQS worker loop — drain scan queue then exit (same pattern as crossfeed worker.py)."""
+"""PE SQS worker loop.
+
+Drain the scan queue then exit (same pattern as crossfeed worker.py).
+"""
 
 # Standard Python Libraries
 import json
 import logging
 import os
-import subprocess
+import shutil
+import subprocess  # nosec B404
 import sys
 import time
 
@@ -17,15 +21,39 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 LOG_PATH = "/app/pe_reports_logging.log"
 EMPTY_CONFIRM_SLEEP_SECONDS = 5
 POLL_WAIT_SECONDS = 5
+PE_SOURCE_BIN = shutil.which("pe-source") or "/usr/local/bin/pe-source"
+
+
+def resolve_command(argv: list[str]) -> list[str]:
+    """Resolve the scan executable to an absolute path when possible."""
+    if not argv:
+        return argv
+    executable = argv[0]
+    if executable == "pe-source":
+        return [PE_SOURCE_BIN, *argv[1:]]
+    resolved = shutil.which(executable)
+    if resolved:
+        return [resolved, *argv[1:]]
+    return argv
+
+
+def run_command(argv: list[str], env: dict | None = None) -> int:
+    """Run a scan subprocess with argv (no shell) and return its exit code."""
+    command = resolve_command(argv)
+    result = subprocess.run(command, check=False, env=env)  # nosec B603
+    return result.returncode
 
 
 def sqs_client():
+    """Return a boto3 SQS client for ElasticMQ or AWS."""
     queue_url = os.environ.get("SERVICE_QUEUE_URL", "")
     if "elasticmq" in queue_url or "localhost" in queue_url:
         endpoint = os.getenv("SQS_ENDPOINT_URL", "http://elasticmq:9324")
         return boto3.client(
             "sqs",
-            region_name=os.getenv("AWS_DEFAULT_REGION", os.getenv("AWS_REGION", "elasticmq")),
+            region_name=os.getenv(
+                "AWS_DEFAULT_REGION", os.getenv("AWS_REGION", "elasticmq")
+            ),
             endpoint_url=endpoint,
             aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID", "local"),
             aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY", "local"),
@@ -34,6 +62,7 @@ def sqs_client():
 
 
 def receive_message(client, queue_url: str):
+    """Receive a single message from the scan queue, or None if empty."""
     try:
         response = client.receive_message(
             QueueUrl=queue_url,
@@ -48,6 +77,7 @@ def receive_message(client, queue_url: str):
 
 
 def delete_message(client, queue_url: str, receipt_handle: str) -> None:
+    """Delete a processed message from the scan queue."""
     try:
         client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
     except Exception as exc:
@@ -67,6 +97,7 @@ def queue_confirmed_empty(client, queue_url: str) -> bool:
 
 
 def parse_org(message: dict) -> str | None:
+    """Extract the organization name from an SQS message body."""
     try:
         body = json.loads(message.get("Body", "{}"))
     except json.JSONDecodeError:
@@ -76,6 +107,7 @@ def parse_org(message: dict) -> str | None:
 
 
 def build_command(service_type: str, org: str) -> list[str]:
+    """Build the pe-source command line for the given scan type and org."""
     if "shodan" in service_type:
         return ["pe-source", "shodan", "--soc_med_included", "--org={}".format(org)]
     if "dnstwist" in service_type:
@@ -83,31 +115,32 @@ def build_command(service_type: str, org: str) -> list[str]:
     if "intelx" in service_type:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
     if "cybersixgill" in service_type:
-        return ["pe-source", "cybersixgill", "--org={}".format(org), "--soc_med_included"]
+        return [
+            "pe-source",
+            "cybersixgill",
+            "--org={}".format(org),
+            "--soc_med_included",
+        ]
     if "xpanse" in service_type:
         return ["pe-source", "xpanse", "--org={}".format(org)]
     if "asmSync" in service_type:
-        return ["pe-asm-sync", "asm-sqs", "--org={}".format(org)]
+        asm_sync = shutil.which("pe-asm-sync") or "pe-asm-sync"
+        return [asm_sync, "asm-sqs", "--org={}".format(org)]
     if "qualys" in service_type:
         return []
     raise ValueError("Unsupported SERVICE_TYPE: {}".format(service_type))
 
 
 def run_qualys_scan(org: str) -> int:
-    report = subprocess.run(
-        ["pe-source", "was-report-pull", "--org={}".format(org)],
-        check=False,
-    )
-    if report.returncode != 0:
-        return report.returncode
-    findings = subprocess.run(
-        ["pe-source", "was-findings-sync", "--org={}".format(org)],
-        check=False,
-    )
-    return findings.returncode
+    """Run Qualys WAS report pull and findings sync for an organization."""
+    report = run_command(["pe-source", "was-report-pull", "--org={}".format(org)])
+    if report != 0:
+        return report
+    return run_command(["pe-source", "was-findings-sync", "--org={}".format(org)])
 
 
 def run_scan(service_type: str, org: str) -> bool:
+    """Run the configured scan for an organization and return success."""
     if "qualys" in service_type:
         LOGGER.info("Running qualys was-report-pull + was-findings-sync for %s", org)
         return run_qualys_scan(org) == 0
@@ -124,19 +157,20 @@ def run_scan(service_type: str, org: str) -> bool:
         "PYTHONUNBUFFERED": "1",
         "PE_LOG_TO_STDERR": "1",
     }
-    result = subprocess.run(command, check=False, env=scan_env)
-    if result.returncode != 0:
-        LOGGER.error("Scan command exited with code %s", result.returncode)
+    exit_code = run_command(command, env=scan_env)
+    if exit_code != 0:
+        LOGGER.error("Scan command exited with code %s", exit_code)
         return False
 
     if os.path.isfile(LOG_PATH):
         with open(LOG_PATH, encoding="utf-8") as log_file:
-            print(log_file.read(), end="")
+            sys.stdout.write(log_file.read())
         os.remove(LOG_PATH)
     return True
 
 
 def main() -> None:
+    """Poll the scan queue until empty, running pe-source for each org."""
     queue_url = os.getenv("SERVICE_QUEUE_URL")
     service_type = os.getenv("SERVICE_TYPE")
 
@@ -182,7 +216,8 @@ def main() -> None:
                 LOGGER.warning("No ReceiptHandle; cannot delete message for %s", org)
         else:
             LOGGER.error(
-                "Scan failed for %s; leaving message on queue and continuing worker loop",
+                "Scan failed for %s; leaving message on queue and "
+                "continuing worker loop",
                 org,
             )
 

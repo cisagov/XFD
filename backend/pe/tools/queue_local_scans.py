@@ -7,6 +7,7 @@ import json
 import sys
 import textwrap
 
+# Third-Party Libraries
 from pe.peScanController import run
 
 ORG_HELP_EPILOG = """
@@ -32,6 +33,7 @@ examples
 
 
 def main() -> int:
+    """Parse CLI args and invoke the local peScanController workflow."""
     parser = argparse.ArgumentParser(
         description="Queue PE scan jobs locally (ElasticMQ + pe-worker).",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -84,7 +86,7 @@ def main() -> int:
             orgs = json.load(org_file)
 
     if not args.tasks_only and not orgs:
-        print("Provide --orgs or --orgs-file.", file=sys.stderr)
+        sys.stderr.write("Provide --orgs or --orgs-file.\n")
         return 1
 
     event = {
@@ -99,7 +101,7 @@ def main() -> int:
         event["taskCount"] = args.count
 
     result = run(event)
-    print(json.dumps(result, indent=2))
+    sys.stdout.write("{}\n".format(json.dumps(result, indent=2)))
     return 0 if result.get("statusCode") == 200 else 1
 
 

@@ -6,7 +6,6 @@ import os
 # Third-Party Libraries
 from django.core.management.base import BaseCommand
 from django.db import connections
-
 from home.tasks.helpers.create_sample_data import populate_sample_data
 from home.tasks.syncdb_task import drop_all_tables, synchronize
 
@@ -38,9 +37,7 @@ def setup_pe_database(stdout):
             stdout.write(f"Granting role failed: {exc}")
 
         try:
-            cursor.execute(
-                "CREATE DATABASE {} OWNER {};".format(pe_name, pe_username)
-            )
+            cursor.execute("CREATE DATABASE {} OWNER {};".format(pe_name, pe_username))
         except Exception as exc:
             stdout.write(f"Database creation failed (likely already exists): {exc}")
 
@@ -63,6 +60,7 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
+        """Register pesyncdb CLI flags."""
         parser.add_argument(
             "-d",
             "--dangerouslyforce",
@@ -77,6 +75,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        """Create the PE database, sync schema, and optionally load sample data."""
         dangerouslyforce = options["dangerouslyforce"]
         populate = options["populate"]
 

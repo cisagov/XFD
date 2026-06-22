@@ -61,9 +61,17 @@ pe-requirements-audit:
 	pip-audit -r pe/requirements.txt
 
 # Verify the pe-worker image built from backend/pe/Dockerfile
+PE_SMOKE_ENV = \
+	-e PE_DB_NAME=pe \
+	-e PE_DB_USERNAME=pe \
+	-e PE_DB_PASSWORD=smoke \
+	-e PE_API_KEY=smoke-key \
+	-e DB_HOST=localhost \
+	-e PE_API_URL=http://127.0.0.1:8000
+
 pe-worker-smoke:
-	docker run --rm pe-worker pe-source --help
-	docker run --rm pe-worker python -c "import pe_source.dnstwistscript"
+	docker run --rm $(PE_SMOKE_ENV) pe-worker pe-source --help
+	docker run --rm $(PE_SMOKE_ENV) pe-worker python -c "import pe_source.dnstwistscript"
 
 # Redis lambdas
 populate-cache:

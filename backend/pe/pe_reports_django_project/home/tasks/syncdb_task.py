@@ -254,7 +254,8 @@ def update_table(
                         null_count = cursor.fetchone()[0]
                         if null_count > 0:
                             LOGGER.warning(
-                                "Cannot set NOT NULL on %s.%s: %s row(s) contain NULL values.",
+                                "Cannot set NOT NULL on %s.%s: %s row(s) "
+                                "contain NULL values.",
                                 table_name,
                                 field.column,
                                 null_count,
@@ -288,7 +289,9 @@ def update_table(
                 safe_table_name = connections[database].ops.quote_name(table_name)
                 safe_column_name = connections[database].ops.quote_name(column)
                 cursor.execute(
-                    f"ALTER TABLE {safe_table_name} DROP COLUMN IF EXISTS {safe_column_name};"
+                    "ALTER TABLE {} DROP COLUMN IF EXISTS {};".format(
+                        safe_table_name, safe_column_name
+                    )
                 )
             except Exception as exc:
                 LOGGER.error(

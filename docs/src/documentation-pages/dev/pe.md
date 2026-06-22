@@ -75,22 +75,22 @@ To rebuild from scratch: `make -C backend/pe syncdb-dangerously-force` then `syn
 
 `run` invokes the local **peScanController** (same interface as production Lambda / EC2 `pe_sqs.py`): queue org messages to ElasticMQ, then start detached `pe-worker` containers via the Docker API.
 
-| Parameter | Make | CLI / Lambda |
-|-----------|------|----------------|
-| Scan | `SCANS=dnstwist` | `--scans dnstwist` |
-| Orgs | `ORGS=DHS` or `ORGS=DHS,DHS_CISA` | `--orgs DHS,DHS_CISA` |
-| Workers | `COUNT=3` | `--count 3` / `taskCount` |
-| Queue only | `QUEUE_ONLY=true` | `--queue-only` |
+| Parameter  | Make                              | CLI / Lambda              |
+| ---------- | --------------------------------- | ------------------------- |
+| Scan       | `SCANS=dnstwist`                  | `--scans dnstwist`        |
+| Orgs       | `ORGS=DHS` or `ORGS=DHS,DHS_CISA` | `--orgs DHS,DHS_CISA`     |
+| Workers    | `COUNT=3`                         | `--count 3` / `taskCount` |
+| Queue only | `QUEUE_ONLY=true`                 | `--queue-only`            |
 
 **Org values** — comma-separated `cyhy_db_name` values (e.g. `DHS`, not the full display name).
 
-| ORGS value | Queue | What runs |
-|------------|-------|-----------|
-| `DHS,DHS_CISA` | 2 messages (one per org) | Each worker scans one org. `COUNT` = concurrent workers. |
-| `all` | **1 message** (batch) | One worker runs `pe-source --orgs=all` and scans every `report_on` org **sequentially in one process**. Use `COUNT=1`. |
-| `DEMO` | **1 message** (batch) | Same as `all`, but for demo orgs only. |
-| `all-orgs` | **1 message per** `report_on` org (parallel) | Controller queries the PE DB and enqueues each org separately. Use `COUNT=N` for N concurrent workers. |
-| `demo-orgs` | **1 message per** demo org (parallel) | Same as `all-orgs`, but for demo orgs. |
+| ORGS value     | Queue                                        | What runs                                                                                                              |
+| -------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `DHS,DHS_CISA` | 2 messages (one per org)                     | Each worker scans one org. `COUNT` = concurrent workers.                                                               |
+| `all`          | **1 message** (batch)                        | One worker runs `pe-source --orgs=all` and scans every `report_on` org **sequentially in one process**. Use `COUNT=1`. |
+| `DEMO`         | **1 message** (batch)                        | Same as `all`, but for demo orgs only.                                                                                 |
+| `all-orgs`     | **1 message per** `report_on` org (parallel) | Controller queries the PE DB and enqueues each org separately. Use `COUNT=N` for N concurrent workers.                 |
+| `demo-orgs`    | **1 message per** demo org (parallel)        | Same as `all-orgs`, but for demo orgs.                                                                                 |
 
 Use **batch** (`all` / `DEMO`) for a simple single-worker run. Use **parallel** (`all-orgs` / `demo-orgs`) when you want multiple workers draining the queue at once. Do not combine a shortcut with named orgs.
 
@@ -122,12 +122,12 @@ With `npm start` running, postgres is exposed on **localhost:5432**.
 
 ### PE database
 
-| Field | Value |
-|-------|-------|
-| Host | `localhost` |
-| Port | `5432` |
-| Database | `pe` |
-| Username | `pe` |
+| Field    | Value                                             |
+| -------- | ------------------------------------------------- |
+| Host     | `localhost`                                       |
+| Port     | `5432`                                            |
+| Database | `pe`                                              |
+| Username | `pe`                                              |
 | Password | `password` (or your `PE_DB_PASSWORD` from `.env`) |
 
 In DBeaver: **Database → New Database Connection → PostgreSQL**, enter the values above, **Test Connection**, then **Finish**.
@@ -140,10 +140,10 @@ Useful tables after a populate + scan: `organizations`, `data_source`, `root_dom
 
 Same host/port, different database:
 
-| Field | Value |
-|-------|-------|
-| Database | `crossfeed` |
-| Username | `crossfeed` |
+| Field    | Value                                          |
+| -------- | ---------------------------------------------- |
+| Database | `crossfeed`                                    |
+| Username | `crossfeed`                                    |
 | Password | `password` (or your `DB_PASSWORD` from `.env`) |
 
 ### psql (alternative)

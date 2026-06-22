@@ -9,12 +9,10 @@ import sys
 
 # Third-Party Libraries
 import pandas as pd
+from pe_reports.data.config import config, staging_config
 import psycopg2
 from psycopg2 import OperationalError
 import requests
-
-# cisagov Libraries
-from pe_reports.data.config import config, staging_config
 
 LOGGER = logging.getLogger(__name__)
 
@@ -73,9 +71,7 @@ def get_data_source_uid(source):
         "access_token": pe_api_key,
     }
     data = json.dumps({"name": source})
-    result = requests.post(
-        endpoint_url, headers=headers, data=data, timeout=60
-    ).json()
+    result = requests.post(endpoint_url, headers=headers, data=data, timeout=60).json()
     tup_result = [tuple(row.values()) for row in result]
     return tup_result[0][0]
 
@@ -88,9 +84,7 @@ def getSubdomain(domain):
         "access_token": pe_api_key,
     }
     data = json.dumps({"domain": domain})
-    result = requests.post(
-        endpoint_url, headers=headers, data=data, timeout=60
-    ).json()
+    result = requests.post(endpoint_url, headers=headers, data=data, timeout=60).json()
     tup_result = [tuple(row.values()) for row in result]
     try:
         return tup_result[0][0]
@@ -112,9 +106,7 @@ def addSubdomain(domain, pe_org_uid, root):
             "root": root,
         }
     )
-    result = requests.put(
-        endpoint_url, headers=headers, data=data, timeout=60
-    ).json()
+    result = requests.put(endpoint_url, headers=headers, data=data, timeout=60).json()
     LOGGER.info(result)
 
 
@@ -126,9 +118,7 @@ def org_root_domains(org_uid):
         "access_token": pe_api_key,
     }
     data = json.dumps({"org_uid": org_uid})
-    result = requests.post(
-        endpoint_url, headers=headers, data=data, timeout=60
-    ).json()
+    result = requests.post(endpoint_url, headers=headers, data=data, timeout=60).json()
     result_df = pd.DataFrame.from_dict(result)
     result_df.rename(
         columns={"root_domain_uid": "root_uid", "organizations_uid": "org_uid"},

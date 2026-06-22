@@ -6,7 +6,6 @@ import uuid
 
 # Third-Party Libraries
 from django.db import transaction
-
 from home.models import DataSource, Organizations, RootDomains
 
 DNSTWIST_SOURCE_UID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")

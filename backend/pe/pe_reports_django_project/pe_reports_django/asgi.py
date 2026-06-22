@@ -21,21 +21,22 @@ apps.populate(settings.INSTALLED_APPS)
 
 
 def get_application() -> FastAPI:
-  """Get application."""
-  # Import views after Django setup
-  from dataAPI.views import api_router  # pylint: disable=C0415
+    """Get application."""
+    # Import views after Django setup
+    # Third-Party Libraries
+    from dataAPI.views import api_router  # pylint: disable=C0415
 
-  app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
-  app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.ALLOWED_HOSTS or ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-  )
-  app.include_router(api_router, prefix="/apiv1")
-  app.mount("/", WSGIMiddleware(get_wsgi_application()))
-  return app
+    app = FastAPI(title=settings.PROJECT_NAME, debug=settings.DEBUG)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.ALLOWED_HOSTS or ["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    app.include_router(api_router, prefix="/apiv1")
+    app.mount("/", WSGIMiddleware(get_wsgi_application()))
+    return app
 
 
 app = get_application()

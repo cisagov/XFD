@@ -5,30 +5,41 @@ import os
 import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
+# Third-Party Libraries
 from pe.peScanController import resolve_orgs, resolve_scans
 
 
 class ResolveScansTests(unittest.TestCase):
+    """Verify scan catalog resolution and taskCount overrides."""
+
     def test_catalog_default_count(self):
+        """Use the catalog default worker count when taskCount is omitted."""
         scans = resolve_scans(["dnstwist"])
         self.assertEqual(scans[0]["scan"], "dnstwist")
         self.assertEqual(scans[0]["count"], 142)
 
     def test_task_count_overrides_catalog(self):
+        """The taskCount parameter should override the catalog default."""
         scans = resolve_scans(["dnstwist"], task_count=3)
         self.assertEqual(scans[0]["count"], 3)
 
     def test_task_count_overrides_inline(self):
+        """The taskCount parameter should override inline scan config counts."""
         scans = resolve_scans([{"scan": "dnstwist", "count": 99}], task_count=2)
         self.assertEqual(scans[0]["count"], 2)
 
     def test_unknown_scan_raises(self):
+        """Unknown scan names should raise ValueError."""
         with self.assertRaises(ValueError):
             resolve_scans(["not-a-scan"])
 
 
 class NormalizeLocalQueueUrlTests(unittest.TestCase):
+    """Verify localhost queue URL rewriting for Docker workers."""
+
     def test_replaces_localhost_with_elasticmq(self):
+        """Replace localhost in queue URLs with the ElasticMQ service host."""
+        # Third-Party Libraries
         from pe.peScanController import normalize_local_queue_url
 
         with patch.dict(
@@ -45,7 +56,11 @@ class NormalizeLocalQueueUrlTests(unittest.TestCase):
 
 
 class HostBindSourceTests(unittest.TestCase):
+    """Verify host bind path resolution for local dev mounts."""
+
     def test_reads_bind_source_from_mountinfo(self):
+        """Read the host bind source from /proc/self/mountinfo."""
+        # Third-Party Libraries
         from pe.peScanController import host_bind_source_for_container_path
 
         mount_line = (
@@ -59,6 +74,8 @@ class HostBindSourceTests(unittest.TestCase):
         self.assertEqual(host_path, "/Users/dev/XFD/backend/pe")
 
     def test_env_override(self):
+        """PE_DEV_MOUNT_HOST should override mountinfo discovery."""
+        # Third-Party Libraries
         from pe.peScanController import host_bind_source_for_container_path
 
         with patch.dict(
@@ -73,40 +90,50 @@ class HostBindSourceTests(unittest.TestCase):
 
 
 class ResolveOrgsTests(unittest.TestCase):
+    """Verify org list resolution and shortcut expansion."""
+
     def test_explicit_orgs_pass_through(self):
+        """Explicit org names should pass through unchanged."""
         self.assertEqual(resolve_orgs(["NSF", "DHS"]), ["NSF", "DHS"])
 
     def test_batch_shortcuts(self):
+        """Batch shortcuts should pass through as a single token."""
         self.assertEqual(resolve_orgs(["all"]), ["all"])
         self.assertEqual(resolve_orgs(["DEMO"]), ["DEMO"])
 
     @patch("pe.peScanController.fetch_orgs_from_db")
     def test_expand_all_orgs(self, fetch_mock):
+        """The all-orgs shortcut should expand to report_on orgs from the PE DB."""
         fetch_mock.return_value = ["NSF", "DHS"]
         self.assertEqual(resolve_orgs(["all-orgs"]), ["NSF", "DHS"])
-        fetch_mock.assert_called_once_with(report_on=True, demo=False)
+        fetch_mock.assert_called_once_with(report_on=True)
 
     @patch("pe.peScanController.fetch_orgs_from_db")
     def test_expand_demo_orgs(self, fetch_mock):
+        """demo-orgs should expand to demo orgs from the PE database."""
         fetch_mock.return_value = ["DEMO1"]
         self.assertEqual(resolve_orgs(["demo-orgs"]), ["DEMO1"])
-        fetch_mock.assert_called_once_with(report_on=False, demo=True)
+        fetch_mock.assert_called_once_with(demo=True)
 
     def test_expand_shortcut_cannot_be_mixed(self):
+        """Expand shortcuts cannot be combined with named orgs."""
         with self.assertRaises(ValueError):
             resolve_orgs(["all-orgs", "NSF"])
 
 
 class FetchOrgsFromDbTests(unittest.TestCase):
+    """Verify PE database org lookup for shortcut expansion."""
+
     @patch("psycopg2.connect")
     def test_fetch_report_on_orgs(self, connect_mock):
+        """Fetch report_on organizations from the PE database."""
+        # Third-Party Libraries
         from pe.peScanController import fetch_orgs_from_db
 
         cursor = MagicMock()
         cursor.fetchall.return_value = [("NSF",), ("DHS",)]
-        connect_mock.return_value.__enter__.return_value.cursor.return_value.__enter__.return_value = (
-            cursor
-        )
+        cursor_ctx = connect_mock.return_value.__enter__.return_value.cursor
+        cursor_ctx.return_value.__enter__.return_value = cursor
 
         names = fetch_orgs_from_db(report_on=True)
         self.assertEqual(names, ["NSF", "DHS"])

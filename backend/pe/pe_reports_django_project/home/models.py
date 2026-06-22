@@ -4,8 +4,10 @@
 # You'll have to do the following manually to clean this up:
 #   * Rearrange models' order
 #   * Make sure each model has one field with primary_key=True
-#   * Make sure each ForeignKey and OneToOneField has `on_delete` set to the desired behavior
-#   * Remove `managed = False` lines if you wish to allow Django to create, modify, and delete the table
+#   * Make sure each ForeignKey and OneToOneField has `on_delete` set to the
+#     desired behavior
+#   * Remove `managed = False` lines if you wish to allow Django to create,
+#     modify, and delete the table
 # Feel free to rename the models, but don't rename db_table values or field names.
 
 # Standard Python Libraries
@@ -2470,26 +2472,26 @@ class CpeProduct(models.Model):
 """
 -- WARNING: It may differ from actual native database DDL
 CREATE TABLE information_schema.was_findings (
-	finding_uid uuid NOT NULL,
-	finding_type varchar(10485760) NULL,
-	webapp_id int4 NULL,
-	was_org_id text NULL,
-	owasp_category varchar(10485760) NULL,
-	severity varchar(10485760) NULL,
-	times_detected int4 NULL,
-	base_score float8 NULL,
-	temporal_score float8 NULL,
-	fstatus varchar(10485760) NULL,
-	last_detected date NULL,
-	first_detected date NULL,
-	is_remediated bool NULL,
-	potential bool NULL,
-	webapp_url text NULL,
-	webapp_name text NULL,
-	"name" text NULL,
-	cvss_v3_attack_vector text NULL,
-	cwe_list _int4 NULL,
-	wasc_list jsonb NULL
+    finding_uid uuid NOT NULL,
+    finding_type varchar(10485760) NULL,
+    webapp_id int4 NULL,
+    was_org_id text NULL,
+    owasp_category varchar(10485760) NULL,
+    severity varchar(10485760) NULL,
+    times_detected int4 NULL,
+    base_score float8 NULL,
+    temporal_score float8 NULL,
+    fstatus varchar(10485760) NULL,
+    last_detected date NULL,
+    first_detected date NULL,
+    is_remediated bool NULL,
+    potential bool NULL,
+    webapp_url text NULL,
+    webapp_name text NULL,
+    "name" text NULL,
+    cvss_v3_attack_vector text NULL,
+    cwe_list _int4 NULL,
+    wasc_list jsonb NULL
 );
 """
 
@@ -2526,7 +2528,10 @@ class WasFindings(models.Model):
         managed = False
         db_table = "was_findings"
 
+
 class WasReport(models.Model):
+    """Define WasReport model."""
+
     org_name = models.TextField(blank=True, null=True)
     date_pulled = models.DateTimeField(blank=True, null=True)
     last_scan_date = models.DateTimeField(blank=True, null=True)

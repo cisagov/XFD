@@ -16,18 +16,23 @@ from pe_reports_django.asgi import app
 
 
 class PeApiTests(unittest.TestCase):
-  def setUp(self):
-    self.client = TestClient(app)
+    """Exercise PE API auth and health endpoints."""
 
-  def test_health_does_not_require_auth(self):
-    response = self.client.get("/apiv1/health")
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(response.json(), {"status": "ok"})
+    def setUp(self):
+        """Create a FastAPI test client."""
+        self.client = TestClient(app)
 
-  def test_protected_endpoint_requires_api_key(self):
-    response = self.client.get("/apiv1/organizations_demo_or_report_on")
-    self.assertEqual(response.status_code, 403)
+    def test_health_does_not_require_auth(self):
+        """Health endpoint should be reachable without an API key."""
+        response = self.client.get("/apiv1/health")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_protected_endpoint_requires_api_key(self):
+        """Protected endpoints should reject requests without a valid API key."""
+        response = self.client.get("/apiv1/organizations_demo_or_report_on")
+        self.assertEqual(response.status_code, 403)
 
 
 if __name__ == "__main__":
-  unittest.main()
+    unittest.main()
