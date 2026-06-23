@@ -1,10 +1,9 @@
 """Test PE scan execution."""
 # Standard Python Libraries
-import os
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
-# pe_scanExecution creates an ECS client at import time; CI has no default region.
-os.environ.setdefault("AWS_REGION", "us-east-1")
+# pe_scanExecution creates an ECS client at import time; tests never call AWS.
+patch("boto3.client", return_value=MagicMock()).start()
 
 # Third-Party Libraries
 import pytest
