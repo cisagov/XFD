@@ -25,7 +25,7 @@ from typing import Any, Dict
 import docopt
 import pe_reports
 from pe_source._version import __version__
-from pe_source.dnstwistscript import run_dnstwist
+from pe_source.dnstwist import run_dnstwist
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)

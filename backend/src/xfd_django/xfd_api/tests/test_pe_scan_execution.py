@@ -1,6 +1,10 @@
 """Test PE scan execution."""
 # Standard Python Libraries
+import os
 from unittest.mock import patch
+
+# pe_scanExecution creates an ECS client at import time; CI has no default region.
+os.environ.setdefault("AWS_REGION", "us-east-1")
 
 # Third-Party Libraries
 import pytest

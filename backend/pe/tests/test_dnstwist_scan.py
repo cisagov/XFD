@@ -10,7 +10,7 @@ os.environ.setdefault("PE_DB_PASSWORD", "test")
 os.environ.setdefault("PE_API_KEY", "test-key")
 
 # Third-Party Libraries
-from pe_source.dnstwistscript import checkBlocklist
+from pe_source.dnstwist import checkBlocklist
 
 
 class DnstwistBlocklistTests(unittest.TestCase):

@@ -71,7 +71,7 @@ PE_SMOKE_ENV = \
 
 pe-worker-smoke:
 	docker run --rm $(PE_SMOKE_ENV) pe-worker pe-source --help
-	docker run --rm $(PE_SMOKE_ENV) pe-worker python -c "import pe_source.dnstwistscript"
+	docker run --rm $(PE_SMOKE_ENV) pe-worker python -c "import pe_source.dnstwist.dnstwist"
 
 # Redis lambdas
 populate-cache:

@@ -27,6 +27,10 @@ import requests
 date = (datetime.datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 LOGGER = logging.getLogger(__name__)
 
+_COMMON_TLDS_DICT = (
+    pathlib.Path(__file__).resolve().parent.parent / "data" / "common_tlds.dict"
+)
+
 
 def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
     """Cross reference the dnstwist results with DShield Blocklist."""
@@ -145,7 +149,7 @@ def execute_dnstwist(root_domain, test=0):
         "Starting dnstwist fuzzer for %s (DNS resolution may take several minutes)",
         root_domain,
     )
-    pathtoDict = str(pathlib.Path(__file__).parent.resolve()) + "/data/common_tlds.dict"
+    pathtoDict = str(_COMMON_TLDS_DICT)
     dnstwist_result = dnstwist.run(
         registered=True,
         tld=pathtoDict,
