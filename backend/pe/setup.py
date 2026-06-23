@@ -23,6 +23,9 @@ setup(
         for line in (ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.startswith("#")
     ],
+    extras_require={
+        "test": ["httpx2"],
+    },
     entry_points={
         "console_scripts": [
             "pe-source=pe_source.pe_scripts:main",

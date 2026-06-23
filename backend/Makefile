@@ -51,7 +51,7 @@ pylint:
 
 # PE unit tests (unittest; no Docker required)
 pe-test:
-	cd pe && pip install -q -e . && \
+	cd pe && pip install -q -e ".[test]" && \
 	  PYTHONPATH=..:.:src:pe_reports_django_project \
 	  python -m unittest discover -s tests -v
 

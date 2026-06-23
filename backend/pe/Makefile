@@ -49,7 +49,7 @@ logs:
 	$(COMPOSE_PE) logs -f pe-worker
 
 test:
-	cd $(PE_DIR) && pip install -q -e . && PYTHONPATH=..:.:src:pe_reports_django_project python -m unittest discover -s tests -v
+	cd $(PE_DIR) && pip install -q -e ".[test]" && PYTHONPATH=..:.:src:pe_reports_django_project python -m unittest discover -s tests -v
 
 syncdb:
 	$(PE_MANAGE) pesyncdb
