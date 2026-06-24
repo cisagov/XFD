@@ -1,15 +1,26 @@
 """Cve API."""
 # Standard Python Libraries
 import datetime
-from typing import Optional
+import logging
+from typing import Any, Dict, Optional
 
 # Third-Party Libraries
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 from django.db.models import Q
 from fastapi import HTTPException, status
 from xfd_mini_dl.models import Cve as CveModel
+from xfd_mini_dl.models import User, UserType
 
-from ..auth import is_global_write_admin
+from ..api_methods.organization import escape_special_characters
+from ..auth import (
+    get_org_memberships,
+    is_global_view_admin,
+    is_global_write_admin,
+    is_regional_admin,
+)
+from ..tasks.es_client import ESClient
+
+LOGGER = logging.getLogger(__name__)
 
 
 def get_cves_by_id(cve_id):
@@ -87,3 +98,67 @@ async def get_all_cves(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"DB error: {e}",
         )
+
+
+def search_cves_task(search_body, current_user: User):
+    """
+    Search CVEs in Elasticsearch.
+
+    Args:
+        search_body (dict): The search query body.
+        current_user: The current user object.
+
+    Returns:
+        dict: The CVE search results with Organization IDs from Elasticsearch.
+    """
+    try:
+        # Check if user is GlobalViewAdmin or has memberships
+        if not (
+            is_global_view_admin(current_user) or is_regional_admin(current_user)
+        ) and not get_org_memberships(current_user):
+            return []
+
+        # Initialize Elasticsearch client
+        client = ESClient()
+
+        # Construct the Elasticsearch query
+        query_body: Dict[str, Any] = {"query": {"bool": {"must": [], "filter": []}}}
+
+        # Use match_all if searchTerm is empty
+        if search_body.search_term.strip():
+            sanitized_search_term = escape_special_characters(search_body.search_term)
+            query_body["query"]["bool"]["must"].append(
+                {
+                    "query_string": {
+                        "query": "*{}*".format(sanitized_search_term),
+                        "fields": ["name"],
+                        "fuzziness": "AUTO",
+                        "analyze_wildcard": True,
+                    }
+                }
+            )
+        else:
+            query_body["query"]["bool"]["must"].append({"match_all": {}})
+
+        # For standard users, only show CVEs affecting their organization
+        if current_user.user_type == UserType.STANDARD:
+            org_ids = get_org_memberships(current_user)
+            if not org_ids:
+                return []
+            query_body["query"]["bool"]["filter"].append(
+                {"terms": {"organization_ids": org_ids}}
+            )
+
+        # Log the query for debugging
+        LOGGER.debug("Query body: %s", query_body)
+
+        # Execute the search
+        search_results = client.search_cves(query_body)
+
+        return {"body": search_results}
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        LOGGER.exception("Error occurred while searching CVEs: %s", e)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)

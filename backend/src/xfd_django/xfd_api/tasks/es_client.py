@@ -31,8 +31,10 @@ cve_mapping = {
     "properties": {
         "name": {"type": "text"},
         "suggest": {"type": "completion"},
+        "organization_ids": {"type": "keyword"},
     }
 }
+
 LOGGER = logging.getLogger(__name__)
 # Raise log level for Elasticsearch client to WARNING to suppress request logs
 logging.getLogger("elasticsearch").setLevel(logging.WARNING)
@@ -70,7 +72,7 @@ class ESClient:
             LOGGER.error("Error syncing organizations index: %s", e)
             raise e
 
-    def sync_cve_index(self):
+    def sync_cves_index(self):
         """Create or updates the CVE index with mappings."""
         try:
             if not self.client.indices.exists(index=CVE_INDEX):

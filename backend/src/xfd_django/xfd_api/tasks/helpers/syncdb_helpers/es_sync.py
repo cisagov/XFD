@@ -5,7 +5,8 @@ import logging
 
 # Third-Party Libraries
 from xfd_api.tasks.es_client import ESClient
-from xfd_mini_dl.models import Organization
+from xfd_mini_dl.models import Cve as CveModel
+from xfd_mini_dl.models import Organization, Vulnerability
 
 # Elasticsearch client
 es_client = ESClient()
@@ -23,6 +24,7 @@ def manage_elasticsearch_indices(dangerouslyforce):
             es_client.delete_all()
         es_client.sync_organizations_index()
         es_client.sync_domains_index()
+        es_client.sync_cves_index()
         LOGGER.info("Elasticsearch indices synchronized.")
     except Exception as e:
         LOGGER.error("Error managing Elasticsearch indices: %s", e)
@@ -72,4 +74,72 @@ def sync_es_organizations():
 
     except Exception as e:
         LOGGER.exception("Error syncing organizations: %s", e)
+        raise e
+
+
+def sync_es_cves():
+    """Sync elastic search CVEs."""
+    try:
+        # Fetch all CVEs with their affected organizations
+        cves_with_orgs = {}
+
+        # Get unique CVE-Organization pairs from vulnerabilities
+        vulns = (
+            Vulnerability.objects.filter(cve__isnull=False)
+            .values("cve", "organization_id")
+            .distinct()
+        )
+
+        for vuln in vulns:
+            cve_name = vuln["cve"]
+            org_id = vuln["organization_id"]
+            if cve_name not in cves_with_orgs:
+                cves_with_orgs[cve_name] = []
+            if org_id:
+                cves_with_orgs[cve_name].append(str(org_id))
+
+        # Fetch all CVEs
+        cves = list(
+            CveModel.objects.all().values(
+                "id",
+                "name",
+                "published_at",
+                "modified_at",
+                "status",
+                "description",
+                # "cvss_v2_source",
+                # "cvss_v2_type",
+                # "cvss_v2_vector_string",
+                # "cvss_v2_base_severity",
+                # "cvss_v2_exploitability_score",
+                # "cvss_v2_impact_score",
+                # "cvss_v3_source",
+                # "cvss_v3_type",
+                # "cvss_v3_vector_string",
+                # "cvss_v3_base_severity",
+                # "cvss_v3_exploitability_score",
+                # "cvss_v3_impact_score",
+                # "cvss_v4_source",
+                # "cvss_v4_type",
+                # "cvss_v4_vector_string",
+                # "cvss_v4_base_severity",
+                # "cvss_v4_exploitability_score",
+                # "cvss_v4_impact_score",
+            )
+        )
+
+        # Add organization IDs to each CVE
+        for cve in cves:
+            cve["organization_ids"] = cves_with_orgs.get(cve["name"], [])
+
+        LOGGER.info("Found %d CVEs to sync.", len(cves))
+
+        if cves:
+            # Update Elasticsearch with CVEs
+            es_client.update_cves(cves)
+            LOGGER.info("CVE sync complete.")
+        else:
+            LOGGER.info("No CVEs to sync.")
+    except Exception as e:
+        LOGGER.exception("Error syncing CVEs: %s", e)
         raise e

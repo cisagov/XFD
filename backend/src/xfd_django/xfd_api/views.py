@@ -37,7 +37,12 @@ from .api_methods import notification as notification_methods
 from .api_methods import organization, proxy, scan, scan_tasks, user
 from .api_methods.blocklist import handle_bulk_check_ips
 from .api_methods.cpe import get_cpes_by_id
-from .api_methods.cve import get_all_cves, get_cves_by_id, get_cves_by_name
+from .api_methods.cve import (
+    get_all_cves,
+    get_cves_by_id,
+    get_cves_by_name,
+    search_cves_task,
+)
 from .api_methods.dmz_sync import CybersixSyncParams
 from .api_methods.dns_twist_sync import dns_twist_sync_post
 from .api_methods.domain import (
@@ -123,7 +128,7 @@ from .schema_models.blocklist import (
 )
 from .schema_models.cpe import Cpe as CpeSchema
 from .schema_models.cve import Cve as CveSchema
-from .schema_models.cve import GetAllCvesResponse
+from .schema_models.cve import CveSearchBody, GetAllCvesResponse
 from .schema_models.dmz_sync import (
     AsmSyncRequest,
     AsmSyncResponse,
@@ -433,6 +438,19 @@ async def get_call_all_cves(
         content=response_obj,
         headers={"X-Salted-Checksum": checksum},
     )
+
+
+@api_router.post(
+    "/search/cves",
+    dependencies=[Depends(get_current_active_user)],
+    tags=["CVEs"],
+)
+async def search_cves(
+    search_body: CveSearchBody,
+    current_user: User = Depends(get_current_active_user),
+):
+    """Search CVEs in Elasticsearch."""
+    return search_cves_task(search_body, current_user)
 
 
 # ========================================
