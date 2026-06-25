@@ -11,7 +11,6 @@ from fastapi import HTTPException, status
 from xfd_mini_dl.models import Cve as CveModel
 from xfd_mini_dl.models import User, UserType
 
-from ..api_methods.organization import escape_special_characters
 from ..auth import (
     get_org_memberships,
     is_global_view_admin,
@@ -21,6 +20,23 @@ from ..auth import (
 from ..tasks.es_client import ESClient
 
 LOGGER = logging.getLogger(__name__)
+
+
+def escape_wildcard_query(search_term: str) -> str:
+    """Escape wildcard metacharacters in search term for wildcard queries.
+
+    Only escape backslash, asterisk, and question mark which have special meaning
+    in Elasticsearch wildcard queries. Everything else (including dashes) is literal.
+    Makes search case-insensitive by converting to uppercase to match stored CVE names.
+    """
+    # Convert to uppercase to match stored CVE names (CVE-2016-... format)
+    search_term = search_term.upper()
+    # Escape backslash first to avoid double-escaping
+    result = search_term.replace("\\", "\\\\")
+    # Escape wildcard characters
+    result = result.replace("*", "\\*")
+    result = result.replace("?", "\\?")
+    return result
 
 
 def get_cves_by_id(cve_id):
@@ -126,16 +142,11 @@ def search_cves_task(search_body, current_user: User):
 
         # Use match_all if searchTerm is empty
         if search_body.search_term.strip():
-            sanitized_search_term = escape_special_characters(search_body.search_term)
+            # Use wildcard query on name.keyword (non-tokenized) to preserve dashes in CVE names
+            # Only escape wildcard metacharacters (* and ?), leave dashes and other chars literal
+            sanitized_search_term = escape_wildcard_query(search_body.search_term)
             query_body["query"]["bool"]["must"].append(
-                {
-                    "query_string": {
-                        "query": "*{}*".format(sanitized_search_term),
-                        "fields": ["name"],
-                        "fuzziness": "AUTO",
-                        "analyze_wildcard": True,
-                    }
-                }
+                {"wildcard": {"name.keyword": "*{}*".format(sanitized_search_term)}}
             )
         else:
             query_body["query"]["bool"]["must"].append({"match_all": {}})
@@ -150,10 +161,15 @@ def search_cves_task(search_body, current_user: User):
             )
 
         # Log the query for debugging
-        LOGGER.debug("Query body: %s", query_body)
+        LOGGER.info("CVE Search Query: %s", query_body)
+        LOGGER.info("Search term: %s", search_body.search_term)
 
         # Execute the search
         search_results = client.search_cves(query_body)
+        LOGGER.info(
+            "CVE Search Results: %d hits",
+            len(search_results.get("hits", {}).get("hits", [])),
+        )
 
         return {"body": search_results}
 

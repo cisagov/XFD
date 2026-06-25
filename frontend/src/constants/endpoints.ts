@@ -1,4 +1,5 @@
 export const ENDPOINTS = {
+  CVE_SEARCH_ES: '/search/cves',
   DOMAIN: '/domain/{domain_id}',
   DOMAIN_EXPORT: '/domain/export',
   DOMAIN_SEARCH: '/domain/search',

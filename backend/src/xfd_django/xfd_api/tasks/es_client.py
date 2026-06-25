@@ -29,7 +29,9 @@ domain_mapping = {
 }
 cve_mapping = {
     "properties": {
-        "name": {"type": "text"},
+        "name": {
+            "type": "keyword",
+        },
         "suggest": {"type": "completion"},
         "organization_ids": {"type": "keyword"},
     }

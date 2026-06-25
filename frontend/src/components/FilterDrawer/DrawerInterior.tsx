@@ -25,6 +25,7 @@ import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { DomainAndIPFilter } from './DomainAndIPFilter';
+import { CVEFilter } from './CVEFilter';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -392,6 +393,13 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               )}
             </Stack>
           </AccordionSummary>
+          <AccordionDetails>
+            <CVEFilter
+              addFilter={addFilter}
+              removeFilter={removeFilter}
+              filters={filters}
+            />
+          </AccordionDetails>
           <AccordionDetails>
             <FacetFilter
               options={cveFacet}
