@@ -190,6 +190,35 @@ services:
     networks:
       - backend
 
+  pe-worker:
+    container_name: pe-worker
+    profiles: ["pe"]
+    image: pe-worker
+    build:
+      context: ./backend/pe
+      dockerfile: Dockerfile
+    env_file:
+      - ./.env
+    environment:
+      IS_LOCAL: "true"
+      SQS_ENDPOINT_URL: http://elasticmq:9324
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: elasticmq
+      DB_HOST: ${PE_DB_HOST:-db}
+      PE_API_URL: http://127.0.0.1:8000
+      PE_API_KEY: ${PE_API_KEY:-local-dev-key}
+      PE_DB_NAME: ${PE_DB_NAME:-pe}
+      PE_DB_USERNAME: ${PE_DB_USERNAME:-pe}
+      PE_DB_PASSWORD: ${PE_DB_PASSWORD:-password}
+      SERVICE_TYPE: ${PE_WORKER_SCAN_TYPE:-dnstwist}
+    command: ["./worker/pe-worker-local.sh"]
+    depends_on:
+      - elasticmq
+      - db
+    networks:
+      - backend
+
 volumes:
   postgres-data:
   es-data:
