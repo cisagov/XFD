@@ -1,12 +1,20 @@
 """Tests for checkUserExpiration Lambda task."""
 # Standard Python Libraries
 from datetime import timedelta
+import json
 
 # Third-Party Libraries
 from django.utils import timezone
 import pytest
 from xfd_api.tasks import checkUserExpiration
-from xfd_mini_dl.models import User
+from xfd_mini_dl.models import Log, User
+
+# import logging
+# import os
+
+# import django
+# from django.db.models.query import Q
+# from django.utils.timezone import now
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -224,3 +232,125 @@ def test_handler_test_mode_forbidden_when_not_staging(monkeypatch):
     assert "only allowed" in response["body"]
     assert called["count"] == 0
     assert not emails
+
+
+@pytest.mark.django_db(transaction=False, databases=["default", "mini_data_lake"])
+def test_check_user_expiration_creates_audit_log_on_success(monkeypatch):
+    """Test that a valid JSON audit entry is added to Log upon user deletion."""
+    frozen_now = timezone.now()
+    monkeypatch.setattr(checkUserExpiration, "now", lambda: frozen_now)
+
+    # Suppress email alerts
+    monkeypatch.setattr(checkUserExpiration, "send_email", lambda *args, **kwargs: None)
+
+    # Create a user exceeding the 45-day threshold
+    expired_user = User.objects.create(
+        first_name="Audit",
+        last_name="Success",
+        email="audit_success@example.com",
+        last_logged_in=frozen_now - timedelta(days=50),
+    )
+
+    # Run the core expiration function
+    checkUserExpiration.check_user_expiration()
+
+    # Confirm user removal
+    assert not User.objects.filter(id=expired_user.id).exists()
+
+    # Validate that the audit Log was generated correctly
+    audit_log = Log.objects.filter(
+        event_type="REMOVED BY INACTIVITY", result="success"
+    ).first()
+
+    assert audit_log is not None
+    assert abs(audit_log.created_at - frozen_now) < timedelta(seconds=1)
+
+    # Unpack the JSON payload string and inspect fields
+    payload = json.loads(audit_log.payload)
+    assert payload["job"] == "check_user_expiration"
+    assert payload["action_reason"] == "45 days of inactivity"
+    assert payload["user_id"] == str(expired_user.id)
+    assert payload["email"] == "audit_success@example.com"
+    assert payload["first_name"] == "Audit"
+    assert payload["last_name"] == "Success"
+    assert payload["last_logged_in"] == expired_user.last_logged_in.isoformat()
+
+
+@pytest.mark.django_db(transaction=False, databases=["default", "mini_data_lake"])
+def test_check_user_expiration_creates_audit_log_on_deletion_failure(monkeypatch):
+    """Test that a failure log entry is written if user deletion raises an error."""
+    frozen_now = timezone.now()
+    monkeypatch.setattr(checkUserExpiration, "now", lambda: frozen_now)
+    monkeypatch.setattr(checkUserExpiration, "send_email", lambda *args, **kwargs: None)
+
+    # Create an expired user target
+    expired_user = User.objects.create(
+        first_name="Audit",
+        last_name="Failure",
+        email="audit_fail@example.com",
+        last_logged_in=frozen_now - timedelta(days=50),
+    )
+
+    # Force user.delete() to raise an error during execution
+    def mock_delete_fail(*args, **kwargs):
+        raise RuntimeError("Database connection timed out during deletion.")
+
+    monkeypatch.setattr(User, "delete", mock_delete_fail)
+
+    # Run the expiration loop
+    checkUserExpiration.check_user_expiration()
+
+    # The user should still exist since delete failed
+    assert User.objects.filter(id=expired_user.id).exists()
+
+    # Verify that a failed log payload was created
+    failure_log = Log.objects.filter(
+        event_type="REMOVED BY INACTIVITY", result="fail"
+    ).first()
+
+    assert failure_log is not None
+
+    # Inspect payload for the recorded traceback message
+    payload = json.loads(failure_log.payload)
+    assert payload["email"] == "audit_fail@example.com"
+    assert "Database connection timed out during deletion." in payload["error"]
+
+
+@pytest.mark.django_db(transaction=False, databases=["default", "mini_data_lake"])
+def test_log_removal_handles_database_write_failures_safely(monkeypatch):
+    """Test that log_removal suppresses internal exceptions when writing logs fails."""
+
+    def mock_log_create_fail(*args, **kwargs):
+        raise Exception("Log table is marked read-only.")
+
+    monkeypatch.setattr(Log.objects, "create", mock_log_create_fail)
+
+    # Set up a dummy in-memory user instance
+    mock_user = User(
+        id=123,
+        first_name="Safe",
+        last_name="Test",
+        email="safe@example.com",
+        last_logged_in=timezone.now(),
+    )
+
+    # Track if the warning logger was fired
+    warning_logged = []
+    monkeypatch.setattr(
+        checkUserExpiration.LOGGER,
+        "warning",
+        lambda msg, *args: warning_logged.append(msg % args),
+    )
+
+    # Execution should not raise an exception
+    try:
+        checkUserExpiration.log_removal(mock_user, result="success")
+    except Exception as exc:
+        pytest.fail(f"log_removal raised an unhandled exception: {exc}")
+
+    # Confirm the warning path caught the error
+    assert len(warning_logged) == 1
+    assert (
+        "Logging error (REMOVED BY INACTIVITY): Log table is marked read-only."
+        in warning_logged[0]
+    )

@@ -1,6 +1,7 @@
 """CheckUserExpiration."""
 # Standard Python Libraries
 from datetime import timedelta
+import json
 import logging
 import os
 
@@ -8,6 +9,7 @@ import os
 import django
 from django.db.models.query import Q
 from django.utils.timezone import now
+from xfd_mini_dl.models import Log
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -21,6 +23,55 @@ from xfd_mini_dl.models import User
 
 # Configure logging
 LOGGER = logging.getLogger(__name__)
+
+
+def log_removal(user, result: str, error: Exception | None = None):
+    """Write an audit entry to Log for user removals due to inactivity.
+
+    following the same structure used by the `log_action` decorator.
+    :param user: User instance (even after delete(), the in-memory object is usable)
+    :param result: "success" or "fail"
+    :param error: optional exception to include in payload
+    """
+    timestamp = now().isoformat()
+
+    # Helper to extract from dictionary or object interface smoothly
+    def get_val(obj, attr):
+        if isinstance(obj, dict):
+            return obj.get(attr)
+        return getattr(obj, attr, None)
+
+    user_id = get_val(user, "id")
+    if user_id is not None:
+        user_id = str(user_id)
+
+    last_login_obj = get_val(user, "last_logged_in")
+    created_at_obj = get_val(user, "created_at")
+
+    payload = {
+        "timestamp": timestamp,
+        "job": "check_user_expiration",
+        "action_reason": "45 days of inactivity",
+        "user_id": user_id,
+        "email": get_val(user, "email"),
+        "first_name": get_val(user, "first_name"),
+        "last_name": get_val(user, "last_name"),
+        "last_logged_in": last_login_obj.isoformat() if last_login_obj else None,
+        "created_at_user": created_at_obj.isoformat() if created_at_obj else None,
+    }
+
+    if error is not None:
+        payload["error"] = str(error)
+    try:
+        Log.objects.create(
+            payload=json.dumps(payload),
+            created_at=timestamp,  # parity with decorator which supplies ISO string
+            result=result,  # "success" | "fail"
+            event_type="REMOVED BY INACTIVITY",
+        )
+    except Exception as log_error:
+        # Log failure to write an audit entry; do not raise
+        LOGGER.warning("Logging error (REMOVED BY INACTIVITY): %s", log_error)
 
 
 def check_user_expiration():
@@ -85,11 +136,23 @@ def check_user_expiration():
 
         # Remove the user from the database
         try:
+            user_copy = {
+                "id": user.id,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "last_logged_in": user.last_logged_in,
+                "created_at": getattr(user, "created_at", None),
+            }
             user.delete()
             LOGGER.info(
                 "Removed user %s from the database due to 45 days of inactivity.",
-                user.email,
+                user_copy["email"],
             )
+            log_removal(user_copy, result="success")
+        except Exception as e:
+            LOGGER.error("Error removing user %s: %s", user.email, e)
+            log_removal(user, result="fail", error=e)
         except Exception as e:
             LOGGER.error("Error removing user %s: %s", user.email, e)
 
