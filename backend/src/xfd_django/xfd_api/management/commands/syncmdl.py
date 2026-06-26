@@ -12,6 +12,7 @@ from xfd_api.tasks.helpers.syncdb_helpers.create_sample_data import (
 )
 from xfd_api.tasks.helpers.syncdb_helpers.es_sync import (  # sync_es_cves,
     manage_elasticsearch_indices,
+    sync_es_cves,
     sync_es_organizations,
 )
 from xfd_api.tasks.helpers.syncdb_helpers.fill_static_tables import (
@@ -144,8 +145,8 @@ class Command(BaseCommand):
             # Step 4.1: Sync domains in ES
             sync_es_domains({})
 
-            # Step 4.2: Sync organizations in ES - may not be needed since sync_es_domains() already syncs organizations, but keeping it for completeness
-            sync_es_organizations()
+            # Step 4.2: Sync CVEs in ES - moved here to ensure CVEs are synced inside the populate block to avoid erroring out when no Vulnerability Materialized Views exist yet.
+            sync_es_cves()
 
         # Step 5: Sync organizations in ES - may not be needed since sync_es_domains() already syncs organizations, but keeping it for completeness
         sync_es_organizations()
