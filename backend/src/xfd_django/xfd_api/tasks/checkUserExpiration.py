@@ -9,16 +9,6 @@ import os
 import django
 from django.db.models.query import Q
 from django.utils.timezone import now
-from xfd_mini_dl.models import Log
-
-# Django setup
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
-os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-django.setup()
-
-
-# Third-Party Libraries
-from xfd_api.helpers.email import send_email
 
 # Django setup
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
@@ -57,16 +47,28 @@ def log_removal(user, result: str, error: Exception | None = None):
     last_login_obj = get_val(user, "last_logged_in")
     created_at_obj = get_val(user, "created_at")
 
+    first_name = get_val(user, "first_name") or ""
+    last_name = get_val(user, "last_name") or ""
+    # Try explicit full_name parameter or fall back to standard concatenation
+    full_name = (
+        get_val(user, "full_name") or f"{first_name} {last_name}".strip() or "N/A"
+    )
+
     payload = {
         "timestamp": timestamp,
         "job": "check_user_expiration",
         "action_reason": "45 days of inactivity",
-        "user_id": user_id,
-        "email": get_val(user, "email"),
-        "first_name": get_val(user, "first_name"),
-        "last_name": get_val(user, "last_name"),
-        "last_logged_in": last_login_obj.isoformat() if last_login_obj else None,
-        "created_at_user": created_at_obj.isoformat() if created_at_obj else None,
+        "user": {
+            "id": user_id,
+            "email": get_val(user, "email"),
+            "first_name": first_name,
+            "last_name": last_name,
+            "full_name": full_name,
+            "user_type": get_val(user, "user_type") or "N/A",
+            "last_logged_in": last_login_obj.isoformat() if last_login_obj else None,
+            "created_at_user": created_at_obj.isoformat() if created_at_obj else None,
+        },
+        "organization": {"name": get_val(user, "organization_name") or "N/A"},
     }
 
     if error is not None:
@@ -122,7 +124,7 @@ def check_user_expiration():
     users_to_remove = User.objects.filter(
         Q(last_logged_in__lt=cutoff_45_days)
         | Q(last_logged_in__isnull=True, created_at__lt=cutoff_45_days)
-    )
+    ).prefetch_related("roles_organization")
 
     for user in users_to_remove:
         subject = "Account Removal Notice"
@@ -143,13 +145,26 @@ def check_user_expiration():
         # Notify user of account removal
         send_email(user.email, subject, body)
 
+        org_name = None
         # Remove the user from the database
         try:
+            # Safely navigate prefetched relations to extract organization information before database delete
+            if hasattr(user, "roles_organization"):
+                first_role = user.roles_organization.first()
+                if (
+                    first_role
+                    and hasattr(first_role, "organization")
+                    and first_role.organization
+                ):
+                    org_name = first_role.organization.name
+
             user_copy = {
                 "id": user.id,
                 "email": user.email,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
+                "user_type": getattr(user, "user_type", None),
+                "organization_name": org_name,
                 "last_logged_in": user.last_logged_in,
                 "created_at": getattr(user, "created_at", None),
             }
