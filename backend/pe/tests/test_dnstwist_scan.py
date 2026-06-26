@@ -11,6 +11,23 @@ os.environ.setdefault("PE_API_KEY", "test-key")
 
 # Third-Party Libraries
 from pe_source.dnstwist import checkBlocklist
+from pe_source.dnstwist.dnstwist import _requested_org_names
+
+
+class DnstwistOrgFilterTests(unittest.TestCase):
+    """Verify explicit org filtering uses exact cyhy_db_name matches."""
+
+    def test_single_org_does_not_match_substrings(self):
+        """DHS_CISA must not match DHS, CIS, or other substring collisions."""
+        requested = _requested_org_names("DHS_CISA")
+        self.assertEqual(requested, {"DHS_CISA"})
+        self.assertNotIn("DHS", requested)
+        self.assertNotIn("CIS", requested)
+
+    def test_comma_separated_orgs(self):
+        """Comma-separated org lists should split into distinct names."""
+        requested = _requested_org_names("DHS,DHS_CISA")
+        self.assertEqual(requested, {"DHS", "DHS_CISA"})
 
 
 class DnstwistBlocklistTests(unittest.TestCase):

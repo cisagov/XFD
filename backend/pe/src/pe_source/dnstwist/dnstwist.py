@@ -181,6 +181,13 @@ def execute_dnstwist(root_domain, test=0):
     return finalorglist
 
 
+def _requested_org_names(orgs_list):
+    """Normalize --orgs values to a set of exact cyhy_db_name matches."""
+    if isinstance(orgs_list, str):
+        return {part.strip() for part in orgs_list.split(",") if part.strip()}
+    return set(orgs_list)
+
+
 def run_dnstwist(orgs_list):
     """Run DNStwist on certain domains and upload findings to database."""
     # Retrieve full org info from PE database
@@ -199,8 +206,9 @@ def run_dnstwist(orgs_list):
             else:
                 continue
     else:
+        requested = _requested_org_names(orgs_list)
         for pe_org in pe_orgs:
-            if pe_org["cyhy_db_name"] in orgs_list:
+            if pe_org["cyhy_db_name"] in requested:
                 pe_orgs_final.append(pe_org)
             else:
                 continue
