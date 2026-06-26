@@ -8,11 +8,12 @@ import json
 import logging
 import pathlib
 import traceback
+import uuid
 
 # Third-Party Libraries
 import dnstwist
 import dshield
-from pe_source.data.pe_db.db_query_source import (
+from pe_source.data.db_query_source import (
     addSubdomain,
     connect,
     get_data_source_uid,
@@ -27,9 +28,7 @@ import requests
 date = (datetime.datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 LOGGER = logging.getLogger(__name__)
 
-_COMMON_TLDS_DICT = (
-    pathlib.Path(__file__).resolve().parent.parent / "data" / "common_tlds.dict"
-)
+_COMMON_TLDS_DICT = pathlib.Path(__file__).resolve().parent / "common_tlds.dict"
 
 
 def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
@@ -123,6 +122,7 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
         perm_list.append(permutation)
 
     domain_dict = {
+        "suspected_domain_uid": str(uuid.uuid4()),
         "organizations_uid": pe_org_uid,
         "data_source_uid": source_uid,
         "sub_domain_uid": sub_domain_uid,
@@ -183,6 +183,13 @@ def execute_dnstwist(root_domain, test=0):
     return finalorglist
 
 
+def _requested_org_names(orgs_list):
+    """Normalize --orgs values to a set of exact cyhy_db_name matches."""
+    if isinstance(orgs_list, str):
+        return {part.strip() for part in orgs_list.split(",") if part.strip()}
+    return set(orgs_list)
+
+
 def run_dnstwist(orgs_list):
     """Run DNStwist on certain domains and upload findings to database."""
     # Retrieve full org info from PE database
@@ -201,8 +208,9 @@ def run_dnstwist(orgs_list):
             else:
                 continue
     else:
+        requested = _requested_org_names(orgs_list)
         for pe_org in pe_orgs:
-            if pe_org["cyhy_db_name"] in orgs_list:
+            if pe_org["cyhy_db_name"] in requested:
                 pe_orgs_final.append(pe_org)
             else:
                 continue

@@ -14,6 +14,7 @@ import time
 
 # Third-Party Libraries
 import boto3
+from botocore.exceptions import ClientError
 
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
@@ -21,6 +22,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 LOG_PATH = "/app/pe_reports_logging.log"
 EMPTY_CONFIRM_SLEEP_SECONDS = 5
 POLL_WAIT_SECONDS = 5
+# Keep in sync with peScanController.VISIBILITY_TIMEOUT_SECONDS / XFD scan queues.
+VISIBILITY_TIMEOUT_SECONDS = int(os.getenv("PE_SQS_VISIBILITY_TIMEOUT", "18000"))
 PE_SOURCE_BIN = shutil.which("pe-source") or "/usr/local/bin/pe-source"
 
 
@@ -76,12 +79,35 @@ def receive_message(client, queue_url: str):
         return None
 
 
-def delete_message(client, queue_url: str, receipt_handle: str) -> None:
+def extend_message_visibility(client, queue_url: str, receipt_handle: str) -> None:
+    """Reset visibility while a long-running scan is in progress."""
+    try:
+        client.change_message_visibility(
+            QueueUrl=queue_url,
+            ReceiptHandle=receipt_handle,
+            VisibilityTimeout=VISIBILITY_TIMEOUT_SECONDS,
+        )
+    except Exception as exc:
+        LOGGER.warning("Could not extend message visibility: %s", exc)
+
+
+def delete_message(client, queue_url: str, receipt_handle: str) -> bool:
     """Delete a processed message from the scan queue."""
     try:
         client.delete_message(QueueUrl=queue_url, ReceiptHandle=receipt_handle)
+        return True
+    except ClientError as exc:
+        if exc.response.get("Error", {}).get("Code") == "ReceiptHandleIsInvalid":
+            LOGGER.warning(
+                "Receipt handle expired before delete (visibility timeout too short?). "
+                "Scan finished but the message may be redelivered."
+            )
+            return False
+        LOGGER.error("Error deleting message: %s", exc)
+        return False
     except Exception as exc:
         LOGGER.error("Error deleting message: %s", exc)
+        return False
 
 
 def queue_confirmed_empty(client, queue_url: str) -> bool:
@@ -114,13 +140,6 @@ def build_command(service_type: str, org: str) -> list[str]:
         return ["pe-source", "dnstwist", "--orgs={}".format(org)]
     if "intelx" in service_type:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
-    if "cybersixgill" in service_type:
-        return [
-            "pe-source",
-            "cybersixgill",
-            "--org={}".format(org),
-            "--soc_med_included",
-        ]
     if "xpanse" in service_type:
         return ["pe-source", "xpanse", "--org={}".format(org)]
     if "asmSync" in service_type:
@@ -201,6 +220,9 @@ def main() -> None:
             continue
 
         LOGGER.info("Processing organization: %s", org)
+        receipt_handle = message.get("ReceiptHandle")
+        if receipt_handle:
+            extend_message_visibility(client, queue_url, receipt_handle)
         try:
             success = run_scan(service_type, org)
         except Exception as exc:
@@ -208,7 +230,6 @@ def main() -> None:
             success = False
 
         if success:
-            receipt_handle = message.get("ReceiptHandle")
             if receipt_handle:
                 delete_message(client, queue_url, receipt_handle)
                 LOGGER.info("Done with %s", org)

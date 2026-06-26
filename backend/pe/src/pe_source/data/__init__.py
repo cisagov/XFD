@@ -1,1 +1,1 @@
-"""PE scan data assets and database query helpers."""
+"""PE scan data helpers."""

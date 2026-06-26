@@ -20,7 +20,7 @@ PE_DB_PASSWORD=password
 PE_API_KEY=local-dev-key
 PE_API_URL=http://127.0.0.1:8000
 
-PE_QUEUE_PREFIX=staging
+PE_QUEUE_PREFIX=pe-staging
 PE_WORKER_SCAN_TYPE=dnstwist
 
 QUEUE_URL=http://elasticmq:9324

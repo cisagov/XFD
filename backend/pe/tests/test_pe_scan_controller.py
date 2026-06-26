@@ -6,7 +6,26 @@ import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
 # Third-Party Libraries
-from pe.peScanController import resolve_orgs, resolve_scans
+from pe.peScanController import queue_name_for_scan, resolve_orgs, resolve_scans
+
+
+class QueueNameTests(unittest.TestCase):
+    """Verify PE queue names are separate from XFD scan queues."""
+
+    def test_default_prefix(self):
+        """PE queues should use the pe-staging prefix by default."""
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("PE_QUEUE_PREFIX", None)
+            self.assertEqual(
+                queue_name_for_scan("dnstwist"), "pe-staging-dnstwist-queue"
+            )
+
+    def test_custom_prefix(self):
+        """PE_QUEUE_PREFIX should override the default queue prefix."""
+        with patch.dict(os.environ, {"PE_QUEUE_PREFIX": "pe-integration"}, clear=False):
+            self.assertEqual(
+                queue_name_for_scan("shodan"), "pe-integration-shodan-queue"
+            )
 
 
 class ResolveScansTests(unittest.TestCase):
@@ -48,11 +67,11 @@ class NormalizeLocalQueueUrlTests(unittest.TestCase):
             clear=False,
         ):
             url = normalize_local_queue_url(
-                "http://localhost:9324/000000000000/staging-dnstwist-queue"
+                "http://localhost:9324/000000000000/pe-staging-dnstwist-queue"
             )
-        self.assertEqual(
-            url, "http://elasticmq:9324/000000000000/staging-dnstwist-queue"
-        )
+            self.assertEqual(
+                url, "http://elasticmq:9324/000000000000/pe-staging-dnstwist-queue"
+            )
 
 
 class HostBindSourceTests(unittest.TestCase):

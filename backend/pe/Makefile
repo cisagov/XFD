@@ -1,17 +1,19 @@
 # Posture & Exposure (P&E) — run from repo root or backend/pe:
+#   make -C backend/pe start
 #   make -C backend/pe build
-#   make -C backend/pe up
-#   make -C backend/pe scans-orgs SCANS=dnstwist ORGS=DHS
+#   make -C backend/pe syncdb-populate
+#   make -C backend/pe run SCANS=dnstwist ORGS=DHS COUNT=1
 
 REPO_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/../..)
 PE_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 COMPOSE := docker compose -f $(REPO_ROOT)/docker-compose.yml -f $(REPO_ROOT)/docker-compose.override.local.yml
 COMPOSE_PE := $(COMPOSE) --profile pe
+PE_STACK_SERVICES := db elasticmq backend
 
 # Queue local scans via peScanController (backend container must be running).
 PE_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app backend python /app/pe/tools/queue_local_scans.py
 
-.PHONY: help build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs
+.PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status
 
 PE_MANAGE = $(COMPOSE) exec -T -w /app/pe/pe_reports_django_project \
 	-e DJANGO_SETTINGS_MODULE=pe_reports_django.settings \
@@ -20,6 +22,8 @@ PE_MANAGE = $(COMPOSE) exec -T -w /app/pe/pe_reports_django_project \
 
 help:
 	@echo "P&E Makefile targets:"
+	@echo "  start            Start db, elasticmq, and backend (slim local stack)"
+	@echo "  stop             Stop db, elasticmq, and backend"
 	@echo "  build            Build pe-worker Docker image"
 	@echo "  up               Start pe-worker (compose profile pe)"
 	@echo "  down             Stop pe-worker"
@@ -31,10 +35,18 @@ help:
 	@echo "  queue            run with QUEUE_ONLY=true"
 	@echo "  scans            run with sample orgs fixture"
 	@echo "  scans-orgs       Alias for run with explicit ORGS="
+	@echo "  watch-queues     Poll AWS queues until empty (SCANS= INTERVAL=)"
+	@echo "  queue-status     One-shot queue depth (SCANS=)"
 	@echo ""
 	@echo "ORGS is comma-separated (e.g. ORGS=DHS,DHS_CISA). Shortcuts must be used alone:"
 	@echo "  all / DEMO       batch: 1 queue message -> one worker scans all orgs in one job"
 	@echo "  all-orgs / demo-orgs  parallel: 1 queue message per org from PE DB; use COUNT=N"
+
+start:
+	$(COMPOSE) up -d --build $(PE_STACK_SERVICES)
+
+stop:
+	$(COMPOSE) stop $(PE_STACK_SERVICES)
 
 build:
 	$(PE_DIR)/tools/build.sh
@@ -86,3 +98,12 @@ scans:
 
 scans-orgs:
 	@$(MAKE) -C $(PE_DIR) run SCANS=$(SCANS) ORGS=$(ORGS) COUNT=$(COUNT)
+
+WATCH_INTERVAL ?= 30
+watch-queues:
+	@test -n "$(SCANS)" || (echo "SCANS is required, e.g. make watch-queues SCANS=dnstwist" && exit 1)
+	$(PE_DIR)/tools/watch_queues.sh --scans "$(SCANS)" --interval "$(WATCH_INTERVAL)"
+
+queue-status:
+	@test -n "$(SCANS)" || (echo "SCANS is required, e.g. make queue-status SCANS=dnstwist" && exit 1)
+	$(PE_DIR)/tools/watch_queues.sh --scans "$(SCANS)" --once

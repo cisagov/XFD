@@ -6,10 +6,16 @@
 #   ./run_scans.sh --scans dnstwist --orgs DHS,DHS_CISA --count 3
 #   ./run_scans.sh --scans dnstwist --orgs all-orgs --count 10
 #   ./run_scans.sh --scans dnstwist --orgs-file orgs.json --queue-only
+#   ./watch_queues.sh --scans dnstwist
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "${SCRIPT_DIR}/pe_queue_lib.sh"
+
 STAGE="${PE_STAGE:-staging-cd}"
+export PE_STAGE="$STAGE"
 REGION="${AWS_REGION:-us-east-1}"
 FUNCTION="${PE_LAMBDA_FUNCTION:-crossfeed-${STAGE}-peScanController}"
 SCANS=""
@@ -19,22 +25,30 @@ API_KEYS=""
 COUNT=""
 QUEUE_ONLY=false
 TASKS_ONLY=false
+IGNORE_QUEUE_DEPTH=false
+PURGE_QUEUES=false
 OUTPUT_FILE="$(mktemp)"
 
 usage() {
   echo "Usage: $0 --scans SCAN[,SCAN...] [--orgs ORG[,ORG...] | --orgs-file FILE] [options]"
   echo
   echo "Options:"
-  echo "  -s, --scans SCANS         Comma-separated catalog scan keys (e.g. dnstwist)"
-  echo "  -o, --orgs ORGS           Comma-separated organization cyhy_db_name values"
-  echo "  -f, --orgs-file FILE      JSON array of organization names"
-  echo "  -k, --api-keys KEYS       Comma-separated Shodan API keys"
-  echo "  -c, --count N             Concurrent workers per scan (overrides catalog)"
-  echo "      --queue-only          Queue SQS messages only"
-  echo "      --tasks-only          Start Fargate tasks only"
-  echo "  -h, --help                Show this help message"
+  echo "  -s, --scans SCANS           Comma-separated catalog scan keys (e.g. dnstwist)"
+  echo "  -o, --orgs ORGS             Comma-separated organization cyhy_db_name values"
+  echo "  -f, --orgs-file FILE        JSON array of organization names"
+  echo "  -k, --api-keys KEYS         Comma-separated Shodan API keys"
+  echo "  -c, --count N               Concurrent workers per scan (overrides catalog)"
+  echo "      --queue-only            Queue SQS messages only"
+  echo "      --tasks-only            Start Fargate tasks only"
+  echo "      --ignore-queue-depth    Skip non-empty queue check (not recommended)"
+  echo "      --purge-queues          Purge selected queues before invoke (no prompt)"
+  echo "  -h, --help                  Show this help message"
   echo
-  echo "Environment: PE_STAGE, PE_LAMBDA_FUNCTION, AWS_REGION"
+  echo "If selected queues already hold messages, you will be prompted to purge,"
+  echo "continue without clearing, or abort. Track progress with watch_queues.sh."
+  echo
+  echo "Environment: PE_STAGE (default staging-cd), PE_QUEUE_PREFIX (derived: pe-staging or pe-integration),"
+  echo "             PE_LAMBDA_FUNCTION, AWS_REGION"
 }
 
 cleanup() {
@@ -51,6 +65,8 @@ while [[ $# -gt 0 ]]; do
     -c|--count) COUNT="$2"; shift 2 ;;
     --queue-only) QUEUE_ONLY=true; shift ;;
     --tasks-only) TASKS_ONLY=true; shift ;;
+    --ignore-queue-depth) IGNORE_QUEUE_DEPTH=true; shift ;;
+    --purge-queues) PURGE_QUEUES=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
   esac
@@ -82,6 +98,10 @@ fi
 
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required" >&2; exit 1; }
 
+if ! pe_guard_queues_for_scans "$SCANS" "$IGNORE_QUEUE_DEPTH" "$PURGE_QUEUES"; then
+  exit 1
+fi
+
 SCANS_JSON="$(printf '%s' "$SCANS" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$"; ""))')"
 PAYLOAD="$(jq -n \
   --argjson scans "$SCANS_JSON" \
@@ -112,3 +132,6 @@ STATUS_CODE="$(jq -r '.statusCode // empty' "$OUTPUT_FILE")"
 if [[ -n "$STATUS_CODE" && "$STATUS_CODE" != "200" ]]; then
   exit 1
 fi
+
+echo "Track queue progress with:"
+echo "  ${SCRIPT_DIR}/watch_queues.sh --scans ${SCANS}"

@@ -11,12 +11,16 @@ RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -
   && ./aws/install \
   && rm -rf aws awscliv2.zip
 
-COPY requirements.txt setup.py ./
+# Install Python deps in a layer that only rebuilds when requirements.txt changes.
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Package install is cheap (--no-deps); src/worker changes should not reinstall boto3, etc.
+COPY setup.py ./
 COPY src ./src
 COPY pe_reports_django_project ./pe_reports_django_project
 COPY worker ./worker
-
-RUN pip install --no-cache-dir .
+RUN pip install --no-cache-dir --no-deps .
 
 ENV PYTHONPATH=/app/src:/app/pe_reports_django_project
 ENV PE_API_URL=http://127.0.0.1:8000
