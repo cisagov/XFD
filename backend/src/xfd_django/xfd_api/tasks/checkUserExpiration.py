@@ -153,8 +153,6 @@ def check_user_expiration():
         except Exception as e:
             LOGGER.error("Error removing user %s: %s", user.email, e)
             log_removal(user, result="fail", error=e)
-        except Exception as e:
-            LOGGER.error("Error removing user %s: %s", user.email, e)
 
 
 def run_test_expiration_flow(email: str):
