@@ -16,6 +16,7 @@ import { VulnerabilityScan } from 'pages/VulnerabilityScanDash/VulnerabilityScan
 import isDataEmpty from 'utils/transformVulnScanData';
 import { isEmptyAfterScans } from 'utils/transformVulnScanData';
 import { MAILTO_INQUIRY } from '@/constants/emailLinks';
+import CustomAlert from '@/components/Dashboard/CustomAlert';
 
 export interface VulnSeverities {
   label: string;
@@ -74,8 +75,15 @@ export const VSDashboardGate: React.FC<{
   if (error || isDataEmpty(vulnScanData)) {
     const noDataUserType =
       error === 'NO_DATA' ? 'standard' : userType || 'standard';
+    const endNumRegex = /\s\b([1-9]|10)$/;
     return (
       <PageSection>
+        {orgName.startsWith('DHS Region') && endNumRegex.test(orgName) && (
+          <CustomAlert
+            headerMsg="Welcome to CyHy Dashboard"
+            bodyMsg="Based on your profile you will need to select a different organization in order to populate the Dashboard."
+          />
+        )}
         <NoDataMessage userType={noDataUserType} />
       </PageSection>
     );
