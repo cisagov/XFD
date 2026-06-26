@@ -12,7 +12,7 @@ import traceback
 # Third-Party Libraries
 import dnstwist
 import dshield
-from pe_source.data.pe_db.db_query_source import (
+from pe_source.data.db_query_source import (
     addSubdomain,
     connect,
     get_data_source_uid,
@@ -27,9 +27,7 @@ import requests
 date = (datetime.datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
 LOGGER = logging.getLogger(__name__)
 
-_COMMON_TLDS_DICT = (
-    pathlib.Path(__file__).resolve().parent.parent / "data" / "common_tlds.dict"
-)
+_COMMON_TLDS_DICT = pathlib.Path(__file__).resolve().parent / "common_tlds.dict"
 
 
 def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
