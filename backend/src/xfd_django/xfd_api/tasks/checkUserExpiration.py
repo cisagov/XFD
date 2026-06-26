@@ -19,7 +19,16 @@ django.setup()
 
 # Third-Party Libraries
 from xfd_api.helpers.email import send_email
-from xfd_mini_dl.models import User
+
+# Django setup
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "xfd_django.settings")
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+django.setup()
+
+
+# Third-Party Libraries
+from xfd_api.helpers.email import send_email
+from xfd_mini_dl.models import Log, User
 
 # Configure logging
 LOGGER = logging.getLogger(__name__)
