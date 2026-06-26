@@ -431,7 +431,7 @@ resource "aws_iam_policy" "pe_scan_operator" {
         "sqs:ListQueues",
         "sqs:PurgeQueue"
       ],
-      "Resource": "arn:${var.aws_partition}:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.stage == "integration" ? "integration" : "staging"}-*"
+      "Resource": "arn:${var.aws_partition}:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.stage == "integration" ? "pe-integration" : "pe-staging"}-*"
     }
   ]
 }

@@ -15,6 +15,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/pe_queue_lib.sh"
 
 STAGE="${PE_STAGE:-staging-cd}"
+export PE_STAGE="$STAGE"
 REGION="${AWS_REGION:-us-east-1}"
 FUNCTION="${PE_LAMBDA_FUNCTION:-crossfeed-${STAGE}-peScanController}"
 SCANS=""
@@ -46,7 +47,8 @@ usage() {
   echo "If selected queues already hold messages, you will be prompted to purge,"
   echo "continue without clearing, or abort. Track progress with watch_queues.sh."
   echo
-  echo "Environment: PE_STAGE, PE_LAMBDA_FUNCTION, AWS_REGION, PE_QUEUE_PREFIX"
+  echo "Environment: PE_STAGE (default staging-cd), PE_QUEUE_PREFIX (derived: pe-staging or pe-integration),"
+  echo "             PE_LAMBDA_FUNCTION, AWS_REGION"
 }
 
 cleanup() {

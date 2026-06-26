@@ -152,10 +152,14 @@ def sqs_client():
     return boto3.client("sqs")
 
 
+def default_queue_prefix() -> str:
+    """Return the PE SQS queue name prefix (separate from XFD scan queues)."""
+    return os.environ.get("PE_QUEUE_PREFIX", "pe-staging")
+
+
 def queue_name_for_scan(scan_type: str) -> str:
     """Build the SQS queue name for a scan type."""
-    prefix = os.environ.get("PE_QUEUE_PREFIX", "staging")
-    return "{}-{}-queue".format(prefix, scan_type)
+    return "{}-{}-queue".format(default_queue_prefix(), scan_type)
 
 
 def queue_url_prefix() -> str:
@@ -163,7 +167,7 @@ def queue_url_prefix() -> str:
     queue_url = os.environ.get("QUEUE_URL")
     endpoint = sqs_endpoint_url()
     if endpoint:
-        prefix = os.environ.get("PE_QUEUE_PREFIX", "staging")
+        prefix = default_queue_prefix()
         return "{}/000000000000/{}-".format(endpoint, prefix)
     if queue_url:
         return queue_url
@@ -420,7 +424,7 @@ def start_local_docker_workers(
                 "PE_DB_PASSWORD": os.getenv("PE_DB_PASSWORD", ""),
                 "PE_API_URL": os.getenv("PE_API_URL", "http://127.0.0.1:8000"),
                 "PE_API_KEY": os.getenv("PE_API_KEY", ""),
-                "PE_QUEUE_PREFIX": os.getenv("PE_QUEUE_PREFIX", "staging"),
+                "PE_QUEUE_PREFIX": default_queue_prefix(),
             }
             if scan_name in SHODAN_SCANS:
                 environment["PE_SHODAN_API_KEYS"] = api_keys_for_scan(

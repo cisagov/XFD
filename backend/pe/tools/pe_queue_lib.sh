@@ -2,7 +2,12 @@
 # Shared PE SQS queue helpers for run_scans.sh and watch_queues.sh.
 
 pe_queue_lib_init() {
-  PE_QUEUE_PREFIX="${PE_QUEUE_PREFIX:-staging}"
+  if [[ -z "${PE_QUEUE_PREFIX:-}" ]]; then
+    case "${PE_STAGE:-staging-cd}" in
+      integration) PE_QUEUE_PREFIX=pe-integration ;;
+      *) PE_QUEUE_PREFIX=pe-staging ;;
+    esac
+  fi
   PE_QUEUE_REGION="${AWS_REGION:-us-east-1}"
   if [[ -z "${PE_QUEUE_ACCOUNT_ID:-}" ]]; then
     PE_QUEUE_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"

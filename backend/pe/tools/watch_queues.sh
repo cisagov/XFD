@@ -27,7 +27,8 @@ usage() {
   echo "      --once              Print status once and exit (no watch loop)"
   echo "  -h, --help              Show this help message"
   echo
-  echo "Environment: PE_QUEUE_PREFIX (default staging), AWS_REGION, AWS credentials"
+  echo "Environment: PE_STAGE (default staging-cd), PE_QUEUE_PREFIX (derived: pe-staging or pe-integration),"
+  echo "             AWS_REGION, AWS credentials"
   echo
   echo "Exit code 0 when all selected queues are empty; 1 while work remains (--once)"
   echo "or on error."
@@ -49,6 +50,8 @@ if [[ -z "$SCANS" ]]; then
   usage
   exit 1
 fi
+
+export PE_STAGE="${PE_STAGE:-staging-cd}"
 
 command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required" >&2; exit 1; }
 
