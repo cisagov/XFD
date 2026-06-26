@@ -144,13 +144,13 @@ class Command(BaseCommand):
             # Step 4.1: Sync domains in ES
             sync_es_domains({})
 
+            # Step 4.2: Sync organizations in ES - may not be needed since sync_es_domains() already syncs organizations, but keeping it for completeness
+            sync_es_organizations()
+
         # Step 5: Sync organizations in ES - may not be needed since sync_es_domains() already syncs organizations, but keeping it for completeness
         sync_es_organizations()
 
-        # Step 6: Sync CVEs in ES - may not be needed since sync_es_domains() already syncs CVEs, but keeping it for completeness
-        # sync_es_cves()
-
-        # Step 7: Populate Scan Results
+        # Step 6: Populate Scan Results
         if metrics:
             self.stdout.write("Generating scan results...")
             populate_scan_results()
