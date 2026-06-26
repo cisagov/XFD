@@ -6,7 +6,12 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 # Third-Party Libraries
-from worker.pe_worker import parse_org, queue_confirmed_empty, receive_message
+from worker.pe_worker import (
+    extend_message_visibility,
+    parse_org,
+    queue_confirmed_empty,
+    receive_message,
+)
 
 
 class ParseOrgTests(unittest.TestCase):
@@ -43,6 +48,20 @@ class ReceiveMessageTests(unittest.TestCase):
         msg = {"Body": '{"org":"NSF"}', "ReceiptHandle": "rh1"}
         client.receive_message.return_value = {"Messages": [msg]}
         self.assertEqual(receive_message(client, "http://example/queue"), msg)
+
+
+class ExtendVisibilityTests(unittest.TestCase):
+    """Verify long scans extend SQS visibility before processing."""
+
+    def test_extends_visibility(self):
+        """Reset visibility timeout when a scan starts."""
+        client = MagicMock()
+        extend_message_visibility(client, "http://example/queue", "rh1")
+        client.change_message_visibility.assert_called_once_with(
+            QueueUrl="http://example/queue",
+            ReceiptHandle="rh1",
+            VisibilityTimeout=18000,
+        )
 
 
 class QueueConfirmedEmptyTests(unittest.TestCase):

@@ -7,7 +7,7 @@ if [ -z "${SERVICE_TYPE:-}" ]; then
   exit 1
 fi
 
-PREFIX="${PE_QUEUE_PREFIX:-staging}"
+PREFIX="${PE_QUEUE_PREFIX:-pe-staging}"
 ENDPOINT="${SQS_ENDPOINT_URL:-http://elasticmq:9324}"
 export SERVICE_QUEUE_URL="${ENDPOINT}/000000000000/${PREFIX}-${SERVICE_TYPE}-queue"
 export PE_API_URL="${PE_API_URL:-http://127.0.0.1:8000}"

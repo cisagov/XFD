@@ -15,7 +15,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     package_data={
-        "pe_source": ["data/*.dict", "data/pe_db/*"],
+        "pe_source": ["dnstwist/*.dict"],
     },
     include_package_data=True,
     install_requires=[
