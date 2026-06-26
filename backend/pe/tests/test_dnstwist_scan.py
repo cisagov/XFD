@@ -3,6 +3,7 @@
 # Standard Python Libraries
 import os
 import unittest
+import uuid
 
 os.environ.setdefault("PE_DB_NAME", "pe")
 os.environ.setdefault("PE_DB_USERNAME", "pe")
@@ -32,6 +33,24 @@ class DnstwistOrgFilterTests(unittest.TestCase):
 
 class DnstwistBlocklistTests(unittest.TestCase):
     """Verify dnstwist blocklist helper edge cases."""
+
+    def test_blocklist_row_includes_primary_key(self):
+        """Each permutation row must include suspected_domain_uid for PE DB insert."""
+        domain, perm_list = checkBlocklist(
+            {
+                "fuzzer": "bitsquatting",
+                "domain": "examp1e.gov",
+                "dns_a": ["1.2.3.4"],
+            },
+            "sub-uid",
+            "source-uid",
+            "org-uid",
+            [],
+        )
+        self.assertIsNotNone(domain)
+        self.assertIsNotNone(domain["suspected_domain_uid"])
+        uuid.UUID(domain["suspected_domain_uid"])
+        self.assertEqual(perm_list, ["examp1e.gov"])
 
     def test_original_fuzzer_is_skipped(self):
         """Original-fuzzer rows should not produce a domain dict."""

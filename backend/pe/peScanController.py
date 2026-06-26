@@ -48,17 +48,15 @@ import boto3
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
 
+# Match XFD scan queues: dnstwist and other PE scans can run for hours.
+VISIBILITY_TIMEOUT_SECONDS = 18000
+
 SCAN_CATALOG = {
-    "asm_sync": {"scan": "asmSync", "count": 2, "apiKeys": ""},
-    "csg_alerts": {"scan": "cybersixgill-alerts", "count": 4},
-    "csg_creds": {"scan": "cybersixgill-credentials", "count": 4},
-    "csg_mentions": {"scan": "cybersixgill-mentions", "count": 4},
-    "csg_topcves": {"scan": "cybersixgill-topcves", "count": 1},
+    "asmSync": {"scan": "asmSync", "count": 2, "apiKeys": ""},
     "dnsmonitor": {"scan": "dnsmonitor", "count": 1},
     "dnstwist": {"scan": "dnstwist", "count": 142},
     "intelx": {"scan": "intelx", "count": 10},
     "shodan": {"scan": "shodan", "count": 3, "apiKeys": ""},
-    "shodan_test": {"scan": "shodan", "count": 1, "apiKeys": ""},
 }
 
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})
@@ -180,8 +178,17 @@ def queue_url_prefix() -> str:
 def queue_url_for_scan(scan_type: str) -> str:
     """Return the queue URL for a scan, creating the queue locally if needed."""
     if sqs_endpoint_url():
-        response = sqs_client().create_queue(QueueName=queue_name_for_scan(scan_type))
-        return normalize_local_queue_url(response["QueueUrl"])
+        client = sqs_client()
+        queue_name = queue_name_for_scan(scan_type)
+        response = client.create_queue(QueueName=queue_name)
+        queue_url = normalize_local_queue_url(response["QueueUrl"])
+        client.set_queue_attributes(
+            QueueUrl=queue_url,
+            Attributes={
+                "VisibilityTimeout": str(VISIBILITY_TIMEOUT_SECONDS),
+            },
+        )
+        return queue_url
     return "{}{}-queue".format(queue_url_prefix(), scan_type)
 
 

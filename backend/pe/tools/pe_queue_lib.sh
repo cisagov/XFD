@@ -14,28 +14,8 @@ pe_queue_lib_init() {
   fi
 }
 
-# Map peScanController SCAN_CATALOG keys to queue name segments (scan["scan"] values).
-pe_catalog_to_scan_type() {
-  case "$1" in
-    asm_sync) echo asmSync ;;
-    csg_alerts) echo cybersixgill-alerts ;;
-    csg_creds) echo cybersixgill-credentials ;;
-    csg_mentions) echo cybersixgill-mentions ;;
-    csg_topcves) echo cybersixgill-topcves ;;
-    dnsmonitor) echo dnsmonitor ;;
-    dnstwist) echo dnstwist ;;
-    intelx) echo intelx ;;
-    shodan) echo shodan ;;
-    shodan_test) echo shodan ;;
-    *) echo "$1" ;;
-  esac
-}
-
 pe_queue_name_for_catalog_key() {
-  local scan_key="$1"
-  local scan_type
-  scan_type="$(pe_catalog_to_scan_type "$scan_key")"
-  echo "${PE_QUEUE_PREFIX}-${scan_type}-queue"
+  echo "${PE_QUEUE_PREFIX}-${1}-queue"
 }
 
 pe_queue_url_for_catalog_key() {

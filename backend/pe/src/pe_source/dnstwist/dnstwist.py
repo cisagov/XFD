@@ -8,6 +8,7 @@ import json
 import logging
 import pathlib
 import traceback
+import uuid
 
 # Third-Party Libraries
 import dnstwist
@@ -121,6 +122,7 @@ def checkBlocklist(dom, sub_domain_uid, source_uid, pe_org_uid, perm_list):
         perm_list.append(permutation)
 
     domain_dict = {
+        "suspected_domain_uid": str(uuid.uuid4()),
         "organizations_uid": pe_org_uid,
         "data_source_uid": source_uid,
         "sub_domain_uid": sub_domain_uid,

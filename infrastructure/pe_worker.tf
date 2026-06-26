@@ -302,14 +302,6 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
-        "name": "SIXGILL_CLIENT_ID",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
-      },
-      {
-        "name": "SIXGILL_CLIENT_SECRET",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
-      },
-      {
         "name": "WHOIS_XML_KEY",
         "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
       },
