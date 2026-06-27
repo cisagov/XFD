@@ -124,7 +124,7 @@ def check_user_expiration():
     users_to_remove = User.objects.filter(
         Q(last_logged_in__lt=cutoff_45_days)
         | Q(last_logged_in__isnull=True, created_at__lt=cutoff_45_days)
-    ).prefetch_related("roles_organization")
+    ).prefetch_related("roles__organization")
 
     for user in users_to_remove:
         subject = "Account Removal Notice"
@@ -176,7 +176,17 @@ def check_user_expiration():
             log_removal(user_copy, result="success")
         except Exception as e:
             LOGGER.error("Error removing user %s: %s", user.email, e)
-            log_removal(user, result="fail", error=e)
+            user_fail_copy = {
+                "id": getattr(user, "id", None),
+                "email": getattr(user, "email", None),
+                "first_name": getattr(user, "first_name", None),
+                "last_name": getattr(user, "last_name", None),
+                "user_type": getattr(user, "user_type", None),
+                "organization_name": org_name,
+                "last_logged_in": getattr(user, "last_logged_in", None),
+                "created_at": getattr(user, "created_at", None),
+            }
+            log_removal(user_fail_copy, result="fail", error=e)
 
 
 def run_test_expiration_flow(email: str):

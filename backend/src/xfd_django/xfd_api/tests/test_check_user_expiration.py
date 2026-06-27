@@ -269,11 +269,11 @@ def test_check_user_expiration_creates_audit_log_on_success(monkeypatch):
     payload = json.loads(audit_log.payload)
     assert payload["job"] == "check_user_expiration"
     assert payload["action_reason"] == "45 days of inactivity"
-    assert payload["user_id"] == str(expired_user.id)
-    assert payload["email"] == "audit_success@example.com"
-    assert payload["first_name"] == "Audit"
-    assert payload["last_name"] == "Success"
-    assert payload["last_logged_in"] == expired_user.last_logged_in.isoformat()
+    assert payload["user"]["id"] == str(expired_user.id)
+    assert payload["user"]["email"] == "audit_success@example.com"
+    assert payload["user"]["first_name"] == "Audit"
+    assert payload["user"]["last_name"] == "Success"
+    assert payload["user"]["last_logged_in"] == expired_user.last_logged_in.isoformat()
 
 
 @pytest.mark.django_db(transaction=False, databases=["default", "mini_data_lake"])
@@ -312,7 +312,7 @@ def test_check_user_expiration_creates_audit_log_on_deletion_failure(monkeypatch
 
     # Inspect payload for the recorded traceback message
     payload = json.loads(failure_log.payload)
-    assert payload["email"] == "audit_fail@example.com"
+    assert payload["user"]["email"] == "audit_fail@example.com"
     assert "Database connection timed out during deletion." in payload["error"]
 
 
