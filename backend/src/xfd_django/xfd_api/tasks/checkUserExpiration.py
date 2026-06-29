@@ -24,52 +24,52 @@ from xfd_mini_dl.models import Log, User
 LOGGER = logging.getLogger(__name__)
 
 
-def log_removal(user, result: str, error: Exception | None = None):
+def _build_user_log_context(user: User) -> tuple[dict, dict | None]:
+    """Capture minimal user and organization fields for audit log before deletion."""
+    user_payload = {
+        "id": str(user.id),
+        "email": user.email,
+        "full_name": user.full_name or f"{user.first_name} {user.last_name}".strip(),
+        "user_type": user.user_type,
+        "state": user.state,
+        "last_logged_in": user.last_logged_in.isoformat()
+        if user.last_logged_in
+        else None,
+    }
+
+    organization_payload = None
+    role = user.roles.select_related("organization").first()
+    if role and role.organization:
+        organization_payload = {"name": role.organization.name}
+
+    return user_payload, organization_payload
+
+
+def log_removal(
+    user_payload: dict,
+    result: str,
+    organization: dict | None = None,
+    error: Exception | None = None,
+):
     """Write an audit entry to Log for user removals due to inactivity.
 
     following the same structure used by the `log_action` decorator.
-    :param user: User instance (even after delete(), the in-memory object is usable)
+    :param user_payload: minimal user dict for the User Log UI
     :param result: "success" or "fail"
+    :param organization: optional dict with organization name
     :param error: optional exception to include in payload
     """
     timestamp = now().isoformat()
-
-    # Helper to extract from dictionary or object interface smoothly
-    def get_val(obj, attr):
-        if isinstance(obj, dict):
-            return obj.get(attr)
-        return getattr(obj, attr, None)
-
-    user_id = get_val(user, "id")
-    if user_id is not None:
-        user_id = str(user_id)
-
-    last_login_obj = get_val(user, "last_logged_in")
-    created_at_obj = get_val(user, "created_at")
-
-    first_name = get_val(user, "first_name") or ""
-    last_name = get_val(user, "last_name") or ""
-    # Try explicit full_name parameter or fall back to standard concatenation
-    full_name = (
-        get_val(user, "full_name") or f"{first_name} {last_name}".strip() or "N/A"
-    )
 
     payload = {
         "timestamp": timestamp,
         "job": "check_user_expiration",
         "action_reason": "45 days of inactivity",
-        "user": {
-            "id": user_id,
-            "email": get_val(user, "email"),
-            "first_name": first_name,
-            "last_name": last_name,
-            "full_name": full_name,
-            "user_type": get_val(user, "user_type") or "N/A",
-            "last_logged_in": last_login_obj.isoformat() if last_login_obj else None,
-            "created_at_user": created_at_obj.isoformat() if created_at_obj else None,
-        },
-        "organization": {"name": get_val(user, "organization_name") or "N/A"},
+        "user": user_payload,
     }
+
+    if organization is not None:
+        payload["organization"] = organization
 
     if error is not None:
         payload["error"] = str(error)
@@ -145,48 +145,29 @@ def check_user_expiration():
         # Notify user of account removal
         send_email(user.email, subject, body)
 
-        org_name = None
         # Remove the user from the database
         try:
-            # Safely navigate prefetched relations to extract organization information before database delete
-            if hasattr(user, "roles__organization"):
-                first_role = user.roles__organization.first()
-                if (
-                    first_role
-                    and hasattr(first_role, "organization")
-                    and first_role.organization
-                ):
-                    org_name = first_role.organization.name
-
-            user_copy = {
-                "id": user.id,
-                "email": user.email,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "user_type": getattr(user, "user_type", None),
-                "organization_name": org_name,
-                "last_logged_in": user.last_logged_in,
-                "created_at": getattr(user, "created_at", None),
-            }
+            user_payload, organization_payload = _build_user_log_context(user)
+            user_email = user.email
             user.delete()
             LOGGER.info(
                 "Removed user %s from the database due to 45 days of inactivity.",
-                user_copy["email"],
+                user_email,
             )
-            log_removal(user_copy, result="success")
+            log_removal(
+                user_payload,
+                organization=organization_payload,
+                result="success",
+            )
         except Exception as e:
             LOGGER.error("Error removing user %s: %s", user.email, e)
-            user_fail_copy = {
-                "id": getattr(user, "id", None),
-                "email": getattr(user, "email", None),
-                "first_name": getattr(user, "first_name", None),
-                "last_name": getattr(user, "last_name", None),
-                "user_type": getattr(user, "user_type", None),
-                "organization_name": org_name,
-                "last_logged_in": getattr(user, "last_logged_in", None),
-                "created_at": getattr(user, "created_at", None),
-            }
-            log_removal(user_fail_copy, result="fail", error=e)
+            user_payload, organization_payload = _build_user_log_context(user)
+            log_removal(
+                user_payload,
+                organization=organization_payload,
+                result="fail",
+                error=e,
+            )
 
 
 def run_test_expiration_flow(email: str):
