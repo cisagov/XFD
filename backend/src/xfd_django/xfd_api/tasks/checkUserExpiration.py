@@ -149,8 +149,8 @@ def check_user_expiration():
         # Remove the user from the database
         try:
             # Safely navigate prefetched relations to extract organization information before database delete
-            if hasattr(user, "roles_organization"):
-                first_role = user.roles_organization.first()
+            if hasattr(user, "roles__organization"):
+                first_role = user.roles__organization.first()
                 if (
                     first_role
                     and hasattr(first_role, "organization")
