@@ -19,7 +19,6 @@ from botocore.exceptions import ClientError
 LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
-LOG_PATH = "/app/pe_reports_logging.log"
 EMPTY_CONFIRM_SLEEP_SECONDS = 5
 POLL_WAIT_SECONDS = 5
 # Keep in sync with peScanController.VISIBILITY_TIMEOUT_SECONDS / XFD scan queues.
@@ -181,10 +180,6 @@ def run_scan(service_type: str, org: str) -> bool:
         LOGGER.error("Scan command exited with code %s", exit_code)
         return False
 
-    if os.path.isfile(LOG_PATH):
-        with open(LOG_PATH, encoding="utf-8") as log_file:
-            sys.stdout.write(log_file.read())
-        os.remove(LOG_PATH)
     return True
 
 

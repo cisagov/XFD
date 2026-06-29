@@ -58,10 +58,16 @@ command -v jq >/dev/null 2>&1 || { echo "ERROR: jq is required" >&2; exit 1; }
 pe_queue_lib_init
 
 print_status() {
-  local timestamp
+  local timestamp status
   timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
   echo "=== ${timestamp} ==="
-  if pe_print_queue_status_for_scans "$SCANS"; then
+  pe_print_queue_status_for_scans "$SCANS"
+  status=$?
+  if [[ "$status" -eq 2 ]]; then
+    echo "  (could not read one or more queues — check IAM or AWS_REGION)" >&2
+    return 2
+  fi
+  if [[ "$status" -eq 0 ]]; then
     echo "  (messages still present)"
     return 1
   fi
@@ -72,6 +78,10 @@ print_status() {
 if [[ "$ONCE" == true ]]; then
   if print_status; then
     exit 0
+  fi
+  status=$?
+  if [[ "$status" -eq 2 ]]; then
+    exit 2
   fi
   exit 1
 fi
