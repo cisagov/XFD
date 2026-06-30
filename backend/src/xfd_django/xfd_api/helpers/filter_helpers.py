@@ -254,6 +254,9 @@ def apply_organization_filters(base_q, filters: dict):
     region_id = filters.get("region_id")
     acronym = filters.get("acronym")
 
+    # Always exclude retired orgs
+    q &= Q(retired=False)
+
     if acronym:
         q &= Q(acronym__icontains=str(acronym).strip())
 
