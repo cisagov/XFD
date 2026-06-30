@@ -11,6 +11,11 @@ data "aws_ssm_parameter" "vpc_cidr_block" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_vpc_cidr_block
 }
+
+data "aws_ssm_parameter" "sctask_cidr_block" {
+  count = var.is_dmz ? 0 : 1
+  name  = var.ssm_sctask_cidr_block
+}
 data "aws_ssm_parameter" "route_table_endpoints_id" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_route_table_endpoints_id
@@ -125,6 +130,14 @@ resource "aws_security_group" "allow_internal_lz" {
     to_port     = 5432
     protocol    = "TCP"
     cidr_blocks = ["10.5.0.0/16"]
+  }
+
+  ingress {
+    description = "SCTASK0198160"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "TCP"
+    cidr_blocks = [data.aws_ssm_parameter.sctask_cidr_block[0].value]
   }
 
   egress {
