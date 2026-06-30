@@ -196,6 +196,8 @@ peScanController:
         - sqs:SendMessage
         - sqs:GetQueueUrl
         - sqs:GetQueueAttributes
+        - sqs:CreateQueue
+        - sqs:SetQueueAttributes
       Resource: '*'
     - Effect: Allow
       Action:

@@ -188,6 +188,7 @@ resource "aws_iam_role_policy" "worker_task_role_policy" {
     {
       "Effect": "Allow",
       "Action": [
+        "sqs:ChangeMessageVisibility",
         "sqs:DeleteMessage",
         "sqs:GetQueueAttributes",
         "sqs:ListQueues",
