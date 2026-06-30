@@ -26,7 +26,6 @@ def test_concurrency_blocked_when_max_reached():
             desired_count=2,
             scan_id=str(scan_b.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2"],
         )
         mock_run.assert_not_called()
@@ -50,7 +49,6 @@ def test_partial_launch_allowed():
             desired_count=3,
             scan_id=str(scan_b.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2", "key3"],
         )
         mock_run.assert_called_once()
@@ -71,7 +69,6 @@ def test_exact_fill_should_block_followup():
             desired_count=2,
             scan_id=str(scan.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2", "key3"],
         )
         mock_run.assert_not_called()
@@ -93,7 +90,6 @@ def test_no_conflict_if_same_name_no_overlap():
             desired_count=2,
             scan_id=str(scan_b.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2"],
         )
         assert mock_run.call_count == 2
@@ -110,7 +106,6 @@ def test_shodan_insufficient_api_keys_blocks():
             desired_count=3,
             scan_id=str(scan.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2"],
         )
         mock_run.assert_not_called()
@@ -130,7 +125,6 @@ def test_non_shodan_uses_batch_size_10():
             desired_count=10,
             scan_id=str(scan.id),
             organizations=[],
-            is_pe=False,
         )
         mock_run.assert_called_once()
         args, _ = mock_run.call_args
@@ -156,7 +150,6 @@ def test_followup_scan_should_start_one_more():
             desired_count=3,  # wants 3
             scan_id=str(scan_b.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2", "key3"],
         )
         mock_run.assert_called_once()
@@ -188,7 +181,6 @@ def test_censys_respects_concurrent_limit_across_scans():
             desired_count=1,
             scan_id=str(scan_b.id),
             organizations=[],
-            is_pe=False,
         )
         mock_run.assert_not_called()
 
@@ -209,7 +201,6 @@ def test_censys_can_run_if_capacity_available():
             desired_count=2,
             scan_id=str(scan_b.id),
             organizations=[],
-            is_pe=False,
         )
         mock_run.assert_called_once()
         assert len(mock_run.return_value["tasks"]) == 1
@@ -230,7 +221,6 @@ def test_manual_run_pending_ignores_frequency():
                 "desiredCount": 1,
                 "scanId": str(scan.id),
                 "organizations": [],
-                "isPe": False,
             },
             None,
         )
@@ -249,7 +239,6 @@ def test_shodan_fails_if_api_keys_insufficient():
                 "scanId": str(scan.id),
                 "desiredCount": 3,
                 "organizations": [],
-                "isPe": False,
             },
             None,
         )
@@ -276,7 +265,6 @@ def test_assigns_correct_concurrency_index():
             desired_count=3,
             scan_id=str(scan.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1", "key2", "key3"],
         )
         tasks = ScanTask.objects.filter(
@@ -303,7 +291,6 @@ def test_local_cap_blocks_even_if_global_not_hit():
             desired_count=1,
             scan_id=str(scan.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["key1"],
         )
         mock_run.assert_not_called()
@@ -323,7 +310,6 @@ def test_censys_large_batch_triggers_multiple_calls():
             desired_count=25,
             scan_id=str(scan.id),
             organizations=[],
-            is_pe=False,
         )
         assert mock_run.call_count == 3
 
@@ -345,7 +331,6 @@ def test_multiple_scans_respect_global_concurrency_cap():
             desired_count=2,
             scan_id=str(scan1.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["k1", "k2"],
         )
 
@@ -354,7 +339,6 @@ def test_multiple_scans_respect_global_concurrency_cap():
             desired_count=3,
             scan_id=str(scan2.id),
             organizations=[],
-            is_pe=False,
             shodan_api_keys=["k1", "k2", "k3"],
         )
 

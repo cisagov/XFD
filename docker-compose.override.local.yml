@@ -6,3 +6,8 @@ services:
     volumes:
       - ./backend/src/xfd_django:/app
       - ./backend/external:/app/external
+      - ./backend/pe:/app/pe
+
+  pe-worker:
+    volumes:
+      - ./backend/pe:/app

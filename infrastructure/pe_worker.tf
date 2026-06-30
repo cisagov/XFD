@@ -302,14 +302,6 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
-        "name": "SIXGILL_CLIENT_ID",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_id.arn}"
-      },
-      {
-        "name": "SIXGILL_CLIENT_SECRET",
-        "valueFrom": "${data.aws_ssm_parameter.sixgill_client_secret.arn}"
-      },
-      {
         "name": "WHOIS_XML_KEY",
         "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
       },
@@ -354,6 +346,89 @@ resource "aws_cloudwatch_log_group" "pe_worker" {
   name              = var.pe_worker_ecs_log_group_name
   retention_in_days = 3653
   kms_key_id        = aws_kms_key.key.arn
+  tags = {
+    Project = var.project
+    Stage   = var.stage
+    Owner   = "Crossfeed managed resource"
+  }
+}
+
+# Attach to IAM users/groups in the AWS console (run_scans.sh, watch_queues.sh).
+resource "aws_iam_policy" "pe_scan_operator" {
+  count       = var.is_dmz ? 1 : 0
+  name        = "crossfeed-${var.stage}-pe-scan-operator"
+  description = "Invoke PE scans, monitor queues/workers, and purge PE scan queues for ${var.stage}"
+
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InvokePeScanController",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:InvokeFunction",
+        "lambda:GetFunction"
+      ],
+      "Resource": "arn:${var.aws_partition}:lambda:${var.aws_region}:${data.aws_caller_identity.current.account_id}:function:crossfeed-${var.stage}-peScanController"
+    },
+    {
+      "Sid": "ReadPeWorkerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams",
+        "logs:FilterLogEvents",
+        "logs:GetLogEvents"
+      ],
+      "Resource": "arn:${var.aws_partition}:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:${var.pe_worker_ecs_log_group_name}:*"
+    },
+    {
+      "Sid": "DecryptPeWorkerLogs",
+      "Effect": "Allow",
+      "Action": [
+        "kms:Decrypt",
+        "kms:DescribeKey"
+      ],
+      "Resource": "${aws_kms_key.key.arn}"
+    },
+    {
+      "Sid": "DescribePeWorkerCluster",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeClusters"
+      ],
+      "Resource": "arn:${var.aws_partition}:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.pe_worker_ecs_cluster_name}"
+    },
+    {
+      "Sid": "MonitorPeWorkerTasks",
+      "Effect": "Allow",
+      "Action": [
+        "ecs:DescribeTasks",
+        "ecs:ListTasks"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "ArnEquals": {
+          "ecs:cluster": "arn:${var.aws_partition}:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:cluster/${var.pe_worker_ecs_cluster_name}"
+        }
+      }
+    },
+    {
+      "Sid": "ManagePeScanQueues",
+      "Effect": "Allow",
+      "Action": [
+        "sqs:GetQueueAttributes",
+        "sqs:GetQueueUrl",
+        "sqs:ListQueues",
+        "sqs:PurgeQueue"
+      ],
+      "Resource": "arn:${var.aws_partition}:sqs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${var.stage == "integration" ? "pe-integration" : "pe-staging"}-*"
+    }
+  ]
+}
+EOF
+
   tags = {
     Project = var.project
     Stage   = var.stage
