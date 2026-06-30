@@ -21,7 +21,7 @@ from xfd_api.helpers.email import send_email
 from xfd_mini_dl.models import Log, User
 
 # Configure logging
-LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger("xfd_api.tasks.checkUserExpiration")
 
 
 def _build_user_log_context(user: User) -> tuple[dict, dict | None]:
