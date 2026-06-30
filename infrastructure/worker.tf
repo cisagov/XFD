@@ -48,87 +48,85 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
   role        = aws_iam_role.worker_task_execution_role.id
 
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ecr:BatchCheckLayerAvailability",
-        "ecr:BatchGetImage",
-        "ecr:GetAuthorizationToken",
-        "ecr:GetDownloadUrlForLayer",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "sqs:DeleteMessage",
-        "sqs:GetQueueAttributes",
-        "sqs:ListQueues",
-        "sqs:ReceiveMessage"
-      ],
-      "Resource": "*"
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ssm:GetParameters"
-      ],
-      "Resource": [
-        "${aws_ssm_parameter.crossfeed_send_db_host.arn}",
-        "${aws_ssm_parameter.crossfeed_send_db_name.arn}",
-        "${aws_ssm_parameter.es_endpoint.arn}",
-        "${data.aws_ssm_parameter.censys_api_id.arn}",
-        "${data.aws_ssm_parameter.censys_api_secret.arn}",
-        "${data.aws_ssm_parameter.cf_api_key.arn}",
-        "${data.aws_ssm_parameter.checksum_salt.arn}",
-        "${data.aws_ssm_parameter.db_password.arn}",
-        "${data.aws_ssm_parameter.db_username.arn}",
-        "${data.aws_ssm_parameter.intelx_api_key.arn}",
-        "${data.aws_ssm_parameter.lg_api_key.arn}",
-        "${data.aws_ssm_parameter.lg_workspace_name.arn}",
-        "${data.aws_ssm_parameter.pe_api_key.arn}",
-        "${data.aws_ssm_parameter.pe_api_url.arn}",
-        "${data.aws_ssm_parameter.pe_db_name.arn}",
-        "${data.aws_ssm_parameter.pe_db_password.arn}",
-        "${data.aws_ssm_parameter.pe_db_username.arn}",
-        "${data.aws_ssm_parameter.pe_shodan_api_keys.arn}",
-        "${data.aws_ssm_parameter.qualys_password.arn}",
-        "${data.aws_ssm_parameter.qualys_username.arn}",
-        "${data.aws_ssm_parameter.shodan_api_key.arn}",
-        "${data.aws_ssm_parameter.shodan_ip_chunk_size.arn}",
-        "${data.aws_ssm_parameter.shodan_query_days_back.arn}",
-        "${data.aws_ssm_parameter.sixgill_client_id.arn}",
-        "${data.aws_ssm_parameter.sixgill_client_secret.arn}",
-        "${data.aws_ssm_parameter.ssm_dmz_api_key.arn}",
-        "${data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn}",
-        "${data.aws_ssm_parameter.ssm_latest_port_scan_cutoff.arn}",
-        "${data.aws_ssm_parameter.ssm_mdl_name.arn}",
-        "${data.aws_ssm_parameter.ssm_mdl_password.arn}",
-        "${data.aws_ssm_parameter.ssm_mdl_username.arn}",
-        "${data.aws_ssm_parameter.ssm_nist_api_key.arn}",
-        "${data.aws_ssm_parameter.ssm_redshift_database.arn}",
-        "${data.aws_ssm_parameter.ssm_redshift_host.arn}",
-        "${data.aws_ssm_parameter.ssm_redshift_password.arn}",
-        "${data.aws_ssm_parameter.ssm_redshift_user.arn}",
-        "${data.aws_ssm_parameter.ssm_vs_pull_date_range.arn}",
-        "${data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn}",
-        "${data.aws_ssm_parameter.whoisxml_api_key.arn}",
-        "${data.aws_ssm_parameter.worker_signature_private_key.arn}",
-        "${data.aws_ssm_parameter.worker_signature_public_key.arn}",
-        "${data.aws_ssm_parameter.xpanse_api_key.arn}",
-        "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
-      ]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "kms:Decrypt"
-      ],
-      "Resource": "${jsondecode(data.aws_ssm_parameter.worker_kms_keys.value)}"
-    }
-  ]
-}
-EOF
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetAuthorizationToken",
+          "ecr:GetDownloadUrlForLayer",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:ListQueues",
+          "sqs:ReceiveMessage",
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameters",
+        ]
+        Resource = [
+          aws_ssm_parameter.crossfeed_send_db_host.arn,
+          aws_ssm_parameter.crossfeed_send_db_name.arn,
+          aws_ssm_parameter.es_endpoint.arn,
+          data.aws_ssm_parameter.censys_api_id.arn,
+          data.aws_ssm_parameter.censys_api_secret.arn,
+          data.aws_ssm_parameter.cf_api_key.arn,
+          data.aws_ssm_parameter.checksum_salt.arn,
+          data.aws_ssm_parameter.db_password.arn,
+          data.aws_ssm_parameter.db_username.arn,
+          data.aws_ssm_parameter.intelx_api_key.arn,
+          data.aws_ssm_parameter.lg_api_key.arn,
+          data.aws_ssm_parameter.lg_workspace_name.arn,
+          data.aws_ssm_parameter.pe_api_key.arn,
+          data.aws_ssm_parameter.pe_api_url.arn,
+          data.aws_ssm_parameter.pe_db_name.arn,
+          data.aws_ssm_parameter.pe_db_password.arn,
+          data.aws_ssm_parameter.pe_db_username.arn,
+          data.aws_ssm_parameter.pe_shodan_api_keys.arn,
+          data.aws_ssm_parameter.qualys_password.arn,
+          data.aws_ssm_parameter.qualys_username.arn,
+          data.aws_ssm_parameter.shodan_api_key.arn,
+          data.aws_ssm_parameter.shodan_ip_chunk_size.arn,
+          data.aws_ssm_parameter.shodan_query_days_back.arn,
+          data.aws_ssm_parameter.sixgill_client_id.arn,
+          data.aws_ssm_parameter.sixgill_client_secret.arn,
+          data.aws_ssm_parameter.ssm_dmz_api_key.arn,
+          data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn,
+          data.aws_ssm_parameter.ssm_latest_port_scan_cutoff.arn,
+          data.aws_ssm_parameter.ssm_mdl_name.arn,
+          data.aws_ssm_parameter.ssm_mdl_password.arn,
+          data.aws_ssm_parameter.ssm_mdl_username.arn,
+          data.aws_ssm_parameter.ssm_nist_api_key.arn,
+          data.aws_ssm_parameter.ssm_redshift_database.arn,
+          data.aws_ssm_parameter.ssm_redshift_host.arn,
+          data.aws_ssm_parameter.ssm_redshift_password.arn,
+          data.aws_ssm_parameter.ssm_redshift_user.arn,
+          data.aws_ssm_parameter.ssm_vs_pull_date_range.arn,
+          data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn,
+          data.aws_ssm_parameter.whoisxml_api_key.arn,
+          data.aws_ssm_parameter.worker_signature_private_key.arn,
+          data.aws_ssm_parameter.worker_signature_public_key.arn,
+          data.aws_ssm_parameter.xpanse_api_key.arn,
+          data.aws_ssm_parameter.xpanse_auth_id.arn,
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Decrypt",
+        ]
+        Resource = nonsensitive(jsondecode(data.aws_ssm_parameter.worker_kms_keys.value))
+      },
+    ]
+  })
 }
 
 resource "aws_iam_role" "worker_task_role" {
