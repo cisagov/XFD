@@ -44,6 +44,15 @@ EOF
 
 data "aws_ssm_parameter" "worker_kms_keys" { name = var.ssm_worker_kms_keys }
 
+locals {
+  worker_kms_keys_parsed = try(jsondecode(data.aws_ssm_parameter.worker_kms_keys.value), null)
+  worker_kms_key_resources = (
+    local.worker_kms_keys_parsed == null ? [data.aws_ssm_parameter.worker_kms_keys.value]
+    : can(tolist(local.worker_kms_keys_parsed)) ? tolist(local.worker_kms_keys_parsed)
+    : [tostring(local.worker_kms_keys_parsed)]
+  )
+}
+
 resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
   name_prefix = var.worker_ecs_role_name
   role        = aws_iam_role.worker_task_execution_role.id
@@ -124,7 +133,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       "Action": [
         "kms:Decrypt"
       ],
-      "Resource": "${jsondecode(data.aws_ssm_parameter.worker_kms_keys.value)}"
+      "Resource": "${jsonencode(local.worker_kms_key_resources)}"
     }
   ]
 }
