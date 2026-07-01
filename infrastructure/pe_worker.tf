@@ -201,7 +201,33 @@ resource "aws_ecs_task_definition" "pe_worker" {
     "essential": true,
     "mountPoints": [],
     "portMappings": [],
-    "volumesFrom": [],
+    "volumesFrom": [
+      {
+        "sourceContainer": "wiz-sensor",
+        "readOnly": false
+      }
+    ],
+    "dependsOn": [
+      {
+        "containerName": "wiz-sensor",
+        "condition": "COMPLETE"
+      }
+    ],
+    "linuxParameters": {
+      "capabilities": {
+        "add": [
+          "SYS_PTRACE"
+        ]
+      }
+    },
+    "entryPoint": [
+      "/opt/wiz/sensor/wiz-sensor",
+      "daemon",
+      "--"
+    ],
+    "command": [
+      "./worker/pe-worker-start.sh"
+    ],
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
@@ -306,6 +332,14 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
       },
       {
+        "name": "WIZ_API_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_ID::"
+      },
+      {
+        "name": "WIZ_API_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_SECRET::"
+      },
+      {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
         "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
       },
@@ -322,6 +356,21 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
       }
     ]
+  },
+  {
+    "name": "wiz-sensor",
+    "image": "wizfedramp.azurecr.us/sensor-serverless:v1",
+    "repositoryCredentials": {
+      "credentialsParameter": "${data.aws_ssm_parameter.wiz_registry_secret_arn.value}"
+    },
+    "cpu": 0,
+    "portMappings": [],
+    "essential": false,
+    "environment": [],
+    "environmentFiles": [],
+    "mountPoints": [],
+    "volumesFrom": [],
+    "systemControls": []
   }
 ]
 EOF

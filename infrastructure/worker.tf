@@ -121,6 +121,16 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       {
         Effect = "Allow"
         Action = [
+          "secretsmanager:GetSecretValue",
+        ]
+        Resource = [
+          data.aws_ssm_parameter.wiz_registry_secret_arn.value,
+          data.aws_ssm_parameter.wiz_service_account_secret_arn.value,
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "kms:Decrypt",
         ]
         Resource = nonsensitive(jsondecode(data.aws_ssm_parameter.worker_kms_keys.value))
@@ -240,7 +250,33 @@ resource "aws_ecs_task_definition" "worker" {
     "essential": true,
     "mountPoints": [],
     "portMappings": [],
-    "volumesFrom": [],
+    "volumesFrom": [
+      {
+        "sourceContainer": "wiz-sensor",
+        "readOnly": false
+      }
+    ],
+    "dependsOn": [
+      {
+        "containerName": "wiz-sensor",
+        "condition": "COMPLETE"
+      }
+    ],
+    "linuxParameters": {
+      "capabilities": {
+        "add": [
+          "SYS_PTRACE"
+        ]
+      }
+    },
+    "entryPoint": [
+      "/opt/wiz/sensor/wiz-sensor",
+      "daemon",
+      "--"
+    ],
+    "command": [
+      "worker/worker-entry.sh"
+    ],
     "logConfiguration": {
       "logDriver": "awslogs",
       "options": {
@@ -429,6 +465,14 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.ssm_whoisxml_thread_count.arn}"
       },
       {
+        "name": "WIZ_API_CLIENT_ID",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_ID::"
+      },
+      {
+        "name": "WIZ_API_CLIENT_SECRET",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_SECRET::"
+      },
+      {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
         "valueFrom": "${data.aws_ssm_parameter.worker_signature_private_key.arn}"
       },
@@ -437,6 +481,21 @@ resource "aws_ecs_task_definition" "worker" {
         "valueFrom": "${data.aws_ssm_parameter.worker_signature_public_key.arn}"
       }
     ]
+  },
+  {
+    "name": "wiz-sensor",
+    "image": "wizfedramp.azurecr.us/sensor-serverless:v1",
+    "repositoryCredentials": {
+      "credentialsParameter": "${data.aws_ssm_parameter.wiz_registry_secret_arn.value}"
+    },
+    "cpu": 0,
+    "portMappings": [],
+    "essential": false,
+    "environment": [],
+    "environmentFiles": [],
+    "mountPoints": [],
+    "volumesFrom": [],
+    "systemControls": []
   }
 ]
 EOF
@@ -479,6 +538,10 @@ data "aws_ssm_parameter" "shodan_ip_chunk_size" { name = var.ssm_shodan_ip_chunk
 data "aws_ssm_parameter" "shodan_query_days_back" { name = var.ssm_shodan_query_days_back }
 
 data "aws_ssm_parameter" "pe_shodan_api_keys" { name = var.ssm_pe_shodan_api_keys }
+
+data "aws_ssm_parameter" "wiz_registry_secret_arn" { name = var.ssm_wiz_registry_secret_arn }
+
+data "aws_ssm_parameter" "wiz_service_account_secret_arn" { name = var.ssm_wiz_service_account_secret_arn }
 
 data "aws_ssm_parameter" "sixgill_client_id" { name = var.ssm_sixgill_client_id }
 
