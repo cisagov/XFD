@@ -121,6 +121,16 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
       {
         Effect = "Allow"
         Action = [
+          "secretsmanager:GetSecretValue",
+        ]
+        Resource = [
+          data.aws_ssm_parameter.wiz_registry_secret_arn.value,
+          data.aws_ssm_parameter.wiz_service_account_secret_arn.value,
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "kms:Decrypt",
         ]
         Resource = nonsensitive(jsondecode(data.aws_ssm_parameter.worker_kms_keys.value))
@@ -456,11 +466,11 @@ resource "aws_ecs_task_definition" "worker" {
       },
       {
         "name": "WIZ_API_CLIENT_ID",
-        "valueFrom": "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM:WIZ_API_CLIENT_ID::"
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_ID::"
       },
       {
         "name": "WIZ_API_CLIENT_SECRET",
-        "valueFrom": "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM:WIZ_API_CLIENT_SECRET::"
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_SECRET::"
       },
       {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
@@ -476,7 +486,7 @@ resource "aws_ecs_task_definition" "worker" {
     "name": "wiz-sensor",
     "image": "wizfedramp.azurecr.us/sensor-serverless:v1",
     "repositoryCredentials": {
-      "credentialsParameter": "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-registry-credential-eWZSye"
+      "credentialsParameter": "${data.aws_ssm_parameter.wiz_registry_secret_arn.value}"
     },
     "cpu": 0,
     "portMappings": [],
@@ -528,6 +538,10 @@ data "aws_ssm_parameter" "shodan_ip_chunk_size" { name = var.ssm_shodan_ip_chunk
 data "aws_ssm_parameter" "shodan_query_days_back" { name = var.ssm_shodan_query_days_back }
 
 data "aws_ssm_parameter" "pe_shodan_api_keys" { name = var.ssm_pe_shodan_api_keys }
+
+data "aws_ssm_parameter" "wiz_registry_secret_arn" { name = var.ssm_wiz_registry_secret_arn }
+
+data "aws_ssm_parameter" "wiz_service_account_secret_arn" { name = var.ssm_wiz_service_account_secret_arn }
 
 data "aws_ssm_parameter" "sixgill_client_id" { name = var.ssm_sixgill_client_id }
 

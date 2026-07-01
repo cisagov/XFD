@@ -333,11 +333,11 @@ resource "aws_ecs_task_definition" "pe_worker" {
       },
       {
         "name": "WIZ_API_CLIENT_ID",
-        "valueFrom": "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM:WIZ_API_CLIENT_ID::"
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_ID::"
       },
       {
         "name": "WIZ_API_CLIENT_SECRET",
-        "valueFrom": "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM:WIZ_API_CLIENT_SECRET::"
+        "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}:WIZ_API_CLIENT_SECRET::"
       },
       {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
@@ -361,7 +361,7 @@ resource "aws_ecs_task_definition" "pe_worker" {
     "name": "wiz-sensor",
     "image": "wizfedramp.azurecr.us/sensor-serverless:v1",
     "repositoryCredentials": {
-      "credentialsParameter": "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-registry-credential-eWZSye"
+      "credentialsParameter": "${data.aws_ssm_parameter.wiz_registry_secret_arn.value}"
     },
     "cpu": 0,
     "portMappings": [],

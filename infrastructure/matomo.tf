@@ -106,8 +106,8 @@ resource "aws_iam_role_policy" "matomo_task_execution_role_policy" {
         "secretsmanager:GetSecretValue"
       ],
       "Resource": [
-        "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-registry-credential-eWZSye",
-        "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM"
+        "${data.aws_ssm_parameter.wiz_registry_secret_arn.value}",
+        "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}"
       ]
     }
   ]
@@ -243,8 +243,8 @@ resource "aws_ecs_task_definition" "matomo" {
 
       secrets = [
         { name = "MATOMO_DATABASE_PASSWORD", valueFrom = aws_ssm_parameter.matomo_db_password.arn },
-        { name = "WIZ_API_CLIENT_ID", valueFrom = "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM:WIZ_API_CLIENT_ID::" },
-        { name = "WIZ_API_CLIENT_SECRET", valueFrom = "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-service-account-0MMWnM:WIZ_API_CLIENT_SECRET::" }
+        { name = "WIZ_API_CLIENT_ID", valueFrom = format("%s:WIZ_API_CLIENT_ID::", data.aws_ssm_parameter.wiz_service_account_secret_arn.value) },
+        { name = "WIZ_API_CLIENT_SECRET", valueFrom = format("%s:WIZ_API_CLIENT_SECRET::", data.aws_ssm_parameter.wiz_service_account_secret_arn.value) }
       ],
 
       # Bootstrap: write/patch config.ini.php on EFS, then start Apache
@@ -317,7 +317,7 @@ resource "aws_ecs_task_definition" "matomo" {
       name  = "wiz-sensor",
       image = "wizfedramp.azurecr.us/sensor-serverless:v1",
       repositoryCredentials = {
-        credentialsParameter = "arn:aws-us-gov:secretsmanager:us-gov-east-1:263512260366:secret:svc/lz/svc.wiz-registry-credential-eWZSye"
+        credentialsParameter = data.aws_ssm_parameter.wiz_registry_secret_arn.value
       },
       cpu              = 0,
       portMappings     = [],
