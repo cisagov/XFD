@@ -298,23 +298,25 @@ resource "aws_ecs_task_definition" "matomo" {
           awslogs-stream-prefix = "matomo"
         }
       }
-      }, var.is_dmz ? {} : {
-      volumesFrom = [
-        { sourceContainer = "wiz-sensor", readOnly = false }
-      ],
-      dependsOn = [
-        { containerName = "wiz-sensor", condition = "COMPLETE" }
-      ],
-      linuxParameters = {
-        capabilities = {
-          add = ["SYS_PTRACE"]
+      }, {
+      for key, value in {
+        volumesFrom = [
+          { sourceContainer = "wiz-sensor", readOnly = false }
+        ],
+        dependsOn = [
+          { containerName = "wiz-sensor", condition = "COMPLETE" }
+        ],
+        linuxParameters = {
+          capabilities = {
+            add = ["SYS_PTRACE"]
+          }
         }
-      },
-      entryPoint = [
-        "/opt/wiz/sensor/wiz-sensor",
-        "daemon",
-        "--"
-      ]
+        entryPoint = [
+          "/opt/wiz/sensor/wiz-sensor",
+          "daemon",
+          "--"
+        ]
+      } : key => value if !var.is_dmz
     }),
     ], var.is_dmz ? [] : [
     {
