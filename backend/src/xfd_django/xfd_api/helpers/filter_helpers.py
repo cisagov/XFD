@@ -6,8 +6,17 @@ import logging
 # Third-Party Libraries
 from django.db.models.query import Q, QuerySet
 from fastapi import HTTPException, status
+from xfd_mini_dl.models import Organization
 
 from ..schema_models.vulnerability import VulnerabilityFilters
+
+ACTIVE_ORGANIZATION_Q = Q(retired=False)
+
+
+def active_organizations() -> QuerySet:
+    """Return a queryset excluding retired organizations."""
+    return Organization.objects.filter(ACTIVE_ORGANIZATION_Q)
+
 
 # Define the severity levels
 SEVERITY_LEVELS = ["Low", "Medium", "High", "Critical"]
@@ -254,8 +263,7 @@ def apply_organization_filters(base_q, filters: dict):
     region_id = filters.get("region_id")
     acronym = filters.get("acronym")
 
-    # Always exclude retired orgs
-    q &= Q(retired=False)
+    q &= ACTIVE_ORGANIZATION_Q
 
     if acronym:
         q &= Q(acronym__icontains=str(acronym).strip())
