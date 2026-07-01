@@ -15,8 +15,6 @@ import { testRole } from '@/test-utils/role';
 import userEvent from '@testing-library/user-event';
 import { act } from 'react';
 import { CVEFilter } from '@/components/FilterDrawer/CVEFilter';
-// import { mockIPs } from '@/test-utils/searchIPs';
-import { mockDomains } from '@/test-utils/searchDomains';
 import { mockCVEs } from '@/test-utils/searchCVEs';
 
 //Mock hooks

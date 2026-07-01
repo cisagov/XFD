@@ -400,18 +400,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               filters={filters}
             />
           </AccordionDetails>
-          <AccordionDetails>
-            <FacetFilter
-              options={cveFacet}
-              selected={filtersByColumn['vulnerabilities.cve'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.cve', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.cve', value, 'any')
-              }
-            />
-          </AccordionDetails>
         </Accordion>
       )}
       {sortedSeverityFacets.length > 0 && (
