@@ -6,7 +6,12 @@ import unittest
 from unittest.mock import MagicMock, mock_open, patch
 
 # Third-Party Libraries
-from pe.peScanController import queue_name_for_scan, resolve_orgs, resolve_scans
+from pe.peScanController import (
+    queue_name_for_scan,
+    queue_url_for_scan,
+    resolve_orgs,
+    resolve_scans,
+)
 
 
 class QueueNameTests(unittest.TestCase):
@@ -26,6 +31,30 @@ class QueueNameTests(unittest.TestCase):
             self.assertEqual(
                 queue_name_for_scan("shodan"), "pe-integration-shodan-queue"
             )
+
+
+class QueueUrlForScanTests(unittest.TestCase):
+    """Verify scan queues are created before messages are sent."""
+
+    @patch("pe.peScanController.sqs_client")
+    @patch("pe.peScanController.sqs_endpoint_url", return_value=None)
+    def test_aws_create_queue_before_send(self, _endpoint_mock, client_mock):
+        """AWS deployments should create the queue when it does not exist yet."""
+        client = MagicMock()
+        client_mock.return_value = client
+        client.create_queue.return_value = {
+            "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123/pe-staging-dnstwist-queue"
+        }
+        with patch.dict(os.environ, {"PE_QUEUE_PREFIX": "pe-staging"}, clear=False):
+            url = queue_url_for_scan("dnstwist")
+        self.assertEqual(
+            url, "https://sqs.us-east-1.amazonaws.com/123/pe-staging-dnstwist-queue"
+        )
+        client.create_queue.assert_called_once()
+        create_kwargs = client.create_queue.call_args.kwargs
+        self.assertEqual(create_kwargs["QueueName"], "pe-staging-dnstwist-queue")
+        self.assertEqual(create_kwargs["Attributes"]["VisibilityTimeout"], "18000")
+        client.set_queue_attributes.assert_called_once()
 
 
 class ResolveScansTests(unittest.TestCase):

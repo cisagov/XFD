@@ -108,6 +108,7 @@ cloudwatch_log_group_name           = "crossfeed-prod-cloudwatch-bucket"
 es_instance_master_count            = 3
 ssm_vpc_id                          = "/LZ/VPC_ID"
 ssm_vpc_cidr_block                  = "/LZ/VPC_CIDR_BLOCK"
+ssm_sctask_cidr_block               = "/LZ/SCTASK_CIDR_BLOCK"
 ssm_route_table_endpoints_id        = "/LZ/ROUTE_TABLE_ENDPOINTS_ID"
 ssm_route_table_private_A_id        = "/LZ/ROUTE_TABLE_PRIVATE_A_ID"
 ssm_route_table_private_B_id        = "/LZ/ROUTE_TABLE_PRIVATE_B_ID"

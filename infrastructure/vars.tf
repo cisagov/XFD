@@ -683,6 +683,12 @@ variable "ssm_vpc_cidr_block" {
   default     = "/LZ/VPC_CIDR_BLOCK"
 }
 
+variable "ssm_sctask_cidr_block" {
+  description = "ssm_sctask_cidr_block"
+  type        = string
+  default     = "/LZ/SCTASK_CIDR_BLOCK"
+}
+
 variable "ssm_route_table_endpoints_id" {
   description = "ssm_route_table_endpoints_id"
   type        = string

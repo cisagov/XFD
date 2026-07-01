@@ -78,7 +78,7 @@ export const VSDashboardGate: React.FC<{
     const endNumRegex = /\s\b([1-9]|10)$/;
     return (
       <PageSection>
-        {orgName.startsWith('DHS Region') && endNumRegex.test(orgName) && (
+        {orgName?.startsWith('DHS Region') && endNumRegex.test(orgName) && (
           <CustomAlert
             headerMsg="Welcome to CyHy Dashboard"
             bodyMsg="Based on your profile you will need to select a different organization in order to populate the Dashboard."

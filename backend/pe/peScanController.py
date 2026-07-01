@@ -176,20 +176,27 @@ def queue_url_prefix() -> str:
 
 
 def queue_url_for_scan(scan_type: str) -> str:
-    """Return the queue URL for a scan, creating the queue locally if needed."""
+    """Return the queue URL for a scan, creating the queue if it does not exist."""
+    client = sqs_client()
+    queue_name = queue_name_for_scan(scan_type)
+    response = client.create_queue(
+        QueueName=queue_name,
+        Attributes={
+            "VisibilityTimeout": str(VISIBILITY_TIMEOUT_SECONDS),
+            "MaximumMessageSize": "262144",
+            "MessageRetentionPeriod": "604800",
+        },
+    )
+    queue_url = response["QueueUrl"]
     if sqs_endpoint_url():
-        client = sqs_client()
-        queue_name = queue_name_for_scan(scan_type)
-        response = client.create_queue(QueueName=queue_name)
-        queue_url = normalize_local_queue_url(response["QueueUrl"])
-        client.set_queue_attributes(
-            QueueUrl=queue_url,
-            Attributes={
-                "VisibilityTimeout": str(VISIBILITY_TIMEOUT_SECONDS),
-            },
-        )
-        return queue_url
-    return "{}{}-queue".format(queue_url_prefix(), scan_type)
+        queue_url = normalize_local_queue_url(queue_url)
+    client.set_queue_attributes(
+        QueueUrl=queue_url,
+        Attributes={
+            "VisibilityTimeout": str(VISIBILITY_TIMEOUT_SECONDS),
+        },
+    )
+    return queue_url
 
 
 def pe_db_connection_params() -> Dict[str, str]:
