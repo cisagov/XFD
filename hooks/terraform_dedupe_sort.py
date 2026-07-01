@@ -180,6 +180,9 @@ def sort_hcl_lists(file_text: str) -> str:
 
 
 # ───────────────────────── JSON helpers ────────────────────────────
+ORDERED_JSON_STRING_LIST_KEYS = {"command", "entryPoint"}
+
+
 def _parse_json(fragment: str) -> object | None:
     """Parse a JSON fragment, returning None if it fails."""
     try:
@@ -190,12 +193,20 @@ def _parse_json(fragment: str) -> object | None:
 
 def _normalise_json(element: object) -> object:
     """
-    Dedupe & alphabetise plain string lists.
+    Dedupe & alphabetise plain string lists, except ordered command fields.
 
     dedupe & alphabetise *every* `secrets` array by the secret `name`
     """
 
-    def _clean(node: object) -> object:
+    def _clean(node: object, parent_key: str | None = None) -> object:
+        # Ordered command argument lists must remain semantically ordered.
+        if (
+            parent_key in ORDERED_JSON_STRING_LIST_KEYS
+            and isinstance(node, list)
+            and all(isinstance(item, str) for item in node)
+        ):
+            return node
+
         # Plain list of strings
         if isinstance(node, list) and all(isinstance(item, str) for item in node):
             return sorted(set(node), key=str.lower)
@@ -215,7 +226,7 @@ def _normalise_json(element: object) -> object:
                         for name in sorted(unique_map.keys(), key=str.lower)
                     ]
                 else:
-                    cleaned[key] = _clean(value)
+                    cleaned[key] = _clean(value, key)
             return cleaned
 
         # Generic list – recurse
