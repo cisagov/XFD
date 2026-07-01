@@ -154,6 +154,9 @@ def sort_hcl_lists(file_text: str) -> str:
         list_body = match.group("list_body")
         closing_indent = match.group("close_indent")
 
+        if list_key in ORDERED_JSON_STRING_LIST_KEYS:
+            return match.group(0)
+
         items: list[tuple[str, str, str]] = []
         for body_line in list_body.splitlines():
             item_match = re.match(r'^([ \t]*)(".*?")(,?)', body_line)
