@@ -48,8 +48,16 @@ def update_organization_chunk(es_client, organizations):
 def sync_es_organizations():
     """Sync elastic search organizations."""
     try:
-        # Fetch all organization IDs
-        organization_ids = list(Organization.objects.values_list("id", flat=True))
+        retired_ids = list(
+            Organization.objects.filter(retired=True).values_list("id", flat=True)
+        )
+        if retired_ids:
+            LOGGER.info("Removing %d retired organizations from ES.", len(retired_ids))
+            es_client.delete_organizations(retired_ids)
+
+        organization_ids = list(
+            Organization.objects.filter(retired=False).values_list("id", flat=True)
+        )
         LOGGER.info("Found %d organizations to sync.", len(organization_ids))
 
         if organization_ids:
@@ -60,7 +68,14 @@ def sync_es_organizations():
                 # Fetch full organization data for the current chunk
                 organizations = list(
                     Organization.objects.filter(id__in=organization_chunk).values(
-                        "id", "name", "country", "state", "region_id", "tags", "acronym"
+                        "id",
+                        "name",
+                        "country",
+                        "state",
+                        "region_id",
+                        "tags",
+                        "acronym",
+                        "retired",
                     )
                 )
                 LOGGER.info("Syncing %d organizations...", len(organizations))

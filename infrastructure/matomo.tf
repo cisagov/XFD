@@ -99,6 +99,16 @@ resource "aws_iam_role_policy" "matomo_task_execution_role_policy" {
         "ssm:GetParameters"
       ],
       "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": [
+        "${data.aws_ssm_parameter.wiz_registry_secret_arn.value}",
+        "${data.aws_ssm_parameter.wiz_service_account_secret_arn.value}"
+      ]
     }
   ]
 }
@@ -201,6 +211,22 @@ resource "aws_ecs_task_definition" "matomo" {
       mountPoints = [
         { sourceVolume = "matomo_html", containerPath = "/var/www/html", readOnly = false }
       ],
+      volumesFrom = [
+        { sourceContainer = "wiz-sensor", readOnly = false }
+      ],
+      dependsOn = [
+        { containerName = "wiz-sensor", condition = "COMPLETE" }
+      ],
+      linuxParameters = {
+        capabilities = {
+          add = ["SYS_PTRACE"]
+        }
+      },
+      entryPoint = [
+        "/opt/wiz/sensor/wiz-sensor",
+        "daemon",
+        "--"
+      ],
 
       environment = [
         { name = "MATOMO_DATABASE_HOST", value = aws_db_instance.matomo_db.address },
@@ -216,7 +242,9 @@ resource "aws_ecs_task_definition" "matomo" {
       ],
 
       secrets = [
-        { name = "MATOMO_DATABASE_PASSWORD", valueFrom = aws_ssm_parameter.matomo_db_password.arn }
+        { name = "MATOMO_DATABASE_PASSWORD", valueFrom = aws_ssm_parameter.matomo_db_password.arn },
+        { name = "WIZ_API_CLIENT_ID", valueFrom = format("%s:WIZ_API_CLIENT_ID::", data.aws_ssm_parameter.wiz_service_account_secret_arn.value) },
+        { name = "WIZ_API_CLIENT_SECRET", valueFrom = format("%s:WIZ_API_CLIENT_SECRET::", data.aws_ssm_parameter.wiz_service_account_secret_arn.value) }
       ],
 
       # Bootstrap: write/patch config.ini.php on EFS, then start Apache
@@ -284,6 +312,21 @@ resource "aws_ecs_task_definition" "matomo" {
           awslogs-stream-prefix = "matomo"
         }
       }
+    },
+    {
+      name  = "wiz-sensor",
+      image = "wizfedramp.azurecr.us/sensor-serverless:v1",
+      repositoryCredentials = {
+        credentialsParameter = data.aws_ssm_parameter.wiz_registry_secret_arn.value
+      },
+      cpu              = 0,
+      portMappings     = [],
+      essential        = false,
+      environment      = [],
+      environmentFiles = [],
+      mountPoints      = [],
+      volumesFrom      = [],
+      systemControls   = []
     }
   ])
 

@@ -15,7 +15,11 @@ CVE_INDEX = "cves-1"
 
 # Define mappings
 organization_mapping = {
-    "properties": {"name": {"type": "text"}, "suggest": {"type": "completion"}}
+    "properties": {
+        "name": {"type": "text"},
+        "suggest": {"type": "completion"},
+        "retired": {"type": "boolean"},
+    }
 }
 
 domain_mapping = {
@@ -123,10 +127,29 @@ class ESClient:
                 "_op_type": "update",
                 "_index": ORGANIZATIONS_INDEX,
                 "_id": org["id"],
-                "doc": {**org, "suggest": [{"input": org["name"], "weight": 1}]},
+                "doc": {
+                    **org,
+                    "retired": bool(org.get("retired", False)),
+                    "suggest": [{"input": org["name"], "weight": 1}],
+                },
                 "doc_as_upsert": True,
             }
             for org in organizations
+        ]
+        self._bulk_update(actions)
+
+    def delete_organizations(self, organization_ids):
+        """Delete organizations from Elasticsearch by ID."""
+        if not organization_ids:
+            return
+
+        actions = [
+            {
+                "_op_type": "delete",
+                "_index": ORGANIZATIONS_INDEX,
+                "_id": str(org_id),
+            }
+            for org_id in organization_ids
         ]
         self._bulk_update(actions)
 

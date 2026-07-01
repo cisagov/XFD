@@ -11,6 +11,7 @@ from fastapi import HTTPException, status
 from xfd_mini_dl.models import Organization, OrganizationTag, Scan
 
 from ..auth import is_global_view_admin, is_global_write_admin
+from ..helpers.filter_helpers import active_organizations
 from ..schema_models.scan import SCAN_SCHEMA, NewScan
 from ..tasks.lambda_client import LambdaClient
 
@@ -31,7 +32,7 @@ def list_scans(current_user):
         scans = Scan.objects.prefetch_related("tags").all()
 
         # Fetch all organizations
-        organizations = Organization.objects.values("id", "name")
+        organizations = active_organizations().values("id", "name")
 
         # Convert to list of dicts with related tags
         scan_list = []
@@ -325,7 +326,7 @@ def get_scan(scan_id: str, current_user):
         scan = Scan.objects.prefetch_related("organizations", "tags").get(id=scan_id)
 
         # Fetch all organizations
-        all_organizations = Organization.objects.values("id", "name")
+        all_organizations = active_organizations().values("id", "name")
     except Scan.DoesNotExist:
         raise HTTPException(status_code=404, detail="Scan not found")
 
