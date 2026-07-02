@@ -249,6 +249,36 @@ export const DrawerInterior: React.FC<Props> = (props) => {
 
   return (
     <Box sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}>
+      {sortedSeverityFacets.length > 0 && (
+        <Accordion
+          square
+          elevation={0}
+          expanded={expanded === 'panel8'}
+          onChange={handleExpanded ? handleExpanded('panel8') : undefined}
+          sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
+        >
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">Severity</Typography>
+              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <FacetFilter
+              options={sortedSeverityFacets}
+              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
+              onSelect={(value) =>
+                addFilter('vulnerabilities.severity', value, 'any')
+              }
+              onDeselect={(value) =>
+                removeFilter('vulnerabilities.severity', value, 'any')
+              }
+            />
+          </AccordionDetails>
+        </Accordion>
+      )}
       <Accordion
         square
         elevation={0}
@@ -398,36 +428,6 @@ export const DrawerInterior: React.FC<Props> = (props) => {
               addFilter={addFilter}
               removeFilter={removeFilter}
               filters={filters}
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {sortedSeverityFacets.length > 0 && (
-        <Accordion
-          square
-          elevation={0}
-          expanded={expanded === 'panel8'}
-          onChange={handleExpanded ? handleExpanded('panel8') : undefined}
-          sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
-        >
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="largeBody">Severity</Typography>
-              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
-                <FiltersApplied />
-              )}
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails>
-            <FacetFilter
-              options={sortedSeverityFacets}
-              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.severity', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.severity', value, 'any')
-              }
             />
           </AccordionDetails>
         </Accordion>
