@@ -25,6 +25,7 @@ import { SaveSearchModal } from '../SaveSearchModal/SaveSearchModal';
 import { ENDPOINTS } from '@/constants/endpoints';
 import { logger } from '@/utils/logger';
 import { DomainAndIPFilter } from './DomainAndIPFilter';
+import { CVEFilter } from './CVEFilter';
 
 interface Props {
   addFilter: ContextType['addFilter'];
@@ -248,6 +249,36 @@ export const DrawerInterior: React.FC<Props> = (props) => {
 
   return (
     <Box sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}>
+      {sortedSeverityFacets.length > 0 && (
+        <Accordion
+          square
+          elevation={0}
+          expanded={expanded === 'panel8'}
+          onChange={handleExpanded ? handleExpanded('panel8') : undefined}
+          sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
+        >
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="largeBody">Severity</Typography>
+              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
+                <FiltersApplied />
+              )}
+            </Stack>
+          </AccordionSummary>
+          <AccordionDetails>
+            <FacetFilter
+              options={sortedSeverityFacets}
+              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
+              onSelect={(value) =>
+                addFilter('vulnerabilities.severity', value, 'any')
+              }
+              onDeselect={(value) =>
+                removeFilter('vulnerabilities.severity', value, 'any')
+              }
+            />
+          </AccordionDetails>
+        </Accordion>
+      )}
       <Accordion
         square
         elevation={0}
@@ -393,45 +424,10 @@ export const DrawerInterior: React.FC<Props> = (props) => {
             </Stack>
           </AccordionSummary>
           <AccordionDetails>
-            <FacetFilter
-              options={cveFacet}
-              selected={filtersByColumn['vulnerabilities.cve'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.cve', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.cve', value, 'any')
-              }
-            />
-          </AccordionDetails>
-        </Accordion>
-      )}
-      {sortedSeverityFacets.length > 0 && (
-        <Accordion
-          square
-          elevation={0}
-          expanded={expanded === 'panel8'}
-          onChange={handleExpanded ? handleExpanded('panel8') : undefined}
-          sx={{ borderTop: `.5px solid ${theme.palette.neutrals.light}` }}
-        >
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Typography variant="largeBody">Severity</Typography>
-              {filtersByColumn['vulnerabilities.severity']?.length > 0 && (
-                <FiltersApplied />
-              )}
-            </Stack>
-          </AccordionSummary>
-          <AccordionDetails>
-            <FacetFilter
-              options={sortedSeverityFacets}
-              selected={filtersByColumn['vulnerabilities.severity'] ?? []}
-              onSelect={(value) =>
-                addFilter('vulnerabilities.severity', value, 'any')
-              }
-              onDeselect={(value) =>
-                removeFilter('vulnerabilities.severity', value, 'any')
-              }
+            <CVEFilter
+              addFilter={addFilter}
+              removeFilter={removeFilter}
+              filters={filters}
             />
           </AccordionDetails>
         </Accordion>

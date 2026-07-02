@@ -49,3 +49,9 @@ class GetAllCvesResponse(BaseModel):
 
     status: str
     payload: List[Cve]
+
+
+class CveSearchBody(BaseModel):
+    """Elastic search CVE request model."""
+
+    search_term: str = ""
