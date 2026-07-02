@@ -99,7 +99,18 @@ resource "aws_iam_role_policy" "matomo_task_execution_role_policy" {
         "ssm:GetParameters"
       ],
       "Resource": "*"
+    }%{if !var.is_dmz},
+    {
+      "Effect": "Allow",
+      "Action": [
+        "secretsmanager:GetSecretValue"
+      ],
+      "Resource": [
+        "${data.aws_ssm_parameter.wiz_registry_secret_arn[0].value}",
+        "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}"
+      ]
     }
+%{endif}
   ]
 }
 EOF
@@ -191,8 +202,8 @@ resource "aws_ecs_task_definition" "matomo" {
     }
   }
 
-  container_definitions = jsonencode([
-    {
+  container_definitions = jsonencode(concat([
+    merge({
       name      = "main",
       image     = "matomo:5.2.1",
       essential = true,
@@ -215,9 +226,12 @@ resource "aws_ecs_task_definition" "matomo" {
         { name = "MATOMO_CONFIG_PATH", value = "/var/www/html/config/config.ini.php" }
       ],
 
-      secrets = [
-        { name = "MATOMO_DATABASE_PASSWORD", valueFrom = aws_ssm_parameter.matomo_db_password.arn }
-      ],
+      secrets = concat([
+        { name = "MATOMO_DATABASE_PASSWORD", valueFrom = aws_ssm_parameter.matomo_db_password.arn },
+        ], var.is_dmz ? [] : [
+        { name = "WIZ_API_CLIENT_ID", valueFrom = format("%s:WIZ_API_CLIENT_ID::", data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value) },
+        { name = "WIZ_API_CLIENT_SECRET", valueFrom = format("%s:WIZ_API_CLIENT_SECRET::", data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value) }
+      ]),
 
       # Bootstrap: write/patch config.ini.php on EFS, then start Apache
       command = [
@@ -284,8 +298,43 @@ resource "aws_ecs_task_definition" "matomo" {
           awslogs-stream-prefix = "matomo"
         }
       }
+      }, {
+      for key, value in {
+        volumesFrom = [
+          { sourceContainer = "wiz-sensor", readOnly = false }
+        ],
+        dependsOn = [
+          { containerName = "wiz-sensor", condition = "COMPLETE" }
+        ],
+        linuxParameters = {
+          capabilities = {
+            add = ["SYS_PTRACE"]
+          }
+        }
+        entryPoint = [
+          "/opt/wiz/sensor/wiz-sensor",
+          "daemon",
+          "--"
+        ]
+      } : key => value if !var.is_dmz
+    }),
+    ], var.is_dmz ? [] : [
+    {
+      name  = "wiz-sensor",
+      image = "wizfedramp.azurecr.us/sensor-serverless:v1",
+      repositoryCredentials = {
+        credentialsParameter = data.aws_ssm_parameter.wiz_registry_secret_arn[0].value
+      },
+      cpu              = 0,
+      portMappings     = [],
+      essential        = false,
+      environment      = [],
+      environmentFiles = [],
+      mountPoints      = [],
+      volumesFrom      = [],
+      systemControls   = []
     }
-  ])
+  ]))
 
   tags = {
     Project = var.project

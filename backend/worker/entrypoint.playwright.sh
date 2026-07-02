@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # Define the cleanup function (like finally)
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 upload_reports() {
   echo "📤 Uploading results to S3..."
 
