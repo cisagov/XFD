@@ -172,7 +172,6 @@ export const CVEFilter: React.FC<Props> = ({
                   color: 'black',
                   textTransform: 'none'
                 }}
-                id="search-results-button"
                 onClick={() =>
                   setTimeout(() => {
                     setSelectedCVE(option);

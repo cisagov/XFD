@@ -132,7 +132,7 @@ def search_cves_task(search_body, current_user: User):
         if not (
             is_global_view_admin(current_user) or is_regional_admin(current_user)
         ) and not get_org_memberships(current_user):
-            return []
+            raise HTTPException(status_code=403, detail="Unauthorized")
 
         # Initialize Elasticsearch client
         client = ESClient()
@@ -155,7 +155,7 @@ def search_cves_task(search_body, current_user: User):
         if current_user.user_type == UserType.STANDARD:
             org_ids = get_org_memberships(current_user)
             if not org_ids:
-                return []
+                raise HTTPException(status_code=403, detail="Unauthorized")
             query_body["query"]["bool"]["filter"].append(
                 {"terms": {"organization_ids": org_ids}}
             )
