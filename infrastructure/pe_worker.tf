@@ -251,11 +251,11 @@ resource "aws_ecs_task_definition" "pe_worker" {
       },
       {
         "name": "DNSMONITOR_CLIENT_ID",
-        "valueFrom": "${data.aws_ssm_parameter.dnsmonitor_client_id.arn}"
+        "valueFrom": "${data.aws_ssm_parameter.ssm_dnsmonitor_client_id.arn}"
       },
       {
         "name": "DNSMONITOR_CLIENT_SECRET",
-        "valueFrom": "${data.aws_ssm_parameter.dnsmonitor_client_secret.arn}"
+        "valueFrom": "${data.aws_ssm_parameter.ssm_dnsmonitor_client_secret.arn}"
       },
       {
         "name": "ELASTICSEARCH_ENDPOINT",
