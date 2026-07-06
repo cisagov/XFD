@@ -505,6 +505,21 @@ class DjangoSession(models.Model):
         db_table = "django_session"
 
 
+class DNSMonitorDomainMap(models.Model):
+    """Define dnsmonitor_domain_map model."""
+
+    dnsmonitor_domain_map_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    domain = models.TextField(blank=True, null=True)
+    organization = models.TextField(blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+
+    class Meta:
+        """Set DNSMonitorDomainMap model metadata."""
+
+        managed = False
+        db_table = "dnsmonitor_domain_map"
+
+
 class DnsRecords(models.Model):
     """Define DnsRecords model."""
 

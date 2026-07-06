@@ -40,40 +40,81 @@ def connect():
 
 
 def get_orgs():
-    """Query API to retrieve data for all demo or report_on orgs."""
+    """
+    Query API to retrieve data for all organizations in P&E database both report_on or demo.
+
+    Return:
+        All demo or report_on org data as list of tuples
+    """
+    # Endpoint info
     endpoint_url = pe_api_url + "organizations_demo_or_report_on"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    result = requests.get(endpoint_url, headers=headers, timeout=60).json()
-    for row in result:
-        if row.get("date_first_reported") is not None:
-            row["date_first_reported"] = datetime.strptime(
-                row.get("date_first_reported"), "%Y-%m-%d"
-            )
-        if row.get("cyhy_period_start") is not None:
-            row["cyhy_period_start"] = datetime.strptime(
-                row.get("cyhy_period_start"), "%Y-%m-%d"
-            )
-        if row.get("county_fips") is not None:
-            row["county_fips"] = Decimal(row.get("county_fips"))
-        if row.get("state_fips") is not None:
-            row["state_fips"] = Decimal(row.get("state_fips"))
-    return result
+    try:
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
+        # Process data and return
+        for row in result:
+            if row.get("date_first_reported") is not None:
+                row["date_first_reported"] = datetime.strptime(
+                    row.get("date_first_reported"), "%Y-%m-%d"
+                )
+            if row.get("cyhy_period_start") is not None:
+                row["cyhy_period_start"] = datetime.strptime(
+                    row.get("cyhy_period_start"), "%Y-%m-%d"
+                )
+            if row.get("county_fips") is not None:
+                row["county_fips"] = Decimal(row.get("county_fips"))
+            if row.get("state_fips") is not None:
+                row["state_fips"] = Decimal(row.get("state_fips"))
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
 
 
 def get_data_source_uid(source):
-    """Query API to get the uid for the specified data source."""
+    """
+    Query API to get the uid for the specified data source.
+
+    Args:
+        source: The name of the specified data source
+
+    Return:
+        Data for the specified data source
+    """
+    # Endpoint info
     endpoint_url = pe_api_url + "data_source_by_name"
     headers = {
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
     data = json.dumps({"name": source})
-    result = requests.post(endpoint_url, headers=headers, data=data, timeout=60).json()
-    tup_result = [tuple(row.values()) for row in result]
-    return tup_result[0][0]
+    try:
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        return tup_result[0][0]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
 
 
 def getSubdomain(domain):
@@ -125,3 +166,195 @@ def org_root_domains(org_uid):
         inplace=True,
     )
     return result_df.to_dict("records")
+
+
+def insert_subdomain(domain, pe_org_uid, root):
+    """
+    Query API to insert a single sub domain into the sub_domains table.
+
+    Args:
+        domain: The sub domain associated with the new record
+        pe_org_uid: The organizations_uid associated with the new record
+        root: Boolean whether or not specified domain is also a root domain
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "sub_domains_single_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps(
+        {
+            "domain": domain,
+            "pe_org_uid": pe_org_uid,
+            "root": root,
+        }
+    )
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def insert_domain_permu(df):
+    """
+    Query API to insert multiple records into the domain_permutations table.
+
+    Args:
+        df: Dataframe containing DNSMonitor domain_permutations data to be inserted
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "domain_permu_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    # Adjust data types and convert to list of dictionaries
+    df["date_observed"] = pd.to_datetime(df["date_observed"])
+    df["date_observed"] = df["date_observed"].dt.strftime("%Y-%m-%d")
+    df_dict_list = df.to_dict("records")
+    data = json.dumps({"insert_data": df_dict_list})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def insert_domain_alert(df):
+    """
+    Query API to insert multiple records into the domain_alerts table.
+
+    Args:
+        df: Dataframe containing DNSMonitor domain_alerts data to be inserted
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "domain_alerts_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    # Adjust data types and convert to list of dictionaries
+    df = df.copy()
+    df["date"] = pd.to_datetime(df["date"])
+    df["date"] = df["date"].dt.strftime("%Y-%m-%d")
+    df["previous_value"] = df["previous_value"].fillna("")
+    df_dict_list = df.to_dict("records")
+    data = json.dumps({"insert_data": df_dict_list})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def get_subdomain_uid(domain):
+    """
+    Query API to get the uid for the specified subdomain.
+
+    Args:
+        domain: The name of the specified subdomain
+
+    Return:
+        uid for the specified subdomain
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "subdomain_uid_by_domain"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"domain": domain})
+    try:
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        # Catch deleted subdomain error
+        try:
+            return tup_result[0][0]
+        except Exception:
+            return -1
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+def get_dnsmonitor_domain_mapping(map_date):
+    """
+    Query API to get the DNSMonitor domain to organization mapping for the specified date.
+
+    Args:
+        map_date: The date of the desired DNSMonitor mapping
+
+    Return:
+        Dataframe mapping all DNSMonitor domains to their organization
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "dnsmonitor_mapping_by_date"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"date": map_date})
+    try:
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        return pd.DataFrame(result)[["domain", "organization"]]
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)

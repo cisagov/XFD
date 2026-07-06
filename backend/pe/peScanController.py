@@ -432,6 +432,8 @@ def start_local_docker_workers(
                 "PE_API_URL": os.getenv("PE_API_URL", "http://127.0.0.1:8000"),
                 "PE_API_KEY": os.getenv("PE_API_KEY", ""),
                 "PE_QUEUE_PREFIX": default_queue_prefix(),
+                "DNSMONITOR_CLIENT_ID": os.getenv("DNSMONITOR_CLIENT_ID", None),
+                "DNSMONITOR_CLIENT_SECRET": os.getenv("DNSMONITOR_CLIENT_SECRET", None),
             }
             if scan_name in SHODAN_SCANS:
                 environment["PE_SHODAN_API_KEYS"] = api_keys_for_scan(

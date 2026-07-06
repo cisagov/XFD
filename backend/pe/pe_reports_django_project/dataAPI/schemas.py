@@ -1,7 +1,7 @@
 """Pydantic schemas for dnstwist PE API endpoints."""
 
 # Standard Python Libraries
-from typing import Optional
+from typing import List, Optional
 
 # Third-Party Libraries
 from pydantic import BaseModel, ConfigDict
@@ -98,3 +98,59 @@ class OrganizationsFullTable(BaseModel):
     state_name: Optional[str] = None
     country: Optional[str] = None
     country_name: Optional[str] = None
+
+
+class DNSMonitorMappingByDateInput(BaseModel):
+    """Request body for dnsmonitor_mapping_by_date."""
+
+    date: str
+
+
+class DNSMonitorDomainMapTable(BaseModel):
+    """Serialized dnsmonitor_domain_map row."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    dnsmonitor_domain_map_uid: Optional[str] = None
+    domain: Optional[str] = None
+    organization: Optional[str] = None
+    date: Optional[str] = None
+
+
+class DomainPermuInsert(BaseModel):
+    """Individual row of request body for domain_permu_insert."""
+
+    organizations_uid: str
+    sub_domain_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    domain_permutation: str
+    ipv4: Optional[str] = None
+    ipv6: Optional[str] = None
+    mail_server: Optional[str] = None
+    name_server: Optional[str] = None
+    date_observed: Optional[str] = None
+
+
+class DomainPermuInsertInput(BaseModel):
+    """Request body for domain_permu_insert."""
+
+    insert_data: List[DomainPermuInsert]
+
+
+class DomainAlertsInsert(BaseModel):
+    """Individual row of request body for domain_alerts_insert."""
+
+    organizations_uid: str
+    sub_domain_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    alert_type: Optional[str] = None
+    message: Optional[str] = None
+    previous_value: Optional[str] = None
+    new_value: Optional[str] = None
+    date: Optional[str] = None
+
+
+class DomainAlertsInsertInput(BaseModel):
+    """Request body for domain_alerts_insert."""
+
+    insert_data: List[DomainAlertsInsert]
