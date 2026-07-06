@@ -10,7 +10,7 @@ from django.utils.timezone import now
 from xfd_mini_dl.models import Domain, Ip, SubDomains
 
 from .es_client import ESClient
-from .helpers.syncdb_helpers.es_sync import sync_es_organizations
+from .helpers.syncdb_helpers.es_sync import sync_es_cves, sync_es_organizations
 
 # Set up logging
 LOGGER = logging.getLogger(__name__)
@@ -186,3 +186,7 @@ def handler(command_options):
     LOGGER.info("Syncing organizations..")
     sync_es_organizations()
     LOGGER.info("Organization sync complete.")
+
+    LOGGER.info("Syncing CVEs..")
+    sync_es_cves()
+    LOGGER.info("CVE sync complete.")

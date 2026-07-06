@@ -80,6 +80,7 @@ EXCLUDED_ENDPOINTS_RESPONSE_MODEL = {
     ("POST", "/v2/organizations/{organization_id}/users"),
     ("POST", "/search/organizations"),
     ("POST", "/search/domains"),
+    ("POST", "/search/cves"),
     ("DELETE", "/saved-searches/{saved_search_id}"),
     ("POST", "/scheduler/invoke"),
     ("POST", "/scan-tasks/{scan_task_id}/kill"),
