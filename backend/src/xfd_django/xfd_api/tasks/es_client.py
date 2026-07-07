@@ -11,10 +11,15 @@ from elasticsearch.exceptions import TransportError
 # Constants
 DOMAINS_INDEX = "domains-5"
 ORGANIZATIONS_INDEX = "organizations-1"
+CVE_INDEX = "cves-1"
 
 # Define mappings
 organization_mapping = {
-    "properties": {"name": {"type": "text"}, "suggest": {"type": "completion"}}
+    "properties": {
+        "name": {"type": "text"},
+        "suggest": {"type": "completion"},
+        "retired": {"type": "boolean"},
+    }
 }
 
 domain_mapping = {
@@ -26,6 +31,14 @@ domain_mapping = {
         "suggest": {"type": "completion"},
     }
 }
+cve_mapping = {
+    "properties": {
+        "name": {"type": "text", "fields": {"keyword": {"type": "keyword"}}},
+        "suggest": {"type": "completion"},
+        "organization_ids": {"type": "keyword"},
+    }
+}
+
 LOGGER = logging.getLogger(__name__)
 # Raise log level for Elasticsearch client to WARNING to suppress request logs
 logging.getLogger("elasticsearch").setLevel(logging.WARNING)
@@ -63,6 +76,25 @@ class ESClient:
             LOGGER.error("Error syncing organizations index: %s", e)
             raise e
 
+    def sync_cves_index(self):
+        """Create or updates the CVE index with mappings."""
+        try:
+            if not self.client.indices.exists(index=CVE_INDEX):
+                LOGGER.info("Creating index %s...", CVE_INDEX)
+                self.client.indices.create(
+                    index=CVE_INDEX,
+                    body={
+                        "mappings": cve_mapping,
+                        "settings": {"number_of_shards": 2},
+                    },
+                )
+            else:
+                LOGGER.info("Updating index %s...", CVE_INDEX)
+                self.client.indices.put_mapping(index=CVE_INDEX, body=cve_mapping)
+        except Exception as e:
+            LOGGER.error("Error syncing CVE index: %s", e)
+            raise e
+
     def sync_domains_index(self):
         """Create or updates the domains index with mappings."""
         try:
@@ -95,10 +127,43 @@ class ESClient:
                 "_op_type": "update",
                 "_index": ORGANIZATIONS_INDEX,
                 "_id": org["id"],
-                "doc": {**org, "suggest": [{"input": org["name"], "weight": 1}]},
+                "doc": {
+                    **org,
+                    "retired": bool(org.get("retired", False)),
+                    "suggest": [{"input": org["name"], "weight": 1}],
+                },
                 "doc_as_upsert": True,
             }
             for org in organizations
+        ]
+        self._bulk_update(actions)
+
+    def delete_organizations(self, organization_ids):
+        """Delete organizations from Elasticsearch by ID."""
+        if not organization_ids:
+            return
+
+        actions = [
+            {
+                "_op_type": "delete",
+                "_index": ORGANIZATIONS_INDEX,
+                "_id": str(org_id),
+            }
+            for org_id in organization_ids
+        ]
+        self._bulk_update(actions)
+
+    def update_cves(self, cves):
+        """Update or inserts CVEs into Elasticsearch."""
+        actions = [
+            {
+                "_op_type": "update",
+                "_index": CVE_INDEX,
+                "_id": cve["id"],
+                "doc": {**cve, "suggest": [{"input": cve["name"], "weight": 1}]},
+                "doc_as_upsert": True,
+            }
+            for cve in cves
         ]
         self._bulk_update(actions)
 
@@ -188,6 +253,10 @@ class ESClient:
     def search_organizations(self, body):
         """Search organizations index with specified query body."""
         return self.client.search(index=ORGANIZATIONS_INDEX, body=body)
+
+    def search_cves(self, body):
+        """Search CVE index with specified query body."""
+        return self.client.search(index=CVE_INDEX, body=body)
 
     def _bulk_update(self, actions):
         """Update to Elasticsearch."""

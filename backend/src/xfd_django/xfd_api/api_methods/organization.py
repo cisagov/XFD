@@ -28,7 +28,7 @@ from ..auth import (
     is_org_admin,
     is_regional_admin,
 )
-from ..helpers.filter_helpers import apply_organization_filters
+from ..helpers.filter_helpers import active_organizations, apply_organization_filters
 from ..helpers.regionStateMap import REGION_STATE_MAP
 from ..helpers.uuid_helpers import is_valid_uuid
 from ..schema_models import organization_schema
@@ -56,7 +56,8 @@ def list_organizations(current_user):
 
         # Fetch organizations with related userRoles and tags
         organizations = (
-            Organization.objects.prefetch_related("tags", "user_roles")
+            active_organizations()
+            .prefetch_related("tags", "user_roles")
             .filter(**org_filter)
             .order_by("name")
         )
@@ -144,6 +145,9 @@ def get_organization(organization_id, current_user):
         )
 
         if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+
+        if organization.retired:
             raise HTTPException(status_code=404, detail="Organization not found")
 
         # Fetch scan tasks related to the organization, limited to 10 most recent
@@ -275,24 +279,28 @@ def get_by_state(state, current_user):
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch organizations based on the provided state
-    organizations = Organization.objects.filter(state=state).values(
-        "id",
-        "created_at",
-        "updated_at",
-        "acronym",
-        "name",
-        "root_domains",
-        "ip_blocks",
-        "is_passive",
-        "pending_domains",
-        "country",
-        "state",
-        "region_id",
-        "state_fips",
-        "state_name",
-        "county",
-        "county_fips",
-        "type",
+    organizations = (
+        active_organizations()
+        .filter(state=state)
+        .values(
+            "id",
+            "created_at",
+            "updated_at",
+            "acronym",
+            "name",
+            "root_domains",
+            "ip_blocks",
+            "is_passive",
+            "pending_domains",
+            "country",
+            "state",
+            "region_id",
+            "state_fips",
+            "state_name",
+            "county",
+            "county_fips",
+            "type",
+        )
     )
 
     if not organizations:
@@ -317,24 +325,28 @@ def get_by_region(region_id, current_user):
         raise HTTPException(status_code=403, detail="Unauthorized")
 
     # Fetch organizations based on the provided state
-    organizations = Organization.objects.filter(region_id=region_id).values(
-        "id",
-        "created_at",
-        "updated_at",
-        "acronym",
-        "name",
-        "root_domains",
-        "ip_blocks",
-        "is_passive",
-        "pending_domains",
-        "country",
-        "state",
-        "region_id",
-        "state_fips",
-        "state_name",
-        "county",
-        "county_fips",
-        "type",
+    organizations = (
+        active_organizations()
+        .filter(region_id=region_id)
+        .values(
+            "id",
+            "created_at",
+            "updated_at",
+            "acronym",
+            "name",
+            "root_domains",
+            "ip_blocks",
+            "is_passive",
+            "pending_domains",
+            "country",
+            "state",
+            "region_id",
+            "state_fips",
+            "state_name",
+            "county",
+            "county_fips",
+            "type",
+        )
     )
 
     if not organizations:
@@ -358,7 +370,8 @@ def get_all_regions(current_user):
 
         # Fetch distinct region_id values
         regions = (
-            Organization.objects.exclude(region_id__isnull=True)
+            active_organizations()
+            .exclude(region_id__isnull=True)
             .values("region_id")
             .distinct()
         )
@@ -382,7 +395,8 @@ def get_all_region_ids(current_user) -> list:
             raise HTTPException(status_code=403, detail="Unauthorized")
 
         regions_qs = (
-            Organization.objects.exclude(region_id__isnull=True)
+            active_organizations()
+            .exclude(region_id__isnull=True)
             .values_list("region_id", flat=True)
             .distinct()
         )
@@ -1200,6 +1214,11 @@ def search_organizations_task(search_body, current_user: User):
             query_body["query"]["bool"]["filter"].append(
                 {"terms": {"region_id": search_body.regions}}
             )
+
+        # Exclude retired organizations (documents without the field remain visible)
+        query_body["query"]["bool"]["filter"].append(
+            {"bool": {"must_not": {"term": {"retired": True}}}}
+        )
 
         # Log the query for debugging
         LOGGER.debug("Query body: %s", query_body)
