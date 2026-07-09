@@ -227,7 +227,8 @@ def get_users(current_user):
                     else None
                 ),
                 "accepted_terms_version": user.accepted_terms_version,
-                "date_accepted_terms": user.date_accepted_terms,
+                "date_accepted_terms": user.date_accepted_terms,  # Example of a test field
+                "invite_pending": user.invite_pending,
                 "roles": [
                     {
                         "id": str(role.id),
@@ -421,6 +422,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                     else None
                 ),
                 "accepted_terms_version": user.accepted_terms_version,
+                "invite_pending": user.invite_pending,
                 "roles": [
                     {
                         "id": str(role.id),
