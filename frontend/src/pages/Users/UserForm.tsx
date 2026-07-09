@@ -224,7 +224,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user } = useAuthContext();
+  const { user: loggedInUser } = useAuthContext();
 
   const [formErrors, setFormErrors] = useState({
     first_name: false,
@@ -321,14 +321,14 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
 
     const oldRoleLevel =
-      USER_TYPE_MAP[user?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
+      USER_TYPE_MAP[loggedInUser?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
     const newRoleLevel =
       USER_TYPE_MAP[values?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
 
     if (newRoleLevel > oldRoleLevel) {
       logger.info(
         'UserForm: User role elevation detected, confirming with user',
-        { oldRole: user?.user_type, newRole: values?.user_type }
+        { oldRole: loggedInUser?.user_type, newRole: values?.user_type }
       );
     }
 
@@ -339,7 +339,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       region_id: values.region_id
     };
 
-    if (user?.user_type === 'globalAdmin') {
+    if (loggedInUser?.user_type === 'globalAdmin') {
       body.user_type = values.user_type;
     }
 
@@ -394,7 +394,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogOpen(true);
       logger.error('UserForm.handleEditUserSubmit failed:', {
         error,
-        userId: user?.id
+        userId: loggedInUser?.id
       });
     }
   };
@@ -475,7 +475,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             fullWidth
             value={values.first_name}
             onChange={onTextChange}
-            disabled={user?.user_type !== 'globalAdmin'}
+            disabled={
+              loggedInUser?.user_type !== 'globalAdmin' ||
+              values?.invite_pending === true
+            }
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -499,7 +502,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             fullWidth
             value={values.last_name}
             onChange={onTextChange}
-            disabled={user?.user_type !== 'globalAdmin'}
+            disabled={
+              loggedInUser?.user_type !== 'globalAdmin' ||
+              values?.invite_pending === true
+            }
           />
         </Grid>
         <Grid size={{ xs: 12 }}>
@@ -532,7 +538,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             id="state"
             size="small"
             options={STATE_OPTIONS}
-            disabled={!['globalAdmin'].includes(user?.user_type || '')}
+            disabled={
+              !['globalAdmin'].includes(loggedInUser?.user_type || '') ||
+              values?.invite_pending === true
+            }
             value={values.state || null}
             onChange={(_, newValue) => {
               setValues((previousValues: any) => ({
@@ -557,8 +566,8 @@ export const UserForm: React.FC<UserFormProps> = ({
                 }
                 disabled={
                   !['globalAdmin', 'regionalAdmin'].includes(
-                    user?.user_type || ''
-                  )
+                    loggedInUser?.user_type || ''
+                  ) || values?.invite_pending === true
                 }
               />
             )}
@@ -567,7 +576,14 @@ export const UserForm: React.FC<UserFormProps> = ({
         </Grid>
         <Grid size={{ xs: 12 }}>
           <Typography mb={1}>Organization</Typography>
-          {isLoading ? (
+          {values?.invite_pending === true ? (
+            <TextField
+              placeholder="Pending Invitation Approval..."
+              disabled
+              fullWidth
+              size="small"
+            />
+          ) : isLoading ? (
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
@@ -640,13 +656,19 @@ export const UserForm: React.FC<UserFormProps> = ({
               value="standard"
               control={<Radio color="primary" />}
               label="Standard"
-              disabled={user?.user_type !== 'globalAdmin'}
+              disabled={
+                loggedInUser?.user_type !== 'globalAdmin' ||
+                values?.invite_pending === true
+              }
             />
             <FormControlLabel
               value="globalView"
               control={<Radio color="primary" />}
               label="Global View"
-              disabled={user?.user_type !== 'globalAdmin'}
+              disabled={
+                loggedInUser?.user_type !== 'globalAdmin' ||
+                values?.invite_pending === true
+              }
             />
             {isPermittedEmail(values.email) && (
               <>
@@ -654,13 +676,19 @@ export const UserForm: React.FC<UserFormProps> = ({
                   value="regionalAdmin"
                   control={<Radio color="primary" />}
                   label="Regional Administrator"
-                  disabled={user?.user_type !== 'globalAdmin'}
+                  disabled={
+                    loggedInUser?.user_type !== 'globalAdmin' ||
+                    values?.invite_pending === true
+                  }
                 />
                 <FormControlLabel
                   value="globalAdmin"
                   control={<Radio color="primary" />}
                   label="Global Administrator"
-                  disabled={user?.user_type !== 'globalAdmin'}
+                  disabled={
+                    loggedInUser?.user_type !== 'globalAdmin' ||
+                    values?.invite_pending === true
+                  }
                 />
               </>
             )}
@@ -684,6 +712,12 @@ export const UserForm: React.FC<UserFormProps> = ({
               Error updating user in the database:{' '}
               {apiErrorStates.getUpdateUserError}. See the network tab for more
               details.
+            </Alert>
+          )}
+          {values?.invite_pending === true && (
+            <Alert severity="info">
+              This is a Pending User that cannot be edited until approved in
+              User Registration by an Administrator.
             </Alert>
           )}
         </Grid>
