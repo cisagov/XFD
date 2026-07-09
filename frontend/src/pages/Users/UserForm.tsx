@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { isEqual } from 'lodash';
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
-import Button from '@mui/material/Button';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
@@ -21,6 +20,7 @@ import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
 import { useUpdateUser } from '@/hooks/useUpdateUser';
 import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
 import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
+import { ElevationControl } from './ElevationControl';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -74,16 +74,6 @@ const USER_TYPE_MAP = {
   globalAdmin: 3
 };
 
-type ElevationControlProps = {
-  confirmGlobalAdminChange: string;
-  setConfirmGlobalAdminChange: React.Dispatch<React.SetStateAction<string>>;
-  userRoleChanged: boolean;
-  values: UserFormValues;
-  isRoleElevationConfirmed: boolean;
-  setIsRoleElevationConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
-  userOrg?: string | null;
-};
-
 const getAllowedDomains = (): string[] => {
   const raw = import.meta.env.VITE_ALLOWED_ADMIN_EMAIL_DOMAINS;
 
@@ -130,85 +120,6 @@ const isPermittedEmail = (email: string): boolean => {
     const candidate = allowedDomain.toLowerCase();
     return domain === candidate;
   });
-};
-
-const ElevationControl: React.FC<ElevationControlProps> = ({
-  confirmGlobalAdminChange,
-  setConfirmGlobalAdminChange,
-  userRoleChanged,
-  values,
-  isRoleElevationConfirmed,
-  setIsRoleElevationConfirmed,
-  userOrg
-}) => {
-  const textFieldStyling = {
-    '& .MuiOutlinedInput-root': {
-      '&.Mui-focused fieldset': {
-        borderRadius: '0px'
-      }
-    }
-  };
-  if (!userRoleChanged || values.user_type === 'standard') return <></>;
-  if (values.user_type === 'globalAdmin') {
-    return (
-      <>
-        <Alert severity="warning">
-          You are attempting to change user{' '}
-          <strong>
-            {userOrg ? `${values.email} - ${userOrg}` : values.email}
-          </strong>{' '}
-          to a Global Administrator. This will give them access to all
-          organizations and data in the system. Please type{' '}
-          <strong>Global Administrator</strong> in the field below to confirm
-          this change.
-        </Alert>
-        <TextField
-          sx={textFieldStyling}
-          placeholder="Enter Global Administrator to confirm"
-          size="small"
-          margin="dense"
-          id="first_name"
-          slotProps={{
-            htmlInput: { maxLength: 250 }
-          }}
-          name="first_name"
-          type="text"
-          fullWidth
-          value={confirmGlobalAdminChange}
-          onChange={(event) => setConfirmGlobalAdminChange(event.target.value)}
-        />
-      </>
-    );
-  }
-  if (values.user_type === 'regionalAdmin' || values.user_type === 'globalView')
-    return (
-      <>
-        <Alert severity={isRoleElevationConfirmed ? 'success' : 'warning'}>
-          You are attempting to change this user to{' '}
-          <strong>
-            {values.user_type === 'regionalAdmin'
-              ? 'Regional Administrator'
-              : 'Global View'}
-          </strong>
-          . This will give them access to more organizations and data in the
-          system.
-          <br />
-          <Button
-            sx={{ mt: 1 }}
-            size="small"
-            variant="contained"
-            onClick={() => setIsRoleElevationConfirmed(true)}
-            disabled={isRoleElevationConfirmed}
-          >
-            {isRoleElevationConfirmed
-              ? 'Confirmed Privilege Elevation'
-              : 'Confirm Privilege Elevation'}
-          </Button>
-        </Alert>
-      </>
-    );
-
-  return <></>;
 };
 
 export const UserForm: React.FC<UserFormProps> = ({
