@@ -541,6 +541,7 @@ def update_user_v2(user_id, user_data, current_user):
             "full_name": user.full_name,
             "email": updated_user.email,
             "region_id": updated_user.region_id,
+            "invite_pending": updated_user.invite_pending,
             "state": updated_user.state,
             "user_type": updated_user.user_type,
             "last_logged_in": user.last_logged_in,
