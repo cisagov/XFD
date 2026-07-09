@@ -401,7 +401,8 @@ describe('UserForm', () => {
     const valuesWithoutOrg = {
       ...baseValues,
       org_id: '',
-      org_name: ''
+      org_name: '',
+      invite_pending: false
     };
 
     render(
@@ -652,5 +653,59 @@ describe('UserForm', () => {
     await waitFor(() => {
       expect(mockSetEditUserDialogOpen).toHaveBeenCalledWith(false);
     });
+  });
+
+  it('does not show organization required error when user is invite pending', () => {
+    const valuesInvitePending = {
+      ...baseValues,
+      org_id: '',
+      org_name: '',
+      invite_pending: true
+    };
+
+    render(
+      <UserForm
+        users={baseUsers}
+        setUsers={mockSetUsers}
+        values={valuesInvitePending}
+        setValues={mockSetValues}
+        editUserDialogOpen={true}
+        setEditUserDialogOpen={mockSetEditUserDialogOpen}
+        apiErrorStates={baseApiErrorStates}
+        setApiErrorStates={mockSetApiErrorStates}
+        setInfoDialogOpen={mockSetInfoDialogOpen}
+        setInfoDialogContent={mockSetInfoDialogContent}
+      />
+    );
+
+    expect(
+      screen.queryByText('Organization is required')
+    ).not.toBeInTheDocument();
+  });
+
+  it('disables the state autocomplete field when invite pending is true', () => {
+    const valuesInvitePending = {
+      ...baseValues,
+      invite_pending: true
+    };
+
+    render(
+      <UserForm
+        users={baseUsers}
+        setUsers={mockSetUsers}
+        values={valuesInvitePending}
+        setValues={mockSetValues}
+        editUserDialogOpen={true}
+        setEditUserDialogOpen={mockSetEditUserDialogOpen}
+        apiErrorStates={baseApiErrorStates}
+        setApiErrorStates={mockSetApiErrorStates}
+        setInfoDialogOpen={mockSetInfoDialogOpen}
+        setInfoDialogContent={mockSetInfoDialogContent}
+      />
+    );
+
+    // Find the Autocomplete input wrapper element or input itself by its ID or placeholder
+    const stateCombobox = screen.getByRole('combobox', { name: /state/i });
+    expect(stateCombobox).toBeDisabled();
   });
 });
