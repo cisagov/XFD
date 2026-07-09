@@ -100,12 +100,6 @@ class OrganizationsFullTable(BaseModel):
     country_name: Optional[str] = None
 
 
-class DNSMonitorMappingByDateInput(BaseModel):
-    """Request body for dnsmonitor_mapping_by_date."""
-
-    date: str
-
-
 class DNSMonitorDomainMapTable(BaseModel):
     """Serialized dnsmonitor_domain_map row."""
 

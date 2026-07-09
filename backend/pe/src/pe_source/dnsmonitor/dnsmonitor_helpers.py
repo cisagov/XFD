@@ -38,13 +38,16 @@ def get_monitored_domains(token):
         LOGGER.error(f"Timeout error occurred: {timeout_err}")
     except requests.exceptions.RequestException as err:
         LOGGER.error(f"Unexpected error occurred: {err}")
-    return None
+    return pd.DataFrame(columns=["domainId", "domainName"])
 
 
 def dnsmonitor_domains(token):
     """Get all domains currently being monitored in DNSMonitor and what organizations they map to."""
     monitored_domains_df = get_monitored_domains(token)
-    domain_org_map_df = get_dnsmonitor_domain_mapping("2025-12-07")
+    domain_org_map_df = get_dnsmonitor_domain_mapping()
+    # If list of DNSMonitor domains or org-domain mapping fails, exit
+    if monitored_domains_df.empty or domain_org_map_df.empty:
+        return pd.DataFrame(columns=["org", "domainName", "domainId"])
     # DNSMonitor Domain-Org Mapping Note:
     # - Some monitored domains are attributed to multiple organizations
     # - DNSMonitor may list the same domain more than once, but with different IDs
@@ -94,7 +97,7 @@ def get_domain_alerts(token, domain_ids, from_date, to_date):
     }
     # Make API Call
     try:
-        resp = session.get(url, headers=headers, data=payload, timeout=60)
+        resp = session.get(url, headers=headers, json=payload, timeout=60)
         resp.raise_for_status()
         resp = resp.json()
         return pd.DataFrame(resp)
@@ -106,7 +109,18 @@ def get_domain_alerts(token, domain_ids, from_date, to_date):
         LOGGER.error(f"Timeout error occurred: {timeout_err}")
     except requests.exceptions.RequestException as err:
         LOGGER.error(f"Unexpected error occurred: {err}")
-    return None
+    return pd.DataFrame(
+        columns=[
+            "domainId",
+            "rootDomain",
+            "domainPermutation",
+            "alertType",
+            "message",
+            "previousValue",
+            "newValue",
+            "dateCreated",
+        ]
+    )
 
 
 def get_dns_records(domain):

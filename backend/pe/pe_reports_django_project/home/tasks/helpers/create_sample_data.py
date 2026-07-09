@@ -8,12 +8,13 @@ import uuid
 from django.db import transaction
 from home.models import DataSource, Organizations, RootDomains
 
-DNSTWIST_SOURCE_UID = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
-FINDOMAIN_SOURCE_UID = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
-DHS_ORG_UID = uuid.UUID("11111111-1111-1111-1111-111111111111")
-DHS_CISA_ORG_UID = uuid.UUID("22222222-2222-2222-2222-222222222222")
-DHS_ROOT_UID = uuid.UUID("33333333-3333-3333-3333-333333333333")
-CISA_ROOT_UID = uuid.UUID("44444444-4444-4444-4444-444444444444")
+DNSMONITOR_SOURCE_UID = uuid.uuid4
+DNSTWIST_SOURCE_UID = uuid.uuid4
+FINDOMAIN_SOURCE_UID = uuid.uuid4
+DHS_ORG_UID = uuid.uuid4
+DHS_CISA_ORG_UID = uuid.uuid4
+DHS_ROOT_UID = uuid.uuid4
+CISA_ROOT_UID = uuid.uuid4
 
 SAMPLE_ORGS = (
     {
@@ -40,6 +41,14 @@ def populate_sample_data():
     """Insert data sources, orgs, and root domains needed to run dnstwist locally."""
     today = date.today()
 
+    dnsmonitor_source, _ = DataSource.objects.update_or_create(
+        name="DNSMonitor",
+        defaults={
+            "data_source_uid": DNSMONITOR_SOURCE_UID,
+            "description": "DNSMonitor domain alerts scan",
+            "last_run": today,
+        },
+    )
     dnstwist_source, _ = DataSource.objects.update_or_create(
         name="DNSTwist",
         defaults={
@@ -83,6 +92,10 @@ def populate_sample_data():
         )
 
     return {
-        "data_sources": [dnstwist_source.name, findomain_source.name],
+        "data_sources": [
+            dnsmonitor_source.name,
+            dnstwist_source.name,
+            findomain_source.name,
+        ],
         "organizations": org_names,
     }

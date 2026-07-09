@@ -48,6 +48,11 @@ def run_dnsmonitor(orgs_list):
     # Get all of the domains currently being monitored in DNSMonitor
     token = get_dnsmonitor_token()
     all_domains = dnsmonitor_domains(token)
+    if all_domains.empty:
+        LOGGER.error(
+            "Error fetching org-domain mapping or DNSMonitor monitored domains"
+        )
+        return
     # Iterate over each org
     failed = []
     warnings = []
@@ -98,6 +103,7 @@ def run_dnsmonitor(orgs_list):
                     failed.append(
                         f"{org_code} - {alert_domain} - Failed inserting into subdomain table"
                     )
+                    continue
                 # Once the new subdomain has been created, retrieve its uid
                 sub_domain_uid = get_subdomain_uid(alert_domain)
             # Enrich domain alert record
@@ -109,6 +115,7 @@ def run_dnsmonitor(orgs_list):
             alerts_df.at[alert_index, "ipv4"] = ipv4
             alerts_df.at[alert_index, "ipv6"] = ipv6
         # Set the data_source_uid and organization_uid columns
+        alerts_df.dropna(subset=["sub_domain_uid"], inplace=True)
         alerts_df["data_source_uid"] = get_data_source_uid("DNSMonitor")
         alerts_df["organizations_uid"] = org_uid
         alerts_df = alerts_df.rename(

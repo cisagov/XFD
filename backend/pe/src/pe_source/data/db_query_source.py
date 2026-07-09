@@ -325,12 +325,9 @@ def get_subdomain_uid(domain):
         LOGGER.error(err)
 
 
-def get_dnsmonitor_domain_mapping(map_date):
+def get_dnsmonitor_domain_mapping():
     """
-    Query API to get the DNSMonitor domain to organization mapping for the specified date.
-
-    Args:
-        map_date: The date of the desired DNSMonitor mapping
+    Query API to get the latest DNSMonitor domain to organization mapping.
 
     Return:
         Dataframe mapping all DNSMonitor domains to their organization
@@ -341,11 +338,8 @@ def get_dnsmonitor_domain_mapping(map_date):
         "Content-Type": "application/json",
         "access_token": pe_api_key,
     }
-    data = json.dumps({"date": map_date})
     try:
-        result = requests.post(
-            endpoint_url, headers=headers, data=data, timeout=60
-        ).json()
+        result = requests.post(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
         return pd.DataFrame(result)[["domain", "organization"]]
     except requests.exceptions.HTTPError as errh:
@@ -358,3 +352,4 @@ def get_dnsmonitor_domain_mapping(map_date):
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+    return pd.DataFrame(columns=["domain", "organization"])

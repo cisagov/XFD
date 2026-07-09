@@ -10,7 +10,7 @@ import uuid
 # Third-Party Libraries
 from dataAPI import schemas
 from django.core.exceptions import ObjectDoesNotExist
-from django.db.models import Q
+from django.db.models import Max, Q
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 from home.models import (
@@ -238,14 +238,16 @@ def sub_domains_single_insert(
     tags=["dnsmonitor"],
 )
 def dnsmonitor_mapping_by_date(
-    data: schemas.DNSMonitorMappingByDateInput,
     tokens: str = Depends(verify_api_key),  # noqa: B008
 ):
     """Retrieve DNSMonitor domain to organization mapping based on specified date."""
     del tokens
+    latest_date = DNSMonitorDomainMap.objects.aggregate(Max("date"))[
+        "date__max"
+    ].strftime("%Y-%m-%d")
     rows = list(
         DNSMonitorDomainMap.objects.filter(
-            date=data.date,
+            date=latest_date,
         ).values()
     )
     for row in rows:
@@ -325,15 +327,16 @@ def domain_permu_insert(
                     data_source_uid=curr_source_inst,
                 )
                 create_ct += 1
+        # Log completion and return
+        LOGGER.info(
+            "Completed data insertion for domain_permutations. Created: %d, Updated: %d",
+            create_ct,
+            update_ct,
+        )
+        return f"New DNSMonitor domain_permutations data: {create_ct} created, {update_ct} updated."
     except Exception as error:
         LOGGER.error("Error inserting into domain_permutations table: %s", error)
-    # Log completion and return
-    LOGGER.info(
-        "Completed data insertion for domain_permutations. Created: %d, Updated: %d",
-        create_ct,
-        update_ct,
-    )
-    return f"New DNSMonitor domain_permutations data: {create_ct} created, {update_ct} updated."
+        return f"Error inserting into domain_permutations table: {error}"
 
 
 @api_router.put(
@@ -354,6 +357,9 @@ def domain_alerts_insert(
             record_dict = dict(record)
             # Fetch related instances
             try:
+                curr_org_inst = Organizations.objects.get(
+                    organizations_uid=record_dict["organizations_uid"]
+                )
                 curr_sub_inst = SubDomains.objects.get(
                     sub_domain_uid=record_dict["sub_domain_uid"]
                 )
@@ -379,8 +385,8 @@ def domain_alerts_insert(
             except DomainAlerts.DoesNotExist:
                 # Otherwise, create new record
                 DomainAlerts.objects.create(
-                    domain_alert_uid=uuid.uuid1(),
-                    organizations_uid=record_dict["organizations_uid"],
+                    domain_alert_uid=uuid.uuid4(),
+                    organizations_uid=curr_org_inst,
                     sub_domain_uid=curr_sub_inst,
                     data_source_uid=curr_source_inst,
                     alert_type=record_dict["alert_type"],
@@ -390,8 +396,11 @@ def domain_alerts_insert(
                     date=record_dict["date"],
                 )
                 create_ct += 1
+        # Log completion and return
+        LOGGER.info(
+            "Completed data insertion for domain_alerts. Created: %d", create_ct
+        )
+        return f"New DNSMonitor domain_alerts data: {create_ct} created."
     except Exception as error:
-        LOGGER.info("Error inserting into domain_alerts table: %s", error)
-    # Log completion and return
-    LOGGER.info("Completed data insertion for domain_alerts. Created: %d", create_ct)
-    return f"New DNSMonitor domain_alerts data: {create_ct} created."
+        LOGGER.error("Error inserting into domain_alerts table: %s", error)
+        return f"Error inserting into domain_alerts table: {error}"

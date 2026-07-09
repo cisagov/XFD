@@ -620,7 +620,9 @@ class DomainAlerts(models.Model):
     data_source_uid = models.ForeignKey(
         DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
     )
-    organizations_uid = models.UUIDField()
+    organizations_uid = models.ForeignKey(
+        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
+    )
     alert_type = models.TextField(blank=True, null=True)
     message = models.TextField(blank=True, null=True)
     previous_value = models.TextField(blank=True, null=True)
