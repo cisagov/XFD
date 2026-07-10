@@ -79,7 +79,7 @@ export const RegionUsers: React.FC = () => {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
-  // console.log(selectedUser);
+
   const fetchPendingUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}true`);

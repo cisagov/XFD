@@ -45,10 +45,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-  const isNotCisaEmail = !(
-    loggedInUser?.email.endsWith('cisa.dhs.gov') ||
-    loggedInUser?.email.endsWith('associates.cisa.dhs.gov')
-  );
+  const isNotCisaEmail = !loggedInUser?.email.endsWith('cisa.dhs.gov');
   const editedUser = pendingUsers.find(
     (userItem: User) => userItem.id === selectedUser.id
   );
