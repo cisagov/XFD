@@ -5,6 +5,7 @@ import datetime
 import os
 import unittest
 from unittest.mock import MagicMock, patch
+import uuid
 
 # Third-Party Libraries
 import pandas as pd
@@ -23,6 +24,7 @@ from pe_source.dnsmonitor.dnsmonitor_helpers import (
     get_domain_alerts,
     get_monitored_domains,
 )
+from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 
 
 class DnsmonitorHelperTests(unittest.TestCase):
@@ -205,6 +207,110 @@ class DnsmonitorHelperTests(unittest.TestCase):
         mock_resolve.assert_any_call("test1.gov", "NS")
         mock_resolve.assert_any_call("test1.gov", "MX")
         mock_gethostbyname.assert_called_once_with("test1.gov")
+
+
+class DNSMonitorScriptTests(unittest.TestCase):
+    """Verify dnsmonitor script function behavior."""
+
+    def setUp(self):
+        """Set up global variable patches and mock data."""
+        self.org_uid_1 = uuid.uuid4
+        self.org_uid_2 = uuid.uuid4
+        self.org_uid_3 = uuid.uuid4
+        self.mock_all_orgs = [
+            {
+                "organizations_uid": self.org_uid_1,
+                "cyhy_db_name": "org_a",
+                "report_on": True,
+                "demo": False,
+            },
+            {
+                "organizations_uid": self.org_uid_2,
+                "cyhy_db_name": "org_b",
+                "report_on": False,
+                "demo": True,
+            },
+            {
+                "organizations_uid": self.org_uid_3,
+                "cyhy_db_name": "org_c",
+                "report_on": True,
+                "demo": False,
+            },
+        ]
+        self.mock_domains_df = pd.DataFrame(
+            [
+                {"org": "org_a", "domainName": "test1.gov", "domainId": 1},
+                {"org": "org_b", "domainName": "test2.gov", "domainId": 2},
+            ]
+        )
+        self.mock_alerts_df = pd.DataFrame(
+            [
+                {
+                    "rootDomain": "test1.gov",
+                    "domainPermutation": "test12.gov",
+                    "alertType": "MX Change",
+                    "message": "MX swapped",
+                    "previousValue": "old.mx",
+                    "newValue": "new.mx",
+                    "dateCreated": "2026-01-10",
+                }
+            ]
+        )
+
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.insert_domain_alert")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.insert_domain_permu")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.get_data_source_uid")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.get_dns_records")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.get_subdomain_uid")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.get_domain_alerts")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.dnsmonitor_domains")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.get_dnsmonitor_token")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.get_orgs")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.END_DATE", "2026-01-15")
+    @patch("pe_source.dnsmonitor.dnsmonitor_script.START_DATE", "2026-01-01")
+    def test_run_dnsmonitor(
+        self,
+        mock_get_orgs,
+        mock_get_token,
+        mock_dnsmonitor_domains,
+        mock_get_alerts,
+        mock_get_subdomain,
+        mock_get_dns_records,
+        mock_get_datasource,
+        mock_insert_permu,
+        mock_insert_alert,
+    ):
+        """Test run_dnsmonitor function."""
+        # Mock function responses
+        mock_get_orgs.return_value = self.mock_all_orgs
+        mock_get_token.return_value = "mock_dnsmonitor_token"  # nosec
+        mock_dnsmonitor_domains.return_value = self.mock_domains_df
+        mock_get_alerts.return_value = self.mock_alerts_df
+        mock_subdomain_uuid = uuid.uuid4
+        mock_get_subdomain.return_value = mock_subdomain_uuid
+        mock_get_dns_records.return_value = ("['mx']", "['ns']", "1.1.1.1", "")
+        mock_datasource_uuid = uuid.uuid4
+        mock_get_datasource.return_value = mock_datasource_uuid
+        # Call function
+        run_dnsmonitor("org_a")
+        # Assert
+        mock_get_orgs.assert_called_once()
+        mock_dnsmonitor_domains.assert_called_once_with("mock_dnsmonitor_token")
+        mock_get_alerts.assert_called_once_with(
+            "mock_dnsmonitor_token", [1], "2026-01-01", "2026-01-15"
+        )
+        mock_get_dns_records.assert_called_once_with("test12.gov")
+        mock_insert_permu.assert_called_once()
+        inserted_permu_df = mock_insert_permu.call_args[0][0]
+        self.assertEqual(inserted_permu_df.loc[0, "organizations_uid"], self.org_uid_1)
+        self.assertEqual(
+            inserted_permu_df.loc[0, "sub_domain_uid"], mock_subdomain_uuid
+        )
+        self.assertEqual(inserted_permu_df.loc[0, "domain_permutation"], "test12.gov")
+        mock_insert_alert.assert_called_once()
+        inserted_alert_df = mock_insert_alert.call_args[0][0]
+        self.assertEqual(inserted_alert_df.loc[0, "alert_type"], "MX Change")
+        self.assertEqual(inserted_alert_df.loc[0, "date"], "2026-01-10")
 
 
 if __name__ == "__main__":
