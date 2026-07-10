@@ -978,3 +978,15 @@ variable "ssm_django_env_kms_arn" {
   type        = string
   default     = "/crossfeed/prod/DJANGO_ENV_KMS_ARN"
 }
+
+variable "ssm_dnsmonitor_client_id" {
+  description = "ssm_dnsmonitor_client_id"
+  type        = string
+  default     = "/crossfeed/staging/DNSMONITOR_CLIENT_ID"
+}
+
+variable "ssm_dnsmonitor_client_secret" {
+  description = "ssm_dnsmonitor_client_secret"
+  type        = string
+  default     = "/crossfeed/staging/DNSMONITOR_CLIENT_SECRET"
+}

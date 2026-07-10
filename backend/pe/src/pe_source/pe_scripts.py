@@ -1,10 +1,10 @@
-"""PE scan CLI (dnstwist only for now).
+"""PE scan CLI.
 
 Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid value: "dnstwist", "shodan".
+    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan".
 
 Options:
     -h --help                       Show this message.
@@ -25,6 +25,7 @@ from typing import Any, Dict
 import docopt
 import pe_reports
 from pe_source._version import __version__
+from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
 from pe_source.shodan.shodan_script import Get_shodan
 from schema import And, Schema, SchemaError, Use
@@ -34,8 +35,10 @@ LOGGER = logging.getLogger(__name__)
 
 def run_pe_script(source, orgs_list):
     """Collect data from the source specified."""
-    # Run the specified scan
-    if source == "dnstwist":
+    # Run the specified script
+    if source == "dnsmonitor":
+        run_dnsmonitor(orgs_list)
+    elif source == "dnstwist":
         run_dnstwist(orgs_list)
     elif source == "shodan":
         shodan = Get_shodan(orgs_list)

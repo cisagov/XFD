@@ -505,6 +505,21 @@ class DjangoSession(models.Model):
         db_table = "django_session"
 
 
+class DNSMonitorDomainMap(models.Model):
+    """Define dnsmonitor_domain_map model."""
+
+    dnsmonitor_domain_map_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    domain = models.TextField(blank=True, null=True)
+    organization = models.TextField(blank=True, null=True)
+    date = models.DateField(blank=True, null=True)
+
+    class Meta:
+        """Set DNSMonitorDomainMap model metadata."""
+
+        managed = False
+        db_table = "dnsmonitor_domain_map"
+
+
 class DnsRecords(models.Model):
     """Define DnsRecords model."""
 
@@ -605,7 +620,9 @@ class DomainAlerts(models.Model):
     data_source_uid = models.ForeignKey(
         DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
     )
-    organizations_uid = models.UUIDField()
+    organizations_uid = models.ForeignKey(
+        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
+    )
     alert_type = models.TextField(blank=True, null=True)
     message = models.TextField(blank=True, null=True)
     previous_value = models.TextField(blank=True, null=True)
