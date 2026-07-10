@@ -97,8 +97,10 @@ def get_all_autoenum_domains(custom_params={}):
     next = ini_resp_dict.get("next")
     all_domain_list.extend(ini_resp_dict.get("domains"))
     total_ident_count = ini_resp_dict.get("total_count")
-    print(
-        f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers"
+    LOGGER.info(
+        "Retrieved %d of %d auto-enum identifiers",
+        len(all_domain_list),
+        total_ident_count,
     )
     # If there's a next value, continue retrieval
     while next is not None:
@@ -122,11 +124,13 @@ def get_all_autoenum_domains(custom_params={}):
         curr_resp_dict = parse_domain_idents(curr_resp)
         next = curr_resp_dict.get("next")
         all_domain_list.extend(curr_resp_dict.get("domains"))
-        print(
-            f"Retrieved {len(all_domain_list)} of {total_ident_count} auto-enum identifiers"
+        LOGGER.info(
+            "Retrieved %d of %d auto-enum identifiers",
+            len(all_domain_list),
+            total_ident_count,
         )
     # Return results
-    print("All auto-enum identifiers retrieved")
+    LOGGER.info("All auto-enum identifiers retrieved")
     return all_domain_list
 
 
@@ -145,7 +149,7 @@ async def check_ip_reachable(ip, count=1, timeout=3.0):
             }
         except (TimeoutError, PermissionError) as e:
             # If ping failed, try again
-            print(f"\tPing {i+1}/{count} failed for {ip} - {e}")
+            LOGGER.debug("Ping %d/%d failed for %s - %s", i + 1, count, ip, e)
     # If all ping attempts fail, mark as unreachable
     return {
         "ip": ip,
@@ -174,8 +178,11 @@ def check_domains_responsive(domain_list):
     ) in domain_df.iterrows():
         domain = row["value"]
         # Test if domain has an IP associated with it (resolvable)
-        print(
-            f'Checking resolvability of domain "{domain}" ({idx+1} of {len(domain_df)})'
+        LOGGER.debug(
+            "Checking resolvability of domain '%s' (%d of %d)",
+            domain,
+            idx + 1,
+            len(domain_df),
         )
         try:
             domain_ip = socket.gethostbyname(domain)
@@ -274,8 +281,12 @@ def update_ident_lists(enable_list, disable_list):
                 LOGGER.warning("401 code encountered, refreshing token")
                 token = get_flare_token()
                 token, resp = toggle_ident(token, curr_ident_id, active=True)
-            print(
-                f'Enabled identifier "{curr_ident_name}" ({curr_ident_id}) {idx+1} of {len(enable_list)}'
+            LOGGER.info(
+                "Enabled identifier '%s' (%s) %d of %d",
+                curr_ident_name,
+                curr_ident_id,
+                idx + 1,
+                len(enable_list),
             )
         LOGGER.info("All identifiers marked for re-enabling have been re-enabled")
     else:
@@ -299,8 +310,12 @@ def update_ident_lists(enable_list, disable_list):
                 LOGGER.warning("401 code encountered, refreshing token")
                 token = get_flare_token()
                 token, resp = toggle_ident(token, curr_ident_id, active=False)
-            print(
-                f'Disabled identifier "{curr_ident_name}" ({curr_ident_id}) {idx+1} of {len(disable_list)}'
+            LOGGER.info(
+                "Disabled identifier '%s' (%s) %d of %d",
+                curr_ident_name,
+                curr_ident_id,
+                idx + 1,
+                len(disable_list),
             )
         LOGGER.info("All identifiers marked for disabling have been disabled")
     else:
