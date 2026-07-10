@@ -47,9 +47,14 @@ type CloseReason = 'backdropClick' | 'escapeKeyDown' | 'closeButtonClick';
 
 /** Refresh pending/member tables while admins work on this page (ms). */
 const REGISTRATION_USERS_REFRESH_INTERVAL_MS = 30_000;
+const INITIAL_ERROR_STATES: ErrorStates = {
+  getUsersError: '',
+  getUpdateError: '',
+  getDeleteError: ''
+};
 
 export const RegionUsers: React.FC = () => {
-  const { apiDelete, apiGet, apiPost, user } = useAuthContext();
+  const { apiDelete, apiGet, apiPost, user: loggedInUser } = useAuthContext();
   const apiRefPendingUsers = useGridApiRef();
   const apiRefCurrentUsers = useGridApiRef();
   const { formattedUserType } = useUserLevel();
@@ -63,11 +68,8 @@ export const RegionUsers: React.FC = () => {
     isInfoDialogOpen: false,
     isUserAlreadyApprovedDialogOpen: false
   });
-  const [errorStates, setErrorStates] = useState<ErrorStates>({
-    getUsersError: '',
-    getUpdateError: '',
-    getDeleteError: ''
-  });
+  const [errorStates, setErrorStates] =
+    useState<ErrorStates>(INITIAL_ERROR_STATES);
   const [selectedUser, selectUser] = useState<User>(initializeUser);
   const [selectedOrg, setSelectedOrg] = React.useState<GridRowSelectionModel>({
     type: 'include',
@@ -77,23 +79,28 @@ export const RegionUsers: React.FC = () => {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
-
+  // console.log(selectedUser);
   const fetchPendingUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}true`);
       setPendingUsers(rows);
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
+      return rows;
     } catch (e: any) {
       setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
+      throw e;
     }
   }, [apiGet, getUsersURL]);
+
   const fetchCurrentUsers = useCallback(async () => {
     try {
       const rows = await apiGet<User[]>(`${getUsersURL}false`);
       setCurrentUsers(transformUserData(rows));
       setErrorStates((prev) => ({ ...prev, getUsersError: '' }));
+      return rows;
     } catch (e: any) {
       setErrorStates((prev) => ({ ...prev, getUsersError: e.message }));
+      throw e;
     }
   }, [apiGet, getUsersURL]);
 
@@ -139,15 +146,10 @@ export const RegionUsers: React.FC = () => {
   }, [fetchPendingUsers, fetchCurrentUsers, isRegistrationDialogOpen]);
 
   const deleteUser = useCallback(
-    (user_id: string): Promise<boolean> => {
+    async (user_id: string): Promise<boolean> => {
       return apiDelete(ENDPOINTS.USER.replace('{user_id}', user_id)).then(
-        () => {
-          apiRefPendingUsers.current?.updateRows([
-            { id: user_id, _action: 'delete' }
-          ]);
-          setPendingUsers((prevPendingUsers) =>
-            prevPendingUsers.filter((user) => user.id !== user_id)
-          );
+        async () => {
+          await fetchPendingUsers();
           setInfoDialogContent('This user has been successfully removed.');
           return true;
         },
@@ -162,47 +164,42 @@ export const RegionUsers: React.FC = () => {
 
   const updateUser = useCallback(
     async (
-      user_id: string,
-      selectedOrgObject: any
+      selectedUser: User,
+      isSaveAction: boolean
     ): Promise<{ success: boolean; body: string }> => {
       try {
-        const res = await apiPost(
-          ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', user_id),
+        await apiPost(
+          ENDPOINTS.USER_UPDATE_V2.replace('{user_id}', selectedUser.id),
           {
-            body: { invite_pending: false }
-          }
-        );
-        const mockRoles = [
-          {
-            organization: {
-              id: selectedOrgObject.id,
-              name: selectedOrgObject.name,
-              acronym: selectedOrgObject.acronym
+            body: {
+              invite_pending: isSaveAction,
+              state: selectedUser.state,
+              ...(loggedInUser?.user_type === 'globalAdmin' && {
+                user_type: selectedUser.user_type
+              })
             }
           }
-        ];
-        // Combine the API response with selection data
-        const updatedUserWithRoles = { ...res, roles: mockRoles };
-        const transformedUser = transformUserData([updatedUserWithRoles])[0];
-        apiRefPendingUsers.current?.updateRows([
-          { id: user_id, _action: 'delete' }
-        ]);
-        setPendingUsers((prev) => prev.filter((u) => u.id !== user_id));
-        apiRefCurrentUsers.current?.updateRows([transformedUser]);
-        setCurrentUsers((prev) => [...prev, transformedUser]);
-        return { success: true, body: 'User registration approved' };
+        );
+
+        await fetchPendingUsers();
+        if (!isSaveAction) {
+          await fetchCurrentUsers();
+        }
+
+        return { success: true, body: 'Pending User Updated' };
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
         return { success: false, body: e.message };
       }
     },
-    [apiPost, apiRefCurrentUsers, apiRefPendingUsers, errorStates]
+    [apiPost, fetchPendingUsers, fetchCurrentUsers, errorStates]
   );
 
   const addOrgToUser = useCallback(
     async (
-      user_id: string,
-      orgObject: any
+      selectedUser: User,
+      orgObject: any,
+      isSaveAction: boolean
     ): Promise<{ success: boolean; body: string }> => {
       try {
         await apiPost(
@@ -210,9 +207,9 @@ export const RegionUsers: React.FC = () => {
             '{organization_id}',
             orgObject.id // Extract ID for the API call
           ),
-          { body: { user_id, role: 'user' } }
+          { body: { user_id: selectedUser.id, role: 'user' } }
         );
-        return updateUser(user_id, orgObject);
+        return updateUser(selectedUser, isSaveAction);
       } catch (e: any) {
         setErrorStates({ ...errorStates, getUpdateError: e.message });
         return { success: false, body: e.message };
@@ -284,7 +281,7 @@ export const RegionUsers: React.FC = () => {
   };
 
   const pendingCols = getPendingUserColumns({
-    userType: user?.user_type,
+    userType: loggedInUser?.user_type,
     handleApproveClick,
     handleDenyClick
   });
@@ -304,11 +301,17 @@ export const RegionUsers: React.FC = () => {
     }));
     setSelectedOrgObject(null);
     selectUser(initializeUser);
+    setErrorStates(INITIAL_ERROR_STATES);
   };
 
   const removeOrgFromUser = useCallback(
-    (org_id: String, roleId: String) => {
-      apiPost(
+    (org_id: String | undefined | null, roleId: String | undefined | null) => {
+      // Fail if parameters are completely missing
+      if (!org_id || !roleId) {
+        logger.warn('RegionUsers: Missing org_id or roleId for removal bypass');
+        return Promise.resolve();
+      }
+      return apiPost(
         ENDPOINTS.ORGANIZATION_REMOVE_ROLE.replace(
           '{organization_id}',
           org_id.toString()
@@ -326,106 +329,124 @@ export const RegionUsers: React.FC = () => {
         },
         (e) => {
           setErrorStates({ ...errorStates, getUpdateError: e.message });
+          throw e;
         }
       );
     }, // eslint-disable-next-line react-hooks/exhaustive-deps
     [apiPost]
   );
 
-  const handleApproveConfirmClick = async () => {
+  const handleApproveConfirmClick = async (isSaveAction = false) => {
     try {
-      const emailResult = await sendApprovalEmail(selectedUser.id);
-      const userHadOrg = selectedUser.roles.length > 0;
-      const originalOrgId = userHadOrg
-        ? selectedUser.roles[0].organization.id
-        : '';
+      // Check if roles and ids exist
+      const userHadOrg = (selectedUser?.roles?.length ?? 0) > 0;
+      const originalOrgId = selectedUser?.roles?.[0]?.organization?.id || '';
+      const originalRoleId = selectedUser?.roles?.[0]?.id || '';
       const selectedOrgId = selectedOrgObject?.id || null;
       let success = false;
+      if (!isSaveAction) {
+        const emailResult = await sendApprovalEmail(selectedUser.id);
 
-      // User was approved earlier (e.g. register/approve succeeded but invite_pending was
-      // never cleared). Finish approval by assigning org if needed, then clear pending.
-      if (
-        emailResult.status_code === 200 &&
-        emailResult.body === 'User registration already approved.'
-      ) {
-        let alreadyApprovedSuccess = false;
+        if (
+          emailResult.status_code === 200 &&
+          emailResult.body === 'User registration already approved.'
+        ) {
+          let alreadyApprovedSuccess = false;
 
-        if (userHadOrg && originalOrgId === selectedOrgId) {
-          const updateUserResult = await updateUser(
-            selectedUser.id,
-            selectedUser.roles[0].organization
-          );
-          alreadyApprovedSuccess = updateUserResult.success;
-        } else if (selectedOrgObject) {
-          const addOrgResult = await addOrgToUser(
-            selectedUser.id,
-            selectedOrgObject
-          );
-          alreadyApprovedSuccess = addOrgResult.success;
-        } else if (selectedUser.roles[0]?.organization) {
-          const updateUserResult = await updateUser(
-            selectedUser.id,
-            selectedUser.roles[0].organization
-          );
-          alreadyApprovedSuccess = updateUserResult.success;
+          if (userHadOrg && originalOrgId === selectedOrgId) {
+            const updateUserResult = await updateUser(
+              selectedUser,
+              isSaveAction
+            );
+            alreadyApprovedSuccess = updateUserResult.success;
+          } else if (selectedOrgObject) {
+            const addOrgResult = await addOrgToUser(
+              selectedUser,
+              selectedOrgObject,
+              isSaveAction
+            );
+            alreadyApprovedSuccess = addOrgResult.success;
+          } else if (selectedUser.roles[0]?.organization) {
+            const updateUserResult = await updateUser(
+              selectedUser,
+              isSaveAction
+            );
+            alreadyApprovedSuccess = updateUserResult.success;
+          }
+
+          if (alreadyApprovedSuccess) {
+            const approvedOrgName =
+              selectedOrgObject?.name ??
+              selectedUser.roles[0]?.organization?.name ??
+              'the selected organization';
+            handleCloseDialog('closeButtonClick');
+            setDialogStates((prevState) => ({
+              ...prevState,
+              isInfoDialogOpen: true
+            }));
+            setInfoDialogContent(
+              `This user was previously approved. Their registration is now complete and they are a member of ${approvedOrgName} in Region ${selectedUser.region_id}.`
+            );
+          } else {
+            setDialogStates((prevState) => ({
+              ...prevState,
+              isOrgDialogOpen: false,
+              isUserAlreadyApprovedDialogOpen: true
+            }));
+          }
+          return;
         }
-
-        if (alreadyApprovedSuccess) {
-          const approvedOrgName =
-            selectedOrgObject?.name ??
-            selectedUser.roles[0]?.organization?.name ??
-            'the selected organization';
-          handleCloseDialog('closeButtonClick');
-          setDialogStates((prevState) => ({
-            ...prevState,
-            isInfoDialogOpen: true
-          }));
-          setInfoDialogContent(
-            `This user was previously approved. Their registration is now complete and they are a member of ${approvedOrgName} in Region ${selectedUser.region_id}.`
-          );
-        } else {
-          setDialogStates((prevState) => ({
-            ...prevState,
-            isOrgDialogOpen: false,
-            isUserAlreadyApprovedDialogOpen: true
-          }));
-        }
-        return;
       }
 
       // If the user's org was already added and not modified, only update the user.
       if (userHadOrg && originalOrgId === selectedOrgId) {
-        const existingOrg = selectedUser.roles[0].organization;
-        const updateUserResult = await updateUser(selectedUser.id, existingOrg);
+        const updateUserResult = await updateUser(selectedUser, isSaveAction);
         success = updateUserResult.success;
       } else if (userHadOrg && originalOrgId !== selectedOrgId) {
         // TODO: Make a new API endpoint to update Org for User instead of doing a removal and addition.
-        removeOrgFromUser(originalOrgId, selectedUser.roles[0].id);
+        if (originalOrgId && originalRoleId) {
+          await removeOrgFromUser(originalOrgId, originalRoleId);
+        }
         // Pass the full selected object to both
         const addOrgResult = await addOrgToUser(
-          selectedUser.id,
-          selectedOrgObject
+          selectedUser,
+          selectedOrgObject,
+          isSaveAction
         );
         success = addOrgResult.success;
       } else {
         // Pass the full selected object
         const addOrgResult = await addOrgToUser(
-          selectedUser.id,
-          selectedOrgObject
+          selectedUser,
+          selectedOrgObject,
+          isSaveAction
         );
         success = addOrgResult.success;
       }
       if (success) {
+        setPendingUsers((freshPendingList) => {
+          const updatedProfile = freshPendingList.find(
+            (u) => u.id === selectedUser.id
+          );
+          if (updatedProfile) {
+            selectUser(updatedProfile);
+          }
+          return freshPendingList;
+        });
         handleCloseDialog('closeButtonClick');
         setDialogStates((prevState) => ({
           ...prevState,
           isInfoDialogOpen: true
         }));
         setInfoDialogContent(
-          `The user has been approved and is a member of Region ${selectedUser.region_id}.`
+          `The user has been ${isSaveAction ? 'saved.' : `approved and is a member of Region ${selectedUser.region_id}.`}`
         );
       } else {
-        throw new Error('Failed to approve the user.');
+        setErrorStates({
+          ...errorStates,
+          getUpdateError: 'Failed to update the user.'
+        });
+        throw new Error('Failed to update the user.');
       }
     } catch (e: any) {
       setErrorStates({ ...errorStates, getUpdateError: e.message });
@@ -498,15 +519,20 @@ export const RegionUsers: React.FC = () => {
       <ConfirmDialog
         isOpen={dialogStates.isOrgDialogOpen}
         onClose={(_, reason) => handleCloseDialog(reason)}
-        onConfirm={handleApproveConfirmClick}
+        onConfirm={() => handleApproveConfirmClick(false)}
+        onSave={() => handleApproveConfirmClick(true)}
         onCancel={handleApproveCancelClick}
         title={`Add ${selectedUser.full_name} to an organization in Region ${selectedUser.region_id}`}
         content={
           <OrganizationSelector
+            pendingUsers={pendingUsers}
             regionId={selectedUser.region_id}
             selectedUser={selectedUser}
+            selectUser={selectUser}
+            formattedUserType={formattedUserType}
             initialOrgId={selectedUser.roles[0]?.organization.id}
             onSelectionChange={handleOrgSelectionChange}
+            getUpdateError={errorStates.getUpdateError}
           />
         }
         disabled={selectedOrg.ids.size === 0}
