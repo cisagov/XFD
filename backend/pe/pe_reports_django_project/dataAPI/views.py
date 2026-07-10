@@ -10,6 +10,7 @@ import uuid
 # Third-Party Libraries
 from dataAPI import schemas
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.db.models import Max, Q
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
@@ -154,6 +155,7 @@ def rootdomains_by_org_uid(
     return rows
 
 
+@transaction.atomic
 @api_router.put(
     "/sub_domains_single_insert",
     dependencies=[Depends(verify_api_key)],
@@ -258,6 +260,7 @@ def dnsmonitor_mapping_by_date(
     return rows
 
 
+@transaction.atomic
 @api_router.put(
     "/domain_permu_insert",
     dependencies=[Depends(verify_api_key)],
@@ -339,6 +342,7 @@ def domain_permu_insert(
         return f"Error inserting into domain_permutations table: {error}"
 
 
+@transaction.atomic
 @api_router.put(
     "/domain_alerts_insert",
     dependencies=[Depends(verify_api_key)],
