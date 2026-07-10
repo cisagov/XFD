@@ -4,7 +4,7 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid value: "dnstwist".
+    DATA_SOURCE  Source to collect data from. Valid value: "dnstwist", "shodan".
 
 Options:
     -h --help                       Show this message.
@@ -26,6 +26,7 @@ import docopt
 import pe_reports
 from pe_source._version import __version__
 from pe_source.dnstwist import run_dnstwist
+from pe_source.shodan.shodan_script import Get_shodan
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
@@ -33,10 +34,15 @@ LOGGER = logging.getLogger(__name__)
 
 def run_pe_script(source, orgs_list):
     """Collect data from the source specified."""
-    if source != "dnstwist":
+    # Run the specified scan
+    if source == "dnstwist":
+        run_dnstwist(orgs_list)
+    elif source == "shodan":
+        shodan = Get_shodan(orgs_list)
+        shodan.run_shodan()
+    else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)
-    run_dnstwist(orgs_list)
 
 
 def main():
