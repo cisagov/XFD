@@ -128,3 +128,5 @@ xpanse_org_sync_bucket_name                  = "crossfeed-xpanse-org-sync-stagin
 playwright_worker_repository_name            = "crossfeed-playwright-staging-worker"
 backend_api_log_group_name                   = "cyhy-staging-cd-backend-api"
 backend_api_requests_log_group_name          = "cyhy-staging-cd-backend-api-requests"
+ssm_dnsmonitor_client_id                     = "/crossfeed/staging/DNSMONITOR_CLIENT_ID"
+ssm_dnsmonitor_client_secret                 = "/crossfeed/staging/DNSMONITOR_CLIENT_SECRET"
