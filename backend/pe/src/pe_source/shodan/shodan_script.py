@@ -7,8 +7,8 @@ import threading
 
 # Third-Party Libraries
 import numpy
+from pe_source.data.config_source import shodan_api_init
 from pe_source.data.db_query_source import get_orgs
-from pe_source.data.pe_db.config import shodan_api_init
 from pe_source.shodan.shodan_helpers import run_shodan_thread
 
 # Logging

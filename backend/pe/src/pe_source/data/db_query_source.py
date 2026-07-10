@@ -353,3 +353,112 @@ def get_dnsmonitor_domain_mapping():
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
     return pd.DataFrame(columns=["domain", "organization"])
+
+
+def get_ips(org_uid):
+    """
+    Query API to get all ips for an org to run through Shodan.
+
+    Return:
+        All ips to run through Shodan
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
+        # Process data and return
+        return result
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+
+# --- Issue 016 atc-framework ---
+def insert_shodan_assets(asset_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_assets table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_assets.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_assets_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"asset_data": asset_data})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result.get("message"))
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
+
+
+# --- Issue 017 atc-framework ---
+def insert_shodan_vulns(vuln_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_vulns table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_vulns.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_vulns_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"vuln_data": vuln_data})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
