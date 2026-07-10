@@ -30,9 +30,6 @@ def run_shodan_thread(api, org_chunk, thread_name):
         LOGGER.info(
             f"{thread_name} Running Shodan on {org_name} ({org_idx + 1} of {len(org_chunk)})"
         )
-        # print(
-        #     f"{thread_name} Running Shodan on {org_name} ({org_idx+1} of {len(org_chunk)})"
-        # )
         start, end = get_dates()
         # Retrieve IPs for this org
         try:
