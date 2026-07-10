@@ -9,33 +9,31 @@ import time
 import requests
 from requests.auth import HTTPBasicAuth
 
-# cisagov Libraries
-from pe_source.data.pe_db.config import get_params
-
 # Setup logging
 LOGGER = logging.getLogger(__name__)
-
-# Retrieve available Flare API credentials
-param_dict = dict(get_params("flare"))
-TENANT_ID = param_dict.get("tenant_id")
-# Convert keys to HTTPBasicAuth objects
-for key in param_dict.keys():
-    if "api_key" in key:
-        param_dict[key] = HTTPBasicAuth("", str(param_dict.get(key)))
-PARAM_DICT = param_dict
 
 
 def get_flare_token():
     """Get Flare API authentication token."""
     # Use the API key specified by env variable
-    key_num = os.getenv("FLARE_KEY_NUM")
-    api_auth = PARAM_DICT.get(f"api_key_{key_num}")
+    key_num = os.getenv("FLARE_KEY_NUM", "1")
+    api_key = os.environ.get(f"FLARE_API_KEY_{key_num}")
+    tenant_id = os.environ.get("FLARE_TENANT_ID")
+
+    if not api_key:
+        LOGGER.error("FLARE_API_KEY_%s environment variable is not set", key_num)
+        return None
+    if not tenant_id:
+        LOGGER.error("FLARE_TENANT_ID environment variable is not set")
+        return None
+
+    api_auth = HTTPBasicAuth("", api_key)
     # Get API token
     token_url = "https://api.flare.io/tokens/generate"  # nosec
     headers = {
         "Content-Type": "application/json",
     }
-    data = f'{{"tenant_id": {TENANT_ID}}}'
+    data = f'{{"tenant_id": {tenant_id}}}'
     resp = requests.post(
         token_url, data=data, headers=headers, auth=api_auth, timeout=60
     )
