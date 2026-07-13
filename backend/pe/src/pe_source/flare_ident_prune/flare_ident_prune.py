@@ -78,8 +78,10 @@ def parse_domain_idents(raw_resp):
     }
 
 
-def get_all_autoenum_domains(custom_params={}):
+def get_all_autoenum_domains(custom_params=None):
     """Get Flare auto-enumerated subdomains across all organizations."""
+    if custom_params is None:
+        custom_params = {}
     all_domain_list = []
     chunk_size = 100  # Max is 100
     flare_token = get_flare_token()
@@ -113,6 +115,10 @@ def get_all_autoenum_domains(custom_params={}):
         }
         curr_params = curr_base_params | custom_params
         flare_token, curr_resp = flare_identifiers_endpoint(flare_token, curr_params)
+        # Handle failed API call
+        if curr_resp is None:
+            LOGGER.error("Failed to retrieve auto-enum identifiers chunk, stopping")
+            break
         # 401 token refresh check
         if curr_resp.status_code == 401:
             LOGGER.warning("401 code encountered, refreshing token")
