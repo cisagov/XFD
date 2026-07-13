@@ -207,10 +207,13 @@ describe('UserForm', () => {
       expect(mockUpdateUser).toHaveBeenCalledTimes(1);
     });
 
-    const [calledId, calledBody] = mockUpdateUser.mock.calls[0];
+    // 🟢 Fix: Extract the single structured object parameter from the first argument position
+    const [calledArgs] = mockUpdateUser.mock.calls[0];
 
-    expect(calledId).toBe(1);
-    expect(calledBody).toMatchObject({
+    // 🟢 Verify parameters match the new unified payload architecture
+    expect(calledArgs.userId).toBe(1);
+    expect(calledArgs.origin_path).toBe('user-management'); // Or 'user-registration' depending on this form's context
+    expect(calledArgs.body).toMatchObject({
       first_name: 'Jane',
       last_name: 'Doe',
       state: 'VA',
