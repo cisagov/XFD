@@ -476,16 +476,18 @@ def update_user_v2(
                 status_code=403, detail="Only global admins can update userType."
             )
 
-        if x_origin_path == "user-management" and user.invite_pending is True:
-            raise HTTPException(
-                status_code=403,
-                detail="Modifying a pending user is not permitted from the manage users screen.",
-            )
-
         # Check if allowed fields to update then execute
         # updates = user_data.dict(exclude_unset=True)
         updates = user_data.model_dump(exclude_unset=True)
         allowed_fields = get_allowed_user_update_fields(current_user, user)
+
+        if x_origin_path == "user-management" and (
+            user.invite_pending is True or updates.get("invite_pending") is True
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Modifying a pending user is not permitted from the manage users screen.",
+            )
 
         # Check for disallowed fields before applying updates
         requested_fields = set(updates.keys())
