@@ -16,6 +16,7 @@ import { organizationCols as orgCols } from './UserRegistrationColumns';
 import { User } from 'types';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { ElevationControl } from '../Users/ElevationControl';
+import { isCisaEmailDomain } from '@/utils/stringUtils';
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (organization: OrganizationType | null) => void;
@@ -45,7 +46,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-  const isNotCisaEmail = !loggedInUser?.email.endsWith('cisa.dhs.gov');
+  const isNotCisaEmail = !isCisaEmailDomain(loggedInUser?.email);
   const editedUser = pendingUsers.find(
     (userItem: User) => userItem.id === selectedUser.id
   );

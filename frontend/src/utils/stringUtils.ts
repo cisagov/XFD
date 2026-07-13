@@ -31,3 +31,12 @@ export function truncateString(inputString: string) {
   }
   return inputString.substring(0, cutOffIndex);
 }
+
+export const isCisaEmailDomain = (email?: string | null): boolean => {
+  if (!email) return false;
+  const atIndex = email.lastIndexOf('@');
+  if (atIndex <= 0 || atIndex === email.length - 1) return false;
+  const domain = email.slice(atIndex + 1).toLowerCase();
+  const allowedDomain = 'cisa.dhs.gov';
+  return domain === allowedDomain || domain.endsWith(`.${allowedDomain}`);
+};
