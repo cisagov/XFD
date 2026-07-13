@@ -4,7 +4,6 @@
 import asyncio
 import datetime
 import logging
-import os
 import socket
 import time
 import traceback
@@ -12,8 +11,6 @@ import traceback
 # Third-Party Libraries
 import aioping
 import numpy as np
-import openpyxl
-from openpyxl import load_workbook
 import pandas as pd
 import requests
 
@@ -351,26 +348,6 @@ def run_flare_ident_prune(orgs_list):
             pe_orgs_final.append(org_dict)
     # Alphabetize org list for consistent order
     pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
-    # Create file for exe time performance logging
-    pe_orgs_final_df = pd.DataFrame(pe_orgs_final)
-    current_date = datetime.date.today().strftime("%Y-%m-%d")
-    first_org = pe_orgs_final_df.iloc[0]["cyhy_db_name"]
-    last_org = pe_orgs_final_df.iloc[-1]["cyhy_db_name"]
-    exe_time_file = (
-        os.path.dirname(os.path.abspath(__file__))
-        + f"/exe_time_logs/flare_prune_logs/flare_prune_{current_date}_{first_org}-{last_org}_exe_times.xlsx"
-    )
-    if not os.path.exists(exe_time_file):
-        workbook = openpyxl.Workbook()
-        sheet = workbook["Sheet"]
-        sheet.append(
-            [
-                "timestamp",
-                "org_abbrv",
-                "exe_time",
-            ]
-        )
-        workbook.save(exe_time_file)
 
     # Begin Flare asset prune
     time_start = time.time()
@@ -409,13 +386,7 @@ def run_flare_ident_prune(orgs_list):
         LOGGER.info(
             "Auto-enumerated assets have been enabled/disabled based on responsiveness"
         )
-        # Save responsiveness results to file
-        prune_results_file = (
-            os.path.dirname(os.path.abspath(__file__))
-            + f"/flare_prune_results/flare_prune_results_{current_date}.xlsx"
-        )
-        all_resp_results.to_excel(prune_results_file, index=False)
-        # Print stats
+        # Log stats
         total_assets_tested = len(all_resp_results)
         total_enable_assets = len(
             all_resp_results.loc[all_resp_results["required_action"] == "ENABLE"]
@@ -423,29 +394,23 @@ def run_flare_ident_prune(orgs_list):
         total_disable_assets = len(
             all_resp_results.loc[all_resp_results["required_action"] == "DISABLE"]
         )
+        total_no_action = len(
+            all_resp_results.loc[all_resp_results["required_action"] == "NO ACTION"]
+        )
         post_prune_total = (
             total_assets_tested + total_enable_assets - total_disable_assets
         )
         LOGGER.info(f"Total Flare Assets Tested: {total_assets_tested}")
         LOGGER.info(f"Total Flare Assets Enabled: {total_enable_assets}")
         LOGGER.info(f"Total Flare Assets Disabled: {total_disable_assets}")
+        LOGGER.info(f"Total Flare Assets No Action: {total_no_action}")
         LOGGER.info(f"Total Flare Asssets Post Pruning: {post_prune_total}")
     except Exception as e:
         LOGGER.error(f"Encountered an error during Flare pruning script - {e}")
         traceback.print_exc()
 
-    # Write exe time to file
+    # Log execution time
     time_end = time.time()
-    org_exe_time = "{:.5f}".format(
-        datetime.timedelta(seconds=(time_end - time_start)).total_seconds()
-    )
-    org_exe_stats = [
-        str(datetime.datetime.now()),
-        "ALL ORGS",
-        org_exe_time,
-    ]
-    workbook = load_workbook(exe_time_file)
-    sheet = workbook["Sheet"]
-    sheet.append(org_exe_stats)
-    workbook.save(exe_time_file)
+    exe_time = datetime.timedelta(seconds=(time_end - time_start))
+    LOGGER.info("Flare Identifier Prune execution time: %s (H:M:S)", str(exe_time))
 
