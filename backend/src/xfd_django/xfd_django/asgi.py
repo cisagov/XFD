@@ -178,12 +178,14 @@ def get_application() -> FastAPI:
             LOGGER.warning(
                 f"UserID: {user_id} attempted unauthorized access to {request.url} - Responded with 403 Forbidden."
             )
-
+            error_detail = (
+                exc.detail
+                if exc.detail
+                else "You do not have permission to perform this action."
+            )
             return JSONResponse(
                 status_code=403,
-                content={
-                    "detail": "You do not have permission to perform this action."
-                },
+                content={"detail": error_detail},
             )
 
         return JSONResponse(
