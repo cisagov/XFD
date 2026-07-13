@@ -177,7 +177,8 @@ export const RegionUsers: React.FC = () => {
               ...(loggedInUser?.user_type === 'globalAdmin' && {
                 user_type: selectedUser.user_type
               })
-            }
+            },
+            headers: { 'X-Origin-Path': 'user-registration' }
           }
         );
 

@@ -255,7 +255,7 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
 
     try {
-      await updateUser(userId, body);
+      await updateUser({ userId, origin_path: 'user-management', body });
 
       if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId && values.originalRoleId) {
