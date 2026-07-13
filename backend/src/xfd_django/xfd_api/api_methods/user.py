@@ -228,7 +228,7 @@ def get_users(current_user):
                     else None
                 ),
                 "accepted_terms_version": user.accepted_terms_version,
-                "date_accepted_terms": user.date_accepted_terms,  # Example of a test field
+                "date_accepted_terms": user.date_accepted_terms,
                 "invite_pending": user.invite_pending,
                 "roles": [
                     {
