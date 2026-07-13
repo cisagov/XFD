@@ -4,6 +4,7 @@
 from datetime import datetime
 import logging
 import os
+from typing import Optional
 
 # Third-Party Libraries
 from django.conf import settings
@@ -450,7 +451,9 @@ def get_users_v2(state, region_id, invite_pending, current_user):
 
 
 # POST: /v2/update_user/{user_id}
-def update_user_v2(user_id, user_data, current_user):
+def update_user_v2(
+    user_id, user_data, current_user, x_origin_path: Optional[str] = None
+):
     """Update a particular user."""
     try:
         # Validate that the user ID is a valid UUID
@@ -471,6 +474,12 @@ def update_user_v2(user_id, user_data, current_user):
         if (not is_global_write_admin(current_user)) and user_data.user_type:
             raise HTTPException(
                 status_code=403, detail="Only global admins can update userType."
+            )
+
+        if x_origin_path == "user-management" and user.invite_pending is True:
+            raise HTTPException(
+                status_code=403,
+                detail="Modifying a pending user is not permitted from the manage users screen.",
             )
 
         # Check if allowed fields to update then execute

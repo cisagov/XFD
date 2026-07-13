@@ -1668,10 +1668,14 @@ async def call_get_users_v2(
 async def update_user_v2_view(
     user_id: str,
     user_data: UpdateUserV2,
+    request: Request,
     current_user: User = Depends(get_current_active_user_unsafe),
 ):
     """Update a particular user."""
-    return update_user_v2(user_id, user_data, current_user)
+    origin_path = request.headers.get("x-origin-path") or request.headers.get(
+        "X-Origin-Path"
+    )
+    return update_user_v2(user_id, user_data, current_user, origin_path)
 
 
 @api_router.post(
