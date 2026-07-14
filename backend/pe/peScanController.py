@@ -70,6 +70,7 @@ SCAN_CATALOG = {
     "dnstwist": {"scan": "dnstwist", "count": 142},
     # Default high so unspecified COUNT uses all valid Flare keys (clamped later).
     "flare_events": {"scan": "flare_events", "count": 50},
+    "flare_ident_prune": {"scan": "flare_ident_prune", "count": 1},
     "intelx": {"scan": "intelx", "count": 10},
     "shodan": {"scan": "shodan", "count": 3},
 }
