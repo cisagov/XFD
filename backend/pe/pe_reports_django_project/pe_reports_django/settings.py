@@ -11,6 +11,7 @@ DEBUG = os.environ.get("PE_API_DEBUG", "false").lower() in {"1", "true", "yes"}
 ALLOWED_HOSTS = ["*"]
 
 INSTALLED_APPS = [
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.postgres",
     "home.apps.HomeConfig",
