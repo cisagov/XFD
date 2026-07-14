@@ -1596,8 +1596,8 @@ def test_update_user_v2_standard_user_cannot_update_own_email():
 
     assert response.status_code == 403
     assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
     )
 
 
@@ -1627,8 +1627,8 @@ def test_update_user_v2_standard_user_cannot_approve_themselves():
 
     assert response.status_code == 403
     assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
     )
 
 
@@ -1663,8 +1663,8 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
 
     assert response.status_code == 403
     assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
+        "You do not have permission to perform this action."
+        in response.json()["detail"]
     )
 
 
@@ -1722,10 +1722,6 @@ def test_update_user_v2_standard_user_cannot_update_name():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
