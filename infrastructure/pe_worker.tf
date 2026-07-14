@@ -290,6 +290,7 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.ssm_flare_tenant_id.arn}"
       },
       {
+      {
         "name": "ELASTICSEARCH_ENDPOINT",
         "valueFrom": "${aws_ssm_parameter.es_endpoint.arn}"
       },
