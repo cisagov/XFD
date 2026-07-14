@@ -21,7 +21,6 @@ import { useUpdateUser } from '@/hooks/useUpdateUser';
 import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
 import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
 import { ElevationControl } from './ElevationControl';
-import { isCisaEmailDomain } from '@/utils/stringUtils';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -149,7 +148,6 @@ export const UserForm: React.FC<UserFormProps> = ({
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-  const isNotCisaEmail = !isCisaEmailDomain(loggedInUser?.email);
   const {
     organizations: organizationsInRegion,
     isLoading,
@@ -579,8 +577,7 @@ export const UserForm: React.FC<UserFormProps> = ({
               label="Global View"
               disabled={
                 loggedInUser?.user_type !== 'globalAdmin' ||
-                values?.invite_pending === true ||
-                isNotCisaEmail
+                values?.invite_pending === true
               }
             />
             {isPermittedEmail(values.email) && (
@@ -591,8 +588,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                   label="Regional Administrator"
                   disabled={
                     loggedInUser?.user_type !== 'globalAdmin' ||
-                    values?.invite_pending === true ||
-                    isNotCisaEmail
+                    values?.invite_pending === true
                   }
                 />
                 <FormControlLabel
@@ -601,8 +597,7 @@ export const UserForm: React.FC<UserFormProps> = ({
                   label="Global Administrator"
                   disabled={
                     loggedInUser?.user_type !== 'globalAdmin' ||
-                    values?.invite_pending === true ||
-                    isNotCisaEmail
+                    values?.invite_pending === true
                   }
                 />
               </>
@@ -671,9 +666,7 @@ export const UserForm: React.FC<UserFormProps> = ({
         values.org_id === '' ||
         (isNewGlobalAdmin &&
           confirmGlobalAdminChange !== 'Global Administrator') ||
-        (isNewRegionalOrGlobalView && !isRoleElevationConfirmed) ||
-        ((loggedInUser?.user_type !== 'globalAdmin' || isNotCisaEmail) &&
-          values.user_type !== 'standard')
+        (isNewRegionalOrGlobalView && !isRoleElevationConfirmed)
       }
     />
   );

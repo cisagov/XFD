@@ -16,7 +16,6 @@ import { organizationCols as orgCols } from './UserRegistrationColumns';
 import { User } from 'types';
 import { REGION_STATE_MAP, STATE_OPTIONS } from '@/constants/constants';
 import { ElevationControl } from '../Users/ElevationControl';
-import { isCisaEmailDomain } from '@/utils/stringUtils';
 export interface OrganizationSelectorProps {
   regionId: string | null | undefined;
   onSelectionChange: (organization: OrganizationType | null) => void;
@@ -39,14 +38,13 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   getUpdateError,
   pendingUsers
 }) => {
-  const { apiGet, user: loggedInUser } = useAuthContext();
+  const { apiGet } = useAuthContext();
   const [loading, setLoading] = useState<boolean>(false);
   const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [organizationsError, setOrganizationsError] = useState('');
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-  const isNotCisaEmail = !isCisaEmailDomain(loggedInUser?.email);
   const editedUser = pendingUsers.find(
     (userItem: User) => userItem.id === selectedUser.id
   );
@@ -187,19 +185,19 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
               value="globalView"
               control={<Radio color="primary" />}
               label="Global View"
-              disabled={formattedUserType !== 'Global Admin' || isNotCisaEmail}
+              disabled={formattedUserType !== 'Global Admin'}
             />
             <FormControlLabel
               value="regionalAdmin"
               control={<Radio color="primary" />}
               label="Regional Administrator"
-              disabled={formattedUserType !== 'Global Admin' || isNotCisaEmail}
+              disabled={formattedUserType !== 'Global Admin'}
             />
             <FormControlLabel
               value="globalAdmin"
               control={<Radio color="primary" />}
               label="Global Administrator"
-              disabled={formattedUserType !== 'Global Admin' || isNotCisaEmail}
+              disabled={formattedUserType !== 'Global Admin'}
             />
           </RadioGroup>
           <ElevationControl

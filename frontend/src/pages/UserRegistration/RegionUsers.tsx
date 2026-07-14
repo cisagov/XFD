@@ -28,7 +28,6 @@ import {
   getMemberUserColumns
 } from './UserRegistrationColumns';
 import { OrganizationSelector } from './OrganizationSelector';
-import { isCisaEmailDomain } from '@/utils/stringUtils';
 
 type DialogStates = {
   isOrgDialogOpen: boolean;
@@ -61,7 +60,6 @@ export const RegionUsers: React.FC = () => {
   const { formattedUserType } = useUserLevel();
   const getUsersURL = ENDPOINTS.USERS_V2 + '?invite_pending=';
   const theme = useTheme();
-  const isNotCisaEmail = !isCisaEmailDomain(loggedInUser?.email);
   const [dialogStates, setDialogStates] = useState<DialogStates>({
     isOrgDialogOpen: false,
     isDenyDialogOpen: false,
@@ -543,11 +541,7 @@ export const RegionUsers: React.FC = () => {
             getUpdateError={errorStates.getUpdateError}
           />
         }
-        disabled={
-          selectedOrg.ids.size === 0 ||
-          ((loggedInUser?.user_type !== 'globalAdmin' || isNotCisaEmail) &&
-            selectedUser.user_type !== 'standard')
-        }
+        disabled={selectedOrg.ids.size === 0}
         screenWidth="lg"
       />
       <ConfirmDialog
