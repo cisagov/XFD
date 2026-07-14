@@ -91,7 +91,7 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
       setOrganizationsError(e.message);
       setLoading(false);
     }
-  }, [regionId, apiGet, initialOrgId, onSelectionChange]);
+  }, [regionId, apiGet, initialOrgId, onSelectionChange, selectedUser?.state]);
 
   useEffect(() => {
     fetchOrganizations();
