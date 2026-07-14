@@ -182,7 +182,6 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
               value="standard"
               control={<Radio color="primary" />}
               label="Standard"
-              disabled={formattedUserType !== 'Global Admin' || isNotCisaEmail}
             />
             <FormControlLabel
               value="globalView"
