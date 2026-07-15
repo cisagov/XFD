@@ -128,3 +128,5 @@ automated_test_reports_bucket_name   = "cisa-crossfeed-integration-automated-tes
 playwright_worker_repository_name    = "crossfeed-playwright-integration-worker"
 backend_api_log_group_name           = "cyhy-integration-backend-api"
 backend_api_requests_log_group_name  = "cyhy-integration-backend-api-requests"
+ssm_dnsmonitor_client_id             = "/crossfeed/integration/DNSMONITOR_CLIENT_ID"
+ssm_dnsmonitor_client_secret         = "/crossfeed/integration/DNSMONITOR_CLIENT_SECRET"
