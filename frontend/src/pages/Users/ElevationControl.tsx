@@ -30,6 +30,14 @@ export const ElevationControl: React.FC<ElevationControlProps> = ({
       }
     }
   };
+
+  if (
+    values.user_type === 'globalAdmin' &&
+    confirmGlobalAdminChange === 'Global Administrator'
+  ) {
+    setIsRoleElevationConfirmed(true);
+  }
+
   if (!userRoleChanged || values.user_type === 'standard') return <></>;
   if (values.user_type === 'globalAdmin') {
     return (
@@ -57,7 +65,9 @@ export const ElevationControl: React.FC<ElevationControlProps> = ({
           type="text"
           fullWidth
           value={confirmGlobalAdminChange}
-          onChange={(event) => setConfirmGlobalAdminChange(event.target.value)}
+          onChange={(event) => {
+            setConfirmGlobalAdminChange(event.target.value);
+          }}
         />
       </>
     );
