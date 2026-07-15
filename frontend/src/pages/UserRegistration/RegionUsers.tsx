@@ -78,6 +78,18 @@ export const RegionUsers: React.FC = () => {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [currentUsers, setCurrentUsers] = useState<User[]>([]);
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
+  const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
+    useState(false);
+
+  const isNewGlobalAdmin =
+    pendingUsers?.find((userItem: User) => userItem.id === selectedUser.id)
+      ?.user_type !== selectedUser.user_type &&
+    selectedUser.user_type === 'globalAdmin';
+  const isNewRegionalOrGlobalView =
+    pendingUsers?.find((userItem: User) => userItem.id === selectedUser.id)
+      ?.user_type !== selectedUser.user_type &&
+    (selectedUser.user_type === 'regionalAdmin' ||
+      selectedUser.user_type === 'globalView');
 
   const fetchPendingUsers = useCallback(async () => {
     try {
@@ -539,9 +551,15 @@ export const RegionUsers: React.FC = () => {
             initialOrgId={selectedUser.roles[0]?.organization.id}
             onSelectionChange={handleOrgSelectionChange}
             getUpdateError={errorStates.getUpdateError}
+            isRoleElevationConfirmed={isRoleElevationConfirmed}
+            setIsRoleElevationConfirmed={setIsRoleElevationConfirmed}
           />
         }
-        disabled={selectedOrg.ids.size === 0}
+        disabled={
+          selectedOrg.ids.size === 0 ||
+          ((isNewGlobalAdmin || isNewRegionalOrGlobalView) &&
+            !isRoleElevationConfirmed)
+        }
         screenWidth="lg"
       />
       <ConfirmDialog

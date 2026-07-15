@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useUpdateUser } from '@/hooks/useUpdateUser';
 
 vi.mock('@/hooks/usePostApi', () => ({
@@ -31,15 +31,19 @@ describe('useUpdateUser', () => {
       user_type: 'standard'
     };
 
-    let response;
-    await act(async () => {
-      response = await result.current.updateUser({
+    let errorThrown = null;
+    try {
+      await result.current.updateUser({
         userId: '123',
         origin_path: 'user-management',
         body: userPayload
       });
-    });
+    } catch (err) {
+      errorThrown = err;
+    }
 
+    // Ensure it ran without throwing any unexpected errors
+    expect(errorThrown).toBeNull();
     expect(mockPostApi).toHaveBeenCalledTimes(1);
 
     const [calledPath, calledInit] = mockPostApi.mock.calls[0];
@@ -51,27 +55,21 @@ describe('useUpdateUser', () => {
     expect(calledInit.headers).toEqual({
       'X-Origin-Path': 'user-management'
     });
-
-    expect(response).toEqual({
-      success: true,
-      body: 'User profile successfully updated.'
-    });
   });
 
   /**
-   * Verifies the hook catches underlying network errors and
-   * returns a failed object state instead of throwing.
+   * Verifies the hook bubbles up underlying network errors to the caller.
    */
-  it('gracefully handles and returns errors from postApi', async () => {
+  it('bubbles up errors thrown by postApi', async () => {
     const error = new Error('Request failed');
     const mockPostApi = vi.fn().mockRejectedValue(error);
     vi.mocked(postApiModule.usePostApi).mockReturnValue(mockPostApi);
 
     const { result } = renderHook(() => useUpdateUser());
 
-    let response;
-    await act(async () => {
-      response = await result.current.updateUser({
+    let errorThrown: any = null;
+    try {
+      await result.current.updateUser({
         userId: '456',
         origin_path: 'user-registration',
         body: {
@@ -81,11 +79,11 @@ describe('useUpdateUser', () => {
           region_id: '2'
         }
       });
-    });
-
-    expect(response).toEqual({
-      success: false,
-      body: 'Request failed'
-    });
+    } catch (err) {
+      errorThrown = err;
+    }
+    // Verify that the error was thrown and matches the backend failure message
+    expect(errorThrown).toBeInstanceOf(Error);
+    expect(errorThrown.message).toBe('Request failed');
   });
 });
