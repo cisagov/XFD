@@ -1672,9 +1672,7 @@ async def update_user_v2_view(
     current_user: User = Depends(get_current_active_user_unsafe),
 ):
     """Update a particular user."""
-    origin_path = request.headers.get("x-origin-path") or request.headers.get(
-        "X-Origin-Path"
-    )
+    origin_path = request.headers.get("X-Origin-Path")
     return update_user_v2(user_id, user_data, current_user, origin_path)
 
 
