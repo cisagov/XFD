@@ -16,11 +16,6 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Max, Q
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
-from dmz_mini_dl.models import DataSource as MDL_DataSource
-from dmz_mini_dl.models import Organization as MDL_Organization
-from dmz_mini_dl.models import ShodanAssets as MDL_ShodanAssets
-from dmz_mini_dl.models import ShodanVulns as MDL_ShodanVulns
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 
@@ -586,51 +581,12 @@ def shodan_assets_insert(
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, insert intelx data
             update_create_count = 0
-            try:
-                mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
-
-            except MDL_DataSource.DoesNotExist:
-                LOGGER.warning("DataSource 'Shodan' not found.")
-                mdl_data_source = None  # Set to None if DataSource is not found
-
             for row in data.asset_data:
                 row_dict = row.__dict__
                 try:
                     org_instance = Organizations.objects.get(
                         organizations_uid=row_dict["organizations_uid"]
                     )
-
-                    acronym = org_instance.cyhy_db_name
-
-                    mdl_org = MDL_Organization.objects.get(acronym=acronym)
-
-                    mdl_asset_fields = {
-                        "asn": row_dict.get("asn"),
-                        "domains": row_dict.get("domains", []),
-                        "hostnames": row_dict.get("hostnames", []),
-                        "isp": row_dict.get("isn"),
-                        "organization_name": row_dict.get("organization"),
-                        "product": row_dict.get("product"),
-                        "tags": row_dict.get("tags", []),
-                        "country_code": row_dict.get("country_code"),
-                        "location": row_dict.get("location"),
-                        "data_source": mdl_data_source,
-                    }
-
-                    mdl_obj, created = MDL_ShodanAssets.objects.update_or_create(
-                        organization=mdl_org,  # Directly use organizations_uid
-                        ip=row_dict["ip"],
-                        port=row_dict["port"],
-                        protocol=row_dict["protocol"],
-                        timestamp=timezone.make_aware(
-                            parse_datetime(row_dict["timestamp"]), timezone.timezone.utc
-                        ),
-                        defaults=mdl_asset_fields,
-                    )
-                except Exception as e:
-                    LOGGER.warning(f"Shodan Asset failed to save to MDL: {e}")
-
-                try:
                     asset_fields = {
                         "asn": row_dict.get("asn"),
                         "domains": row_dict.get("domains", []),
@@ -694,73 +650,12 @@ def shodan_vulns_insert(
             userapiTokenverify(theapiKey=tokens)
             # If API key valid, insert intelx data
             create_cnt = 0
-            try:
-                mdl_data_source = MDL_DataSource.objects.get(name="Shodan")
-            except DataSource.DoesNotExist:
-                LOGGER.warning("DataSource for 'Shodan' not found.")
-                mdl_data_source = None  # Set to None if DataSource is not found
-
             for row in data.vuln_data:
                 row_dict = row.__dict__
                 try:
                     org_instance = Organizations.objects.get(
                         organizations_uid=row_dict["organizations_uid"]
                     )
-                    acronym = org_instance.cyhy_db_name
-
-                    mdl_org = MDL_Organization.objects.get(acronym=acronym)
-
-                    mdl_vuln_data = {
-                        "organization_name": row_dict.get("organization"),
-                        "cve": row_dict.get("cve"),
-                        "severity": row_dict.get("severity"),
-                        "cvss": row_dict.get("cvss"),
-                        "summary": row_dict.get("summary"),
-                        "product": row_dict.get("product"),
-                        "attack_vector": row_dict.get("attack_vector"),
-                        "av_description": row_dict.get("av_description"),
-                        "attack_complexity": row_dict.get("attack_complexity"),
-                        "ac_description": row_dict.get("ac_description"),
-                        "confidentiality_impact": row_dict.get(
-                            "confidentiality_impact"
-                        ),
-                        "ci_description": row_dict.get("ci_description"),
-                        "integrity_impact": row_dict.get("integrity_impact"),
-                        "ii_description": row_dict.get("ii_description"),
-                        "availability_impact": row_dict.get("availability_impact"),
-                        "ai_description": row_dict.get("ai_description"),
-                        "tags": row_dict.get("tags"),
-                        "domains": row_dict.get("domains"),
-                        "hostnames": row_dict.get("hostnames"),
-                        "isp": row_dict.get("isn"),
-                        "asn": row_dict.get("asn"),
-                        "data_source": mdl_data_source,
-                        "type": row_dict.get("type"),
-                        "name": row_dict.get("name"),
-                        "potential_vulns": row_dict.get("potential_vulns"),
-                        "mitigation": row_dict.get("mitigation"),
-                        "server": row_dict.get("server"),
-                        "is_verified": row_dict.get("is_verified"),
-                        "banner": row_dict.get("banner"),
-                        "version": row_dict.get("version"),
-                        "cpe": row_dict.get("cpe"),
-                    }
-
-                    mdl_obj, created = MDL_ShodanVulns.objects.update_or_create(
-                        organization=mdl_org,  # Directly use organizations_uid
-                        ip=row_dict["ip"],
-                        port=row_dict["port"],
-                        protocol=row_dict["protocol"],
-                        timestamp=timezone.make_aware(
-                            parse_datetime(row_dict["timestamp"])
-                        ),
-                        defaults=mdl_vuln_data,
-                    )
-
-                except Exception as e:
-                    LOGGER.warning(f"Shodan Vuln failed to save to MDL: {e}")
-
-                try:
                     vuln_data = {
                         "organization": row_dict.get("organization"),
                         "cve": row_dict.get("cve"),
