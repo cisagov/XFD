@@ -4,7 +4,8 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist".
+    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist",
+                 "flare_events".
 
 Options:
     -h --help                       Show this message.
@@ -27,6 +28,7 @@ import pe_reports
 from pe_source._version import __version__
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
+from pe_source.flare import run_flare_events
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
@@ -39,6 +41,14 @@ def run_pe_script(source, orgs_list):
         run_dnsmonitor(orgs_list)
     elif source == "dnstwist":
         run_dnstwist(orgs_list)
+    elif source == "flare_events":
+        if not os.environ.get("FLARE_API_KEY", "").strip():
+            LOGGER.error(
+                "FLARE_API_KEY is not set. peScanController assigns one validated "
+                "key per flare_events worker container."
+            )
+            sys.exit(1)
+        run_flare_events(orgs_list)
     else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)

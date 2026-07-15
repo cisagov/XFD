@@ -6,12 +6,14 @@ from decimal import Decimal
 import json
 import logging
 import sys
+import uuid
 
 # Third-Party Libraries
 import pandas as pd
 from pe_reports.data.config import config, staging_config
 import psycopg2
 from psycopg2 import OperationalError
+from psycopg2.extras import execute_values
 import requests
 
 LOGGER = logging.getLogger(__name__)
@@ -323,6 +325,59 @@ def get_subdomain_uid(domain):
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+
+
+def insert_flare_events(event_list):
+    """Insert list of flare event dictionaries into the PE DB."""
+    if not event_list:
+        return
+
+    rows = [
+        (
+            event.get("flare_events_uid") or str(uuid.uuid1()),
+            event.get("organizations_uid"),
+            event.get("flare_uid"),
+            event.get("event_type"),
+            event.get("event_date"),
+            event.get("collection_date"),
+            event.get("title"),
+            event.get("content"),
+            event.get("content_hash"),
+            event.get("actor"),
+            event.get("category"),
+            event.get("source"),
+            event.get("url"),
+            event.get("risk_scores"),
+            event.get("related_identifiers"),
+            event.get("data_source_uid"),
+            event.get("severity"),
+            event.get("related_identifiers_txt"),
+        )
+        for event in event_list
+    ]
+
+    query = """
+        INSERT INTO flare_events(
+            flare_events_uid, organizations_uid, flare_uid, event_type, event_date,
+            collection_date, title, content, content_hash, actor, category, source,
+            url, risk_scores, related_identifiers, data_source_uid, severity,
+            related_identifiers_txt
+        ) VALUES %s
+        ON CONFLICT (organizations_uid, flare_uid)
+        DO UPDATE SET
+            event_date = EXCLUDED.event_date,
+            collection_date = EXCLUDED.collection_date,
+            title = EXCLUDED.title,
+            content = EXCLUDED.content,
+            related_identifiers = EXCLUDED.related_identifiers,
+            related_identifiers_txt = EXCLUDED.related_identifiers_txt
+    """
+    conn = connect()
+    cursor = conn.cursor()
+    execute_values(cursor, query, rows)
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 def get_dnsmonitor_domain_mapping():

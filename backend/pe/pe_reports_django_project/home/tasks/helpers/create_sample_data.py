@@ -11,6 +11,7 @@ from home.models import DataSource, Organizations, RootDomains
 DNSMONITOR_SOURCE_UID = uuid.uuid4
 DNSTWIST_SOURCE_UID = uuid.uuid4
 FINDOMAIN_SOURCE_UID = uuid.uuid4
+FLARE_SOURCE_UID = uuid.uuid4
 DHS_ORG_UID = uuid.uuid4
 DHS_CISA_ORG_UID = uuid.uuid4
 DHS_ROOT_UID = uuid.uuid4
@@ -65,6 +66,14 @@ def populate_sample_data():
             "last_run": today,
         },
     )
+    flare_source, _ = DataSource.objects.update_or_create(
+        name="Flare",
+        defaults={
+            "data_source_uid": FLARE_SOURCE_UID,
+            "description": "Flare dark web monitoring",
+            "last_run": today,
+        },
+    )
 
     org_names = []
     for org_spec in SAMPLE_ORGS:
@@ -96,6 +105,7 @@ def populate_sample_data():
             dnsmonitor_source.name,
             dnstwist_source.name,
             findomain_source.name,
+            flare_source.name,
         ],
         "organizations": org_names,
     }

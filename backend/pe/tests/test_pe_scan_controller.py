@@ -76,6 +76,12 @@ class ResolveScansTests(unittest.TestCase):
         scans = resolve_scans([{"scan": "dnstwist", "count": 99}], task_count=2)
         self.assertEqual(scans[0]["count"], 2)
 
+    def test_catalog_includes_flare_events(self):
+        """flare_events should be available in the PE scan catalog."""
+        scans = resolve_scans(["flare_events"])
+        self.assertEqual(scans[0]["scan"], "flare_events")
+        self.assertGreaterEqual(scans[0]["count"], 1)
+
     def test_unknown_scan_raises(self):
         """Unknown scan names should raise ValueError."""
         with self.assertRaises(ValueError):

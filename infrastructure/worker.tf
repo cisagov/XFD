@@ -102,6 +102,8 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.ssm_dmz_sync_endpoint.arn,
           data.aws_ssm_parameter.ssm_dnsmonitor_client_id.arn,
           data.aws_ssm_parameter.ssm_dnsmonitor_client_secret.arn,
+          data.aws_ssm_parameter.ssm_flare_tenant_id.arn,
+          data.aws_ssm_parameter.ssm_flare_api_keys.arn,
           data.aws_ssm_parameter.ssm_latest_port_scan_cutoff.arn,
           data.aws_ssm_parameter.ssm_mdl_name.arn,
           data.aws_ssm_parameter.ssm_mdl_password.arn,
@@ -625,6 +627,10 @@ data "aws_ssm_parameter" "ssm_nist_api_key" { name = var.ssm_nist_api_key }
 data "aws_ssm_parameter" "ssm_dnsmonitor_client_id" { name = var.ssm_dnsmonitor_client_id }
 
 data "aws_ssm_parameter" "ssm_dnsmonitor_client_secret" { name = var.ssm_dnsmonitor_client_secret }
+
+data "aws_ssm_parameter" "ssm_flare_tenant_id" { name = var.ssm_flare_tenant_id }
+
+data "aws_ssm_parameter" "ssm_flare_api_keys" { name = var.ssm_flare_api_keys }
 
 resource "aws_s3_bucket" "export_bucket" {
   bucket = var.export_bucket_name
