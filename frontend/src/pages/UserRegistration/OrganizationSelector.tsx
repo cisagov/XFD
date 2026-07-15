@@ -28,6 +28,8 @@ export interface OrganizationSelectorProps {
   pendingUsers: User[];
   isRoleElevationConfirmed: boolean;
   setIsRoleElevationConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
+  confirmGlobalAdminChange: string | undefined;
+  setConfirmGlobalAdminChange: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
@@ -40,13 +42,14 @@ export const OrganizationSelector: React.FC<OrganizationSelectorProps> = ({
   getUpdateError,
   pendingUsers,
   isRoleElevationConfirmed,
-  setIsRoleElevationConfirmed
+  setIsRoleElevationConfirmed,
+  confirmGlobalAdminChange = '',
+  setConfirmGlobalAdminChange
 }) => {
   const { apiGet } = useAuthContext();
   const [loading, setLoading] = useState<boolean>(false);
   const [organizations, setOrganizations] = useState<OrganizationType[]>([]);
   const [organizationsError, setOrganizationsError] = useState('');
-  const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const editedUser = pendingUsers.find(
     (userItem: User) => userItem.id === selectedUser.id
   );

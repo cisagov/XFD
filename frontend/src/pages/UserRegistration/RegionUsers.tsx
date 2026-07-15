@@ -80,7 +80,7 @@ export const RegionUsers: React.FC = () => {
   const [infoDialogContent, setInfoDialogContent] = useState<String>('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-
+  const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const isNewGlobalAdmin =
     pendingUsers?.find((userItem: User) => userItem.id === selectedUser.id)
       ?.user_type !== selectedUser.user_type &&
@@ -553,12 +553,15 @@ export const RegionUsers: React.FC = () => {
             getUpdateError={errorStates.getUpdateError}
             isRoleElevationConfirmed={isRoleElevationConfirmed}
             setIsRoleElevationConfirmed={setIsRoleElevationConfirmed}
+            confirmGlobalAdminChange={confirmGlobalAdminChange}
+            setConfirmGlobalAdminChange={setConfirmGlobalAdminChange}
           />
         }
         disabled={
           selectedOrg.ids.size === 0 ||
-          ((isNewGlobalAdmin || isNewRegionalOrGlobalView) &&
-            !isRoleElevationConfirmed)
+          (isNewGlobalAdmin &&
+            confirmGlobalAdminChange !== 'Global Administrator') ||
+          (isNewRegionalOrGlobalView && !isRoleElevationConfirmed)
         }
         screenWidth="lg"
       />
