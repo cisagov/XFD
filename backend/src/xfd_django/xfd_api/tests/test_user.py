@@ -1029,6 +1029,7 @@ def test_get_users_by_region_id_as_regional_admin():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
     )
 
     user1 = User.objects.create(
@@ -1039,6 +1040,7 @@ def test_get_users_by_region_id_as_regional_admin():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
     )
 
     user2 = User.objects.create(
@@ -1049,6 +1051,7 @@ def test_get_users_by_region_id_as_regional_admin():
         region_id="1",
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        invite_pending=False,
     )
 
     response = client.get(
@@ -1126,6 +1129,7 @@ def test_get_users_by_state_as_regional_admin():
         email="{}@example.com".format(secrets.token_hex(4)),
         user_type=UserType.REGIONAL_ADMIN,
         state="CA",
+        invite_pending=False,
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
@@ -1391,7 +1395,10 @@ def test_update_user_v2_as_global_admin():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(global_admin)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 200
@@ -1427,7 +1434,10 @@ def test_update_user_v2_as_standard_user_fails():
     response = client.post(
         "/v2/update_user/{}".format(target_user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(standard_user))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(standard_user)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 403
@@ -1475,7 +1485,10 @@ def test_update_user_v2_non_existent_user():
     response = client.post(
         "/v2/update_user/{}".format(fake_user_id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(global_admin))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(global_admin)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 404
@@ -1508,7 +1521,49 @@ def test_update_user_v2_update_userType_by_non_admin_fails():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(regional_admin)),
+            "X-Origin-Path": "user-registration",
+        },
+    )
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == "You do not have permission to perform this action."
+    )
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
+def test_update_user_v2_from_management_screen_on_pending_user_fails():
+    """Test that modifying a pending user status is blocked from the management screen."""
+    global_admin = User.objects.create(
+        first_name="Admin",
+        last_name="Global",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.GLOBAL_ADMIN,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    user = User.objects.create(
+        first_name="User",
+        last_name="Test",
+        email="{}@example.com".format(secrets.token_hex(4)),
+        user_type=UserType.STANDARD,
+        invite_pending=True,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
+    )
+
+    payload = {"first_name": "Attempted Edit"}
+
+    response = client.post(
+        "/v2/update_user/{}".format(user.id),
+        json=payload,
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(global_admin)),
+            "X-Origin-Path": "user-management",
+        },
     )
 
     assert response.status_code == 403
@@ -1533,7 +1588,10 @@ def test_update_user_v2_standard_user_cannot_update_own_email():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(user)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 403
@@ -1561,7 +1619,10 @@ def test_update_user_v2_standard_user_cannot_approve_themselves():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(user)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 403
@@ -1594,7 +1655,10 @@ def test_update_user_v2_regional_admin_cannot_update_user_type():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(regional_admin)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 403
@@ -1627,7 +1691,10 @@ def test_update_user_v2_regional_admin_can_update_in_region_state():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(regional_admin))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(regional_admin)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 200
@@ -1648,7 +1715,10 @@ def test_update_user_v2_standard_user_cannot_update_name():
     response = client.post(
         "/v2/update_user/{}".format(user.id),
         json=payload,
-        headers={"Authorization": "Bearer {}".format(create_jwt_token(user))},
+        headers={
+            "Authorization": "Bearer {}".format(create_jwt_token(user)),
+            "X-Origin-Path": "user-registration",
+        },
     )
 
     assert response.status_code == 403

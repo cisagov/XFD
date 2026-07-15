@@ -4,6 +4,7 @@
 from datetime import datetime
 import logging
 import os
+from typing import Optional
 
 # Third-Party Libraries
 from django.conf import settings
@@ -228,6 +229,7 @@ def get_users(current_user):
                 ),
                 "accepted_terms_version": user.accepted_terms_version,
                 "date_accepted_terms": user.date_accepted_terms,
+                "invite_pending": user.invite_pending,
                 "roles": [
                     {
                         "id": str(role.id),
@@ -421,6 +423,7 @@ def get_users_v2(state, region_id, invite_pending, current_user):
                     else None
                 ),
                 "accepted_terms_version": user.accepted_terms_version,
+                "invite_pending": user.invite_pending,
                 "roles": [
                     {
                         "id": str(role.id),
@@ -448,7 +451,9 @@ def get_users_v2(state, region_id, invite_pending, current_user):
 
 
 # POST: /v2/update_user/{user_id}
-def update_user_v2(user_id, user_data, current_user):
+def update_user_v2(
+    user_id, user_data, current_user, x_origin_path: Optional[str] = None
+):
     """Update a particular user."""
     try:
         # Validate that the user ID is a valid UUID
@@ -475,6 +480,14 @@ def update_user_v2(user_id, user_data, current_user):
         # updates = user_data.dict(exclude_unset=True)
         updates = user_data.model_dump(exclude_unset=True)
         allowed_fields = get_allowed_user_update_fields(current_user, user)
+
+        if x_origin_path == "user-management" and (
+            user.invite_pending is True or updates.get("invite_pending") is True
+        ):
+            raise HTTPException(
+                status_code=403,
+                detail="Modifying a pending user is not permitted from the manage users screen.",
+            )
 
         # Check for disallowed fields before applying updates
         requested_fields = set(updates.keys())
@@ -539,6 +552,7 @@ def update_user_v2(user_id, user_data, current_user):
             "full_name": user.full_name,
             "email": updated_user.email,
             "region_id": updated_user.region_id,
+            "invite_pending": updated_user.invite_pending,
             "state": updated_user.state,
             "user_type": updated_user.user_type,
             "last_logged_in": user.last_logged_in,
