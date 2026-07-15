@@ -8,6 +8,8 @@ fastapi>=0.100
 pandas
 psycopg2-binary
 pydantic>=1.10,<3
+python-decouple==3.6
 requests
 schema
+shodan==1.27.0
 uvicorn[standard]>=0.23
