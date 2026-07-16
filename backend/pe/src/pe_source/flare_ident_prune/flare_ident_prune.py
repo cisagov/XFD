@@ -6,7 +6,6 @@ import datetime
 import logging
 import socket
 import time
-import traceback
 
 # Third-Party Libraries
 import aioping
@@ -406,8 +405,7 @@ def run_flare_ident_prune(orgs_list):
         LOGGER.info(f"Total Flare Assets No Action: {total_no_action}")
         LOGGER.info(f"Total Flare Asssets Post Pruning: {post_prune_total}")
     except Exception as e:
-        LOGGER.error(f"Encountered an error during Flare pruning script - {e}")
-        traceback.print_exc()
+        LOGGER.exception("Encountered an error during Flare pruning script - %s", e)
 
     # Log execution time
     time_end = time.time()
