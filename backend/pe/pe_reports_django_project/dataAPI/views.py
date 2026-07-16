@@ -95,18 +95,40 @@ def create_access_token(
 
 def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
     """When api apiKey is expired a new key is created and updated in the database."""
+    if user_id in (None, ""):
+        LOGGER.warning(
+            "Cannot refresh access token: no apiUser/user id associated with key"
+        )
+        return
+
     LOGGER.info(f"The expired access token is {expiredaccessToken}")
     theusername = ""
-    user_record = list(User.objects.filter(id=f"{user_id}"))
+    try:
+        user_record = list(User.objects.filter(id=user_id))
+    except (TypeError, ValueError) as err:
+        LOGGER.warning(
+            "Cannot refresh access token: invalid user id %r (%s)", user_id, err
+        )
+        return
 
     # user_record = User.objects.get(id=user_id)
 
+    theuserid = None
     for u in user_record:
         theusername = u.username
         theuserid = u.id
+    if not theusername:
+        LOGGER.warning("Cannot refresh access token: Django user %r not found", user_id)
+        return
     LOGGER.info(f"The username is {theusername} with a user of {theuserid}")
 
-    updateapiuseraccessToken = apiUser.objects.get(apiKey=expiredaccessToken)
+    try:
+        updateapiuseraccessToken = apiUser.objects.get(apiKey=expiredaccessToken)
+    except apiUser.DoesNotExist:
+        LOGGER.warning(
+            "Cannot refresh access token: apiUser row not found for expired key"
+        )
+        return
     # updateapiuserrefreshToken = apiUser.objects.get(refresh_token=expiredrefreshToken)
 
     updateapiuseraccessToken.apiKey = f"{create_access_token(theusername)}"
@@ -122,6 +144,12 @@ def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
 
 def userapiTokenverify(theapiKey):
     """Check to see if api key is expired."""
+    # Scan workers authenticate with the static PE_API_KEY (not a JWT).
+    expected = os.environ.get("PE_API_KEY", "")
+    if theapiKey and expected and theapiKey == expected:
+        LOGGER.info("Accepted PE_API_KEY for service authentication")
+        return
+
     tokenRecords = list(apiUser.objects.filter(apiKey=theapiKey))
     LOGGER.info(f"The user provided key is {theapiKey}")
     user_key = ""
@@ -139,13 +167,20 @@ def userapiTokenverify(theapiKey):
     try:
         jwt.decode(
             theapiKey,
-            PE_JWT_REFRESH_SECRET,
-            algorithms=ALGORITHM,
-            options={"verify_signature": False},
+            PE_JWT_SECRET,
+            algorithms=[ALGORITHM],
         )
         LOGGER.info(f"The api key was alright {theapiKey}")
 
     except exceptions.JWTError:
+        if not user_key or user_id in (None, ""):
+            LOGGER.warning(
+                "JWT verification failed and no apiUser record is available to refresh"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Could not validate credentials",
+            )
         LOGGER.warning("The access token has expired and will be updated")
         userapiTokenUpdate(user_key, user_refresh, theapiKey, user_id)
 

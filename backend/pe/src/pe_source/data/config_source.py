@@ -1,8 +1,6 @@
 """File for managing parameters and authentication for pe_source."""
 
 # Standard Python Libraries
-from configparser import ConfigParser
-from importlib.resources import files
 import logging
 import os
 
@@ -11,10 +9,6 @@ import requests
 from requests.adapters import HTTPAdapter
 import shodan
 from urllib3.util.retry import Retry
-
-# Configuration
-# Currently pulling api keys from this local file. Will eventually call the environment variable directly from .env file.
-REPORT_DB_CONFIG = files("pe_reports").joinpath("data/database.ini")
 
 # Setup Logging
 LOGGER = logging.getLogger(__name__)
@@ -70,34 +64,19 @@ def get_dnsmonitor_token():
 
 
 def shodan_api_init():
-    """Connect to Shodan API."""
-    section = "shodan"
-    api_list = []
-    if os.path.isfile(REPORT_DB_CONFIG):
-        parser = ConfigParser()
-        parser.read(REPORT_DB_CONFIG, encoding="utf-8")
-        if parser.has_section(section):
-            params = parser.items(section)
-        else:
-            raise Exception(
-                "Section {} not found in the {} file".format(section, REPORT_DB_CONFIG)
-            )
-    else:
-        raise Exception(
-            "Database.ini file not found at this path: {}".format(REPORT_DB_CONFIG)
+    """Connect to Shodan API using the single key assigned to this worker."""
+    api_key = os.environ.get("PE_SHODAN_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError(
+            "PE_SHODAN_API_KEY is not set; peScanController assigns one key per worker"
         )
 
-    # Validate API keys
-    for key in params:
-        try:
-            # Test API key
-            api = shodan.Shodan(key[1])
-            api.info()
-        except Exception as e:
-            if str(e) == "Invalid API key":
-                # Only ommit key if genuinely invalid
-                LOGGER.error("Invalid Shodan API key: {}".format(key))
-                continue
-        api_list.append(api)
-    LOGGER.info("Number of valid Shodan API keys: {}".format(len(api_list)))
-    return api_list
+    api = shodan.Shodan(api_key)
+    try:
+        api.info()
+    except Exception as e:
+        LOGGER.error("Invalid Shodan API key: %s", e)
+        raise
+
+    LOGGER.info("Initialized Shodan API with PE_SHODAN_API_KEY")
+    return [api]

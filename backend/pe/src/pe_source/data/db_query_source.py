@@ -371,7 +371,7 @@ def get_ips(org_uid):
     try:
         result = requests.get(endpoint_url, headers=headers, timeout=60).json()
         # Process data and return
-        return result
+        return result if isinstance(result, list) else []
     except requests.exceptions.HTTPError as errh:
         LOGGER.error(errh)
     except requests.exceptions.ConnectionError as errc:
@@ -382,6 +382,7 @@ def get_ips(org_uid):
         LOGGER.error(err)
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
+    return []
 
 
 # --- Issue 016 atc-framework ---

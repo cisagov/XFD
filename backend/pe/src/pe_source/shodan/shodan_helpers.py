@@ -33,7 +33,7 @@ def run_shodan_thread(api, org_chunk, thread_name):
         start, end = get_dates()
         # Retrieve IPs for this org
         try:
-            ips = get_ips(org_uid)
+            ips = get_ips(org_uid) or []
         except Exception as e:
             LOGGER.error("{} Failed fetching IPs for {}.".format(thread_name, org_name))
             LOGGER.error("{} {} - {}".format(thread_name, e, org_name))

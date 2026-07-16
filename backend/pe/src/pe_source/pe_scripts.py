@@ -41,6 +41,12 @@ def run_pe_script(source, orgs_list):
     elif source == "dnstwist":
         run_dnstwist(orgs_list)
     elif source == "shodan":
+        if not os.environ.get("PE_SHODAN_API_KEY", "").strip():
+            LOGGER.error(
+                "PE_SHODAN_API_KEY is not set. peScanController assigns one "
+                "validated key per shodan worker container."
+            )
+            sys.exit(1)
         shodan = Get_shodan(orgs_list)
         shodan.run_shodan()
     else:

@@ -42,11 +42,15 @@ class Get_shodan:
                 else:
                     continue
         else:
+            if isinstance(orgs_list, str):
+                requested = {
+                    part.strip() for part in orgs_list.split(",") if part.strip()
+                }
+            else:
+                requested = set(orgs_list)
             for pe_org in pe_orgs:
-                if pe_org["cyhy_db_name"] in orgs_list:
+                if pe_org["cyhy_db_name"] in requested:
                     pe_orgs_final.append(pe_org)
-                else:
-                    continue
         # alphabetize orgs for consistent order
         pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
 
