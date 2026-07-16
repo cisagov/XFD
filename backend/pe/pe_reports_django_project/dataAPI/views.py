@@ -11,7 +11,9 @@ import uuid
 
 # Third-Party Libraries
 from dataAPI import schemas
-from decouple import config
+
+# from decouple import config
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Max, Q
@@ -41,8 +43,10 @@ api_router = APIRouter()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 ALGORITHM = "HS256"
-JWT_SECRET_KEY = config("JWT_SECRET_KEY")  # should be kept secret
-JWT_REFRESH_SECRET_KEY = config("JWT_REFRESH_SECRET_KEY")  # should be kept secret
+# PE_JWT_SECRET = config("PE_JWT_SECRET")  # should be kept secret
+# PE_JWT_REFRESH_SECRET = config("PE_JWT_REFRESH_SECRET")  # should be kept secret
+PE_JWT_SECRET = settings.PE_JWT_SECRET
+PE_JWT_REFRESH_SECRET = settings.PE_JWT_REFRESH_SECRET
 
 API_KEY_NAME = "access_token"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
@@ -85,7 +89,7 @@ def create_access_token(
         )
 
     to_encode = {"exp": expires_date, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, PE_JWT_SECRET, ALGORITHM)
     return encoded_jwt
 
 
@@ -135,7 +139,7 @@ def userapiTokenverify(theapiKey):
     try:
         jwt.decode(
             theapiKey,
-            config("JWT_REFRESH_SECRET_KEY"),
+            PE_JWT_REFRESH_SECRET,
             algorithms=ALGORITHM,
             options={"verify_signature": False},
         )

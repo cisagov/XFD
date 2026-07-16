@@ -148,3 +148,71 @@ class DomainAlertsInsertInput(BaseModel):
     """Request body for domain_alerts_insert."""
 
     insert_data: List[DomainAlertsInsert]
+
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+# Insert bulk Shodan data into shodan_assets table
+class ShodanAssetsInsert(BaseModel):
+    """ShodanAssetsInsert schema class."""
+
+    email: Optional[str] = None
+    organizations_uid: Optional[str] = None
+    root_domain: Optional[str] = None
+    sub_domain: Optional[str] = None
+    modified_date: Optional[str] = None
+    breach_name: Optional[str] = None
+    credential_breaches_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    name: Optional[str] = None
+
+    class Config:
+        """ShodanAssetsInsert schema config class."""
+
+        orm_mode = True
+
+
+# --- insert_shodan_assets(), Issue 016 atc-framework ---
+# Insert bulk Shodan data into shodan_assets table, input
+class ShodanAssetsInsertInput(BaseModel):
+    """ShodanAssetsInsertInput schema class."""
+
+    asset_data: List[ShodanAssetsInsert]
+
+    class Config:
+        """ShodanAssetsInsertInput schema config class."""
+
+        orm_mode = True
+
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+# Insert bulk Shodan data into shodan_vulns table
+class ShodanVulnsInsert(BaseModel):
+    """ShodanVulnsInsert schema class."""
+
+    email: Optional[str] = None
+    organizations_uid: Optional[str] = None
+    root_domain: Optional[str] = None
+    sub_domain: Optional[str] = None
+    modified_date: Optional[str] = None
+    breach_name: Optional[str] = None
+    credential_breaches_uid: Optional[str] = None
+    data_source_uid: Optional[str] = None
+    name: Optional[str] = None
+
+    class Config:
+        """ShodanVulnsInsert schema config class."""
+
+        orm_mode = True
+
+
+# --- insert_shodan_vulns(), Issue 017 atc-framework ---
+# Insert bulk Shodan data into shodan_vulns table, input
+class ShodanVulnsInsertInput(BaseModel):
+    """ShodanVulnsInsertInput schema class."""
+
+    vulns_data: List[ShodanVulnsInsert]
+
+    class Config:
+        """ShodanVulnsInsertInput schema config class."""
+
+        orm_mode = True
