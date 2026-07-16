@@ -4,7 +4,7 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist".
+    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan".
 
 Options:
     -h --help                       Show this message.
@@ -27,6 +27,7 @@ import pe_reports
 from pe_source._version import __version__
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
+from pe_source.shodan.shodan_script import Get_shodan
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
@@ -39,6 +40,15 @@ def run_pe_script(source, orgs_list):
         run_dnsmonitor(orgs_list)
     elif source == "dnstwist":
         run_dnstwist(orgs_list)
+    elif source == "shodan":
+        if not os.environ.get("PE_SHODAN_API_KEY", "").strip():
+            LOGGER.error(
+                "PE_SHODAN_API_KEY is not set. peScanController assigns one "
+                "validated key per shodan worker container."
+            )
+            sys.exit(1)
+        shodan = Get_shodan(orgs_list)
+        shodan.run_shodan()
     else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)
