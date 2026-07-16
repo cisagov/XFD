@@ -57,12 +57,13 @@ SCAN_CATALOG = {
     "dnstwist": {"scan": "dnstwist", "count": 142},
     "intelx": {"scan": "intelx", "count": 10},
     "shodan": {"scan": "shodan", "count": 3, "apiKeys": ""},
+    "shodan_top_cves": {"scan": "shodan_top_cves", "count": 3, "apiKeys": ""},
 }
 
 ORG_BATCH_SHORTCUTS = frozenset({"all", "DEMO"})
 ORG_EXPAND_SHORTCUTS = frozenset({"all-orgs", "demo-orgs"})
 
-SHODAN_SCANS = {"shodan", "asmSync"}
+SHODAN_SCANS = {"shodan", "asmSync", "shodan_top_cves"}
 
 
 def is_local_mode(event: Dict[str, Any] | None = None) -> bool:
