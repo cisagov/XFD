@@ -18,6 +18,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models import Max, Q
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
 
@@ -621,19 +622,20 @@ def shodan_assets_insert(
             # If API key valid, insert intelx data
             update_create_count = 0
             for row in data.asset_data:
-                row_dict = row.__dict__
+                row_dict = row.model_dump()
                 try:
                     org_instance = Organizations.objects.get(
                         organizations_uid=row_dict["organizations_uid"]
                     )
                     asset_fields = {
                         "asn": row_dict.get("asn"),
-                        "domains": row_dict.get("domains", []),
-                        "hostnames": row_dict.get("hostnames", []),
+                        "domains": row_dict.get("domains") or [],
+                        "hostnames": row_dict.get("hostnames") or [],
                         "isn": row_dict.get("isn"),
                         "organization": row_dict.get("organization"),
                         "product": row_dict.get("product"),
-                        "tags": row_dict.get("tags", []),
+                        "server": row_dict.get("server"),
+                        "tags": row_dict.get("tags") or [],
                         "country_code": row_dict.get("country_code"),
                         "location": row_dict.get("location"),
                         "data_source_uid_id": row_dict.get("data_source_uid"),
@@ -646,8 +648,8 @@ def shodan_assets_insert(
                         port=row_dict["port"],
                         protocol=row_dict["protocol"],
                         timestamp=timezone.make_aware(
-                            dt.strptime(row_dict["timestamp"], "%Y-%m-%dT%H:%M:%S.%f"),
-                            timezone.timezone.utc,
+                            parse_datetime(row_dict["timestamp"]),
+                            dt_timezone.utc,
                         ),
                         defaults=asset_fields,
                     )
@@ -690,7 +692,7 @@ def shodan_vulns_insert(
             # If API key valid, insert intelx data
             create_cnt = 0
             for row in data.vuln_data:
-                row_dict = row.__dict__
+                row_dict = row.model_dump()
                 try:
                     org_instance = Organizations.objects.get(
                         organizations_uid=row_dict["organizations_uid"]
@@ -737,7 +739,8 @@ def shodan_vulns_insert(
                         port=row_dict["port"],
                         protocol=row_dict["protocol"],
                         timestamp=timezone.make_aware(
-                            dt.strptime(row_dict["timestamp"], "%Y-%m-%dT%H:%M:%S.%f")
+                            parse_datetime(row_dict["timestamp"]),
+                            dt_timezone.utc,
                         ),
                         defaults=vuln_data,
                     )
