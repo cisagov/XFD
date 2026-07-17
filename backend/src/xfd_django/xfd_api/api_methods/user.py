@@ -481,6 +481,8 @@ def update_user_v2(
         updates = user_data.model_dump(exclude_unset=True)
         allowed_fields = get_allowed_user_update_fields(current_user, user)
 
+        # TODO: CRASM-4055 Create a separate endpoint or harden
+        # "Manage Users" screen to prevent modifying pending users.
         if x_origin_path == "user-management" and (
             user.invite_pending is True or updates.get("invite_pending") is True
         ):

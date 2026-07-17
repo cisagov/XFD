@@ -25,6 +25,8 @@ api:
             - Origin
             - Cache-Control
             - Pragma
+            # TODO: Remove this once CRASM-4055 is complete
+            # and X-Origin-Path is no longer needed.
             - X-Origin-Path
           allowCredentials: true
     - http:
@@ -45,6 +47,8 @@ api:
             - Origin
             - Cache-Control
             - Pragma
+            # TODO: Remove this once CRASM-4055 is complete and
+            # X-Origin-Path is no longer needed.
             - X-Origin-Path
           allowCredentials: true
   iamRoleStatementsInherit: true
