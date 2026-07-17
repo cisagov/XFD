@@ -25,6 +25,7 @@ api:
             - Origin
             - Cache-Control
             - Pragma
+            - X-Origin-Path
           allowCredentials: true
     - http:
         # this matches any path, the token 'any' doesn't mean anything special
@@ -44,6 +45,7 @@ api:
             - Origin
             - Cache-Control
             - Pragma
+            - X-Origin-Path
           allowCredentials: true
   iamRoleStatementsInherit: true
   iamRoleStatements:
