@@ -11,6 +11,7 @@ Usage in peScanController::
 
 To add a scan: write a validator and add an entry to KEYED_SCANS.
 """
+
 # Standard Python Libraries
 import logging
 import os

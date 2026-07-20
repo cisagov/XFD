@@ -16,7 +16,7 @@ os.environ.setdefault("PE_API_KEY", "test-key")
 os.environ.setdefault("FLARE_TENANT_ID", "12345")
 os.environ.setdefault("FLARE_API_KEY", "fake-flare-key")
 
-# cisagov Libraries
+# Third-Party Libraries
 from pe_source.flare.flare_helpers import get_flare_token
 from pe_source.flare_ident_prune.flare_ident_prune import (
     check_domains_responsive,
@@ -141,9 +141,9 @@ class TestFlareIdentPruneHelpers(unittest.TestCase):
         mock_session = MagicMock()
         mock_response = MagicMock()
         mock_response.status_code = 401
-        mock_response.raise_for_status.side_effect = (
-            __import__("requests").exceptions.HTTPError(response=mock_response)
-        )
+        mock_response.raise_for_status.side_effect = __import__(
+            "requests"
+        ).exceptions.HTTPError(response=mock_response)
         mock_session.get.return_value = mock_response
         mock_create_session.return_value = mock_session
         # Call function
@@ -303,9 +303,7 @@ class TestRunFlareIdentPrune(unittest.TestCase):
 
     @patch("pe_source.flare_ident_prune.flare_ident_prune.update_ident_lists")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.check_domains_responsive")
-    @patch(
-        "pe_source.flare_ident_prune.flare_ident_prune.get_all_autoenum_domains"
-    )
+    @patch("pe_source.flare_ident_prune.flare_ident_prune.get_all_autoenum_domains")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.get_orgs")
     def test_run_flare_ident_prune_all_orgs(
         self,
@@ -380,9 +378,7 @@ class TestRunFlareIdentPrune(unittest.TestCase):
 
     @patch("pe_source.flare_ident_prune.flare_ident_prune.update_ident_lists")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.check_domains_responsive")
-    @patch(
-        "pe_source.flare_ident_prune.flare_ident_prune.get_all_autoenum_domains"
-    )
+    @patch("pe_source.flare_ident_prune.flare_ident_prune.get_all_autoenum_domains")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.get_orgs")
     def test_run_flare_ident_prune_excluded_domains(
         self,

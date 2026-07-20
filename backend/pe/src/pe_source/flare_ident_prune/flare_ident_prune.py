@@ -11,12 +11,10 @@ import time
 import aioping
 import numpy as np
 import pandas as pd
-import requests
-
-# cisagov Libraries
 from pe_source.data.config_source import create_retry_session
 from pe_source.data.db_query_source import get_orgs
 from pe_source.flare.flare_helpers import get_flare_token
+import requests
 
 # Set up logging
 LOGGER = logging.getLogger(__name__)
@@ -411,4 +409,3 @@ def run_flare_ident_prune(orgs_list):
     time_end = time.time()
     exe_time = datetime.timedelta(seconds=(time_end - time_start))
     LOGGER.info("Flare Identifier Prune execution time: %s (H:M:S)", str(exe_time))
-
