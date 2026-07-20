@@ -16,7 +16,7 @@ import requests
 # cisagov Libraries
 from pe_source.data.config_source import create_retry_session
 from pe_source.data.db_query_source import get_orgs
-from pe_source.flare_ident_prune.flare_helpers import get_flare_token
+from pe_source.flare.flare_helpers import get_flare_token
 
 # Set up logging
 LOGGER = logging.getLogger(__name__)
