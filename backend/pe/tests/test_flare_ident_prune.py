@@ -14,11 +14,10 @@ os.environ.setdefault("PE_DB_USERNAME", "pe")
 os.environ.setdefault("PE_DB_PASSWORD", "test")
 os.environ.setdefault("PE_API_KEY", "test-key")
 os.environ.setdefault("FLARE_TENANT_ID", "12345")
-os.environ.setdefault("FLARE_API_KEY_1", "fake-flare-key")
-os.environ.setdefault("FLARE_KEY_NUM", "1")
+os.environ.setdefault("FLARE_API_KEY", "fake-flare-key")
 
 # cisagov Libraries
-from pe_source.flare_ident_prune.flare_helpers import get_flare_token
+from pe_source.flare.flare_helpers import get_flare_token
 from pe_source.flare_ident_prune.flare_ident_prune import (
     check_domains_responsive,
     flare_identifiers_endpoint,
@@ -31,13 +30,12 @@ from pe_source.flare_ident_prune.flare_ident_prune import (
 class TestFlareHelpers(unittest.TestCase):
     """Verify flare_helpers function behavior."""
 
-    @patch("pe_source.flare_ident_prune.flare_helpers.requests.post")
+    @patch("pe_source.flare.flare_helpers.requests.post")
     @patch.dict(
         os.environ,
         {
             "FLARE_TENANT_ID": "12345",
-            "FLARE_API_KEY_1": "fake-flare-key",
-            "FLARE_KEY_NUM": "1",
+            "FLARE_API_KEY": "fake-flare-key",
         },
     )
     def test_get_flare_token(self, mock_post):
@@ -58,14 +56,13 @@ class TestFlareHelpers(unittest.TestCase):
             timeout=60,
         )
 
-    @patch("pe_source.flare_ident_prune.flare_helpers.time.sleep")
-    @patch("pe_source.flare_ident_prune.flare_helpers.requests.post")
+    @patch("pe_source.flare.flare_helpers.time.sleep")
+    @patch("pe_source.flare.flare_helpers.requests.post")
     @patch.dict(
         os.environ,
         {
             "FLARE_TENANT_ID": "12345",
-            "FLARE_API_KEY_1": "fake-flare-key",
-            "FLARE_KEY_NUM": "1",
+            "FLARE_API_KEY": "fake-flare-key",
         },
     )
     def test_get_flare_token_retry(self, mock_post, mock_sleep):
@@ -82,14 +79,13 @@ class TestFlareHelpers(unittest.TestCase):
         self.assertEqual(token, "retry_token")
         self.assertEqual(mock_post.call_count, 2)
 
-    @patch("pe_source.flare_ident_prune.flare_helpers.time.sleep")
-    @patch("pe_source.flare_ident_prune.flare_helpers.requests.post")
+    @patch("pe_source.flare.flare_helpers.time.sleep")
+    @patch("pe_source.flare.flare_helpers.requests.post")
     @patch.dict(
         os.environ,
         {
             "FLARE_TENANT_ID": "12345",
-            "FLARE_API_KEY_1": "fake-flare-key",
-            "FLARE_KEY_NUM": "1",
+            "FLARE_API_KEY": "fake-flare-key",
         },
     )
     def test_get_flare_token_all_retries_exhausted(self, mock_post, mock_sleep):
@@ -103,13 +99,9 @@ class TestFlareHelpers(unittest.TestCase):
         self.assertIsNone(token)
         self.assertEqual(mock_post.call_count, 6)  # 1 initial + 5 retries
 
-    @patch.dict(os.environ, {"FLARE_KEY_NUM": "1"}, clear=False)
-    @patch.dict(os.environ, {"FLARE_API_KEY_1": ""})
     def test_get_flare_token_missing_api_key(self):
         """Test get_flare_token returns None when API key is not set."""
-        # Remove the key entirely
-        with patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("FLARE_API_KEY_1", None)
+        with patch.dict(os.environ, {"FLARE_API_KEY": ""}, clear=False):
             token = get_flare_token()
         self.assertIsNone(token)
 
