@@ -149,7 +149,7 @@ async def check_ip_reachable(ip, count=1, timeout=3.0):
             }
         except (TimeoutError, PermissionError) as e:
             # If ping failed, try again
-            LOGGER.debug("Ping %d/%d failed for %s - %s", i + 1, count, ip, e)
+            LOGGER.info("Ping %d/%d failed for %s - %s", i + 1, count, ip, e)
     # If all ping attempts fail, mark as unreachable
     return {
         "ip": ip,
@@ -178,7 +178,7 @@ def check_domains_responsive(domain_list):
     ) in domain_df.iterrows():
         domain = row["value"]
         # Test if domain has an IP associated with it (resolvable)
-        LOGGER.debug(
+        LOGGER.info(
             "Checking resolvability of domain '%s' (%d of %d)",
             domain,
             idx + 1,
@@ -326,23 +326,13 @@ def run_flare_ident_prune(orgs_list):
     """Prune flare auto-enumerated assets."""
     # Retrieve full org info from PE database
     pe_orgs = get_orgs()
-    pe_orgs_final = []
     if orgs_list == "all":
-        for pe_org in pe_orgs:
-            if pe_org["report_on"]:
-                pe_orgs_final.append(pe_org)
-            else:
-                continue
+        pe_orgs_final = [d for d in pe_orgs if d.get("report_on")]
     elif orgs_list == "DEMO":
-        for pe_org in pe_orgs:
-            if pe_org["demo"]:
-                pe_orgs_final.append(pe_org)
-            else:
-                continue
+        pe_orgs_final = [d for d in pe_orgs if d.get("demo")]
     else:
-        for org in orgs_list:
-            org_dict = next((d for d in pe_orgs if d["cyhy_db_name"] == org), None)
-            pe_orgs_final.append(org_dict)
+        orgs_list = orgs_list.split(",")
+        pe_orgs_final = [d for d in pe_orgs if d.get("cyhy_db_name") in set(orgs_list)]
     # Alphabetize org list for consistent order
     pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
 
