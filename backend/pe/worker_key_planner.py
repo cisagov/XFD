@@ -108,6 +108,12 @@ KEYED_SCANS: Dict[str, Dict] = {
         "validate": _validate_flare,
         "extra_env": lambda: {"FLARE_TENANT_ID": os.environ.get("FLARE_TENANT_ID", "")},
     },
+    "flare_ident_prune": {
+        "keys_env": "FLARE_API_KEYS",
+        "worker_env": "FLARE_API_KEY",
+        "validate": _validate_flare,
+        "extra_env": lambda: {"FLARE_TENANT_ID": os.environ.get("FLARE_TENANT_ID", "")},
+    },
     "shodan": {
         "keys_env": "PE_SHODAN_API_KEYS",
         "worker_env": "PE_SHODAN_API_KEY",
