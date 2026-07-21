@@ -107,7 +107,8 @@ resource "aws_iam_role_policy" "matomo_task_execution_role_policy" {
       ],
       "Resource": [
         "${data.aws_ssm_parameter.wiz_registry_secret_arn[0].value}",
-        "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}"
+        "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}",
+        "${data.aws_ssm_parameter.wiz_http_proxy_cert_secret_arn[0].value}"
       ]
     }
 %{endif}
@@ -230,7 +231,8 @@ resource "aws_ecs_task_definition" "matomo" {
         { name = "MATOMO_DATABASE_PASSWORD", valueFrom = aws_ssm_parameter.matomo_db_password.arn },
         ], var.is_dmz ? [] : [
         { name = "WIZ_API_CLIENT_ID", valueFrom = format("%s:WIZ_API_CLIENT_ID::", data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value) },
-        { name = "WIZ_API_CLIENT_SECRET", valueFrom = format("%s:WIZ_API_CLIENT_SECRET::", data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value) }
+        { name = "WIZ_API_CLIENT_SECRET", valueFrom = format("%s:WIZ_API_CLIENT_SECRET::", data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value) },
+        { name = "WIZ_HTTP_PROXY_CERT", valueFrom = data.aws_ssm_parameter.wiz_http_proxy_cert_secret_arn[0].value }
       ]),
 
       # Bootstrap: write/patch config.ini.php on EFS, then start Apache
