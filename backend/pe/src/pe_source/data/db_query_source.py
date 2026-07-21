@@ -372,12 +372,26 @@ def insert_flare_events(event_list):
             related_identifiers = EXCLUDED.related_identifiers,
             related_identifiers_txt = EXCLUDED.related_identifiers_txt
     """
+
     conn = connect()
-    cursor = conn.cursor()
-    execute_values(cursor, query, rows)
-    conn.commit()
-    cursor.close()
-    conn.close()
+    if conn is None:
+        LOGGER.error("insert_flare_events: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_events: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("insert_flare_events: upsert failed for %d row(s)", len(rows))
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
 
 
 def get_dnsmonitor_domain_mapping():
