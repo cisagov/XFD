@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { isEqual } from 'lodash';
 import Alert from '@mui/material/Alert';
 import Autocomplete from '@mui/material/Autocomplete';
-import Button from '@mui/material/Button';
 import DialogContent from '@mui/material/DialogContent';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Grid from '@mui/material/Grid';
@@ -21,6 +20,7 @@ import { useOrganizationsByRegion } from '@/hooks/useOrganizationsByRegion';
 import { useUpdateUser } from '@/hooks/useUpdateUser';
 import { useAddUserToOrganization } from '@/hooks/useAddUserToOrganization';
 import { useRemoveUserFromOrganization } from '@/hooks/useRemoveUserFromOrganization';
+import { ElevationControl } from './ElevationControl';
 
 type ApiErrorStates = {
   getUsersError: string;
@@ -74,16 +74,6 @@ const USER_TYPE_MAP = {
   globalAdmin: 3
 };
 
-type ElevationControlProps = {
-  confirmGlobalAdminChange: string;
-  setConfirmGlobalAdminChange: React.Dispatch<React.SetStateAction<string>>;
-  userRoleChanged: boolean;
-  values: UserFormValues;
-  isRoleElevationConfirmed: boolean;
-  setIsRoleElevationConfirmed: React.Dispatch<React.SetStateAction<boolean>>;
-  userOrg?: string | null;
-};
-
 const getAllowedDomains = (): string[] => {
   const raw = import.meta.env.VITE_ALLOWED_ADMIN_EMAIL_DOMAINS;
 
@@ -132,85 +122,6 @@ const isPermittedEmail = (email: string): boolean => {
   });
 };
 
-const ElevationControl: React.FC<ElevationControlProps> = ({
-  confirmGlobalAdminChange,
-  setConfirmGlobalAdminChange,
-  userRoleChanged,
-  values,
-  isRoleElevationConfirmed,
-  setIsRoleElevationConfirmed,
-  userOrg
-}) => {
-  const textFieldStyling = {
-    '& .MuiOutlinedInput-root': {
-      '&.Mui-focused fieldset': {
-        borderRadius: '0px'
-      }
-    }
-  };
-  if (!userRoleChanged || values.user_type === 'standard') return <></>;
-  if (values.user_type === 'globalAdmin') {
-    return (
-      <>
-        <Alert severity="warning">
-          You are attempting to change user{' '}
-          <strong>
-            {userOrg ? `${values.email} - ${userOrg}` : values.email}
-          </strong>{' '}
-          to a Global Administrator. This will give them access to all
-          organizations and data in the system. Please type{' '}
-          <strong>Global Administrator</strong> in the field below to confirm
-          this change.
-        </Alert>
-        <TextField
-          sx={textFieldStyling}
-          placeholder="Enter Global Administrator to confirm"
-          size="small"
-          margin="dense"
-          id="first_name"
-          slotProps={{
-            htmlInput: { maxLength: 250 }
-          }}
-          name="first_name"
-          type="text"
-          fullWidth
-          value={confirmGlobalAdminChange}
-          onChange={(event) => setConfirmGlobalAdminChange(event.target.value)}
-        />
-      </>
-    );
-  }
-  if (values.user_type === 'regionalAdmin' || values.user_type === 'globalView')
-    return (
-      <>
-        <Alert severity={isRoleElevationConfirmed ? 'success' : 'warning'}>
-          You are attempting to change this user to{' '}
-          <strong>
-            {values.user_type === 'regionalAdmin'
-              ? 'Regional Administrator'
-              : 'Global View'}
-          </strong>
-          . This will give them access to more organizations and data in the
-          system.
-          <br />
-          <Button
-            sx={{ mt: 1 }}
-            size="small"
-            variant="contained"
-            onClick={() => setIsRoleElevationConfirmed(true)}
-            disabled={isRoleElevationConfirmed}
-          >
-            {isRoleElevationConfirmed
-              ? 'Confirmed Privilege Elevation'
-              : 'Confirm Privilege Elevation'}
-          </Button>
-        </Alert>
-      </>
-    );
-
-  return <></>;
-};
-
 export const UserForm: React.FC<UserFormProps> = ({
   users,
   setUsers,
@@ -224,7 +135,7 @@ export const UserForm: React.FC<UserFormProps> = ({
   setInfoDialogContent
 }) => {
   const initialValuesRef = useRef(values);
-  const { user } = useAuthContext();
+  const { user: loggedInUser } = useAuthContext();
 
   const [formErrors, setFormErrors] = useState({
     first_name: false,
@@ -237,7 +148,6 @@ export const UserForm: React.FC<UserFormProps> = ({
   const [confirmGlobalAdminChange, setConfirmGlobalAdminChange] = useState('');
   const [isRoleElevationConfirmed, setIsRoleElevationConfirmed] =
     useState(false);
-
   const {
     organizations: organizationsInRegion,
     isLoading,
@@ -321,14 +231,14 @@ export const UserForm: React.FC<UserFormProps> = ({
     }
 
     const oldRoleLevel =
-      USER_TYPE_MAP[user?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
+      USER_TYPE_MAP[loggedInUser?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
     const newRoleLevel =
       USER_TYPE_MAP[values?.user_type as keyof typeof USER_TYPE_MAP] ?? 0;
 
     if (newRoleLevel > oldRoleLevel) {
       logger.info(
         'UserForm: User role elevation detected, confirming with user',
-        { oldRole: user?.user_type, newRole: values?.user_type }
+        { oldRole: loggedInUser?.user_type, newRole: values?.user_type }
       );
     }
 
@@ -339,12 +249,12 @@ export const UserForm: React.FC<UserFormProps> = ({
       region_id: values.region_id
     };
 
-    if (user?.user_type === 'globalAdmin') {
+    if (loggedInUser?.user_type === 'globalAdmin') {
       body.user_type = values.user_type;
     }
 
     try {
-      await updateUser(userId, body);
+      await updateUser({ userId, origin_path: 'user-management', body });
 
       if (values.originalOrgId !== values.org_id) {
         if (values.originalOrgId && values.originalRoleId) {
@@ -394,7 +304,7 @@ export const UserForm: React.FC<UserFormProps> = ({
       setInfoDialogOpen(true);
       logger.error('UserForm.handleEditUserSubmit failed:', {
         error,
-        userId: user?.id
+        userId: loggedInUser?.id
       });
     }
   };
@@ -475,7 +385,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             fullWidth
             value={values.first_name}
             onChange={onTextChange}
-            disabled={user?.user_type !== 'globalAdmin'}
+            disabled={
+              loggedInUser?.user_type !== 'globalAdmin' ||
+              values?.invite_pending === true
+            }
           />
         </Grid>
         <Grid size={{ xs: 12, md: 6 }}>
@@ -499,7 +412,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             fullWidth
             value={values.last_name}
             onChange={onTextChange}
-            disabled={user?.user_type !== 'globalAdmin'}
+            disabled={
+              loggedInUser?.user_type !== 'globalAdmin' ||
+              values?.invite_pending === true
+            }
           />
         </Grid>
         <Grid size={{ xs: 12 }}>
@@ -532,7 +448,10 @@ export const UserForm: React.FC<UserFormProps> = ({
             id="state"
             size="small"
             options={STATE_OPTIONS}
-            disabled={!['globalAdmin'].includes(user?.user_type || '')}
+            disabled={
+              !['globalAdmin'].includes(loggedInUser?.user_type || '') ||
+              values?.invite_pending === true
+            }
             value={values.state || null}
             onChange={(_, newValue) => {
               setValues((previousValues: any) => ({
@@ -557,8 +476,8 @@ export const UserForm: React.FC<UserFormProps> = ({
                 }
                 disabled={
                   !['globalAdmin', 'regionalAdmin'].includes(
-                    user?.user_type || ''
-                  )
+                    loggedInUser?.user_type || ''
+                  ) || values?.invite_pending === true
                 }
               />
             )}
@@ -567,7 +486,14 @@ export const UserForm: React.FC<UserFormProps> = ({
         </Grid>
         <Grid size={{ xs: 12 }}>
           <Typography mb={1}>Organization</Typography>
-          {isLoading ? (
+          {values?.invite_pending === true ? (
+            <TextField
+              placeholder="Pending Invitation Approval..."
+              disabled
+              fullWidth
+              size="small"
+            />
+          ) : isLoading ? (
             <Alert severity="info">Loading organization selections..</Alert>
           ) : apiErrorStates.getOrgsError ? (
             <Alert severity="info">
@@ -640,13 +566,19 @@ export const UserForm: React.FC<UserFormProps> = ({
               value="standard"
               control={<Radio color="primary" />}
               label="Standard"
-              disabled={user?.user_type !== 'globalAdmin'}
+              disabled={
+                loggedInUser?.user_type !== 'globalAdmin' ||
+                values?.invite_pending === true
+              }
             />
             <FormControlLabel
               value="globalView"
               control={<Radio color="primary" />}
               label="Global View"
-              disabled={user?.user_type !== 'globalAdmin'}
+              disabled={
+                loggedInUser?.user_type !== 'globalAdmin' ||
+                values?.invite_pending === true
+              }
             />
             {isPermittedEmail(values.email) && (
               <>
@@ -654,13 +586,19 @@ export const UserForm: React.FC<UserFormProps> = ({
                   value="regionalAdmin"
                   control={<Radio color="primary" />}
                   label="Regional Administrator"
-                  disabled={user?.user_type !== 'globalAdmin'}
+                  disabled={
+                    loggedInUser?.user_type !== 'globalAdmin' ||
+                    values?.invite_pending === true
+                  }
                 />
                 <FormControlLabel
                   value="globalAdmin"
                   control={<Radio color="primary" />}
                   label="Global Administrator"
-                  disabled={user?.user_type !== 'globalAdmin'}
+                  disabled={
+                    loggedInUser?.user_type !== 'globalAdmin' ||
+                    values?.invite_pending === true
+                  }
                 />
               </>
             )}
@@ -684,6 +622,12 @@ export const UserForm: React.FC<UserFormProps> = ({
               Error updating user in the database:{' '}
               {apiErrorStates.getUpdateUserError}. See the network tab for more
               details.
+            </Alert>
+          )}
+          {values?.invite_pending === true && (
+            <Alert severity="info">
+              This is a Pending User that cannot be edited until approved in
+              User Registration by an Administrator.
             </Alert>
           )}
         </Grid>

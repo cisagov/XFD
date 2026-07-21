@@ -16,6 +16,7 @@ from dataAPI import schemas
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 from django.db.models import Max, Q
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -300,6 +301,7 @@ def rootdomains_by_org_uid(
     return rows
 
 
+@transaction.atomic
 @api_router.put(
     "/sub_domains_single_insert",
     dependencies=[Depends(verify_api_key)],
@@ -404,6 +406,7 @@ def dnsmonitor_mapping_by_date(
     return rows
 
 
+@transaction.atomic
 @api_router.put(
     "/domain_permu_insert",
     dependencies=[Depends(verify_api_key)],
@@ -485,6 +488,7 @@ def domain_permu_insert(
         return f"Error inserting into domain_permutations table: {error}"
 
 
+@transaction.atomic
 @api_router.put(
     "/domain_alerts_insert",
     dependencies=[Depends(verify_api_key)],
