@@ -304,30 +304,13 @@ class TestRunFlareIdentPrune(unittest.TestCase):
     @patch("pe_source.flare_ident_prune.flare_ident_prune.update_ident_lists")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.check_domains_responsive")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.get_all_autoenum_domains")
-    @patch("pe_source.flare_ident_prune.flare_ident_prune.get_orgs")
     def test_run_flare_ident_prune_all_orgs(
         self,
-        mock_get_orgs,
         mock_get_domains,
         mock_check_responsive,
         mock_update_lists,
     ):
         """Test run_flare_ident_prune with orgs_list='all'."""
-        # Mock orgs
-        mock_get_orgs.return_value = [
-            {
-                "organizations_uid": "uid-1",
-                "cyhy_db_name": "org_a",
-                "report_on": True,
-                "demo": False,
-            },
-            {
-                "organizations_uid": "uid-2",
-                "cyhy_db_name": "org_b",
-                "report_on": False,
-                "demo": True,
-            },
-        ]
         # Mock domain retrieval (enabled + disabled calls)
         mock_get_domains.side_effect = [
             [
@@ -368,7 +351,6 @@ class TestRunFlareIdentPrune(unittest.TestCase):
         # Call function
         run_flare_ident_prune("all")
         # Assert
-        mock_get_orgs.assert_called_once()
         self.assertEqual(mock_get_domains.call_count, 2)
         mock_check_responsive.assert_called_once()
         mock_update_lists.assert_called_once_with(
@@ -379,23 +361,13 @@ class TestRunFlareIdentPrune(unittest.TestCase):
     @patch("pe_source.flare_ident_prune.flare_ident_prune.update_ident_lists")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.check_domains_responsive")
     @patch("pe_source.flare_ident_prune.flare_ident_prune.get_all_autoenum_domains")
-    @patch("pe_source.flare_ident_prune.flare_ident_prune.get_orgs")
     def test_run_flare_ident_prune_excluded_domains(
         self,
-        mock_get_orgs,
         mock_get_domains,
         mock_check_responsive,
         mock_update_lists,
     ):
         """Test that protected domains are excluded from processing."""
-        mock_get_orgs.return_value = [
-            {
-                "organizations_uid": "uid-1",
-                "cyhy_db_name": "org_a",
-                "report_on": True,
-                "demo": False,
-            },
-        ]
         # Include a protected domain that should be filtered out
         mock_get_domains.side_effect = [
             [

@@ -5,6 +5,7 @@ import asyncio
 import datetime
 import logging
 import socket
+import sys
 import time
 
 # Third-Party Libraries
@@ -12,7 +13,6 @@ import aioping
 import numpy as np
 import pandas as pd
 from pe_source.data.config_source import create_retry_session
-from pe_source.data.db_query_source import get_orgs
 from pe_source.flare.flare_helpers import get_flare_token
 import requests
 
@@ -195,9 +195,13 @@ def check_domains_responsive(domain_list):
         domain_df.at[idx, "detected_resolvable"] = resolvable
     # Check reachability of any domains that have an IP (resolvable)
     ip_list = list(set(domain_df.loc[domain_df["ip"].notnull()]["ip"]))
-    ip_results_df = pd.DataFrame(asyncio.run(check_ip_list_reachable(ip_list)))
-    # Join resolvability and reachability results
-    domain_df = pd.merge(domain_df, ip_results_df, on="ip", how="left")
+    if ip_list:
+        ip_results_df = pd.DataFrame(asyncio.run(check_ip_list_reachable(ip_list)))
+        # Join resolvability and reachability results
+        domain_df = pd.merge(domain_df, ip_results_df, on="ip", how="left")
+    else:
+        domain_df["detected_reachable"] = False
+        domain_df["response_delay"] = -1
     domain_df["detected_reachable"] = domain_df["detected_reachable"].fillna(False)
     domain_df["response_delay"] = domain_df["response_delay"].fillna(-1)
     # Calculate overall responsiveness and required action
@@ -273,7 +277,11 @@ def update_ident_lists(enable_list, disable_list):
             # General error handling
             if resp is None:
                 LOGGER.error(
-                    f'Failed to enable identifier "{curr_ident_name}" ({curr_ident_id}) {idx+1} of {len(disable_list)}, skipping...'
+                    "Failed to enable identifier '%s' (%s) %d of %d, skipping...",
+                    curr_ident_name,
+                    curr_ident_id,
+                    idx + 1,
+                    len(enable_list),
                 )
                 continue
             # 401 token refresh check
@@ -281,6 +289,13 @@ def update_ident_lists(enable_list, disable_list):
                 LOGGER.warning("401 code encountered, refreshing token")
                 token = get_flare_token()
                 token, resp = toggle_ident(token, curr_ident_id, active=True)
+                if resp is None or resp.status_code != 200:
+                    LOGGER.error(
+                        "Retry failed for identifier '%s' (%s), skipping...",
+                        curr_ident_name,
+                        curr_ident_id,
+                    )
+                    continue
             LOGGER.info(
                 "Enabled identifier '%s' (%s) %d of %d",
                 curr_ident_name,
@@ -302,7 +317,11 @@ def update_ident_lists(enable_list, disable_list):
             # General error handling
             if resp is None:
                 LOGGER.error(
-                    f'Failed to disable identifier "{curr_ident_name}" ({curr_ident_id}) {idx+1} of {len(disable_list)}, skipping...'
+                    "Failed to disable identifier '%s' (%s) %d of %d, skipping...",
+                    curr_ident_name,
+                    curr_ident_id,
+                    idx + 1,
+                    len(disable_list),
                 )
                 continue
             # 401 token refresh check
@@ -310,6 +329,13 @@ def update_ident_lists(enable_list, disable_list):
                 LOGGER.warning("401 code encountered, refreshing token")
                 token = get_flare_token()
                 token, resp = toggle_ident(token, curr_ident_id, active=False)
+                if resp is None or resp.status_code != 200:
+                    LOGGER.error(
+                        "Retry failed for identifier '%s' (%s), skipping...",
+                        curr_ident_name,
+                        curr_ident_id,
+                    )
+                    continue
             LOGGER.info(
                 "Disabled identifier '%s' (%s) %d of %d",
                 curr_ident_name,
@@ -324,19 +350,12 @@ def update_ident_lists(enable_list, disable_list):
 
 def run_flare_ident_prune(orgs_list):
     """Prune flare auto-enumerated assets."""
-    # Retrieve full org info from PE database
-    pe_orgs = get_orgs()
-    if orgs_list == "all":
-        pe_orgs_final = [d for d in pe_orgs if d.get("report_on")]
-    elif orgs_list == "DEMO":
-        pe_orgs_final = [d for d in pe_orgs if d.get("demo")]
-    else:
-        orgs_list = orgs_list.split(",")
-        pe_orgs_final = [d for d in pe_orgs if d.get("cyhy_db_name") in set(orgs_list)]
-    # Alphabetize org list for consistent order
-    pe_orgs_final = sorted(pe_orgs_final, key=lambda d: d["cyhy_db_name"])
-
     # Begin Flare asset prune
+    LOGGER.info(
+        "Starting Flare identifier prune (orgs_list=%s). "
+        "Note: this script operates globally on all auto-enumerated domains.",
+        orgs_list,
+    )
     time_start = time.time()
     try:
         # Retrieve list of all auto-enum assets in Flare
@@ -394,6 +413,7 @@ def run_flare_ident_prune(orgs_list):
         LOGGER.info(f"Total Flare Asssets Post Pruning: {post_prune_total}")
     except Exception as e:
         LOGGER.exception("Encountered an error during Flare pruning script - %s", e)
+        sys.exit(1)
 
     # Log execution time
     time_end = time.time()
