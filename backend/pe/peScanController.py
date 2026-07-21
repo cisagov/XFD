@@ -53,8 +53,9 @@ import boto3
 from pe.worker_key_planner import (
     KEYED_SCANS,
     api_key_label,
-    plan_worker_keys,
+    plan_worker_keys_for_scans,
     worker_key_env,
+    worker_keys_for_scan,
 )
 
 LOGGER = logging.getLogger()
@@ -345,6 +346,7 @@ def queue_messages(
 
 def start_fargate_tasks(
     scan_list: List[Dict[str, Any]],
+    worker_keys_by_scan: Dict[str, List[str]] | None = None,
 ) -> Dict[str, int]:
     """Start ECS Fargate pe-worker tasks for each scan in the list."""
     ecs_client = boto3.client("ecs")
@@ -359,7 +361,11 @@ def start_fargate_tasks(
         queue_url = queue_url_for_scan(scan_name)
 
         if scan_name in KEYED_SCANS:
-            worker_keys = plan_worker_keys(scan_name, int(scan["count"]))
+            worker_keys = worker_keys_for_scan(
+                scan_name,
+                int(scan["count"]),
+                worker_keys_by_scan,
+            )
             task_count = 0
             for index, key in enumerate(worker_keys, start=1):
                 key_env = worker_key_env(scan_name, key)
@@ -443,6 +449,7 @@ def start_fargate_tasks(
 
 def start_local_docker_workers(
     scan_list: List[Dict[str, Any]],
+    worker_keys_by_scan: Dict[str, List[str]] | None = None,
 ) -> Dict[str, int]:
     """Start detached pe-worker containers on the local Docker network (IS_LOCAL)."""
     # Third-Party Libraries
@@ -458,7 +465,11 @@ def start_local_docker_workers(
 
         if scan_name in KEYED_SCANS:
             worker_slots: List[str | None] = list(
-                plan_worker_keys(scan_name, int(scan["count"]))
+                worker_keys_for_scan(
+                    scan_name,
+                    int(scan["count"]),
+                    worker_keys_by_scan,
+                )
             )
         else:
             worker_slots = [None] * int(scan["count"])
@@ -533,11 +544,12 @@ def start_local_docker_workers(
 def start_workers(
     scan_list: List[Dict[str, Any]],
     local: bool,
+    worker_keys_by_scan: Dict[str, List[str]] | None = None,
 ) -> Dict[str, int]:
     """Start local Docker workers or Fargate tasks depending on environment."""
     if local:
-        return start_local_docker_workers(scan_list)
-    return start_fargate_tasks(scan_list)
+        return start_local_docker_workers(scan_list, worker_keys_by_scan)
+    return start_fargate_tasks(scan_list, worker_keys_by_scan)
 
 
 def run(event: Dict[str, Any]) -> Dict[str, Any]:
@@ -567,13 +579,17 @@ def run(event: Dict[str, Any]) -> Dict[str, Any]:
     scan_list = resolve_scans(scans, task_count=task_count)
     org_list = resolve_orgs(orgs) if orgs else []
 
+    worker_keys_by_scan: Dict[str, List[str]] | None = None
+    if not queue_only and not tasks_only:
+        worker_keys_by_scan = plan_worker_keys_for_scans(scan_list)
+
     queued = {}
     if not tasks_only:
         queued = queue_messages(scan_list, org_list, delay_seconds)
 
     started = {}
     if not queue_only:
-        started = start_workers(scan_list, local)
+        started = start_workers(scan_list, local, worker_keys_by_scan)
 
     body = {
         "message": "PE scans requested successfully",

@@ -14,7 +14,7 @@ To add a scan: write a validator and add an entry to KEYED_SCANS.
 # Standard Python Libraries
 import logging
 import os
-from typing import Dict, List
+from typing import Any, Dict, List
 
 LOGGER = logging.getLogger(__name__)
 
@@ -163,6 +163,29 @@ def plan_worker_keys(scan_name: str, count: int) -> List[str]:
         return valid[:count]
 
     return valid
+
+
+def plan_worker_keys_for_scans(
+    scan_list: List[Dict[str, Any]],
+) -> Dict[str, List[str]]:
+    """Validate and plan worker API keys for every keyed scan in the list."""
+    planned: Dict[str, List[str]] = {}
+    for scan in scan_list:
+        scan_name = scan["scan"]
+        if scan_name in KEYED_SCANS:
+            planned[scan_name] = plan_worker_keys(scan_name, int(scan["count"]))
+    return planned
+
+
+def worker_keys_for_scan(
+    scan_name: str,
+    count: int,
+    planned: Dict[str, List[str]] | None,
+) -> List[str]:
+    """Return planned keys when available, otherwise load and validate."""
+    if planned is not None and scan_name in planned:
+        return planned[scan_name]
+    return plan_worker_keys(scan_name, count)
 
 
 def worker_key_env(scan_name: str, api_key: str) -> Dict[str, str]:

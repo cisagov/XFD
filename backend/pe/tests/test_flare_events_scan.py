@@ -247,6 +247,34 @@ class FlareEventsScriptTests(unittest.TestCase):
         self.assertEqual(len(inserted), 1)
         self.assertEqual(inserted[0]["flare_uid"], "evt-1")
 
+    @patch("pe_source.flare.flare_events_script.get_ident_group_info")
+    @patch("pe_source.flare.flare_events_script.get_data_source_uid")
+    @patch("pe_source.flare.flare_events_script.get_orgs")
+    def test_run_flare_events_raises_when_org_fails(
+        self,
+        mock_get_orgs,
+        mock_get_source_uid,
+        mock_get_ident_group_info,
+    ):
+        """run_flare_events should raise when any org scan fails."""
+        # Third-Party Libraries
+        from pe_source.flare.flare_events_script import run_flare_events
+
+        mock_get_orgs.return_value = [
+            {
+                "organizations_uid": "org-uid-1",
+                "cyhy_db_name": "DHS",
+                "report_on": True,
+            }
+        ]
+        mock_get_source_uid.return_value = "flare-source-uid"
+        mock_get_ident_group_info.side_effect = RuntimeError("Flare API down")
+
+        with self.assertRaises(RuntimeError) as ctx:
+            run_flare_events("DHS")
+
+        self.assertIn("DHS", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

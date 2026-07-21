@@ -556,3 +556,9 @@ def run_flare_events(orgs_list):
         len(pe_orgs_final),
         failed_list,
     )
+    if failed:
+        raise RuntimeError(
+            "Flare scan failed for {} of {} organization(s): {}".format(
+                failed, len(pe_orgs_final), failed_list
+            )
+        )
