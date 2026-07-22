@@ -104,6 +104,11 @@ def get_data_source_uid(source):
         result = requests.post(
             endpoint_url, headers=headers, data=data, timeout=60
         ).json()
+        if not result:
+            raise ValueError(
+                "No PE data source named {!r}; run "
+                "'make -C backend/pe syncdb-populate' for local dev".format(source)
+            )
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         return tup_result[0][0]

@@ -30,7 +30,7 @@ help:
 	@echo "  logs             Tail pe-worker logs"
 	@echo "  test             Run pe/ unit tests"
 	@echo "  syncdb           Create PE DB and sync all table models from home/models.py"
-	@echo "  syncdb-populate  syncdb + sample orgs/root domains for dnstwist"
+	@echo "  syncdb-populate  syncdb + sample data sources/orgs (dnstwist, flare_events, ...)"
 	@echo "  run              Queue orgs + start workers (SCANS= ORGS= COUNT=)"
 	@echo "  queue            run with QUEUE_ONLY=true"
 	@echo "  scans            run with sample orgs fixture"
