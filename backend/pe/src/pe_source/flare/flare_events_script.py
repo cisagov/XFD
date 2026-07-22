@@ -7,6 +7,7 @@ import time
 import traceback
 
 # Third-Party Libraries
+import numpy as np
 import pandas as pd
 from pe_source.data.db_query_source import (
     get_data_source_uid,
@@ -508,6 +509,7 @@ def run_flare_events(orgs_list):
                     keep="first",
                     inplace=True,
                 )
+                final_event_df["url"] = final_event_df["url"].replace({np.nan: None})
                 final_event_list = final_event_df.to_dict(orient="records")
                 # Insert Flare event data into PE DB
                 LOGGER.info(
