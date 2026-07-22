@@ -28,7 +28,7 @@ import pe_reports
 from pe_source._version import __version__
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
-from pe_source.flare import run_flare_events
+from pe_source.flare_events import run_flare_events
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ from pe_source.data.db_query_source import (
     get_orgs,
     insert_flare_events,
 )
-from pe_source.flare.flare_helpers import (
+from pe_source.flare_events.flare_helpers import (
     get_all_ident_by_group_id,
     get_event_details,
     get_flare_token,

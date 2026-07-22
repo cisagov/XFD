@@ -13,14 +13,14 @@ os.environ.setdefault("FLARE_TENANT_ID", "12345")
 os.environ.setdefault("FLARE_API_KEY", "test-flare-key")
 
 # Third-Party Libraries
-from pe_source.flare.flare_config import parse_flare_api_keys
-from pe_source.flare.flare_events_script import (
+from pe_source.flare_events.flare_config import parse_flare_api_keys
+from pe_source.flare_events.flare_events_script import (
     _requested_org_names,
     parse_default_event_fields,
     parse_related_identifiers,
     parse_stealer_log_event_fields,
 )
-from pe_source.flare.flare_helpers import remove_emoji, validate_flare_api_key
+from pe_source.flare_events.flare_helpers import remove_emoji, validate_flare_api_key
 
 
 class FlareOrgFilterTests(unittest.TestCase):
@@ -47,12 +47,12 @@ class FlareConfigTests(unittest.TestCase):
             ["key1", "key2", "key3"],
         )
 
-    @patch("pe_source.flare.flare_helpers.get_flare_token", return_value="token")
+    @patch("pe_source.flare_events.flare_helpers.get_flare_token", return_value="token")
     def test_validate_flare_api_key_true_when_token_returned(self, _token_mock):
         """validate_flare_api_key should return True when a token is returned."""
         self.assertTrue(validate_flare_api_key("good-key", tenant_id="123"))
 
-    @patch("pe_source.flare.flare_helpers.get_flare_token", return_value=None)
+    @patch("pe_source.flare_events.flare_helpers.get_flare_token", return_value=None)
     def test_validate_flare_api_key_false_when_token_missing(self, _token_mock):
         """validate_flare_api_key should return False when token generation fails."""
         self.assertFalse(validate_flare_api_key("bad-key", tenant_id="123"))
@@ -176,13 +176,13 @@ class FlareParseEventTests(unittest.TestCase):
 class FlareEventsScriptTests(unittest.TestCase):
     """Verify run_flare_events orchestration with mocked dependencies."""
 
-    @patch("pe_source.flare.flare_events_script.insert_flare_events")
-    @patch("pe_source.flare.flare_events_script.get_all_event_details")
-    @patch("pe_source.flare.flare_events_script.get_ident_group_events")
-    @patch("pe_source.flare.flare_events_script.get_all_ident_by_group_id")
-    @patch("pe_source.flare.flare_events_script.get_ident_group_info")
-    @patch("pe_source.flare.flare_events_script.get_data_source_uid")
-    @patch("pe_source.flare.flare_events_script.get_orgs")
+    @patch("pe_source.flare_events.flare_events_script.insert_flare_events")
+    @patch("pe_source.flare_events.flare_events_script.get_all_event_details")
+    @patch("pe_source.flare_events.flare_events_script.get_ident_group_events")
+    @patch("pe_source.flare_events.flare_events_script.get_all_ident_by_group_id")
+    @patch("pe_source.flare_events.flare_events_script.get_ident_group_info")
+    @patch("pe_source.flare_events.flare_events_script.get_data_source_uid")
+    @patch("pe_source.flare_events.flare_events_script.get_orgs")
     def test_run_flare_events_inserts_parsed_rows(
         self,
         mock_get_orgs,
@@ -195,7 +195,7 @@ class FlareEventsScriptTests(unittest.TestCase):
     ):
         """run_flare_events should insert deduplicated event rows for one org."""
         # Third-Party Libraries
-        from pe_source.flare.flare_events_script import run_flare_events
+        from pe_source.flare_events.flare_events_script import run_flare_events
 
         mock_get_orgs.return_value = [
             {
@@ -247,9 +247,9 @@ class FlareEventsScriptTests(unittest.TestCase):
         self.assertEqual(len(inserted), 1)
         self.assertEqual(inserted[0]["flare_uid"], "evt-1")
 
-    @patch("pe_source.flare.flare_events_script.get_ident_group_info")
-    @patch("pe_source.flare.flare_events_script.get_data_source_uid")
-    @patch("pe_source.flare.flare_events_script.get_orgs")
+    @patch("pe_source.flare_events.flare_events_script.get_ident_group_info")
+    @patch("pe_source.flare_events.flare_events_script.get_data_source_uid")
+    @patch("pe_source.flare_events.flare_events_script.get_orgs")
     def test_run_flare_events_raises_when_org_fails(
         self,
         mock_get_orgs,
@@ -258,7 +258,7 @@ class FlareEventsScriptTests(unittest.TestCase):
     ):
         """run_flare_events should raise when any org scan fails."""
         # Third-Party Libraries
-        from pe_source.flare.flare_events_script import run_flare_events
+        from pe_source.flare_events.flare_events_script import run_flare_events
 
         mock_get_orgs.return_value = [
             {

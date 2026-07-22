@@ -35,7 +35,7 @@ def api_key_label(api_key: str) -> str:
 
 def _validate_flare(keys: List[str]) -> List[str]:
     # Third-Party Libraries
-    from pe_source.flare.flare_helpers import validate_flare_api_key
+    from pe_source.flare_events.flare_helpers import validate_flare_api_key
 
     tenant_id = os.environ.get("FLARE_TENANT_ID", "")
     if not tenant_id:

@@ -7,7 +7,7 @@ import re
 import time
 
 # Third-Party Libraries
-from pe_source.flare.flare_config import get_params
+from pe_source.flare_events.flare_config import get_params
 import requests
 from requests.auth import HTTPBasicAuth
 
