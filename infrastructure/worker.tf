@@ -129,6 +129,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
         Resource = [
           data.aws_ssm_parameter.wiz_registry_secret_arn[0].value,
           data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value,
+          data.aws_ssm_parameter.wiz_http_proxy_cert_secret_arn[0].value,
         ]
       },
       ], [
@@ -479,6 +480,10 @@ resource "aws_ecs_task_definition" "worker" {
         "name": "WIZ_API_CLIENT_SECRET",
         "valueFrom": "${data.aws_ssm_parameter.wiz_service_account_secret_arn[0].value}:WIZ_API_CLIENT_SECRET::"
       },
+      {
+        "name": "WIZ_HTTP_PROXY_CERT",
+        "valueFrom": "${data.aws_ssm_parameter.wiz_http_proxy_cert_secret_arn[0].value}"
+      },
 %{endif~}
       {
         "name": "WORKER_SIGNATURE_PRIVATE_KEY",
@@ -556,6 +561,11 @@ data "aws_ssm_parameter" "wiz_registry_secret_arn" {
 data "aws_ssm_parameter" "wiz_service_account_secret_arn" {
   count = var.is_dmz ? 0 : 1
   name  = var.ssm_wiz_service_account_secret_arn
+}
+
+data "aws_ssm_parameter" "wiz_http_proxy_cert_secret_arn" {
+  count = var.is_dmz ? 0 : 1
+  name  = var.ssm_wiz_http_proxy_cert_secret_arn
 }
 
 data "aws_ssm_parameter" "sixgill_client_id" { name = var.ssm_sixgill_client_id }

@@ -17,29 +17,53 @@ from home.models import (
     SubDomains,
 )
 
-# Public "please scan me" hosts — safe for local API testing (not agency IPs).
+# Public hosts that Shodan crawls constantly, so they reliably return banners
+# in the scan's 30-day window. This is local scan testing only — the IPs are
+# not real agency assets, we just want rows to land in shodan_assets/vulns.
+#
+# Each org can list multiple Shodan hosts. scanme.nmap.org is kept because it
+# also produces verified/potential vuln rows (Apache), while the big public
+# DNS resolvers are crawled daily and guarantee fresh asset banners.
 SAMPLE_ORGS = (
     {
         "name": "Department of Homeland Security (DHS)",
         "cyhy_db_name": "DHS",
         "report_on": True,
         "root_domain": "dhs.gov",
-        # Shodan's official test host
-        "shodan_ip": "198.20.70.201",
-        "shodan_cidr": "198.20.70.201/32",
-        "shodan_root": "shodan.io",
-        "shodan_domain": "scanme.shodan.io",
+        "shodan_hosts": (
+            {
+                "ip": "8.8.8.8",
+                "cidr": "8.8.8.8/32",
+                "root": "google.com",
+                "domain": "dns.google",
+            },
+            {
+                "ip": "1.1.1.1",
+                "cidr": "1.1.1.1/32",
+                "root": "one.one.one.one",
+                "domain": "one.one.one.one",
+            },
+        ),
     },
     {
         "name": "Cybersecurity and Infrastructure Security Agency (CISA)",
         "cyhy_db_name": "DHS_CISA",
         "report_on": True,
         "root_domain": "cisa.gov",
-        # Nmap's official test host
-        "shodan_ip": "45.33.32.156",
-        "shodan_cidr": "45.33.32.156/32",
-        "shodan_root": "nmap.org",
-        "shodan_domain": "scanme.nmap.org",
+        "shodan_hosts": (
+            {
+                "ip": "45.33.32.156",
+                "cidr": "45.33.32.156/32",
+                "root": "nmap.org",
+                "domain": "scanme.nmap.org",
+            },
+            {
+                "ip": "9.9.9.9",
+                "cidr": "9.9.9.9/32",
+                "root": "quad9.net",
+                "domain": "dns.quad9.net",
+            },
+        ),
     },
 )
 
@@ -49,12 +73,12 @@ def _ip_hash(ip_str: str) -> str:
     return hashlib.sha256(ip_str.encode()).hexdigest()
 
 
-def _ensure_shodan_sample(org, shodan_source, today, org_spec):
+def _ensure_shodan_sample(org, shodan_source, today, host_spec):
     """Create CIDR, domain, IP, and IpsSubs for one org's Shodan test host."""
-    sample_ip = org_spec["shodan_ip"]
-    sample_cidr = org_spec["shodan_cidr"]
-    sample_root = org_spec["shodan_root"]
-    sample_domain = org_spec["shodan_domain"]
+    sample_ip = host_spec["ip"]
+    sample_cidr = host_spec["cidr"]
+    sample_root = host_spec["root"]
+    sample_domain = host_spec["domain"]
 
     cidr, created = Cidrs.objects.get_or_create(
         organizations_uid=org,
@@ -235,9 +259,10 @@ def populate_sample_data():
                 enumerate_subs=True,
             )
 
-        shodan_samples.append(
-            _ensure_shodan_sample(org, shodan_source, today, org_spec)
-        )
+        for host_spec in org_spec["shodan_hosts"]:
+            shodan_samples.append(
+                _ensure_shodan_sample(org, shodan_source, today, host_spec)
+            )
 
     return {
         "data_sources": [

@@ -155,20 +155,24 @@ class DomainAlertsInsertInput(BaseModel):
 class ShodanAssetsInsert(BaseModel):
     """ShodanAssetsInsert schema class."""
 
-    email: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
     organizations_uid: Optional[str] = None
-    root_domain: Optional[str] = None
-    sub_domain: Optional[str] = None
-    modified_date: Optional[str] = None
-    breach_name: Optional[str] = None
-    credential_breaches_uid: Optional[str] = None
+    organization: Optional[str] = None
+    ip: Optional[str] = None
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+    timestamp: Optional[str] = None
+    product: Optional[str] = None
+    server: Optional[str] = None
+    tags: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    hostnames: Optional[List[str]] = None
+    isn: Optional[str] = None
+    asn: Optional[int] = None
     data_source_uid: Optional[str] = None
-    name: Optional[str] = None
-
-    class Config:
-        """ShodanAssetsInsert schema config class."""
-
-        orm_mode = True
+    country_code: Optional[str] = None
+    location: Optional[str] = None
 
 
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
@@ -176,12 +180,9 @@ class ShodanAssetsInsert(BaseModel):
 class ShodanAssetsInsertInput(BaseModel):
     """ShodanAssetsInsertInput schema class."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     asset_data: List[ShodanAssetsInsert]
-
-    class Config:
-        """ShodanAssetsInsertInput schema config class."""
-
-        orm_mode = True
 
 
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
@@ -189,20 +190,44 @@ class ShodanAssetsInsertInput(BaseModel):
 class ShodanVulnsInsert(BaseModel):
     """ShodanVulnsInsert schema class."""
 
-    email: Optional[str] = None
+    model_config = ConfigDict(from_attributes=True)
+
     organizations_uid: Optional[str] = None
-    root_domain: Optional[str] = None
-    sub_domain: Optional[str] = None
-    modified_date: Optional[str] = None
-    breach_name: Optional[str] = None
-    credential_breaches_uid: Optional[str] = None
+    organization: Optional[str] = None
+    ip: Optional[str] = None
+    port: Optional[int] = None
+    protocol: Optional[str] = None
+    timestamp: Optional[str] = None
+    cve: Optional[str] = None
+    severity: Optional[str] = None
+    cvss: Optional[float] = None
+    summary: Optional[str] = None
+    product: Optional[str] = None
+    attack_vector: Optional[str] = None
+    av_description: Optional[str] = None
+    attack_complexity: Optional[str] = None
+    ac_description: Optional[str] = None
+    confidentiality_impact: Optional[str] = None
+    ci_description: Optional[str] = None
+    integrity_impact: Optional[str] = None
+    ii_description: Optional[str] = None
+    availability_impact: Optional[str] = None
+    ai_description: Optional[str] = None
+    tags: Optional[List[str]] = None
+    domains: Optional[List[str]] = None
+    hostnames: Optional[List[str]] = None
+    isn: Optional[str] = None
+    asn: Optional[int] = None
     data_source_uid: Optional[str] = None
+    type: Optional[str] = None
     name: Optional[str] = None
-
-    class Config:
-        """ShodanVulnsInsert schema config class."""
-
-        orm_mode = True
+    potential_vulns: Optional[List[str]] = None
+    mitigation: Optional[str] = None
+    server: Optional[str] = None
+    is_verified: Optional[bool] = None
+    banner: Optional[str] = None
+    version: Optional[str] = None
+    cpe: Optional[List[str]] = None
 
 
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
@@ -210,9 +235,6 @@ class ShodanVulnsInsert(BaseModel):
 class ShodanVulnsInsertInput(BaseModel):
     """ShodanVulnsInsertInput schema class."""
 
-    vulns_data: List[ShodanVulnsInsert]
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        """ShodanVulnsInsertInput schema config class."""
-
-        orm_mode = True
+    vuln_data: List[ShodanVulnsInsert]

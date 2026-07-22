@@ -36,4 +36,5 @@ export type UserFormValues = {
   org_id: string;
   originalOrgId: string;
   originalRoleId: string;
+  invite_pending: boolean;
 };
