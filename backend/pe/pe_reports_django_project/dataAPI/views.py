@@ -557,39 +557,33 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
     """Create API endpoint to get all ips to run through Shodan.."""
     # Check for API key
     LOGGER.info("The api key submitted tokens")
-    if tokens:
-        try:
-            userapiTokenverify(theapiKey=tokens)
-            # If API key valid, make query
-            ips_from_cidrs = Ips.objects.filter(
-                origin_cidr__organizations_uid=org_uid,
-                origin_cidr__isnull=False,
-                shodan_results=True,
-                current=True,
-            ).values_list("ip", flat=True)
+    del tokens
 
-            ips_from_subs = Ips.objects.filter(
-                ipssubs__sub_domain_uid__root_domain_uid__organizations_uid=org_uid,  # Correct relationship traversal
-                shodan_results=True,  # 'shodan_results' is True
-                ipssubs__sub_domain_uid__current=True,  # 'current' is True for subdomains
-                current=True,  # 'current' is True for Ips
-            ).values_list("ip", flat=True)
+    ips_from_cidrs = Ips.objects.filter(
+        origin_cidr__organizations_uid=org_uid,
+        origin_cidr__isnull=False,
+        shodan_results=True,
+        current=True,
+    ).values_list("ip", flat=True)
 
-            # Convert the QuerySet to sets
-            in_first = set(ips_from_cidrs)
-            in_second = set(ips_from_subs)
+    ips_from_subs = Ips.objects.filter(
+        ipssubs__sub_domain_uid__root_domain_uid__organizations_uid=org_uid,  # Correct relationship traversal
+        shodan_results=True,  # 'shodan_results' is True
+        ipssubs__sub_domain_uid__current=True,  # 'current' is True for subdomains
+        current=True,  # 'current' is True for Ips
+    ).values_list("ip", flat=True)
 
-            # Find IPs that are in the second query but not in the first
-            in_second_but_not_in_first = in_second - in_first
+    # Convert the QuerySet to sets
+    in_first = set(ips_from_cidrs)
+    in_second = set(ips_from_subs)
 
-            # Combine the results
-            ips = list(ips_from_cidrs) + list(in_second_but_not_in_first)
+    # Find IPs that are in the second query but not in the first
+    in_second_but_not_in_first = in_second - in_first
 
-            return ips
-        except ObjectDoesNotExist:
-            LOGGER.info("API key expired please try again")
-    else:
-        return {"message": "No api key was submitted"}
+    # Combine the results
+    ips = list(ips_from_cidrs) + list(in_second_but_not_in_first)
+
+    return ips
 
 
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
