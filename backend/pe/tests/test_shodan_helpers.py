@@ -490,6 +490,8 @@ class SearchShodanTests(unittest.TestCase):
         ]
         api.host.return_value = [result]
 
+        org_name = os.environ.get("SHODAN_ORG_EXCEPTION")
+
         shodan_helpers.search_shodan(
             "Thread 1:",
             ["198.51.100.15"],
@@ -497,7 +499,7 @@ class SearchShodanTests(unittest.TestCase):
             self.start,
             self.end,
             "7d2dbd06-f247-11ec-bb6e-02c6a3fe975b",
-            "org_name",
+            org_name,
             [],
         )
 
