@@ -677,6 +677,44 @@ class DomainPermutations(models.Model):
         unique_together = (("domain_permutation", "organizations_uid"),)
 
 
+class FlareEvents(models.Model):
+    """Define FlareEvents model."""
+
+    flare_events_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    organizations_uid = models.ForeignKey(
+        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
+    )
+    flare_uid = models.TextField(blank=True, null=True)
+    event_type = models.TextField(blank=True, null=True)
+    event_date = models.DateField(blank=True, null=True)
+    collection_date = models.DateField(blank=True, null=True)
+    title = models.TextField(blank=True, null=True)
+    content = models.TextField(blank=True, null=True)
+    content_hash = models.TextField(blank=True, null=True)
+    actor = models.TextField(blank=True, null=True)
+    category = models.TextField(blank=True, null=True)
+    source = models.TextField(blank=True, null=True)
+    url = models.TextField(blank=True, null=True)
+    risk_scores = models.TextField(blank=True, null=True)
+    related_identifiers = ArrayField(
+        models.TextField(), blank=True, null=True, default=list
+    )
+    data_source_uid = models.ForeignKey(
+        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
+    )
+    severity = models.TextField(blank=True, null=True)
+    related_identifiers_txt = ArrayField(
+        models.TextField(), blank=True, null=True, default=list
+    )
+
+    class Meta:
+        """Set FlareEvents model metadata."""
+
+        managed = False
+        db_table = "flare_events"
+        unique_together = (("organizations_uid", "flare_uid"),)
+
+
 class DotgovDomains(models.Model):
     """Define DotgovDomains model."""
 

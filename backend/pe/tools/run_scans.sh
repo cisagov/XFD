@@ -21,7 +21,6 @@ FUNCTION="${PE_LAMBDA_FUNCTION:-crossfeed-${STAGE}-peScanController}"
 SCANS=""
 ORGS=""
 ORGS_FILE=""
-API_KEYS=""
 COUNT=""
 QUEUE_ONLY=false
 TASKS_ONLY=false
@@ -36,7 +35,6 @@ usage() {
   echo "  -s, --scans SCANS           Comma-separated catalog scan keys (e.g. dnstwist)"
   echo "  -o, --orgs ORGS             Comma-separated organization cyhy_db_name values"
   echo "  -f, --orgs-file FILE        JSON array of organization names"
-  echo "  -k, --api-keys KEYS         Comma-separated Shodan API keys"
   echo "  -c, --count N               Concurrent workers per scan (overrides catalog)"
   echo "      --queue-only            Queue SQS messages only"
   echo "      --tasks-only            Start Fargate tasks only"
@@ -61,7 +59,6 @@ while [[ $# -gt 0 ]]; do
     -s|--scans) SCANS="$2"; shift 2 ;;
     -o|--orgs) ORGS="$2"; shift 2 ;;
     -f|--orgs-file) ORGS_FILE="$2"; shift 2 ;;
-    -k|--api-keys) API_KEYS="$2"; shift 2 ;;
     -c|--count) COUNT="$2"; shift 2 ;;
     --queue-only) QUEUE_ONLY=true; shift ;;
     --tasks-only) TASKS_ONLY=true; shift ;;
@@ -106,11 +103,10 @@ SCANS_JSON="$(printf '%s' "$SCANS" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";
 PAYLOAD="$(jq -n \
   --argjson scans "$SCANS_JSON" \
   --argjson orgs "$ORGS_JSON" \
-  --arg apiKeyList "$API_KEYS" \
   --argjson queueOnly "$QUEUE_ONLY" \
   --argjson tasksOnly "$TASKS_ONLY" \
   --arg count "$COUNT" \
-  '{scans: $scans, orgs: $orgs, apiKeyList: $apiKeyList, queueOnly: $queueOnly, tasksOnly: $tasksOnly}
+  '{scans: $scans, orgs: $orgs, queueOnly: $queueOnly, tasksOnly: $tasksOnly}
    + (if $count == "" then {} else {taskCount: ($count | tonumber)} end)')"
 
 echo "Invoking ${FUNCTION} in ${REGION}..."
