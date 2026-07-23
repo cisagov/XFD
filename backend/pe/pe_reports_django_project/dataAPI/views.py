@@ -103,7 +103,6 @@ def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
         )
         return
 
-    LOGGER.info(f"The expired access token is {expiredaccessToken}")
     theusername = ""
     try:
         user_record = list(User.objects.filter(id=user_id))
@@ -115,14 +114,11 @@ def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
 
     # user_record = User.objects.get(id=user_id)
 
-    theuserid = None
     for u in user_record:
         theusername = u.username
-        theuserid = u.id
     if not theusername:
         LOGGER.warning("Cannot refresh access token: Django user %r not found", user_id)
         return
-    LOGGER.info(f"The username is {theusername} with a user of {theuserid}")
 
     try:
         updateapiuseraccessToken = apiUser.objects.get(apiKey=expiredaccessToken)
@@ -139,9 +135,7 @@ def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
 
     updateapiuseraccessToken.save(update_fields=["apiKey"])
     # updateapiuserrefreshToken.save(update_fields=['refresh_token'])
-    LOGGER.info(
-        f"The user api key and refresh token have been updated from: {theapiKey} to: {updateapiuseraccessToken.apiKey}."
-    )
+    LOGGER.info("The user api key and refresh token have been updated.")
 
 
 def userapiTokenverify(theapiKey):
@@ -153,7 +147,6 @@ def userapiTokenverify(theapiKey):
         return
 
     tokenRecords = list(apiUser.objects.filter(apiKey=theapiKey))
-    LOGGER.info(f"The user provided key is {theapiKey}")
     user_key = ""
     user_refresh = ""
     user_id = ""
@@ -162,9 +155,6 @@ def userapiTokenverify(theapiKey):
         user_refresh = u.refresh_token
         user_key = u.apiKey
         user_id = u.id
-    LOGGER.info(f"The user key is {user_key}")
-    LOGGER.info(f"The user refresh key is {user_refresh}")
-    LOGGER.info(f"the token being verified at verify {theapiKey}")
 
     try:
         jwt.decode(
@@ -172,7 +162,6 @@ def userapiTokenverify(theapiKey):
             PE_JWT_SECRET,
             algorithms=[ALGORITHM],
         )
-        LOGGER.info(f"The api key was alright {theapiKey}")
 
     except exceptions.JWTError:
         if not user_key or user_id in (None, ""):
@@ -570,7 +559,7 @@ def domain_alerts_insert(
 def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
     """Create API endpoint to get all ips to run through Shodan.."""
     # Check for API key
-    LOGGER.info(f"The api key submitted {tokens}")
+    LOGGER.info("The api key submitted tokens")
     if tokens:
         try:
             userapiTokenverify(theapiKey=tokens)
@@ -619,7 +608,7 @@ def shodan_assets_insert(
 ):
     """Insert Shodan data into the shodan_assets table using the API endpoint."""
     # Check for API key
-    LOGGER.info(f"The api key submitted {tokens}")
+    LOGGER.info("The api key submitted tokens")
     if tokens:
         try:
             userapiTokenverify(theapiKey=tokens)
@@ -689,7 +678,7 @@ def shodan_vulns_insert(
 ):
     """Insert Shodan data into the shodan_vulns table using the API endpoint."""
     # Check for API key
-    LOGGER.info(f"The api key submitted {tokens}")
+    LOGGER.info("The api key submitted tokens")
     if tokens:
         try:
             userapiTokenverify(theapiKey=tokens)
