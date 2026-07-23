@@ -550,10 +550,7 @@ def domain_alerts_insert(
 
 @api_router.get(
     "/query_shodan_ips/{org_uid}",
-    dependencies=[
-        Depends(verify_api_key)
-    ],  # Depends(RateLimiter(times=200, seconds=60))],
-    # response_model=List[schemas.OrgsReportOnContacts],
+    dependencies=[Depends(verify_api_key)],
     tags=["Get all ips to run through Shodan."],
 )
 def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
@@ -598,9 +595,7 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
 @api_router.put(
     "/shodan_assets_insert",
-    dependencies=[
-        Depends(get_api_key)
-    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    dependencies=[Depends(get_api_key)],
     tags=["Insert Shodan data into the shodan_assets table."],
 )
 def shodan_assets_insert(
@@ -668,9 +663,7 @@ def shodan_assets_insert(
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
 @api_router.put(
     "/shodan_vulns_insert",
-    dependencies=[
-        Depends(get_api_key)
-    ],  # Depends(RateLimiter(times=200, seconds=60))],
+    dependencies=[Depends(get_api_key)],
     tags=["Insert Shodan data into the shodan_vulns table."],
 )
 def shodan_vulns_insert(
