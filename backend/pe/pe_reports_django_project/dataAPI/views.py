@@ -41,8 +41,6 @@ api_router = APIRouter()
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 ALGORITHM = "HS256"
-# PE_JWT_SECRET = config("PE_JWT_SECRET")  # should be kept secret
-# PE_JWT_REFRESH_SECRET = config("PE_JWT_REFRESH_SECRET")  # should be kept secret
 PE_JWT_SECRET = settings.PE_JWT_SECRET
 PE_JWT_REFRESH_SECRET = settings.PE_JWT_REFRESH_SECRET
 
