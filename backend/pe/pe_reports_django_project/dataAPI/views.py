@@ -2,11 +2,10 @@
 
 # Standard Python Libraries
 from datetime import datetime as dt
-from datetime import timedelta
 from datetime import timezone as dt_timezone
 import logging
 import os
-from typing import Any, List, Optional, Union
+from typing import List
 import uuid
 
 # Third-Party Libraries
@@ -14,7 +13,6 @@ from dataAPI import schemas
 
 # from decouple import config
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Max, Q
@@ -35,9 +33,7 @@ from home.models import (
     ShodanAssets,
     ShodanVulns,
     SubDomains,
-    apiUser,
 )
-from jose import exceptions, jwt
 from starlette.status import HTTP_403_FORBIDDEN
 
 LOGGER = logging.getLogger(__name__)
@@ -77,103 +73,6 @@ def verify_api_key(api_key: str = Security(api_key_header)) -> str:  # noqa: B00
             detail="Could not validate credentials",
         )
     return api_key
-
-
-def create_access_token(
-    subject: Union[str, Any], expires_delta: Optional[timedelta] = None
-) -> str:
-    """Create access token."""
-    if expires_delta is not None:
-        expires_date = dt.now(dt_timezone.utc) + expires_delta
-    else:
-        expires_date = dt.now(dt_timezone.utc) + timedelta(
-            minutes=ACCESS_TOKEN_EXPIRE_MINUTES
-        )
-
-    to_encode = {"exp": expires_date, "sub": str(subject)}
-    encoded_jwt = jwt.encode(to_encode, PE_JWT_SECRET, ALGORITHM)
-    return encoded_jwt
-
-
-def userapiTokenUpdate(expiredaccessToken, user_refresh, theapiKey, user_id):
-    """When api apiKey is expired a new key is created and updated in the database."""
-    if user_id in (None, ""):
-        LOGGER.warning(
-            "Cannot refresh access token: no apiUser/user id associated with key"
-        )
-        return
-
-    theusername = ""
-    try:
-        user_record = list(User.objects.filter(id=user_id))
-    except (TypeError, ValueError) as err:
-        LOGGER.warning(
-            "Cannot refresh access token: invalid user id %r (%s)", user_id, err
-        )
-        return
-
-    # user_record = User.objects.get(id=user_id)
-
-    for u in user_record:
-        theusername = u.username
-    if not theusername:
-        LOGGER.warning("Cannot refresh access token: Django user %r not found", user_id)
-        return
-
-    try:
-        updateapiuseraccessToken = apiUser.objects.get(apiKey=expiredaccessToken)
-    except apiUser.DoesNotExist:
-        LOGGER.warning(
-            "Cannot refresh access token: apiUser row not found for expired key"
-        )
-        return
-    # updateapiuserrefreshToken = apiUser.objects.get(refresh_token=expiredrefreshToken)
-
-    updateapiuseraccessToken.apiKey = f"{create_access_token(theusername)}"
-    # updateapiuserrefreshToken.refresh_token = f"{create_refresh_token(theusername)}"
-    # LOGGER.info(updateapiuseraccessToken.apiKey)
-
-    updateapiuseraccessToken.save(update_fields=["apiKey"])
-    # updateapiuserrefreshToken.save(update_fields=['refresh_token'])
-    LOGGER.info("The user api key and refresh token have been updated.")
-
-
-def userapiTokenverify(theapiKey):
-    """Check to see if api key is expired."""
-    # Scan workers authenticate with the static PE_API_KEY (not a JWT).
-    expected = os.environ.get("PE_API_KEY", "")
-    if theapiKey and expected and theapiKey == expected:
-        LOGGER.info("Accepted PE_API_KEY for service authentication")
-        return
-
-    tokenRecords = list(apiUser.objects.filter(apiKey=theapiKey))
-    user_key = ""
-    user_refresh = ""
-    user_id = ""
-
-    for u in tokenRecords:
-        user_refresh = u.refresh_token
-        user_key = u.apiKey
-        user_id = u.id
-
-    try:
-        jwt.decode(
-            theapiKey,
-            PE_JWT_SECRET,
-            algorithms=[ALGORITHM],
-        )
-
-    except exceptions.JWTError:
-        if not user_key or user_id in (None, ""):
-            LOGGER.warning(
-                "JWT verification failed and no apiUser record is available to refresh"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Could not validate credentials",
-            )
-        LOGGER.warning("The access token has expired and will be updated")
-        userapiTokenUpdate(user_key, user_refresh, theapiKey, user_id)
 
 
 async def get_api_key(
