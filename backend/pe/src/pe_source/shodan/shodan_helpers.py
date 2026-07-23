@@ -7,7 +7,7 @@ import time
 
 # Third-Party Libraries
 import pandas as pd
-from pe_source.data.db_query_source import (  # get_ips_dhs,; get_ips_hhs,; get_ips_nasa,
+from pe_source.data.db_query_source import (
     get_data_source_uid,
     get_ips,
     insert_shodan_assets,
