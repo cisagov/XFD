@@ -717,39 +717,3 @@ def shodan_vulns_insert(
             continue
     # Return success message
     return str(create_cnt) + " records created in the shodan vulns table"
-
-
-# --- get_data_source_uid(), Issue 700 pe-reports ---
-# @api_router.post(
-#     "/data_source_by_name",
-#     dependencies=[
-#         Depends(get_api_key)
-#     ],  # Depends(RateLimiter(times=200, seconds=60))],
-#     response_model=List[schemas.DataSourceFullTable],
-#     tags=["Retrieve data for specified data source name."],
-# )
-# def data_source_by_name(
-#     data: schemas.DataSourceByNameInput, tokens: dict = Depends(get_api_key)
-# ):
-#     """Call API endpoint to get data for specified data source name."""
-# Check for API key
-# LOGGER.info(f"The api key submitted {tokens}")
-# if tokens:
-#     try:
-#         userapiTokenverify(theapiKey=tokens)
-#         # If API key valid, make query
-#         data_source_by_name_data = list(
-#             DataSource.objects.filter(name=data.name).values()
-#         )
-#         # also update data source record
-#         today = dt.today().strftime("%Y-%m-%d")
-#         DataSource.objects.filter(name=data.name).update(last_run=today)
-#         # Convert data types to match response model
-#         for row in data_source_by_name_data:
-#             row["data_source_uid"] = convert_uuid_to_string(row["data_source_uid"])
-#             row["last_run"] = convert_date_to_string(row["last_run"])
-#         return data_source_by_name_data
-#     except ObjectDoesNotExist:
-#         LOGGER.info("API key expired please try again")
-# else:
-#     return {"message": "No api key was submitted"}
