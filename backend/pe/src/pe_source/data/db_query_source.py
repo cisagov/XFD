@@ -385,7 +385,6 @@ def get_ips(org_uid):
     return []
 
 
-# --- Issue 016 atc-framework ---
 def insert_shodan_assets(asset_data, failed):
     """
     Query API to insert Shodan data into the shodan_assets table.
@@ -425,7 +424,6 @@ def insert_shodan_assets(asset_data, failed):
     return failed
 
 
-# --- Issue 017 atc-framework ---
 def insert_shodan_vulns(vuln_data, failed):
     """
     Query API to insert Shodan data into the shodan_vulns table.

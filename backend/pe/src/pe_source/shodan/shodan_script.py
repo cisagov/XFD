@@ -1,7 +1,6 @@
 """Collect Shodan data."""
 
 # Standard Python Libraries
-# from datetime import timedelta
 import logging
 import threading
 
