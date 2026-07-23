@@ -586,7 +586,6 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
     return ips
 
 
-# --- insert_shodan_assets(), Issue 016 atc-framework ---
 @api_router.put(
     "/shodan_assets_insert",
     dependencies=[Depends(verify_api_key)],
@@ -645,7 +644,6 @@ def shodan_assets_insert(
     }
 
 
-# --- insert_shodan_vulns(), Issue 017 atc-framework ---
 @api_router.put(
     "/shodan_vulns_insert",
     dependencies=[Depends(verify_api_key)],
