@@ -586,6 +586,7 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
     return ips
 
 
+@transaction.atomic
 @api_router.put(
     "/shodan_assets_insert",
     dependencies=[Depends(verify_api_key)],
@@ -644,6 +645,7 @@ def shodan_assets_insert(
     }
 
 
+@transaction.atomic
 @api_router.put(
     "/shodan_vulns_insert",
     dependencies=[Depends(verify_api_key)],
