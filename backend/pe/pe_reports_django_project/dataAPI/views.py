@@ -648,84 +648,77 @@ def shodan_assets_insert(
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
 @api_router.put(
     "/shodan_vulns_insert",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(verify_api_key)],
     tags=["Insert Shodan data into the shodan_vulns table."],
 )
 def shodan_vulns_insert(
-    data: schemas.ShodanVulnsInsertInput, tokens: dict = Depends(get_api_key)
+    data: schemas.ShodanVulnsInsertInput, tokens: dict = Depends(verify_api_key)
 ):
     """Insert Shodan data into the shodan_vulns table using the API endpoint."""
     # Check for API key
     LOGGER.info("The api key submitted tokens")
-    if tokens:
-        try:
-            userapiTokenverify(theapiKey=tokens)
-            # If API key valid, insert intelx data
-            create_cnt = 0
-            for row in data.vuln_data:
-                row_dict = row.model_dump()
-                try:
-                    org_instance = Organizations.objects.get(
-                        organizations_uid=row_dict["organizations_uid"]
-                    )
-                    vuln_data = {
-                        "organization": row_dict.get("organization"),
-                        "cve": row_dict.get("cve"),
-                        "severity": row_dict.get("severity"),
-                        "cvss": row_dict.get("cvss"),
-                        "summary": row_dict.get("summary"),
-                        "product": row_dict.get("product"),
-                        "attack_vector": row_dict.get("attack_vector"),
-                        "av_description": row_dict.get("av_description"),
-                        "attack_complexity": row_dict.get("attack_complexity"),
-                        "ac_description": row_dict.get("ac_description"),
-                        "confidentiality_impact": row_dict.get(
-                            "confidentiality_impact"
-                        ),
-                        "ci_description": row_dict.get("ci_description"),
-                        "integrity_impact": row_dict.get("integrity_impact"),
-                        "ii_description": row_dict.get("ii_description"),
-                        "availability_impact": row_dict.get("availability_impact"),
-                        "ai_description": row_dict.get("ai_description"),
-                        "tags": row_dict.get("tags"),
-                        "domains": row_dict.get("domains"),
-                        "hostnames": row_dict.get("hostnames"),
-                        "isn": row_dict.get("isn"),
-                        "asn": row_dict.get("asn"),
-                        "data_source_uid_id": row_dict.get("data_source_uid"),
-                        "type": row_dict.get("type"),
-                        "name": row_dict.get("name"),
-                        "potential_vulns": row_dict.get("potential_vulns"),
-                        "mitigation": row_dict.get("mitigation"),
-                        "server": row_dict.get("server"),
-                        "is_verified": row_dict.get("is_verified"),
-                        "banner": row_dict.get("banner"),
-                        "version": row_dict.get("version"),
-                        "cpe": row_dict.get("cpe"),
-                    }
+    del tokens
 
-                    obj, created = ShodanVulns.objects.update_or_create(
-                        organizations_uid=org_instance,  # Directly use organizations_uid
-                        ip=row_dict["ip"],
-                        port=row_dict["port"],
-                        protocol=row_dict["protocol"],
-                        timestamp=timezone.make_aware(
-                            parse_datetime(row_dict["timestamp"]),
-                            dt_timezone.utc,
-                        ),
-                        defaults=vuln_data,
-                    )
-                    if created:
-                        create_cnt += 1
-                except Exception as e:
-                    LOGGER.warning(f"Shodan Vuln failed to save to PE DB: {e}")
-                    continue
-            # Return success message
-            return str(create_cnt) + " records created in the shodan vulns table"
-        except ObjectDoesNotExist:
-            LOGGER.info("API key expired please try again")
-    else:
-        return {"message": "No api key was submitted"}
+    # If API key valid, insert intelx data
+    create_cnt = 0
+    for row in data.vuln_data:
+        row_dict = row.model_dump()
+        try:
+            org_instance = Organizations.objects.get(
+                organizations_uid=row_dict["organizations_uid"]
+            )
+            vuln_data = {
+                "organization": row_dict.get("organization"),
+                "cve": row_dict.get("cve"),
+                "severity": row_dict.get("severity"),
+                "cvss": row_dict.get("cvss"),
+                "summary": row_dict.get("summary"),
+                "product": row_dict.get("product"),
+                "attack_vector": row_dict.get("attack_vector"),
+                "av_description": row_dict.get("av_description"),
+                "attack_complexity": row_dict.get("attack_complexity"),
+                "ac_description": row_dict.get("ac_description"),
+                "confidentiality_impact": row_dict.get("confidentiality_impact"),
+                "ci_description": row_dict.get("ci_description"),
+                "integrity_impact": row_dict.get("integrity_impact"),
+                "ii_description": row_dict.get("ii_description"),
+                "availability_impact": row_dict.get("availability_impact"),
+                "ai_description": row_dict.get("ai_description"),
+                "tags": row_dict.get("tags"),
+                "domains": row_dict.get("domains"),
+                "hostnames": row_dict.get("hostnames"),
+                "isn": row_dict.get("isn"),
+                "asn": row_dict.get("asn"),
+                "data_source_uid_id": row_dict.get("data_source_uid"),
+                "type": row_dict.get("type"),
+                "name": row_dict.get("name"),
+                "potential_vulns": row_dict.get("potential_vulns"),
+                "mitigation": row_dict.get("mitigation"),
+                "server": row_dict.get("server"),
+                "is_verified": row_dict.get("is_verified"),
+                "banner": row_dict.get("banner"),
+                "version": row_dict.get("version"),
+                "cpe": row_dict.get("cpe"),
+            }
+
+            obj, created = ShodanVulns.objects.update_or_create(
+                organizations_uid=org_instance,  # Directly use organizations_uid
+                ip=row_dict["ip"],
+                port=row_dict["port"],
+                protocol=row_dict["protocol"],
+                timestamp=timezone.make_aware(
+                    parse_datetime(row_dict["timestamp"]),
+                    dt_timezone.utc,
+                ),
+                defaults=vuln_data,
+            )
+            if created:
+                create_cnt += 1
+        except Exception as e:
+            LOGGER.warning(f"Shodan Vuln failed to save to PE DB: {e}")
+            continue
+    # Return success message
+    return str(create_cnt) + " records created in the shodan vulns table"
 
 
 # --- get_data_source_uid(), Issue 700 pe-reports ---
