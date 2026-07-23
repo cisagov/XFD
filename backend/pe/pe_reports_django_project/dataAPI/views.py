@@ -589,69 +589,60 @@ def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
 # --- insert_shodan_assets(), Issue 016 atc-framework ---
 @api_router.put(
     "/shodan_assets_insert",
-    dependencies=[Depends(get_api_key)],
+    dependencies=[Depends(verify_api_key)],
     tags=["Insert Shodan data into the shodan_assets table."],
 )
 def shodan_assets_insert(
-    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(get_api_key)
+    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(verify_api_key)
 ):
     """Insert Shodan data into the shodan_assets table using the API endpoint."""
     # Check for API key
     LOGGER.info("The api key submitted tokens")
-    if tokens:
+    del tokens
+
+    update_create_count = 0
+    for row in data.asset_data:
+        row_dict = row.model_dump()
         try:
-            userapiTokenverify(theapiKey=tokens)
-            # If API key valid, insert intelx data
-            update_create_count = 0
-            for row in data.asset_data:
-                row_dict = row.model_dump()
-                try:
-                    org_instance = Organizations.objects.get(
-                        organizations_uid=row_dict["organizations_uid"]
-                    )
-                    asset_fields = {
-                        "asn": row_dict.get("asn"),
-                        "domains": row_dict.get("domains") or [],
-                        "hostnames": row_dict.get("hostnames") or [],
-                        "isn": row_dict.get("isn"),
-                        "organization": row_dict.get("organization"),
-                        "product": row_dict.get("product"),
-                        "server": row_dict.get("server"),
-                        "tags": row_dict.get("tags") or [],
-                        "country_code": row_dict.get("country_code"),
-                        "location": row_dict.get("location"),
-                        "data_source_uid_id": row_dict.get("data_source_uid"),
-                    }
-
-                    # Use 'update_or_create' to either create or update the record
-                    obj, created = ShodanAssets.objects.update_or_create(
-                        organizations_uid=org_instance,  # Directly use organizations_uid
-                        ip=row_dict["ip"],
-                        port=row_dict["port"],
-                        protocol=row_dict["protocol"],
-                        timestamp=timezone.make_aware(
-                            parse_datetime(row_dict["timestamp"]),
-                            dt_timezone.utc,
-                        ),
-                        defaults=asset_fields,
-                    )
-                    if created:
-                        update_create_count += 1
-                except Exception as e:
-                    LOGGER.warning(f"Shodan Asset failed to save to PE DB: {e}")
-                    continue
-
-            # Return success message
-            return {
-                "message": f"{update_create_count} records created/updated in the shodan_assets table."
+            org_instance = Organizations.objects.get(
+                organizations_uid=row_dict["organizations_uid"]
+            )
+            asset_fields = {
+                "asn": row_dict.get("asn"),
+                "domains": row_dict.get("domains") or [],
+                "hostnames": row_dict.get("hostnames") or [],
+                "isn": row_dict.get("isn"),
+                "organization": row_dict.get("organization"),
+                "product": row_dict.get("product"),
+                "server": row_dict.get("server"),
+                "tags": row_dict.get("tags") or [],
+                "country_code": row_dict.get("country_code"),
+                "location": row_dict.get("location"),
+                "data_source_uid_id": row_dict.get("data_source_uid"),
             }
-        except ObjectDoesNotExist:
-            LOGGER.info("API key expired please try again")
+
+            # Use 'update_or_create' to either create or update the record
+            obj, created = ShodanAssets.objects.update_or_create(
+                organizations_uid=org_instance,  # Directly use organizations_uid
+                ip=row_dict["ip"],
+                port=row_dict["port"],
+                protocol=row_dict["protocol"],
+                timestamp=timezone.make_aware(
+                    parse_datetime(row_dict["timestamp"]),
+                    dt_timezone.utc,
+                ),
+                defaults=asset_fields,
+            )
+            if created:
+                update_create_count += 1
         except Exception as e:
-            LOGGER.error(f"Error: {str(e)}")
-            return {"message": "An error occurred while processing the request."}
-    else:
-        return {"message": "No api key was submitted"}
+            LOGGER.warning(f"Shodan Asset failed to save to PE DB: {e}")
+            continue
+
+    # Return success message
+    return {
+        "message": f"{update_create_count} records created/updated in the shodan_assets table."
+    }
 
 
 # --- insert_shodan_vulns(), Issue 017 atc-framework ---
