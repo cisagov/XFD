@@ -338,6 +338,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
         "valueFrom": "${data.aws_ssm_parameter.shodan_api_key.arn}"
       },
       {
+        "name": "SHODAN_ORG_EXCEPTION",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}
+      },
+      {
         "name": "WHOIS_XML_KEY",
         "valueFrom": "${data.aws_ssm_parameter.whoisxml_api_key.arn}"
       },
@@ -366,10 +370,6 @@ resource "aws_ecs_task_definition" "pe_worker" {
       {
         "name": "XPANSE_AUTH_ID",
         "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
-      },
-      {
-        "name": "SHODAN_ORG_EXCEPTION",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}"
       }
     ]
   }%{if !var.is_dmz},
