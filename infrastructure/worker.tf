@@ -118,7 +118,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.worker_signature_public_key.arn,
           data.aws_ssm_parameter.xpanse_api_key.arn,
           data.aws_ssm_parameter.xpanse_auth_id.arn,
-          data.aws_ssm_parameter.ssm_shodan_org_exception
+          data.aws_ssm_parameter.ssm_shodan_org_exception.arn
         ]
       },
       ], var.is_dmz ? [] : [
