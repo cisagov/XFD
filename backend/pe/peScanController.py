@@ -487,6 +487,7 @@ def start_local_docker_workers(
                 "PE_QUEUE_PREFIX": default_queue_prefix(),
                 "DNSMONITOR_CLIENT_ID": os.getenv("DNSMONITOR_CLIENT_ID", None),
                 "DNSMONITOR_CLIENT_SECRET": os.getenv("DNSMONITOR_CLIENT_SECRET", None),
+                "SHODAN_ORG_EXCEPTION": os.getenv("SHODAN_ORG_EXCEPTION", None),
             }
             if worker_api_key is not None:
                 environment.update(worker_key_env(scan_name, worker_api_key))

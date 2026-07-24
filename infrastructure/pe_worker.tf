@@ -366,6 +366,10 @@ resource "aws_ecs_task_definition" "pe_worker" {
       {
         "name": "XPANSE_AUTH_ID",
         "valueFrom": "${data.aws_ssm_parameter.xpanse_auth_id.arn}"
+      },
+      {
+        "name": "SHODAN_ORG_EXCEPTION",
+        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}"
       }
     ]
   }%{if !var.is_dmz},
