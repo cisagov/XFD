@@ -339,7 +339,7 @@ resource "aws_ecs_task_definition" "pe_worker" {
       },
       {
         "name": "SHODAN_ORG_EXCEPTION",
-        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}
+        "valueFrom": "${data.aws_ssm_parameter.ssm_shodan_org_exception.arn}"
       },
       {
         "name": "WHOIS_XML_KEY",
