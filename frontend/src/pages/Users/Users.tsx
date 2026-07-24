@@ -58,7 +58,7 @@ interface UserType extends User {
 }
 
 export const Users: React.FC = () => {
-  const { user, apiDelete, apiGet } = useAuthContext();
+  const { user: loggedInUser, apiDelete, apiGet } = useAuthContext();
   const [selectedRow, setSelectedRow] = useState<UserType>(initializeUser);
   const [users, setUsers] = useState<UserType[]>([]);
   const [editUserDialogOpen, setEditUserDialogOpen] = useState(false);
@@ -83,7 +83,7 @@ export const Users: React.FC = () => {
   const fetchUsers = useCallback(async () => {
     setIsLoading(true);
     try {
-      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS);
+      const rows = await apiGet<UserType[]>(ENDPOINTS.USERS_V2);
       rows.forEach((row) => {
         row.lastLoggedInString = row.last_logged_in
           ? format(new Date(row.last_logged_in), 'MM-dd-yyyy hh:mm a')
@@ -118,7 +118,7 @@ export const Users: React.FC = () => {
   }, [fetchUsers]);
 
   const userCols = useUserColumns({
-    user,
+    loggedInUser,
     setSelectedRow,
     setFormValues,
     setEditUserDialogOpen,
@@ -256,7 +256,8 @@ export const Users: React.FC = () => {
               columns: {
                 columnVisibilityModel: {
                   dateToUSigned: false,
-                  accepted_terms_version: false
+                  accepted_terms_version: false,
+                  invite_pending: false
                 }
               }
             }}
