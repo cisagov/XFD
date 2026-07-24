@@ -10,7 +10,7 @@ import pandas as pd
 import requests
 
 # cisagov Libraries
-from backend.pe.src.pe_source.shodan.shodan_helpers import (
+from pe_source.data.db_query_source import (
     insert_shodan_top_cves,
     query_all_shodan_cves,
 )
@@ -60,7 +60,7 @@ def get_cve_details(cve_list):
             "nvd_base_score": f"{{'v2': {cvss_v2}, 'v3': {cvss_v3}}}",
             "date": TODAY.strftime("%Y-%m-%d"),
             "summary": summary,
-            "data_source_uid": "763eb880-981d-11ec-a100-02589a36c9d7",
+            "data_source_uid": "8cca4335-a64e-4c33-bd92-5ab9e74a6f99",
         }
         # Append CVE details
         cve_detail_list.append(cve_detail_dict)
