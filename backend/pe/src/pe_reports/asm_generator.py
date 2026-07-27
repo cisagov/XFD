@@ -8,7 +8,6 @@ import logging
 import os
 
 # Third-Party Libraries
-from PyPDF2 import PdfReader, PdfWriter
 import fitz
 import pandas as pd
 from pe_reports.data.db_query import (
@@ -21,6 +20,7 @@ from pe_reports.data.db_query import (
     query_software,
     query_subs,
 )
+from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
