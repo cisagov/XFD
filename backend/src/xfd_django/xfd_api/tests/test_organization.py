@@ -138,9 +138,7 @@ def test_create_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: Update organization by global admin
@@ -239,9 +237,7 @@ def test_update_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: Deleting an organization by global admin should succeed
@@ -309,9 +305,7 @@ def test_delete_org_by_org_admin_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: Deleting an organization by global view should fail
@@ -343,9 +337,7 @@ def test_delete_org_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: List organizations by global view should succeed
@@ -515,9 +507,7 @@ def test_get_org_by_org_admin_of_different_org_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 # Test: Get organization by org regular user should fail
@@ -555,9 +545,7 @@ def test_get_org_by_org_regular_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized"}
 
 
 # Test: Get organization by org admin should return associated scantasks
@@ -1121,9 +1109,7 @@ def test_remove_role_by_global_view_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: removeRole by org admin should succeed
@@ -1221,9 +1207,7 @@ def test_remove_role_by_org_user_fails():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized access."}
 
 
 # Test: getTags by globalAdmin should work
@@ -1335,10 +1319,7 @@ def test_get_organizations_by_state_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1423,10 +1404,7 @@ def test_get_organizations_by_region_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1570,10 +1548,7 @@ def test_upsert_organization_unauthorized():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access. View logs for details."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -1768,10 +1743,7 @@ def test_add_user_to_org_v2_unauthorized():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized access."
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2347,7 +2319,7 @@ def test_search_organizations_no_auth():
 def test_search_organizations_no_access():
     """Test that a user without the necessary permissions gets an empty result."""
     user = User.objects.create(
-        first_name="You do not have permission to perform this action.",
+        first_name="Unauthorized",
         last_name="User",
         email="{}@example.com".format(secrets.token_hex(4)),
         user_type=UserType.STANDARD,
@@ -2364,9 +2336,7 @@ def test_search_organizations_no_access():
     )
 
     assert response.status_code == 403
-    assert response.json() == {
-        "detail": "You do not have permission to perform this action."
-    }
+    assert response.json() == {"detail": "Unauthorized."}
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2427,10 +2397,7 @@ def test_get_all_regions_as_standard_user_fails():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
@@ -2515,10 +2482,7 @@ def test_get_organizations_by_region_unauthorized():
     )
 
     assert response.status_code == 403
-    assert (
-        response.json()["detail"]
-        == "You do not have permission to perform this action."
-    )
+    assert response.json()["detail"] == "Unauthorized"
 
 
 @pytest.mark.django_db(transaction=True, databases=["default", "mini_data_lake"])
