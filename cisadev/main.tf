@@ -40,10 +40,10 @@ resource "aws_instance" "cisadev_xfd_gh_actions_runner_ec2" {
       sudo -u ubuntu ./config.sh \
         --unattended \
         --url https://github.com/enterprises/cisa \
-        --token XXXXXXXXXXXXXXXXXXXXXXXXXXXXX \  
+        --token XXXXXXXXXXXXXXXXXXXXXXXXXXXXX \
         --runner-group xfd-runner-group \
         --name cyhy-dashboard-runner
-    fi 
+    fi
 
      sudo ./svc.sh install ubuntu
      sudo ./svc.sh start
