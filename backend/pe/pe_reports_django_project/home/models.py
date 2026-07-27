@@ -14,6 +14,8 @@
 import uuid
 
 # Third-Party Libraries
+from django.contrib.auth.models import User
+
 # from django.conf import settings
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
@@ -97,6 +99,14 @@ class Alias(models.Model):
 
         managed = False
         db_table = "alias"
+
+
+class apiUser(models.Model):
+    """apiUser class."""
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    apiKey = models.CharField(max_length=200, null=True)
+    refresh_token = models.CharField(max_length=200, null=True)
 
 
 class AssetHeaders(models.Model):
@@ -675,6 +685,44 @@ class DomainPermutations(models.Model):
         managed = False
         db_table = "domain_permutations"
         unique_together = (("domain_permutation", "organizations_uid"),)
+
+
+class FlareEvents(models.Model):
+    """Define FlareEvents model."""
+
+    flare_events_uid = models.UUIDField(primary_key=True, default=uuid.uuid1)
+    organizations_uid = models.ForeignKey(
+        "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
+    )
+    flare_uid = models.TextField(blank=True, null=True)
+    event_type = models.TextField(blank=True, null=True)
+    event_date = models.DateField(blank=True, null=True)
+    collection_date = models.DateField(blank=True, null=True)
+    title = models.TextField(blank=True, null=True)
+    content = models.TextField(blank=True, null=True)
+    content_hash = models.TextField(blank=True, null=True)
+    actor = models.TextField(blank=True, null=True)
+    category = models.TextField(blank=True, null=True)
+    source = models.TextField(blank=True, null=True)
+    url = models.TextField(blank=True, null=True)
+    risk_scores = models.TextField(blank=True, null=True)
+    related_identifiers = ArrayField(
+        models.TextField(), blank=True, null=True, default=list
+    )
+    data_source_uid = models.ForeignKey(
+        DataSource, on_delete=models.CASCADE, db_column="data_source_uid"
+    )
+    severity = models.TextField(blank=True, null=True)
+    related_identifiers_txt = ArrayField(
+        models.TextField(), blank=True, null=True, default=list
+    )
+
+    class Meta:
+        """Set FlareEvents model metadata."""
+
+        managed = False
+        db_table = "flare_events"
+        unique_together = (("organizations_uid", "flare_uid"),)
 
 
 class DotgovDomains(models.Model):

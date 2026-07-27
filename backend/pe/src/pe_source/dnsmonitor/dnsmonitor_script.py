@@ -60,7 +60,7 @@ def run_dnsmonitor(orgs_list):
         org_uid = org["organizations_uid"]
         org_code = org["cyhy_db_name"]
         LOGGER.info(
-            f"Running DNSMonitor on {org_code} ({org_idx+1} of {len(orgs_list_final)})"
+            f"Running DNSMonitor on {org_code} ({org_idx + 1} of {len(orgs_list_final)})"
         )
         # Get the DNSMonitor domains associated with this org
         org_domains = all_domains.loc[all_domains["org"] == org_code]

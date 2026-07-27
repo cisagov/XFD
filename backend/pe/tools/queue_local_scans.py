@@ -62,11 +62,6 @@ def main() -> int:
         help="Concurrent workers per scan (overrides catalog default).",
     )
     parser.add_argument(
-        "--api-keys",
-        default="",
-        help="Comma-separated Shodan API keys.",
-    )
-    parser.add_argument(
         "--queue-only",
         action="store_true",
         help="Only queue messages; do not start workers.",
@@ -92,7 +87,6 @@ def main() -> int:
     event = {
         "scans": scans,
         "orgs": orgs,
-        "apiKeyList": args.api_keys,
         "queueOnly": args.queue_only,
         "tasksOnly": args.tasks_only,
         "local": True,

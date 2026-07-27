@@ -6,12 +6,14 @@ from decimal import Decimal
 import json
 import logging
 import sys
+import uuid
 
 # Third-Party Libraries
 import pandas as pd
 from pe_reports.data.config import config, staging_config
 import psycopg2
 from psycopg2 import OperationalError
+from psycopg2.extras import execute_values
 import requests
 
 LOGGER = logging.getLogger(__name__)
@@ -102,6 +104,11 @@ def get_data_source_uid(source):
         result = requests.post(
             endpoint_url, headers=headers, data=data, timeout=60
         ).json()
+        if not result:
+            raise ValueError(
+                "No PE data source named {!r}; run "
+                "'make -C backend/pe syncdb-populate' for local dev".format(source)
+            )
         # Process data and return
         tup_result = [tuple(row.values()) for row in result]
         return tup_result[0][0]
@@ -325,6 +332,73 @@ def get_subdomain_uid(domain):
         LOGGER.error(err)
 
 
+def insert_flare_events(event_list):
+    """Insert list of flare event dictionaries into the PE DB."""
+    if not event_list:
+        return
+
+    rows = [
+        (
+            event.get("flare_events_uid") or str(uuid.uuid1()),
+            event.get("organizations_uid"),
+            event.get("flare_uid"),
+            event.get("event_type"),
+            event.get("event_date"),
+            event.get("collection_date"),
+            event.get("title"),
+            event.get("content"),
+            event.get("content_hash"),
+            event.get("actor"),
+            event.get("category"),
+            event.get("source"),
+            event.get("url"),
+            event.get("risk_scores"),
+            event.get("related_identifiers"),
+            event.get("data_source_uid"),
+            event.get("severity"),
+            event.get("related_identifiers_txt"),
+        )
+        for event in event_list
+    ]
+
+    query = """
+        INSERT INTO flare_events(
+            flare_events_uid, organizations_uid, flare_uid, event_type, event_date,
+            collection_date, title, content, content_hash, actor, category, source,
+            url, risk_scores, related_identifiers, data_source_uid, severity,
+            related_identifiers_txt
+        ) VALUES %s
+        ON CONFLICT (organizations_uid, flare_uid)
+        DO UPDATE SET
+            event_date = EXCLUDED.event_date,
+            collection_date = EXCLUDED.collection_date,
+            title = EXCLUDED.title,
+            content = EXCLUDED.content,
+            related_identifiers = EXCLUDED.related_identifiers,
+            related_identifiers_txt = EXCLUDED.related_identifiers_txt
+    """
+
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_events: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_events: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("insert_flare_events: upsert failed for %d row(s)", len(rows))
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()
+
+
 def get_dnsmonitor_domain_mapping():
     """
     Query API to get the latest DNSMonitor domain to organization mapping.
@@ -353,3 +427,111 @@ def get_dnsmonitor_domain_mapping():
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
     return pd.DataFrame(columns=["domain", "organization"])
+
+
+def get_ips(org_uid):
+    """
+    Query API to get all ips for an org to run through Shodan.
+
+    Return:
+        All ips to run through Shodan
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "query_shodan_ips/" + org_uid
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    try:
+        result = requests.get(endpoint_url, headers=headers, timeout=60).json()
+        # Process data and return
+        return result if isinstance(result, list) else []
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+    return []
+
+
+def insert_shodan_assets(asset_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_assets table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_assets.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_assets_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"asset_data": asset_data})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result.get("message"))
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
+
+
+def insert_shodan_vulns(vuln_data, failed):
+    """
+    Query API to insert Shodan data into the shodan_vulns table.
+
+    Args:
+        data: Dataframe of the shodan data to be inserted into shodan_vulns.
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "shodan_vulns_insert"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"vuln_data": vuln_data})
+    try:
+        # Call endpoint
+        result = requests.put(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        LOGGER.info(result)
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+        failed.append("Failed inserting shodan assets: {}".format(errh))
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+        failed.append("Failed inserting shodan assets: {}".format(errc))
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+        failed.append("Failed inserting shodan assets: {}".format(errt))
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+        failed.append("Failed inserting shodan assets: {}".format(err))
+    return failed
