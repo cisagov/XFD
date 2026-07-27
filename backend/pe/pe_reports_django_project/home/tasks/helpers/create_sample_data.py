@@ -1,133 +1,281 @@
-"""Sample PE data for local dnstwist development."""
+"""Sample PE data for local dnstwist / Shodan development."""
 
 # Standard Python Libraries
 from datetime import date
+import hashlib
 import uuid
 
 # Third-Party Libraries
 from django.db import transaction
-from home.models import DataSource, Organizations, RootDomains
+from home.models import (
+    Cidrs,
+    DataSource,
+    Ips,
+    IpsSubs,
+    Organizations,
+    RootDomains,
+    SubDomains,
+)
 
-DNSMONITOR_SOURCE_UID = uuid.uuid4
-DNSTWIST_SOURCE_UID = uuid.uuid4
-FINDOMAIN_SOURCE_UID = uuid.uuid4
-FLARE_SOURCE_UID = uuid.uuid4
-DHS_ORG_UID = uuid.uuid4
-DHS_CISA_ORG_UID = uuid.uuid4
-DHS_ROOT_UID = uuid.uuid4
-CISA_ROOT_UID = uuid.uuid4
-
+# Public hosts that Shodan crawls constantly, so they reliably return banners
+# in the scan's 30-day window. This is local scan testing only — the IPs are
+# not real agency assets, we just want rows to land in shodan_assets/vulns.
+#
+# Each org can list multiple Shodan hosts. scanme.nmap.org is kept because it
+# also produces verified/potential vuln rows (Apache), while the big public
+# DNS resolvers are crawled daily and guarantee fresh asset banners.
 SAMPLE_ORGS = (
     {
-        "organizations_uid": DHS_ORG_UID,
         "name": "Department of Homeland Security (DHS)",
         "cyhy_db_name": "DHS",
         "report_on": True,
         "root_domain": "dhs.gov",
-        "root_domain_uid": DHS_ROOT_UID,
+        "shodan_hosts": (
+            {
+                "ip": "8.8.8.8",
+                "cidr": "8.8.8.8/32",
+                "root": "google.com",
+                "domain": "dns.google",
+            },
+            {
+                "ip": "1.1.1.1",
+                "cidr": "1.1.1.1/32",
+                "root": "one.one.one.one",
+                "domain": "one.one.one.one",
+            },
+        ),
     },
     {
-        "organizations_uid": DHS_CISA_ORG_UID,
         "name": "Cybersecurity and Infrastructure Security Agency (CISA)",
         "cyhy_db_name": "DHS_CISA",
         "report_on": True,
         "root_domain": "cisa.gov",
-        "root_domain_uid": CISA_ROOT_UID,
+        "shodan_hosts": (
+            {
+                "ip": "45.33.32.156",
+                "cidr": "45.33.32.156/32",
+                "root": "nmap.org",
+                "domain": "scanme.nmap.org",
+            },
+            {
+                "ip": "9.9.9.9",
+                "cidr": "9.9.9.9/32",
+                "root": "quad9.net",
+                "domain": "dns.quad9.net",
+            },
+        ),
     },
 )
 
 
-def _new_uuid(uid_factory):
-    """Instantiate a UUID from a uuid.uuid4 factory."""
-    return uid_factory()
+def _ip_hash(ip_str: str) -> str:
+    """Return a SHA-256 hash for an IP address string."""
+    return hashlib.sha256(ip_str.encode()).hexdigest()
 
 
-def _ensure_data_source(name, source_uid_factory, description):
-    """Create or refresh a data source without changing an existing primary key."""
-    today = date.today()
-    source, created = DataSource.objects.get_or_create(
-        name=name,
+def _ensure_shodan_sample(org, shodan_source, today, host_spec):
+    """Create CIDR, domain, IP, and IpsSubs for one org's Shodan test host."""
+    sample_ip = host_spec["ip"]
+    sample_cidr = host_spec["cidr"]
+    sample_root = host_spec["root"]
+    sample_domain = host_spec["domain"]
+
+    cidr, created = Cidrs.objects.get_or_create(
+        organizations_uid=org,
+        network=sample_cidr,
         defaults={
-            "data_source_uid": _new_uuid(source_uid_factory),
-            "description": description,
-            "last_run": today,
+            "cidr_uid": uuid.uuid4,
+            "data_source_uid": shodan_source,
+            "first_seen": today,
+            "last_seen": today,
+            "current": True,
         },
     )
     if not created:
-        DataSource.objects.filter(name=name).update(
-            description=description,
-            last_run=today,
+        Cidrs.objects.filter(pk=cidr.pk).update(
+            data_source_uid=shodan_source,
+            last_seen=today,
+            current=True,
         )
-        source = DataSource.objects.get(name=name)
-    return source
 
-
-def _ensure_org(org_spec):
-    """Create or refresh a sample org without changing an existing organizations_uid."""
-    cyhy_db_name = org_spec["cyhy_db_name"]
-    org, created = Organizations.objects.get_or_create(
-        cyhy_db_name=cyhy_db_name,
+    shodan_root, created = RootDomains.objects.get_or_create(
+        organizations_uid=org,
+        root_domain=sample_root,
         defaults={
-            "organizations_uid": _new_uuid(org_spec["organizations_uid"]),
-            "name": org_spec["name"],
-            "report_on": org_spec["report_on"],
+            "root_domain_uid": uuid.uuid4,
+            "ip_address": sample_ip,
+            "data_source_uid": shodan_source,
+            "enumerate_subs": False,
         },
     )
     if not created:
-        Organizations.objects.filter(cyhy_db_name=cyhy_db_name).update(
-            name=org_spec["name"],
-            report_on=org_spec["report_on"],
+        RootDomains.objects.filter(pk=shodan_root.pk).update(
+            ip_address=sample_ip,
+            data_source_uid=shodan_source,
         )
-        org = Organizations.objects.get(cyhy_db_name=cyhy_db_name)
-    return org
+
+    subdomain, created = SubDomains.objects.get_or_create(
+        sub_domain=sample_domain,
+        root_domain_uid=shodan_root,
+        defaults={
+            "sub_domain_uid": uuid.uuid4,
+            "data_source_uid": shodan_source,
+            "first_seen": today,
+            "last_seen": today,
+            "current": True,
+            "identified": True,
+            "status": True,
+        },
+    )
+    if not created:
+        SubDomains.objects.filter(pk=subdomain.pk).update(
+            data_source_uid=shodan_source,
+            last_seen=today,
+            current=True,
+            identified=True,
+            status=True,
+        )
+
+    ip_obj, _ = Ips.objects.update_or_create(
+        ip_hash=_ip_hash(sample_ip),
+        defaults={
+            "ip": sample_ip,
+            "origin_cidr": cidr,
+            "organizations_uid": org.organizations_uid,
+            "shodan_results": True,
+            "live": True,
+            "current": True,
+            "from_cidr": True,
+            "first_seen": today,
+            "last_seen": today,
+        },
+    )
+    IpsSubs.objects.get_or_create(
+        ip_hash=ip_obj,
+        sub_domain_uid=subdomain,
+        defaults={"ips_subs_uid": uuid.uuid4},
+    )
+
+    return {
+        "org": org.cyhy_db_name,
+        "ip": sample_ip,
+        "domain": sample_domain,
+    }
 
 
 @transaction.atomic
 def populate_sample_data():
-    """Insert data sources, orgs, and root domains for local PE scans (dnstwist, flare_events, ...)."""
-    dnsmonitor_source = _ensure_data_source(
-        "DNSMonitor",
-        DNSMONITOR_SOURCE_UID,
-        "DNSMonitor domain alerts scan",
+    """Insert data sources, orgs, domains, and Shodan test IPs for local scans."""
+    today = date.today()
+
+    dnsmonitor_source, created = DataSource.objects.get_or_create(
+        name="DNSMonitor",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "DNSMonitor domain alerts scan",
+            "last_run": today,
+        },
     )
-    dnstwist_source = _ensure_data_source(
-        "DNSTwist",
-        DNSTWIST_SOURCE_UID,
-        "DNSTwist domain permutation scan",
+    if not created:
+        DataSource.objects.filter(pk=dnsmonitor_source.pk).update(
+            description="DNSMonitor domain alerts scan",
+            last_run=today,
+        )
+
+    dnstwist_source, created = DataSource.objects.get_or_create(
+        name="DNSTwist",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "DNSTwist domain permutation scan",
+            "last_run": today,
+        },
     )
-    findomain_source = _ensure_data_source(
-        "findomain",
-        FINDOMAIN_SOURCE_UID,
-        "findomain subdomain enumeration",
+    if not created:
+        DataSource.objects.filter(pk=dnstwist_source.pk).update(
+            description="DNSTwist domain permutation scan",
+            last_run=today,
+        )
+
+    flare_source, created = DataSource.objects.get_or_create(
+        name="Flare",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "Flare scan",
+            "last_run": today,
+        },
     )
-    flare_source = _ensure_data_source(
-        "Flare",
-        FLARE_SOURCE_UID,
-        "Flare dark web monitoring",
+    if not created:
+        DataSource.objects.filter(pk=flare_source.pk).update(
+            description="Flare scan",
+            last_run=today,
+        )
+
+    findomain_source, created = DataSource.objects.get_or_create(
+        name="findomain",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "findomain subdomain enumeration",
+            "last_run": today,
+        },
     )
+    if not created:
+        DataSource.objects.filter(pk=findomain_source.pk).update(
+            description="findomain subdomain enumeration",
+            last_run=today,
+        )
+
+    shodan_source, created = DataSource.objects.get_or_create(
+        name="Shodan",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "Shodan internet-facing asset scan",
+            "last_run": today,
+        },
+    )
+    if not created:
+        DataSource.objects.filter(pk=shodan_source.pk).update(
+            description="Shodan internet-facing asset scan",
+            last_run=today,
+        )
 
     org_names = []
+    shodan_samples = []
+
     for org_spec in SAMPLE_ORGS:
         root_domain = org_spec["root_domain"]
-        root_domain_uid = org_spec["root_domain_uid"]
-        org = _ensure_org(org_spec)
+        org, created = Organizations.objects.get_or_create(
+            cyhy_db_name=org_spec["cyhy_db_name"],
+            defaults={
+                "organizations_uid": uuid.uuid4,
+                "name": org_spec["name"],
+                "report_on": org_spec["report_on"],
+            },
+        )
+        if not created:
+            Organizations.objects.filter(pk=org.pk).update(
+                name=org_spec["name"],
+                report_on=org_spec["report_on"],
+            )
         org_names.append(org_spec["cyhy_db_name"])
-        _, created = RootDomains.objects.get_or_create(
+
+        root, created = RootDomains.objects.get_or_create(
             organizations_uid=org,
             root_domain=root_domain,
             defaults={
-                "root_domain_uid": _new_uuid(root_domain_uid),
+                "root_domain_uid": uuid.uuid4,
                 "data_source_uid": findomain_source,
                 "enumerate_subs": True,
             },
         )
         if not created:
-            RootDomains.objects.filter(
-                organizations_uid=org,
-                root_domain=root_domain,
-            ).update(
+            RootDomains.objects.filter(pk=root.pk).update(
                 data_source_uid=findomain_source,
                 enumerate_subs=True,
+            )
+
+        for host_spec in org_spec["shodan_hosts"]:
+            shodan_samples.append(
+                _ensure_shodan_sample(org, shodan_source, today, host_spec)
             )
 
     return {
@@ -136,6 +284,13 @@ def populate_sample_data():
             dnstwist_source.name,
             findomain_source.name,
             flare_source.name,
+            shodan_source.name,
         ],
         "organizations": org_names,
+        "shodan_samples": shodan_samples,
+        # Keep legacy keys for pesyncdb logging (DHS sample).
+        "shodan_sample_ip": shodan_samples[0]["ip"] if shodan_samples else None,
+        "shodan_sample_domain": (
+            shodan_samples[0]["domain"] if shodan_samples else None
+        ),
     }

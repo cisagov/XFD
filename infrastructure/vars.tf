@@ -1008,3 +1008,9 @@ variable "ssm_flare_api_keys" {
   type        = string
   default     = "/crossfeed/staging/FLARE_API_KEYS"
 }
+
+variable "ssm_shodan_org_exception" {
+  description = "ssm_shodan_org_exception"
+  type        = string
+  default     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
+}

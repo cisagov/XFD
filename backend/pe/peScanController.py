@@ -501,6 +501,7 @@ def start_local_docker_workers(
                 "DNSMONITOR_CLIENT_ID": os.getenv("DNSMONITOR_CLIENT_ID", None),
                 "DNSMONITOR_CLIENT_SECRET": os.getenv("DNSMONITOR_CLIENT_SECRET", None),
                 "FLARE_TENANT_ID": os.getenv("FLARE_TENANT_ID", ""),
+                "SHODAN_ORG_EXCEPTION": os.getenv("SHODAN_ORG_EXCEPTION", None),
             }
             if worker_api_key is not None:
                 environment.update(worker_key_env(scan_name, worker_api_key))

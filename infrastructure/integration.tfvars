@@ -132,3 +132,4 @@ ssm_dnsmonitor_client_id             = "/crossfeed/integration/DNSMONITOR_CLIENT
 ssm_dnsmonitor_client_secret         = "/crossfeed/integration/DNSMONITOR_CLIENT_SECRET"
 ssm_flare_tenant_id                  = "/crossfeed/integration/FLARE_TENANT_ID"
 ssm_flare_api_keys                   = "/crossfeed/integration/FLARE_API_KEYS"
+ssm_shodan_org_exception             = "/crossfeed/integration/SHODAN_ORG_EXCEPTION"
