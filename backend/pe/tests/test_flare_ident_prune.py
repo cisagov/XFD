@@ -17,7 +17,7 @@ os.environ.setdefault("FLARE_TENANT_ID", "12345")
 os.environ.setdefault("FLARE_API_KEY", "fake-flare-key")
 
 # Third-Party Libraries
-from pe_source.flare.flare_helpers import get_flare_token
+from pe_source.flare_events.flare_helpers import get_flare_token
 from pe_source.flare_ident_prune.flare_ident_prune import (
     check_domains_responsive,
     flare_identifiers_endpoint,
@@ -30,7 +30,7 @@ from pe_source.flare_ident_prune.flare_ident_prune import (
 class TestFlareHelpers(unittest.TestCase):
     """Verify flare_helpers function behavior."""
 
-    @patch("pe_source.flare.flare_helpers.requests.post")
+    @patch("pe_source.flare_events.flare_helpers.requests.post")
     @patch.dict(
         os.environ,
         {
@@ -56,8 +56,8 @@ class TestFlareHelpers(unittest.TestCase):
             timeout=60,
         )
 
-    @patch("pe_source.flare.flare_helpers.time.sleep")
-    @patch("pe_source.flare.flare_helpers.requests.post")
+    @patch("pe_source.flare_events.flare_helpers.time.sleep")
+    @patch("pe_source.flare_events.flare_helpers.requests.post")
     @patch.dict(
         os.environ,
         {
@@ -79,8 +79,8 @@ class TestFlareHelpers(unittest.TestCase):
         self.assertEqual(token, "retry_token")
         self.assertEqual(mock_post.call_count, 2)
 
-    @patch("pe_source.flare.flare_helpers.time.sleep")
-    @patch("pe_source.flare.flare_helpers.requests.post")
+    @patch("pe_source.flare_events.flare_helpers.time.sleep")
+    @patch("pe_source.flare_events.flare_helpers.requests.post")
     @patch.dict(
         os.environ,
         {

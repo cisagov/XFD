@@ -13,7 +13,7 @@ import aioping
 import numpy as np
 import pandas as pd
 from pe_source.data.config_source import create_retry_session
-from pe_source.flare.flare_helpers import get_flare_token
+from pe_source.flare_events.flare_helpers import get_flare_token
 import requests
 
 # Set up logging
