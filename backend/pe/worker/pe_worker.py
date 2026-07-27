@@ -139,6 +139,8 @@ def build_command(service_type: str, org: str) -> list[str]:
         return ["pe-source", "dnsmonitor", "--orgs={}".format(org)]
     if "dnstwist" in service_type:
         return ["pe-source", "dnstwist", "--orgs={}".format(org)]
+    if "flare_events" in service_type:
+        return ["pe-source", "flare_events", "--orgs={}".format(org)]
     if "intelx" in service_type:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
     if "xpanse" in service_type:
@@ -197,7 +199,7 @@ def api_key_label(api_key: str) -> str:
 
 def log_assigned_api_key(service_type: str) -> None:
     """Log which keyed-scan API key this worker received (masked)."""
-    for env_var in ("PE_SHODAN_API_KEY",):
+    for env_var in ("FLARE_API_KEY", "PE_SHODAN_API_KEY"):
         key = os.getenv(env_var, "").strip()
         if key:
             LOGGER.info(

@@ -1,1 +1,1 @@
-"""Tests for PE dnstwist worker infrastructure."""
+"""Tests for PE worker infrastructure."""
