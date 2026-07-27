@@ -61,6 +61,7 @@ ssm_shodan_query_days_back                   = "/crossfeed/staging/SHODAN_QUERY_
 ssm_pe_shodan_api_keys                       = "/crossfeed/staging/PE_SHODAN_API_KEYS"
 ssm_wiz_registry_secret_arn                  = "/crossfeed/staging/WIZ_REGISTRY_CREDENTIAL_SECRET_ARN"
 ssm_wiz_service_account_secret_arn           = "/crossfeed/staging/WIZ_SERVICE_ACCOUNT_SECRET_ARN"
+ssm_wiz_http_proxy_cert_secret_arn           = "/crossfeed/staging/WIZ_HTTP_PROXY_CERT_SECRET_ARN"
 ssm_sixgill_client_id                        = "/crossfeed/staging/SIXGILL_CLIENT_ID"
 ssm_sixgill_client_secret                    = "/crossfeed/staging/SIXGILL_CLIENT_SECRET"
 ssm_lg_api_key                               = "/crossfeed/staging/LG_API_KEY"

@@ -18,11 +18,16 @@ describe('OrganizationSelector', () => {
 
   const renderComponent = (props?: Partial<OrganizationSelectorProps>) => {
     const onSelectionChange = vi.fn();
+    const selectUserMock = vi.fn();
     render(
       <OrganizationSelector
         regionId="123"
         onSelectionChange={onSelectionChange}
-        selectedUser={{ full_name: 'Jane Doe' }}
+        selectedUser={testUser}
+        pendingUsers={[testUser]}
+        selectUser={selectUserMock}
+        formattedUserType="Standard User"
+        getUpdateError=""
         {...props}
       />,
       {
@@ -58,7 +63,15 @@ describe('OrganizationSelector', () => {
 
   it('renders error when regionId is missing', async () => {
     render(
-      <OrganizationSelector regionId={null} onSelectionChange={vi.fn()} />,
+      <OrganizationSelector
+        regionId={null}
+        onSelectionChange={vi.fn()}
+        selectedUser={testUser}
+        pendingUsers={[testUser]}
+        selectUser={vi.fn()}
+        formattedUserType="Standard User"
+        getUpdateError=""
+      />,
       {
         authContext: {
           ...authCtx,
@@ -89,14 +102,16 @@ describe('OrganizationSelector', () => {
     renderComponent();
 
     const user = userEvent.setup();
+
+    expect(await screen.findByText('Organization 1')).toBeInTheDocument();
+
     const checkboxes = await screen.findAllByRole('checkbox');
 
-    // Use userEvent for clicks to properly wrap in act
     await user.click(checkboxes[1]);
 
     expect(
       await screen.findByText(
-        /jane doe will become a member of the selected organization/i
+        /will become a member of the selected organization/i
       )
     ).toBeInTheDocument();
   });
