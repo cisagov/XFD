@@ -40,6 +40,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
                 "worker_env": "PE_SHODAN_API_KEY",
+                "validate": lambda keys: keys,
             },
         },
         clear=False,
@@ -73,6 +74,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys: [],
             },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
@@ -97,6 +99,7 @@ class PlanWorkerKeysTests(unittest.TestCase):
             "flare_events": {
                 "keys_env": "FLARE_API_KEYS",
                 "worker_env": "FLARE_API_KEY",
+                "validate": lambda keys: keys[:3],
             },
             "shodan": {
                 "keys_env": "PE_SHODAN_API_KEYS",
