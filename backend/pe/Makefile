@@ -11,7 +11,7 @@ COMPOSE_PE := $(COMPOSE) --profile pe
 PE_STACK_SERVICES := db elasticmq backend
 
 # Queue local scans via peScanController (backend container must be running).
-PE_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app backend python /app/pe/tools/queue_local_scans.py
+PE_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app:/app/pe/src backend python /app/pe/tools/queue_local_scans.py
 PE_REPORT_QUEUE = $(COMPOSE) exec -T -e PYTHONPATH=/app backend python /app/pe/tools/queue_local_reports.py
 
 .PHONY: help start stop build up down logs test syncdb syncdb-populate syncdb-dangerously-force run queue scans scans-orgs watch-queues queue-status run-reports
@@ -32,7 +32,7 @@ help:
 	@echo "  logs             Tail pe-worker logs"
 	@echo "  test             Run pe/ unit tests"
 	@echo "  syncdb           Create PE DB and sync all table models from home/models.py"
-	@echo "  syncdb-populate  syncdb + sample orgs/root domains for dnstwist"
+	@echo "  syncdb-populate  syncdb + sample data sources/orgs (dnstwist, flare_events, ...)"
 	@echo "  run              Queue orgs + start workers (SCANS= ORGS= COUNT=)"
 	@echo "  queue            run with QUEUE_ONLY=true"
 	@echo "  scans            run with sample orgs fixture"

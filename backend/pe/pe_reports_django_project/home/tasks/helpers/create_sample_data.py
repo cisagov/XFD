@@ -196,6 +196,20 @@ def populate_sample_data():
             last_run=today,
         )
 
+    flare_source, created = DataSource.objects.get_or_create(
+        name="Flare",
+        defaults={
+            "data_source_uid": uuid.uuid4,
+            "description": "Flare scan",
+            "last_run": today,
+        },
+    )
+    if not created:
+        DataSource.objects.filter(pk=flare_source.pk).update(
+            description="Flare scan",
+            last_run=today,
+        )
+
     findomain_source, created = DataSource.objects.get_or_create(
         name="findomain",
         defaults={
@@ -269,6 +283,7 @@ def populate_sample_data():
             dnsmonitor_source.name,
             dnstwist_source.name,
             findomain_source.name,
+            flare_source.name,
             shodan_source.name,
         ],
         "organizations": org_names,
