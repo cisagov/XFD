@@ -112,6 +112,7 @@ class RegistryTests(unittest.TestCase):
         """Shodan scans should be in KEYED_SCANS."""
         self.assertIn("shodan", KEYED_SCANS)
         self.assertIn("asmSync", KEYED_SCANS)
+        self.assertIn("shodan_top_cves", KEYED_SCANS)
 
 
 if __name__ == "__main__":
