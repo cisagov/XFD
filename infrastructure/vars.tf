@@ -996,3 +996,9 @@ variable "ssm_dnsmonitor_client_secret" {
   type        = string
   default     = "/crossfeed/staging/DNSMONITOR_CLIENT_SECRET"
 }
+
+variable "ssm_shodan_org_exception" {
+  description = "ssm_shodan_org_exception"
+  type        = string
+  default     = "/crossfeed/staging/SHODAN_ORG_EXCEPTION"
+}

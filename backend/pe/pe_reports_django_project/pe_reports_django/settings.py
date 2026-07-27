@@ -10,7 +10,12 @@ SECRET_KEY = os.environ.get("DJANGO_KEY", "pe-worker-local-dev-key")
 DEBUG = os.environ.get("PE_API_DEBUG", "false").lower() in {"1", "true", "yes"}
 ALLOWED_HOSTS = ["*"]
 
+# PE_JWT_SECRET and PE_JWT_REFRESH_SECRET are used for signing and verifying JWT tokens in the PE worker API.
+PE_JWT_SECRET = os.environ.get("PE_JWT_SECRET", "CHANGE_ME")
+PE_JWT_REFRESH_SECRET = os.environ.get("PE_JWT_REFRESH_SECRET", "CHANGE_ME")
+
 INSTALLED_APPS = [
+    "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.postgres",
     "home.apps.HomeConfig",
