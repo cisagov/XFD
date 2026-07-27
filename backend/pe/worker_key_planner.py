@@ -11,6 +11,7 @@ Usage in peScanController::
 
 To add a scan: write a validator and add an entry to KEYED_SCANS.
 """
+
 # Standard Python Libraries
 import logging
 import os
@@ -103,6 +104,12 @@ def _validate_shodan(keys: List[str]) -> List[str]:
 # extra_env: optional extra vars every worker for this scan needs
 KEYED_SCANS: Dict[str, Dict] = {
     "flare_events": {
+        "keys_env": "FLARE_API_KEYS",
+        "worker_env": "FLARE_API_KEY",
+        "validate": _validate_flare,
+        "extra_env": lambda: {"FLARE_TENANT_ID": os.environ.get("FLARE_TENANT_ID", "")},
+    },
+    "flare_ident_prune": {
         "keys_env": "FLARE_API_KEYS",
         "worker_env": "FLARE_API_KEY",
         "validate": _validate_flare,

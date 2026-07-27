@@ -4,7 +4,7 @@ Usage:
     pe-source DATA_SOURCE [--log-level=LEVEL] [--orgs=ORG_LIST]
 
 Arguments:
-    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan", "flare_events".
+    DATA_SOURCE  Source to collect data from. Valid values: "dnsmonitor", "dnstwist", "shodan", "flare_events", "flare_ident_prune".
 
 Options:
     -h --help                       Show this message.
@@ -28,6 +28,7 @@ from pe_source._version import __version__
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
 from pe_source.flare_events import run_flare_events
+from pe_source.flare_ident_prune.flare_ident_prune import run_flare_ident_prune
 from pe_source.shodan.shodan_script import Get_shodan
 from schema import And, Schema, SchemaError, Use
 
@@ -49,6 +50,14 @@ def run_pe_script(source, orgs_list):
             )
             sys.exit(1)
         run_flare_events(orgs_list)
+    elif source == "flare_ident_prune":
+        if not os.environ.get("FLARE_API_KEY", "").strip():
+            LOGGER.error(
+                "FLARE_API_KEY is not set. peScanController assigns one validated "
+                "key per flare_ident_prune worker container."
+            )
+            sys.exit(1)
+        run_flare_ident_prune(orgs_list)
     elif source == "shodan":
         if not os.environ.get("PE_SHODAN_API_KEY", "").strip():
             LOGGER.error(

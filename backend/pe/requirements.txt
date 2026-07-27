@@ -1,3 +1,4 @@
+aioping
 boto3
 django>=4.2,<5
 dnspython
@@ -5,6 +6,7 @@ dnstwist
 docopt
 dshield
 fastapi>=0.100
+numpy
 pandas
 psycopg2-binary
 pydantic>=1.10,<3
