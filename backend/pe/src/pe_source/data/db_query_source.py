@@ -582,7 +582,6 @@ def get_current_ips_by_org(org_abbrv):
 def get_execs_by_org_uid(org_uid):
     """Get executives for the specified organization_uid."""
     # Build query
-    conn = connect()
     sql = """
     SELECT *
     FROM executives

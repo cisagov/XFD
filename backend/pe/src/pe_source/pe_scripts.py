@@ -11,8 +11,8 @@ Options:
     -v --version                    Show version information.
     -l --log-level=LEVEL            Log level: debug, info, warning, error, critical.
                                     [default: info]
-    -o --orgs=ORG_LIST  Comma-separated org cyhy_db_name values, DEMO, or all.
-                         [default: all]
+    -o --orgs=ORG_LIST              Comma-separated org cyhy_db_name values, "DEMO", or "all".
+                                    [default: all]
 """
 
 # Standard Python Libraries

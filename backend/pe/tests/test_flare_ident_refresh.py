@@ -804,17 +804,22 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
         mock_group_exists,
         mock_create_group,
         mock_get_group,
-        _mock_sleep,
+        mock_sleep,
     ):
         """A missing Flare group should be created before it is queried."""
         mock_get_orgs.return_value = [self.organizations[0]]
         mock_get_group.side_effect = RuntimeError("Stop after verifying group creation")
 
-        run_flare_ident_refresh("B_ORG")
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "Stop after verifying group creation",
+        ):
+            run_flare_ident_refresh("B_ORG")
 
         mock_group_exists.assert_called_once_with("B_ORG")
         mock_create_group.assert_called_once_with("B_ORG")
         mock_get_group.assert_called_once_with("B_ORG")
+        mock_sleep.assert_not_called()
 
     @patch("{}.time.sleep".format(MODULE))
     @patch(
@@ -826,24 +831,26 @@ class RunFlareIdentRefreshTests(unittest.TestCase):
         return_value=True,
     )
     @patch("{}.get_orgs".format(MODULE))
-    def test_run_refresh_continues_after_organization_failure(
+    def test_run_refresh_stops_after_organization_failure(
         self,
         mock_get_orgs,
         mock_group_exists,
         mock_get_group,
         mock_sleep,
     ):
-        """An organization failure should be handled without escaping the run."""
+        """An organization failure should escape and stop further processing."""
         mock_get_orgs.return_value = [
             self.organizations[1],
             self.organizations[0],
         ]
 
-        run_flare_ident_refresh("all")
+        with self.assertRaisesRegex(RuntimeError, "API failure"):
+            run_flare_ident_refresh("all")
 
-        self.assertEqual(mock_group_exists.call_count, 2)
-        self.assertEqual(mock_get_group.call_count, 2)
-        self.assertEqual(mock_sleep.call_count, 2)
+        # Organizations are sorted by cyhy_db_name, so A_ORG fails first.
+        mock_group_exists.assert_called_once_with("A_ORG")
+        mock_get_group.assert_called_once_with("A_ORG")
+        mock_sleep.assert_not_called()
 
 
 if __name__ == "__main__":

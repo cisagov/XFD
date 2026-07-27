@@ -215,6 +215,8 @@ def get_resp_ips_by_org_abbrv(org_abbrv):
     """Retrieve all responsive attested IPs for the specified organization."""
     # Retrieve all current IPs for org in PE DB
     curr_ip_df = get_current_ips_by_org(org_abbrv)
+    if curr_ip_df.empty:
+        return pd.DataFrame(columns=["cyhy_db_name", "ip"])
     ip_list = list(curr_ip_df["ip"])
     # Test IPs for responsiveness
     resp_ip_df = pd.DataFrame(asyncio.run(check_ip_list_reachable(ip_list)))
@@ -266,6 +268,7 @@ def create_flare_identifer(payload):
     # Return results
     if retry_count == max_retries + 1:
         LOGGER.error(f"Error: Failed to create Flare identifier - {payload}")
+        raise RuntimeError(f"Error: Failed to create Flare identifier - {payload}")
 
 
 def create_keyword_ident(keyword_list, ident_group_id):
@@ -355,6 +358,7 @@ def delete_flare_identifier(ident_id):
     # Return results
     if retry_count == max_retries + 1:
         LOGGER.error(f"Error: Failed to delete Flare identifier - {ident_id}")
+        raise RuntimeError(f"Error: Failed to delete Flare identifier - {ident_id}")
 
 
 def delete_ident_list(ident_value_list, ident_df):
@@ -374,7 +378,7 @@ def run_flare_ident_refresh(orgs_list):
     all_orgs = get_orgs()
     if orgs_list == "all":
         orgs_list_final = [d for d in all_orgs if d.get("report_on")]
-    elif orgs_list == "demo":
+    elif orgs_list == "DEMO":
         orgs_list_final = [d for d in all_orgs if d.get("demo")]
     else:
         orgs_list = orgs_list.split(",")
@@ -384,7 +388,6 @@ def run_flare_ident_refresh(orgs_list):
     orgs_list_final = sorted(orgs_list_final, key=lambda d: d["cyhy_db_name"])
     # Update identifiers for each org
     success = 0
-    failed = 0
     for org_idx, org in enumerate(orgs_list_final):
         try:
             org_abbrv = org["cyhy_db_name"]
@@ -463,7 +466,7 @@ def run_flare_ident_refresh(orgs_list):
             execs_create = [hyph_dict.get(item, item) for item in execs_create]
             execs_delete = [hyph_dict.get(item, item) for item in execs_delete]
             # Calculating which IPs to create/delete
-            pe_ips = ips_df["ip"].to_list()  # WIP
+            pe_ips = ips_df["ip"].to_list()
             pe_ips = {item.lower().strip() for item in pe_ips}
             flare_ips = group_idents_df[group_idents_df["type"] == "ip"][
                 "value"
@@ -525,13 +528,9 @@ def run_flare_ident_refresh(orgs_list):
             LOGGER.error(
                 f"Error encountered while updating Flare identifiers for {org_abbrv} - {e}"
             )
-            failed += 1
-            time.sleep(3)
+            raise
 
     # Log final summary success/fail statistics
     LOGGER.info(
         f"{success}/{len(orgs_list_final)} organizations successfully updated Flare identifiers"
-    )
-    LOGGER.info(
-        f"{failed}/{len(orgs_list_final)} organizations encountered an error while updating Flare identifiers"
     )
