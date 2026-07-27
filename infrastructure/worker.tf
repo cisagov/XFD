@@ -118,6 +118,7 @@ resource "aws_iam_role_policy" "worker_task_execution_role_policy" {
           data.aws_ssm_parameter.worker_signature_public_key.arn,
           data.aws_ssm_parameter.xpanse_api_key.arn,
           data.aws_ssm_parameter.xpanse_auth_id.arn,
+          data.aws_ssm_parameter.ssm_shodan_org_exception.arn,
         ]
       },
       ], var.is_dmz ? [] : [
@@ -635,6 +636,8 @@ data "aws_ssm_parameter" "ssm_nist_api_key" { name = var.ssm_nist_api_key }
 data "aws_ssm_parameter" "ssm_dnsmonitor_client_id" { name = var.ssm_dnsmonitor_client_id }
 
 data "aws_ssm_parameter" "ssm_dnsmonitor_client_secret" { name = var.ssm_dnsmonitor_client_secret }
+
+data "aws_ssm_parameter" "ssm_shodan_org_exception" { name = var.ssm_shodan_org_exception }
 
 resource "aws_s3_bucket" "export_bucket" {
   bucket = var.export_bucket_name

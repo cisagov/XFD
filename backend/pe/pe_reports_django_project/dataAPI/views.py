@@ -2,6 +2,7 @@
 
 # Standard Python Libraries
 from datetime import datetime as dt
+from datetime import timezone as dt_timezone
 import logging
 import os
 from typing import List
@@ -9,23 +10,39 @@ import uuid
 
 # Third-Party Libraries
 from dataAPI import schemas
+
+# from decouple import config
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.db.models import Max, Q
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from fastapi import APIRouter, Depends, HTTPException, Security, status
 from fastapi.security.api_key import APIKeyHeader
+
+# Import api database models
 from home.models import (
     DataSource,
     DNSMonitorDomainMap,
     DomainAlerts,
     DomainPermutations,
+    Ips,
     Organizations,
     RootDomains,
+    ShodanAssets,
+    ShodanVulns,
     SubDomains,
 )
+from starlette.status import HTTP_403_FORBIDDEN
 
 LOGGER = logging.getLogger(__name__)
 api_router = APIRouter()
+
+ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
+ALGORITHM = "HS256"
+PE_JWT_SECRET = settings.PE_JWT_SECRET
+PE_JWT_REFRESH_SECRET = settings.PE_JWT_REFRESH_SECRET
 
 API_KEY_NAME = "access_token"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
@@ -54,6 +71,21 @@ def verify_api_key(api_key: str = Security(api_key_header)) -> str:  # noqa: B00
             detail="Could not validate credentials",
         )
     return api_key
+
+
+async def get_api_key(
+    # api_key_query: str = Security(api_key_query),
+    api_key_header: str = Security(api_key_header),
+    # api_key_cookie: str = Security(api_key_cookie),
+):
+    """Get api key from header."""
+    if api_key_header != "":
+        return api_key_header
+
+    else:
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN, detail="Could not validate credentials"
+        )
 
 
 @api_router.get("/health", tags=["health"])
@@ -417,3 +449,179 @@ def domain_alerts_insert(
     except Exception as error:
         LOGGER.error("Error inserting into domain_alerts table: %s", error)
         return f"Error inserting into domain_alerts table: {error}"
+
+
+# --- Shodan API endpoints --- #
+
+
+@api_router.get(
+    "/query_shodan_ips/{org_uid}",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Get all ips to run through Shodan."],
+)
+def query_shodan_ips(org_uid: str, tokens: dict = Depends(verify_api_key)):
+    """Create API endpoint to get all ips to run through Shodan.."""
+    # Check for API key
+    LOGGER.info("The api key submitted tokens")
+    del tokens
+
+    ips_from_cidrs = Ips.objects.filter(
+        origin_cidr__organizations_uid=org_uid,
+        origin_cidr__isnull=False,
+        shodan_results=True,
+        current=True,
+    ).values_list("ip", flat=True)
+
+    ips_from_subs = Ips.objects.filter(
+        ipssubs__sub_domain_uid__root_domain_uid__organizations_uid=org_uid,  # Correct relationship traversal
+        shodan_results=True,  # 'shodan_results' is True
+        ipssubs__sub_domain_uid__current=True,  # 'current' is True for subdomains
+        current=True,  # 'current' is True for Ips
+    ).values_list("ip", flat=True)
+
+    # Convert the QuerySet to sets
+    in_first = set(ips_from_cidrs)
+    in_second = set(ips_from_subs)
+
+    # Find IPs that are in the second query but not in the first
+    in_second_but_not_in_first = in_second - in_first
+
+    # Combine the results
+    ips = list(ips_from_cidrs) + list(in_second_but_not_in_first)
+
+    return ips
+
+
+@transaction.atomic
+@api_router.put(
+    "/shodan_assets_insert",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Insert Shodan data into the shodan_assets table."],
+)
+def shodan_assets_insert(
+    data: schemas.ShodanAssetsInsertInput, tokens: dict = Depends(verify_api_key)
+):
+    """Insert Shodan data into the shodan_assets table using the API endpoint."""
+    # Check for API key
+    LOGGER.info("The api key submitted tokens")
+    del tokens
+
+    update_create_count = 0
+    for row in data.asset_data:
+        row_dict = row.model_dump()
+        try:
+            org_instance = Organizations.objects.get(
+                organizations_uid=row_dict["organizations_uid"]
+            )
+            asset_fields = {
+                "asn": row_dict.get("asn"),
+                "domains": row_dict.get("domains") or [],
+                "hostnames": row_dict.get("hostnames") or [],
+                "isn": row_dict.get("isn"),
+                "organization": row_dict.get("organization"),
+                "product": row_dict.get("product"),
+                "server": row_dict.get("server"),
+                "tags": row_dict.get("tags") or [],
+                "country_code": row_dict.get("country_code"),
+                "location": row_dict.get("location"),
+                "data_source_uid_id": row_dict.get("data_source_uid"),
+            }
+
+            # Use 'update_or_create' to either create or update the record
+            obj, created = ShodanAssets.objects.update_or_create(
+                organizations_uid=org_instance,  # Directly use organizations_uid
+                ip=row_dict["ip"],
+                port=row_dict["port"],
+                protocol=row_dict["protocol"],
+                timestamp=timezone.make_aware(
+                    parse_datetime(row_dict["timestamp"]),
+                    dt_timezone.utc,
+                ),
+                defaults=asset_fields,
+            )
+            if created:
+                update_create_count += 1
+        except Exception as e:
+            LOGGER.warning(f"Shodan Asset failed to save to PE DB: {e}")
+            continue
+
+    # Return success message
+    return {
+        "message": f"{update_create_count} records created/updated in the shodan_assets table."
+    }
+
+
+@transaction.atomic
+@api_router.put(
+    "/shodan_vulns_insert",
+    dependencies=[Depends(verify_api_key)],
+    tags=["Insert Shodan data into the shodan_vulns table."],
+)
+def shodan_vulns_insert(
+    data: schemas.ShodanVulnsInsertInput, tokens: dict = Depends(verify_api_key)
+):
+    """Insert Shodan data into the shodan_vulns table using the API endpoint."""
+    # Check for API key
+    LOGGER.info("The api key submitted tokens")
+    del tokens
+
+    # If API key valid, insert intelx data
+    create_cnt = 0
+    for row in data.vuln_data:
+        row_dict = row.model_dump()
+        try:
+            org_instance = Organizations.objects.get(
+                organizations_uid=row_dict["organizations_uid"]
+            )
+            vuln_data = {
+                "organization": row_dict.get("organization"),
+                "cve": row_dict.get("cve"),
+                "severity": row_dict.get("severity"),
+                "cvss": row_dict.get("cvss"),
+                "summary": row_dict.get("summary"),
+                "product": row_dict.get("product"),
+                "attack_vector": row_dict.get("attack_vector"),
+                "av_description": row_dict.get("av_description"),
+                "attack_complexity": row_dict.get("attack_complexity"),
+                "ac_description": row_dict.get("ac_description"),
+                "confidentiality_impact": row_dict.get("confidentiality_impact"),
+                "ci_description": row_dict.get("ci_description"),
+                "integrity_impact": row_dict.get("integrity_impact"),
+                "ii_description": row_dict.get("ii_description"),
+                "availability_impact": row_dict.get("availability_impact"),
+                "ai_description": row_dict.get("ai_description"),
+                "tags": row_dict.get("tags"),
+                "domains": row_dict.get("domains"),
+                "hostnames": row_dict.get("hostnames"),
+                "isn": row_dict.get("isn"),
+                "asn": row_dict.get("asn"),
+                "data_source_uid_id": row_dict.get("data_source_uid"),
+                "type": row_dict.get("type"),
+                "name": row_dict.get("name"),
+                "potential_vulns": row_dict.get("potential_vulns"),
+                "mitigation": row_dict.get("mitigation"),
+                "server": row_dict.get("server"),
+                "is_verified": row_dict.get("is_verified"),
+                "banner": row_dict.get("banner"),
+                "version": row_dict.get("version"),
+                "cpe": row_dict.get("cpe"),
+            }
+
+            obj, created = ShodanVulns.objects.update_or_create(
+                organizations_uid=org_instance,  # Directly use organizations_uid
+                ip=row_dict["ip"],
+                port=row_dict["port"],
+                protocol=row_dict["protocol"],
+                timestamp=timezone.make_aware(
+                    parse_datetime(row_dict["timestamp"]),
+                    dt_timezone.utc,
+                ),
+                defaults=vuln_data,
+            )
+            if created:
+                create_cnt += 1
+        except Exception as e:
+            LOGGER.warning(f"Shodan Vuln failed to save to PE DB: {e}")
+            continue
+    # Return success message
+    return str(create_cnt) + " records created in the shodan vulns table"

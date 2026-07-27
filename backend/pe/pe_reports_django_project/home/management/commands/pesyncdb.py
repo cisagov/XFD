@@ -99,8 +99,12 @@ class Command(BaseCommand):
             self.stdout.write("Populating PE sample data...")
             result = populate_sample_data()
             self.stdout.write(
-                "Sample data loaded: orgs=%s, data_sources=%s"
-                % (result["organizations"], result["data_sources"])
+                "Sample data loaded: orgs=%s, data_sources=%s, shodan_samples=%s"
+                % (
+                    result["organizations"],
+                    result["data_sources"],
+                    result.get("shodan_samples"),
+                )
             )
 
         self.stdout.write("PE database sync complete.")
