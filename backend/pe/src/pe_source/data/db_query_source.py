@@ -535,3 +535,73 @@ def insert_shodan_vulns(vuln_data, failed):
         LOGGER.error(err)
         failed.append("Failed inserting shodan assets: {}".format(err))
     return failed
+
+
+def get_current_ips_by_org(org_abbrv):
+    """
+    Get all IPs that are marked as current for the specified org.
+
+    Return:
+        All current IPs for org as dataframe
+    """
+    query = """
+    SELECT
+        o.organizations_uid,
+        o.cyhy_db_name,
+        i.ip
+    FROM
+        ips i join
+        organizations o
+        on i.organizations_uid = o.organizations_uid
+    WHERE
+        o.cyhy_db_name = %s AND
+        i.current=True
+    ORDER BY
+        cyhy_db_name
+    """
+    result = None
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_current_ips_by_org: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_current_ips_by_org: Querying current IPs for customer")
+        result = pd.read_sql(query, conn, params=(org_abbrv,))
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_current_ips_by_org: Data retieval failed")
+        raise
+    finally:
+        conn.close()
+    return result
+
+
+def get_execs_by_org_uid(org_uid):
+    """Get executives for the specified organization_uid."""
+    # Build query
+    conn = connect()
+    sql = """
+    SELECT *
+    FROM executives
+    WHERE organizations_uid = %s
+    """
+    # Attempt DB connection
+    conn = connect()
+    if conn is None:
+        LOGGER.error("get_execs_by_org_uid: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+    # Attempt query
+    try:
+        LOGGER.info("get_execs_by_org_uid: Querying executives for customer")
+        result = pd.read_sql(sql, conn, params=(org_uid,))
+        conn.commit()
+        return result
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("get_execs_by_org_uid: Data retieval failed")
+        raise
+    finally:
+        conn.close()

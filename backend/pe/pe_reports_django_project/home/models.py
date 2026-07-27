@@ -751,7 +751,13 @@ class Executives(models.Model):
     organizations_uid = models.ForeignKey(
         "Organizations", on_delete=models.CASCADE, db_column="organizations_uid"
     )
-    executives = models.TextField()
+    prefix = models.TextField(blank=True, null=True)
+    first_name = models.TextField(blank=True, null=True)
+    middle_initial = models.TextField(blank=True, null=True)
+    last_name = models.TextField(blank=True, null=True)
+    suffix = models.TextField(blank=True, null=True)
+    last_modified = models.DateField(blank=True, null=True)
+    sixgill_id = models.TextField(blank=True, null=True)
 
     class Meta:
         """Set Executives model metadata."""
