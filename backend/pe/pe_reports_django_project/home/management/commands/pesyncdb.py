@@ -7,6 +7,7 @@ import os
 from django.core.management.base import BaseCommand
 from django.db import connections
 from home.tasks.helpers.create_sample_data import populate_sample_data
+from home.tasks.local_report_views import ensure_local_report_views
 from home.tasks.syncdb_task import drop_all_tables, synchronize
 
 
@@ -88,6 +89,11 @@ class Command(BaseCommand):
             self.stdout.write("Applying PE schema from models...")
 
         synchronize()
+
+        self.stdout.write(
+            "Ensuring local report views (production-equivalent, not used in deployed envs)..."
+        )
+        ensure_local_report_views(stdout=self.stdout)
 
         if populate:
             self.stdout.write("Populating PE sample data...")

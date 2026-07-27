@@ -1019,7 +1019,7 @@ class ReportSummaryStats(models.Model):
     class Meta:
         """Set ReportSummaryStats model metadata."""
 
-        managed = False
+        managed = True
         db_table = "report_summary_stats"
         unique_together = (("organizations_uid", "start_date"),)
 

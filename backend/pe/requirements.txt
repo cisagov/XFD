@@ -1,3 +1,4 @@
+-r requirements-reports.txt
 boto3
 django>=4.2,<5
 dnspython
