@@ -84,7 +84,7 @@ def _ensure_shodan_sample(org, shodan_source, today, host_spec):
         organizations_uid=org,
         network=sample_cidr,
         defaults={
-            "cidr_uid": uuid.uuid4(),
+            "cidr_uid": uuid.uuid4,
             "data_source_uid": shodan_source,
             "first_seen": today,
             "last_seen": today,
@@ -102,7 +102,7 @@ def _ensure_shodan_sample(org, shodan_source, today, host_spec):
         organizations_uid=org,
         root_domain=sample_root,
         defaults={
-            "root_domain_uid": uuid.uuid4(),
+            "root_domain_uid": uuid.uuid4,
             "ip_address": sample_ip,
             "data_source_uid": shodan_source,
             "enumerate_subs": False,
@@ -118,7 +118,7 @@ def _ensure_shodan_sample(org, shodan_source, today, host_spec):
         sub_domain=sample_domain,
         root_domain_uid=shodan_root,
         defaults={
-            "sub_domain_uid": uuid.uuid4(),
+            "sub_domain_uid": uuid.uuid4,
             "data_source_uid": shodan_source,
             "first_seen": today,
             "last_seen": today,
@@ -153,7 +153,7 @@ def _ensure_shodan_sample(org, shodan_source, today, host_spec):
     IpsSubs.objects.get_or_create(
         ip_hash=ip_obj,
         sub_domain_uid=subdomain,
-        defaults={"ips_subs_uid": uuid.uuid4()},
+        defaults={"ips_subs_uid": uuid.uuid4},
     )
 
     return {
@@ -171,7 +171,7 @@ def populate_sample_data():
     dnsmonitor_source, created = DataSource.objects.get_or_create(
         name="DNSMonitor",
         defaults={
-            "data_source_uid": uuid.uuid4(),
+            "data_source_uid": uuid.uuid4,
             "description": "DNSMonitor domain alerts scan",
             "last_run": today,
         },
@@ -185,7 +185,7 @@ def populate_sample_data():
     dnstwist_source, created = DataSource.objects.get_or_create(
         name="DNSTwist",
         defaults={
-            "data_source_uid": uuid.uuid4(),
+            "data_source_uid": uuid.uuid4,
             "description": "DNSTwist domain permutation scan",
             "last_run": today,
         },
@@ -213,7 +213,7 @@ def populate_sample_data():
     findomain_source, created = DataSource.objects.get_or_create(
         name="findomain",
         defaults={
-            "data_source_uid": uuid.uuid4(),
+            "data_source_uid": uuid.uuid4,
             "description": "findomain subdomain enumeration",
             "last_run": today,
         },
@@ -227,7 +227,7 @@ def populate_sample_data():
     shodan_source, created = DataSource.objects.get_or_create(
         name="Shodan",
         defaults={
-            "data_source_uid": uuid.uuid4(),
+            "data_source_uid": uuid.uuid4,
             "description": "Shodan internet-facing asset scan",
             "last_run": today,
         },
@@ -246,7 +246,7 @@ def populate_sample_data():
         org, created = Organizations.objects.get_or_create(
             cyhy_db_name=org_spec["cyhy_db_name"],
             defaults={
-                "organizations_uid": uuid.uuid4(),
+                "organizations_uid": uuid.uuid4,
                 "name": org_spec["name"],
                 "report_on": org_spec["report_on"],
             },
@@ -262,7 +262,7 @@ def populate_sample_data():
             organizations_uid=org,
             root_domain=root_domain,
             defaults={
-                "root_domain_uid": uuid.uuid4(),
+                "root_domain_uid": uuid.uuid4,
                 "data_source_uid": findomain_source,
                 "enumerate_subs": True,
             },
