@@ -141,6 +141,8 @@ def build_command(service_type: str, org: str) -> list[str]:
         return ["pe-source", "dnstwist", "--orgs={}".format(org)]
     if "flare_events" in service_type:
         return ["pe-source", "flare_events", "--orgs={}".format(org)]
+    if "flare_creds" in service_type:
+        return ["pe-source", "flare_creds", "--orgs={}".format(org)]
     if "intelx" in service_type:
         return ["pe-source", "intelx", "--org={}".format(org), "--soc_med_included"]
     if "xpanse" in service_type:

@@ -29,6 +29,7 @@ from pe_source._version import __version__
 from pe_source.dnsmonitor.dnsmonitor_script import run_dnsmonitor
 from pe_source.dnstwist import run_dnstwist
 from pe_source.flare_events import run_flare_events
+from pe_source.flare_creds.flare_creds_script import run_flare_creds
 from schema import And, Schema, SchemaError, Use
 
 LOGGER = logging.getLogger(__name__)
@@ -49,6 +50,14 @@ def run_pe_script(source, orgs_list):
             )
             sys.exit(1)
         run_flare_events(orgs_list)
+    elif source == "flare_creds":
+            if not os.environ.get("FLARE_API_KEY", "").strip():
+                LOGGER.error(
+                    "FLARE_API_KEY is not set. peScanController assigns one validated "
+                    "key per flare_creds worker container."
+                )
+                sys.exit(1)
+            run_flare_creds(orgs_list)
     else:
         LOGGER.error("Unsupported scan type: %s", source)
         sys.exit(1)

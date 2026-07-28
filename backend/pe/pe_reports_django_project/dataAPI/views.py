@@ -22,6 +22,8 @@ from home.models import (
     Organizations,
     RootDomains,
     SubDomains,
+    CredentialBreaches,
+    CredentialExposures,
 )
 
 LOGGER = logging.getLogger(__name__)
@@ -408,3 +410,23 @@ def domain_alerts_insert(
     except Exception as error:
         LOGGER.error("Error inserting into domain_alerts table: %s", error)
         return f"Error inserting into domain_alerts table: {error}"
+
+@api_router.post(
+    "/cred_breaches_by_uid",
+    dependencies=[Depends(verify_api_key)],
+    response_model=List[schemas.CredBreachesByID],
+    tags=["flare"],
+)
+def cred_breaches_by_uid(
+    data: schemas.CredBreachesByID,
+    tokens: str = Depends(verify_api_key),  # noqa: B008
+):
+    """Look up credential breaches by UID."""
+    del tokens
+    rows = list(CredentialBreaches.objects.filter(name=data.name).values())
+    today = dt.today().strftime("%Y-%m-%d")
+    CredentialBreaches.objects.filter(name=data.name).update(last_run=today)
+    for row in rows:
+        row["credential_breaches_uid"] = convert_uuid_to_string(row["credential_breaches_uid"])
+        row["breach_name"] = convert_date_to_string(row.get("breach_name"))
+    return rows

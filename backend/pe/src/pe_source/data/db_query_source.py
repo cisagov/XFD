@@ -6,6 +6,7 @@ from decimal import Decimal
 import json
 import logging
 import sys
+from tkinter import INSERT
 import uuid
 
 # Third-Party Libraries
@@ -427,3 +428,155 @@ def get_dnsmonitor_domain_mapping():
     except json.decoder.JSONDecodeError as err:
         LOGGER.error(err)
     return pd.DataFrame(columns=["domain", "organization"])
+
+def get_cred_breach_uids(breach_name_list):
+    """
+    Query API to get the uid for the specified crediential breaches.
+
+    Args:
+        breach_name_list: The list of names of the credential breaches
+
+    Return:
+        uid for the specified credential breaches
+    """
+    # Endpoint info
+    endpoint_url = pe_api_url + "cred_breaches_by_uid"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": pe_api_key,
+    }
+    data = json.dumps({"breach_name": breach_name_list})
+    try:
+        result = requests.post(
+            endpoint_url, headers=headers, data=data, timeout=60
+        ).json()
+        # Process data and return
+        tup_result = [tuple(row.values()) for row in result]
+        # Catch deleted subdomain error
+        try:
+            return tup_result[0][0]
+        except Exception:
+            return -1
+    except requests.exceptions.HTTPError as errh:
+        LOGGER.error(errh)
+    except requests.exceptions.ConnectionError as errc:
+        LOGGER.error(errc)
+    except requests.exceptions.Timeout as errt:
+        LOGGER.error(errt)
+    except requests.exceptions.RequestException as err:
+        LOGGER.error(err)
+    except json.decoder.JSONDecodeError as err:
+        LOGGER.error(err)
+
+def insert_flare_breaches(breach_list):
+    """Insert list of flare breaches into the PE DB."""
+    if not breach_list:
+        return
+
+    rows = [
+        (
+            event.get("credential_breaches_uid") or str(uuid.uuid1()),
+            event.get("breach_name"),
+            event.get("description"),
+            event.get("exposed_cred_count"),
+            event.get("breach_date"),
+            event.get("added_date"),
+            event.get("modified_date"),
+            event.get("data_classes"),
+            event.get("password_included"),
+            event.get("is_verified"),
+            event.get("is_fabricated"),
+            event.get("is_sensitive"),
+            event.get("is_retired"),
+            event.get("is_spam_list"),
+            event.get("data_source_uid"),
+        )
+        for event in breach_list
+    ]
+
+    query = """""
+        INSERT INTO credential_breaches(
+            credential_breaches_uid, breach_name, description, exposed_cred_count, breach_date, added_date, 
+            modified_date, data_classes, password_included, is_verified, is_fabricated, is_sensitive, 
+            is_retired, is_spam_list, data_source_uid) 
+        VALUES %s
+        ON CONFLICT (breach_name)
+        DO UPDATE SET
+            password_included = EXCLUDED.password_included;
+    """
+
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_breaches: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("insert_flare_breaches: upsert failed for %d row(s)", len(rows))
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()    
+
+def insert_flare_credentials(cred_list):
+    """Insert list of flare credentials into the PE DB."""
+    if not cred_list:
+        return
+
+    rows = [
+        (
+            event.get("credential_exposures_uid") or str(uuid.uuid1()),
+            event.get("email"),
+            event.get("organizations_uid"),
+            event.get("root_domain"),
+            event.get("sub_domain"),
+            event.get("breach_name"),
+            event.get("modified_date"),
+            event.get("credential_breaches_uid"),
+            event.get("data_source_uid"),
+            event.get("name"),
+            event.get("login_id"),
+            event.get("phone"),
+            event.get("password"),
+            event.get("hash_type"),
+            event.get("intelx_system_id"),
+        )
+        for event in cred_list
+    ]
+
+    query = """""
+        INSERT INTO credential_exposures(
+            credential_exposures_uid, email, organizations_uid, root_domain, sub_domain, breach_name, 
+            modified_date, credential_breaches_uid, data_source_uid, name, login_id, phone, password, hash_type, intelx_system_id) 
+        VALUES %s
+        ON CONFLICT (breach_name, email)
+        DO UPDATE SET
+            modified_date = EXCLUDED.modified_date;
+    """
+
+    conn = connect()
+    if conn is None:
+        LOGGER.error("insert_flare_breaches: PE database connection failed")
+        raise RuntimeError("PE database connection failed")
+
+    cursor = None
+    try:
+        cursor = conn.cursor()
+        LOGGER.info("insert_flare_breaches: upserting %d row(s)", len(rows))
+        execute_values(cursor, query, rows)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        LOGGER.exception("insert_flare_breaches: upsert failed for %d row(s)", len(rows))
+        raise
+    finally:
+        if cursor is not None:
+            cursor.close()
+        conn.close()   
